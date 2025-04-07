@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.combinatorics.ChooseK;
-import com.apple.foundationdb.record.query.plan.cascades.AggregateIndexMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
@@ -43,12 +42,12 @@ import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.PrimaryScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ValueIndexScanMatchCandidate;
-import com.apple.foundationdb.record.query.plan.cascades.WithPrimaryKeyMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalIntersectionExpression;
@@ -60,12 +59,14 @@ import com.apple.foundationdb.record.query.plan.cascades.values.translation.Tran
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import org.slf4j.Logger;
@@ -77,6 +78,8 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -85,6 +88,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.cardinalities;
 
@@ -126,6 +131,97 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     @Nonnull
     protected BindingMatcher<R> getExpressionMatcher() {
         return expressionMatcher;
+    }
+
+    @Override
+    public void onMatch(@Nonnull final CascadesRuleCall call) {
+        final var bindings = call.getBindings();
+        final var completeMatches = bindings.getAll(getCompleteMatchMatcher());
+        if (completeMatches.isEmpty()) {
+            return;
+        }
+
+        final var expression = bindings.get(getExpressionMatcher());
+
+        //
+        // return if there is no pre-determined interesting ordering
+        //
+        final var requestedOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
+        if (requestedOrderingsOptional.isEmpty()) {
+            return;
+        }
+
+        final var requestedOrderings = requestedOrderingsOptional.get();
+        final var aliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(expression.getQuantifiers());
+        final var aliases = aliasToQuantifierMap.keySet();
+
+        // group all successful matches by their sets of compensated aliases
+        final var matchPartitionByMatchAliasMap =
+                completeMatches
+                        .stream()
+                        .flatMap(match -> {
+                            final var compensatedAliases = match.getCompensatedAliases();
+                            if (!compensatedAliases.containsAll(aliases)) {
+                                return Stream.empty();
+                            }
+                            final Set<CorrelationIdentifier> matchedForEachAliases =
+                                    compensatedAliases.stream()
+                                            .filter(matchedAlias ->
+                                                    Objects.requireNonNull(aliasToQuantifierMap.get(matchedAlias)) instanceof Quantifier.ForEach)
+                                            .collect(ImmutableSet.toImmutableSet());
+                            if (matchedForEachAliases.size() == 1) {
+                                return Stream.of(NonnullPair.of(Iterables.getOnlyElement(matchedForEachAliases), match));
+                            }
+                            return Stream.empty();
+                        })
+                        .collect(Collectors.groupingBy(
+                                Pair::getLeft,
+                                LinkedHashMap::new,
+                                Collectors.mapping(Pair::getRight, ImmutableList.toImmutableList())));
+
+        // loop through all compensated alias sets and their associated match partitions
+        for (final var matchPartitionByMatchAliasEntry : matchPartitionByMatchAliasMap.entrySet()) {
+            final var matchPartitionForMatchedAlias =
+                    matchPartitionByMatchAliasEntry.getValue();
+
+            //
+            // We do know that local predicates (which includes predicates only using the matchedAlias quantifier)
+            // are definitely handled by the logic expressed by the partial matches of the current match partition.
+            // Join predicates are different in a sense that there will be matches that handle those predicates and
+            // there will be matches where these predicates will not be handled. We further need to sub-partition the
+            // current match partition, by the predicates that are being handled by the matches.
+            //
+            // TODO this should just be exactly one key
+            final var matchPartitionsForAliasesByPredicates =
+                    matchPartitionForMatchedAlias
+                            .stream()
+                            .collect(Collectors.groupingBy(match ->
+                                            new LinkedIdentitySet<>(match.getRegularMatchInfo().getPredicateMap().keySet()),
+                                    HashMap::new,
+                                    ImmutableList.toImmutableList()));
+
+            //
+            // Note that this works because there is only one for-each and potentially 0 - n existential quantifiers
+            // that are covered by the match partition. Even though that logically forms a join, the existential
+            // quantifiers do not mutate the result of the join, they only cause filtering, that is, the resulting
+            // record is exactly what the for each quantifier produced filtered by the predicates expressed on the
+            // existential quantifiers.
+            //
+            for (final var matchPartitionEntry : matchPartitionsForAliasesByPredicates.entrySet()) {
+                final var matchPartition = matchPartitionEntry.getValue();
+
+                //
+                // The current match partition covers all matches that match the aliases in matchedAliases
+                // as well as all predicates in matchedPredicates. In other words we now have to compensate
+                // for all the remaining quantifiers and all remaining predicates.
+                //
+                final var dataAccessExpressions =
+                        dataAccessForMatchPartition(call,
+                                requestedOrderings,
+                                matchPartition);
+                call.yieldExpression(dataAccessExpressions);
+            }
+        }
     }
 
     /**
@@ -416,44 +512,6 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         }
 
         return intersectionInfoMapToExpressions(intersectionInfoMap);
-    }
-
-    @Nonnull
-    protected static Optional<List<Value>> commonRecordKeyValuesMaybe(@Nonnull Iterable<? extends PartialMatch> partialMatches) {
-        List<Value> common = null;
-        var first = true;
-        for (final var partialMatch : partialMatches) {
-            final var matchCandidate = partialMatch.getMatchCandidate();
-            final var regularMatchInfo = partialMatch.getRegularMatchInfo();
-
-            final List<Value> key;
-            if (matchCandidate instanceof WithPrimaryKeyMatchCandidate) {
-                final var withPrimaryKeyMatchCandidate = (WithPrimaryKeyMatchCandidate)matchCandidate;
-                final var keyMaybe = withPrimaryKeyMatchCandidate.getPrimaryKeyValuesMaybe();
-                if (keyMaybe.isEmpty()) {
-                    return Optional.empty();
-                }
-                key = keyMaybe.get();
-            } else if (matchCandidate instanceof AggregateIndexMatchCandidate) {
-                final var aggregateIndexMatchCandidate = (AggregateIndexMatchCandidate)matchCandidate;
-                final var rollUpToGroupingValues = regularMatchInfo.getRollUpToGroupingValues();
-                if (rollUpToGroupingValues == null) {
-                    key = aggregateIndexMatchCandidate.getGroupingAndAggregateAccessors(Quantifier.current()).getLeft();
-                } else {
-                    key = aggregateIndexMatchCandidate.getGroupingAndAggregateAccessors(rollUpToGroupingValues.size(),
-                            Quantifier.current()).getLeft();
-                }
-            } else {
-                return Optional.empty();
-            }
-            if (first) {
-                common = key;
-                first = false;
-            } else if (!common.equals(key)) {
-                return Optional.empty();
-            }
-        }
-        return Optional.ofNullable(common); // common can only be null if we didn't have any match candidates to start with
     }
 
     @Nonnull
@@ -1032,14 +1090,14 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      * Private helper method to verify that a list of {@link Value}s can be used as a comparison key.
      * ordering information coming from a match in form of a list of {@link Value}s.
      * @param comparisonKeyValues a list of {@link Value}s
-     * @param commonPrimaryKeyValues common primary key
+     * @param commonRecordKeyValues common primary key
      * @param equalityBoundKeyValues  a set of equality-bound key parts
      * @return a boolean that indicates if the list of values passed in can be used as comparison key
      */
     protected static boolean isCompatibleComparisonKey(@Nonnull Collection<Value> comparisonKeyValues,
-                                                       @Nonnull List<Value> commonPrimaryKeyValues,
+                                                       @Nonnull List<Value> commonRecordKeyValues,
                                                        @Nonnull ImmutableSet<Value> equalityBoundKeyValues) {
-        return commonPrimaryKeyValues
+        return commonRecordKeyValues
                 .stream()
                 .filter(commonPrimaryKeyValue -> !equalityBoundKeyValues.contains(commonPrimaryKeyValue))
                 .allMatch(comparisonKeyValues::contains);

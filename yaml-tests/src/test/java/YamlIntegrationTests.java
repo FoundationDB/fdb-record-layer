@@ -117,6 +117,7 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    @MaintainYamlTestConfig(YamlTestConfigFilters.SHOW_PLAN_ON_DIFF)
     public void aggregateEmptyTable(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("aggregate-empty-table.yamsql");
     }

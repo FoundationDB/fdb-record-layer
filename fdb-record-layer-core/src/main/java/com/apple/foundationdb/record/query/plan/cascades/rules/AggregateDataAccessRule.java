@@ -23,20 +23,16 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AggregateIndexMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
-import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -50,23 +46,17 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryMultiIntersecti
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
-import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.BitSet;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MatchPartitionMatchers.ofExpressionAndMatches;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
@@ -76,7 +66,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 
 /**
  * A rule that utilizes index matching information compiled by {@link CascadesPlanner} to create a multitude of
- * expressions for data access involving {@link AggregateIndexMatchCandidate}.
+ * expressions for data access involving only {@link AggregateIndexMatchCandidate}.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
@@ -92,96 +82,6 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalEx
         super(rootMatcher, completeMatchMatcher, expressionMatcher);
     }
 
-    @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
-        final var bindings = call.getBindings();
-        final var completeMatches = bindings.getAll(getCompleteMatchMatcher());
-        if (completeMatches.isEmpty()) {
-            return;
-        }
-
-        final var expression = bindings.get(getExpressionMatcher());
-
-        //
-        // return if there is no pre-determined interesting ordering
-        //
-        final var requestedOrderingsOptional = call.getPlannerConstraintMaybe(RequestedOrderingConstraint.REQUESTED_ORDERING);
-        if (requestedOrderingsOptional.isEmpty()) {
-            return;
-        }
-
-        final var requestedOrderings = requestedOrderingsOptional.get();
-        final var aliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(expression.getQuantifiers());
-        final var aliases = aliasToQuantifierMap.keySet();
-
-        // group all successful matches by their sets of compensated aliases
-        final var matchPartitionByMatchAliasMap =
-                completeMatches
-                        .stream()
-                        .flatMap(match -> {
-                            final var compensatedAliases = match.getCompensatedAliases();
-                            if (!compensatedAliases.containsAll(aliases)) {
-                                return Stream.empty();
-                            }
-                            final Set<CorrelationIdentifier> matchedForEachAliases =
-                                    compensatedAliases.stream()
-                                            .filter(matchedAlias -> Objects.requireNonNull(aliasToQuantifierMap.get(matchedAlias)) instanceof Quantifier.ForEach)
-                                            .collect(ImmutableSet.toImmutableSet());
-                            if (matchedForEachAliases.size() == 1) {
-                                return Stream.of(NonnullPair.of(Iterables.getOnlyElement(matchedForEachAliases), match));
-                            }
-                            return Stream.empty();
-                        })
-                        .collect(Collectors.groupingBy(
-                                Pair::getLeft,
-                                LinkedHashMap::new,
-                                Collectors.mapping(Pair::getRight, ImmutableList.toImmutableList())));
-
-        // loop through all compensated alias sets and their associated match partitions
-        for (final var matchPartitionByMatchAliasEntry : matchPartitionByMatchAliasMap.entrySet()) {
-            final var matchPartitionForMatchedAlias =
-                    matchPartitionByMatchAliasEntry.getValue();
-
-            //
-            // We do know that local predicates (which includes predicates only using the matchedAlias quantifier)
-            // are definitely handled by the logic expressed by the partial matches of the current match partition.
-            // Join predicates are different in a sense that there will be matches that handle those predicates and
-            // there will be matches where these predicates will not be handled. We further need to sub-partition the
-            // current match partition, by the predicates that are being handled by the matches.
-            //
-            // TODO this should just be exactly one key
-            final var matchPartitionsForAliasesByPredicates =
-                    matchPartitionForMatchedAlias
-                            .stream()
-                            .collect(Collectors.groupingBy(match ->
-                                            new LinkedIdentitySet<>(match.getRegularMatchInfo().getPredicateMap().keySet()),
-                                    HashMap::new,
-                                    ImmutableList.toImmutableList()));
-
-            //
-            // Note that this works because there is only one for-each and potentially 0 - n existential quantifiers
-            // that are covered by the match partition. Even though that logically forms a join, the existential
-            // quantifiers do not mutate the result of the join, they only cause filtering, that is, the resulting
-            // record is exactly what the for each quantifier produced filtered by the predicates expressed on the
-            // existential quantifiers.
-            //
-            for (final var matchPartitionEntry : matchPartitionsForAliasesByPredicates.entrySet()) {
-                final var matchPartition = matchPartitionEntry.getValue();
-
-                //
-                // The current match partition covers all matches that match the aliases in matchedAliases
-                // as well as all predicates in matchedPredicates. In other words we now have to compensate
-                // for all the remaining quantifiers and all remaining predicates.
-                //
-                final var dataAccessExpressions =
-                        dataAccessForMatchPartition(call,
-                                requestedOrderings,
-                                matchPartition);
-                call.yieldMixedUnknownExpressions(dataAccessExpressions);
-            }
-        }
-    }
-
     @Nonnull
     @Override
     protected IntersectionResult createIntersectionAndCompensation(@Nonnull final Memoizer memoizer,
@@ -190,20 +90,23 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalEx
                                                                    @Nonnull final List<Vectored<SingleMatchedAccess>> partition,
                                                                    @Nonnull final Set<RequestedOrdering> requestedOrderings) {
         Verify.verify(partition.size() > 1);
-        final var commonRecordKeyValuesOptional =
-                commonRecordKeyValuesMaybe(
-                        partition.stream()
-                                .map(singleMatchedAccessVectored ->
-                                        singleMatchedAccessVectored.getElement().getPartialMatch())
-                                .collect(ImmutableList.toImmutableList()));
-        if (commonRecordKeyValuesOptional.isEmpty()) {
-            return IntersectionResult.noViableIntersection();
-        }
-        final var commonRecordKeyValues = commonRecordKeyValuesOptional.get();
 
-        final var partitionOrderings =
+        final var partitionAccesses =
                 partition.stream()
                         .map(Vectored::getElement)
+                        .collect(ImmutableList.toImmutableList());
+        final var commonGroupingKeyValuesOptional =
+                commonGroupingKeyValuesMaybe(
+                        partitionAccesses.stream()
+                                .map(SingleMatchedAccess::getPartialMatch)
+                                .collect(ImmutableList.toImmutableList()));
+        if (commonGroupingKeyValuesOptional.isEmpty()) {
+            return IntersectionResult.noViableIntersection();
+        }
+        final var commonGroupingKeyValues = commonGroupingKeyValuesOptional.get();
+
+        final var partitionOrderings =
+                partitionAccesses.stream()
                         .map(AbstractDataAccessRule::adjustMatchedOrderingParts)
                         .collect(ImmutableList.toImmutableList());
         final var intersectionOrdering = intersectOrderings(partitionOrderings);
@@ -226,14 +129,15 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalEx
         }
 
         final var compensation =
-                partition
+                partitionAccesses
                         .stream()
-                        .map(pair -> pair.getElement().getCompensation())
+                        .map(SingleMatchedAccess::getCompensation)
                         .reduce(Compensation.impossibleCompensation(), Compensation::intersect);
 
         //
         // Grab the first matched access from the partition in order to translate to the required ordering
-        // to the candidate's top.
+        // to the candidate's top. This is only correct as long as the derivations are consistent among the indexes.
+        // We check that a bit further down.
         //
         final var firstMatchedAccess = partition.get(0).getElement();
         final var topToTopTranslationMap = firstMatchedAccess.getTopToTopTranslationMap();
@@ -243,18 +147,25 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalEx
         for (final var requestedOrdering : requestedOrderings) {
             final var translatedRequestedOrdering =
                     requestedOrdering.translateCorrelations(topToTopTranslationMap, true);
-            if (!areRequestedOrderingsDerivationsCompatibleAcrossMatches(partition, translatedRequestedOrdering)) {
-                continue;
-            }
 
             final var comparisonKeyValuesIterable =
                     intersectionOrdering.enumerateSatisfyingComparisonKeyValues(translatedRequestedOrdering);
             for (final var comparisonKeyValues : comparisonKeyValuesIterable) {
-                if (!isCompatibleComparisonKey(comparisonKeyValues, commonRecordKeyValues, equalityBoundKeyValues)) {
+                //
+                // We need to ensure that the common record key, that is the key that is used to identify the
+                // entire record is part of the comparison key (unless it's equality-bound).
+                //
+                if (!isCompatibleComparisonKey(comparisonKeyValues, commonGroupingKeyValues, equalityBoundKeyValues)) {
                     continue;
                 }
 
-                if (!areComparisonKeyDerivationsCompatibleAcrossMatches(partition, comparisonKeyValues)) {
+                //
+                // We need to ensure that the comparison key has consistent translations to all participating
+                // candidates. For grouping values (and we only allow grouping values) that is rather straightforward.
+                // We map the grouping values from each match candidate one-by-one to the query side grouping values
+                // and see if they match across candidates.
+                //
+                if (!isConsistentComparisonKeyDerivations(partition, comparisonKeyValues)) {
                     continue;
                 }
 
@@ -280,7 +191,7 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalEx
 
                     final var newQuantifiers = newQuantifiersBuilder.build();
                     final var commonAndPickUpValues =
-                            computeCommonAndPickUpValues(partition, commonRecordKeyValues.size());
+                            computeCommonAndPickUpValues(partition, commonGroupingKeyValues.size());
                     final var intersectionResultValue =
                             computeIntersectionResultValue(newQuantifiers, commonAndPickUpValues.getLeft(), commonAndPickUpValues.getRight());
                     final var intersectionPlan =
@@ -291,7 +202,7 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalEx
                                     baseAlias -> computeTranslationMap(baseAlias,
                                             newQuantifiers, candidateTopAliasesBuilder.build(),
                                             (Type.Record)intersectionResultValue.getResultType(),
-                                            commonRecordKeyValues.size()));
+                                            commonGroupingKeyValues.size()));
                     expressionsBuilder.add(compensatedIntersection);
                 }
             }
@@ -301,23 +212,42 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalEx
                 expressionsBuilder.build());
     }
 
-    private static boolean areRequestedOrderingsDerivationsCompatibleAcrossMatches(@Nonnull final List<Vectored<SingleMatchedAccess>> partition,
-                                                                                   @Nonnull final RequestedOrdering requestedOrdering) {
-        for (final var orderingPart : requestedOrdering.getOrderingParts()) {
-            if (isAggregateQueryValue(partition, orderingPart.getValue())) {
-                return false;
+    @Nonnull
+    protected static Optional<List<Value>> commonGroupingKeyValuesMaybe(@Nonnull Iterable<? extends PartialMatch> partialMatches) {
+        List<Value> common = null;
+        var first = true;
+        for (final var partialMatch : partialMatches) {
+            final var matchCandidate = partialMatch.getMatchCandidate();
+            final var regularMatchInfo = partialMatch.getRegularMatchInfo();
+
+            final List<Value> key;
+            if (matchCandidate instanceof AggregateIndexMatchCandidate) {
+                final var aggregateIndexMatchCandidate = (AggregateIndexMatchCandidate)matchCandidate;
+                final var rollUpToGroupingValues = regularMatchInfo.getRollUpToGroupingValues();
+                if (rollUpToGroupingValues == null) {
+                    key = aggregateIndexMatchCandidate.getGroupingAndAggregateAccessors(Quantifier.current()).getLeft();
+                } else {
+                    key = aggregateIndexMatchCandidate.getGroupingAndAggregateAccessors(rollUpToGroupingValues.size(),
+                            Quantifier.current()).getLeft();
+                }
+            } else {
+                return Optional.empty();
+            }
+            if (first) {
+                common = key;
+                first = false;
+            } else if (!common.equals(key)) {
+                return Optional.empty();
             }
         }
-        return true;
+        return Optional.ofNullable(common); // common can only be null if we didn't have any match candidates to start with
     }
 
-    private static boolean areComparisonKeyDerivationsCompatibleAcrossMatches(@Nonnull final List<Vectored<SingleMatchedAccess>> partition,
-                                                                              @Nonnull final List<Value> comparisonKeyValues) {
+    private static boolean isConsistentComparisonKeyDerivations(@Nonnull final List<Vectored<SingleMatchedAccess>> partition,
+                                                                @Nonnull final List<Value> comparisonKeyValues) {
         for (final var comparisonKeyValue : comparisonKeyValues) {
             if (consistentQueryValueForGroupingValueMaybe(partition, comparisonKeyValue).isEmpty()) {
-                if (!isAggregateQueryValue(partition, comparisonKeyValue)) {
-                    return false;
-                }
+                return false;
             }
         }
         return true;
@@ -352,22 +282,6 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalEx
         }
 
         return Optional.of(Objects.requireNonNull(queryComparisonKeyValue));
-    }
-
-    private static boolean isAggregateQueryValue(@Nonnull final List<Vectored<SingleMatchedAccess>> partition,
-                                                 @Nonnull final Value comparisonKeyValue) {
-        for (final var singleMatchedAccessWithIndex : partition) {
-            final var singledMatchedAccess = singleMatchedAccessWithIndex.getElement();
-            final var groupByMappings = singledMatchedAccess.getPulledUpGroupByMappingsForOrdering();
-            final var inverseMatchedGroupingsMap =
-                    groupByMappings.getMatchedAggregatesMap().inverse();
-            final var currentQueryComparisonKeyValue = inverseMatchedGroupingsMap.get(comparisonKeyValue);
-            if (currentQueryComparisonKeyValue != null) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     @Nonnull
