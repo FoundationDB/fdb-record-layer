@@ -113,9 +113,7 @@ public class StreamGrouping<M extends Message> {
         this.aggregateValue = aggregateValue;
         if (partialAggregationResult == null) {
             this.accumulator = aggregateValue.createAccumulator(context.getTypeRepository());
-        }
-        if (partialAggregationResult != null) {
-            System.out.println("StreamGrouping:partialAggregationResult:" + partialAggregationResult);
+        } else {
             this.accumulator = aggregateValue.createAccumulatorWithInitialState(context.getTypeRepository(), partialAggregationResult.getAccumulatorStatesList());
             try {
                 this.currentGroup = DynamicMessage.parseFrom(context.getTypeRepository().newMessageBuilder(groupingKeyValue.getResultType()).getDescriptorForType(), partialAggregationResult.getGroupKey().toByteArray());

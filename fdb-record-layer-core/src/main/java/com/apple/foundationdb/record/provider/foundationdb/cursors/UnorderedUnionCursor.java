@@ -111,6 +111,7 @@ public class UnorderedUnionCursor<T> extends UnionCursorBase<T, MergeCursorState
         int i = 0;
         for (Function<byte[], RecordCursor<T>> cursorFunction : cursorFunctions) {
             cursorStates.add(KeyedMergeCursorState.from(cursorFunction, continuation.getContinuations().get(i)));
+            i++;
         }
         return cursorStates;
     }

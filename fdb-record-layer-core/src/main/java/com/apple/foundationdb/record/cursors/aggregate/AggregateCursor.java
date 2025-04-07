@@ -216,14 +216,6 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
 
         public AggregateCursorContinuation(@Nonnull RecordCursorContinuation other, @Nullable RecordCursorProto.PartialAggregationResult partialAggregationResult, RecordQueryStreamingAggregationPlan.SerializationMode serializationMode) {
             this(other.toBytes(), other.isEnd(), partialAggregationResult, serializationMode);
-            byte[] tmp = other.toBytes();
-            if (tmp != null) {
-                int[] r = new int[tmp.length];
-                for (int i = 0; i < tmp.length; i++) {
-                    r[i] = Byte.toUnsignedInt(tmp[i]);
-                }
-                System.out.println("AggregateCursorContinuation bytes:" + Arrays.toString(r) + " other class:" + other.getClass());
-            }
         }
 
         public AggregateCursorContinuation(@Nullable byte[] innerContinuation, boolean isEnd, RecordQueryStreamingAggregationPlan.SerializationMode serializationMode) {
@@ -259,7 +251,6 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
                 //return byteString.isEmpty() ? null : byteString.toByteArray();
                 return getInnerContinuation();
             } else {
-                System.out.println("get into TO_NEW");
                 return partialAggregationResult == null ? getInnerContinuation() : toProto().toByteArray();
             }
         }
@@ -281,7 +272,6 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
 
         @Nonnull
         private RecordCursorProto.AggregateCursorContinuation toProto() {
-            System.out.println("AggregateCursor toProto is called, serializationMode:" + serializationMode);
             if (cachedProto == null) {
                 RecordCursorProto.AggregateCursorContinuation.Builder cachedProtoBuilder = RecordCursorProto.AggregateCursorContinuation.newBuilder();
                 if (partialAggregationResult != null) {
@@ -302,11 +292,9 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
             if (serializationMode == RecordQueryStreamingAggregationPlan.SerializationMode.TO_OLD) {
                 return new AggregateCursorContinuation(rawBytes, false, serializationMode);
             }
-            System.out.println("AggregateCursor fromRawBytes called with rawBytes != null");
             try {
                 RecordCursorProto.AggregateCursorContinuation continuationProto = RecordCursorProto.AggregateCursorContinuation.parseFrom(rawBytes);
                 if (continuationProto.hasContinuation() && continuationProto.hasPartialAggregationResults()) {
-                    System.out.println("hasPartialAggregationResults:" + continuationProto);
                     return new AggregateCursorContinuation(continuationProto.getContinuation().toByteArray(), false, continuationProto.getPartialAggregationResults());
                 } else {
                     return new AggregateCursorContinuation(rawBytes, false, serializationMode);

@@ -101,19 +101,11 @@ public abstract class MergeCursorContinuation<B extends Message.Builder, C exten
     protected Message toProto() {
         if (cachedProto == null) {
             B builder = newProtoBuilder();
-            /*
             final Iterator<C> continuationIterator = continuations.iterator();
             setFirstChild(builder, continuationIterator.next());
             setSecondChild(builder, continuationIterator.next());
             while (continuationIterator.hasNext()) {
                 addOtherChild(builder, continuationIterator.next());
-            }
-
-             */
-            setFirstChild(builder, continuations.get(0));
-            setSecondChild(builder, continuations.get(1));
-            for (int i = 2; i < continuations.size(); i++) {
-                addOtherChild(builder, continuations.get(i));
             }
             cachedProto = builder.build();
         }

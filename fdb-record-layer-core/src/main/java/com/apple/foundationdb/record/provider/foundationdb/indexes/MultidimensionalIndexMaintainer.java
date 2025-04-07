@@ -575,7 +575,7 @@ public class MultidimensionalIndexMaintainer extends StandardIndexMaintainer {
                 try {
                     parsed = RecordCursorProto.MultidimensionalIndexScanContinuation.parseFrom(continuationBytes);
                 } catch (InvalidProtocolBufferException ex) {
-                    throw new RecordCoreException("error parsing continuation from MDIndexMaintainer", ex)
+                    throw new RecordCoreException("error parsing continuation", ex)
                             .addLogInfo("raw_bytes", ByteArrayUtil2.loggable(continuationBytes));
                 }
                 return new Continuation(new BigInteger(parsed.getLastHilbertValue().toByteArray()),

@@ -149,7 +149,7 @@ public abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implement
                                             ", result=" + (cursorState.getResult() == null ? "null" : cursorState.getResult().hasNext()) +
                                             ", cursorClass=" + cursorState.getCursor().getClass().getName() + ")"
                         )
-                        .collect(Collectors.toUnmodifiableList())
+                        .collect(Collectors.toList())
                 );
             }
             if (LOGGER.isWarnEnabled()) {
@@ -306,7 +306,7 @@ public abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implement
 
     @Nonnull
     protected List<RecordCursorContinuation> getChildContinuations() {
-        return cursorStates.stream().map(S::getContinuation).collect(Collectors.toUnmodifiableList());
+        return cursorStates.stream().map(S::getContinuation).collect(Collectors.toList());
     }
 
     @Override
