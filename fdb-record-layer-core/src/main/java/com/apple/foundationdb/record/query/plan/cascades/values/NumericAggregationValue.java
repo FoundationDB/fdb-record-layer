@@ -904,7 +904,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
         }
 
         @Override
-        public synchronized void accumulate(@Nullable final Object currentObject) {
+        public void accumulate(@Nullable final Object currentObject) {
             this.state = physicalOperator.evalPartialToPartial(state, currentObject);
         }
 

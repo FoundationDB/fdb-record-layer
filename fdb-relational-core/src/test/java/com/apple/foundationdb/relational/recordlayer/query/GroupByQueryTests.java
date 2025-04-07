@@ -49,8 +49,7 @@ public class GroupByQueryTests {
         Utils.enableCascadesDebugger();
     }
 
-    // works for new continuation
-    @Disabled
+    @Disabled // doesn't work for serializationMode = TO_OLD, re-enable after serializationMode = TO_NEW
     @Test
     void groupByWithScanLimit() throws Exception {
         final String schemaTemplate =

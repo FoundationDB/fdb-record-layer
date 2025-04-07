@@ -347,7 +347,7 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
         }
 
         @Override
-        public synchronized void accumulate(@Nullable final Object currentObject) {
+        public void accumulate(@Nullable final Object currentObject) {
             this.state = physicalOperator.evalPartialToPartial(state, currentObject);
         }
 

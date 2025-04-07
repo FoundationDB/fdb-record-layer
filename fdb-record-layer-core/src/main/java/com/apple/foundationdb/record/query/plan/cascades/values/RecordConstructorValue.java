@@ -344,7 +344,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
             private final List<Accumulator> childAccumulators = buildAccumulators(initialState);
 
             @Override
-            public synchronized void accumulate(@Nullable final Object currentObject) {
+            public void accumulate(@Nullable final Object currentObject) {
                 if (currentObject == null) {
                     childAccumulators.forEach(childAccumulator -> childAccumulator.accumulate(null));
                 } else {
