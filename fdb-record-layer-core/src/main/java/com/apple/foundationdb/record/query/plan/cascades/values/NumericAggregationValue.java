@@ -120,15 +120,13 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
     @Nonnull
     @Override
-    public Accumulator createAccumulator(final @Nonnull TypeRepository typeRepository) {
-        return new NumericAccumulator(operator);
-    }
-
-    @Nonnull
-    @Override
-    public Accumulator createAccumulatorWithInitialState(final @Nonnull TypeRepository typeRepository, @Nonnull List<RecordCursorProto.AccumulatorState> initialState) {
-        Verify.verify(initialState.size() == 1);
-        return new NumericAccumulator(operator, initialState.get(0));
+    public Accumulator createAccumulatorWithInitialState(final @Nonnull TypeRepository typeRepository, @Nullable List<RecordCursorProto.AccumulatorState> initialState) {
+        if (initialState == null) {
+            return new NumericAccumulator(operator);
+        } else {
+            Verify.verify(initialState.size() == 1);
+            return new NumericAccumulator(operator, initialState.get(0));
+        }
     }
 
     @Nonnull
@@ -863,7 +861,6 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
 
         public NumericAccumulator(@Nonnull final PhysicalOperator physicalOperator, @Nonnull final RecordCursorProto.AccumulatorState initialState) {
             this.physicalOperator = physicalOperator;
-            System.out.println("NumericAccumulator initialState:" + initialState);
             switch (physicalOperator) {
                 case SUM_I:
                 case MAX_I:

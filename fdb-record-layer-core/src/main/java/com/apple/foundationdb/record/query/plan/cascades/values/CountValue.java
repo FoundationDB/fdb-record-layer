@@ -114,15 +114,13 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
 
     @Nonnull
     @Override
-    public Accumulator createAccumulator(final @Nonnull TypeRepository typeRepository) {
-        return new SumAccumulator(operator);
-    }
-
-    @Nonnull
-    @Override
-    public Accumulator createAccumulatorWithInitialState(final @Nonnull TypeRepository typeRepository, @Nonnull List<RecordCursorProto.AccumulatorState> initialState) {
-        Verify.verify(initialState.size() == 1);
-        return new SumAccumulator(operator, initialState.get(0));
+    public Accumulator createAccumulatorWithInitialState(final @Nonnull TypeRepository typeRepository, @Nullable List<RecordCursorProto.AccumulatorState> initialState) {
+        if (initialState == null) {
+            return new SumAccumulator(operator);
+        } else {
+            Verify.verify(initialState.size() == 1);
+            return new SumAccumulator(operator, initialState.get(0));
+        }
     }
 
     @Nonnull
@@ -345,7 +343,6 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
 
         public SumAccumulator(@Nonnull final PhysicalOperator physicalOperator, @Nonnull RecordCursorProto.AccumulatorState initialState) {
             this.physicalOperator = physicalOperator;
-            System.out.println("SumAccumulator initialState:" + initialState);
             this.state = Long.parseLong(initialState.getState(0));
         }
 

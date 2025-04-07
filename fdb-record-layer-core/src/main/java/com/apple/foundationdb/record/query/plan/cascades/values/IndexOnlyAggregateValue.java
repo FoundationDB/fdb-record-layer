@@ -140,13 +140,7 @@ public abstract class IndexOnlyAggregateValue extends AbstractValue implements A
 
     @Nonnull
     @Override
-    public Accumulator createAccumulator(@Nonnull final TypeRepository typeRepository) {
-        throw new IllegalStateException("unable to create accumulator in a compile-time aggregation function");
-    }
-
-    @Nonnull
-    @Override
-    public Accumulator createAccumulatorWithInitialState(@Nonnull final TypeRepository typeRepository, @Nonnull final List<RecordCursorProto.AccumulatorState> initialState) {
+    public Accumulator createAccumulatorWithInitialState(@Nonnull final TypeRepository typeRepository, @Nullable final List<RecordCursorProto.AccumulatorState> initialState) {
         throw new IllegalStateException("unable to create accumulator in a compile-time aggregation function");
     }
 

@@ -43,14 +43,12 @@ public interface AggregateValue extends Value {
      * values representing this value.
      *
      * @param typeRepository dynamic schema
+     * @param initialState initial state of the accumulator
      *
      * @return a new {@link Accumulator} for aggregating values for this Value.
      */
     @Nonnull
-    Accumulator createAccumulator(@Nonnull TypeRepository typeRepository);
-
-    @Nonnull
-    Accumulator createAccumulatorWithInitialState(@Nonnull TypeRepository typeRepository, @Nonnull List<RecordCursorProto.AccumulatorState> initialState);
+    Accumulator createAccumulatorWithInitialState(@Nonnull TypeRepository typeRepository, @Nullable List<RecordCursorProto.AccumulatorState> initialState);
 
     @Nullable
     <M extends Message> Object evalToPartial(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context);

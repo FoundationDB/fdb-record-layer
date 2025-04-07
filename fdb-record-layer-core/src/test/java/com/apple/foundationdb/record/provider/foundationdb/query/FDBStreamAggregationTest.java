@@ -449,41 +449,43 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
     private RecordCursorContinuation executePlanWithRecordScanLimit(final RecordQueryPlan plan, final int recordScanLimit, byte[] continuation, @Nullable List<?> expectedResult) {
         List<QueryResult> queryResults = new LinkedList<>();
-        RecordCursor<QueryResult> currentCursor = executePlan(plan, 0, recordScanLimit, continuation);
-        RecordCursorResult<QueryResult> currentCursorResult;
-        RecordCursorContinuation cursorContinuation;
-        while (true) {
-            currentCursorResult = currentCursor.getNext();
-            cursorContinuation = currentCursorResult.getContinuation();
-            if (!currentCursorResult.hasNext()) {
-                break;
+        try (RecordCursor<QueryResult> currentCursor = executePlan(plan, 0, recordScanLimit, continuation)) {
+            RecordCursorResult<QueryResult> currentCursorResult;
+            RecordCursorContinuation cursorContinuation;
+            while (true) {
+                currentCursorResult = currentCursor.getNext();
+                cursorContinuation = currentCursorResult.getContinuation();
+                if (!currentCursorResult.hasNext()) {
+                    break;
+                }
+                queryResults.add(currentCursorResult.get());
             }
-            queryResults.add(currentCursorResult.get());
+            if (expectedResult == null) {
+                Assertions.assertTrue(queryResults.isEmpty());
+            } else {
+                assertResults(this::assertResultFlattened, queryResults, expectedResult);
+            }
+            return cursorContinuation;
         }
-        if (expectedResult == null) {
-            Assertions.assertTrue(queryResults.isEmpty());
-        } else {
-            assertResults(this::assertResultFlattened, queryResults, expectedResult);
-        }
-        return cursorContinuation;
     }
 
     private List<QueryResult> executePlanWithRowLimit(final RecordQueryPlan plan, final int rowLimit) {
         byte[] continuation = null;
         List<QueryResult> queryResults = new LinkedList<>();
         while (true) {
-            RecordCursor<QueryResult> currentCursor = executePlan(plan, rowLimit, 0, continuation);
-            RecordCursorResult<QueryResult> currentCursorResult;
-            while (true) {
-                currentCursorResult = currentCursor.getNext();
-                continuation = currentCursorResult.getContinuation().toBytes();
-                if (!currentCursorResult.hasNext()) {
+            try (RecordCursor<QueryResult> currentCursor = executePlan(plan, rowLimit, 0, continuation)) {
+                RecordCursorResult<QueryResult> currentCursorResult;
+                while (true) {
+                    currentCursorResult = currentCursor.getNext();
+                    continuation = currentCursorResult.getContinuation().toBytes();
+                    if (!currentCursorResult.hasNext()) {
+                        break;
+                    }
+                    queryResults.add(currentCursorResult.get());
+                }
+                if (currentCursorResult.getNoNextReason() == RecordCursor.NoNextReason.SOURCE_EXHAUSTED) {
                     break;
                 }
-                queryResults.add(currentCursorResult.get());
-            }
-            if (currentCursorResult.getNoNextReason() == RecordCursor.NoNextReason.SOURCE_EXHAUSTED) {
-                break;
             }
         }
         return queryResults;

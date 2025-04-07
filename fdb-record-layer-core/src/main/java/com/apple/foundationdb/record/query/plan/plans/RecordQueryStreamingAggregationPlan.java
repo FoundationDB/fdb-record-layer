@@ -147,7 +147,6 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                                                                      @Nonnull ExecuteProperties executeProperties) {
         AggregateCursor.AggregateCursorContinuation aggregateCursorContinuation = AggregateCursor.AggregateCursorContinuation.fromRawBytes(continuation, serializationMode);
         final var innerCursor = getInnerPlan().executePlan(store, context, aggregateCursorContinuation.getInnerContinuation(), executeProperties.clearSkipAndLimit());
-
         final var streamGrouping =
                 new StreamGrouping<>(groupingKeyValue,
                         aggregateValue,

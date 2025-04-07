@@ -337,80 +337,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
 
     @Nonnull
     @Override
-    public Accumulator createAccumulator(final @Nonnull TypeRepository typeRepository) {
-        return new Accumulator() {
-
-            @Nonnull
-            private final List<Accumulator> childAccumulators = buildAccumulators();
-
-            @Override
-            public synchronized void accumulate(@Nullable final Object currentObject) {
-                if (currentObject == null) {
-                    childAccumulators.forEach(childAccumulator -> childAccumulator.accumulate(null));
-                } else {
-                    Verify.verify(currentObject instanceof Collection);
-                    final var currentObjectAsList = (List<?>)currentObject;
-                    var i = 0;
-                    for (final var o : currentObjectAsList) {
-                        childAccumulators.get(i).accumulate(o);
-                        i++;
-                    }
-                }
-            }
-
-            @Nonnull
-            @Override
-            public Object finish() {
-                final var resultMessageBuilder = newMessageBuilderForType(typeRepository);
-                final var descriptorForType = resultMessageBuilder.getDescriptorForType();
-
-                var i = 0;
-                final var fields = Objects.requireNonNull(getResultType().getFields());
-
-                for (final var childAccumulator : childAccumulators) {
-                    final var finalResult = childAccumulator.finish();
-                    if (finalResult != null) {
-                        resultMessageBuilder.setField(descriptorForType.findFieldByNumber(fields.get(i).getFieldIndex()), finalResult);
-                    }
-                    i ++;
-                }
-
-                return resultMessageBuilder.build();
-            }
-
-            @Nonnull
-            private List<Accumulator> buildAccumulators() {
-                final ImmutableList.Builder<Accumulator> childAccumulatorsBuilder = ImmutableList.builder();
-                for (final var child : getChildren()) {
-                    Verify.verify(child instanceof AggregateValue);
-                    childAccumulatorsBuilder.add(((AggregateValue)child).createAccumulator(typeRepository));
-                }
-                return childAccumulatorsBuilder.build();
-            }
-
-            @Nullable
-            @Override
-            public RecordCursorProto.PartialAggregationResult getPartialAggregationResult(Message groupingKey) {
-                List<RecordCursorProto.AccumulatorState> accumulatorStates = new ArrayList<>();
-                for (Accumulator accumulator: childAccumulators) {
-                    if (accumulator.getPartialAggregationResult(groupingKey) != null) {
-                        accumulatorStates.addAll(accumulator.getPartialAggregationResult(groupingKey).getAccumulatorStatesList());
-                    }
-                }
-                if (accumulatorStates.isEmpty()) {
-                    return null;
-                }
-                return RecordCursorProto.PartialAggregationResult.newBuilder()
-                        .setGroupKey(groupingKey.toByteString())
-                        .addAllAccumulatorStates(accumulatorStates)
-                        .build();
-            }
-        };
-    }
-
-    @Nonnull
-    @Override
-    public Accumulator createAccumulatorWithInitialState(final @Nonnull TypeRepository typeRepository, final @Nonnull List<RecordCursorProto.AccumulatorState> initialState) {
+    public Accumulator createAccumulatorWithInitialState(final @Nonnull TypeRepository typeRepository, final @Nullable List<RecordCursorProto.AccumulatorState> initialState) {
         return new Accumulator() {
 
             @Nonnull
@@ -452,15 +379,22 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
             }
 
             @Nonnull
-            private List<Accumulator> buildAccumulators(@Nonnull List<RecordCursorProto.AccumulatorState> initialState) {
+            private List<Accumulator> buildAccumulators(@Nullable List<RecordCursorProto.AccumulatorState> initialState) {
                 List<Value> childrenAsList = new ArrayList<>();
                 getChildren().forEach(childrenAsList::add);
-                Verify.verify(initialState.size() == childrenAsList.size());
-
                 final ImmutableList.Builder<Accumulator> childAccumulatorsBuilder = ImmutableList.builder();
+
+                if (initialState != null) {
+                    Verify.verify(initialState.size() == childrenAsList.size());
+                }
+
                 for (int i = 0; i < childrenAsList.size(); i++) {
                     Verify.verify(childrenAsList.get(i) instanceof AggregateValue);
-                    childAccumulatorsBuilder.add(((AggregateValue)childrenAsList.get(i)).createAccumulatorWithInitialState(typeRepository, List.of(initialState.get(i))));
+                    if (initialState == null) {
+                        childAccumulatorsBuilder.add(((AggregateValue)childrenAsList.get(i)).createAccumulatorWithInitialState(typeRepository, null));
+                    } else {
+                        childAccumulatorsBuilder.add(((AggregateValue)childrenAsList.get(i)).createAccumulatorWithInitialState(typeRepository, List.of(initialState.get(i))));
+                    }
                 }
                 return childAccumulatorsBuilder.build();
             }

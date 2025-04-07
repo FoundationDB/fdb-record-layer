@@ -112,7 +112,7 @@ public class StreamGrouping<M extends Message> {
         this.groupingKeyValue = groupingKeyValue;
         this.aggregateValue = aggregateValue;
         if (partialAggregationResult == null) {
-            this.accumulator = aggregateValue.createAccumulator(context.getTypeRepository());
+            this.accumulator = aggregateValue.createAccumulatorWithInitialState(context.getTypeRepository(), null);
         } else {
             this.accumulator = aggregateValue.createAccumulatorWithInitialState(context.getTypeRepository(), partialAggregationResult.getAccumulatorStatesList());
             try {
@@ -194,7 +194,7 @@ public class StreamGrouping<M extends Message> {
         RecordCursorProto.PartialAggregationResult result = currentGroup == null ? null : getPartialAggregationResult((Message) currentGroup);
         currentGroup = nextGroup;
         // "Reset" the accumulator by creating a fresh one.
-        accumulator = aggregateValue.createAccumulator(context.getTypeRepository());
+        accumulator = aggregateValue.createAccumulatorWithInitialState(context.getTypeRepository(), null);
         return result;
     }
 
