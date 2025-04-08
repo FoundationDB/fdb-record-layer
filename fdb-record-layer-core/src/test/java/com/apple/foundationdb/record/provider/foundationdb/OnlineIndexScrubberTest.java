@@ -1372,4 +1372,76 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
     }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testScrubberEraseIndexScrubbingData(boolean legacy) {
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        long numRecords = 52;
+
+        Index tgtIndex = new Index("tgt_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(tgtIndex);
+        populateData(numRecords);
+        openSimpleMetaData(hook);
+        buildIndexClean(tgtIndex);
+
+        final List<Integer> rangeIds = List.of(0, 1, 10);
+
+        // Iterate some records and some indexes in each range-id, make sure that they are partly scanned
+        for (int rangeId: rangeIds) {
+            timer.reset();
+            try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                    .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                            .useLegacyScrubber(legacy)
+                            .setEntriesScanLimit(20)
+                            .setRangeId(rangeId)
+                            .build())
+                    .setLimit(7)
+                    .build()) {
+                indexScrubber.scrubDanglingIndexEntries();
+                indexScrubber.scrubMissingIndexEntries();
+            }
+            ScrubbersMissingRanges ranges = getScrubbersMissingRange(tgtIndex, rangeId);
+            assertFalse(ranges.indexes.begin == null || RangeSet.isFinalKey(ranges.indexes.begin));
+            assertFalse(ranges.records.begin == null || RangeSet.isFinalKey(ranges.records.begin));
+        }
+
+        // Erase all index scrubbing data
+        try (FDBRecordContext context = openContext()) {
+            try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(tgtIndex, timer)
+                    .build()) {
+                indexScrubber.eraseAllIndexingScrubbingData(context, recordStore);
+            }
+            context.commit();
+        }
+
+        // Assert full iterations after erasing the data in each range-id
+        for (int rangeId: rangeIds) {
+            assertFullIteration(tgtIndex, rangeId, numRecords, legacy, true);
+            assertFullIteration(tgtIndex, rangeId, numRecords, legacy, false);
+        }
+
+        // Assert full iteration in a random range-id, just to make a point
+        assertFullIteration(tgtIndex, 77, numRecords, legacy, true);
+        assertFullIteration(tgtIndex, 77, numRecords, legacy, false);
+    }
+
+    private void assertFullIteration(Index index, int rangeId, long numRecords, boolean legacy, boolean missing) {
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(index, timer)
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                        .useLegacyScrubber(legacy)
+                        .setAllowRepair(false)
+                        .setRangeId(rangeId)
+                        .build())
+                .build()) {
+            if (missing) {
+                indexScrubber.scrubMissingIndexEntries();
+            } else {
+                indexScrubber.scrubDanglingIndexEntries();
+            }
+        }
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+
+    }
 }

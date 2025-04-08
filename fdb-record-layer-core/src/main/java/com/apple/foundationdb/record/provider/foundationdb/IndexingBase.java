@@ -90,14 +90,6 @@ import java.util.stream.Collectors;
 @API(API.Status.INTERNAL)
 public abstract class IndexingBase {
 
-    private static final Object INDEX_BUILD_LOCK_KEY = 0L;
-    private static final Object INDEX_BUILD_SCANNED_RECORDS = 1L;
-    private static final Object INDEX_BUILD_TYPE_VERSION = 2L;
-    private static final Object INDEX_SCRUBBED_INDEX_RANGES_ZERO = 3L;
-    private static final Object INDEX_SCRUBBED_RECORDS_RANGES_ZERO = 4L;
-    private static final Object INDEX_SCRUBBED_INDEX_RANGES = 4L;
-    private static final Object INDEX_SCRUBBED_RECORDS_RANGES = 5L;
-
     @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(IndexingBase.class);
     @Nonnull
@@ -136,46 +128,6 @@ public abstract class IndexingBase {
         return common.getRunner();
     }
 
-    @Nonnull
-    private static Subspace indexBuildSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, Object key) {
-        return store.getUntypedRecordStore().indexBuildSubspace(index).subspace(Tuple.from(key));
-    }
-
-    @Nonnull
-    protected static Subspace indexBuildLockSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
-        return indexBuildSubspace(store, index, INDEX_BUILD_LOCK_KEY);
-    }
-
-    @Nonnull
-    protected static Subspace indexBuildScannedRecordsSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
-        return indexBuildSubspace(store, index, INDEX_BUILD_SCANNED_RECORDS);
-    }
-
-    @Nonnull
-    protected static Subspace indexBuildTypeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
-        return indexBuildSubspace(store, index, INDEX_BUILD_TYPE_VERSION);
-    }
-
-    @Nonnull
-    public static Subspace indexScrubIndexRangeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, int rangeId) {
-        // This subspace holds the scrubbed ranges of the index itself (when looking for dangling entries)
-        if (rangeId == 0) {
-            // Backward compatible
-            return indexBuildSubspace(store, index, INDEX_SCRUBBED_INDEX_RANGES_ZERO);
-        }
-        return indexBuildSubspace(store, index, INDEX_SCRUBBED_INDEX_RANGES).subspace(Tuple.from(rangeId));
-    }
-
-    @Nonnull
-    public static Subspace indexScrubRecordsRangeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, int rangeId) {
-        // This subspace hods the scrubbed ranges of the records (when looking for missing index entries)
-        if (rangeId == 0) {
-            // backward compatible
-            return indexBuildSubspace(store, index, INDEX_SCRUBBED_RECORDS_RANGES_ZERO);
-        }
-        return indexBuildSubspace(store, index, INDEX_SCRUBBED_RECORDS_RANGES).subspace(Tuple.from(rangeId));
-    }
-
     @SuppressWarnings("squid:S1452")
     protected CompletableFuture<FDBRecordStore> openRecordStore(@Nonnull FDBRecordContext context) {
         return common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync();
@@ -212,7 +164,7 @@ public abstract class IndexingBase {
         }
         if (useSyncLock) {
             buildIndexAsyncFuture = runner
-                    .runAsync(context -> openRecordStore(context).thenApply(store -> indexBuildLockSubspace(store, index)),
+                    .runAsync(context -> openRecordStore(context).thenApply(store -> IndexingSubspaces.indexBuildLockSubspace(store, index)),
                             common.indexLogMessageKeyValues("IndexingBase::indexBuildLockSubspace"))
                     .thenCompose(lockSubspace -> runner.startSynchronizedSessionAsync(lockSubspace, common.config.getLeaseLengthMillis()))
                     .thenCompose(synchronizedRunner -> {
@@ -525,7 +477,7 @@ public abstract class IndexingBase {
 
     CompletableFuture<Void> throwIfSyncedLock(String otherIndexName, FDBRecordStore store, IndexBuildProto.IndexBuildIndexingStamp newStamp, IndexBuildProto.IndexBuildIndexingStamp savedStamp) {
         final Index otherIndex = store.getRecordMetaData().getIndex(otherIndexName);
-        final Subspace mainLockSubspace = indexBuildLockSubspace(store, otherIndex);
+        final Subspace mainLockSubspace = IndexingSubspaces.indexBuildLockSubspace(store, otherIndex);
         return SynchronizedSession.checkActiveSessionExists(store.ensureContextActive(), mainLockSubspace)
                         .thenApply(hasActiveSession -> {
                             if (Boolean.TRUE.equals(hasActiveSession)) {
@@ -766,7 +718,7 @@ public abstract class IndexingBase {
                     }
                     if (common.isTrackProgress()) {
                         for (Index index: common.getTargetIndexes()) {
-                            final Subspace scannedRecordsSubspace = indexBuildScannedRecordsSubspace(store, index);
+                            final Subspace scannedRecordsSubspace = IndexingSubspaces.indexBuildScannedRecordsSubspace(store, index);
                             store.context.ensureActive().mutate(MutationType.ADD, scannedRecordsSubspace.getKey(),
                                     FDBRecordStore.encodeRecordCount(recordsScannedInTransaction));
                         }

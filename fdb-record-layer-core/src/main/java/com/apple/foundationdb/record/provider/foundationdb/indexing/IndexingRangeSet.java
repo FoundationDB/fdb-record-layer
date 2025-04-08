@@ -30,7 +30,9 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.IndexingBase;
+import com.apple.foundationdb.record.provider.foundationdb.IndexingSubspaces;
+import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -226,7 +228,14 @@ public class IndexingRangeSet {
      */
     @Nonnull
     public static IndexingRangeSet forScrubbingIndex(@Nonnull FDBRecordStore store, @Nonnull Index index, int rangeId) {
-        RangeSet rangeSet = new RangeSet(IndexingBase.indexScrubIndexRangeSubspace(store, index, rangeId));
+        final Subspace subspace;
+        if (rangeId == 0) {
+            // Backward compatible
+            subspace = IndexingSubspaces.indexScrubIndexRangeSubspaceLegacy(store, index);
+        } else {
+            subspace = IndexingSubspaces.indexScrubIndexRangeSubspace(store, index).subspace(Tuple.from(rangeId));
+        }
+        final RangeSet rangeSet = new RangeSet(subspace);
         return new IndexingRangeSet(store.getRecordContext(), rangeSet);
     }
 
@@ -242,7 +251,14 @@ public class IndexingRangeSet {
      */
     @Nonnull
     public static IndexingRangeSet forScrubbingRecords(@Nonnull FDBRecordStore store, @Nonnull Index index, int rangeId) {
-        RangeSet rangeSet = new RangeSet(IndexingBase.indexScrubRecordsRangeSubspace(store, index, rangeId));
+        final Subspace subspace;
+        if (rangeId == 0) {
+            // Backward compatible
+            subspace = IndexingSubspaces.indexScrubRecordsRangeSubspaceLegacy(store, index);
+        } else {
+            subspace = IndexingSubspaces.indexScrubRecordsRangeSubspace(store, index).subspace(Tuple.from(rangeId));
+        }
+        final RangeSet rangeSet = new RangeSet(subspace);
         return new IndexingRangeSet(store.getRecordContext(), rangeSet);
     }
 }

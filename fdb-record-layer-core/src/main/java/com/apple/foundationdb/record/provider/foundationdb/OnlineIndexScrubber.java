@@ -117,6 +117,16 @@ public class OnlineIndexScrubber implements AutoCloseable {
         return missingCount.get();
     }
 
+    /**
+     * Reset all index scrubbing data. This will make the index "forget" any previous index scrubbing
+     * sessions.
+     * This method was designed to be used as a global reset to clean unwanted partial index scrubbing information and
+     * should probably not be used as a routine.
+     */
+    public void eraseAllIndexingScrubbingData(@Nonnull FDBRecordContext context, @Nonnull FDBRecordStore store) {
+        IndexingSubspaces.eraseAllIndexingScrubbingData(context, store, common.getIndex());
+    }
+
     @Nonnull
     public static Builder newBuilder() {
         return new Builder();
