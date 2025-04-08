@@ -114,7 +114,8 @@ public abstract class IndexingBase {
 
 
     IndexingBase(@Nonnull IndexingCommon common,
-                 @Nonnull OnlineIndexer.IndexingPolicy policy, boolean isScrubber) {
+                 @Nonnull OnlineIndexer.IndexingPolicy policy,
+                 boolean isScrubber) {
         this.common = common;
         this.policy = policy;
         this.isScrubber = isScrubber;

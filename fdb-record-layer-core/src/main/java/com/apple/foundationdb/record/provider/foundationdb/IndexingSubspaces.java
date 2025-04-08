@@ -65,6 +65,7 @@ public final class IndexingSubspaces {
 
     @Nonnull
     public static Subspace indexScrubRecordsRangeSubspaceLegacy(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+        // Backward compatible subspace for range-id zero
         return indexBuildSubspace(store, index, INDEX_SCRUBBED_RECORDS_RANGES_ZERO);
     }
 
@@ -75,7 +76,7 @@ public final class IndexingSubspaces {
 
     @Nonnull
     public static Subspace indexScrubIndexRangeSubspaceLegacy(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
-        // Backward compatible
+        // Backward compatible subspace for range-id zero
         return indexBuildSubspace(store, index, INDEX_SCRUBBED_INDEX_RANGES_ZERO);
     }
 

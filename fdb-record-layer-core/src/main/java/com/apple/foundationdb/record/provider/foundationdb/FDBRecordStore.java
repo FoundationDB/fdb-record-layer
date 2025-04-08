@@ -4710,8 +4710,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         IndexingRangeSet.forIndexBuild(this, index).clear();
         // clear even if non-unique in case the index was previously unique
         context.clear(indexUniquenessViolationsSubspace(index).range());
-        // Under the index build subspace, there are multiple lower level subspaces - the lock space and few others.
-        // We are not supposed to clear the lock subspace, which might have used to an online index job that had invoked this method.
+        // Under the index build subspace, there are multiple lower level subspaces - the lock subspace and few others. We are
+        // not supposed to clear the lock subspace, which might have been used to an online index job that had invoked this method.
         IndexingSubspaces.eraseAllIndexingDataButTheLock(context, this, index);
     }
 

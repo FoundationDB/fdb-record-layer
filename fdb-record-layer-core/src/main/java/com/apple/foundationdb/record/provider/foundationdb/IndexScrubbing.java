@@ -161,8 +161,8 @@ public class IndexScrubbing extends IndexingBase {
             if (range == null) {
                 // Here: no more missing ranges - all done
                 // This scrubbing is done. Clear the rangeSet - the next time scrubbing is called it will start from scratch
-                rangeSet.clear();
                 logScrubberRangeReset("range exhausted");
+                rangeSet.clear();
                 return AsyncUtil.READY_FALSE;
             }
             final Tuple rangeStart = RangeSet.isFirstKey(range.begin) ? null : Tuple.fromBytes(range.begin);
@@ -245,25 +245,23 @@ public class IndexScrubbing extends IndexingBase {
     @SuppressWarnings("PMD.CloseResource")
     @Override
     protected CompletableFuture<Void> setScrubberTypeOrThrow(FDBRecordStore store) {
-        // HERE: The index must be readable, checked by the caller
-        //   if scrubber had already run and still have missing ranges, do nothing
-        //   else: clear ranges and overwrite type-stamp
+        // HERE: The index must be readable, checked by the caller.
         IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp = getIndexingTypeStamp(store);
         validateOrThrowEx(indexingTypeStamp.getMethod().equals(IndexBuildProto.IndexBuildIndexingStamp.Method.SCRUB_REPAIR),
                 "Not a scrubber type-stamp");
 
-        final Index index = common.getIndex(); // Note: the scrubbers do not support multi target (yet)
+        final Index index = common.getIndex(); // Note: multi targets mode is not supported (yet)
         final IndexingRangeSet rangeSet = getRangeset(store, index);
         if (scrubbingPolicy.isRangeReset()) {
+            logScrubberRangeReset("forced reset");
             rangeSet.clear();
-            logScrubberRangeReset("force reset");
             return AsyncUtil.DONE;
         }
         return rangeSet.firstMissingRangeAsync()
                 .thenAccept(recordRange -> {
                     if (recordRange == null) {
-                        // Here: no un-scrubbed range was left for this call. We will
-                        // erase the 'ranges' data to allow a fresh records re-scrubbing.
+                        // Here: no un-scrubbed range is available for this call. Erase the 'ranges' data to allow
+                        // a new, fresh records re-scrubbing.
                         logScrubberRangeReset("range exhausted detected");
                         rangeSet.clear();
                     }
@@ -274,7 +272,7 @@ public class IndexScrubbing extends IndexingBase {
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info(KeyValueLogMessage.build("Reset index scrubbing range")
                     .addKeysAndValues(common.indexLogMessageKeyValues())
-                            .addKeyAndValue(LogMessageKeys.REASON, reason)
+                    .addKeyAndValue(LogMessageKeys.REASON, reason)
                     .toString());
         }
     }

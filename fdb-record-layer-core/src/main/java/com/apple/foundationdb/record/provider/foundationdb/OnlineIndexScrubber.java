@@ -136,7 +136,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
      * A builder for the scrubbing policy.
      */
     public static class ScrubbingPolicy {
-        public static final ScrubbingPolicy DEFAULT = new ScrubbingPolicy(1000, true, 0, false, false, 0, true);
+        public static final ScrubbingPolicy DEFAULT = new ScrubbingPolicy(1000, false, 0, false, false, 0, false);
         private final int logWarningsLimit;
         private final boolean allowRepair;
         private final long entriesScanLimit;
@@ -289,7 +289,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
 
             /**
              * Choose a specific "Already Scrubbed" rangeSet prefix. This may be useful for
-             * multiple scrubbing jobs that should not affect each other.
+             * multiple scrubbing jobs that may not affect each other.
              * 0 is the backward compatible default, which means no prefix.
              * @param rangeId a rangeSet prefix
              * @return this builder
@@ -300,8 +300,8 @@ public class OnlineIndexScrubber implements AutoCloseable {
             }
 
             /**
-             * If set to true, clear any previous "Already Scrubbed" range set - which means that the index scrubbing
-             * will begin from scratch.
+             * If set to true, clear any previous "Already Scrubbed" range set (in the given rangeId) - which means that
+             * the index scrubbing will begin from scratch.
              * @param rangeReset reset if true
              * @return this builder
              */

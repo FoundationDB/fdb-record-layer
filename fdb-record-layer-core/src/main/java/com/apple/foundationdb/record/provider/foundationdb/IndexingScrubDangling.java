@@ -154,6 +154,12 @@ public class IndexingScrubDangling extends IndexingBase {
             if (range == null) {
                 // Here: no more missing ranges - all done
                 // To avoid stale metadata, we'll keep the scrubbed-ranges indicator empty until the next scrub call.
+                if (LOGGER.isInfoEnabled()) {
+                    LOGGER.info(KeyValueLogMessage.build("Reset index scrubbing range")
+                            .addKeysAndValues(common.indexLogMessageKeyValues())
+                            .addKeyAndValue(LogMessageKeys.REASON, "range exhausted")
+                            .toString());
+                }
                 rangeSet.clear();
                 return AsyncUtil.READY_FALSE;
             }
@@ -247,8 +253,6 @@ public class IndexingScrubDangling extends IndexingBase {
     protected CompletableFuture<Void> setScrubberTypeOrThrow(FDBRecordStore store) {
         // Note: this duplicated function should be eliminated with this obsolete module (for legacy mode) is deleted
         // HERE: The index must be readable, checked by the caller
-        //   if scrubber had already run and still have missing ranges, do nothing
-        //   else: clear ranges and overwrite type-stamp
         IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp = getIndexingTypeStamp(store);
         validateOrThrowEx(indexingTypeStamp.getMethod().equals(IndexBuildProto.IndexBuildIndexingStamp.Method.SCRUB_REPAIR),
                 "Not a scrubber type-stamp");
@@ -258,8 +262,9 @@ public class IndexingScrubDangling extends IndexingBase {
         if (scrubbingPolicy.isRangeReset()) {
             indexRangeSet.clear();
             if (LOGGER.isInfoEnabled()) {
-                LOGGER.info(KeyValueLogMessage.build("Reset scrubber's index range - force reset")
+                LOGGER.info(KeyValueLogMessage.build("Reset index scrubbing range")
                         .addKeysAndValues(common.indexLogMessageKeyValues())
+                        .addKeyAndValue(LogMessageKeys.REASON, "forced reset")
                         .toString());
             }
             return AsyncUtil.DONE;
@@ -270,8 +275,9 @@ public class IndexingScrubDangling extends IndexingBase {
                         // Here: no un-scrubbed records range was left for this call. We will
                         // erase the 'ranges' data to allow a fresh records re-scrubbing.
                         if (LOGGER.isInfoEnabled()) {
-                            LOGGER.info(KeyValueLogMessage.build("Reset scrubber's index range - range exhausted")
+                            LOGGER.info(KeyValueLogMessage.build("Reset index scrubbing range")
                                     .addKeysAndValues(common.indexLogMessageKeyValues())
+                                    .addKeyAndValue(LogMessageKeys.REASON, "range exhausted detected")
                                     .toString());
                         }
                         indexRangeSet.clear();
