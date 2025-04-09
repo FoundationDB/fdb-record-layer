@@ -22,11 +22,10 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.annotation.API;
 
-import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
-
 import java.sql.Array;
 import java.sql.Struct;
 import java.sql.Types;
+import java.util.UUID;
 
 /**
  * Class to host method taken from SqlTypeSupport needed by
@@ -36,7 +35,6 @@ import java.sql.Types;
  * recordlayer.
  */
 // Used by fdb-relational-jdbc module in JDBCRelationalArray.
-@ExcludeFromJacocoGeneratedReport
 @API(API.Status.EXPERIMENTAL)
 public final class SqlTypeNamesSupport {
     private SqlTypeNamesSupport() {
@@ -119,6 +117,8 @@ public final class SqlTypeNamesSupport {
             return Types.ARRAY;
         } else if (obj instanceof Struct) {
             return Types.STRUCT;
+        } else if (obj instanceof UUID) {
+            return Types.OTHER;
         } else {
             throw new IllegalStateException("Unexpected object type: " + obj.getClass().getName());
         }

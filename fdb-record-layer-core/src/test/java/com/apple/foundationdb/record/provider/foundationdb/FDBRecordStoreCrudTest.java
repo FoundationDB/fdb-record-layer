@@ -23,10 +23,13 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsBytesProto;
+import com.apple.foundationdb.record.TestRecordsUuidProto;
 import com.apple.foundationdb.record.TestRecordsWithUnionProto;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
@@ -34,6 +37,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+
+import java.util.UUID;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
@@ -157,6 +162,32 @@ public class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
             TestRecordsBytesProto.ByteStringRecord.Builder myrec1 = TestRecordsBytesProto.ByteStringRecord.newBuilder();
             myrec1.mergeFrom(rec1.getRecord());
             assertEquals(byteString(0, 1, 2), myrec1.getPkey());
+            assertEquals("foo", myrec1.getName());
+            commit(context);
+        }
+    }
+
+    @Test
+    public void writeUuid() {
+        UUID uuid1 = UUID.fromString("710730ce-d9fd-417a-bb6e-27bcfefe3d4d");
+        UUID uuid2 = UUID.fromString("03b9221a-e61b-4bee-8c47-34e1248ed273");
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, RecordMetaData.build(TestRecordsUuidProto.getDescriptor()));
+            recordStore.saveRecord(TestRecordsUuidProto.UuidRecord.newBuilder()
+                    .setSecondary(TupleFieldsHelper.toProto(UUID.randomUUID())).setPkey(TupleFieldsHelper.toProto(uuid1)).setName("foo").build());
+            recordStore.saveRecord(TestRecordsUuidProto.UuidRecord.newBuilder()
+                    .setSecondary(TupleFieldsHelper.toProto(UUID.randomUUID())).setPkey(TupleFieldsHelper.toProto(uuid2)).setName("foo").build());
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, RecordMetaData.build(TestRecordsUuidProto.getDescriptor()));
+            FDBStoredRecord<Message> rec1 = recordStore.loadRecord(Tuple.from(uuid1));
+            assertNotNull(rec1);
+            TestRecordsUuidProto.UuidRecord.Builder myrec1 = TestRecordsUuidProto.UuidRecord.newBuilder();
+            myrec1.mergeFrom(rec1.getRecord());
+            assertEquals(uuid1, TupleFieldsHelper.fromProto(myrec1.getPkey()));
             assertEquals("foo", myrec1.getName());
             commit(context);
         }

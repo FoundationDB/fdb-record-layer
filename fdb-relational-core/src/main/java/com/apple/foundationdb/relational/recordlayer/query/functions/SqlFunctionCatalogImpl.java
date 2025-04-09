@@ -111,6 +111,7 @@ public final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
                 .put("coalesce", argumentsCount -> FunctionCatalog.resolve("coalesce", argumentsCount).orElseThrow())
                 .put("is null", argumentsCount -> FunctionCatalog.resolve("isNull", argumentsCount).orElseThrow())
                 .put("is not null", argumentsCount -> FunctionCatalog.resolve("notNull", argumentsCount).orElseThrow())
+                .put("range", argumentsCount -> FunctionCatalog.resolve("range", argumentsCount).orElseThrow())
                 .put("__pattern_for_like", argumentsCount -> FunctionCatalog.resolve("patternForLike", argumentsCount).orElseThrow())
                 .put("__internal_array", argumentsCount -> FunctionCatalog.resolve("array", argumentsCount).orElseThrow())
                 .build();

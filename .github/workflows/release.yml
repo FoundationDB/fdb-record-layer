@@ -125,11 +125,6 @@ jobs:
   
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
-      - name: Get old version
-        id: get_old_version
-        shell: bash
-        run: |
-          echo "version=$(python build/versionutils.py gradle.properties)" >> "$GITHUB_OUTPUT"
       # Push a version bump back to main. There are failure scenarios that can result
       # in published artifacts but an erroneous build, so it's safer to bump the version
       # at the beginning
@@ -165,7 +160,7 @@ jobs:
           --repository ${{ github.repository }} \
           --commit \
           --mixed-mode-results mixed-mode-results.md \
-          ${{ steps.get_old_version.outputs.version }} ${{ steps.get_new_version.outputs.version }}
+          --version ${{ steps.get_new_version.outputs.version }}
         env:
           GH_TOKEN: ${{ github.token }}
       # We move the tag to after the release notes are updated so that later steps (i.e. sphinx) will pick up the udpated

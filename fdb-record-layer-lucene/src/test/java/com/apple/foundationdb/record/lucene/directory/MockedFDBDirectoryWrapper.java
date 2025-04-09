@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
+import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -31,8 +32,10 @@ import java.util.Map;
  * A Testing-focused {@link FDBDirectoryWrapper} that allows a mocked-FDBDirectory to be injected into the system.
  */
 public class MockedFDBDirectoryWrapper extends FDBDirectoryWrapper {
-    MockedFDBDirectoryWrapper(final IndexMaintainerState state, final Tuple key, final int mergeDirectoryCount, final AgilityContext agilityContext, final int blockCacheMaximumSize, final InjectedFailureRepository injectedFailures) {
-        super(state, key, mergeDirectoryCount, agilityContext, blockCacheMaximumSize);
+    MockedFDBDirectoryWrapper(final IndexMaintainerState state, final Tuple key, final int mergeDirectoryCount,
+                              final AgilityContext agilityContext, final int blockCacheMaximumSize,
+                              final InjectedFailureRepository injectedFailures, final LuceneAnalyzerWrapper writerAnalyzer) {
+        super(state, key, mergeDirectoryCount, agilityContext, blockCacheMaximumSize, writerAnalyzer);
         // Set the injectedFailures at the end of the constructor since createDirectory() is called from the constructor
         // and we can't pass the injected failures to it yet.
         ((MockedFDBDirectory)getDirectory()).setInjectedFailures(injectedFailures);

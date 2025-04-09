@@ -22,11 +22,11 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
-import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.recordlayer.MessageTuple;
+import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
-
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -37,6 +37,7 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Locale;
+import java.util.UUID;
 
 /**
  * Implementation of {@link RelationalStruct} that is backed by a {@link Row}.
@@ -297,6 +298,24 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
     }
 
     @Override
+    public UUID getUUID(String columnLabel) throws SQLException {
+        return getUUID(getOneBasedPosition(columnLabel));
+    }
+
+    @Override
+    public UUID getUUID(int oneBasedColumn) throws SQLException {
+        if (metaData.getColumnType(oneBasedColumn) != Types.OTHER) {
+            throw new SQLException("Expected UUID should have type OTHER", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
+        }
+        Object obj = getObjectInternal(getZeroBasedPosition(oneBasedColumn));
+        if (obj == null) {
+            return null;
+        }
+        Assert.thatUnchecked(obj instanceof UUID, ErrorCode.CANNOT_CONVERT_TYPE, "Expected UUID, got {}", obj.getClass().getName());
+        return (UUID) obj;
+    }
+
+    @Override
     public RelationalStruct getStruct(String columnLabel) throws SQLException {
         return getStruct(getOneBasedPosition(columnLabel));
     }
@@ -316,6 +335,9 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
 
     @Override
     public String toString() {
+        // We want to preserve the last wasNull state and not let it get effected by toString() since this too uses
+        // the getObject() call to fetch values.
+        final var preservedWasNullValue = wasNull();
         final var builder = new StringBuilder();
         try {
             final var colCount = metaData.getColumnCount();
@@ -332,8 +354,10 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
             builder.append("} ");
         } catch (SQLException e) {
             throw new UncheckedRelationalException(new RelationalException(e));
+        } finally {
+            // restore wasNull
+            wasNull = preservedWasNullValue;
         }
-
         return builder.toString();
     }
 }

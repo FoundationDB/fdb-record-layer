@@ -111,6 +111,7 @@ task sphinxDocs(type: Exec) {
     dependsOn sphinxEnv
     dependsOn generateRailroadDiagrams
     dependsOn createSphinxApiPlaceholders
+    mkdir "${sphinxRoot}/source/_static"
     commandLine "${venvDir}/bin/sphinx-build", '-M', 'html', "${sphinxRoot}/source", sphinxBuildDir
 }
 

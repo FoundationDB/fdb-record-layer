@@ -21,9 +21,6 @@
 package com.apple.foundationdb.relational.api.metrics;
 
 import com.apple.foundationdb.annotation.API;
-
-import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
-
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.NoopMetricRegistry;
 
@@ -36,7 +33,6 @@ import javax.annotation.Nonnull;
  * on an prometheus endpoint, codahale will require translation (there are translators but better not
  * to translate at all). What is the story for clients? RL is codahale?
  */
-@ExcludeFromJacocoGeneratedReport //it doesn't do anything to be tested
 @API(API.Status.EXPERIMENTAL)
 public final class NoOpMetricRegistry {
 

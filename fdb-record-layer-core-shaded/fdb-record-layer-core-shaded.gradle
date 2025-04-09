@@ -119,9 +119,6 @@ publishing {
         }
 
     }
-    artifactoryPublish {
-        publications (publishing.publications.shadow)
-    }
 }
 
 if (Boolean.parseBoolean(centralPublish)) {

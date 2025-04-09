@@ -469,19 +469,24 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                         .useLegacyScrubber(legacy)
                         .build())
                 .build()) {
-            indexScrubber.scrubDanglingIndexEntries();
-            indexScrubber.scrubMissingIndexEntries();
-        }
+            if (legacy) {
+                indexScrubber.scrubDanglingIndexEntries();
+                indexScrubber.scrubMissingIndexEntries();
 
-        // Scanned 5 * numRecords. This is from:
-        //  1. When looking for missing entries, we scan every record in the database. There are numRecords of type
-        //     OuterRecord and numRecords of type OtherRecord (so that's 2 * numRecords)
-        //  2. When scanning dangling entries, we look up one for every entry in the index. There are 3 map entries
-        //     for each of type OuterRecord, so that's 3 * numRecords.
-        assertEquals(numRecords * 5, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
-        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
-        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+                // Scanned 5 * numRecords. This is from:
+                //  1. When looking for missing entries, we scan every record in the database. There are numRecords of type
+                //     OuterRecord and numRecords of type OtherRecord (so that's 2 * numRecords)
+                //  2. When scanning dangling entries, we look up one for every entry in the index. There are 3 map entries
+                //     for each of type OuterRecord, so that's 3 * numRecords.
+                assertEquals(numRecords * 5, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+                assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+                assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+                assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+            } else {
+                assertThrows(UnsupportedOperationException.class, () -> indexScrubber.scrubDanglingIndexEntries());
+                assertThrows(UnsupportedOperationException.class, () -> indexScrubber.scrubMissingIndexEntries());
+            }
+        }
     }
 
     @ParameterizedTest
@@ -519,8 +524,14 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                         .useLegacyScrubber(legacy)
                         .build())
                 .build()) {
-            assertThrows(RecordDoesNotExistException.class, indexScrubber::scrubDanglingIndexEntries);
-            indexScrubber.scrubMissingIndexEntries();
+            if (legacy) {
+                assertThrows(RecordDoesNotExistException.class, indexScrubber::scrubDanglingIndexEntries);
+            } else {
+                // numrecord/3 is the top level records deleted, each with 3 sub records
+                assertEquals(numRecords, indexScrubber.scrubDanglingIndexEntries());
+                indexScrubber.scrubMissingIndexEntries();
+                assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+            }
         }
     }
 
@@ -577,37 +588,51 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
 
-        timer.reset();
-        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
-                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
-                        .setLogWarningsLimit(Integer.MAX_VALUE)
-                        .setAllowRepair(true)
-                        .useLegacyScrubber(legacy)
-                        .build())
-                .build()) {
-            indexScrubber.scrubDanglingIndexEntries();
-            indexScrubber.scrubMissingIndexEntries();
+        if (legacy) {
+            timer.reset();
+            try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
+                    .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                            .setLogWarningsLimit(Integer.MAX_VALUE)
+                            .setAllowRepair(true)
+                            .useLegacyScrubber(legacy)
+                            .build())
+                    .build()) {
+                indexScrubber.scrubDanglingIndexEntries();
+                indexScrubber.scrubMissingIndexEntries();
+            }
+
+            assertEquals(numRecords / 3, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+            assertEquals(numRecords / 3, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+            assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+
+            timer.reset();
+            try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
+                    .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                            .setLogWarningsLimit(Integer.MAX_VALUE)
+                            .setAllowRepair(true)
+                            .useLegacyScrubber(legacy)
+                            .build())
+                    .build()) {
+                indexScrubber.scrubDanglingIndexEntries();
+                indexScrubber.scrubMissingIndexEntries();
+            }
+
+            assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+            assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+            assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+        } else {
+            // Repair is not supported for synthetic records
+            try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
+                    .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                            .setLogWarningsLimit(Integer.MAX_VALUE)
+                            .setAllowRepair(true)
+                            .useLegacyScrubber(legacy)
+                            .build())
+                    .build()) {
+                assertThrows(UnsupportedOperationException.class, () -> indexScrubber.scrubDanglingIndexEntries());
+                assertThrows(UnsupportedOperationException.class, () -> indexScrubber.scrubMissingIndexEntries());
+            }
         }
-
-        assertEquals(numRecords / 3, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
-        assertEquals(numRecords / 3, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-        assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
-
-        timer.reset();
-        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
-                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
-                        .setLogWarningsLimit(Integer.MAX_VALUE)
-                        .setAllowRepair(true)
-                        .useLegacyScrubber(legacy)
-                        .build())
-                .build()) {
-            indexScrubber.scrubDanglingIndexEntries();
-            indexScrubber.scrubMissingIndexEntries();
-        }
-
-        assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
-        assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-        assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
     }
 
     @ParameterizedTest
@@ -629,19 +654,23 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                         .useLegacyScrubber(legacy)
                         .build())
                 .build()) {
-            indexScrubber.scrubDanglingIndexEntries();
-            indexScrubber.scrubMissingIndexEntries();
+            if (legacy) {
+                indexScrubber.scrubDanglingIndexEntries();
+                indexScrubber.scrubMissingIndexEntries();
+                // Scanned 3 * numRecords. This is from:
+                //  1. When looking for missing entries, we scan every record in the database. There are numRecords of type
+                //     MySimpleRecord and numRecords of type MyOtherRecord (so that's 2 * numRecords)
+                //  2. When scanning dangling entries, we look up one for every entry in the index. There are is one entry
+                //     for each pair of simple and other records, so that's another numRecords scanned
+                assertEquals(numRecords * 3, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+                assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+                assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+                assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+            } else {
+                assertThrows(UnsupportedOperationException.class, () -> indexScrubber.scrubDanglingIndexEntries());
+                assertThrows(UnsupportedOperationException.class, () -> indexScrubber.scrubMissingIndexEntries());
+            }
         }
-
-        // Scanned 3 * numRecords. This is from:
-        //  1. When looking for missing entries, we scan every record in the database. There are numRecords of type
-        //     MySimpleRecord and numRecords of type MyOtherRecord (so that's 2 * numRecords)
-        //  2. When scanning dangling entries, we look up one for every entry in the index. There are is one entry
-        //     for each pair of simple and other records, so that's another numRecords scanned
-        assertEquals(numRecords * 3, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
-        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
-        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
     }
 
     @ParameterizedTest
@@ -684,8 +713,17 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                         .useLegacyScrubber(legacy)
                         .build())
                 .build()) {
-            assertThrows(RecordDoesNotExistException.class, indexScrubber::scrubDanglingIndexEntries);
+            if (legacy) {
+                assertThrows(RecordDoesNotExistException.class, indexScrubber::scrubDanglingIndexEntries);
+                assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+            } else {
+                assertEquals(numRecords / 4, indexScrubber.scrubDanglingIndexEntries());
+                assertEquals(numRecords / 4, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+            }
+
             indexScrubber.scrubMissingIndexEntries();
+            assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+            assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         }
     }
 
@@ -737,36 +775,50 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
 
-        timer.reset();
-        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
-                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
-                        .setLogWarningsLimit(Integer.MAX_VALUE)
-                        .setAllowRepair(true)
-                        .useLegacyScrubber(legacy)
-                        .build())
-                .build()) {
-            indexScrubber.scrubDanglingIndexEntries();
-            indexScrubber.scrubMissingIndexEntries();
+        if (legacy) {
+            timer.reset();
+            try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
+                    .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                            .setLogWarningsLimit(Integer.MAX_VALUE)
+                            .setAllowRepair(true)
+                            .useLegacyScrubber(legacy)
+                            .build())
+                    .build()) {
+                indexScrubber.scrubDanglingIndexEntries();
+                indexScrubber.scrubMissingIndexEntries();
+            }
+
+            assertEquals(numRecords / 4, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+            assertEquals(numRecords / 4, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+            assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+
+            timer.reset();
+            try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
+                    .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                            .setLogWarningsLimit(Integer.MAX_VALUE)
+                            .setAllowRepair(true)
+                            .useLegacyScrubber(legacy)
+                            .build())
+                    .build()) {
+                indexScrubber.scrubDanglingIndexEntries();
+                indexScrubber.scrubMissingIndexEntries();
+            }
+
+            assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+            assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+            assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
+        } else {
+            // Repair is not supported for synthetic records
+            try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
+                    .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
+                            .setLogWarningsLimit(Integer.MAX_VALUE)
+                            .setAllowRepair(true)
+                            .useLegacyScrubber(legacy)
+                            .build())
+                    .build()) {
+                assertThrows(UnsupportedOperationException.class, () -> indexScrubber.scrubDanglingIndexEntries());
+                assertThrows(UnsupportedOperationException.class, () -> indexScrubber.scrubMissingIndexEntries());
+            }
         }
-
-        assertEquals(numRecords / 4, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
-        assertEquals(numRecords / 4, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-        assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
-
-        timer.reset();
-        try (OnlineIndexScrubber indexScrubber = newScrubberBuilder(targetIndex, timer)
-                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
-                        .setLogWarningsLimit(Integer.MAX_VALUE)
-                        .setAllowRepair(true)
-                        .useLegacyScrubber(legacy)
-                        .build())
-                .build()) {
-            indexScrubber.scrubDanglingIndexEntries();
-            indexScrubber.scrubMissingIndexEntries();
-        }
-
-        assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
-        assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-        assertEquals(0L, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES));
     }
 }
