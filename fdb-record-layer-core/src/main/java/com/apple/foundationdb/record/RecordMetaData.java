@@ -635,6 +635,9 @@ public class RecordMetaData implements RecordMetaDataProvider {
         if (usesLocalRecordsDescriptor) {
             throw new MetaDataException("cannot serialize meta-data with a local records descriptor to proto");
         }
+        if (recordTypes.size() != unionFields.size()) {
+            throw new MetaDataException("cannot serialize meta-data with any excluded types");
+        }
         RecordMetaDataProto.MetaData.Builder builder = RecordMetaDataProto.MetaData.newBuilder();
 
         // Set the root records.
