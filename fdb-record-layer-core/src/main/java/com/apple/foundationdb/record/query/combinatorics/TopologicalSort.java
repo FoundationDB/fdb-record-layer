@@ -537,10 +537,6 @@ public class TopologicalSort {
                                                                   @Nonnull final List<P> targetPermutation,
                                                                   @Nonnull final Function<T, P> domainMapper,
                                                                   @Nonnull final Function<List<T>, Integer> satisfiabilityFunction) {
-//        if (partiallyOrderedSet.isEmpty()) {
-//            return ImmutableList.of();
-//        }
-        
         if (partiallyOrderedSet.size() < targetPermutation.size()) {
             return ImmutableList.of();
         }
