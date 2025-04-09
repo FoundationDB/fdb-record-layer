@@ -45,7 +45,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObject
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
@@ -163,8 +162,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
                 recordTypes,
                 baseQuantifier.getFlowedObjectType(),
                 groupByQun.getRangesOver().get().getResultValue(),
-                selectHaving,
-                constructSelectHavingResult.getGroupByValues());
+                selectHaving);
     }
 
     @Nonnull
@@ -338,12 +336,8 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
             finalPlaceholders = placeholderAliases.build();
         }
 
-        final var currentGroupingValues = groupingValues.stream()
-                .map(groupingValue -> groupingValue.translateCorrelations(TranslationMap.ofAliases(groupByQun.getAlias(), Quantifier.current())))
-                .collect(ImmutableList.toImmutableList());
-
         return new ConstructSelectHavingResult(selectHavingGraphExpansionBuilder.build().buildSelect(),
-                finalPlaceholders, currentGroupingValues);
+                finalPlaceholders);
     }
 
     @Nonnull
@@ -394,15 +388,11 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         private final SelectExpression selectExpression;
         @Nonnull
         private final List<CorrelationIdentifier> placeholderAliases;
-        @Nonnull
-        private final List<Value> groupByValues;
 
         private ConstructSelectHavingResult(@Nonnull final SelectExpression selectExpression,
-                                            @Nonnull final List<CorrelationIdentifier> placeholderAliases,
-                                            @Nonnull final List<Value> groupByValues) {
+                                            @Nonnull final List<CorrelationIdentifier> placeholderAliases) {
             this.selectExpression = selectExpression;
             this.placeholderAliases = placeholderAliases;
-            this.groupByValues = groupByValues;
         }
 
         @Nonnull
@@ -413,11 +403,6 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         @Nonnull
         public List<CorrelationIdentifier> getPlaceholderAliases() {
             return placeholderAliases;
-        }
-
-        @Nonnull
-        public List<Value> getGroupByValues() {
-            return groupByValues;
         }
     }
 }
