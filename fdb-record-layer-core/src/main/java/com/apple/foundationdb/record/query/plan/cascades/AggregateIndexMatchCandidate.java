@@ -100,9 +100,6 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
     @Nonnull
     private final SelectExpression selectHavingExpression;
 
-    @Nonnull
-    private final List<Value> groupByValues;
-
     /**
      * Creates a new instance of {@link AggregateIndexMatchCandidate}.
      *
@@ -120,8 +117,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
                                         @Nonnull final Collection<RecordType> recordTypes,
                                         @Nonnull final Type baseType,
                                         @Nonnull final Value groupByResultValue,
-                                        @Nonnull final SelectExpression selectHavingExpression,
-                                        @Nonnull final List<Value> groupByValues) {
+                                        @Nonnull final SelectExpression selectHavingExpression) {
         Preconditions.checkArgument(!recordTypes.isEmpty());
         this.index = index;
         this.traversal = traversal;
@@ -130,7 +126,6 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         this.baseType = baseType;
         this.groupByResultValue = groupByResultValue;
         this.selectHavingExpression = selectHavingExpression;
-        this.groupByValues = ImmutableList.copyOf(groupByValues);
     }
 
     @Nonnull
@@ -155,16 +150,6 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
     @Override
     public List<CorrelationIdentifier> getOrderingAliases() {
         return sargableAndOrderAliases;
-    }
-
-    @Nonnull
-    public SelectExpression getSelectHavingExpression() {
-        return selectHavingExpression;
-    }
-
-    @Nonnull
-    public List<Value> getGroupByValues() {
-        return groupByValues;
     }
 
     @Nonnull

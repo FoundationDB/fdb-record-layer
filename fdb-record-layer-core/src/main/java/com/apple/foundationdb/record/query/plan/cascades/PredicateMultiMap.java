@@ -66,9 +66,9 @@ public class PredicateMultiMap {
     private final SetMultimap<QueryPredicate, PredicateMapping> map;
 
     @Nonnull
-    private static Value amendValue(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
-                                    @Nonnull final Map<Value, Value> amendedMatchedAggregateMap,
-                                    @Nonnull final Value rootValue) {
+    private static Value replaceNewlyMatchedValues(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
+                                                   @Nonnull final Map<Value, Value> amendedMatchedAggregateMap,
+                                                   @Nonnull final Value rootValue) {
         return Objects.requireNonNull(rootValue.replace(currentValue -> {
             if (currentValue instanceof GroupByExpression.UnmatchedAggregateValue) {
                 final var unmatchedId =
@@ -191,7 +191,7 @@ public class PredicateMultiMap {
                                                            @Nonnull final Map<Value, Value> amendedMatchedAggregateMap) {
                     final var amendedTranslatedPredicateOptional =
                             predicate.replaceValuesMaybe(rootValue ->
-                                    Optional.of(amendValue(unmatchedAggregateMap, amendedMatchedAggregateMap,
+                                    Optional.of(replaceNewlyMatchedValues(unmatchedAggregateMap, amendedMatchedAggregateMap,
                                             rootValue)));
                     Verify.verify(amendedTranslatedPredicateOptional.isPresent());
                     return ofPredicate(amendedTranslatedPredicateOptional.get(), true);
@@ -405,7 +405,7 @@ public class PredicateMultiMap {
                 public ResultCompensationFunction amend(@Nonnull final BiMap<CorrelationIdentifier, Value> unmatchedAggregateMap,
                                                         @Nonnull final Map<Value, Value> amendedMatchedAggregateMap) {
                     final var amendedTranslatedQueryValue =
-                            amendValue(unmatchedAggregateMap, amendedMatchedAggregateMap, value);
+                            replaceNewlyMatchedValues(unmatchedAggregateMap, amendedMatchedAggregateMap, value);
                     return ofValue(amendedTranslatedQueryValue, true);
                 }
 
