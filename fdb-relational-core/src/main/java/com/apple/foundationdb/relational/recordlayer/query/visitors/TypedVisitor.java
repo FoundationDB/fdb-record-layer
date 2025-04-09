@@ -164,6 +164,10 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Override
     RecordLayerIndex visitIndexDefinition(@Nonnull RelationalParser.IndexDefinitionContext ctx);
 
+    @Nonnull
+    @Override
+    Object visitFunctionDefinition(@Nonnull RelationalParser.FunctionDefinitionContext ctx);
+
     @Override
     Object visitIndexAttributes(RelationalParser.IndexAttributesContext ctx);
 
@@ -724,6 +728,10 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
+    Expression visitUserDefinedFunctionCall(@Nonnull RelationalParser.UserDefinedFunctionCallContext ctx);
+
+    @Nonnull
+    @Override
     Object visitSimpleFunctionCall(@Nonnull RelationalParser.SimpleFunctionCallContext ctx);
 
     @Nonnull
@@ -805,6 +813,10 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Nonnull
     @Override
     Object visitScalarFunctionName(@Nonnull RelationalParser.ScalarFunctionNameContext ctx);
+
+    @Nonnull
+    @Override
+    Object visitUserDefinedFunctionName(@Nonnull RelationalParser.UserDefinedFunctionNameContext ctx);
 
     @Nonnull
     @Override

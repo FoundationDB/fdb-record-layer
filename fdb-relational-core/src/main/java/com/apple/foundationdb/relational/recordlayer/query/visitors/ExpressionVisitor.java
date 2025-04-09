@@ -300,6 +300,14 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
+    public Expression visitUserDefinedFunctionCall(@Nonnull RelationalParser.UserDefinedFunctionCallContext ctx) {
+        final var functionName = ctx.userDefinedFunctionName().getText();
+        Expressions arguments = visitFunctionArgs(ctx.functionArgs());
+        return getDelegate().resolveFunction(functionName, arguments.asList().toArray(new Expression[0]));
+    }
+
+    @Nonnull
+    @Override
     public Expression visitFunctionCallExpressionAtom(@Nonnull RelationalParser.FunctionCallExpressionAtomContext ctx) {
         return parseChild(ctx);
     }

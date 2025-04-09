@@ -23,6 +23,8 @@ package com.apple.foundationdb.relational.recordlayer.query.functions;
 import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.FunctionCatalog;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
@@ -33,7 +35,9 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.StreamSupport;
@@ -47,10 +51,14 @@ import static java.util.stream.Collectors.toList;
 public final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
 
     @Nonnull
-    private static final SqlFunctionCatalogImpl INSTANCE = new SqlFunctionCatalogImpl();
+    public static final SqlFunctionCatalogImpl INSTANCE = new SqlFunctionCatalogImpl();
 
     @Nonnull
     private final ImmutableMap<String, Function<Integer, BuiltInFunction<? extends Typed>>> synonyms;
+
+    @Nonnull
+    private final Map<String, UserDefinedFunction> userDefinedFunctionMap = new HashMap<>();
+
 
     private SqlFunctionCatalogImpl() {
         this.synonyms = createSynonyms();
@@ -58,18 +66,27 @@ public final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
 
     @Nonnull
     @Override
-    public BuiltInFunction<? extends Typed> lookUpFunction(@Nonnull final String name, @Nonnull final Expression... expressions) {
-        return Assert.notNullUnchecked(Objects.requireNonNull(synonyms.get(name.toLowerCase(Locale.ROOT))).apply(expressions.length));
+    public CatalogedFunction lookUpFunction(@Nonnull final String name, @Nonnull final Expression... expressions) {
+        if (synonyms.get(name.toLowerCase(Locale.ROOT)) != null) {
+            return Assert.notNullUnchecked(Objects.requireNonNull(synonyms.get(name.toLowerCase(Locale.ROOT))).apply(expressions.length));
+        } else {
+            return userDefinedFunctionMap.get(name.toLowerCase(Locale.ROOT));
+        }
     }
 
     @Override
     public boolean containsFunction(@Nonnull String name) {
-        return synonyms.containsKey(name.toLowerCase(Locale.ROOT));
+        return synonyms.containsKey(name.toLowerCase(Locale.ROOT)) || userDefinedFunctionMap.containsKey(name.toLowerCase(Locale.ROOT));
     }
 
     @Override
     public boolean isUdfFunction(@Nonnull final String name) {
         return "java_call".equals(name.trim().toLowerCase(Locale.ROOT));
+    }
+
+    @Override
+    public void addUdfFunction(@Nonnull final UserDefinedFunction function) {
+        userDefinedFunctionMap.put(function.getFunctionName(), function);
     }
 
     @Nonnull

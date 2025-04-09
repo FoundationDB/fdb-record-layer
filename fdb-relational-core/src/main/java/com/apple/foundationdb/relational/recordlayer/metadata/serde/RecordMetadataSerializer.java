@@ -87,6 +87,7 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
     @Override
     public void visit(@Nonnull SchemaTemplate schemaTemplate) {
         Assert.thatUnchecked(schemaTemplate instanceof RecordLayerSchemaTemplate);
+        getBuilder().addUserDefinedFunctions(((RecordLayerSchemaTemplate) schemaTemplate).getAllUserDefinedFunctions());
         getBuilder().setSplitLongRecords(schemaTemplate.isEnableLongRows());
         getBuilder().setStoreRecordVersions(schemaTemplate.isStoreRowVersions());
         getBuilder().setVersion(schemaTemplate.getVersion());
