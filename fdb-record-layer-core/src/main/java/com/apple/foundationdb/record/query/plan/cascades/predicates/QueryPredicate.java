@@ -68,6 +68,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 import java.util.stream.StreamSupport;
 
 /**
@@ -464,6 +465,17 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     @SuppressWarnings("unused")
     default QueryPredicate translateLeafPredicate(@Nonnull final TranslationMap translationMap, final boolean shouldSimplify) {
         throw new RecordCoreException("implementor must override");
+    }
+
+    @Nonnull
+    default QueryPredicate translateValues(@Nonnull UnaryOperator<Value> translationOperator) {
+        return replaceLeavesMaybe(t -> {
+            if (!(t instanceof PredicateWithValue)) {
+                return t;
+            }
+            final PredicateWithValue predicateWithValue = (PredicateWithValue)t;
+            return predicateWithValue.translateValues(translationOperator);
+        }).orElseThrow(() -> new RecordCoreException("should not throw"));
     }
 
     @Nonnull
