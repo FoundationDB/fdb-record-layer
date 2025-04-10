@@ -115,7 +115,7 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @MaintainYamlTestConfig(YamlTestConfigFilters.SHOW_PLAN_ON_DIFF)
+    //@MaintainYamlTestConfig(YamlTestConfigFilters.SHOW_PLAN_ON_DIFF)
     public void aggregateEmptyTable(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("aggregate-empty-table.yamsql");
     }
@@ -271,7 +271,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    //@MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
     public void compositeAggregates(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("composite-aggregates.yamsql");
     }

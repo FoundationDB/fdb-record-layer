@@ -82,6 +82,31 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalEx
         super(rootMatcher, completeMatchMatcher, expressionMatcher);
     }
 
+    /**
+     * Method to compute the intersection of multiple compatibly-ordered index scans of aggregate indexes. This method
+     * utilizes {@link RecordQueryMultiIntersectionOnValuesPlan} which intersects {@code n} compatibly-ordered data
+     * streams of records comprised of the groupings and the aggregates of the underlying indexes. In contrast to the
+     * simpler {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan} which is
+     * used to intersect value indexes, a multi intersection allows us to associate the current records of all data
+     * streams by the use of a common comparison key (that identifies the group) and then freely to pick any datum
+     * from any participating stream. In this way, we can access the different aggregates flowed in the individuals
+     * stream.
+     * <br>
+     * For instance, if the partition we are trying to intersect, flows the result of an index scan over a
+     * {@code SUM} index ({@code q1 := (a, b, SUM(c)}) and another flows the result of a {@code COUNT} index using an
+     * identical grouping ({@code q2: = (a, b, COUNT_STAR}), we can form a multi intersection using a comparison key
+     * {@code _.1, _2}. We can then also access the aggregates in individually, e.g.
+     * ({@code (q1._0, q1._1, q1._2, q2._2}) would return the groupings comprised of {@code a} and {@code b} as well
+     * as the sum and the count.
+     * @param memoizer the memoizer
+     * @param intersectionInfoMap a map that allows us to access information about other intersections of degree
+     *        {@code n-1}.
+     * @param matchToPlanMap a map from match to single data access expression
+     * @param partition a partition (i.e. a list of {@link SingleMatchedAccess}es that the caller would like to compute
+     *        and intersected data access for
+     * @param requestedOrderings a set of ordering that have been requested by consuming expressions/plan operators
+     * @return a new {@link IntersectionResult}
+     */
     @Nonnull
     @Override
     protected IntersectionResult createIntersectionAndCompensation(@Nonnull final Memoizer memoizer,
