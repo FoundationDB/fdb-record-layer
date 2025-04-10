@@ -361,10 +361,14 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         return mapBuilder.build();
     }
 
+    public static boolean canBeRolledUp(@Nonnull final String indexType) {
+        return rollUpAggregateMap.get().containsKey(indexType);
+    }
+
     @Nonnull
-    public static Optional<AggregateValue> rollUpAggregateValueMaybe(@Nonnull final Index index, @Nonnull final Value argument) {
+    public static Optional<AggregateValue> rollUpAggregateValueMaybe(@Nonnull final String indexType, @Nonnull final Value argument) {
         return Optional.ofNullable(rollUpAggregateMap.get()
-                .get(index.getType()))
+                .get(indexType))
                 .map(fn -> (AggregateValue)fn.encapsulate(ImmutableList.of(argument)));
     }
 
@@ -373,8 +377,8 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         final ImmutableMap.Builder<String, BuiltInFunction<? extends Value>> mapBuilder = ImmutableMap.builder();
         mapBuilder.put(IndexTypes.MAX_EVER_LONG, new NumericAggregationValue.MaxFn());
         mapBuilder.put(IndexTypes.MIN_EVER_LONG, new NumericAggregationValue.MinFn());
-        // mapBuilder.put(IndexTypes.MAX_EVER_TUPLE, TODO);
-        // mapBuilder.put(IndexTypes.MIN_EVER_TUPLE, TODO);
+        mapBuilder.put(IndexTypes.MAX_EVER_TUPLE, new NumericAggregationValue.MaxFn());
+        mapBuilder.put(IndexTypes.MIN_EVER_TUPLE, new NumericAggregationValue.MinFn());
         mapBuilder.put(IndexTypes.SUM, new NumericAggregationValue.SumFn());
         mapBuilder.put(IndexTypes.COUNT, new NumericAggregationValue.SumFn());
         mapBuilder.put(IndexTypes.COUNT_NOT_NULL, new NumericAggregationValue.SumFn());
