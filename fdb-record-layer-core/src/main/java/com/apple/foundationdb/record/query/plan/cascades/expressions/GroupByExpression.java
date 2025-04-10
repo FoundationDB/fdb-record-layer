@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.cascades.AggregateIndexExpansionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
@@ -84,9 +85,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
-
-import static com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint.alwaysTrue;
-import static com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint.falseValue;
 
 /**
  * A logical {@code group by} expression that represents grouping incoming tuples and aggregating each group.
@@ -339,7 +337,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         if (otherAggregateValues.size() != 1) {
             return ImmutableList.of();
         }
-        final var otherPrimitiveAggregateValue = Iterables.getOnlyElement(otherAggregateValues);
+        final var otherPrimitiveAggregateValue = (IndexableAggregateValue)Iterables.getOnlyElement(otherAggregateValues);
         final var matchedAggregatesMapBuilder = ImmutableBiMap.<Value, Value>builder();
         final var unmatchedAggregatesMapBuilder =
                 ImmutableBiMap.<CorrelationIdentifier, Value>builder();
@@ -376,6 +374,12 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         }
         final var matchedGroupingsMap = subsumedGroupingsResult.getMatchedGroupingsMap();
         final var rollUpToGroupingValues = subsumedGroupingsResult.getRollUpToValues();
+
+        if (rollUpToGroupingValues != null &&
+                !AggregateIndexExpansionVisitor.canBeRolledUp(otherPrimitiveAggregateValue.getIndexTypeName())) {
+            // We determined we need a roll up, but we cannot do it base on the aggregations.
+            return ImmutableList.of();
+        }
 
         final var unmatchedTranslatedAggregateValueMap =
                 unmatchedTranslatedAggregatesValueMapBuilder.buildKeepingLast();
@@ -414,7 +418,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                                                       @Nonnull final TranslationMap translationMap,
                                                       @Nonnull final ValueEquivalence valueEquivalence) {
         if (groupingValue == null && candidateGroupingValue == null) {
-            return SubsumedGroupingsResult.withoutRollUp(alwaysTrue(), ImmutableBiMap.of());
+            return SubsumedGroupingsResult.withoutRollUp(BooleanWithConstraint.alwaysTrue(), ImmutableBiMap.of());
         }
         if (candidateGroupingValue == null) {
             return SubsumedGroupingsResult.noSubsumption();
@@ -424,7 +428,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         final BiMap<Value, Value> matchedGroupingsMap;
         if (groupingValue != null) {
             final var translatedGroupingsValuesBuilder = ImmutableList.<Value>builder();
-            final var matchedGroupingsMapBuilder = ImmutableBiMap.<Value, Value>builder();
+            final var matchedGroupingsMapBuilder = ImmutableMap.<Value, Value>builder();
             final var groupingValues =
                     Values.primitiveAccessorsForType(groupingValue.getResultType(), () -> groupingValue).stream()
                             .map(primitiveGroupingValue -> primitiveGroupingValue.simplify(AliasMap.emptyMap(),
@@ -438,7 +442,14 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                 matchedGroupingsMapBuilder.put(primitiveGroupingValue, translatedPrimitiveGroupingValue);
             }
             translatedGroupingValues = translatedGroupingsValuesBuilder.build();
-            matchedGroupingsMap = matchedGroupingsMapBuilder.build();
+
+            //
+            // We know that if there are duplicates, they will be on the query side. Immutable bi-maps do not support
+            // duplicated keys at all while regular maps do. The simplest and also the cheapest solution is to just
+            // use an immutable map builder (which then is de-duped when built) and then use that map to build the
+            // bi-map.
+            //
+            matchedGroupingsMap = ImmutableBiMap.copyOf(matchedGroupingsMapBuilder.buildKeepingLast());
         } else {
             translatedGroupingValues = ImmutableList.of();
             matchedGroupingsMap = ImmutableBiMap.of();
@@ -474,7 +485,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         // 3. For each candidate grouping value in the set of (yet) unmatched candidate group values, try to find a
         //    predicate that binds that groupingValue.
         //
-        var booleanWithConstraint = alwaysTrue();
+        var booleanWithConstraint = BooleanWithConstraint.alwaysTrue();
         for (final var translatedGroupingValue : translatedGroupingValuesSet) {
             var found = false;
 
@@ -561,7 +572,8 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         }
 
         if (!unmatchedCandidateValues.isEmpty()) {
-            Verify.verify(candidateGroupingValues.size() > translatedGroupingValues.size());
+            Verify.verify(candidateGroupingValues.size() > translatedGroupingValuesSet.size());
+
             //
             // This is a potential roll-up case, but only if the query side's groupings are completely subsumed
             // by the prefix of the candidate side. Iterate up to the smaller query side's grouping values to
@@ -629,14 +641,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
         final var childCompensation = childCompensationOptional.get();
 
-        if (childCompensation.isImpossible()
-//                ||
-//                //
-//                // TODO This needs some improvement as GB a, b, c WHERE a= AND c= needs to reapply the
-//                //      predicate on c which is currently refused here.
-//                //
-//                childCompensation.isNeededForFiltering()
-        ) {
+        if (childCompensation.isImpossible()) {
             //
             // Note that it may be better to just return the child compensation verbatim as that compensation
             // may be combinable with something else to make it possible while the statically impossible compensation
@@ -730,7 +735,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         return rcv.simplify(AliasMap.identitiesFor(rcv.getCorrelatedTo()), ImmutableSet.of());
     }
 
-    public static class UnmatchedAggregateValue extends AbstractValue implements Value.NonEvaluableValue, IndexableAggregateValue {
+    public static class UnmatchedAggregateValue extends AbstractValue implements Value.NonEvaluableValue {
         @Nonnull
         private final CorrelationIdentifier unmatchedId;
 
@@ -747,12 +752,6 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         @Override
         protected Iterable<? extends Value> computeChildren() {
             return ImmutableList.of();
-        }
-
-        @Nonnull
-        @Override
-        public String getIndexTypeName() {
-            throw new UnsupportedOperationException();
         }
 
         @Nonnull
@@ -831,7 +830,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
         @Nonnull
         public static SubsumedGroupingsResult noSubsumption() {
-            return of(falseValue(), ImmutableBiMap.of(), null);
+            return of(BooleanWithConstraint.falseValue(), ImmutableBiMap.of(), null);
         }
 
         @Nonnull

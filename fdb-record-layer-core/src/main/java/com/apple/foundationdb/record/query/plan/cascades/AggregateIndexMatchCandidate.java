@@ -436,7 +436,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             }
 
             final var rollUpAggregateValueOptional =
-                    AggregateIndexExpansionVisitor.rollUpAggregateValueMaybe(index,
+                    AggregateIndexExpansionVisitor.rollUpAggregateValueMaybe(index.getType(),
                             aggregateAccessorValue);
 
             final var aggregateIndexScanQuantifier =

@@ -7,9 +7,9 @@ recursive-cte-tests:
         TEMP SCAN base() | FILTER _.ID EQUALS q2.PARENT AS q3 RETURN (q2.ID AS ID,
         q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)
     task_count: 1586
-    task_total_time_ms: 16
-    transform_count: 403
-    transform_time_ms: 7
+    task_total_time_ms: 15
+    transform_count: 409
+    transform_time_ms: 6
     transform_yield_count: 90
     insert_time_ms: 1
     insert_new_count: 368
@@ -22,8 +22,8 @@ recursive-cte-tests:
         TEMP SCAN base() | FILTER _.PARENT EQUALS q2.ID AS q3 RETURN (q2.ID AS ID,
         q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)
     task_count: 1586
-    task_total_time_ms: 11
-    transform_count: 403
+    task_total_time_ms: 12
+    transform_count: 409
     transform_time_ms: 4
     transform_yield_count: 90
     insert_time_ms: 1
@@ -44,7 +44,7 @@ recursive-cte-tests:
         TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT)
     task_count: 2407
     task_total_time_ms: 18
-    transform_count: 615
+    transform_count: 623
     transform_time_ms: 6
     transform_yield_count: 128
     insert_time_ms: 1
@@ -58,9 +58,9 @@ recursive-cte-tests:
         TEMP SCAN base() | FILTER _.ID EQUALS q2.PARENT AS q3 RETURN (q2.ID AS ID,
         q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)
     task_count: 1586
-    task_total_time_ms: 16
-    transform_count: 403
-    transform_time_ms: 7
+    task_total_time_ms: 15
+    transform_count: 409
+    transform_time_ms: 6
     transform_yield_count: 90
     insert_time_ms: 1
     insert_new_count: 368
@@ -80,7 +80,7 @@ recursive-cte-tests:
         TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT)
     task_count: 2407
     task_total_time_ms: 18
-    transform_count: 615
+    transform_count: 623
     transform_time_ms: 6
     transform_yield_count: 128
     insert_time_ms: 1
