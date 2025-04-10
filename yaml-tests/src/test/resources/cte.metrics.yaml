@@ -4,7 +4,7 @@ cte-tests:
         KEY[0], ID: KEY[3]]) | MAP (_.COL1 AS COL1)'
     task_count: 440
     task_total_time_ms: 4
-    transform_count: 123
+    transform_count: 126
     transform_time_ms: 1
     transform_yield_count: 33
     insert_time_ms: 0
@@ -16,7 +16,7 @@ cte-tests:
         AS LONG) | MAP (_.X AS X)
     task_count: 295
     task_total_time_ms: 3
-    transform_count: 90
+    transform_count: 93
     transform_time_ms: 1
     transform_yield_count: 25
     insert_time_ms: 0
@@ -27,8 +27,8 @@ cte-tests:
     explain: SCAN(<,>) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) | FILTER _.COL2 LESS_THAN
         promote(@c24 AS LONG) | MAP (_.COL1 AS X)
     task_count: 295
-    task_total_time_ms: 3
-    transform_count: 90
+    task_total_time_ms: 2
+    transform_count: 93
     transform_time_ms: 1
     transform_yield_count: 25
     insert_time_ms: 0

@@ -24,8 +24,9 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.rules.AdjustMatchRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.AggregateDataAccessRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.CombineFilterRule;
-import com.apple.foundationdb.record.query.plan.cascades.rules.DataAccessRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.WithPrimaryKeyDataAccessRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDeleteRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDistinctRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDistinctUnionRule;
@@ -83,7 +84,6 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.PushSetOperationT
 import com.apple.foundationdb.record.query.plan.cascades.rules.PushTypeFilterBelowFilterRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.RemoveProjectionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.RemoveSortRule;
-import com.apple.foundationdb.record.query.plan.cascades.rules.SelectDataAccessRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.SplitSelectExtractIndependentQuantifiersRule;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValuesPlan;
@@ -194,8 +194,8 @@ public class PlannerRuleSet {
             new AdjustMatchRule()
     );
     private static final List<CascadesRule<? extends MatchPartition>> MATCH_PARTITION_RULES = ImmutableList.of(
-            new DataAccessRule(),
-            new SelectDataAccessRule(),
+            new WithPrimaryKeyDataAccessRule(),
+            new AggregateDataAccessRule(),
             new PredicateToLogicalUnionRule()
     );
     private static final List<CascadesRule<? extends RelationalExpression>> ALL_EXPRESSION_RULES =

@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
@@ -49,7 +50,7 @@ import java.util.Optional;
  *     <li>referencing the {@link MatchCandidate}'s traversal w.r.t. the (partially) matched query.</li>
  *     <li>does not have a corresponding match on the query side.</li>
  * </ul>
- * For more information, see {@link RelationalExpression#adjustMatch(PartialMatch)}.
+ * For more information, see {@link RelationalExpression#adjustMatch(PartialMatch, Quantifier)}.
  * Currently the only such expression that can be absorbed is
  * {@link com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression}.
  * TODO Maybe that expression should just be a generic property-defining expression or properties should be kept on quantifiers.
@@ -100,8 +101,9 @@ public class AdjustMatchRule extends CascadesRule<PartialMatch> {
             return Optional.empty();
         }
 
+        final Quantifier candidateQuantifier = Iterables.getOnlyElement(candidateExpression.getQuantifiers());
         final Reference otherRangesOver =
-                Iterables.getOnlyElement(candidateExpression.getQuantifiers()).getRangesOver();
+                candidateQuantifier.getRangesOver();
 
         if (!candidateExpression.getCorrelatedTo().equals(otherRangesOver.getCorrelatedTo())) {
             return Optional.empty();
@@ -111,6 +113,6 @@ public class AdjustMatchRule extends CascadesRule<PartialMatch> {
             return Optional.empty();
         }
 
-        return candidateExpression.adjustMatch(partialMatch);
+        return candidateExpression.adjustMatch(partialMatch, candidateQuantifier);
     }
 }

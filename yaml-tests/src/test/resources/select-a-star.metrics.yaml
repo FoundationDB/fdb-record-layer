@@ -5,11 +5,11 @@ select-star-tests:
         (_._0._0 AS A1, _._0._1 AS A2, _._0._2 AS A3, q0.B1 AS B1) | DEFAULT NULL
         | FILTER _ NOT_NULL AS q0 RETURN (q0.B1 AS B1) }
     task_count: 445
-    task_total_time_ms: 112
-    transform_count: 145
-    transform_time_ms: 71
+    task_total_time_ms: 26
+    transform_count: 151
+    transform_time_ms: 10
     transform_yield_count: 36
-    insert_time_ms: 6
+    insert_time_ms: 0
     insert_new_count: 38
     insert_reused_count: 4
 -   query: EXPLAIN select B1 from B where exists (select A.*, B1 from A group by A1,A2,A3);
@@ -18,11 +18,11 @@ select-star-tests:
         (_._0._0 AS A1, _._0._1 AS A2, _._0._2 AS A3, q0.B1 AS B1) | DEFAULT NULL
         | FILTER _ NOT_NULL AS q0 RETURN (q0.B1 AS B1) }
     task_count: 445
-    task_total_time_ms: 112
-    transform_count: 145
-    transform_time_ms: 71
+    task_total_time_ms: 26
+    transform_count: 151
+    transform_time_ms: 10
     transform_yield_count: 36
-    insert_time_ms: 6
+    insert_time_ms: 0
     insert_new_count: 38
     insert_reused_count: 4
 -   query: EXPLAIN select B.* from B where exists (select A.*, B.* from A group by
@@ -32,10 +32,10 @@ select-star-tests:
         (_._0._0 AS A1, _._0._1 AS A2, _._0._2 AS A3, q0.B1 AS B1, q0.B2 AS B2, q0.B3
         AS B3) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN q0 }
     task_count: 445
-    task_total_time_ms: 27
-    transform_count: 145
-    transform_time_ms: 11
+    task_total_time_ms: 20
+    transform_count: 151
+    transform_time_ms: 7
     transform_yield_count: 36
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 38
     insert_reused_count: 4

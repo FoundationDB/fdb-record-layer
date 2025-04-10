@@ -150,7 +150,7 @@ public class PartitionSelectRule extends CascadesRule<SelectExpression> {
 
         final CorrelationIdentifier lowerAliasCorrelatedToByUpperAliases;
         if (lowersCorrelatedToByUpperAliases.isEmpty()) {
-            lowerAliasCorrelatedToByUpperAliases = Quantifier.uniqueID();
+            lowerAliasCorrelatedToByUpperAliases = Quantifier.uniqueId();
         } else {
             lowerAliasCorrelatedToByUpperAliases = Iterables.getOnlyElement(lowersCorrelatedToByUpperAliases);
         }

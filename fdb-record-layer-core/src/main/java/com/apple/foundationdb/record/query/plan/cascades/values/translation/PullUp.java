@@ -30,7 +30,9 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -44,21 +46,20 @@ public class PullUp {
     @Nullable
     private final PullUp parentPullUp;
     @Nonnull
-    private final CorrelationIdentifier nestingAlias;
+    private final CorrelationIdentifier candidateAlias;
     @Nonnull
     private final Value pullThroughValue;
     @Nonnull
     private final Set<CorrelationIdentifier> rangedOverAliases;
-
     @Nonnull
     private final PullUp rootPullUp;
 
     private PullUp(@Nullable final PullUp parentPullUp,
-                   @Nonnull final CorrelationIdentifier nestingAlias,
+                   @Nonnull final CorrelationIdentifier candidateAlias,
                    @Nonnull final Value pullThroughValue,
                    @Nonnull final Set<CorrelationIdentifier> rangedOverAliases) {
         this.parentPullUp = parentPullUp;
-        this.nestingAlias = nestingAlias;
+        this.candidateAlias = candidateAlias;
         this.pullThroughValue = pullThroughValue;
         this.rangedOverAliases = ImmutableSet.copyOf(rangedOverAliases);
         this.rootPullUp = parentPullUp == null ? this : parentPullUp.getRootPullUp();
@@ -75,8 +76,8 @@ public class PullUp {
     }
 
     @Nonnull
-    public CorrelationIdentifier getNestingAlias() {
-        return nestingAlias;
+    public CorrelationIdentifier getCandidateAlias() {
+        return candidateAlias;
     }
 
     public boolean isRoot() {
@@ -94,26 +95,28 @@ public class PullUp {
     }
 
     @Nonnull
-    public CorrelationIdentifier getTopAlias() {
-        return getRootPullUp().getNestingAlias();
-    }
-
-    @Nonnull
-    private static PullUp of(@Nullable final PullUp parentPullUp,
-                             @Nonnull final CorrelationIdentifier nestingAlias,
-                             @Nonnull final CorrelationIdentifier lowerAlias,
-                             @Nonnull final Type lowerType,
-                             @Nonnull final Set<CorrelationIdentifier> rangedOverAliases) {
-        return of(parentPullUp, nestingAlias, QuantifiedObjectValue.of(lowerAlias, lowerType),
+    private static PullUp forMatch(@Nullable final PullUp parentPullUp,
+                                   @Nonnull final CorrelationIdentifier candidateAlias,
+                                   @Nonnull final CorrelationIdentifier lowerAlias,
+                                   @Nonnull final Type lowerType,
+                                   @Nonnull final Set<CorrelationIdentifier> rangedOverAliases) {
+        return forMatch(parentPullUp, candidateAlias, QuantifiedObjectValue.of(lowerAlias, lowerType),
                 rangedOverAliases);
     }
 
     @Nonnull
-    private static PullUp of(@Nullable final PullUp parentPullUp,
-                             @Nonnull final CorrelationIdentifier nestingAlias,
-                             @Nonnull final Value lowerPullThroughValue,
-                             @Nonnull final Set<CorrelationIdentifier> rangedOverAliases) {
-        return new PullUp(parentPullUp, nestingAlias, lowerPullThroughValue, rangedOverAliases);
+    private static PullUp forMatch(@Nullable final PullUp parentPullUp,
+                                   @Nonnull final CorrelationIdentifier candidateAlias,
+                                   @Nonnull final Value lowerPullThroughValue,
+                                   @Nonnull final Set<CorrelationIdentifier> rangedOverAliases) {
+        return new MatchPullUp(parentPullUp, candidateAlias, lowerPullThroughValue, rangedOverAliases);
+    }
+
+    @Nonnull
+    public static UnificationPullUp forUnification(@Nonnull final CorrelationIdentifier candidateAlias,
+                                                   @Nonnull final Value lowerPullThroughValue,
+                                                   @Nonnull final Set<CorrelationIdentifier> rangedOverAliases) {
+        return new UnificationPullUp(null, candidateAlias, lowerPullThroughValue, rangedOverAliases);
     }
 
     /**
@@ -130,7 +133,7 @@ public class PullUp {
      *         {@code value} could not be pulled up.
      */
     @Nonnull
-    public Optional<Value> pullUpMaybe(@Nonnull final Value value) {
+    public Optional<Value> pullUpValueMaybe(@Nonnull final Value value) {
         //
         // The following loop would probably be more self-explanatory if it were written as a recursion but
         // this unrolled version probably performs better as this may prove to be a tight loop.
@@ -141,7 +144,7 @@ public class PullUp {
                     MaxMatchMap.compute(currentValue, currentPullUp.getPullThroughValue(),
                             currentPullUp.getRangedOverAliases());
             final var currentValueOptional =
-                    maxMatchMap.translateQueryValueMaybe(currentPullUp.getNestingAlias());
+                    maxMatchMap.translateQueryValueMaybe(currentPullUp.getCandidateAlias());
             if (currentValueOptional.isEmpty()) {
                 return Optional.empty();
             }
@@ -155,27 +158,56 @@ public class PullUp {
     }
 
     @Nonnull
+    public Optional<Value> pullUpCandidateValueMaybe(@Nonnull final Value value) {
+        //
+        // The following loop would probably be more self-explanatory if it were written as a recursion but
+        // this unrolled version probably performs better as this may prove to be a tight loop.
+        //
+        var currentValue = value;
+        for (var currentPullUp = this; ; currentPullUp = currentPullUp.getParentPullUp()) {
+            final var currentPullThroughValue = currentPullUp.getPullThroughValue();
+            final var currentRangedOverAliases = currentPullUp.getRangedOverAliases();
+            final var currentCandidateAlias = currentPullUp.getCandidateAlias();
+            final var candidatePullUpMap =
+                    currentPullThroughValue.pullUp(ImmutableList.of(currentValue),
+                            AliasMap.emptyMap(),
+                            Sets.difference(currentValue.getCorrelatedToWithoutChildren(),
+                                    currentRangedOverAliases),
+                            currentCandidateAlias);
+            final var pulledUpCandidateAggregateValue = candidatePullUpMap.get(currentValue);
+            if (pulledUpCandidateAggregateValue == null) {
+                return Optional.empty();
+            }
+            currentValue = pulledUpCandidateAggregateValue;
+
+            if (currentPullUp.getParentPullUp() == null) {
+                return Optional.of(currentValue);
+            }
+        }
+    }
+
+    @Nonnull
     public static RelationalExpressionVisitor<PullUp> visitor(@Nullable final PullUp parentPullUp,
-                                                              @Nonnull final CorrelationIdentifier nestingAlias) {
-        return new PullUpVisitor(parentPullUp, nestingAlias);
+                                                              @Nonnull final CorrelationIdentifier candidateAlias) {
+        return new PullUpVisitor(parentPullUp, candidateAlias);
     }
 
     private static class PullUpVisitor implements RelationalExpressionVisitorWithDefaults<PullUp> {
         @Nullable
         private final PullUp parentPullUp;
         @Nonnull
-        private final CorrelationIdentifier nestingAlias;
+        private final CorrelationIdentifier candidateAlias;
 
         public PullUpVisitor(@Nullable final PullUp parentPullUp,
-                             @Nonnull final CorrelationIdentifier nestingAlias) {
+                             @Nonnull final CorrelationIdentifier candidateAlias) {
             this.parentPullUp = parentPullUp;
-            this.nestingAlias = nestingAlias;
+            this.candidateAlias = candidateAlias;
         }
 
         @Nonnull
         @Override
         public PullUp visitLogicalTypeFilterExpression(@Nonnull final LogicalTypeFilterExpression logicalTypeFilterExpression) {
-            return of(parentPullUp, nestingAlias, logicalTypeFilterExpression.getInnerQuantifier().getAlias(),
+            return forMatch(parentPullUp, candidateAlias, logicalTypeFilterExpression.getInnerQuantifier().getAlias(),
                     logicalTypeFilterExpression.getInnerQuantifier().getFlowedObjectType(),
                     Quantifiers.aliases(logicalTypeFilterExpression.getQuantifiers()));
         }
@@ -183,8 +215,26 @@ public class PullUp {
         @Nonnull
         @Override
         public PullUp visitDefault(@Nonnull final RelationalExpression relationalExpression) {
-            return of(parentPullUp, nestingAlias, relationalExpression.getResultValue(),
+            return forMatch(parentPullUp, candidateAlias, relationalExpression.getResultValue(),
                     Quantifiers.aliases(relationalExpression.getQuantifiers()));
+        }
+    }
+
+    public static class MatchPullUp extends PullUp {
+        public MatchPullUp(@Nullable final PullUp parentPullUp,
+                           @Nonnull final CorrelationIdentifier candidateAlias,
+                           @Nonnull final Value pullThroughValue,
+                           @Nonnull final Set<CorrelationIdentifier> rangedOverAliases) {
+            super(parentPullUp, candidateAlias, pullThroughValue, rangedOverAliases);
+        }
+    }
+
+    public static class UnificationPullUp extends PullUp {
+        public UnificationPullUp(@Nullable final PullUp parentPullUp,
+                                 @Nonnull final CorrelationIdentifier candidateAlias,
+                                 @Nonnull final Value pullThroughValue,
+                                 @Nonnull final Set<CorrelationIdentifier> rangedOverAliases) {
+            super(parentPullUp, candidateAlias, pullThroughValue, rangedOverAliases);
         }
     }
 }
