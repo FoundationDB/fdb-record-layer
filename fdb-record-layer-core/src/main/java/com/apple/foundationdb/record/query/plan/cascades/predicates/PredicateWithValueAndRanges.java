@@ -60,6 +60,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 /**
@@ -261,6 +262,13 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
     public PredicateWithValueAndRanges withValueAndRanges(@Nonnull final Value value,
                                                           @Nonnull final Set<RangeConstraints> ranges) {
         return new PredicateWithValueAndRanges(value, ranges);
+    }
+
+    @Nonnull
+    @Override
+    public QueryPredicate translateValues(@Nonnull final UnaryOperator<Value> translationOperator) {
+        Value newValue = translationOperator.apply(value);
+        return ofRanges(newValue, ranges);
     }
 
     /**

@@ -53,6 +53,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 
 /**
  * A predicate consisting of a {@link Value} and a {@link Comparison}.
@@ -132,6 +133,13 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
         builder.addAll(value.getCorrelatedTo());
         builder.addAll(comparison.getCorrelatedTo());
         return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    public QueryPredicate translateValues(@Nonnull final UnaryOperator<Value> translationOperator) {
+        Value newValue = translationOperator.apply(value);
+        return new ValuePredicate(newValue, comparison);
     }
 
     @Nonnull
