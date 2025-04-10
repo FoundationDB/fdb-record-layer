@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.Range;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -30,6 +31,7 @@ import javax.annotation.Nonnull;
 /**
  * List of subspaces related to the indexing/index-scrubbing processes.
  */
+@API(API.Status.INTERNAL)
 public final class IndexingSubspaces {
     private static final Object INDEX_BUILD_LOCK_KEY = 0L;
     private static final Object INDEX_BUILD_SCANNED_RECORDS = 1L;
@@ -53,45 +55,96 @@ public final class IndexingSubspaces {
         return indexBuildSubspace(store, index, INDEX_BUILD_LOCK_KEY);
     }
 
+    /**
+     * Subspace that stores the number of scanned items during indexing.
+     * @param store store
+     * @param index index
+     * @return subspace
+     */
     @Nonnull
     public static Subspace indexBuildScannedRecordsSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
         return indexBuildSubspace(store, index, INDEX_BUILD_SCANNED_RECORDS);
     }
 
+    /**
+     * Subspace that stores the indexing build type stamp.
+     * @param store store
+     * @param index index
+     * @return subspace
+     */
     @Nonnull
     public static Subspace indexBuildTypeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
         return indexBuildSubspace(store, index, INDEX_BUILD_TYPE_VERSION);
     }
 
+    /**
+     * Subspace that stores scrubbed records ranges of the zero range-id. This subspace is backward compatible
+     * to record ranges scrubbed before range-id was introduced.
+     * @param store store
+     * @param index index
+     * @return subspace
+     */
     @Nonnull
-    public static Subspace indexScrubRecordsRangeSubspaceLegacy(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+    public static Subspace indexScrubRecordsRangeSubspaceZero(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
         // Backward compatible subspace for range-id zero
         return indexBuildSubspace(store, index, INDEX_SCRUBBED_RECORDS_RANGES_ZERO);
     }
 
+    /**
+     * Subspace that stores scrubbed records ranges. This subspace is expected to be followed by a range-id.
+     * @param store store
+     * @param index index
+     * @return subspace
+     */
     @Nonnull
     public static Subspace indexScrubRecordsRangeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
         return indexBuildSubspace(store, index, INDEX_SCRUBBED_RECORDS_RANGES);
     }
 
+    /**
+     * Subspace that stores scrubbed index entries ranges of the zero range-id. This subspace is backward compatible
+     * to index entries ranges scrubbed before range-id was introduced.
+     * @param store store
+     * @param index index
+     * @return subspace
+     */
     @Nonnull
     public static Subspace indexScrubIndexRangeSubspaceLegacy(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
         // Backward compatible subspace for range-id zero
         return indexBuildSubspace(store, index, INDEX_SCRUBBED_INDEX_RANGES_ZERO);
     }
 
+    /**
+     * Subspace that stores scrubbed index entries ranges. This subspace is expected to be followed by a range-id.
+     * @param store store
+     * @param index index
+     * @return subspace
+     */
     @Nonnull
     public static Subspace indexScrubIndexRangeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
         return indexBuildSubspace(store, index, INDEX_SCRUBBED_INDEX_RANGES);
     }
 
+    /**
+     * Erasing all the scrubbing ranges data. After calling this function, there would be no memory of scrubbed ranges.
+     * @param context user context - the operation will run within this context
+     * @param store store
+     * @param index index
+     */
     public static void eraseAllIndexingScrubbingData(@Nonnull FDBRecordContext context, @Nonnull FDBRecordStore store, @Nonnull Index index) {
         context.clear(Range.startsWith(indexScrubIndexRangeSubspaceLegacy(store, index).pack()));
         context.clear(Range.startsWith(indexScrubIndexRangeSubspace(store, index).pack()));
-        context.clear(Range.startsWith(indexScrubRecordsRangeSubspaceLegacy(store, index).pack()));
+        context.clear(Range.startsWith(indexScrubRecordsRangeSubspaceZero(store, index).pack()));
         context.clear(Range.startsWith(indexScrubRecordsRangeSubspace(store, index).pack()));
     }
 
+    /**
+     * Delete all data related to the indexing/scrubbing process except of the index locks. Index locks are preserved because
+     * often this operation is expected to be protected by this lock.
+     * @param context user context - the operation will run within this context
+     * @param store store
+     * @param index index
+     */
     public static void eraseAllIndexingDataButTheLock(@Nonnull FDBRecordContext context, @Nonnull FDBRecordStore store, @Nonnull Index index) {
         eraseAllIndexingScrubbingData(context, store, index);
         context.clear(Range.startsWith(indexBuildScannedRecordsSubspace(store, index).pack()));

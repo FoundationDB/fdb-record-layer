@@ -539,7 +539,7 @@ public abstract class IndexingBase {
     @Nonnull
     protected CompletableFuture<Void> setScrubberTypeOrThrow(FDBRecordStore store) {
         // This path should never be reached
-        throw new ValidationException("Called in a non-scrubbing path",
+        throw new ValidationException("Called setScrubberTypeOrThrow in a non-scrubbing path",
                 "isScrubber", isScrubber);
     }
 

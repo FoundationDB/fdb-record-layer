@@ -254,7 +254,7 @@ public class IndexingRangeSet {
         final Subspace subspace;
         if (rangeId == 0) {
             // Backward compatible
-            subspace = IndexingSubspaces.indexScrubRecordsRangeSubspaceLegacy(store, index);
+            subspace = IndexingSubspaces.indexScrubRecordsRangeSubspaceZero(store, index);
         } else {
             subspace = IndexingSubspaces.indexScrubRecordsRangeSubspace(store, index).subspace(Tuple.from(rangeId));
         }

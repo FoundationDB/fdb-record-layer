@@ -136,7 +136,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
      * A builder for the scrubbing policy.
      */
     public static class ScrubbingPolicy {
-        public static final ScrubbingPolicy DEFAULT = new ScrubbingPolicy(1000, false, 0, false, false, 0, false);
+        public static final ScrubbingPolicy DEFAULT = new ScrubbingPolicy(1000, true, 0, false, false, 0, false);
         private final int logWarningsLimit;
         private final boolean allowRepair;
         private final long entriesScanLimit;
@@ -145,14 +145,15 @@ public class OnlineIndexScrubber implements AutoCloseable {
         private final int rangeId;
         private final boolean rangeReset;
 
+        @Deprecated(since = "4.2.2.1", forRemoval = true)
         public ScrubbingPolicy(int logWarningsLimit, boolean allowRepair, long entriesScanLimit,
-                               boolean ignoreIndexTypeCheck, boolean useLgacy, int rangeId, boolean rangeReset) {
+                               boolean ignoreIndexTypeCheck, boolean useLegacy, int rangeId, boolean rangeReset) {
 
             this.logWarningsLimit = logWarningsLimit;
             this.allowRepair = allowRepair;
             this.entriesScanLimit = entriesScanLimit;
             this.ignoreIndexTypeCheck = ignoreIndexTypeCheck;
-            this.useLegacy = useLgacy;
+            this.useLegacy = useLegacy;
             this.rangeId = rangeId;
             this.rangeReset = rangeReset;
         }
@@ -288,24 +289,25 @@ public class OnlineIndexScrubber implements AutoCloseable {
             }
 
             /**
-             * Choose a specific "Already Scrubbed" rangeSet prefix. This may be useful for
-             * multiple scrubbing jobs that may not affect each other.
+             * Choose a specific id for this scrubbing operation. If the scrubbing stops, then later it can be resumed
+             * at a later time by constructing the same builder.
+             * Work done with other ids will not affect work done with this id.
              * 0 is the backward compatible default, which means no prefix.
              * @param rangeId a rangeSet prefix
              * @return this builder
              */
-            public Builder setRangeId(final int rangeId) {
+            public Builder setScrubbingRangeId(final int rangeId) {
                 this.rangeId = rangeId;
                 return this;
             }
 
             /**
-             * If set to true, clear any previous "Already Scrubbed" range set (in the given rangeId) - which means that
-             * the index scrubbing will begin from scratch.
+             * Start the scrubbing from scratch, regardless of any progress already made for this scrubber range id
+             * (see {@link #setScrubbingRangeId(int)}).
              * @param rangeReset reset if true
              * @return this builder
              */
-            public Builder setRangeReset(final boolean rangeReset) {
+            public Builder setScrubbingRangeReset(final boolean rangeReset) {
                 this.rangeReset = rangeReset;
                 return this;
             }
