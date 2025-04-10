@@ -37,7 +37,6 @@ import java.sql.Clob;
 import java.sql.Date;
 import java.sql.NClob;
 import java.sql.Ref;
-import java.sql.ResultSet;
 import java.sql.RowId;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
@@ -49,11 +48,12 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.Calendar;
 import java.util.Map;
+import java.util.UUID;
 
 public class JDBCRelationalResultSet implements RelationalResultSet {
-    private final ResultSet delegate;
+    private final RelationalResultSet delegate;
 
-    public JDBCRelationalResultSet(ResultSet resultSet) {
+    public JDBCRelationalResultSet(RelationalResultSet resultSet) {
         delegate = resultSet;
     }
 
@@ -576,7 +576,7 @@ public class JDBCRelationalResultSet implements RelationalResultSet {
     @Override
     public RelationalArray getArray(int columnIndex) throws SQLException {
         //TODO(bfines) this almost certainly won't work
-        return (RelationalArray) delegate.getArray(columnIndex);
+        return delegate.getArray(columnIndex);
     }
 
     @Override
@@ -601,8 +601,17 @@ public class JDBCRelationalResultSet implements RelationalResultSet {
 
     @Override
     public RelationalArray getArray(String columnLabel) throws SQLException {
-        //TODO(bfines) this almost certainly won't work
-        return (RelationalArray) delegate.getArray(columnLabel);
+        return delegate.getArray(columnLabel);
+    }
+
+    @Override
+    public UUID getUUID(final int oneBasedPosition) throws SQLException {
+        return delegate.getUUID(oneBasedPosition);
+    }
+
+    @Override
+    public UUID getUUID(final String fieldName) throws SQLException {
+        return delegate.getUUID(fieldName);
     }
 
     @Override

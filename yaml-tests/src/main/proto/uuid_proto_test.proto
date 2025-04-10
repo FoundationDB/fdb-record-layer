@@ -1,5 +1,5 @@
 /*
- * standard_tests.proto
+ * uuid_proto_test.proto
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-syntax = "proto3";
+syntax = "proto2";
 
 // make sure to use this package naming convention:
 // com.apple.foundationdb.relational.yamltests.generated.<name_of_test_suite>
@@ -34,11 +34,11 @@ import "record_metadata_options.proto";
 import "tuple_fields.proto";
 
 message T1 {
-  int64 ID = 1 [(com.apple.foundationdb.record.field).primary_key = true];
-  int64 COL1 = 2;
-  com.apple.foundationdb.record.UUID COL2 = 3;
+  optional int64 ID = 1 [(com.apple.foundationdb.record.field).primary_key = true];
+  optional int64 COL1 = 2;
+  optional com.apple.foundationdb.record.UUID COL2 = 3;
 }
 
 message RecordTypeUnion {
-  T1 _T1 = 1;
+  optional T1 _T1 = 1;
 }

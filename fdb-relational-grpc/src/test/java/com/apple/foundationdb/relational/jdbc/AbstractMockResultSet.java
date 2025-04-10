@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import java.sql.SQLException;
+import java.util.UUID;
 
 /**
  * Mock ResultSet base class for testing purposes. This class handles the basic accessors of the result set and can be
@@ -126,6 +127,12 @@ public abstract class AbstractMockResultSet implements RelationalResultSet {
     }
 
     @Override
+    public UUID getUUID(int oneBasedPosition) throws SQLException {
+        checkCurrentRow();
+        return currentRow.getUUID(oneBasedPosition);
+    }
+
+    @Override
     public String getString(String columnLabel) throws SQLException {
         throw new UnsupportedOperationException("Label operations not supported in AbstractTestResultSet");
     }
@@ -172,6 +179,11 @@ public abstract class AbstractMockResultSet implements RelationalResultSet {
 
     @Override
     public RelationalArray getArray(String fieldName) throws SQLException {
+        throw new UnsupportedOperationException("Label operations not supported in AbstractTestResultSet");
+    }
+
+    @Override
+    public UUID getUUID(String fieldName) throws SQLException {
         throw new UnsupportedOperationException("Label operations not supported in AbstractTestResultSet");
     }
 

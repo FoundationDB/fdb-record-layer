@@ -21,29 +21,29 @@
 package com.apple.foundationdb.relational.jdbc;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.ArrayMetaData;
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
-import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
+import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
+import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.KeySet;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.KeySetValue;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSet;
-import com.apple.foundationdb.relational.jdbc.grpc.v1.RpcContinuationReason;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSetMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.RpcContinuation;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.RpcContinuationReason;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Column;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ColumnMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ListColumn;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ListColumnMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Struct;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Uuid;
 import com.apple.foundationdb.relational.util.PositionalIndex;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
@@ -54,6 +54,7 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.BiFunction;
 
 /**
@@ -78,6 +79,12 @@ public class TypeConversion {
                 resultSet.getMetadata().getColumnMetadata().getColumnMetadata(index).getStructMetadata();
         Column column = resultSet.getRow(rowIndex).getColumns().getColumn(index);
         return column.hasStruct() ? new RelationalStructFacade(metadata, column.getStruct()) : null;
+    }
+
+    static UUID getUUID(ResultSet resultSet, int rowIndex, int oneBasedColumn) throws SQLException {
+        int index = PositionalIndex.toProtobuf(oneBasedColumn);
+        Column column = resultSet.getRow(rowIndex).getColumns().getColumn(index);
+        return column.hasUuid() ? new UUID(column.getUuid().getMostSignificantBits(), column.getUuid().getLeastSignificantBits()) : null;
     }
 
     /**
@@ -414,6 +421,13 @@ public class TypeConversion {
                     // databases support them.
                     column = toColumn(relationalStruct.wasNull() ? null : (String) object,
                             (value, protobuf) -> value == null ? protobuf.clearString() : protobuf.setString(value));
+                    break;
+                } else if (object instanceof UUID) {
+                    column = toColumn(relationalStruct.wasNull() ? null : (UUID) object, (value, protobuf) ->
+                            value == null ? protobuf.clearUuid() : protobuf.setUuid(Uuid.newBuilder()
+                                    .setMostSignificantBits(value.getMostSignificantBits())
+                                    .setLeastSignificantBits(value.getLeastSignificantBits())
+                                    .build()));
                     break;
                 }
                 if (object == null) {

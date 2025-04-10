@@ -20,11 +20,14 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.record.TupleFieldsProto;
+import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.recordlayer.MessageTuple;
+import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
@@ -36,6 +39,7 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Locale;
+import java.util.UUID;
 
 /**
  * Implementation of {@link RelationalStruct} that is backed by a {@link Row}.
@@ -186,6 +190,19 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
                 return getArray(oneBasedPosition);
             case Types.BINARY:
                 return getBytes(oneBasedPosition);
+            case Types.OTHER:
+                final var object = getObjectInternal(getZeroBasedPosition(oneBasedPosition));
+                // This is a temporary workaround to support UUID as a primitive type. The fix essentially involves
+                // delaying the conversion of a message field (of type UUID) in the messageTuple until now when we can
+                // (little bit) predict that the field is actually a pre-defined UUID message. If the UUID message
+                // field is of sql.Types.OTHER (rather than sql.Types.STRUCT), we can expect that the plan is baked with
+                // the future-supported UUID type, and hence the result expects a JAVA UUID object. This can be
+                // removed (and pushed to MessageTuple) once we have proper and complete support for UUID.
+                if (object instanceof TupleFieldsProto.UUID) {
+                    return TupleFieldsHelper.fromProto((TupleFieldsProto.UUID) object);
+                } else  {
+                    return object;
+                }
             default:
                 return getObjectInternal(getZeroBasedPosition(oneBasedPosition));
         }
@@ -293,6 +310,24 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
         } else {
             throw new SQLException("Struct", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
         }
+    }
+
+    @Override
+    public UUID getUUID(String columnLabel) throws SQLException {
+        return getUUID(getOneBasedPosition(columnLabel));
+    }
+
+    @Override
+    public UUID getUUID(int oneBasedColumn) throws SQLException {
+        if (metaData.getColumnType(oneBasedColumn) != Types.OTHER) {
+            throw new SQLException("Expected UUID should have type OTHER", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
+        }
+        Object obj = getObjectInternal(getZeroBasedPosition(oneBasedColumn));
+        if (obj == null) {
+            return null;
+        }
+        Assert.thatUnchecked(obj instanceof UUID, ErrorCode.CANNOT_CONVERT_TYPE, "Expected UUID, got {}", obj.getClass().getName());
+        return (UUID) obj;
     }
 
     @Override
