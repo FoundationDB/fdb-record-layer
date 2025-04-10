@@ -39,7 +39,6 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInsertRu
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementIntersectionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementNestedLoopJoinRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementRecursiveUnionRule;
-import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementRecursiveUnionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementSimpleSelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementStreamingAggregationRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementTableFunctionRule;

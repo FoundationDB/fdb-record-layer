@@ -160,7 +160,7 @@ test_block:
       - result: [{S: 2}]
     -
       - query: select sum(Y) as S from (select count(*) as Y from t3 union all select count(*) from t1) as X
-      - explain: "SCAN(<,>) | TFILTER T3 | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS Y) ⊎ ISCAN(VI1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)"
+      - explain: "AISCAN(MV10 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1) GROUP BY () | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS Y) ⊎ ISCAN(VI1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)"
       - result: [{S: 5}]
     -
       - query: select col2 from t1 where exists (select a from t3 where col2 <= id union all select b from t4 where col2 <= id)

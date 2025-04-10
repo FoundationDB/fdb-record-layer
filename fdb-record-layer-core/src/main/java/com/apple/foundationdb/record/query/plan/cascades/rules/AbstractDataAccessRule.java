@@ -918,11 +918,11 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      *         realized data access and its compensation.
      */
     @Nonnull
-    protected abstract IntersectionResult createIntersectionAndCompensation(@Nonnull final Memoizer memoizer,
-                                                                            @Nonnull final Map<BitSet, IntersectionInfo> intersectionInfoMap,
-                                                                            @Nonnull final Map<PartialMatch, RecordQueryPlan> matchToPlanMap,
-                                                                            @Nonnull final List<Vectored<SingleMatchedAccess>> partition,
-                                                                            @Nonnull final Set<RequestedOrdering> requestedOrderings);
+    protected abstract IntersectionResult createIntersectionAndCompensation(@Nonnull Memoizer memoizer,
+                                                                            @Nonnull Map<BitSet, IntersectionInfo> intersectionInfoMap,
+                                                                            @Nonnull Map<PartialMatch, RecordQueryPlan> matchToPlanMap,
+                                                                            @Nonnull List<Vectored<SingleMatchedAccess>> partition,
+                                                                            @Nonnull Set<RequestedOrdering> requestedOrderings);
 
     protected static boolean isPartitionRedundant(@Nonnull final Map<BitSet, IntersectionInfo> intersectionInfoMap,
                                                   @Nonnull final List<Vectored<SingleMatchedAccess>> partition,
