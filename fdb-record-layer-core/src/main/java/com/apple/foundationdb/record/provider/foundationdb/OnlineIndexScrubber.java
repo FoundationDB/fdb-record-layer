@@ -40,6 +40,7 @@ import java.util.function.UnaryOperator;
  * Scan indexes for problems and optionally report or repair.
  */
 @API(API.Status.UNSTABLE)
+@SuppressWarnings("PMD.AvoidUsingHardCodedIP") // Dear PMD, the version string in "deprecated since" is not an IP.
 public class OnlineIndexScrubber implements AutoCloseable {
 
     @Nonnull private final IndexingCommon common;
