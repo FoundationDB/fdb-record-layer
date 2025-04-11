@@ -74,6 +74,6 @@ public class JDBCInProcessConfig implements YamlTestConfig {
 
     @Override
     public String toString() {
-        return "JDBC In-Process";
+        return "JDBC In-Proc";
     }
 }

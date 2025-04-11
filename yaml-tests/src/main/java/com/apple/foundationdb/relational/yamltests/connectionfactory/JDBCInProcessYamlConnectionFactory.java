@@ -49,7 +49,7 @@ public class JDBCInProcessYamlConnectionFactory implements YamlConnectionFactory
         URI connectPathPlusServerName = JDBCURI.addQueryParameter(connectPath, JDBCURI.INPROCESS_URI_QUERY_SERVERNAME_KEY, server.getServerName());
         String uriStr = connectPathPlusServerName.toString().replaceFirst("embed:", "relational://");
         LOG.info("Rewrote {} as {}", connectPath, uriStr);
-        return new SimpleYamlConnection(DriverManager.getConnection(uriStr), SemanticVersion.current());
+        return new SimpleYamlConnection(DriverManager.getConnection(uriStr), SemanticVersion.current(), "JDBC In-Proc");
     }
 
     @Override
