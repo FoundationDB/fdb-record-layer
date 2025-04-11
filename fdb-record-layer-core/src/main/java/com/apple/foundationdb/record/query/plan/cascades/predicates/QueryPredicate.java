@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
@@ -48,6 +47,7 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -68,7 +68,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.function.UnaryOperator;
 import java.util.stream.StreamSupport;
 
 /**
@@ -468,13 +467,13 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     }
 
     @Nonnull
-    default QueryPredicate translateValues(@Nonnull UnaryOperator<Value> translationOperator) {
+    default QueryPredicate translateValues(@Nonnull TranslationMap translationMap) {
         return replaceLeavesMaybe(t -> {
             if (!(t instanceof PredicateWithValue)) {
                 return t;
             }
             final PredicateWithValue predicateWithValue = (PredicateWithValue)t;
-            return predicateWithValue.translateValues(translationOperator);
+            return predicateWithValue.translateValues(translationMap);
         }).orElseThrow(() -> new RecordCoreException("should not throw"));
     }
 

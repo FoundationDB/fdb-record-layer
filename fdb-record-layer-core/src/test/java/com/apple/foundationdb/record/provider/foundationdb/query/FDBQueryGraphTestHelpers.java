@@ -63,7 +63,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 @Tag(Tags.RequiresFDB)
 public class FDBQueryGraphTestHelpers extends FDBRecordStoreQueryTestBase {
     @Nonnull
-    static Quantifier fullScan(@Nonnull RecordMetaData metaData, AccessHints hints) {
+    public static Quantifier fullScan(@Nonnull RecordMetaData metaData, AccessHints hints) {
         Set<String> allRecordTypes = ImmutableSet.copyOf(metaData.getRecordTypes().keySet());
         return Quantifier.forEach(Reference.of(
                 new FullUnorderedScanExpression(allRecordTypes,
@@ -72,12 +72,12 @@ public class FDBQueryGraphTestHelpers extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
-    static Quantifier fullScan(@Nonnull RecordMetaData metaData) {
+    public static Quantifier fullScan(@Nonnull RecordMetaData metaData) {
         return fullScan(metaData, new AccessHints());
     }
 
     @Nonnull
-    static Quantifier fullTypeScan(@Nonnull RecordMetaData metaData, @Nonnull String typeName, @Nonnull Quantifier fullScanQun) {
+    public static Quantifier fullTypeScan(@Nonnull RecordMetaData metaData, @Nonnull String typeName, @Nonnull Quantifier fullScanQun) {
         return Quantifier.forEach(Reference.of(
                 new LogicalTypeFilterExpression(ImmutableSet.of(typeName),
                         fullScanQun,
@@ -85,30 +85,30 @@ public class FDBQueryGraphTestHelpers extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
-    static Quantifier fullTypeScan(@Nonnull RecordMetaData metaData, @Nonnull String typeName) {
+    public static Quantifier fullTypeScan(@Nonnull RecordMetaData metaData, @Nonnull String typeName) {
         return fullTypeScan(metaData, typeName, fullScan(metaData));
     }
 
     @Nonnull
-    static Column<FieldValue> projectColumn(@Nonnull Quantifier qun, @Nonnull String columnName) {
+    public static Column<FieldValue> projectColumn(@Nonnull Quantifier qun, @Nonnull String columnName) {
         return projectColumn(qun.getFlowedObjectValue(), columnName);
     }
 
     @Nonnull
-    static Column<FieldValue> projectColumn(@Nonnull Value value, @Nonnull String columnName) {
+    public static Column<FieldValue> projectColumn(@Nonnull Value value, @Nonnull String columnName) {
         return Column.of(Optional.of(columnName), FieldValue.ofFieldNameAndFuseIfPossible(value, columnName));
     }
 
     @Nonnull
-    static <V extends Value> Column<V> resultColumn(@Nonnull V value, @Nullable String name) {
+    public static <V extends Value> Column<V> resultColumn(@Nonnull V value, @Nullable String name) {
         return Column.of(Optional.ofNullable(name), value);
     }
 
-    static RecordCursor<QueryResult> executeCascades(FDBRecordStore store, RecordQueryPlan plan) {
+    public static RecordCursor<QueryResult> executeCascades(FDBRecordStore store, RecordQueryPlan plan) {
         return executeCascades(store, plan, Bindings.EMPTY_BINDINGS);
     }
 
-    static RecordCursor<QueryResult> executeCascades(FDBRecordStore store, RecordQueryPlan plan, Bindings bindings) {
+    public static RecordCursor<QueryResult> executeCascades(FDBRecordStore store, RecordQueryPlan plan, Bindings bindings) {
         Set<Type> usedTypes = UsedTypesProperty.evaluate(plan);
         TypeRepository typeRepository = TypeRepository.newBuilder()
                 .addAllTypes(usedTypes)
@@ -117,7 +117,7 @@ public class FDBQueryGraphTestHelpers extends FDBRecordStoreQueryTestBase {
         return plan.executePlan(store, evaluationContext, null, ExecuteProperties.SERIAL_EXECUTE);
     }
 
-    static <T> T getField(QueryResult result, Class<T> type, String... path) {
+    public static <T> T getField(QueryResult result, Class<T> type, String... path) {
         Message message = result.getMessage();
         for (int i = 0; i < path.length; i++) {
             String fieldName = path[i];
@@ -140,7 +140,7 @@ public class FDBQueryGraphTestHelpers extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
-    static LogicalSortExpression sortExpression(@Nonnull List<Value> sortValues,
+    public static LogicalSortExpression sortExpression(@Nonnull List<Value> sortValues,
                                                 final boolean reverse,
                                                 @Nonnull final Quantifier inner) {
         return new LogicalSortExpression(LogicalSortExpression.buildRequestedOrdering(sortValues, reverse, inner), inner);

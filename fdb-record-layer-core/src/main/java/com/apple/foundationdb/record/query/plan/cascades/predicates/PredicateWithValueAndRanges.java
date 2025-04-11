@@ -34,15 +34,15 @@ import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -60,7 +60,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 /**
@@ -266,9 +265,20 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
 
     @Nonnull
     @Override
-    public QueryPredicate translateValues(@Nonnull final UnaryOperator<Value> translationOperator) {
-        Value newValue = translationOperator.apply(value);
-        return ofRanges(newValue, ranges);
+    public QueryPredicate translateValues(@Nonnull TranslationMap translationMap) {
+        Value newValue = value.translateCorrelations(translationMap, true);
+        ImmutableSet.Builder<RangeConstraints> newRangeBuilder = ImmutableSet.builder();
+        boolean rangeChanged = false;
+        for (RangeConstraints range : ranges) {
+            RangeConstraints newRange = range.translateCorrelations(translationMap, true);
+            newRangeBuilder.add(newRange);
+            rangeChanged |= range != newRange;
+        }
+        if (value == newValue && !rangeChanged) {
+            return this;
+        }
+        Set<RangeConstraints> newRanges = rangeChanged ? newRangeBuilder.build() : ranges;
+        return ofRanges(newValue, newRanges);
     }
 
     /**

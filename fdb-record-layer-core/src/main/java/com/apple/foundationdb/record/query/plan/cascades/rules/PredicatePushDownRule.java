@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Coll
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.Optional;
@@ -178,8 +177,7 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
 
             for (final var originalPredicate : getOriginalPredicates()) {
                 predicatesBuilder.add(
-                        originalPredicate.translateValues(value ->
-                                value.translateCorrelations(translationMap)));
+                        originalPredicate.translateValues(translationMap));
             }
 
             return Optional.of(
@@ -198,8 +196,7 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
 
             for (final var originalPredicate : getOriginalPredicates()) {
                 predicatesBuilder.add(
-                        originalPredicate.translateValues(value ->
-                                value.translateCorrelations(translationMap)));
+                        originalPredicate.translateValues(translationMap));
             }
 
             return Optional.of(
@@ -219,10 +216,9 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
             final var predicatesBuilder = ImmutableList.<QueryPredicate>builder();
             predicatesBuilder.addAll(selectExpression.getPredicates());
             for (final var originalPredicate : getOriginalPredicates()) {
+                // todo: simplify values in addition to translating them
                 predicatesBuilder.add(
-                        originalPredicate.translateValues(value ->
-                                value.translateCorrelations(translationMap)
-                                        .simplify(AliasMap.emptyMap(), ImmutableSet.of())));
+                        originalPredicate.translateValues(translationMap));
             }
 
             return Optional.of(
