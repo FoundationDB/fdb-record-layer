@@ -546,7 +546,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
         // Delete everything except a value in the index build space
         try (FDBRecordContext context = openContext()) {
             FDBRecordStore store = storeBuilder.setContext(context).open();
-            final Subspace subspace = OnlineIndexer.indexBuildScannedRecordsSubspace(store, metaData.getIndex("MySimpleRecord$str_value_indexed"));
+            final Subspace subspace = IndexingSubspaces.indexBuildScannedRecordsSubspace(store, metaData.getIndex("MySimpleRecord$str_value_indexed"));
             context.ensureActive().set(subspace.getKey(), FDBRecordStore.encodeRecordCount(1215)); // set a key in the INDEX_BUILD_SPACE
             context.ensureActive().clear(store.getSubspace().getKey(), subspace.getKey());
             commit(context);

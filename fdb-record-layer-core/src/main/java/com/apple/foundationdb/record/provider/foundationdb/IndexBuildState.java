@@ -99,7 +99,7 @@ public class IndexBuildState {
     @Nonnull
     public static CompletableFuture<Long> loadRecordsScannedAsync(FDBRecordStoreBase<?> store, Index index) {
         return store.getContext().ensureActive()
-                .get(OnlineIndexer.indexBuildScannedRecordsSubspace(store, index).getKey())
+                .get(IndexingSubspaces.indexBuildScannedRecordsSubspace(store, index).getKey())
                 .thenApply(FDBRecordStore::decodeRecordCount);
     }
 
