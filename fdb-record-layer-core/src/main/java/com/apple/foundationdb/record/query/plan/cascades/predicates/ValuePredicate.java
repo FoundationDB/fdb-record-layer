@@ -139,7 +139,7 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
     public QueryPredicate translateValues(@Nonnull final TranslationMap translationMap) {
         Value newValue = value.translateCorrelations(translationMap, true);
         Comparison newComparison = comparison.translateCorrelations(translationMap, true);
-        if (newValue == value || newComparison == comparison) {
+        if (newValue == value && newComparison == comparison) {
             return this;
         }
         return new ValuePredicate(newValue, newComparison);

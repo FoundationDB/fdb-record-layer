@@ -33,9 +33,11 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Traversal;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
@@ -101,7 +103,7 @@ public class PredicatePushDownRuleTest {
         }
     }
 
-    private static void assertMakesNoChanges(RelationalExpression original) {
+    private static void assertYieldsNothing(RelationalExpression original) {
         Reference ref = runRewrite(original);
         Assertions.assertThat(ref.getMembers())
                 .containsExactly(original);
@@ -151,6 +153,11 @@ public class PredicatePushDownRuleTest {
         return selectWithPredicates(qun, identityProjectionMap, predicates);
     }
 
+    @Nonnull
+    private static SelectExpression selectWithPredicates(Quantifier qun, QueryPredicate... predicates) {
+        return new SelectExpression(qun.getFlowedObjectValue(), List.of(qun), List.of(predicates));
+    }
+
     @BeforeEach
     void setUp() {
         Debugger.setDebugger(DebuggerWithSymbolTables.withSanityChecks());
@@ -190,6 +197,27 @@ public class PredicatePushDownRuleTest {
         );
 
         assertYields(higher, newHigher);
+    }
+
+    @Test
+    void pushSimplePredicateIntoLogicalFilter() {
+        Quantifier baseQun = baseT();
+
+        Quantifier filtered = forEach(new LogicalFilterExpression(List.of(), baseQun));
+        SelectExpression select = selectWithPredicates(
+                filtered, List.of("c"),
+                fieldPredicate(filtered, "b", GREATER_THAN_HELLO)
+        );
+
+        Quantifier newFiltered = forEach(selectWithPredicates(
+                baseQun,
+                fieldPredicate(baseQun, "b", GREATER_THAN_HELLO)
+        ));
+        SelectExpression newSelect = selectWithPredicates(
+                newFiltered, List.of("c")
+        );
+
+        assertYields(select, newSelect);
     }
 
     /**
@@ -339,6 +367,50 @@ public class PredicatePushDownRuleTest {
     }
 
     /**
+     * Push down an OR predicate. This takes a query like:
+     * <pre>{@code
+     * SELECT a, b FROM (SELECT a, b, c FROM t) WHERE a = $p OR b > 'hello' OR @1 = d
+     * }</pre>
+     * <p>
+     * And modifies it to:
+     * </p>
+     * <pre>{@code
+     * SELECT a, b FROM (SELECT a, b, c FROM t WHERE a = $p OR b > 'hello' OR @1 = d)
+     * }</pre>
+     */
+    @Test
+    void pushDownOrPredicate() {
+        final ConstantObjectValue constantStr = ConstantObjectValue.of(Quantifier.constant(), "1", Type.primitiveType(Type.TypeCode.STRING, false));
+        Quantifier baseQun = baseT();
+
+        Quantifier lowerQun = forEach(selectWithPredicates(
+                baseQun, List.of("a", "b", "d")
+        ));
+        SelectExpression higher = selectWithPredicates(
+                lowerQun, List.of("a", "b"),
+                OrPredicate.or(List.of(
+                        fieldPredicate(lowerQun, "a", EQUALS_PARAM),
+                        fieldPredicate(lowerQun, "b", GREATER_THAN_HELLO),
+                        constantStr.withComparison(new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(lowerQun, "d")))
+                ))
+        );
+
+        Quantifier newLowerQun = forEach(selectWithPredicates(
+                baseQun, List.of("a", "b", "d"),
+                OrPredicate.or(List.of(
+                        fieldPredicate(baseQun, "a", EQUALS_PARAM),
+                        fieldPredicate(baseQun, "b", GREATER_THAN_HELLO),
+                        constantStr.withComparison(new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(baseQun, "d")))
+                ))
+        ));
+        SelectExpression newHigher = selectWithPredicates(
+                newLowerQun, List.of("a", "b")
+        );
+
+        assertYields(higher, newHigher);
+    }
+
+    /**
      * Test a simple rewrite of multiple predicates. It should go from:
      * <pre>{@code
      * SELECT b FROM (SELECT a, b FROM T) WHERE a = 42 AND b > 'hello'
@@ -373,6 +445,30 @@ public class PredicatePushDownRuleTest {
         );
 
         assertYields(higher, newHigher);
+    }
+
+    @Test
+    void pushDownMultiplePredicatesToLogicalFilter() {
+        final ConstantObjectValue constantBytes = ConstantObjectValue.of(Quantifier.constant(), "1", Type.primitiveType(Type.TypeCode.BYTES, false));
+        Quantifier baseQun = baseT();
+
+        Quantifier filtered = forEach(new LogicalFilterExpression(List.of(fieldPredicate(baseQun, "a", EQUALS_42)), baseQun));
+        SelectExpression select = selectWithPredicates(
+                filtered, List.of("b", "c"),
+                fieldPredicate(filtered, "b", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, fieldValue(filtered, "d"))),
+                fieldPredicate(filtered, "c", new Comparisons.ValueComparison(Comparisons.Type.NOT_EQUALS, constantBytes))
+        );
+
+        Quantifier newFiltered = forEach(selectWithPredicates(baseQun,
+                fieldPredicate(baseQun, "a", EQUALS_42),
+                fieldPredicate(baseQun, "b", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, fieldValue(baseQun, "d"))),
+                fieldPredicate(baseQun, "c", new Comparisons.ValueComparison(Comparisons.Type.NOT_EQUALS, constantBytes))
+        ));
+        SelectExpression newSelect = selectWithPredicates(
+                newFiltered, List.of("b", "c")
+        );
+
+        assertYields(select, newSelect);
     }
 
     /**
@@ -476,7 +572,44 @@ public class PredicatePushDownRuleTest {
                 .build()
                 .buildSelect();
 
-        assertMakesNoChanges(higher);
+        assertYieldsNothing(higher);
+    }
+
+    /**
+     * Test that if we have a join query and an OR predicate that spans multiple legs of the join, it doesn't get pushed down.
+     * For example, this query:
+     * <pre>{@code
+     * SELECT t.b, tau.beta
+     *   FROM (SELECT a, b FROM t) t,
+     *        (SELECT alpha, beta FROM tau) tau
+     *   WHERE t.a = tau.alpha
+     *     AND (t.b > 'hello' OR tau.beta > 'hello')
+     * }</pre>
+     * <p>
+     * In this case, there's nothing to do be done, as we can't push the OR to either side, and we can't break
+     * up the predicate in some way.
+     * </p>
+     */
+    @Test
+    void doesNotPushOrWithMixedJoinElements() {
+        Quantifier t = baseT();
+        Quantifier tau = baseTau();
+
+        Quantifier tLowQun = forEach(selectWithPredicates(
+                t, List.of("a", "b")
+        ));
+        Quantifier tauLowQun = forEach(selectWithPredicates(
+                tau, List.of("alpha", "beta")
+        ));
+        SelectExpression higher = join(tLowQun, tauLowQun)
+                .addResultColumn(FDBQueryGraphTestHelpers.projectColumn(tLowQun, "b"))
+                .addResultColumn(FDBQueryGraphTestHelpers.projectColumn(tauLowQun, "beta"))
+                .addPredicate(fieldPredicate(tLowQun, "a", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(tauLowQun, "alpha"))))
+                .addPredicate(OrPredicate.or(List.of(fieldPredicate(tLowQun, "b", GREATER_THAN_HELLO), fieldPredicate(tauLowQun, "beta", GREATER_THAN_HELLO))))
+                .build()
+                .buildSelect();
+
+        assertYieldsNothing(higher);
     }
 
     /**

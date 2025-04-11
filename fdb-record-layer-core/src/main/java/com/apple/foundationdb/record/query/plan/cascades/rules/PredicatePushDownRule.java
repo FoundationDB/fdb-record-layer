@@ -216,7 +216,6 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
             final var predicatesBuilder = ImmutableList.<QueryPredicate>builder();
             predicatesBuilder.addAll(selectExpression.getPredicates());
             for (final var originalPredicate : getOriginalPredicates()) {
-                // todo: simplify values in addition to translating them
                 predicatesBuilder.add(
                         originalPredicate.translateValues(translationMap));
             }
