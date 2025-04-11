@@ -78,6 +78,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -883,6 +884,23 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                                  @Nonnull EndpointType lowEndpoint, @Nonnull EndpointType highEndpoint,
                                                  @Nullable byte[] continuation,
                                                  @Nonnull ScanProperties scanProperties);
+
+    @Nonnull
+    RecordCursor<FDBRawRecord> scanRawRecords(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties);
+
+    enum RecordValidationOptions {
+        RECORD_EXISTS,
+        VALID_KEY,
+        VALID_VERSION,
+        VALID_VALUE,
+        DESERIALIZABLE
+    }
+
+    default CompletableFuture<EnumSet<RecordValidationOptions>> validateRecordAsync(Tuple primaryKey, boolean allowRepair) {
+        return validateRecordAsync(primaryKey, EnumSet.allOf(RecordValidationOptions.class), allowRepair);
+    }
+
+    CompletableFuture<EnumSet<RecordValidationOptions>> validateRecordAsync(Tuple primaryKey, EnumSet<RecordValidationOptions> options, boolean allowRepair);
 
     /**
      * Count the number of records in the database in a range.

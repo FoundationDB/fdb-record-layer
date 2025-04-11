@@ -123,6 +123,7 @@ import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -1073,7 +1074,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 return CompletableFuture.completedFuture(recordBuilder.build());
             }
         } catch (Exception ex) {
-            final LoggableException ex2 = new RecordCoreException("Failed to deserialize record", ex);
+            final LoggableException ex2 = new RecordDeserializationException("Failed to deserialize record", ex);
             ex2.addLogInfo(
                     subspaceProvider.logKey(), subspaceProvider.toString(context),
                     LogMessageKeys.PRIMARY_KEY, primaryKey,
@@ -1189,6 +1190,17 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                               @Nullable byte[] continuation,
                                                               @Nonnull ScanProperties scanProperties) {
         return scanTypedRecords(serializer, low, high, lowEndpoint, highEndpoint, continuation, scanProperties);
+    }
+
+    @Nonnull
+    @Override
+    public RecordCursor<FDBRawRecord> scanRawRecords(@Nonnull final TupleRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
+        return null;
+    }
+
+    @Override
+    public CompletableFuture<EnumSet<RecordValidationOptions>> validateRecordAsync(final Tuple primaryKey, final EnumSet<RecordValidationOptions> options, final boolean allowRepair) {
+        return RecordValidationHelper.validateRecordAsync(this, primaryKey, options, allowRepair);
     }
 
     @Nonnull
@@ -5437,6 +5449,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             } else {
                 return AsyncUtil.DONE;
             }
+        }
+    }
+
+    @SuppressWarnings({"serial"})
+    public static class RecordDeserializationException extends RecordCoreException {
+        public RecordDeserializationException(final String message, final Throwable cause) {
+            super(message, cause);
         }
     }
 }

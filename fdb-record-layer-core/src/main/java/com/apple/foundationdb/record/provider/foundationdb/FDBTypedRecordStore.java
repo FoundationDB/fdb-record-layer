@@ -58,6 +58,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
@@ -181,6 +182,17 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
     @Override
     public RecordCursor<FDBStoredRecord<M>> scanRecords(@Nullable Tuple low, @Nullable Tuple high, @Nonnull EndpointType lowEndpoint, @Nonnull EndpointType highEndpoint, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
         return untypedStore.scanTypedRecords(typedSerializer, low, high, lowEndpoint, highEndpoint, continuation, scanProperties);
+    }
+
+    @Nonnull
+    @Override
+    public RecordCursor<FDBRawRecord> scanRawRecords(@Nonnull final TupleRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
+        return untypedStore.scanRawRecords(range, continuation, scanProperties);
+    }
+
+    @Override
+    public CompletableFuture<EnumSet<RecordValidationOptions>> validateRecordAsync(final Tuple primaryKey, final EnumSet<RecordValidationOptions> options, final boolean allowRepair) {
+        return untypedStore.validateRecordAsync(primaryKey, options, allowRepair);
     }
 
     @Nonnull

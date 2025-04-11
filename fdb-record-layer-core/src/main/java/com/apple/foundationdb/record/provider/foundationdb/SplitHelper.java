@@ -770,8 +770,7 @@ public class SplitHelper {
                 sizeInfo.add(kv);
             } else {
                 if (lastIndex >= SplitHelper.START_SPLIT_RECORD) {
-                    throw new RecordCoreException("Split record segments out of order: expected " +
-                                                  lastIndex + 1 + ", found " + index)
+                    throw new FoundSplitOutOfOrderException(lastIndex + 1, index)
                             .addLogInfo(LogMessageKeys.KEY_TUPLE, key)
                             .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(keySplitSubspace.pack()));
                 } else {
@@ -1163,6 +1162,18 @@ public class SplitHelper {
             super("Found split record without start");
             addLogInfo(LogMessageKeys.SPLIT_NEXT_INDEX, nextIndex);
             addLogInfo(LogMessageKeys.SPLIT_REVERSE, reverse);
+        }
+    }
+
+    /**
+     * Exception thrown when splits are out of order.
+     */
+    @SuppressWarnings("serial")
+    public static class FoundSplitOutOfOrderException extends RecordCoreException {
+        public FoundSplitOutOfOrderException(long expected, long found) {
+            super("Found split record out of order");
+            addLogInfo(LogMessageKeys.EXPECTED_INDEX, expected);
+            addLogInfo(LogMessageKeys.FOUND_INDEX, found);
         }
     }
 }
