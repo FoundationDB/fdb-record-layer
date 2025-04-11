@@ -27,6 +27,8 @@ import com.apple.foundationdb.record.TestRecords2Proto;
 import com.apple.foundationdb.record.TestRecords3Proto;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecords4WrapperProto;
+import com.apple.foundationdb.record.TestRecordsUuidProto;
+import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
@@ -305,5 +307,29 @@ class TypeTest {
                 PlanHashable.CURRENT_FOR_CONTINUATION);
         Type.AnyRecord r1 = new Type.AnyRecord(false);
         Assertions.assertEquals(r1, Type.AnyRecord.fromProto(serializationContext, r1.toProto(serializationContext)));
+    }
+
+    @Test
+    void testUUIDInterpretedAsRecordType() {
+        final TestRecordsUuidProto.UuidRecord uuidRecord = TestRecordsUuidProto.UuidRecord.newBuilder()
+                .setName("testUuidRecord")
+                .setPkey(TupleFieldsProto.UUID.newBuilder()
+                        .setMostSignificantBits(1)
+                        .setLeastSignificantBits(2))
+                .build();
+        final Type.Record recordType = Type.Record.fromDescriptor(uuidRecord.getDescriptorForType());
+        final Map<String, Type.Record.Field> fieldsMaps = recordType.getFieldNameFieldMap();
+        checkIsUuidRecordType(fieldsMaps, "pkey");
+        checkIsUuidRecordType(fieldsMaps, "secondary");
+        checkIsUuidRecordType(fieldsMaps, "unique");
+    }
+
+    private static void checkIsUuidRecordType(@Nonnull Map<String, Type.Record.Field> fieldsMap, @Nonnull String fieldName) {
+        Assertions.assertTrue(fieldsMap.containsKey(fieldName));
+        Assertions.assertInstanceOf(Type.Record.class, fieldsMap.get(fieldName).getFieldType());
+        final Type.Record uuidRecord = (Type.Record) fieldsMap.get(fieldName).getFieldType();
+        Assertions.assertEquals(2, uuidRecord.getFields().size());
+        Assertions.assertEquals(Type.TypeCode.LONG, uuidRecord.getFields().get(0).getFieldType().getTypeCode());
+        Assertions.assertEquals(Type.TypeCode.LONG, uuidRecord.getFields().get(1).getFieldType().getTypeCode());
     }
 }
