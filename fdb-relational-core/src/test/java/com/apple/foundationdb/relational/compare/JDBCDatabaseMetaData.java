@@ -32,7 +32,7 @@ import java.sql.SQLException;
 public class JDBCDatabaseMetaData implements RelationalDatabaseMetaData {
     private final RelationalDatabaseMetaData metaData;
 
-    public JDBCDatabaseMetaData(JDBCDatabaseMetaData metaData) {
+    public JDBCDatabaseMetaData(RelationalDatabaseMetaData metaData) {
         this.metaData = metaData;
     }
 

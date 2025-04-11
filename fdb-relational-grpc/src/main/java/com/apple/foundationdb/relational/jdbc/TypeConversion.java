@@ -21,23 +21,22 @@
 package com.apple.foundationdb.relational.jdbc;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.ArrayMetaData;
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
-import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
+import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
+import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.KeySet;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.KeySetValue;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSet;
-import com.apple.foundationdb.relational.jdbc.grpc.v1.RpcContinuationReason;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSetMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.RpcContinuation;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.RpcContinuationReason;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Column;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ColumnMetadata;
@@ -425,7 +424,7 @@ public class TypeConversion {
                     break;
                 } else if (object instanceof UUID) {
                     column = toColumn(relationalStruct.wasNull() ? null : (UUID) object, (value, protobuf) ->
-                        value == null ? protobuf.clearUuid() : protobuf.setUuid(Uuid.newBuilder()
+                            value == null ? protobuf.clearUuid() : protobuf.setUuid(Uuid.newBuilder()
                                     .setMostSignificantBits(value.getMostSignificantBits())
                                     .setLeastSignificantBits(value.getLeastSignificantBits())
                                     .build()));
