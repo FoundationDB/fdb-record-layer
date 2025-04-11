@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -29,6 +30,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
+import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
 import java.net.URI;
@@ -188,6 +190,21 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
                 return getArray(oneBasedPosition);
             case Types.BINARY:
                 return getBytes(oneBasedPosition);
+            case Types.OTHER:
+                final var object = getObjectInternal(getZeroBasedPosition(oneBasedPosition));
+                // This is a temporary workaround to support UUID as a primitive type. The fix essentially involves
+                // delaying the conversion of a message field (of type UUID) in the messageTuple until now when we can
+                // (little bit) predict that the field is actually a pre-defined UUID message. If the UUID message
+                // field is of sql.Types.OTHER (rather than sql.Types.STRUCT), we can expect that the plan is baked with
+                // the future-supported UUID type, and hence the result expects a JAVA UUID object. This can be
+                // removed (and pushed to MessageTuple) once we have proper and complete support for UUID.
+                if (object instanceof DynamicMessage) {
+                    final var msg = (DynamicMessage) object;
+                    if (TupleFieldsHelper.isTupleField(msg.getDescriptorForType())) {
+                        return TupleFieldsHelper.fromProto(msg, msg.getDescriptorForType());
+                    }
+                }
+                return object;
             default:
                 return getObjectInternal(getZeroBasedPosition(oneBasedPosition));
         }
