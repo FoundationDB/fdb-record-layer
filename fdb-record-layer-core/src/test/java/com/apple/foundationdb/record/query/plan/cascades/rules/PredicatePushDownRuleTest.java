@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Traversal;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
@@ -695,5 +696,62 @@ public class PredicatePushDownRuleTest {
 
         assertYields(newHigherWithNewT, newestHigher);
         assertYields(newHigherWithNewTau, newestHigher);
+    }
+
+    /**
+     * Push a single predicate through a union. This transforms the statement:
+     * <pre>{@code
+     * SELECT y, z
+     *   FROM (
+     *      SELECT a AS x, b AS y, c AS z FROM t
+     *      UNION
+     *      SELECT alpha AS x, beta AS y, gamma AS z FROM tau
+     *   )
+     *   WHERE x = 42
+     * }</pre>
+     * <p>
+     * And rewrites it as:
+     * </p>
+     * <pre>{@code
+     * SELECT y, z
+     *   FROM (
+     *      SELECT * FROM (SELECT a AS x, b AS y, c AS z FROM t) WHERE x = 42
+     *      UNION
+     *      SELECT * FROM (SELECT alpha AS x, beta AS y, gamma AS z FROM tau) WHERE x = 42
+     *   )
+     * }</pre>
+     * <p>
+     * Note the introduction of additional {@code SELECT}s in the union legs. These come from the fact
+     * that the initial rewrite only pushes the predicate down one level. When run in
+     * the full planner, the predicate will be pushed down all the way, and additional simplification
+     * rules will ensure that the intermediate {@code SELECT}s will be merged.
+     * </p>
+     */
+    @Test
+    void pushSimplePredicateThroughUnion() {
+        final Quantifier t = baseT();
+        final Quantifier tau = baseTau();
+
+        final Quantifier selectFromTQun = forEach(selectWithPredicates(
+                t, ImmutableMap.of("a", "x", "b", "y", "c", "z")
+        ));
+        final Quantifier selectFromTauQun = forEach(selectWithPredicates(
+                tau, ImmutableMap.of("alpha", "x", "beta", "y", "gamma", "z")
+        ));
+        final Quantifier unionQun = forEach(new LogicalUnionExpression(ImmutableList.of(selectFromTQun, selectFromTauQun)));
+        final SelectExpression topSelect = selectWithPredicates(
+                unionQun, List.of("y", "z"),
+                fieldPredicate(unionQun, "x", EQUALS_42)
+        );
+
+        final Quantifier newUnionQun = forEach(new LogicalUnionExpression(ImmutableList.of(
+                forEach(selectWithPredicates(selectFromTQun, fieldPredicate(selectFromTQun, "x", EQUALS_42))),
+                forEach(selectWithPredicates(selectFromTauQun, fieldPredicate(selectFromTauQun, "x", EQUALS_42)))
+        )));
+        final SelectExpression newTopSelect = selectWithPredicates(
+                newUnionQun, List.of("y", "z")
+        );
+
+        assertYields(topSelect, newTopSelect);
     }
 }

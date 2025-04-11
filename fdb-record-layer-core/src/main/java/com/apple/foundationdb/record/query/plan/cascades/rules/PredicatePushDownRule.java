@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
@@ -39,6 +40,8 @@ import com.apple.foundationdb.record.query.plan.cascades.values.translation.Tran
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -102,6 +105,12 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
                         LinkedIdentitySet.toLinkedIdentitySet()));
 
         final var pushablePredicates = partitionedPredicates.get(true);
+        if (pushablePredicates.isEmpty()) {
+            //
+            // None of the predicates can be pushed down. Don't generate a rewritten expression here
+            //
+            return;
+        }
         final var fixedPredicates = partitionedPredicates.get(false);
 
         //
@@ -164,45 +173,46 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
             return pushQuantifier;
         }
 
+        private List<QueryPredicate> translatePredicates(@Nonnull TranslationMap translationMap, @Nonnull Collection<? extends QueryPredicate> preExistingPredicates) {
+            var predicatesBuilder = ImmutableList.<QueryPredicate>builderWithExpectedSize(getOriginalPredicates().size() + preExistingPredicates.size())
+                    .addAll(preExistingPredicates);
+            for (QueryPredicate originalPredicate : getOriginalPredicates()) {
+                predicatesBuilder.add(originalPredicate.translateValues(translationMap));
+            }
+            return predicatesBuilder.build();
+        }
+
+        private List<QueryPredicate> translatePredicates(@Nonnull TranslationMap translationMap) {
+            return translatePredicates(translationMap, ImmutableList.of());
+        }
+
+        @Nonnull
+        public SelectExpression pushOverChild(@Nonnull final Quantifier.ForEach child) {
+            final var translationMap =
+                    TranslationMap.rebaseWithAliasMap(AliasMap.ofAliases(getPushQuantifier().getAlias(),
+                            child.getAlias()));
+            final var newPredicates = translatePredicates(translationMap);
+            return new SelectExpression(child.getFlowedObjectValue(),
+                    ImmutableList.of(child),
+                    newPredicates
+            );
+        }
+
         @Nonnull
         @Override
         public Optional<SelectExpression> visitLogicalFilterExpression(@Nonnull final LogicalFilterExpression logicalFilterExpression) {
             final var inner = logicalFilterExpression.getInner();
+            if (!(inner instanceof Quantifier.ForEach)) {
+                return Optional.empty();
+            }
             final var translationMap =
                     TranslationMap.rebaseWithAliasMap(AliasMap.ofAliases(getPushQuantifier().getAlias(),
                             inner.getAlias()));
-
-            final var predicatesBuilder = ImmutableList.<QueryPredicate>builder();
-            predicatesBuilder.addAll(logicalFilterExpression.getPredicates());
-
-            for (final var originalPredicate : getOriginalPredicates()) {
-                predicatesBuilder.add(
-                        originalPredicate.translateValues(translationMap));
-            }
-
+            final var newPredicates = translatePredicates(translationMap, logicalFilterExpression.getPredicates());
             return Optional.of(
                     new SelectExpression(inner.getFlowedObjectValue(),
                             ImmutableList.of(inner),
-                            predicatesBuilder.build()));
-        }
-
-        public Optional<? extends RelationalExpression> pushThrough(@Nonnull final RelationalExpression expression,
-                                                                    @Nonnull final Quantifier.ForEach inner) {
-            final var translationMap =
-                    TranslationMap.rebaseWithAliasMap(AliasMap.ofAliases(getPushQuantifier().getAlias(),
-                            inner.getAlias()));
-
-            final var predicatesBuilder = ImmutableList.<QueryPredicate>builder();
-
-            for (final var originalPredicate : getOriginalPredicates()) {
-                predicatesBuilder.add(
-                        originalPredicate.translateValues(translationMap));
-            }
-
-            return Optional.of(
-                    new SelectExpression(inner.getFlowedObjectValue(),
-                            ImmutableList.of(inner),
-                            predicatesBuilder.build()));
+                            newPredicates));
         }
 
         @Nonnull
@@ -212,18 +222,26 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
                     .when(getPushQuantifier().getAlias())
                     .then(((sourceAlias, leafValue) -> selectExpression.getResultValue()))
                     .build();
-
-            final var predicatesBuilder = ImmutableList.<QueryPredicate>builder();
-            predicatesBuilder.addAll(selectExpression.getPredicates());
-            for (final var originalPredicate : getOriginalPredicates()) {
-                predicatesBuilder.add(
-                        originalPredicate.translateValues(translationMap));
-            }
-
+            final var newPredicates = translatePredicates(translationMap, selectExpression.getPredicates());
             return Optional.of(
                     new SelectExpression(selectExpression.getResultValue(),
                             selectExpression.getQuantifiers(),
-                            predicatesBuilder.build()));
+                            newPredicates));
+        }
+
+        @Nonnull
+        @Override
+        public Optional<LogicalUnionExpression> visitLogicalUnionExpression(@Nonnull final LogicalUnionExpression unionExpression) {
+            final var childQuantifiers = unionExpression.getQuantifiers();
+            var newChildrenBuilder = ImmutableList.<Quantifier>builderWithExpectedSize(childQuantifiers.size());
+            for (Quantifier childQuantifier : childQuantifiers) {
+                if (!(childQuantifier instanceof Quantifier.ForEach)) {
+                    return Optional.empty();
+                }
+                newChildrenBuilder.add(Quantifier.forEach(Reference.of(
+                        pushOverChild((Quantifier.ForEach) childQuantifier))));
+            }
+            return Optional.of(new LogicalUnionExpression(newChildrenBuilder.build()));
         }
 
         @Nonnull
