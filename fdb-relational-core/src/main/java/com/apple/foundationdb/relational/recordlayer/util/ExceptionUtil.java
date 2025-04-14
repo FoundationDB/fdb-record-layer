@@ -80,7 +80,7 @@ public final class ExceptionUtil {
             } else {
                 code = ErrorCode.INTERNAL_ERROR;
             }
-        } else if (re.getMessage().contains("Cascades planner could not plan query")) {
+        } else if (re.getMessage() != null && re.getMessage().contains("Cascades planner could not plan query")) {
             code = ErrorCode.UNSUPPORTED_QUERY;
         }
 
