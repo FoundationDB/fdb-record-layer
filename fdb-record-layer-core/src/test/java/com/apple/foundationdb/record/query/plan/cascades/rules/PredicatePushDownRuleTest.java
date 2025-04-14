@@ -20,44 +20,38 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
-import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
-import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
-import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.Traversal;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.assertj.core.api.Assertions;
-import org.assertj.core.api.AutoCloseableSoftAssertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
-import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
-import java.util.function.Function;
+
+import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.EQUALS_42;
+import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.EQUALS_PARAM;
+import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.GREATER_THAN_HELLO;
+import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.baseT;
+import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.baseTau;
+import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.fieldPredicate;
+import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.fieldValue;
+import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.forEach;
+import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.join;
+import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.selectWithPredicates;
 
 /**
  * Tests of the {@link PredicatePushDownRule}. These operate by constructing expressions that
@@ -65,99 +59,10 @@ import java.util.function.Function;
  * expression that makes sense.
  */
 public class PredicatePushDownRuleTest {
+    @Nonnull
     private static final PredicatePushDownRule rule = new PredicatePushDownRule();
-    private static final Comparisons.Comparison EQUALS_42 = new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 42L);
-    private static final Comparisons.Comparison GREATER_THAN_HELLO = new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, "hello");
-    private static final Comparisons.Comparison EQUALS_PARAM = new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, "p");
-
-    private static final Type.Record TYPE_T = Type.Record.fromFields(ImmutableList.of(
-            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG, true), Optional.of("a")),
-            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("b")),
-            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.BYTES, true), Optional.of("c")),
-            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("d"))
-    ));
-
-    private static final Type.Record TYPE_TAU = Type.Record.fromFields(ImmutableList.of(
-            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG, true), Optional.of("alpha")),
-            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("beta")),
-            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.BYTES, true), Optional.of("gamma")),
-            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("delta"))
-    ));
-
     @Nonnull
-    private static Reference runRewrite(RelationalExpression original) {
-        Reference ref = Reference.of(original);
-        PlanContext planContext = new FakePlanContext();
-        rule.getMatcher().bindMatches(planContext.getPlannerConfiguration(), PlannerBindings.empty(), original).forEach(match -> {
-            CascadesRuleCall ruleCall = new CascadesRuleCall(planContext, rule, ref, Traversal.withRoot(ref), new ArrayDeque<>(), match, EvaluationContext.EMPTY);
-            ruleCall.run();
-        });
-        return ref;
-    }
-
-    private static void assertYields(RelationalExpression original, RelationalExpression... expected) {
-        Reference ref = runRewrite(original);
-        try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
-            softly.assertThat(ref.getMembers())
-                    .hasSize(1 + expected.length)
-                    .containsAll(List.of(expected));
-        }
-    }
-
-    private static void assertYieldsNothing(RelationalExpression original) {
-        Reference ref = runRewrite(original);
-        Assertions.assertThat(ref.getMembers())
-                .containsExactly(original);
-    }
-
-    @Nonnull
-    private static Quantifier forEach(RelationalExpression relationalExpression) {
-        return Quantifier.forEach(Reference.of(relationalExpression));
-    }
-
-    @Nonnull
-    private static Quantifier baseT() {
-        return forEach(new FullUnorderedScanExpression(Set.of("T"), TYPE_T, new AccessHints()));
-    }
-
-    @Nonnull
-    private static Quantifier baseTau() {
-        return forEach(new FullUnorderedScanExpression(Set.of("TAU"), TYPE_TAU, new AccessHints()));
-    }
-
-    private static FieldValue fieldValue(Quantifier qun, String fieldName) {
-        return FieldValue.ofFieldNameAndFuseIfPossible(qun.getFlowedObjectValue(), fieldName);
-    }
-
-    @Nonnull
-    private static QueryPredicate fieldPredicate(Quantifier qun, String fieldName, Comparisons.Comparison comparison) {
-        return fieldValue(qun, fieldName).withComparison(comparison);
-    }
-
-    private static GraphExpansion.Builder join(Quantifier... quns) {
-        return GraphExpansion.builder().addAllQuantifiers(List.of(quns));
-    }
-
-    @Nonnull
-    private static SelectExpression selectWithPredicates(Quantifier qun, Map<String, String> projection, QueryPredicate... predicates) {
-        GraphExpansion.Builder builder = GraphExpansion.builder().addQuantifier(qun);
-        for (Map.Entry<String, String> p : projection.entrySet()) {
-            builder.addResultColumn(Column.of(Optional.of(p.getValue()), FieldValue.ofFieldName(qun.getFlowedObjectValue(), p.getKey())));
-        }
-        builder.addAllPredicates(List.of(predicates));
-        return builder.build().buildSelect();
-    }
-
-    @Nonnull
-    private static SelectExpression selectWithPredicates(Quantifier qun, List<String> projection, QueryPredicate... predicates) {
-        Map<String, String> identityProjectionMap = projection.stream().collect(ImmutableMap.toImmutableMap(Function.identity(), Function.identity()));
-        return selectWithPredicates(qun, identityProjectionMap, predicates);
-    }
-
-    @Nonnull
-    private static SelectExpression selectWithPredicates(Quantifier qun, QueryPredicate... predicates) {
-        return new SelectExpression(qun.getFlowedObjectValue(), List.of(qun), List.of(predicates));
-    }
+    private static final RewriteRuleTestHelper testHelper = new RewriteRuleTestHelper(rule);
 
     @BeforeEach
     void setUp() {
@@ -197,7 +102,7 @@ public class PredicatePushDownRuleTest {
                 newLowerQun, List.of("b")
         );
 
-        assertYields(higher, newHigher);
+        testHelper.assertYields(higher, newHigher);
     }
 
     @Test
@@ -218,7 +123,7 @@ public class PredicatePushDownRuleTest {
                 newFiltered, List.of("c")
         );
 
-        assertYields(select, newSelect);
+        testHelper.assertYields(select, newSelect);
     }
 
     /**
@@ -254,7 +159,7 @@ public class PredicatePushDownRuleTest {
                 newLowerQun, List.of("a")
         );
 
-        assertYields(higher, newHigher);
+        testHelper.assertYields(higher, newHigher);
     }
 
     /**
@@ -290,7 +195,7 @@ public class PredicatePushDownRuleTest {
                 newLowerQun, List.of("a", "b")
         );
 
-        assertYields(higher, newHigher);
+        testHelper.assertYields(higher, newHigher);
     }
 
     /**
@@ -329,7 +234,7 @@ public class PredicatePushDownRuleTest {
                 newLowerQun, List.of("a")
         );
 
-        assertYields(higher, newHigher);
+        testHelper.assertYields(higher, newHigher);
     }
 
     /**
@@ -364,7 +269,7 @@ public class PredicatePushDownRuleTest {
                 newLowerQun, List.of("b")
         );
 
-        assertYields(higher, newHigher);
+        testHelper.assertYields(higher, newHigher);
     }
 
     /**
@@ -408,7 +313,7 @@ public class PredicatePushDownRuleTest {
                 newLowerQun, List.of("a", "b")
         );
 
-        assertYields(higher, newHigher);
+        testHelper.assertYields(higher, newHigher);
     }
 
     /**
@@ -445,7 +350,7 @@ public class PredicatePushDownRuleTest {
                 newLowerQun, List.of("b")
         );
 
-        assertYields(higher, newHigher);
+        testHelper.assertYields(higher, newHigher);
     }
 
     /**
@@ -481,7 +386,7 @@ public class PredicatePushDownRuleTest {
                 newFiltered, List.of("b", "c")
         );
 
-        assertYields(select, newSelect);
+        testHelper.assertYields(select, newSelect);
     }
 
     /**
@@ -518,7 +423,7 @@ public class PredicatePushDownRuleTest {
                 newLowerQun, List.of("y")
         );
 
-        assertYields(higher, newHigher);
+        testHelper.assertYields(higher, newHigher);
     }
 
     /**
@@ -554,7 +459,7 @@ public class PredicatePushDownRuleTest {
                 newLowerQun, List.of("x", "y", "z")
         );
 
-        assertYields(higher, newHigher);
+        testHelper.assertYields(higher, newHigher);
     }
 
     /**
@@ -585,7 +490,7 @@ public class PredicatePushDownRuleTest {
                 .build()
                 .buildSelect();
 
-        assertYieldsNothing(higher);
+        testHelper.assertYieldsNothing(higher);
     }
 
     /**
@@ -622,7 +527,7 @@ public class PredicatePushDownRuleTest {
                 .build()
                 .buildSelect();
 
-        assertYieldsNothing(higher);
+        testHelper.assertYieldsNothing(higher);
     }
 
     /**
@@ -695,7 +600,7 @@ public class PredicatePushDownRuleTest {
                 .build()
                 .buildSelect();
 
-        assertYields(higher, newHigherWithNewT, newHigherWithNewTau);
+        testHelper.assertYields(higher, newHigherWithNewT, newHigherWithNewTau);
 
         // If the rule is pushed to either of the new expressions, we should get a final version that pushes all
         // predicates down to both sides
@@ -706,8 +611,8 @@ public class PredicatePushDownRuleTest {
                 .build()
                 .buildSelect();
 
-        assertYields(newHigherWithNewT, newestHigher);
-        assertYields(newHigherWithNewTau, newestHigher);
+        testHelper.assertYields(newHigherWithNewT, newestHigher);
+        testHelper.assertYields(newHigherWithNewTau, newestHigher);
     }
 
     /**
@@ -767,7 +672,7 @@ public class PredicatePushDownRuleTest {
         final SelectExpression newHigher = selectWithPredicates(newJoinQun,
                 List.of("b", "c1", "c2"));
 
-        assertYields(higher, newHigher);
+        testHelper.assertYields(higher, newHigher);
     }
 
     /**
@@ -824,6 +729,6 @@ public class PredicatePushDownRuleTest {
                 newUnionQun, List.of("y", "z")
         );
 
-        assertYields(topSelect, newTopSelect);
+        testHelper.assertYields(topSelect, newTopSelect);
     }
 }
