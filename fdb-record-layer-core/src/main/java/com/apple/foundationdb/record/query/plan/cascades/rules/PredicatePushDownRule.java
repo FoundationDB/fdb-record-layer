@@ -173,7 +173,8 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
             return pushQuantifier;
         }
 
-        private List<QueryPredicate> translatePredicates(@Nonnull TranslationMap translationMap, @Nonnull Collection<? extends QueryPredicate> preExistingPredicates) {
+        @Nonnull
+        private List<QueryPredicate> updatedPredicates(@Nonnull TranslationMap translationMap, @Nonnull Collection<? extends QueryPredicate> preExistingPredicates) {
             var predicatesBuilder = ImmutableList.<QueryPredicate>builderWithExpectedSize(getOriginalPredicates().size() + preExistingPredicates.size())
                     .addAll(preExistingPredicates);
             for (QueryPredicate originalPredicate : getOriginalPredicates()) {
@@ -182,8 +183,9 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
             return predicatesBuilder.build();
         }
 
-        private List<QueryPredicate> translatePredicates(@Nonnull TranslationMap translationMap) {
-            return translatePredicates(translationMap, ImmutableList.of());
+        @Nonnull
+        private List<QueryPredicate> updatedPredicates(@Nonnull TranslationMap translationMap) {
+            return updatedPredicates(translationMap, ImmutableList.of());
         }
 
         @Nonnull
@@ -191,7 +193,7 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
             final var translationMap =
                     TranslationMap.rebaseWithAliasMap(AliasMap.ofAliases(getPushQuantifier().getAlias(),
                             child.getAlias()));
-            final var newPredicates = translatePredicates(translationMap);
+            final var newPredicates = updatedPredicates(translationMap);
             return new SelectExpression(child.getFlowedObjectValue(),
                     ImmutableList.of(child),
                     newPredicates
@@ -201,6 +203,10 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
         @Nonnull
         @Override
         public Optional<SelectExpression> visitLogicalFilterExpression(@Nonnull final LogicalFilterExpression logicalFilterExpression) {
+            //
+            // Replace the logical filter expression with a SelectExpression. It should combine the original
+            // predicates (now applied to expression's child quantifier) with the expressions original predicates.
+            //
             final var inner = logicalFilterExpression.getInner();
             if (!(inner instanceof Quantifier.ForEach)) {
                 return Optional.empty();
@@ -208,7 +214,7 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
             final var translationMap =
                     TranslationMap.rebaseWithAliasMap(AliasMap.ofAliases(getPushQuantifier().getAlias(),
                             inner.getAlias()));
-            final var newPredicates = translatePredicates(translationMap, logicalFilterExpression.getPredicates());
+            final var newPredicates = updatedPredicates(translationMap, logicalFilterExpression.getPredicates());
             return Optional.of(
                     new SelectExpression(inner.getFlowedObjectValue(),
                             ImmutableList.of(inner),
@@ -218,11 +224,15 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
         @Nonnull
         @Override
         public Optional<SelectExpression> visitSelectExpression(@Nonnull final SelectExpression selectExpression) {
+            //
+            // Push down the original predicates by translating them to apply to the select expression's inner
+            // predicates, and then combine them with the select's original predicates
+            //
             final var translationMap = TranslationMap.builder()
                     .when(getPushQuantifier().getAlias())
                     .then(((sourceAlias, leafValue) -> selectExpression.getResultValue()))
                     .build();
-            final var newPredicates = translatePredicates(translationMap, selectExpression.getPredicates());
+            final var newPredicates = updatedPredicates(translationMap, selectExpression.getPredicates());
             return Optional.of(
                     new SelectExpression(selectExpression.getResultValue(),
                             selectExpression.getQuantifiers(),
@@ -232,6 +242,12 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
         @Nonnull
         @Override
         public Optional<LogicalUnionExpression> visitLogicalUnionExpression(@Nonnull final LogicalUnionExpression unionExpression) {
+            //
+            // Push the original predicates through the union. For each leg of the union, translate the predicates
+            // to apply to that child, and then create a new SelectExpression over the original child to hold
+            // the predicates. Further rewriting of the resulting child will handle things like pushing the child
+            // predicates down more or merging with any existing SelectExpressions
+            //
             final var childQuantifiers = unionExpression.getQuantifiers();
             var newChildrenBuilder = ImmutableList.<Quantifier>builderWithExpectedSize(childQuantifiers.size());
             for (Quantifier childQuantifier : childQuantifiers) {
@@ -247,6 +263,9 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
         @Nonnull
         @Override
         public Optional<RelationalExpression> visitDefault(@Nonnull final RelationalExpression element) {
+            //
+            // By default, we cannot push things down. Return nothing
+            //
             return Optional.empty();
         }
     }

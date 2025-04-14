@@ -448,6 +448,18 @@ public class PredicatePushDownRuleTest {
         assertYields(higher, newHigher);
     }
 
+    /**
+     * Test pushing down multiple predicates into a logical filter. This takes something like:
+     * <pre>{@code
+     * SELECT b, c FROM (FILTER t WHERE a = 42) WHERE b > d AND c != @1
+     * }</pre>
+     * <p>
+     * And rewrites it as:
+     * </p>
+     * <pre>{@code
+     * SELECT b, c FROM (SELECT * FROM t WHERE a = 42 AND b > d AND c != @1)
+     * }</pre>
+     */
     @Test
     void pushDownMultiplePredicatesToLogicalFilter() {
         final ConstantObjectValue constantBytes = ConstantObjectValue.of(Quantifier.constant(), "1", Type.primitiveType(Type.TypeCode.BYTES, false));
@@ -696,6 +708,66 @@ public class PredicatePushDownRuleTest {
 
         assertYields(newHigherWithNewT, newestHigher);
         assertYields(newHigherWithNewTau, newestHigher);
+    }
+
+    /**
+     * Test rewriting predicates on a select on top of a join. This validates that the predicates from the original
+     * are applied to the correct join source. This takes this expression:
+     * <pre>{@code
+     * SELECT b, c1, c2 FROM (
+     *   SELECT t.a AS a1, tau.alpha AS a2, t.b AS b, t.c AS c1, tau.gamma AS c2
+     *   FROM t, tau
+     *   WHERE t.b = tau.beta
+     * ) WHERE a1 = 42 AND a2 = $param
+     * }</pre>
+     * <p>
+     * And rewrites it as:
+     * </p>
+     * <pre>{@code
+     * SELECT b, c1, c2 FROM (
+     *   SELECT t.a AS a1, tau.alpha AS a2, t.b AS b, t.c AS c1, tau.gamma AS c2
+     *   FROM t, tau
+     *   WHERE t.b = tau.beta AND t.a = 42 AND tau.alpha = $param
+     * )
+     * }</pre>
+     * <p>
+     * Note the translation of {@code a1}  and {@code a2} to their original names and sources.
+     * </p>
+     */
+    @Test
+    void rewritePushedPredicatesOntoAppropriateJoinSource() {
+        final Quantifier t = baseT();
+        final Quantifier tau = baseTau();
+
+        final Quantifier originalJoinQun = forEach(join(t, tau)
+                .addResultColumn(Column.of(Optional.of("a1"), fieldValue(t, "a")))
+                .addResultColumn(Column.of(Optional.of("a2"), fieldValue(tau, "alpha")))
+                .addResultColumn(Column.of(Optional.of("b"), fieldValue(t, "b")))
+                .addResultColumn(Column.of(Optional.of("c1"), fieldValue(t, "c")))
+                .addResultColumn(Column.of(Optional.of("c2"), fieldValue(tau, "gamma")))
+                .addPredicate(fieldPredicate(t, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(tau, "beta"))))
+                .build()
+                .buildSelect());
+        final SelectExpression higher = selectWithPredicates(originalJoinQun,
+                List.of("b", "c1", "c2"),
+                fieldPredicate(originalJoinQun, "a1", EQUALS_42),
+                fieldPredicate(originalJoinQun, "a2", EQUALS_PARAM));
+
+        final Quantifier newJoinQun = forEach(join(t, tau)
+                .addResultColumn(Column.of(Optional.of("a1"), fieldValue(t, "a")))
+                .addResultColumn(Column.of(Optional.of("a2"), fieldValue(tau, "alpha")))
+                .addResultColumn(Column.of(Optional.of("b"), fieldValue(t, "b")))
+                .addResultColumn(Column.of(Optional.of("c1"), fieldValue(t, "c")))
+                .addResultColumn(Column.of(Optional.of("c2"), fieldValue(tau, "gamma")))
+                .addPredicate(fieldPredicate(t, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(tau, "beta"))))
+                .addPredicate(fieldPredicate(t, "a", EQUALS_42))
+                .addPredicate(fieldPredicate(tau, "alpha", EQUALS_PARAM))
+                .build()
+                .buildSelect());
+        final SelectExpression newHigher = selectWithPredicates(newJoinQun,
+                List.of("b", "c1", "c2"));
+
+        assertYields(higher, newHigher);
     }
 
     /**
