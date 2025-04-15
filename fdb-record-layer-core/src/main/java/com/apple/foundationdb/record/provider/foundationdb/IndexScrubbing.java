@@ -87,8 +87,8 @@ public class IndexScrubbing extends IndexingBase {
         return Arrays.asList(
                 LogMessageKeys.INDEXING_METHOD, scrubberName,
                 LogMessageKeys.ALLOW_REPAIR, scrubbingPolicy.allowRepair(),
-                LogMessageKeys.RANGE_ID, scrubbingPolicy.getRangeId(),
-                LogMessageKeys.RANGE_RESET, scrubbingPolicy.isRangeReset(),
+                LogMessageKeys.RANGE_ID, scrubbingPolicy.getScrubbingRangeId(),
+                LogMessageKeys.RANGE_RESET, scrubbingPolicy.isScrubbingRangeReset(),
                 LogMessageKeys.SCRUB_TYPE, scrubbingType,
                 LogMessageKeys.SCAN_LIMIT, scrubbingPolicy.getEntriesScanLimit()
         );
@@ -233,9 +233,9 @@ public class IndexScrubbing extends IndexingBase {
     IndexingRangeSet getRangeset(FDBRecordStore store, Index index) {
         switch (scrubbingType) {
             case MISSING:
-                return IndexingRangeSet.forScrubbingRecords(store, index, scrubbingPolicy.getRangeId());
+                return IndexingRangeSet.forScrubbingRecords(store, index, scrubbingPolicy.getScrubbingRangeId());
             case DANGLING:
-                return IndexingRangeSet.forScrubbingIndex(store, index, scrubbingPolicy.getRangeId());
+                return IndexingRangeSet.forScrubbingIndex(store, index, scrubbingPolicy.getScrubbingRangeId());
             default:
                 throw new RecordCoreArgumentException("Unpredicted scrubbing type ");
         }
@@ -252,7 +252,7 @@ public class IndexScrubbing extends IndexingBase {
 
         final Index index = common.getIndex(); // Note: multi targets mode is not supported (yet)
         final IndexingRangeSet rangeSet = getRangeset(store, index);
-        if (scrubbingPolicy.isRangeReset()) {
+        if (scrubbingPolicy.isScrubbingRangeReset()) {
             logScrubberRangeReset("forced reset");
             rangeSet.clear();
             return AsyncUtil.DONE;

@@ -146,8 +146,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
         private final int rangeId;
         private final boolean rangeReset;
 
-        @Deprecated(since = "4.2.2.1", forRemoval = true)
-        public ScrubbingPolicy(int logWarningsLimit, boolean allowRepair, long entriesScanLimit,
+        private ScrubbingPolicy(int logWarningsLimit, boolean allowRepair, long entriesScanLimit,
                                boolean ignoreIndexTypeCheck, boolean useLegacy, int rangeId, boolean rangeReset) {
 
             this.logWarningsLimit = logWarningsLimit;
@@ -179,11 +178,11 @@ public class OnlineIndexScrubber implements AutoCloseable {
             return logWarningsLimit;
         }
 
-        public int getRangeId() {
+        public int getScrubbingRangeId() {
             return rangeId;
         }
 
-        public boolean isRangeReset() {
+        public boolean isScrubbingRangeReset() {
             return rangeReset;
         }
 
@@ -290,11 +289,11 @@ public class OnlineIndexScrubber implements AutoCloseable {
             }
 
             /**
-             * Choose a specific id for this scrubbing operation. If the scrubbing stops, then later it can be resumed
-             * at a later time by constructing the same builder.
+             * Choose a specific id for this scrubbing operation. If the scrubbing stops, then it can be resumed
+             * by constructing the same builder.
              * Work done with other ids will not affect work done with this id.
              * 0 is the backward compatible default, which means no prefix.
-             * @param rangeId a rangeSet prefix
+             * @param rangeId an id for isolating this scrubbing work
              * @return this builder
              */
             public Builder setScrubbingRangeId(final int rangeId) {
