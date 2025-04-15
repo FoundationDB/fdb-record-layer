@@ -22,12 +22,15 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
@@ -40,13 +43,14 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.EQUALS_42;
 import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.EQUALS_PARAM;
 import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.GREATER_THAN_HELLO;
 import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.baseT;
 import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.baseTau;
+import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.column;
+import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.exists;
 import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.fieldPredicate;
 import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.fieldValue;
 import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.forEach;
@@ -199,6 +203,102 @@ public class PredicatePushDownRuleTest {
     }
 
     /**
+     * Test when we try to push a predicate that cannot be pushed down. In this case, we have
+     * a query like:
+     * <pre>{@code
+     * SELECT a, b, c FROM t WHERE b > 'hello'
+     * }</pre>
+     * <p>
+     * In this case, the QGM contains a {@link SelectExpression} on top of a
+     * {@link com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression}
+     * on top of a {@link com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression}.
+     * The predicate cannot be pushed through the type filter, and so we expect nothing to be returned.
+     * </p>
+     */
+    @Test
+    void cannotPushDownPredicate() {
+        Quantifier baseQun = baseT();
+        SelectExpression singleExpression = selectWithPredicates(
+                baseQun, List.of("a", "b", "c"),
+                fieldPredicate(baseQun, "b", GREATER_THAN_HELLO));
+
+        testHelper.assertYieldsNothing(singleExpression);
+    }
+
+    /**
+     * Test what happens when there is a reference with multiple expressions that can accept a pushed
+     * predicate. If that is the case, during the rewrite, the predicate should be pushed down to
+     * all children of the original expression.
+     */
+    @Test
+    void canPushDownToMultipleChildren() {
+        Quantifier baseQun = baseT();
+
+        SelectExpression lower1 = selectWithPredicates(
+                baseQun, List.of("a", "b", "c")
+        );
+        SelectExpression lower2 = selectWithPredicates(
+                baseQun, List.of("a", "b", "c"),
+                new ConstantPredicate(true)
+        );
+        Reference lowerRef = Reference.from(lower1, lower2);
+        Quantifier lowerQun = Quantifier.forEach(lowerRef);
+
+        SelectExpression higher = selectWithPredicates(
+                lowerQun, List.of("b", "c"),
+                fieldPredicate(lowerQun, "a", EQUALS_42)
+        );
+
+        SelectExpression newLower1 = selectWithPredicates(
+                baseQun, List.of("a", "b", "c"),
+                fieldPredicate(baseQun, "a", EQUALS_42)
+        );
+        SelectExpression newLower2 = selectWithPredicates(
+                baseQun, List.of("a", "b", "c"),
+                new ConstantPredicate(true),
+                fieldPredicate(baseQun, "a", EQUALS_42)
+        );
+        Reference newLowerRef = Reference.from(newLower1, newLower2);
+        Quantifier newLowerQun = Quantifier.forEach(newLowerRef);
+
+        SelectExpression newHigher = selectWithPredicates(
+                newLowerQun, List.of("b", "c")
+        );
+
+        testHelper.assertYields(higher, newHigher);
+    }
+
+    /**
+     * Test what happens if we have multiple children, some of whom can push down the predicate
+     * and some of whom can't. In this case, we expect it to create a new reference that contains
+     * only the children that accept the predicate.
+     */
+    @Test
+    void canPushDownToSomeChildren() {
+        Quantifier baseQun = baseT();
+
+        // Add a second expression to the baseQun quantifier. It is identical
+        // to the original quantifier contents, except it inserts an additional
+        // select (which does no filtering or projection).
+        Quantifier baseQun2 = baseT();
+        SelectExpression selectAllT = selectWithPredicates(baseQun2);
+        baseQun.getRangesOver().insert(selectAllT);
+
+        SelectExpression higher = selectWithPredicates(
+                baseQun, List.of("a", "c"),
+                fieldPredicate(baseQun, "b", EQUALS_PARAM));
+
+        Quantifier newLowerQun = forEach(selectWithPredicates(baseQun2,
+                fieldPredicate(baseQun2, "b", EQUALS_PARAM)
+        ));
+        SelectExpression newHigher = selectWithPredicates(
+                newLowerQun, List.of("a", "c")
+        );
+
+        testHelper.assertYields(higher, newHigher);
+    }
+
+    /**
      * Test that when pushing down a predicate to a place that already has a predicate, we retain the existing predicate.
      * <pre>{@code
      * SELECT a FROM (SELECT a, b, c FROM T WHERE b = @1) WHERE c = @2
@@ -270,6 +370,90 @@ public class PredicatePushDownRuleTest {
         );
 
         testHelper.assertYields(higher, newHigher);
+    }
+
+    /**
+     * Test a rewrite of a predicate that has been unnested by projections. So:
+     * <pre>{@code
+     * SELECT a, b, one FROM (SELECT a, b, p.one, p.two FROM T) WHERE two = ?
+     * }</pre>
+     * <p>
+     * Becomes:
+     * </p>
+     * <pre>{@code
+     * SELECT a, b, one FROM (SELECT a, b p.one, p.two FROM T WHERE p.two = ?)
+     * }</pre>
+     */
+    @Test
+    void pushDownPredicateOnScalarNested() {
+        Quantifier baseQun = baseT();
+
+        Quantifier lowerQun = forEach(selectWithPredicates(
+                baseQun, ImmutableMap.of("a", "a", "b", "b", "e.one", "one", "e.two", "two")
+        ));
+        SelectExpression higher = selectWithPredicates(
+                lowerQun, List.of("a", "b", "one"),
+                fieldPredicate(lowerQun, "two", EQUALS_PARAM)
+        );
+
+        Quantifier newLowerQun = forEach(selectWithPredicates(
+                baseQun, ImmutableMap.of("a", "a", "b", "b", "e.one", "one", "e.two", "two"),
+                fieldPredicate(baseQun, "e.two", EQUALS_PARAM)
+        ));
+        SelectExpression newHigher = selectWithPredicates(
+                newLowerQun, List.of("a", "b", "one")
+        );
+
+        testHelper.assertYields(higher, newHigher);
+    }
+
+    @Test
+    void pushDownPredicateOnRepeatedNested() {
+        Quantifier baseQun = baseT();
+        Quantifier explodeQun = forEach(new ExplodeExpression(fieldValue(baseQun, "g")));
+
+        Quantifier nestedSelectQun = forEach(selectWithPredicates(
+                explodeQun, List.of("two", "three")
+        ));
+        SelectExpression topSelect = join(baseQun, nestedSelectQun)
+                .addResultColumn(column(baseQun, "a"))
+                .addResultColumn(column(nestedSelectQun, "three"))
+                .addPredicate(fieldPredicate(baseQun, "b", GREATER_THAN_HELLO))
+                .addPredicate(fieldPredicate(nestedSelectQun, "two", EQUALS_PARAM))
+                .build()
+                .buildSelect();
+
+        Quantifier newNestedSelectQun = forEach(selectWithPredicates(
+                explodeQun, List.of("two", "three"),
+                fieldPredicate(explodeQun, "two", EQUALS_PARAM)
+        ));
+        SelectExpression newTopSelect = join(baseQun, newNestedSelectQun)
+                .addResultColumn(column(baseQun, "a"))
+                .addResultColumn(column(newNestedSelectQun, "three"))
+                .addPredicate(fieldPredicate(baseQun, "b", GREATER_THAN_HELLO))
+                .build()
+                .buildSelect();
+
+        testHelper.assertYields(topSelect, newTopSelect);
+    }
+
+    @Test
+    void doNotPushDownToExistential() {
+        Quantifier baseQun = baseT();
+        Quantifier explodeQun = forEach(new ExplodeExpression(fieldValue(baseQun, "g")));
+
+        Quantifier nestedExistsQun = exists(selectWithPredicates(
+                explodeQun,
+                fieldPredicate(explodeQun, "two", GREATER_THAN_HELLO)
+        ));
+        SelectExpression topSelect = join(baseQun, nestedExistsQun)
+                .addResultColumn(column(baseQun, "a"))
+                .addPredicate(new ExistsPredicate(nestedExistsQun.getAlias()))
+                .addPredicate(fieldPredicate(baseQun, "b", GREATER_THAN_HELLO))
+                .build()
+                .buildSelect();
+
+        testHelper.assertYieldsNothing(topSelect);
     }
 
     /**
@@ -645,11 +829,11 @@ public class PredicatePushDownRuleTest {
         final Quantifier tau = baseTau();
 
         final Quantifier originalJoinQun = forEach(join(t, tau)
-                .addResultColumn(Column.of(Optional.of("a1"), fieldValue(t, "a")))
-                .addResultColumn(Column.of(Optional.of("a2"), fieldValue(tau, "alpha")))
-                .addResultColumn(Column.of(Optional.of("b"), fieldValue(t, "b")))
-                .addResultColumn(Column.of(Optional.of("c1"), fieldValue(t, "c")))
-                .addResultColumn(Column.of(Optional.of("c2"), fieldValue(tau, "gamma")))
+                .addResultColumn(column(t, "a", "a1"))
+                .addResultColumn(column(tau, "alpha", "a2"))
+                .addResultColumn(column(t, "b", "b"))
+                .addResultColumn(column(t, "c", "c1"))
+                .addResultColumn(column(tau, "gamma", "c2"))
                 .addPredicate(fieldPredicate(t, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(tau, "beta"))))
                 .build()
                 .buildSelect());
@@ -659,11 +843,11 @@ public class PredicatePushDownRuleTest {
                 fieldPredicate(originalJoinQun, "a2", EQUALS_PARAM));
 
         final Quantifier newJoinQun = forEach(join(t, tau)
-                .addResultColumn(Column.of(Optional.of("a1"), fieldValue(t, "a")))
-                .addResultColumn(Column.of(Optional.of("a2"), fieldValue(tau, "alpha")))
-                .addResultColumn(Column.of(Optional.of("b"), fieldValue(t, "b")))
-                .addResultColumn(Column.of(Optional.of("c1"), fieldValue(t, "c")))
-                .addResultColumn(Column.of(Optional.of("c2"), fieldValue(tau, "gamma")))
+                .addResultColumn(column(t, "a", "a1"))
+                .addResultColumn(column(tau, "alpha", "a2"))
+                .addResultColumn(column(t, "b", "b"))
+                .addResultColumn(column(t, "c", "c1"))
+                .addResultColumn(column(tau, "gamma", "c2"))
                 .addPredicate(fieldPredicate(t, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(tau, "beta"))))
                 .addPredicate(fieldPredicate(t, "a", EQUALS_42))
                 .addPredicate(fieldPredicate(tau, "alpha", EQUALS_PARAM))

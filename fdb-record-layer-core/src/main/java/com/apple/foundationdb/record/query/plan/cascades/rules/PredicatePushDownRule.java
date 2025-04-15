@@ -124,12 +124,20 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
 
         //
         // Go through all expressions within the reference the push quantifier ranges over and find those that can
-        // be pushed into/through.
+        // be pushed into/through. Any that cannot accept the predicate will be skipped over and excluded from the
+        // rewritten expression.
         //
         final var belowExpressions = bindings.get(belowExpressionsMatcher);
-
         for (final var belowExpression : belowExpressions) {
             pushToVisitor.visit(belowExpression).ifPresent(newBelowExpressions::add);
+        }
+
+        if (newBelowExpressions.isEmpty()) {
+            //
+            // We were unable to push the predicates down into the child quantifier.
+            // Return without yielding a new expression.
+            //
+            return;
         }
 
         final var newRangesOverReference =

@@ -30,13 +30,16 @@ import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.AutoCloseableSoftAssertions;
 
@@ -44,7 +47,6 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Function;
 
 public class RewriteRuleTestHelper {
@@ -56,11 +58,21 @@ public class RewriteRuleTestHelper {
     public static final Comparisons.Comparison EQUALS_PARAM = new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, "p");
 
     @Nonnull
+    public static final Type.Record TYPE_S = Type.Record.fromFields(ImmutableList.of(
+            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG, true), Optional.of("one")),
+            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("two")),
+            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.BYTES, true), Optional.of("three"))
+    ));
+
+    @Nonnull
     public static final Type.Record TYPE_T = Type.Record.fromFields(ImmutableList.of(
             Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG, true), Optional.of("a")),
             Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("b")),
             Type.Record.Field.of(Type.primitiveType(Type.TypeCode.BYTES, true), Optional.of("c")),
-            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("d"))
+            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("d")),
+            Type.Record.Field.of(TYPE_S, Optional.of("e")),
+            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG, true), Optional.of("f")),
+            Type.Record.Field.of(new Type.Array(true, TYPE_S), Optional.of("g"))
     ));
 
     @Nonnull
@@ -68,7 +80,10 @@ public class RewriteRuleTestHelper {
             Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG, true), Optional.of("alpha")),
             Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("beta")),
             Type.Record.Field.of(Type.primitiveType(Type.TypeCode.BYTES, true), Optional.of("gamma")),
-            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("delta"))
+            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("delta")),
+            Type.Record.Field.of(TYPE_S, Optional.of("epsilon")),
+            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG, true), Optional.of("zeta")),
+            Type.Record.Field.of(new Type.Array(true, TYPE_S), Optional.of("eta"))
     ));
 
     @Nonnull
@@ -77,18 +92,41 @@ public class RewriteRuleTestHelper {
     }
 
     @Nonnull
+    public static Quantifier exists(RelationalExpression relationalExpression) {
+        return Quantifier.existential(Reference.of(relationalExpression));
+    }
+
+    @Nonnull
+    public static Quantifier fuseQun() {
+        return forEach(new FullUnorderedScanExpression(ImmutableSet.of("T", "TAU"), Type.Record.fromFields(ImmutableList.of()), new AccessHints()));
+    }
+
+    @Nonnull
     public static Quantifier baseT() {
-        return forEach(new FullUnorderedScanExpression(Set.of("T"), TYPE_T, new AccessHints()));
+        return forEach(new LogicalTypeFilterExpression(ImmutableSet.of("T"), fuseQun(), TYPE_T));
     }
 
     @Nonnull
     public static Quantifier baseTau() {
-        return forEach(new FullUnorderedScanExpression(Set.of("TAU"), TYPE_TAU, new AccessHints()));
+        return forEach(new LogicalTypeFilterExpression(ImmutableSet.of("TAU"), fuseQun(), TYPE_TAU));
+    }
+
+    @Nonnull
+    public static FieldValue fieldValue(Value value, String fieldName) {
+        int dotPos = fieldName.indexOf('.');
+        if (dotPos >= 0) {
+            String parentFieldName = fieldName.substring(0, dotPos);
+            FieldValue parentField = FieldValue.ofFieldNameAndFuseIfPossible(value, parentFieldName);
+            String childFieldName = fieldName.substring(dotPos + 1);
+            return fieldValue(parentField, childFieldName);
+        } else {
+            return FieldValue.ofFieldNameAndFuseIfPossible(value, fieldName);
+        }
     }
 
     @Nonnull
     public static FieldValue fieldValue(Quantifier qun, String fieldName) {
-        return FieldValue.ofFieldNameAndFuseIfPossible(qun.getFlowedObjectValue(), fieldName);
+        return fieldValue(qun.getFlowedObjectValue(), fieldName);
     }
 
     @Nonnull
@@ -102,10 +140,20 @@ public class RewriteRuleTestHelper {
     }
 
     @Nonnull
+    public static Column<FieldValue> column(@Nonnull Quantifier qun, @Nonnull String fieldName, @Nonnull String resultName) {
+        return Column.of(Optional.of(resultName), fieldValue(qun, fieldName));
+    }
+
+    @Nonnull
+    public static Column<FieldValue> column(@Nonnull Quantifier qun, @Nonnull String fieldName) {
+        return column(qun, fieldName, fieldName);
+    }
+
+    @Nonnull
     public static SelectExpression selectWithPredicates(Quantifier qun, Map<String, String> projection, QueryPredicate... predicates) {
         GraphExpansion.Builder builder = GraphExpansion.builder().addQuantifier(qun);
         for (Map.Entry<String, String> p : projection.entrySet()) {
-            builder.addResultColumn(Column.of(Optional.of(p.getValue()), FieldValue.ofFieldName(qun.getFlowedObjectValue(), p.getKey())));
+            builder.addResultColumn(column(qun, p.getKey(), p.getValue()));
         }
         builder.addAllPredicates(List.of(predicates));
         return builder.build().buildSelect();
