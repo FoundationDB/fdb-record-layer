@@ -31,6 +31,8 @@ import javax.annotation.Nullable;
  */
 @API(API.Status.EXPERIMENTAL)
 public class UnableToPlanException extends RecordCoreException {
+    private static final long serialVersionUID = -640771754012134420L;
+
     public UnableToPlanException(@Nonnull String msg, @Nullable Object ... keyValues) {
         super(msg, keyValues);
     }
