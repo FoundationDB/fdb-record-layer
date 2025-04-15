@@ -569,7 +569,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
 
     /**
      * Set whether or not to track the index build progress by updating the number of records successfully scanned
-     * and processed. The progress is persisted in {@link OnlineIndexer#indexBuildScannedRecordsSubspace(FDBRecordStoreBase, Index)}
+     * and processed. The progress is persisted in {@link IndexingSubspaces#indexBuildScannedRecordsSubspace(FDBRecordStoreBase, Index)}
      * which can be accessed by {@link IndexBuildState#loadIndexBuildStateAsync(FDBRecordStoreBase, Index)}.
      * <p>
      * This setting does not affect the setting at {@link #setProgressLogIntervalMillis(long)}.
