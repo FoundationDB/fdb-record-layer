@@ -27,7 +27,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * Error being thrown when Cascades cannot plan a query
+ * Error being thrown when Cascades cannot plan a query.
  */
 @API(API.Status.EXPERIMENTAL)
 public class UnableToPlanException extends RecordCoreException {
