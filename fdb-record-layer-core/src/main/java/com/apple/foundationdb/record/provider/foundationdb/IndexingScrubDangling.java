@@ -88,8 +88,8 @@ public class IndexingScrubDangling extends IndexingBase {
         return Arrays.asList(
                 LogMessageKeys.INDEXING_METHOD, "scrub dangling index entries",
                 LogMessageKeys.ALLOW_REPAIR, scrubbingPolicy.allowRepair(),
-                LogMessageKeys.RANGE_ID, scrubbingPolicy.getRangeId(),
-                LogMessageKeys.RANGE_RESET, scrubbingPolicy.isRangeReset(),
+                LogMessageKeys.RANGE_ID, scrubbingPolicy.getScrubbingRangeId(),
+                LogMessageKeys.RANGE_RESET, scrubbingPolicy.isScrubbingRangeReset(),
                 LogMessageKeys.SCAN_LIMIT, scrubbingPolicy.getEntriesScanLimit()
         );
     }
@@ -149,7 +149,7 @@ public class IndexingScrubDangling extends IndexingBase {
         validateOrThrowEx(store.getIndexState(index).isScannable(), "scrubbed index is not readable");
 
         final ScanProperties scanProperties = scanPropertiesWithLimits(true);
-        final IndexingRangeSet rangeSet = IndexingRangeSet.forScrubbingIndex(store, index, scrubbingPolicy.getRangeId());
+        final IndexingRangeSet rangeSet = IndexingRangeSet.forScrubbingIndex(store, index, scrubbingPolicy.getScrubbingRangeId());
         return rangeSet.firstMissingRangeAsync().thenCompose(range -> {
             if (range == null) {
                 // Here: no more missing ranges - all done
@@ -258,8 +258,8 @@ public class IndexingScrubDangling extends IndexingBase {
                 "Not a scrubber type-stamp");
 
         final Index index = common.getIndex(); // Note: the scrubbers do not support multi target (yet)
-        IndexingRangeSet indexRangeSet = IndexingRangeSet.forScrubbingIndex(store, index, scrubbingPolicy.getRangeId());
-        if (scrubbingPolicy.isRangeReset()) {
+        IndexingRangeSet indexRangeSet = IndexingRangeSet.forScrubbingIndex(store, index, scrubbingPolicy.getScrubbingRangeId());
+        if (scrubbingPolicy.isScrubbingRangeReset()) {
             indexRangeSet.clear();
             if (LOGGER.isInfoEnabled()) {
                 LOGGER.info(KeyValueLogMessage.build("Reset index scrubbing range")

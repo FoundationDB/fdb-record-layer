@@ -38,8 +38,8 @@ public final class IndexingSubspaces {
     private static final Object INDEX_BUILD_TYPE_VERSION = 2L;
     private static final Object INDEX_SCRUBBED_INDEX_RANGES_ZERO = 3L;
     private static final Object INDEX_SCRUBBED_RECORDS_RANGES_ZERO = 4L;
-    private static final Object INDEX_SCRUBBED_INDEX_RANGES = 4L;
     private static final Object INDEX_SCRUBBED_RECORDS_RANGES = 5L;
+    private static final Object INDEX_SCRUBBED_INDEX_RANGES = 6L;
 
     private IndexingSubspaces() {
         throw new IllegalStateException("Utility class");
@@ -50,6 +50,12 @@ public final class IndexingSubspaces {
         return store.getUntypedRecordStore().indexBuildSubspace(index).subspace(Tuple.from(key));
     }
 
+    /**
+     * Subspace that stores the lock for a synced indexing session.
+     * @param store store
+     * @param index index
+     * @return subspace
+     */
     @Nonnull
     public static Subspace indexBuildLockSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
         return indexBuildSubspace(store, index, INDEX_BUILD_LOCK_KEY);
