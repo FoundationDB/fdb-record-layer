@@ -20,10 +20,20 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.cursors.CursorLimitManager;
+import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.google.common.base.Strings;
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -38,21 +48,38 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 // TODO: Add omitUnsplitRecordSuffix, remove formatVersion
 
-public class RecordValidationTest extends FDBRecordStoreTestBase {
-    @ParameterizedTest(name = "testValidateRecordsNoIssue [formatVersion = {0}, splitLongRecords = {1}]")
-    @MethodSource("formatVersionAndSplitArgs")
-    public void testValidateRecordsNoIssue(int formatVersion, boolean splitLongRecords) throws Exception {
+public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
+    @ParameterizedTest(name = "testIterateRecordsNoIssue [splitLongRecords = {0}]")
+    @BooleanSource()
+    public void testIterateRecordsNoIssue(boolean splitLongRecords) throws Exception {
+//    @Test
+//    public void testIterateRecordsNoIssue() throws Exception {
+//        boolean splitLongRecords = true;
+
         final RecordMetaDataHook hook = metaData -> {
             metaData.setSplitLongRecords(splitLongRecords);
             // index cannot be used with large fields
             metaData.removeIndex("MySimpleRecord$str_value_indexed");
         };
-        final List<FDBStoredRecord<Message>> result = saveRecords(formatVersion, splitLongRecords, hook);
-        // Validate by primary key
+        final List<FDBStoredRecord<Message>> result = saveRecords(splitLongRecords, hook);
+
+        // Scan records
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            validateRecord(result.get(0), null);
-            validateRecord(result.get(1), null);
+            final Subspace recordsSubspace = recordStore.recordsSubspace();
+            final SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
+            RecordCursor<KeyValue> inner = KeyValueCursor.Builder
+                    .withSubspace(recordsSubspace)
+                    .setContext(context)
+                    .setContinuation(null)
+                    .setRange(TupleRange.allOf(null))
+                    .setScanProperties(ScanProperties.FORWARD_SCAN)
+                    .build();
+            final RecordKeyCursor recordKeyCursor = new RecordKeyCursor(context, recordsSubspace, inner, false, sizeInfo, ScanProperties.FORWARD_SCAN);
+
+            final List<Tuple> keys = recordKeyCursor.asList().get();
+            // TODO: limit manager, Skip, limit etc.
+
             context.commit();
         }
     }
@@ -65,7 +92,7 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
             // index cannot be used with large fields
             metaData.removeIndex("MySimpleRecord$str_value_indexed");
         };
-        List<FDBStoredRecord<Message>> result = saveRecords(formatVersion, splitLongRecords, hook);
+        List<FDBStoredRecord<Message>> result = saveRecords(splitLongRecords, hook);
         // Delete a record
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -104,7 +131,7 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
             // index cannot be used with large fields
             metaData.removeIndex("MySimpleRecord$str_value_indexed");
         };
-        List<FDBStoredRecord<Message>> result = saveRecords(formatVersion, splitLongRecords, hook);
+        List<FDBStoredRecord<Message>> result = saveRecords(splitLongRecords, hook);
         // Delete a split
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -134,7 +161,7 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
             // index cannot be used with large fields
             metaData.removeIndex("MySimpleRecord$str_value_indexed");
         };
-        List<FDBStoredRecord<Message>> result = saveRecords(formatVersion, splitLongRecords, hook);
+        List<FDBStoredRecord<Message>> result = saveRecords(splitLongRecords, hook);
         // Delete the versions
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -172,7 +199,7 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
     }
 
     @Nonnull
-    private List<FDBStoredRecord<Message>> saveRecords(final int formatVersion, final boolean splitLongRecords, final RecordMetaDataHook hook) throws Exception {
+    private List<FDBStoredRecord<Message>> saveRecords(final boolean splitLongRecords, final RecordMetaDataHook hook) throws Exception {
         final TestRecords1Proto.MySimpleRecord record1 = TestRecords1Proto.MySimpleRecord.newBuilder()
                 .setRecNo(1L)
                 .setStrValueIndexed("foo")
@@ -190,7 +217,7 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             uncheckedOpenSimpleRecordStore(context, hook);
             // Save with various formats
-            final FDBRecordStore.Builder storeBuilder = recordStore.asBuilder().setFormatVersion(formatVersion);
+            final FDBRecordStore.Builder storeBuilder = recordStore.asBuilder();
             final FDBRecordStore store = storeBuilder.create();
             savedRecord1 = store.saveRecord(record1);
             savedRecord2 = store.saveRecord(record2);
