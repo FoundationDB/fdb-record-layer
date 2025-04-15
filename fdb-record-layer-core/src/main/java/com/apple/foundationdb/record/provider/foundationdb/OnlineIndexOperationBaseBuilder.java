@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
@@ -615,10 +616,12 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     /**
      * Set the store format version to use while building the index.
      *
-     * Normally this is set by {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
+     * This is deprecated, and instead one should call {@link #setRecordStore} or {@link #setRecordStoreBuilder} with
+     * the format version desired.
      * @param formatVersion the format version to use
      * @return this builder
      */
+    @API(API.Status.DEPRECATED)
     public B setFormatVersion(int formatVersion) {
         if (recordStoreBuilder == null) {
             throw new MetaDataException("format version can only be set after record store builder has been set");

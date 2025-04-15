@@ -188,35 +188,34 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     // TODO: This should probably be configured through the PipelineSizer
     public static final int MAX_PARALLEL_INDEX_REBUILD = 10;
 
-    private static final int MIN_FORMAT_VERSION = 1;
-    // 1 - initial implementation
-    public static final int INFO_ADDED_FORMAT_VERSION = 1;
-    // 2 - added record counting
-    public static final int RECORD_COUNT_ADDED_FORMAT_VERSION = 2;
-    // 3 - added support for a key in record count
-    public static final int RECORD_COUNT_KEY_ADDED_FORMAT_VERSION = 3;
-    // 4 - tightened up format version migration (version mostly for testing)
-    public static final int FORMAT_CONTROL_FORMAT_VERSION = 4;
-    // 5 - started writing unsplit records with a suffix
-    public static final int SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION = 5;
-    // 6 - store record version at a split point within the record
-    public static final int SAVE_VERSION_WITH_RECORD_FORMAT_VERSION = 6;
-    // 7 - allow the record store state to be cached and invalidated with the meta-data version key
-    public static final int CACHEABLE_STATE_FORMAT_VERSION = 7;
-    // 8 - add custom fields to store header
-    public static final int HEADER_USER_FIELDS_FORMAT_VERSION = 8;
-    // 9 - add READABLE_UNIQUE_PENDING index state
-    public static final int READABLE_UNIQUE_PENDING_FORMAT_VERSION = 9;
-    // 10 - check index build type during update
-    public static final int CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION = 10;
+    /** See {@link FormatVersion#getMinimumVersion()}. **/
+    private static final int MIN_FORMAT_VERSION = FormatVersion.getMinimumVersion().getValueForSerialization();
+    /** See {@link FormatVersion#INFO_ADDED}. **/
+    public static final int INFO_ADDED_FORMAT_VERSION = FormatVersion.INFO_ADDED.getValueForSerialization();
+    /** See {@link FormatVersion#RECORD_COUNT_ADDED}. **/
+    public static final int RECORD_COUNT_ADDED_FORMAT_VERSION = FormatVersion.RECORD_COUNT_ADDED.getValueForSerialization();
+    /** See {@link FormatVersion#RECORD_COUNT_KEY_ADDED}. **/
+    public static final int RECORD_COUNT_KEY_ADDED_FORMAT_VERSION = FormatVersion.RECORD_COUNT_KEY_ADDED.getValueForSerialization();
+    /** See {@link FormatVersion#FORMAT_CONTROL}. **/
+    public static final int FORMAT_CONTROL_FORMAT_VERSION = FormatVersion.FORMAT_CONTROL.getValueForSerialization();
+    /** See {@link FormatVersion#SAVE_UNSPLIT_WITH_SUFFIX}. **/
+    public static final int SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION = FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX.getValueForSerialization();
+    /** See {@link FormatVersion#SAVE_VERSION_WITH_RECORD}. **/
+    public static final int SAVE_VERSION_WITH_RECORD_FORMAT_VERSION = FormatVersion.SAVE_VERSION_WITH_RECORD.getValueForSerialization();
+    /** See {@link FormatVersion#CACHEABLE_STATE}. **/
+    public static final int CACHEABLE_STATE_FORMAT_VERSION = FormatVersion.CACHEABLE_STATE.getValueForSerialization();
+    /** See {@link FormatVersion#HEADER_USER_FIELDS}. **/
+    public static final int HEADER_USER_FIELDS_FORMAT_VERSION = FormatVersion.HEADER_USER_FIELDS.getValueForSerialization();
+    /** See {@link FormatVersion#READABLE_UNIQUE_PENDING}. **/
+    public static final int READABLE_UNIQUE_PENDING_FORMAT_VERSION = FormatVersion.READABLE_UNIQUE_PENDING.getValueForSerialization();
+    /** See {@link FormatVersion#CHECK_INDEX_BUILD_TYPE_DURING_UPDATE}. **/
+    public static final int CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION = FormatVersion.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE.getValueForSerialization();
 
-    // The current code can read and write up to the format version below
-    public static final int MAX_SUPPORTED_FORMAT_VERSION = CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION;
+    /** See {@link FormatVersion#getMaximumSupportedVersion()}. **/
+    public static final int MAX_SUPPORTED_FORMAT_VERSION = FormatVersion.getMaximumSupportedVersion().getValueForSerialization();
 
-    // By default, record stores attempt to upgrade to this version
-    // NOTE: Updating this can break certain users during upgrades.
-    // See: https://github.com/FoundationDB/fdb-record-layer/issues/709
-    public static final int DEFAULT_FORMAT_VERSION = CACHEABLE_STATE_FORMAT_VERSION;
+    /** See {@link FormatVersion#getDefaultFormatVersion()}. **/
+    public static final int DEFAULT_FORMAT_VERSION = FormatVersion.getDefaultFormatVersion().getValueForSerialization();
 
     // These agree with the client's values. They could be tunable and even increased with knobs.
     public static final int KEY_SIZE_LIMIT = 10_000;
@@ -5188,9 +5187,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         @Override
         @Nonnull
+        @API(API.Status.DEPRECATED)
         public Builder setFormatVersion(int formatVersion) {
             this.formatVersion = formatVersion;
             return this;
+        }
+
+        @Override
+        public Builder setFormatVersion(final FormatVersion formatVersion) {
+            return setFormatVersion(formatVersion.getValueForSerialization());
         }
 
         @Override

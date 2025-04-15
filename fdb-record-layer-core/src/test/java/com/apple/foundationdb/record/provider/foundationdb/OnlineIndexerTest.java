@@ -72,7 +72,7 @@ public abstract class OnlineIndexerTest {
     RecordQueryPlanner planner;
     FDBRecordStore recordStore;
     private IndexMaintenanceFilter indexMaintenanceFilter;
-    int formatVersion = FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION;
+    FormatVersion formatVersion = FormatVersion.getMaximumSupportedVersion();
 
     public void setIndexMaintenanceFilter(@Nullable IndexMaintenanceFilter indexMaintenanceFilter) {
         this.indexMaintenanceFilter = indexMaintenanceFilter;
@@ -156,7 +156,7 @@ public abstract class OnlineIndexerTest {
                 .setMetaData(metaData)
                 .setSubspaceProvider(new SubspaceProviderByKeySpacePath(path))
                 .setIndexMaintenanceFilter(getIndexMaintenanceFilter())
-                .setFormatVersion(formatVersion);
+                .setFormatVersion(formatVersion.getValueForSerialization());
     }
 
     OnlineIndexer.Builder newIndexerBuilder(List<Index> indexes) {
@@ -181,7 +181,7 @@ public abstract class OnlineIndexerTest {
                 .setMetaData(metaData)
                 .setSubspaceProvider(new SubspaceProviderByKeySpacePath(path))
                 .setIndexMaintenanceFilter(getIndexMaintenanceFilter())
-                .setFormatVersion(formatVersion);
+                .setFormatVersion(formatVersion.getValueForSerialization());
     }
 
     OnlineIndexScrubber.Builder newScrubberBuilder(Index index) {

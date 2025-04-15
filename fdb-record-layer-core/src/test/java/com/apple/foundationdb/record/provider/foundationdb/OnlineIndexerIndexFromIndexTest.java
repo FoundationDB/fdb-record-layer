@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.test.BooleanSource;
+import com.google.common.collect.Comparators;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -169,7 +170,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     @ParameterizedTest
     @BooleanSource
     void testNonIdempotentIndexFromIndex(boolean reverseScan) {
-        this.formatVersion = Math.min(FDBRecordStore.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION, this.formatVersion);
+        this.formatVersion = Comparators.min(FormatVersion.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE, this.formatVersion);
         final FDBStoreTimer timer = new FDBStoreTimer();
         final long numRecords = 8;
         final long otherRecords = 4;
@@ -200,7 +201,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
     @Test
     void testCanBuildNonIdempotentIndexFromIndexOnNewStoreWithOldFormatVersionInIndexer() {
-        this.formatVersion = Math.min(FDBRecordStore.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION, this.formatVersion);
+        this.formatVersion = Comparators.min(FormatVersion.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE, this.formatVersion);
         final FDBStoreTimer timer = new FDBStoreTimer();
         final long numRecords = 8;
         final long otherRecords = 4;
@@ -215,10 +216,10 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         buildIndexClean(srcIndex);
 
         openSimpleMetaData(hook);
+        // Set a format version on the store that does not allow index-from-index builds
+        // Because the store already has this format version, though it should be allowed
+        this.formatVersion = FormatVersion.READABLE_UNIQUE_PENDING;
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
-                // Set a format version on the store that does not allow index-from-index builds
-                // Because the store already has this format version, though it should be allowed
-                .setFormatVersion(FDBRecordStore.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION - 1)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .build())
@@ -228,6 +229,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        this.formatVersion = Comparators.min(FormatVersion.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE, this.formatVersion);
         scrubAndValidate(List.of(tgtIndex));
     }
 
@@ -235,7 +237,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     @BooleanSource
     void testNonIdempotentIndexFromIndexOldFormatFallback(boolean reverseScan) {
         // Attempt to build a non-idempotent index at an older format version. This should fall back to a full record scan
-        this.formatVersion = FDBRecordStore.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION - 1;
+        this.formatVersion = FormatVersion.READABLE_UNIQUE_PENDING;
         final FDBStoreTimer timer = new FDBStoreTimer();
         final long numRecords = 6;
         final long otherRecords = 5;
@@ -268,7 +270,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     void testNonIdempotentIndexFromIndexOldFormatNoFallback() {
         // Attempt to build a non-idempotent index at old format version where this is not supported. This should
         // error as falling back to a record scan is not enabled
-        this.formatVersion = FDBRecordStore.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION - 1;
+        this.formatVersion = FormatVersion.READABLE_UNIQUE_PENDING;
         final FDBStoreTimer timer = new FDBStoreTimer();
         final long numRecords = 7;
         final long otherRecords = 8;
@@ -376,7 +378,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     @SuppressWarnings("try")
     @Test
     void testIndexFromIndexWithDuplicates() {
-        this.formatVersion = Math.min(FDBRecordStore.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION, this.formatVersion);
+        this.formatVersion = Comparators.min(FormatVersion.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE, this.formatVersion);
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 5;
 
