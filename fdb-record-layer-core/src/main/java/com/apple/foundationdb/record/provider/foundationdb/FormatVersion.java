@@ -1,0 +1,172 @@
+/*
+ * FormatVersion.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.record.provider.foundationdb;
+
+/**
+ * This version is recorded for each store, and controls certain aspects of the on-disk behavior.
+ * <p>
+ *     The primary reason for this version is to ensure that if two different versions of code interact with the same
+ *     store, the old version won't misinterpret other data in the store. Some of these version changes are relatively
+ *     minor such as {@link #CACHEABLE_STATE}, where, at worst, an old version of the code would unset the fact that
+ *     the store state is cacheable. Others are more major, such as {@link #SAVE_UNSPLIT_WITH_SUFFIX}, where two
+ *     versions of the code could be reading/writing record versions to different locations.
+ * </p>
+ * <p>
+ *     When the store is opened, the format version on disk will be upgraded to the one provided by
+ *     {@link FDBRecordStore.Builder#setFormatVersion}, or {@link #getDefaultFormatVersion()}. There is not currently
+ *     a defined policy for increasing the default version, so it is best to set the format version explicitly; see
+ *     <a href="https://github.com/FoundationDB/fdb-record-layer/issues/709">issue #709</a> for more information.
+ * </p>
+ * <p>
+ *     Generally, if all running instances support a given format version, it is ok to start using it, however upgrading
+ *     some format versions may be expensive, especially older versions on larger stores.
+ * </p>
+ */
+public enum FormatVersion implements Comparable<FormatVersion> {
+    /**
+     * Initial FormatVersion.
+     */
+    INFO_ADDED(1),
+    /**
+     * This FormatVersion introduces support for tracking record conuts as defined by:
+     * {@link com.apple.foundationdb.record.RecordMetaData#getRecordCountKey()}.
+     */
+    RECORD_COUNT_ADDED(2),
+    /**
+     * This FormatVersion causes the key as defined in {@link com.apple.foundationdb.record.RecordMetaData#getRecordCountKey()} to be stored in the
+     * StoreHeader, ensuring that if the key is changed, the record count will be updated.
+     * <p>
+     *     Unlike indexes, the RecordCountKey does not have a {@code lastModifiedVersion}, and thus the store detects
+     *     that the counts need to be rebuilt by checking the key in the StoreHeader.
+     * </p>
+     * <p>
+     *     Warning: There is no way to rebuild the record count key across transactions, and it does not check the
+     *     {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.UserVersionChecker}, so changing the record count key will cause the store to attempt to rebuild the
+     *     counts when opening the store. If you have not strated using this version (or
+     *     {@link #RECORD_COUNT_ADDED}), you may want to consider replacing the RecordCountKey with a
+     *     {@link com.apple.foundationdb.record.metadata.IndexTypes#COUNT} index first.
+     * </p>
+     */
+    RECORD_COUNT_KEY_ADDED(3),
+    /**
+     * This FormatVersion was introduced to support testing of upgrading the format version past
+     * {@link #RECORD_COUNT_KEY_ADDED}, but does not change the behavior of the store.
+     */
+    FORMAT_CONTROL(4),
+    /**
+     * This FormatVersion causes all stores to store the split suffix, even if
+     * {@link com.apple.foundationdb.record.RecordMetaData#isSplitLongRecords()} is {@code false}, unless
+     * {@link com.apple.foundationdb.record.RecordMetaDataProto.DataStoreInfo#getOmitUnsplitRecordSuffix()} is {@code true} on the StoreHeader.
+     * <p>
+     *     In order to maintain backwards compatiblity, and not require rewriting all the records, if upgrading from an
+     *     earlier FormatVersion to this one, if the metadata does not allow splitting long records,
+     *     {@linkplain com.apple.foundationdb.record.RecordMetaDataProto.DataStoreInfo#getOmitUnsplitRecordSuffix() getOmitUnsplitRecordSuffix()}
+     *     will be set to {@code true} on the StoreHeader.
+     * </p>
+     * <p>
+     *     By always including the suffix, it allows a couple benefits:
+     *     <ul>
+     *         <li>The metadata will be able to change to support splitting long records in the future</li>
+     *         <li>When upgrading to {@link #SAVE_UNSPLIT_WITH_SUFFIX} it can store the versions adjacent
+     *         to the record, rather than a separate sub-range.</li>
+     *     </ul>
+     * </p>
+     */
+    SAVE_UNSPLIT_WITH_SUFFIX(5),
+    /**
+     * This FormatVersion causes the record versions (if enabled via {@link com.apple.foundationdb.record.RecordMetaData#isStoreRecordVersions()})
+     * to be stored adjacent to the record itself, rather than in a separate sub-range.
+     * <p>
+     *     This most notably improves the performance or load of reading records, particularly a range of records, as it
+     *     doesn't have to do a separate read to get the versions.
+     * </p>
+     * <p>
+     *     Note: If the store is omitting the unsplit record suffix due to
+     *     {@link com.apple.foundationdb.record.RecordMetaDataProto.DataStoreInfo#getOmitUnsplitRecordSuffix()}, this will continue to store the
+     *     record versions in the separate space.
+     * </p>
+     * <p>
+     *     Warning: If {@link com.apple.foundationdb.record.RecordMetaData#isStoreRecordVersions()} is enabled when upgrading to this version,
+     *     the code will try to move the versions transactionally when opening the store.
+     * </p>
+     */
+    SAVE_VERSION_WITH_RECORD(6),
+    /**
+     * This FormatVersion allows the record state to be cached and invalidated with the meta-data version key.
+     * @see com.apple.foundationdb.record.provider.foundationdb.storestate.MetaDataVersionStampStoreStateCache
+     * @see FDBRecordStore#setStateCacheability
+     */
+    CACHEABLE_STATE(7),
+    /**
+     * This FormatVersion allows the user to store additional fields in the StoreHeader.
+     * These fields aren't used by the record store itself, but allow the user to set and read additional information.
+     * @see FDBRecordStore#setHeaderUserField
+     *
+     */
+    HEADER_USER_FIELDS(8),
+    /**
+     * This FormatVersion allows the store to mark indexes as {@link com.apple.foundationdb.record.IndexState#READABLE_UNIQUE_PENDING} if
+     * appropriate.
+     */
+    READABLE_UNIQUE_PENDING(9),
+    /**
+     * This FormatVersion allows building non-idempotent indexes (e.g. COUNT) from a source index.
+     */
+    CHECK_INDEX_BUILD_TYPE_DURING_UPDATE(10);
+
+    private final int value;
+
+    FormatVersion(final int value) {
+        this.value = value;
+    }
+
+    /**
+     * The minimum {@code FormatVersion}.
+     * @return the minimum {@code FormatVersion}
+     */
+    static FormatVersion getMinimumVersion() {
+        return INFO_ADDED;
+    }
+
+    /**
+     * The maximum {@code FormatVersion} that this version of the Record Layer can support.
+     * @return the maximum supported version
+     */
+    public static FormatVersion getMaximumSupportedVersion() {
+        return CHECK_INDEX_BUILD_TYPE_DURING_UPDATE;
+    }
+
+    /**
+     * The default FormatVersion that this code will set when opening a record store, if the user does not call
+     * {@link FDBRecordStore.Builder#setFormatVersion}.
+     * <p>
+     *     Note: We don't currently have a well-defined policy for updating this, see
+     *     <a href="https://github.com/FoundationDB/fdb-record-layer/issues/709">Issue #709</a>.
+     * </p>
+     */
+    public static FormatVersion getDefaultFormatVersion() {
+        return CACHEABLE_STATE;
+    }
+
+    int getValueForSerialization() {
+        return value;
+    }
+}
