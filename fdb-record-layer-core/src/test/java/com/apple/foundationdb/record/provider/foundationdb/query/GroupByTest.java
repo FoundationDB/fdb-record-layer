@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.UnableToPlanException;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
@@ -129,7 +130,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
     public void attemptToPlanGroupByWithoutCompatiblySortedIndexFails() {
         setupHookAndAddData(false, false);
         final var cascadesPlanner = (CascadesPlanner)planner;
-        Assertions.assertThrows(RecordCoreException.class, () -> cascadesPlanner.planGraph(
+        Assertions.assertThrows(UnableToPlanException.class, () -> cascadesPlanner.planGraph(
                 () -> constructGroupByPlan(false, false, GroupingKind.REGULAR_GROUPING),
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
