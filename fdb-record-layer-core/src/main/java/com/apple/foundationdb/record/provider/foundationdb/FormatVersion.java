@@ -194,7 +194,7 @@ public enum FormatVersion implements Comparable<FormatVersion> {
 
     @Nonnull
     @API(API.Status.INTERNAL)
-    static FormatVersion getFormatVersion(int candidateVersion) {
+    public static FormatVersion getFormatVersion(int candidateVersion) {
         final FormatVersion candidate = VERSIONS.get(candidateVersion);
         if (candidate == null) {
             throw new UnsupportedFormatVersionException("Unsupported format version " + candidateVersion);

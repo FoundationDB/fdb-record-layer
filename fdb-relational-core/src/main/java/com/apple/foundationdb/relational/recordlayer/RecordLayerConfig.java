@@ -96,7 +96,13 @@ public final class RecordLayerConfig {
             return this;
         }
 
+        @API(API.Status.DEPRECATED)
         public RecordLayerConfigBuilder setFormatVersion(int formatVersion) {
+            this.formatVersion = FormatVersion.getFormatVersion(formatVersion);
+            return this;
+        }
+
+        public RecordLayerConfigBuilder setFormatVersion(FormatVersion formatVersion) {
             this.formatVersion = formatVersion;
             return this;
         }
