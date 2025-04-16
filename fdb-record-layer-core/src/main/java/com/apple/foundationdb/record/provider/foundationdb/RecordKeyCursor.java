@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -46,6 +47,21 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 /**
+ * A cursor that scans through and returns all primary keys within a range of records.
+ * This cursor attempts to read and return all keys in the range disregarding any potential issues the records have.
+ * The idea is to be able to list the persistent keys in the space without prejudice so that we can then validate them
+ * in a separate pass.
+ * <p>
+ * This class borrows heavily from {@link SplitHelper.KeyValueUnsplitter} with some changes:
+ * <ul>
+ *     <li>Removed "reverse" option</li>
+ *     <li>Removed "oldFormatVersion" option</li>
+ *     <li>Return type is a {@link Tuple} (representing a primary key)</li>
+ *     <li>No accumulation of values - just unique keys are returned</li>
+ *     <li>Inner cursor is now created internally instead of being given</li>
+ *     <li>Most consistency checks disabled or removed</li>
+ * </ul>
+ * <p>
  * This cursor may exceed out-of-band limits in order to ensure that it only ever stops in between (split) records.
  * It is therefore unusual since it may exceed the record scan limit arbitrarily based on the size of the record
  * and the maximum value size.
@@ -57,7 +73,6 @@ public class RecordKeyCursor implements BaseCursor<Tuple> {
     private final FDBRecordContext context;
     @Nonnull
     private final RecordCursor<KeyValue> inner;
-    private final boolean oldVersionFormat;
     @Nonnull
     private final SplitHelper.SizeInfo sizeInfo;
     @Nonnull
@@ -88,19 +103,28 @@ public class RecordKeyCursor implements BaseCursor<Tuple> {
     private RecordCursorResult<Tuple> nextResult;
 
     public RecordKeyCursor(@Nonnull FDBRecordContext context, @Nonnull final Subspace subspace,
-                              @Nonnull final RecordCursor<KeyValue> inner, final boolean oldVersionFormat,
-                              @Nullable final SplitHelper.SizeInfo sizeInfo, @Nonnull ScanProperties scanProperties) {
-        this(context, subspace, inner, oldVersionFormat, sizeInfo, new CursorLimitManager(scanProperties));
+                           @Nonnull TupleRange range,
+                           @Nullable final SplitHelper.SizeInfo sizeInfo, @Nonnull ScanProperties scanProperties) {
+        this(context, subspace, range, null, sizeInfo, scanProperties, new CursorLimitManager(scanProperties));
     }
 
-    public RecordKeyCursor(@Nonnull FDBRecordContext context, @Nonnull final Subspace subspace,
-                              @Nonnull final RecordCursor<KeyValue> inner, final boolean oldVersionFormat,
-                              @Nullable final SplitHelper.SizeInfo sizeInfo,
+    public RecordKeyCursor(@Nonnull FDBRecordContext context,
+                           @Nonnull final Subspace subspace,
+                           @Nonnull TupleRange range,
+                           @Nullable byte[] continuation,
+                           @Nullable final SplitHelper.SizeInfo sizeInfo,
+                           @Nonnull ScanProperties scanProperties,
                            @Nonnull CursorLimitManager limitManager) {
+        inner = KeyValueCursor.Builder
+                .withSubspace(subspace)
+                .setContext(context)
+                .setContinuation(continuation)
+                .setRange(range)
+                .setScanProperties(scanProperties)
+                .build();
+        // TODO: prevent reverse scans
         this.context = context;
         this.subspace = subspace;
-        this.inner = inner;
-        this.oldVersionFormat = oldVersionFormat;
         this.sizeInfo = sizeInfo == null ? new SplitHelper.SizeInfo() : sizeInfo;
         this.limitManager = limitManager;
     }
@@ -124,12 +148,21 @@ public class RecordKeyCursor implements BaseCursor<Tuple> {
         } else {
             return appendUntilNewKey().thenApply(vignore -> {
                 if (nextVersion != null && next == null) {
-                    throw new SplitHelper.FoundSplitWithoutStartException(SplitHelper.RECORD_VERSION, false)
-                            .addLogInfo(LogMessageKeys.KEY_TUPLE, nextKey)
-                            .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack()))
-                            .addLogInfo(LogMessageKeys.VERSION, nextVersion);
+                    // Found version but no split - continue with the key we have, reset state
+                    sizeInfo.setVersionedInline(true);
+                    final Tuple result = nextKey;
+                    resetState();
+                    nextResult = RecordCursorResult.withNextValue(result, continuation);
+                    if (LOGGER.isTraceEnabled()) {
+                        KeyValueLogMessage msg = KeyValueLogMessage.build("Found record with version only",
+                                LogMessageKeys.NEXT_CONTINUATION, continuation == null ? "null" : ByteArrayUtil2.loggable(continuation.toBytes()),
+                                LogMessageKeys.KEY_TUPLE, result,
+                                LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.getKey()));
+                        LOGGER.trace(msg.toString());
+                    }
+                    return nextResult;
                 }
-                if (!oldVersionFormat && nextKey != null) {
+                if (nextKey != null) {
                     // Account for incomplete version
                     final byte[] versionKey = subspace.subspace(nextKey).pack(SplitHelper.RECORD_VERSION);
                     context.getLocalVersion(versionKey).ifPresent(localVersion -> {
@@ -152,10 +185,7 @@ public class RecordKeyCursor implements BaseCursor<Tuple> {
                 } else { // has next result
                     sizeInfo.setVersionedInline(nextVersion != null);
                     final Tuple result = nextKey;
-                    next = null;
-                    nextKey = null;
-                    nextVersion = null;
-                    nextPrefix = null;
+                    resetState();
                     nextResult = RecordCursorResult.withNextValue(result, continuation);
                     if (LOGGER.isTraceEnabled()) {
                         KeyValueLogMessage msg = KeyValueLogMessage.build("unsplitter assembled new record",
@@ -257,6 +287,7 @@ public class RecordKeyCursor implements BaseCursor<Tuple> {
             continuation = resultWithKv.getContinuation();
             return appendNext(kv);
         } else {
+            continuation = resultWithKv.getContinuation(); // save the continuation in case of premature termination of the splits
             pending = resultWithKv;
             logEndFound();
             return true;
@@ -279,11 +310,6 @@ public class RecordKeyCursor implements BaseCursor<Tuple> {
             sizeInfo.setSplit(false);
             done = true;
         } else if (nextIndex == SplitHelper.RECORD_VERSION) {
-            if (oldVersionFormat) {
-                throw new RecordCoreException("Found record version when old format specified")
-                        .addLogInfo(LogMessageKeys.KEY, ByteArrayUtil2.loggable(kv.getKey()))
-                        .addLogInfo(LogMessageKeys.KEY_TUPLE, keyTuple);
-            }
             // First key is a record version. This should only happen in
             // the forward scan direction, so if this happens in
             // the reverse direction, it means that there isn't any
@@ -344,6 +370,13 @@ public class RecordKeyCursor implements BaseCursor<Tuple> {
         }
         logNextKey(done);
         return done;
+    }
+
+    private void resetState() {
+        next = null;
+        nextKey = null;
+        nextVersion = null;
+        nextPrefix = null;
     }
 
     private void logFirstKey(boolean done) {
