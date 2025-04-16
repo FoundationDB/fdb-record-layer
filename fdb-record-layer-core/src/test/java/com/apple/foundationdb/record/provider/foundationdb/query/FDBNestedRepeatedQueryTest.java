@@ -60,6 +60,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.UnableToPlanException;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
@@ -2005,7 +2006,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     private void assertFailsToPlan(@Nonnull Supplier<Reference> querySupplier, String... allowedIndexes) {
-        final RecordCoreException rce = assertThrows(RecordCoreException.class, () -> planGraph(querySupplier, allowedIndexes));
+        final RecordCoreException rce = assertThrows(UnableToPlanException.class, () -> planGraph(querySupplier, allowedIndexes));
         assertThat(rce.getMessage(), containsString("Cascades planner could not plan query"));
     }
 

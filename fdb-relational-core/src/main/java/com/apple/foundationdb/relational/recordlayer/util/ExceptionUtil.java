@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.RecordAlreadyExistsException;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
+import com.apple.foundationdb.record.query.plan.cascades.UnableToPlanException;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -80,7 +81,7 @@ public final class ExceptionUtil {
             } else {
                 code = ErrorCode.INTERNAL_ERROR;
             }
-        } else if (re.getMessage().contains("Cascades planner could not plan query")) {
+        } else if (re instanceof UnableToPlanException) {
             code = ErrorCode.UNSUPPORTED_QUERY;
         }
 

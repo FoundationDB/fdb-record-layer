@@ -381,7 +381,7 @@ public class CascadesPlanner implements QueryPlanner {
             }
             return (RecordQueryPlan)singleRoot;
         } else {
-            throw new RecordCoreException("Cascades planner could not plan query")
+            throw new UnableToPlanException("Cascades planner could not plan query")
                     .addLogInfo("finalExpression", currentRoot.get());
         }
     }
