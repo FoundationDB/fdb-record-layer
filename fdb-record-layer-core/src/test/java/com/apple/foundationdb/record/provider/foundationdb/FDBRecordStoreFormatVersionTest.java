@@ -35,6 +35,7 @@ import java.util.stream.Collectors;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests related to upgrading/downgrading the format version.
@@ -46,6 +47,7 @@ public class FDBRecordStoreFormatVersionTest extends FDBRecordStoreTestBase {
     public void testFormatVersionUpgrade() {
         final List<FormatVersion> sortedVersions = Arrays.stream(FormatVersion.values()).sorted().collect(Collectors.toList());
         FormatVersion penultimateVersion = sortedVersions.get(sortedVersions.size() - 2);
+        assertTrue(penultimateVersion.compareTo(FormatVersion.getMaximumSupportedVersion()) < 0);
         try (FDBRecordContext context = openContext()) {
             recordStore = getStoreBuilder(context, simpleMetaData(NO_HOOK))
                     .setFormatVersion(penultimateVersion)
@@ -98,7 +100,7 @@ public class FDBRecordStoreFormatVersionTest extends FDBRecordStoreTestBase {
         }
         try (FDBRecordContext context = openContext()) {
             recordStore = storeBuilder.setFormatVersion(FormatVersion.INFO_ADDED).setContext(context).open();
-            assertEquals(FormatVersion.CACHEABLE_STATE.getValueForSerialization(), recordStore.getFormatVersion());
+            assertEquals(FormatVersion.CACHEABLE_STATE, recordStore.getFormatVersionEnum());
             RecordCoreException err = assertThrows(RecordCoreException.class,
                     () -> recordStore.clearHeaderUserField("foo"));
             assertEquals(expectedErrMsg, err.getMessage());

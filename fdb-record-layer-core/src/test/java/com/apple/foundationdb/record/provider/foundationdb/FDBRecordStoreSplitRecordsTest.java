@@ -136,7 +136,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
             recordStore = getStoreBuilder(context, simpleMetaData(NO_HOOK))
                     .setFormatVersion(FormatVersion.FORMAT_CONTROL)
                     .create();
-            assertEquals(FormatVersion.FORMAT_CONTROL, recordStore.getFormatVersion());
+            assertEquals(FormatVersion.FORMAT_CONTROL, recordStore.getFormatVersionEnum());
             recordStore.saveRecord(rec1);
             final byte[] rec1Key = recordStore.getSubspace().pack(Tuple.from(FDBRecordStore.RECORD_KEY, 1415L));
             FDBStoredRecord<Message> readRec1 = recordStore.loadRecord(Tuple.from(1415L));
@@ -151,7 +151,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
             recordStore = recordStore.asBuilder()
                     .setFormatVersion(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX)
                     .open();
-            assertEquals(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX.getValueForSerialization(), recordStore.getFormatVersion());
+            assertEquals(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX, recordStore.getFormatVersionEnum());
             Message rec2 = TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1066L).build();
             recordStore.saveRecord(rec2);
 
