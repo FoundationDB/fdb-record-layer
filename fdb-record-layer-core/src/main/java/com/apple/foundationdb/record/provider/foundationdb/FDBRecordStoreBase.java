@@ -2156,10 +2156,19 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         BaseBuilder<M, R> setSerializer(@Nonnull RecordSerializer<M> serializer);
 
         /**
-         * Get the storage format version for this store.
+         * Get the storage format version for this store; deprecated in favor of {@link #getFormatVersionEnum()}.
          * @return the format version to use
          */
+        @API(API.Status.DEPRECATED)
         int getFormatVersion();
+
+        /**
+         * Get the {@link FormatVersion} for this store.
+         * @return the format version to use
+         */
+        default FormatVersion getFormatVersionEnum() {
+            return FormatVersion.getFormatVersion(getFormatVersion());
+        }
 
         /**
          * Set the storage format version for this store.

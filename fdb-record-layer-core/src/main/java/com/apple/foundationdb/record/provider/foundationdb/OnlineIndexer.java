@@ -61,7 +61,6 @@ import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.metadata.Index.decodeSubspaceKey;
-import static com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore.READABLE_UNIQUE_PENDING_FORMAT_VERSION;
 
 /**
  * Builds an index online, i.e., concurrently with other database operations. In order to minimize
@@ -1326,7 +1325,8 @@ public class OnlineIndexer implements AutoCloseable {
          * @return true if allowed
          */
         public boolean shouldAllowUniquePendingState(FDBRecordStore store) {
-            return allowUniquePendingState && store.getFormatVersion() >= READABLE_UNIQUE_PENDING_FORMAT_VERSION;
+            return allowUniquePendingState
+                    && store.getFormatVersionEnum().compareTo(FormatVersion.READABLE_UNIQUE_PENDING) >= 0;
         }
 
         /**

@@ -1215,7 +1215,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
             FDBRecordStore recordStore = storeBuilder.copyBuilder()
                     .setContext(context)
                     .open();
-            assertEquals(FDBRecordStore.CACHEABLE_STATE_FORMAT_VERSION - 1, recordStore.getFormatVersion());
+            assertEquals(FormatVersion.SAVE_VERSION_WITH_RECORD, recordStore.getFormatVersionEnum());
             RecordCoreException e = assertThrows(RecordCoreException.class, () -> recordStore.setStateCacheability(true));
             assertThat(e.getMessage(), containsString("cannot mark record store state cacheable at format version"));
             commit(context);
@@ -1232,11 +1232,11 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             // Assert that format version happens because of the upgrade behind the scenes
-            assertEquals(FDBRecordStore.CACHEABLE_STATE_FORMAT_VERSION - 1, storeBuilder.getFormatVersion());
+            assertEquals(FormatVersion.SAVE_VERSION_WITH_RECORD, storeBuilder.getFormatVersionEnum());
             FDBRecordStore recordStore = storeBuilder.copyBuilder()
                     .setContext(context)
                     .open();
-            assertEquals(FDBRecordStore.CACHEABLE_STATE_FORMAT_VERSION, recordStore.getFormatVersion());
+            assertEquals(FormatVersion.CACHEABLE_STATE, recordStore.getFormatVersionEnum());
             assertTrue(recordStore.setStateCacheability(true));
             commit(context);
         }

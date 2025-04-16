@@ -105,7 +105,7 @@ public class FDBRecordStoreFormatVersionTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             recordStore = storeBuilder.setFormatVersion(FormatVersion.HEADER_USER_FIELDS)
                     .setContext(context).open();
-            assertEquals(FDBRecordStore.HEADER_USER_FIELDS_FORMAT_VERSION, recordStore.getFormatVersion());
+            assertEquals(FormatVersion.HEADER_USER_FIELDS, recordStore.getFormatVersionEnum());
             recordStore.setHeaderUserField("foo", "bar".getBytes(Charsets.UTF_8));
             String val = recordStore.getHeaderUserField("foo").toStringUtf8();
             assertEquals("bar", val);

@@ -389,6 +389,11 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
         }
 
         @Override
+        public FormatVersion getFormatVersionEnum() {
+            return untypedStoreBuilder.getFormatVersionEnum();
+        }
+
+        @Override
         @Nonnull
         @API(API.Status.DEPRECATED)
         public Builder<M> setFormatVersion(int formatVersion) {

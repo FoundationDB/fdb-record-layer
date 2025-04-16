@@ -20,6 +20,13 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.annotation.API;
+
+import javax.annotation.Nonnull;
+import java.util.Arrays;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 /**
  * This version is recorded for each store, and controls certain aspects of the on-disk behavior.
  * <p>
@@ -40,6 +47,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
  *     some format versions may be expensive, especially older versions on larger stores.
  * </p>
  */
+@API(API.Status.UNSTABLE)
 public enum FormatVersion implements Comparable<FormatVersion> {
     /**
      * Initial FormatVersion.
@@ -134,6 +142,10 @@ public enum FormatVersion implements Comparable<FormatVersion> {
 
     private final int value;
 
+    private static Map<Integer, FormatVersion> VERSIONS = Arrays.stream(values())
+            .collect(Collectors.toUnmodifiableMap(FormatVersion::getValueForSerialization,
+                    version -> version));
+
     FormatVersion(final int value) {
         this.value = value;
     }
@@ -166,7 +178,27 @@ public enum FormatVersion implements Comparable<FormatVersion> {
         return CACHEABLE_STATE;
     }
 
+    @API(API.Status.INTERNAL)
     int getValueForSerialization() {
         return value;
+    }
+
+    @API(API.Status.INTERNAL)
+    static void validateFormatVersion(int candidateVersion, final SubspaceProvider subspaceProvider) {
+        if (candidateVersion < getMinimumVersion().getValueForSerialization() ||
+                candidateVersion > getMaximumSupportedVersion().getValueForSerialization()) {
+            throw new UnsupportedFormatVersionException("Unsupported format version " + candidateVersion,
+                    subspaceProvider.logKey(), subspaceProvider);
+        }
+    }
+
+    @Nonnull
+    @API(API.Status.INTERNAL)
+    static FormatVersion getFormatVersion(int candidateVersion) {
+        final FormatVersion candidate = VERSIONS.get(candidateVersion);
+        if (candidate == null) {
+            throw new UnsupportedFormatVersionException("Unsupported format version " + candidateVersion);
+        }
+        return candidate;
     }
 }

@@ -188,33 +188,46 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     // TODO: This should probably be configured through the PipelineSizer
     public static final int MAX_PARALLEL_INDEX_REBUILD = 10;
 
-    /** See {@link FormatVersion#getMinimumVersion()}. **/
+    /** Replaced by {@link FormatVersion#getMinimumVersion()}. **/
+    @API(API.Status.DEPRECATED)
     private static final int MIN_FORMAT_VERSION = FormatVersion.getMinimumVersion().getValueForSerialization();
-    /** See {@link FormatVersion#INFO_ADDED}. **/
+    /** Replaced by {@link FormatVersion#INFO_ADDED}. **/
+    @API(API.Status.DEPRECATED)
     public static final int INFO_ADDED_FORMAT_VERSION = FormatVersion.INFO_ADDED.getValueForSerialization();
-    /** See {@link FormatVersion#RECORD_COUNT_ADDED}. **/
+    /** Replaced by {@link FormatVersion#RECORD_COUNT_ADDED}. **/
+    @API(API.Status.DEPRECATED)
     public static final int RECORD_COUNT_ADDED_FORMAT_VERSION = FormatVersion.RECORD_COUNT_ADDED.getValueForSerialization();
-    /** See {@link FormatVersion#RECORD_COUNT_KEY_ADDED}. **/
+    /** Replaced by {@link FormatVersion#RECORD_COUNT_KEY_ADDED}. **/
+    @API(API.Status.DEPRECATED)
     public static final int RECORD_COUNT_KEY_ADDED_FORMAT_VERSION = FormatVersion.RECORD_COUNT_KEY_ADDED.getValueForSerialization();
-    /** See {@link FormatVersion#FORMAT_CONTROL}. **/
+    /** Replaced by {@link FormatVersion#FORMAT_CONTROL}. **/
+    @API(API.Status.DEPRECATED)
     public static final int FORMAT_CONTROL_FORMAT_VERSION = FormatVersion.FORMAT_CONTROL.getValueForSerialization();
-    /** See {@link FormatVersion#SAVE_UNSPLIT_WITH_SUFFIX}. **/
+    /** Replaced by {@link FormatVersion#SAVE_UNSPLIT_WITH_SUFFIX}. **/
+    @API(API.Status.DEPRECATED)
     public static final int SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION = FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX.getValueForSerialization();
-    /** See {@link FormatVersion#SAVE_VERSION_WITH_RECORD}. **/
+    /** Replaced by {@link FormatVersion#SAVE_VERSION_WITH_RECORD}. **/
+    @API(API.Status.DEPRECATED)
     public static final int SAVE_VERSION_WITH_RECORD_FORMAT_VERSION = FormatVersion.SAVE_VERSION_WITH_RECORD.getValueForSerialization();
-    /** See {@link FormatVersion#CACHEABLE_STATE}. **/
+    /** Replaced by {@link FormatVersion#CACHEABLE_STATE}. **/
+    @API(API.Status.DEPRECATED)
     public static final int CACHEABLE_STATE_FORMAT_VERSION = FormatVersion.CACHEABLE_STATE.getValueForSerialization();
-    /** See {@link FormatVersion#HEADER_USER_FIELDS}. **/
+    /** Replaced by {@link FormatVersion#HEADER_USER_FIELDS}. **/
+    @API(API.Status.DEPRECATED)
     public static final int HEADER_USER_FIELDS_FORMAT_VERSION = FormatVersion.HEADER_USER_FIELDS.getValueForSerialization();
-    /** See {@link FormatVersion#READABLE_UNIQUE_PENDING}. **/
+    /** Replaced by {@link FormatVersion#READABLE_UNIQUE_PENDING}. **/
+    @API(API.Status.DEPRECATED)
     public static final int READABLE_UNIQUE_PENDING_FORMAT_VERSION = FormatVersion.READABLE_UNIQUE_PENDING.getValueForSerialization();
-    /** See {@link FormatVersion#CHECK_INDEX_BUILD_TYPE_DURING_UPDATE}. **/
+    /** Replaced by {@link FormatVersion#CHECK_INDEX_BUILD_TYPE_DURING_UPDATE}. **/
+    @API(API.Status.DEPRECATED)
     public static final int CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION = FormatVersion.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE.getValueForSerialization();
 
-    /** See {@link FormatVersion#getMaximumSupportedVersion()}. **/
+    /** Replaced by {@link FormatVersion#getMaximumSupportedVersion()}. **/
+    @API(API.Status.DEPRECATED)
     public static final int MAX_SUPPORTED_FORMAT_VERSION = FormatVersion.getMaximumSupportedVersion().getValueForSerialization();
 
-    /** See {@link FormatVersion#getDefaultFormatVersion()}. **/
+    /** Replaced by {@link FormatVersion#getDefaultFormatVersion()}. **/
+    @API(API.Status.DEPRECATED)
     public static final int DEFAULT_FORMAT_VERSION = FormatVersion.getDefaultFormatVersion().getValueForSerialization();
 
     // These agree with the client's values. They could be tunable and even increased with knobs.
@@ -345,8 +358,22 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * Index maintainers can use this to determine what format to expect / produce.
      * @return the storage format version
      */
+    @API(API.Status.DEPRECATED)
     public int getFormatVersion() {
         return formatVersion;
+    }
+
+    /**
+     * Get the {@link FormatVersion} currently in use for this record store.
+     * <p>
+     *     After calling {@link FDBRecordStore.Builder#open} or {@link #checkVersion} directly, this will be the format
+     *     stored in the store's info header.
+     * </p>
+     * @return the {@link FormatVersion} currently in use for this record store.
+     */
+    @API(API.Status.INTERNAL)
+    public FormatVersion getFormatVersionEnum() {
+        return FormatVersion.getFormatVersion(formatVersion);
     }
 
     /**
@@ -2545,10 +2572,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             throw new RecordStoreAlreadyExistsException("Record store already exists",
                     subspaceProvider.logKey(), subspaceProvider.toString(context));
         } else {
-            if (storeHeader.getFormatVersion() < MIN_FORMAT_VERSION || storeHeader.getFormatVersion() > MAX_SUPPORTED_FORMAT_VERSION) {
-                throw new UnsupportedFormatVersionException("Unsupported format version " + storeHeader.getFormatVersion(),
-                        subspaceProvider.logKey(), subspaceProvider);
-            }
+            FormatVersion.validateFormatVersion(storeHeader.getFormatVersion(), subspaceProvider);
         }
     }
 
@@ -5183,6 +5207,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         @Override
         public int getFormatVersion() {
             return formatVersion;
+        }
+
+        @Override
+        public FormatVersion getFormatVersionEnum() {
+            return FormatVersion.getFormatVersion(formatVersion);
         }
 
         @Override

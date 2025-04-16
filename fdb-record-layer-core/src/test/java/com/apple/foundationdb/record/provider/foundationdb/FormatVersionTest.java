@@ -20,15 +20,22 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.subspace.Subspace;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class FormatVersionTest {
 
@@ -89,5 +96,56 @@ class FormatVersionTest {
                 Arrays.stream(FormatVersion.values())
                         .sorted()
                         .collect(Collectors.toList()));
+    }
+
+    public static IntStream testValidateValidFormatVersion() {
+        return IntStream.rangeClosed(FormatVersion.getMinimumVersion().getValueForSerialization(),
+                FormatVersion.getMaximumSupportedVersion().getValueForSerialization());
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void testValidateValidFormatVersion(int candidate) {
+        assertDoesNotThrow(() -> FormatVersion.validateFormatVersion(candidate, new SubspaceProviderBySubspace(new Subspace())));
+    }
+
+    public static IntStream testValidateInvalidFormatVersion() {
+        final Set<Integer> valid = testValidateValidFormatVersion().boxed().collect(Collectors.toSet());
+        return IntStream.range(FormatVersion.getMinimumVersion().getValueForSerialization() - 10,
+                        FormatVersion.getMaximumSupportedVersion().getValueForSerialization() + 10)
+                        .filter(candidate -> !valid.contains(candidate));
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void testValidateInvalidFormatVersion(int candidate) {
+        assertThrows(UnsupportedFormatVersionException.class,
+                () -> FormatVersion.validateFormatVersion(candidate, new SubspaceProviderBySubspace(new Subspace())));
+    }
+
+
+    public static IntStream testGetValidFormatVersion() {
+        return IntStream.rangeClosed(FormatVersion.getMinimumVersion().getValueForSerialization(),
+                FormatVersion.getMaximumSupportedVersion().getValueForSerialization());
+    }
+
+    @ParameterizedTest
+    @EnumSource(FormatVersion.class)
+    void testGetValidFormatVersion(FormatVersion candidate) {
+        assertEquals(candidate, FormatVersion.getFormatVersion(candidate.getValueForSerialization()));
+    }
+
+    public static IntStream testGetInvalidFormatVersion() {
+        final Set<Integer> valid = testValidateValidFormatVersion().boxed().collect(Collectors.toSet());
+        return IntStream.range(FormatVersion.getMinimumVersion().getValueForSerialization() - 10,
+                        FormatVersion.getMaximumSupportedVersion().getValueForSerialization() + 10)
+                .filter(candidate -> !valid.contains(candidate));
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void testGetInvalidFormatVersion(int candidate) {
+        assertThrows(UnsupportedFormatVersionException.class,
+                () -> FormatVersion.getFormatVersion(candidate));
     }
 }

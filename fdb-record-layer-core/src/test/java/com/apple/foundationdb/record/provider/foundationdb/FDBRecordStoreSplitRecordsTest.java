@@ -211,7 +211,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
                     metaDataBuilder.addUniversalIndex(new Index("global$newCount", FDBRecordStoreTestBase.globalCountIndex().getRootExpression(), IndexTypes.COUNT))
             );
             recordStore = recordStore.asBuilder().setFormatVersion(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX).open();
-            assertEquals(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION, recordStore.getFormatVersion());
+            assertEquals(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX, recordStore.getFormatVersionEnum());
 
             final byte[] rec1Key = recordStore.getSubspace().pack(Tuple.from(FDBRecordStore.RECORD_KEY, 1415L, SplitHelper.UNSPLIT_RECORD));
             FDBStoredRecord<Message> writtenRec1 = recordStore.saveRecord(rec1);
@@ -236,7 +236,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
                     metaDataBuilder.addUniversalIndex(new Index("global$newCount", globalCountIndex().getRootExpression(), IndexTypes.COUNT))
             );
             recordStore = recordStore.asBuilder().setFormatVersion(FormatVersion.FORMAT_CONTROL).open();
-            assertEquals(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION, recordStore.getFormatVersion());
+            assertEquals(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX, recordStore.getFormatVersionEnum());
 
             final byte[] rawKey1 = recordStore.getSubspace().pack(Tuple.from(FDBRecordStore.RECORD_KEY, 1415L, SplitHelper.UNSPLIT_RECORD));
             FDBStoredRecord<Message> writtenRec1 = recordStore.loadRecord(Tuple.from(1415L));
