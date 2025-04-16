@@ -22,27 +22,37 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUniqueExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.EQUALS_42;
 import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.EQUALS_PARAM;
@@ -914,5 +924,60 @@ public class PredicatePushDownRuleTest {
         );
 
         testHelper.assertYields(topSelect, newTopSelect);
+    }
+
+    private <R extends RelationalExpression> void pushThroughSingleton(@Nonnull Function<Quantifier, R> wrap) {
+        Quantifier base = baseT();
+
+        Quantifier wrapped = forEach(wrap.apply(base));
+        SelectExpression select = selectWithPredicates(
+                wrapped, List.of("a", "b"),
+                fieldPredicate(wrapped, "d", EQUALS_PARAM)
+        );
+
+        Quantifier newInner = forEach(selectWithPredicates(base,
+                fieldPredicate(base, "d", EQUALS_PARAM)));
+        Quantifier newWrapped = forEach(wrap.apply(newInner));
+        SelectExpression newSelect = selectWithPredicates(newWrapped, List.of("a", "b"));
+
+        testHelper.assertYields(select, newSelect);
+    }
+
+    /**
+     * Validate that predicates can be pushed through a {@link LogicalSortExpression}.
+     */
+    @Test
+    void pushThroughSort() {
+        Quantifier tempBase = baseT();
+
+        final TranslationMap toCurrentTranslationMap = TranslationMap
+                .rebaseWithAliasMap(AliasMap.ofAliases(tempBase.getAlias(), Quantifier.current()));
+        final RequestedOrdering ordering = RequestedOrdering.ofParts(
+                ImmutableList.of(
+                        new OrderingPart.RequestedOrderingPart(fieldValue(tempBase, "a").translateCorrelations(toCurrentTranslationMap), OrderingPart.RequestedSortOrder.ASCENDING),
+                        new OrderingPart.RequestedOrderingPart(fieldValue(tempBase, "c").translateCorrelations(toCurrentTranslationMap), OrderingPart.RequestedSortOrder.DESCENDING)
+                ),
+                RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS,
+                true,
+                ImmutableSet.of()
+        );
+        pushThroughSingleton(qun -> new LogicalSortExpression(ordering, qun));
+    }
+
+    /**
+     * Validate that predicates can be pushed through a {@link LogicalDistinctExpression}.
+     */
+    @Test
+    void pushThroughDistinct() {
+        pushThroughSingleton(LogicalDistinctExpression::new);
+    }
+
+    /**
+     * Validate that predicates can be pushed through a {@link LogicalUniqueExpression}.
+     */
+    @Test
+    void pushThroughUnique() {
+        Quantifier base = baseT();
+        pushThroughSingleton(LogicalUniqueExpression::new);
     }
 }

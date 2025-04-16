@@ -28,16 +28,22 @@ import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUniqueExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
@@ -197,15 +203,43 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
         }
 
         @Nonnull
-        public SelectExpression pushOverChild(@Nonnull final Quantifier.ForEach child) {
+        public Quantifier.ForEach pushOverChild(@Nonnull final Quantifier.ForEach child) {
             final var translationMap =
                     TranslationMap.rebaseWithAliasMap(AliasMap.ofAliases(getPushQuantifier().getAlias(),
                             child.getAlias()));
             final var newPredicates = updatedPredicates(translationMap);
-            return new SelectExpression(child.getFlowedObjectValue(),
-                    ImmutableList.of(child),
-                    newPredicates
-            );
+            return Quantifier.forEach(Reference.of(
+                    new SelectExpression(
+                            child.getFlowedObjectValue(),
+                            ImmutableList.of(child),
+                            newPredicates
+                    )
+            ));
+        }
+
+        @Nonnull
+        public Optional<List<Quantifier>> pushOverChildren(@Nonnull final RelationalExpressionWithChildren expressionWithChildren) {
+            var newChildrenBuilder = ImmutableList.<Quantifier>builderWithExpectedSize(expressionWithChildren.getRelationalChildCount());
+            for (Quantifier childQuantifier : expressionWithChildren.getQuantifiers()) {
+                if (!(childQuantifier instanceof Quantifier.ForEach)) {
+                    return Optional.empty();
+                }
+                newChildrenBuilder.add(pushOverChild((Quantifier.ForEach) childQuantifier));
+            }
+            return Optional.of(newChildrenBuilder.build());
+        }
+
+        @Nonnull
+        public Optional<Quantifier> pushOverChildSingleChild(@Nonnull final RelationalExpressionWithChildren expressionWithChildren) {
+            var oldChildren = expressionWithChildren.getQuantifiers();
+            if (oldChildren.size() != 1) {
+                return Optional.empty();
+            }
+            Quantifier oldChild = Iterables.getOnlyElement(oldChildren);
+            if (!(oldChild instanceof Quantifier.ForEach)) {
+                return Optional.empty();
+            }
+            return Optional.of(pushOverChild((Quantifier.ForEach) oldChild));
         }
 
         @Nonnull
@@ -249,6 +283,12 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
 
         @Nonnull
         @Override
+        public Optional<? extends RelationalExpression> visitGroupByExpression(@Nonnull final GroupByExpression element) {
+            return Optional.empty();
+        }
+
+        @Nonnull
+        @Override
         public Optional<LogicalUnionExpression> visitLogicalUnionExpression(@Nonnull final LogicalUnionExpression unionExpression) {
             //
             // Push the original predicates through the union. For each leg of the union, translate the predicates
@@ -256,16 +296,30 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
             // the predicates. Further rewriting of the resulting child will handle things like pushing the child
             // predicates down more or merging with any existing SelectExpressions
             //
-            final var childQuantifiers = unionExpression.getQuantifiers();
-            var newChildrenBuilder = ImmutableList.<Quantifier>builderWithExpectedSize(childQuantifiers.size());
-            for (Quantifier childQuantifier : childQuantifiers) {
-                if (!(childQuantifier instanceof Quantifier.ForEach)) {
-                    return Optional.empty();
-                }
-                newChildrenBuilder.add(Quantifier.forEach(Reference.of(
-                        pushOverChild((Quantifier.ForEach) childQuantifier))));
-            }
-            return Optional.of(new LogicalUnionExpression(newChildrenBuilder.build()));
+            return pushOverChildren(unionExpression).map(LogicalUnionExpression::new);
+        }
+
+        @Nonnull
+        @Override
+        public Optional<LogicalSortExpression> visitLogicalSortExpression(@Nonnull final LogicalSortExpression sortExpression) {
+            //
+            // Note: there are Values in the sort expression's requested ordering. However, they are all defined on current (or constant)
+            // aliases, neither of which need translating when we push the predicates down to a new select below the sort
+            //
+            return pushOverChildSingleChild(sortExpression).map(newChild -> new LogicalSortExpression(sortExpression.getOrdering(), newChild));
+        }
+
+
+        @Nonnull
+        @Override
+        public Optional<LogicalDistinctExpression> visitLogicalDistinctExpression(@Nonnull final LogicalDistinctExpression element) {
+            return pushOverChildSingleChild(element).map(LogicalDistinctExpression::new);
+        }
+
+        @Nonnull
+        @Override
+        public Optional<LogicalUniqueExpression> visitLogicalUniqueExpression(@Nonnull final LogicalUniqueExpression element) {
+            return pushOverChildSingleChild(element).map(LogicalUniqueExpression::new);
         }
 
         @Nonnull
