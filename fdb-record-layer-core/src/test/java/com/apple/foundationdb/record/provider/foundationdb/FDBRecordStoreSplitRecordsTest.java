@@ -134,9 +134,9 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             // Write a record using the old format
             recordStore = getStoreBuilder(context, simpleMetaData(NO_HOOK))
-                    .setFormatVersion(FormatVersion.FORMAT_CONTROL)
+                    .setFormatVersion(FormatVersionTestUtils.previous(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX))
                     .create();
-            assertEquals(FormatVersion.FORMAT_CONTROL, recordStore.getFormatVersionEnum());
+            assertEquals(FormatVersionTestUtils.previous(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX), recordStore.getFormatVersionEnum());
             recordStore.saveRecord(rec1);
             final byte[] rec1Key = recordStore.getSubspace().pack(Tuple.from(FDBRecordStore.RECORD_KEY, 1415L));
             FDBStoredRecord<Message> readRec1 = recordStore.loadRecord(Tuple.from(1415L));
@@ -235,7 +235,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
             uncheckedOpenSimpleRecordStore(context, metaDataBuilder ->
                     metaDataBuilder.addUniversalIndex(new Index("global$newCount", globalCountIndex().getRootExpression(), IndexTypes.COUNT))
             );
-            recordStore = recordStore.asBuilder().setFormatVersion(FormatVersion.FORMAT_CONTROL).open();
+            recordStore = recordStore.asBuilder().setFormatVersion(FormatVersionTestUtils.previous(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX)).open();
             assertEquals(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX, recordStore.getFormatVersionEnum());
 
             final byte[] rawKey1 = recordStore.getSubspace().pack(Tuple.from(FDBRecordStore.RECORD_KEY, 1415L, SplitHelper.UNSPLIT_RECORD));
@@ -276,7 +276,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
         FDBRecordStore.Builder builder = FDBRecordStore.newBuilder()
                 .setKeySpacePath(path)
                 .setMetaDataProvider(metaData)
-                .setFormatVersion(FormatVersion.FORMAT_CONTROL);
+                .setFormatVersion(FormatVersionTestUtils.previous(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX));
 
         try (FDBRecordContext context = openContext()) {
             recordStore = builder.setContext(context).create();
@@ -318,7 +318,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
         FDBRecordStore.Builder builder = FDBRecordStore.newBuilder()
                 .setKeySpacePath(path)
                 .setMetaDataProvider(metaData)
-                .setFormatVersion(FormatVersion.FORMAT_CONTROL);
+                .setFormatVersion(FormatVersionTestUtils.previous(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX));
 
         final FDBStoredRecord<Message> saved;
         try (FDBRecordContext context = openContext()) {
@@ -349,7 +349,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
         FDBRecordStore.Builder builder = FDBRecordStore.newBuilder()
                 .setKeySpacePath(path)
                 .setMetaDataProvider(metaData)
-                .setFormatVersion(FormatVersion.FORMAT_CONTROL);
+                .setFormatVersion(FormatVersionTestUtils.previous(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX));
 
         try (FDBRecordContext context = openContext()) {
             recordStore = builder.setContext(context).create();

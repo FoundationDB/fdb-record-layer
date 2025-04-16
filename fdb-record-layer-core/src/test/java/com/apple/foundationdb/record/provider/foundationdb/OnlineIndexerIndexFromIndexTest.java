@@ -218,7 +218,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         // Set a format version on the store that does not allow index-from-index builds
         // Because the store already has this format version, though it should be allowed
-        this.formatVersion = FormatVersion.READABLE_UNIQUE_PENDING;
+        this.formatVersion = FormatVersionTestUtils.previous(FormatVersion.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(tgtIndex, timer)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
@@ -237,7 +237,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     @BooleanSource
     void testNonIdempotentIndexFromIndexOldFormatFallback(boolean reverseScan) {
         // Attempt to build a non-idempotent index at an older format version. This should fall back to a full record scan
-        this.formatVersion = FormatVersion.READABLE_UNIQUE_PENDING;
+        this.formatVersion = FormatVersionTestUtils.previous(FormatVersion.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE);
         final FDBStoreTimer timer = new FDBStoreTimer();
         final long numRecords = 6;
         final long otherRecords = 5;
@@ -270,7 +270,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     void testNonIdempotentIndexFromIndexOldFormatNoFallback() {
         // Attempt to build a non-idempotent index at old format version where this is not supported. This should
         // error as falling back to a record scan is not enabled
-        this.formatVersion = FormatVersion.READABLE_UNIQUE_PENDING;
+        this.formatVersion = FormatVersionTestUtils.previous(FormatVersion.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE);
         final FDBStoreTimer timer = new FDBStoreTimer();
         final long numRecords = 7;
         final long otherRecords = 8;

@@ -56,7 +56,7 @@ public class RemoteFetchOldVersionTest extends RemoteFetchTestBase {
 
     @BeforeEach
     void setup() throws Exception {
-        complexQuerySetupWithVersion(simpleVersionHook, FormatVersion.FORMAT_CONTROL);
+        complexQuerySetupWithVersion(simpleVersionHook, FormatVersionTestUtils.previous(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX));
     }
 
     @ParameterizedTest
@@ -66,7 +66,7 @@ public class RemoteFetchOldVersionTest extends RemoteFetchTestBase {
 
         int count = 0;
         try (FDBRecordContext context = openContext()) {
-            openStoreWithVersion(context, simpleVersionHook, FormatVersion.FORMAT_CONTROL);
+            openStoreWithVersion(context, simpleVersionHook, FormatVersionTestUtils.previous(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX));
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.SERIAL_EXECUTE).asIterator()) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> record = cursor.next();

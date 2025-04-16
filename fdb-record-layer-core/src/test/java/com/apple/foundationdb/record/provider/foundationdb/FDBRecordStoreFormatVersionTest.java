@@ -45,8 +45,7 @@ public class FDBRecordStoreFormatVersionTest extends FDBRecordStoreTestBase {
 
     @Test
     public void testFormatVersionUpgrade() {
-        final List<FormatVersion> sortedVersions = Arrays.stream(FormatVersion.values()).sorted().collect(Collectors.toList());
-        FormatVersion penultimateVersion = sortedVersions.get(sortedVersions.size() - 2);
+        FormatVersion penultimateVersion = FormatVersionTestUtils.previous(FormatVersion.getMaximumSupportedVersion())
         assertTrue(penultimateVersion.compareTo(FormatVersion.getMaximumSupportedVersion()) < 0);
         try (FDBRecordContext context = openContext()) {
             recordStore = getStoreBuilder(context, simpleMetaData(NO_HOOK))
@@ -83,7 +82,7 @@ public class FDBRecordStoreFormatVersionTest extends FDBRecordStoreTestBase {
         final RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         FDBRecordStore.Builder storeBuilder = FDBRecordStore.newBuilder()
                 .setKeySpacePath(path).setMetaDataProvider(metaData)
-                .setFormatVersion(FormatVersion.CACHEABLE_STATE);
+                .setFormatVersion(FormatVersionTestUtils.previous(FormatVersion.HEADER_USER_FIELDS));
         try (FDBRecordContext context = openContext()) {
             recordStore = storeBuilder.setContext(context).create();
             RecordCoreException err = assertThrows(RecordCoreException.class,
@@ -100,7 +99,8 @@ public class FDBRecordStoreFormatVersionTest extends FDBRecordStoreTestBase {
         }
         try (FDBRecordContext context = openContext()) {
             recordStore = storeBuilder.setFormatVersion(FormatVersion.INFO_ADDED).setContext(context).open();
-            assertEquals(FormatVersion.CACHEABLE_STATE, recordStore.getFormatVersionEnum());
+            assertEquals(FormatVersionTestUtils.previous(FormatVersion.HEADER_USER_FIELDS),
+                    recordStore.getFormatVersionEnum());
             RecordCoreException err = assertThrows(RecordCoreException.class,
                     () -> recordStore.clearHeaderUserField("foo"));
             assertEquals(expectedErrMsg, err.getMessage());

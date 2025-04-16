@@ -64,6 +64,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
+import com.apple.foundationdb.record.provider.foundationdb.FormatVersionTestUtils;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
@@ -261,7 +262,7 @@ public class VersionIndexTest {
 
     private static Stream<FormatVersion> formatVersionsOfInterest() {
         return Stream.of(
-                FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX,
+                FormatVersionTestUtils.previous(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX),
                 FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX,
                 FormatVersion.SAVE_VERSION_WITH_RECORD,
                 FormatVersion.getMaximumSupportedVersion()
