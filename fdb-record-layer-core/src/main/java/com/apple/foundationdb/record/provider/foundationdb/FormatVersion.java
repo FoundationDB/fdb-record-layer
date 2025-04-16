@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -146,6 +147,11 @@ public enum FormatVersion implements Comparable<FormatVersion> {
             .collect(Collectors.toUnmodifiableMap(FormatVersion::getValueForSerialization,
                     version -> version));
 
+    private static final FormatVersion MAX_SUPPORTED_VERSION = Arrays.stream(values())
+            .max(Comparator.naturalOrder())
+            .orElseThrow(); // will throw if there are on enum values
+
+
     FormatVersion(final int value) {
         this.value = value;
     }
@@ -163,7 +169,7 @@ public enum FormatVersion implements Comparable<FormatVersion> {
      * @return the maximum supported version
      */
     public static FormatVersion getMaximumSupportedVersion() {
-        return CHECK_INDEX_BUILD_TYPE_DURING_UPDATE;
+        return MAX_SUPPORTED_VERSION;
     }
 
     /**
