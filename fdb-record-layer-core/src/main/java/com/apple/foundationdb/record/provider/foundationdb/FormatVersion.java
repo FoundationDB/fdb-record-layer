@@ -142,7 +142,7 @@ public enum FormatVersion implements Comparable<FormatVersion> {
 
     private final int value;
 
-    private static Map<Integer, FormatVersion> VERSIONS = Arrays.stream(values())
+    private static final Map<Integer, FormatVersion> VERSIONS = Arrays.stream(values())
             .collect(Collectors.toUnmodifiableMap(FormatVersion::getValueForSerialization,
                     version -> version));
 
