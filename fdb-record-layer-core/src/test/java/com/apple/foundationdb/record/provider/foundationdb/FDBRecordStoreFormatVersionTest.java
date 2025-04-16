@@ -45,11 +45,12 @@ public class FDBRecordStoreFormatVersionTest extends FDBRecordStoreTestBase {
     @Test
     public void testFormatVersionUpgrade() {
         final List<FormatVersion> sortedVersions = Arrays.stream(FormatVersion.values()).sorted().collect(Collectors.toList());
-        FormatVersion penultimateVersion = sortedVersions.get(sortedVersions.size() - 1);
+        FormatVersion penultimateVersion = sortedVersions.get(sortedVersions.size() - 2);
         try (FDBRecordContext context = openContext()) {
             recordStore = getStoreBuilder(context, simpleMetaData(NO_HOOK))
                     .setFormatVersion(penultimateVersion)
                     .create();
+            assertEquals(penultimateVersion, recordStore.getFormatVersionEnum());
             assertEquals(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION - 1, recordStore.getFormatVersion());
             commit(context);
         }
@@ -57,6 +58,7 @@ public class FDBRecordStoreFormatVersionTest extends FDBRecordStoreTestBase {
             recordStore = getStoreBuilder(context, simpleMetaData(NO_HOOK))
                     .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
                     .open();
+            assertEquals(FormatVersion.getMaximumSupportedVersion(), recordStore.getFormatVersionEnum());
             assertEquals(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION, recordStore.getFormatVersion());
             commit(context);
         }
@@ -64,6 +66,7 @@ public class FDBRecordStoreFormatVersionTest extends FDBRecordStoreTestBase {
             recordStore = getStoreBuilder(context, simpleMetaData(NO_HOOK))
                     .setFormatVersion(penultimateVersion)
                     .open();
+            assertEquals(FormatVersion.getMaximumSupportedVersion(), recordStore.getFormatVersionEnum());
             assertEquals(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION, recordStore.getFormatVersion());
             commit(context);
         }
