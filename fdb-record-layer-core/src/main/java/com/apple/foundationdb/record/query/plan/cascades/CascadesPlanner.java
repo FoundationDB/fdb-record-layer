@@ -83,7 +83,7 @@ import java.util.function.Supplier;
  * Like many optimization frameworks, Cascades is driven by sets of {@link CascadesRule}s that can be defined for
  * {@link RelationalExpression}s, {@link PartialMatch}es and {@link MatchPartition}s, each of which describes a
  * particular transformation and encapsulates the logic for determining its applicability and applying it. The planner
- * searches through its {@link PlannerRuleSet} to find a matching rule and then executes that rule, creating zero or
+ * searches through its {@link PlanningRuleSet} to find a matching rule and then executes that rule, creating zero or
  * more additional {@code PlannerExpression}s and/or zero or more additional {@link PartialMatch}es. A rule is defined by:
  * </p>
  * <ul>
@@ -206,7 +206,7 @@ public class CascadesPlanner implements QueryPlanner {
     @Nonnull
     private final RecordStoreState recordStoreState;
     @Nonnull
-    private final PlannerRuleSet ruleSet;
+    private final PlanningRuleSet ruleSet;
     @Nonnull
     private Reference currentRoot;
     @Nonnull
@@ -222,7 +222,7 @@ public class CascadesPlanner implements QueryPlanner {
         this(metaData, recordStoreState, defaultPlannerRuleSet());
     }
 
-    public CascadesPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState, @Nonnull PlannerRuleSet ruleSet) {
+    public CascadesPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState, @Nonnull PlanningRuleSet ruleSet) {
         this.configuration = RecordQueryPlannerConfiguration.builder().build();
         this.metaData = metaData;
         this.recordStoreState = recordStoreState;
@@ -656,7 +656,7 @@ public class CascadesPlanner implements QueryPlanner {
         }
 
         @Nonnull
-        protected PlannerRuleSet getRules() {
+        protected PlanningRuleSet getRules() {
             return ruleSet;
         }
     }
@@ -1125,10 +1125,10 @@ public class CascadesPlanner implements QueryPlanner {
 
     /**
      * Returns the default set of transformation rules.
-     * @return a {@link PlannerRuleSet} using the default set of transformation rules
+     * @return a {@link PlanningRuleSet} using the default set of transformation rules
      */
     @Nonnull
-    public static PlannerRuleSet defaultPlannerRuleSet() {
-        return PlannerRuleSet.DEFAULT;
+    public static PlanningRuleSet defaultPlannerRuleSet() {
+        return PlanningRuleSet.DEFAULT;
     }
 }
