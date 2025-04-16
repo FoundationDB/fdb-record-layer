@@ -30,7 +30,7 @@ option java_outer_classname = "RecordMetaDataProto";
 // current state of the store (e.g. version of metadat) and ensure that data is read/written correctly.
 // This data is read any time a store is opened.
 message DataStoreInfo {
-  // The formatVersion that the store is using. This is a monotonically increasing version number used to allow the
+  // The format version that the store is using. This is a monotonically increasing version number used to allow the
   // store to record or use information in a way that older code may not understand or fully support.
   // Controlling the version via FDBRecordStore.Builder.setFormatVersion allows clients to prevent the store from using
   // these new features before other stores support them.
@@ -38,6 +38,7 @@ message DataStoreInfo {
   // Generally speaking this number can only go up.
   // Generally speaking increasing this should be definitively achievable in a single transaction, regardless of the
   // amount or type of data in the store.
+  // This corresponds to FormatVersion.getValueForSerialization().
   optional int32 formatVersion = 1;
   // This is the version of the metadata that was last used with this store.
   // This can only go up, you cannot downgrade the metaData version.
@@ -57,11 +58,11 @@ message DataStoreInfo {
   // stores with more records than can be scanned in a single transaction will fail to run checkVersion (i.e. open)
   // The counts associated with this key are used by FDBRecordStore.getSnapshotRecordCount and associated methods, but
   // that will fallback to evaluating an aggregate function.
-  // This was introduced with formatVersion: RECORD_COUNT_KEY_ADDED_FORMAT_VERSION=3.
+  // This was introduced with FormatVersion.RECORD_COUNT_KEY_ADDED.
   optional com.apple.foundationdb.record.expressions.KeyExpression record_count_key = 4;
   // Tracks the last time the store header was updated for auditing purposes.
   optional uint64 lastUpdateTime = 5;
-  // This was introduced with SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION=5 to maintain backwards compatibility on stores
+  // This was introduced with FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX to maintain backwards compatibility on stores
   // that have a metadata with splitLongRecords disabled.
   // If the format version is at least 5, and the metadata has splitLongRecords disabled, and this is true, we will
   // not insert or expect a split suffix. If splitLongRecords is enabled, or this is false records will always have
@@ -79,7 +80,7 @@ message DataStoreInfo {
   // the store header.
   // Note: All stores with this true will lose their cache any time any store on the cluster changes their store header,
   // so it should not be used on too many stores within a cluster, or its benefits will be lost.
-  // This was introduced with foramtVersion: CACHEABLE_STATE_FORMAT_VERSION=7.
+  // This was introduced with FormatVersion.CACHEABLE_STATE.
   optional bool cacheable = 7;
 
   // Compatible with map<string, bytes> on the wire; see user_field.
@@ -90,7 +91,7 @@ message DataStoreInfo {
   // A user defined map for storing additional information on the store header.
   // This should be kept very small, as it is loaded every time the store is opened, and cannot be split.
   // When considering using this, one should also consider introducing a new record type to store the data.
-  // This was introduced with formatVersion: HEADER_USER_FIELDS_FORMAT_VERSION=8
+  // This was introduced with FormatVersion.HEADER_USER_FIELDS.
   repeated UserFieldEntry user_field = 8;
 }
 
