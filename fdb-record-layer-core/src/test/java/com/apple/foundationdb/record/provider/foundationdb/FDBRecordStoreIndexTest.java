@@ -2173,17 +2173,17 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         }
         // Build the index to make it actually usable.
         try (OnlineIndexer onlineIndexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb)
-                .setMetaData(recordMetaData)
+                .setRecordStoreBuilder(recordStore.asBuilder())
                 .setIndex(index.getName())
-                .setSubspace(recordStore.getSubspace())
-                .setIndexMaintenanceFilter(recordStore.getIndexMaintenanceFilter())
-                .setFormatVersion(recordStore.getFormatVersion())
                 .build()) {
             onlineIndexBuilder.buildIndex();
         }
         try (FDBRecordContext context = openContext()) {
-            recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(recordMetaData).setKeySpacePath(path).createOrOpen();
+            recordStore = FDBRecordStore.newBuilder()
+                    .setContext(context)
+                    .setMetaDataProvider(recordMetaData)
+                    .setKeySpacePath(path)
+                    .createOrOpen();
             // New index is fully readable.
             assertEquals(IndexState.READABLE, recordStore.getRecordStoreState().getState(index.getName()));
             List<Long> indexed = recordStore.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)

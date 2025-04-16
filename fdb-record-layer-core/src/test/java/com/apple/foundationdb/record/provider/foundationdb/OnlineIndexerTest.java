@@ -130,12 +130,8 @@ public abstract class OnlineIndexerTest {
 
     FDBRecordContext openContext(boolean checked) {
         FDBRecordContext context = fdb.openContext();
-        FDBRecordStore.Builder builder = FDBRecordStore.newBuilder()
-                .setMetaDataProvider(metaData)
-                .setContext(context)
-                .setFormatVersion(formatVersion)
-                .setKeySpacePath(path)
-                .setIndexMaintenanceFilter(getIndexMaintenanceFilter());
+        FDBRecordStore.Builder builder = createStoreBuilder()
+                .setContext(context);
         if (checked) {
             recordStore = builder.createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
         } else {
@@ -146,17 +142,24 @@ public abstract class OnlineIndexerTest {
         return context;
     }
 
+    @Nonnull
+    private FDBRecordStore.Builder createStoreBuilder() {
+        return FDBRecordStore.newBuilder()
+                .setMetaDataProvider(metaData)
+                .setFormatVersion(formatVersion)
+                .setKeySpacePath(path)
+                .setIndexMaintenanceFilter(getIndexMaintenanceFilter());
+    }
+
     FDBRecordContext openContext() {
         return openContext(true);
     }
 
+    @Nonnull
     OnlineIndexer.Builder newIndexerBuilder() {
         return OnlineIndexer.newBuilder()
                 .setDatabase(fdb)
-                .setMetaData(metaData)
-                .setSubspaceProvider(new SubspaceProviderByKeySpacePath(path))
-                .setIndexMaintenanceFilter(getIndexMaintenanceFilter())
-                .setFormatVersion(formatVersion.getValueForSerialization());
+                .setRecordStoreBuilder(createStoreBuilder());
     }
 
     OnlineIndexer.Builder newIndexerBuilder(List<Index> indexes) {
@@ -175,13 +178,11 @@ public abstract class OnlineIndexerTest {
         return newIndexerBuilder(index).setTimer(timer);
     }
 
+    @Nonnull
     OnlineIndexScrubber.Builder newScrubberBuilder() {
         return OnlineIndexScrubber.newBuilder()
                 .setDatabase(fdb)
-                .setMetaData(metaData)
-                .setSubspaceProvider(new SubspaceProviderByKeySpacePath(path))
-                .setIndexMaintenanceFilter(getIndexMaintenanceFilter())
-                .setFormatVersion(formatVersion.getValueForSerialization());
+                .setRecordStoreBuilder(createStoreBuilder());
     }
 
     OnlineIndexScrubber.Builder newScrubberBuilder(Index index) {
