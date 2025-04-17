@@ -72,7 +72,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
@@ -85,18 +84,13 @@ import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
@@ -139,7 +133,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 @Tag(Tags.RequiresFDB)
 @Execution(ExecutionMode.CONCURRENT)
 public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
-    private static final Logger logger = LoggerFactory.getLogger(FDBRecordStoreIndexTest.class);
 
     @Test
     void uniqueness() {
@@ -2742,185 +2735,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             assertThat(indexedRecords, hasSize(1));
             assertEquals(record, indexedRecords.get(0).getRecord());
             assertThat(context.ensureActive().getRange(recordStore.getSubspace().range(Tuple.from(FDBRecordStoreKeyspace.INDEX.key(), subspaceKey2))).asList().join(), hasSize(1));
-
-            commit(context);
-        }
-    }
-
-    @Test
-    @SuppressWarnings("deprecation")
-    void testBoundaryPrimaryKeys() {
-        runLocalityTest(() -> testBoundaryPrimaryKeysImpl());
-    }
-
-    @SuppressWarnings("removal")
-    private void testBoundaryPrimaryKeysImpl() {
-        final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
-        factory.setLocalityProvider(MockedLocalityUtil.instance());
-        factory.clear();
-        FDBDatabase database = factory.getDatabase();
-        assertThat(database.getLocalityProvider(), instanceOf(MockedLocalityUtil.class));
-
-        final String indexName = "MySimpleRecord$num_value_unique";
-        try (FDBRecordContext context = database.openContext()) {
-            openSimpleRecordStore(context, TEST_SPLIT_HOOK);
-            recordStore.markIndexWriteOnly(indexName).join();
-            commit(context);
-        }
-
-        ArrayList<byte[]> keys = new ArrayList<>();
-        String bigOlString = Strings.repeat("x", SplitHelper.SPLIT_RECORD_SIZE + 2);
-        for (int i = 0; i < 50; i++) {
-            saveAndSplitSimpleRecord(i, bigOlString, i);
-            keys.add(recordStore.recordsSubspace().pack(i));
-        }
-
-        OnlineIndexer indexer;
-        List<Tuple> boundaryPrimaryKeys;
-        TupleRange range;
-        try (FDBRecordContext context = database.openContext()) {
-            openSimpleRecordStore(context, TEST_SPLIT_HOOK);
-            MockedLocalityUtil.init(keys, new Random().nextInt(keys.size() - 2) + 3); // 3 <= rangeCount <= size
-            Index index = recordStore.getRecordMetaData().getIndex(indexName);
-
-            // The indexer only uses recordStore as a prototype so does not require the original record store is still
-            // active.
-            indexer = OnlineIndexer.newBuilder()
-                    .setDatabase(database).setRecordStore(recordStore).setIndex(index)
-                    .build();
-
-            range = recordStore.context.asyncToSync(FDBStoreTimer.Waits.WAIT_BUILD_ENDPOINTS,
-                    indexer.buildEndpoints());
-
-            logger.info("The endpoints are " + range);
-
-            boundaryPrimaryKeys = recordStore.context.asyncToSync(FDBStoreTimer.Waits.WAIT_GET_BOUNDARY,
-                    recordStore.getPrimaryKeyBoundaries(range.getLow(), range.getHigh()).asList());
-
-            logger.info("The boundary primary keys are " + boundaryPrimaryKeys);
-
-            commit(context);
-        }
-
-        int boundaryPrimaryKeysSize = boundaryPrimaryKeys.size();
-        assertTrue(boundaryPrimaryKeysSize > 2,
-                "the test is meaningless if the records are not across boundaries");
-        assertThat( boundaryPrimaryKeys.get(0), greaterThanOrEqualTo(Tuple.from(-25L * 39)));
-        assertThat( boundaryPrimaryKeys.get(boundaryPrimaryKeysSize - 1), lessThanOrEqualTo(Tuple.from(24L * 39)));
-        assertEquals(boundaryPrimaryKeys.stream().sorted().distinct().collect(Collectors.toList()), boundaryPrimaryKeys,
-                "the list should be sorted without duplication.");
-        for (Tuple boundaryPrimaryKey : boundaryPrimaryKeys) {
-            assertEquals(1, boundaryPrimaryKey.size(), "primary keys should be a single value");
-        }
-
-        // Test splitIndexBuildRange.
-        assertEquals(1, indexer.splitIndexBuildRange(Integer.MAX_VALUE, Integer.MAX_VALUE).size(),
-                "the range is not split when it cannot be split to at least minSplit ranges");
-        checkSplitIndexBuildRange(1, 2, null, indexer); // to test splitting into fewer than the default number of split points
-        checkSplitIndexBuildRange(boundaryPrimaryKeysSize / 2, boundaryPrimaryKeysSize - 2, null, indexer); // to test splitting into fewer than the default number of split points
-        checkSplitIndexBuildRange(boundaryPrimaryKeysSize / 2, boundaryPrimaryKeysSize, null, indexer);
-
-        List<TupleRange> oneRangePerSplit = getOneRangePerSplit(range, boundaryPrimaryKeys);
-        checkSplitIndexBuildRange(boundaryPrimaryKeysSize / 2, boundaryPrimaryKeysSize + 1, oneRangePerSplit, indexer); // to test exactly one range for each split
-        checkSplitIndexBuildRange(boundaryPrimaryKeysSize / 2, boundaryPrimaryKeysSize + 2, oneRangePerSplit, indexer);
-        checkSplitIndexBuildRange(boundaryPrimaryKeysSize / 2, Integer.MAX_VALUE, oneRangePerSplit, indexer); // to test that integer overflow isn't a problem
-
-        indexer.close();
-        database.close();
-    }
-
-    @Test
-    public void testNoBoundaryPrimaryKeys() {
-        runLocalityTest(() -> testNoBoundaryPrimaryKeysImpl());
-    }
-
-    @SuppressWarnings("removal")
-    public void testNoBoundaryPrimaryKeysImpl() {
-        final FDBDatabaseFactory factory = dbExtension.getDatabaseFactory();
-        factory.setLocalityProvider(MockedLocalityUtil.instance());
-        FDBDatabase database = factory.getDatabase();
-
-        final String indexName = "MySimpleRecord$num_value_unique";
-        try (FDBRecordContext context = database.openContext()) {
-            openSimpleRecordStore(context, TEST_SPLIT_HOOK);
-            recordStore.markIndexWriteOnly(indexName).join();
-            commit(context);
-        }
-
-        String bigOlString = Strings.repeat("x", SplitHelper.SPLIT_RECORD_SIZE + 2);
-        saveAndSplitSimpleRecord(1, bigOlString, 1);
-        saveAndSplitSimpleRecord(2, bigOlString, 2);
-
-        OnlineIndexer indexer;
-        List<Tuple> boundaryPrimaryKeys;
-        TupleRange range;
-        try (FDBRecordContext context = database.openContext()) {
-            openSimpleRecordStore(context, TEST_SPLIT_HOOK);
-            Index index = recordStore.getRecordMetaData().getIndex(indexName);
-
-            // The indexer only uses recordStore as a prototype so does not require the original record store is still
-            // active.
-            indexer = OnlineIndexer.newBuilder()
-                    .setDatabase(fdb).setRecordStore(recordStore).setIndex(index)
-                    .build();
-
-            range = recordStore.context.asyncToSync(FDBStoreTimer.Waits.WAIT_BUILD_ENDPOINTS,
-                    indexer.buildEndpoints());
-            logger.info("The endpoints are " + range);
-
-            MockedLocalityUtil.init(new ArrayList<>(Arrays.asList(recordStore.recordsSubspace().pack(1), recordStore.recordsSubspace().pack(2))), 0);
-            boundaryPrimaryKeys = recordStore.context.asyncToSync(FDBStoreTimer.Waits.WAIT_GET_BOUNDARY,
-                    recordStore.getPrimaryKeyBoundaries(range.getLow(), range.getHigh()).asList());
-            assertEquals(0, boundaryPrimaryKeys.size());
-            logger.info("The boundary primary keys are " + boundaryPrimaryKeys);
-
-            commit(context);
-        }
-
-        // Test splitIndexBuildRange.
-        assertEquals(1, indexer.splitIndexBuildRange(Integer.MAX_VALUE, Integer.MAX_VALUE).size());
-
-        indexer.close();
-        database.close();
-    }
-
-    private List<TupleRange> getOneRangePerSplit(TupleRange tupleRange, List<Tuple> boundaries) {
-        List<Tuple> newBoundaries = new ArrayList<>(boundaries);
-        if (tupleRange.getLow().compareTo(boundaries.get(0)) < 0) {
-            newBoundaries.add(0, tupleRange.getLow());
-        }
-        if (tupleRange.getHigh().compareTo(boundaries.get(boundaries.size() - 1)) > 0) {
-            newBoundaries.add(tupleRange.getHigh());
-        }
-
-        List<TupleRange> oneRangePerSplit = new ArrayList<>();
-        for (int i = 0; i < newBoundaries.size() - 1; i++) {
-            oneRangePerSplit.add(TupleRange.between(newBoundaries.get(i), newBoundaries.get(i + 1)));
-        }
-        return oneRangePerSplit;
-    }
-
-    @SuppressWarnings("removal")
-    private void checkSplitIndexBuildRange(int minSplit, int maxSplit,
-                                           @Nullable List<TupleRange> expectedSplitRanges,
-                                           OnlineIndexer indexer) {
-        List<TupleRange> splitRanges = indexer.splitIndexBuildRange(minSplit, maxSplit);
-
-        if (expectedSplitRanges != null) {
-            assertEquals(expectedSplitRanges, splitRanges);
-        }
-
-        assertThat(splitRanges.size(), greaterThanOrEqualTo(minSplit));
-        assertThat(splitRanges.size(), lessThanOrEqualTo(maxSplit));
-
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, TEST_SPLIT_HOOK);
-
-            // Make sure each endpoint is a valid primary key.
-            splitRanges.forEach(range -> {
-                assertTrue(recordStore.recordExists(Objects.requireNonNull(range.getLow())));
-                assertTrue(recordStore.recordExists(Objects.requireNonNull(range.getHigh())));
-            });
 
             commit(context);
         }

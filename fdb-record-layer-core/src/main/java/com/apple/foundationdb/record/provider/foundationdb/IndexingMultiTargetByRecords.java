@@ -78,14 +78,20 @@ public class IndexingMultiTargetByRecords extends IndexingBase {
         }
         if (targetIndexes.size() == 1) {
             // backward compatibility
-            return IndexBuildProto.IndexBuildIndexingStamp.newBuilder()
-                    .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS)
-                    .build();
+            return compileSingleTargetLegacyIndexingTypeStamp();
         }
         return IndexBuildProto.IndexBuildIndexingStamp.newBuilder()
                 .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS)
                 .addAllTargetIndex(targetIndexes)
                 .build();
+    }
+
+    @Nonnull
+    protected static IndexBuildProto.IndexBuildIndexingStamp compileSingleTargetLegacyIndexingTypeStamp() {
+        return
+                IndexBuildProto.IndexBuildIndexingStamp.newBuilder()
+                        .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS)
+                        .build();
     }
 
     private static boolean areTheyAllIdempotent(@Nonnull FDBRecordStore store, List<Index> targetIndexes) {

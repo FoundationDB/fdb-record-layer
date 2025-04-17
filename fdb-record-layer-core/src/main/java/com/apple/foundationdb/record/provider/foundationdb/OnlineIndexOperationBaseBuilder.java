@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
@@ -539,8 +538,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      *     <li>recordsScanned - the number of records successfully scanned and processed
      *     <p>
      *         This is the count of records scanned as part of successful transactions used by the
-     *         multi-transaction methods (e.g. {@link OnlineIndexer#buildIndexAsync()} or
-     *         {@link OnlineIndexer#buildRange(Key.Evaluated, Key.Evaluated)}). The transactional methods (i.e., the methods that
+     *         multi-transaction methods (e.g. {@link OnlineIndexer#buildIndex()}.The transactional methods (i.e., the methods that
      *         take a store) do not count towards this value. Since only successful transactions are included,
      *         transactions that get {@code commit_unknown_result} will not get counted towards this value,
      *         so this may be short by the number of records scanned in those transactions if they actually
