@@ -515,7 +515,7 @@ public abstract class IndexingBase {
                     .addKeysAndValues(common.indexLogMessageKeyValues())
                     .toString());
         }
-        final IndexBuildProto.IndexBuildIndexingStamp fakeSavedStamp = IndexingByRecords.compileIndexingTypeStamp();
+        final IndexBuildProto.IndexBuildIndexingStamp fakeSavedStamp = IndexingByRecordsLegacyPlaceHolder.compileIndexingTypeStamp();
         throw newPartlyBuiltException(true, fakeSavedStamp, indexingTypeStamp, index);
     }
 

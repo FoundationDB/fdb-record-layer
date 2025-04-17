@@ -621,52 +621,6 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
     }
 
     @Test
-    @SuppressWarnings("removal")
-    void testSingleTargetContinuation() {
-        // Build a single target with the old module, crash halfway, then continue indexing as a single index in the Multi Target module
-        final FDBStoreTimer timer = new FDBStoreTimer();
-        final int numRecords = 107;
-        final int chunkSize = 17;
-
-        List<Index> indexes = new ArrayList<>();
-        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
-
-        populateData(numRecords);
-
-        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
-        openSimpleMetaData(hook);
-        disableAll(indexes);
-
-        final AtomicLong counter = new AtomicLong(0);
-        final String testThrowMsg = "Intentionally crash during test";
-        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes.get(0), timer)
-                .setLimit(chunkSize)
-                .setConfigLoader(old -> {
-                    if (counter.incrementAndGet() > 2) {
-                        // crash/abort after indexing two chunks of records
-                        throw new RecordCoreException(testThrowMsg);
-                    }
-                    return old;
-                })
-                .build()) {
-
-            RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndexSingleTarget);
-            assertTrue(e.getMessage().contains(testThrowMsg));
-        }
-        // expecting an extra range, because the old indexer is building endpoints
-        assertEquals(3, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
-        // Here: the index should be partially built by the single target module
-
-        openSimpleMetaData(hook);
-        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes, timer).build()) {
-            // Finish building the single index with the multi target indexer
-            indexBuilder.buildIndex(true);
-        }
-        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
-        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-    }
-
-    @Test
     void testSingleTargetCompletion() {
         // Build few single target ranges with the old module, then complete indexing as a single index with the Multi Target module
         final FDBStoreTimer timer = new FDBStoreTimer();
