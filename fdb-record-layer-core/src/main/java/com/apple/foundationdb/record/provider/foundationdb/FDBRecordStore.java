@@ -261,7 +261,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @SpotBugsSuppressWarnings("MS_MUTABLE_ARRAY")
     public static final byte[] INT64_ZERO = { 0, 0, 0, 0, 0, 0, 0, 0 };
 
-    protected int formatVersion;
+    protected FormatVersion formatVersion;
     protected int userVersion;
 
     private boolean omitUnsplitRecordSuffix;
@@ -312,9 +312,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     private final PlanSerializationRegistry planSerializationRegistry;
 
     @SuppressWarnings("squid:S00107")
+    @API(API.Status.INTERNAL)
     protected FDBRecordStore(@Nonnull FDBRecordContext context,
                              @Nonnull SubspaceProvider subspaceProvider,
-                             int formatVersion,
+                             @Nonnull FormatVersion formatVersion,
                              @Nonnull RecordMetaDataProvider metaDataProvider,
                              @Nonnull RecordSerializer<Message> serializer,
                              @Nonnull IndexMaintainerRegistry indexMaintainerRegistry,
@@ -322,7 +323,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                              @Nonnull PipelineSizer pipelineSizer,
                              @Nullable FDBRecordStoreStateCache storeStateCache,
                              @Nonnull StateCacheabilityOnOpen stateCacheabilityOnOpen,
-                             @Nullable FDBRecordStoreBase.UserVersionChecker userVersionChecker,
+                             @Nullable UserVersionChecker userVersionChecker,
                              @Nonnull PlanSerializationRegistry planSerializationRegistry) {
         super(context, subspaceProvider);
         this.formatVersion = formatVersion;
@@ -334,7 +335,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         this.storeStateCache = storeStateCache;
         this.stateCacheabilityOnOpen = stateCacheabilityOnOpen;
         this.userVersionChecker = userVersionChecker;
-        this.omitUnsplitRecordSuffix = formatVersion < SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION;
+        this.omitUnsplitRecordSuffix = formatVersion.compareTo(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX) < 0;
         this.preloadCache = new FDBPreloadRecordCache(PRELOAD_CACHE_SIZE);
         this.planSerializationRegistry = planSerializationRegistry;
     }
@@ -360,7 +361,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @API(API.Status.DEPRECATED)
     public int getFormatVersion() {
-        return formatVersion;
+        return formatVersion.getValueForSerialization();
     }
 
     /**
@@ -373,7 +374,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @API(API.Status.INTERNAL)
     public FormatVersion getFormatVersionEnum() {
-        return FormatVersion.getFormatVersion(formatVersion);
+        return formatVersion;
     }
 
     /**
@@ -2348,7 +2349,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
         final boolean[] dirty = new boolean[1];
         final boolean newStore = isNewStoreHeader(storeHeader);
-        if (Math.max(storeHeader.getFormatVersion(), formatVersion) >= CACHEABLE_STATE_FORMAT_VERSION
+        if (Math.max(storeHeader.getFormatVersion(), formatVersion.getValueForSerialization()) >= CACHEABLE_STATE_FORMAT_VERSION
                 && (stateCacheabilityOnOpen.isUpdateExistingStores() || newStore)) {
             boolean cacheable = stateCacheabilityOnOpen.isCacheable();
             if (info.getCacheable() != cacheable) {
@@ -2951,7 +2952,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (recordStoreStateRef.get() == null) {
             return preloadRecordStoreStateAsync().thenCompose(vignore -> setStateCacheabilityAsync(cacheable));
         }
-        if (formatVersion < CACHEABLE_STATE_FORMAT_VERSION) {
+        if (formatVersion.compareTo(FormatVersion.CACHEABLE_STATE) < 0) {
             throw recordCoreException("cannot mark record store state cacheable at format version " + formatVersion);
         }
         if (isStateCacheableInternal() == cacheable) {
@@ -2982,7 +2983,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     private void validateCanAccessHeaderUserFields() {
-        if (formatVersion < HEADER_USER_FIELDS_FORMAT_VERSION) {
+        if (formatVersion.compareTo(FormatVersion.HEADER_USER_FIELDS) < 0) {
             throw recordCoreException("cannot access header user fields at current format version",
                     LogMessageKeys.FORMAT_VERSION, formatVersion);
         }
@@ -4273,9 +4274,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                          @Nonnull RecordMetaDataProto.DataStoreInfo.Builder info,
                                                          @Nonnull boolean[] dirty) {
         final int oldFormatVersion = info.getFormatVersion();
-        final int newFormatVersion = Math.max(oldFormatVersion, formatVersion);
+        final int newFormatVersion = Math.max(oldFormatVersion, formatVersion.getValueForSerialization());
         final boolean formatVersionChanged = oldFormatVersion != newFormatVersion;
-        formatVersion = newFormatVersion;
+        formatVersion = FormatVersion.getFormatVersion(newFormatVersion);
 
         final boolean newStore = oldFormatVersion == 0;
         final int oldMetaDataVersion = newStore ? -1 : info.getMetaDataversion();
@@ -4328,13 +4329,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final List<CompletableFuture<Void>> work = new LinkedList<>();
 
         final int oldFormatVersion = info.getFormatVersion();
-        if (oldFormatVersion != formatVersion) {
-            info.setFormatVersion(formatVersion);
+        if (oldFormatVersion != formatVersion.getValueForSerialization()) {
+            info.setFormatVersion(formatVersion.getValueForSerialization());
             // We must check whether we have to save unsplit records without a suffix before
             // attempting to read data, i.e., before we update any indexes.
             if ((oldFormatVersion >= MIN_FORMAT_VERSION
                     && oldFormatVersion < SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION
-                    && formatVersion >= SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION
+                    && formatVersion.compareTo(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX) >= 0
                     && !metaData.isSplitLongRecords())) {
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.info(KeyValueLogMessage.of("unsplit records stored at old format",
@@ -4403,7 +4404,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             AtomicLong recordsSizeRef = new AtomicLong(-1);
             final Supplier<CompletableFuture<Long>> lazyRecordsSize = getAndRememberFutureLong(recordsSizeRef,
                     () -> getRecordSizeForRebuildIndexes(singleRecordTypeWithPrefixKey));
-            if (singleRecordTypeWithPrefixKey == null && formatVersion >= SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION && omitUnsplitRecordSuffix) {
+            if (singleRecordTypeWithPrefixKey == null
+                    && formatVersion.compareTo(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX) >= 0
+                    && omitUnsplitRecordSuffix) {
                 // Check to see if the unsplit format can be upgraded on an empty store.
                 // Only works if singleRecordTypeWithPrefixKey is null as otherwise, the recordCount will not contain
                 // all records
@@ -4423,7 +4426,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                 }
                             }
                         }
-                        omitUnsplitRecordSuffix = formatVersion < SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION;
+                        omitUnsplitRecordSuffix = formatVersion.compareTo(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX) < 0;
                         info.clearOmitUnsplitRecordSuffix();
                         addRecordsReadConflict(); // We used snapshot to determine emptiness, and are now acting on it.
                     }
@@ -4789,7 +4792,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         boolean rebuildRecordCounts =
                 (existingStore && oldFormatVersion < RECORD_COUNT_ADDED_FORMAT_VERSION)
-                || (countKeyExpression != null && formatVersion >= RECORD_COUNT_KEY_ADDED_FORMAT_VERSION &&
+                || (countKeyExpression != null && formatVersion.compareTo(FormatVersion.RECORD_COUNT_KEY_ADDED) >= 0 &&
                         (!info.hasRecordCountKey() || !KeyExpression.fromProto(info.getRecordCountKey()).equals(countKeyExpression)))
                 || (countKeyExpression == null && info.hasRecordCountKey());
 
@@ -4800,7 +4803,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
 
             // Set the new record count key if we have one.
-            if (formatVersion >= RECORD_COUNT_KEY_ADDED_FORMAT_VERSION) {
+            if (formatVersion.compareTo(FormatVersion.RECORD_COUNT_KEY_ADDED) >= 0) {
                 if (countKeyExpression != null) {
                     info.setRecordCountKey(countKeyExpression.toKeyExpression());
                 } else {
@@ -5106,7 +5109,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         @Nullable
         private RecordSerializer<Message> serializer = DynamicMessageRecordSerializer.instance();
 
-        private int formatVersion = DEFAULT_FORMAT_VERSION;
+        private FormatVersion formatVersion = FormatVersion.getDefaultFormatVersion();
 
         @Nullable
         private RecordMetaDataProvider metaDataProvider;
@@ -5206,19 +5209,19 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         @Override
         public int getFormatVersion() {
-            return formatVersion;
+            return formatVersion.getValueForSerialization();
         }
 
         @Override
         public FormatVersion getFormatVersionEnum() {
-            return FormatVersion.getFormatVersion(formatVersion);
+            return formatVersion;
         }
 
         @Override
         @Nonnull
         @API(API.Status.DEPRECATED)
         public Builder setFormatVersion(int formatVersion) {
-            this.formatVersion = formatVersion;
+            this.formatVersion = FormatVersion.getFormatVersion(formatVersion);
             return this;
         }
 
