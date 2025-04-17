@@ -32,10 +32,8 @@ import java.util.stream.Collectors;
  * This version is recorded for each store, and controls certain aspects of the on-disk behavior.
  * <p>
  *     The primary reason for this version is to ensure that if two different versions of code interact with the same
- *     store, the old version won't misinterpret other data in the store. Some of these version changes are relatively
- *     minor such as {@link #CACHEABLE_STATE}, where, at worst, an old version of the code would unset the fact that
- *     the store state is cacheable. Others are more major, such as {@link #SAVE_UNSPLIT_WITH_SUFFIX}, where two
- *     versions of the code could be reading/writing record versions to different locations.
+ *     store, the old version won't misinterpret other data in the store. Other than {@link #FORMAT_CONTROL} all of
+ *     these can result in a server misunderstanding, and consequently incorrectly updating data in the store.
  * </p>
  * <p>
  *     When the store is opened, the format version on disk will be upgraded to the one provided by
@@ -69,7 +67,7 @@ public enum FormatVersion implements Comparable<FormatVersion> {
      * <p>
      *     Warning: There is no way to rebuild the record count key across transactions, and it does not check the
      *     {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.UserVersionChecker}, so changing the record count key will cause the store to attempt to rebuild the
-     *     counts when opening the store. If you have not strated using this version (or
+     *     counts when opening the store. If you have not started using this version (or
      *     {@link #RECORD_COUNT_ADDED}), you may want to consider replacing the RecordCountKey with a
      *     {@link com.apple.foundationdb.record.metadata.IndexTypes#COUNT} index first.
      * </p>
@@ -85,7 +83,7 @@ public enum FormatVersion implements Comparable<FormatVersion> {
      * {@link com.apple.foundationdb.record.RecordMetaData#isSplitLongRecords()} is {@code false}, unless
      * {@link com.apple.foundationdb.record.RecordMetaDataProto.DataStoreInfo#getOmitUnsplitRecordSuffix()} is {@code true} on the StoreHeader.
      * <p>
-     *     In order to maintain backwards compatiblity, and not require rewriting all the records, if upgrading from an
+     *     In order to maintain backwards compatibility, and not require rewriting all the records, if upgrading from an
      *     earlier FormatVersion to this one, if the metadata does not allow splitting long records,
      *     {@linkplain com.apple.foundationdb.record.RecordMetaDataProto.DataStoreInfo#getOmitUnsplitRecordSuffix() getOmitUnsplitRecordSuffix()}
      *     will be set to {@code true} on the StoreHeader.
@@ -120,6 +118,14 @@ public enum FormatVersion implements Comparable<FormatVersion> {
     SAVE_VERSION_WITH_RECORD(6),
     /**
      * This FormatVersion allows the record state to be cached and invalidated with the meta-data version key.
+     * <p>
+     *     With this version, every time the {@link com.apple.foundationdb.record.RecordStoreState}
+     *     (storeHeader and index states) is updated for a store, the meta-data-version for the cluster will be bumped,
+     *     and all cache entries for all stores in the cluster are invalidated. Consequently if a store did not know
+     *     that a store was cacheable, when it was, it could update the store header or index state, without
+     *     invalidating the cache, causing others to interact with the store using an old version of the metadata, or
+     *     treating an index as disabled.
+     * </p>
      * @see com.apple.foundationdb.record.provider.foundationdb.storestate.MetaDataVersionStampStoreStateCache
      * @see FDBRecordStore#setStateCacheability
      */

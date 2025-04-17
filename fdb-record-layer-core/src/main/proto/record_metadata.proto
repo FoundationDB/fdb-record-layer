@@ -42,8 +42,10 @@ message DataStoreInfo {
   optional int32 formatVersion = 1;
   // This is the version of the metadata that was last used with this store.
   // This can only go up, you cannot downgrade the metaData version.
-  // Depending on the behavior of UserVersionChecker.needRebuildIndex upgrading the version should always be allowed,
-  // and should be achievable in a single transaction.
+  // Other than building new indexes, or rebuilding changed indexes, upgrading this should be achievable within a
+  // single transaction. UserVersionChecker.needRebuildIndex controls whether or not the record store should try to
+  // rebuild the indexes in the transaction during open (or checkVersion) and should check the record count or store
+  // size to determine whether this is reasonable to attempt.
   optional int32 metaDataversion = 2;
   // The userVersion is intended to be used as a way for users to do something similar to the formatVersion, but for
   // information that the record layer does not control.
