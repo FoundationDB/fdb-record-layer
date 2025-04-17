@@ -1326,7 +1326,7 @@ public class OnlineIndexer implements AutoCloseable {
          */
         public boolean shouldAllowUniquePendingState(FDBRecordStore store) {
             return allowUniquePendingState
-                    && store.getFormatVersionEnum().compareTo(FormatVersion.READABLE_UNIQUE_PENDING) >= 0;
+                    && store.getFormatVersionEnum().isAtLeast(FormatVersion.READABLE_UNIQUE_PENDING);
         }
 
         /**

@@ -335,7 +335,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         this.storeStateCache = storeStateCache;
         this.stateCacheabilityOnOpen = stateCacheabilityOnOpen;
         this.userVersionChecker = userVersionChecker;
-        this.omitUnsplitRecordSuffix = formatVersion.compareTo(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX) < 0;
+        this.omitUnsplitRecordSuffix = !formatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX);
         this.preloadCache = new FDBPreloadRecordCache(PRELOAD_CACHE_SIZE);
         this.planSerializationRegistry = planSerializationRegistry;
     }
@@ -2952,7 +2952,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (recordStoreStateRef.get() == null) {
             return preloadRecordStoreStateAsync().thenCompose(vignore -> setStateCacheabilityAsync(cacheable));
         }
-        if (formatVersion.compareTo(FormatVersion.CACHEABLE_STATE) < 0) {
+        if (!formatVersion.isAtLeast(FormatVersion.CACHEABLE_STATE)) {
             throw recordCoreException("cannot mark record store state cacheable at format version " + formatVersion);
         }
         if (isStateCacheableInternal() == cacheable) {
@@ -2983,7 +2983,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     private void validateCanAccessHeaderUserFields() {
-        if (formatVersion.compareTo(FormatVersion.HEADER_USER_FIELDS) < 0) {
+        if (!formatVersion.isAtLeast(FormatVersion.HEADER_USER_FIELDS)) {
             throw recordCoreException("cannot access header user fields at current format version",
                     LogMessageKeys.FORMAT_VERSION, formatVersion);
         }
@@ -4335,7 +4335,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             // attempting to read data, i.e., before we update any indexes.
             if ((oldFormatVersion >= MIN_FORMAT_VERSION
                     && oldFormatVersion < SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION
-                    && formatVersion.compareTo(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX) >= 0
+                    && formatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX)
                     && !metaData.isSplitLongRecords())) {
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.info(KeyValueLogMessage.of("unsplit records stored at old format",
@@ -4405,7 +4405,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             final Supplier<CompletableFuture<Long>> lazyRecordsSize = getAndRememberFutureLong(recordsSizeRef,
                     () -> getRecordSizeForRebuildIndexes(singleRecordTypeWithPrefixKey));
             if (singleRecordTypeWithPrefixKey == null
-                    && formatVersion.compareTo(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX) >= 0
+                    && formatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX)
                     && omitUnsplitRecordSuffix) {
                 // Check to see if the unsplit format can be upgraded on an empty store.
                 // Only works if singleRecordTypeWithPrefixKey is null as otherwise, the recordCount will not contain
@@ -4426,7 +4426,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                 }
                             }
                         }
-                        omitUnsplitRecordSuffix = formatVersion.compareTo(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX) < 0;
+                        omitUnsplitRecordSuffix = !formatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX);
                         info.clearOmitUnsplitRecordSuffix();
                         addRecordsReadConflict(); // We used snapshot to determine emptiness, and are now acting on it.
                     }
@@ -4792,7 +4792,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         boolean rebuildRecordCounts =
                 (existingStore && oldFormatVersion < RECORD_COUNT_ADDED_FORMAT_VERSION)
-                || (countKeyExpression != null && formatVersion.compareTo(FormatVersion.RECORD_COUNT_KEY_ADDED) >= 0 &&
+                || (countKeyExpression != null && formatVersion.isAtLeast(FormatVersion.RECORD_COUNT_KEY_ADDED) &&
                         (!info.hasRecordCountKey() || !KeyExpression.fromProto(info.getRecordCountKey()).equals(countKeyExpression)))
                 || (countKeyExpression == null && info.hasRecordCountKey());
 
@@ -4803,7 +4803,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
 
             // Set the new record count key if we have one.
-            if (formatVersion.compareTo(FormatVersion.RECORD_COUNT_KEY_ADDED) >= 0) {
+            if (formatVersion.isAtLeast(FormatVersion.RECORD_COUNT_KEY_ADDED)) {
                 if (countKeyExpression != null) {
                     info.setRecordCountKey(countKeyExpression.toKeyExpression());
                 } else {

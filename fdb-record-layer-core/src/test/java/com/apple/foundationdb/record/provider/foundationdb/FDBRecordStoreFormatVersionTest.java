@@ -28,14 +28,10 @@ import com.google.common.base.Charsets;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests related to upgrading/downgrading the format version.
@@ -45,8 +41,8 @@ public class FDBRecordStoreFormatVersionTest extends FDBRecordStoreTestBase {
 
     @Test
     public void testFormatVersionUpgrade() {
-        FormatVersion penultimateVersion = FormatVersionTestUtils.previous(FormatVersion.getMaximumSupportedVersion())
-        assertTrue(penultimateVersion.compareTo(FormatVersion.getMaximumSupportedVersion()) < 0);
+        FormatVersion penultimateVersion = FormatVersionTestUtils.previous(FormatVersion.getMaximumSupportedVersion());
+        assertFalse(penultimateVersion.isAtLeast(FormatVersion.getMaximumSupportedVersion()));
         try (FDBRecordContext context = openContext()) {
             recordStore = getStoreBuilder(context, simpleMetaData(NO_HOOK))
                     .setFormatVersion(penultimateVersion)

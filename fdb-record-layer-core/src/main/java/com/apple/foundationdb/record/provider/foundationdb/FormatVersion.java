@@ -213,4 +213,13 @@ public enum FormatVersion implements Comparable<FormatVersion> {
         }
         return candidate;
     }
+
+    /**
+     * Returns whether this version is {@code >=} the provided version.
+     * @param other a different format version.
+     * @return {@code true} if this format version is the same as {@code other} or greater than it
+     */
+    public boolean isAtLeast(final FormatVersion other) {
+        return this.compareTo(other) >= 0;
+    }
 }

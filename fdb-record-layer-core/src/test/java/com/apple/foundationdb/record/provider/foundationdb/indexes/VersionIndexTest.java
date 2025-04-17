@@ -270,7 +270,7 @@ public class VersionIndexTest {
     }
 
     private static Stream<FormatVersion> formatVersionsOfInterest(FormatVersion minVersion) {
-        return formatVersionsOfInterest().filter(version -> version.compareTo(minVersion) >= 0);
+        return formatVersionsOfInterest().filter(version -> version.isAtLeast(minVersion));
     }
 
     // Provide a combination of format versions relevant to versionstamps along with
@@ -755,7 +755,7 @@ public class VersionIndexTest {
 
         // In older format versions, the version was only read if the meta-data said to include it. This...might be a bug
         // See: https://github.com/FoundationDB/fdb-record-layer/issues/964
-        if (metaData.isStoreRecordVersions() || formatVersion.compareTo(FormatVersion.SAVE_VERSION_WITH_RECORD) >= 0) {
+        if (metaData.isStoreRecordVersions() || formatVersion.isAtLeast(FormatVersion.SAVE_VERSION_WITH_RECORD)) {
             try (FDBRecordContext context = openContext(hook)) {
                 for (Map.Entry<Tuple, Optional<FDBRecordVersion>> entry : storedVersions.entrySet()) {
                     final Optional<FDBRecordVersion> completeVersionOptional = entry.getValue()
@@ -1176,8 +1176,8 @@ public class VersionIndexTest {
             version = recordStore.loadRecord(Tuple.from(1066L)).getVersion();
             assertNotNull(version);
             inLegacyVersionSpace = context.ensureActive().getRange(recordStore.getLegacyVersionSubspace().range()).iterator().hasNext();
-            boolean shouldHaveVersionInOldSpace = (secondFormatVersion.compareTo(FormatVersion.SAVE_VERSION_WITH_RECORD) < 0)
-                    || (!testSplitLongRecords && firstFormatVersion.compareTo(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX) < 0);
+            boolean shouldHaveVersionInOldSpace = (!secondFormatVersion.isAtLeast(FormatVersion.SAVE_VERSION_WITH_RECORD))
+                    || (!testSplitLongRecords && !firstFormatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX));
             assertEquals(shouldHaveVersionInOldSpace, inLegacyVersionSpace);
             context.commit();
         }
@@ -2225,7 +2225,7 @@ public class VersionIndexTest {
         try (FDBRecordContext context = openContext(secondHook)) {
             FDBStoredRecord<?> loadedRecord1 = recordStore.loadRecord(Tuple.from(1066L));
             assertNotNull(loadedRecord1);
-            assertEquals(testFormatVersion.compareTo(FormatVersion.SAVE_VERSION_WITH_RECORD) >= 0, loadedRecord1.hasVersion());
+            assertEquals(testFormatVersion.isAtLeast(FormatVersion.SAVE_VERSION_WITH_RECORD), loadedRecord1.hasVersion());
             FDBStoredRecord<?> loadedRecord2 = recordStore.loadRecord(Tuple.from(1776L));
             assertNotNull(loadedRecord2);
             assertFalse(loadedRecord2.hasVersion());
@@ -2245,7 +2245,7 @@ public class VersionIndexTest {
         }
         try (FDBRecordContext context = openContext(thirdHook)) {
             FDBStoredRecord<?> loadedRecord1 = recordStore.loadRecord(Tuple.from(1066L));
-            assertEquals(testFormatVersion.compareTo(FormatVersion.SAVE_VERSION_WITH_RECORD) >= 0, loadedRecord1.hasVersion());
+            assertEquals(testFormatVersion.isAtLeast(FormatVersion.SAVE_VERSION_WITH_RECORD), loadedRecord1.hasVersion());
             FDBStoredRecord<?> loadedRecord2 = recordStore.loadRecord(Tuple.from(1776L));
             assertFalse(loadedRecord2.hasVersion());
             FDBStoredRecord<?> loadedRecord3 = recordStore.loadRecord(Tuple.from(1955L));
@@ -2257,15 +2257,7 @@ public class VersionIndexTest {
             List<FDBQueriedRecord<Message>> records = recordStore.executeQuery(plan).asList().join();
             assertEquals(3, records.size());
 
-            if (testFormatVersion.compareTo(FormatVersion.SAVE_VERSION_WITH_RECORD) < 0) {
-                FDBQueriedRecord<Message> queriedRecord1 = records.get(0);
-                assertEquals(Tuple.from(1066L), queriedRecord1.getPrimaryKey());
-                assertFalse(queriedRecord1.hasVersion());
-
-                FDBQueriedRecord<Message> queriedRecord2 = records.get(1);
-                assertEquals(Tuple.from(1776L), queriedRecord2.getPrimaryKey());
-                assertFalse(queriedRecord2.hasVersion());
-            } else {
+            if (testFormatVersion.isAtLeast(FormatVersion.SAVE_VERSION_WITH_RECORD)) {
                 FDBQueriedRecord<Message> queriedRecord1 = records.get(0);
                 assertEquals(Tuple.from(1776L), queriedRecord1.getPrimaryKey());
                 assertFalse(queriedRecord1.hasVersion());
@@ -2274,6 +2266,14 @@ public class VersionIndexTest {
                 assertEquals(Tuple.from(1066L), queriedRecord2.getPrimaryKey());
                 assertTrue(queriedRecord2.hasVersion());
                 assertEquals(version1, queriedRecord2.getVersion());
+            } else {
+                FDBQueriedRecord<Message> queriedRecord1 = records.get(0);
+                assertEquals(Tuple.from(1066L), queriedRecord1.getPrimaryKey());
+                assertFalse(queriedRecord1.hasVersion());
+
+                FDBQueriedRecord<Message> queriedRecord2 = records.get(1);
+                assertEquals(Tuple.from(1776L), queriedRecord2.getPrimaryKey());
+                assertFalse(queriedRecord2.hasVersion());
             }
 
             FDBQueriedRecord<Message> queriedRecord3 = records.get(2);
@@ -2344,18 +2344,18 @@ public class VersionIndexTest {
                     .collect(Collectors.toList());
         }
         try (FDBRecordContext context = openContext(hook)) {
-            if (testFormatVersion.compareTo(FormatVersion.SAVE_VERSION_WITH_RECORD) < 0) {
-                validateUsingOlderVersionFormat(storedRecords);
-            } else {
+            if (testFormatVersion.isAtLeast(FormatVersion.SAVE_VERSION_WITH_RECORD)) {
                 validateUsingNewerVersionFormat(storedRecords);
+            } else {
+                validateUsingOlderVersionFormat(storedRecords);
             }
         }
 
         // Update to the current format version
         formatVersion = FormatVersion.getMaximumSupportedVersion();
 
-        if (testFormatVersion.compareTo(FormatVersion.SAVE_VERSION_WITH_RECORD) < 0 &&
-                (splitLongRecords || testFormatVersion.compareTo(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX) >= 0)) {
+        if (!testFormatVersion.isAtLeast(FormatVersion.SAVE_VERSION_WITH_RECORD) &&
+                (splitLongRecords || testFormatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX))) {
             // After format version upgrade, each record should now store that it has the version inlined
             storedRecords = storedRecords.stream()
                     .map(record -> new FDBStoredRecord<>(record.getPrimaryKey(), record.getRecordType(), record.getRecord(),
@@ -2365,10 +2365,10 @@ public class VersionIndexTest {
         }
 
         try (FDBRecordContext context = openContext(hook)) {
-            if (!splitLongRecords && testFormatVersion.compareTo(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX) < 0) {
-                validateUsingOlderVersionFormat(storedRecords);
-            } else {
+            if (splitLongRecords || testFormatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX)) {
                 validateUsingNewerVersionFormat(storedRecords);
+            } else {
+                validateUsingOlderVersionFormat(storedRecords);
             }
 
             for (FDBStoredRecord<Message> storedRecord : storedRecords) {
@@ -2388,17 +2388,17 @@ public class VersionIndexTest {
 
             assertTrue(recordStore.deleteRecord(storedRecords.get(0).getPrimaryKey()));
             final List<FDBStoredRecord<Message>> fewerRecords = storedRecords.subList(1, storedRecords.size());
-            if (!splitLongRecords && testFormatVersion.compareTo(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX) < 0) {
-                validateUsingOlderVersionFormat(fewerRecords);
-            } else {
+            if (splitLongRecords || testFormatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX)) {
                 validateUsingNewerVersionFormat(fewerRecords);
+            } else {
+                validateUsingOlderVersionFormat(fewerRecords);
             }
 
             recordStore.saveRecord(storedRecords.get(0).getRecord());
-            if (!splitLongRecords && testFormatVersion.compareTo(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX) < 0) {
-                validateUsingOlderVersionFormat(fewerRecords);
-            } else {
+            if (splitLongRecords || testFormatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX)) {
                 validateUsingNewerVersionFormat(fewerRecords);
+            } else {
+                validateUsingOlderVersionFormat(fewerRecords);
             }
 
             // do not commit (so we can do a second upgrade)
@@ -2415,8 +2415,8 @@ public class VersionIndexTest {
         final List<FDBStoredRecord<Message>> newStoredRecords;
         try (FDBRecordContext context = openContext(hookWithNewIndexes)) {
             assertTrue(recordStore.getRecordStoreState().isReadable(newValueIndex));
-            boolean performedMigration = testFormatVersion.compareTo(FormatVersion.SAVE_VERSION_WITH_RECORD) < 0
-                                         && (splitLongRecords || testFormatVersion.compareTo(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX) >= 0);
+            boolean performedMigration = !testFormatVersion.isAtLeast(FormatVersion.SAVE_VERSION_WITH_RECORD)
+                                         && (splitLongRecords || testFormatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX));
             assertNotEquals(performedMigration, recordStore.getRecordStoreState().isReadable(newVersionIndex));
 
             if (recordStore.getRecordStoreState().isReadable(newVersionIndex)) {
@@ -2449,10 +2449,10 @@ public class VersionIndexTest {
             );
         }
         try (FDBRecordContext context = openContext(hookWithNewIndexes)) {
-            if (!splitLongRecords && testFormatVersion.compareTo(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX) < 0) {
-                validateUsingOlderVersionFormat(newStoredRecords);
-            } else {
+            if (splitLongRecords || testFormatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX)) {
                 validateUsingNewerVersionFormat(newStoredRecords);
+            } else {
+                validateUsingOlderVersionFormat(newStoredRecords);
             }
         }
     }

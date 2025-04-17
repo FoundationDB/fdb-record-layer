@@ -33,7 +33,7 @@ public final class FormatVersionTestUtils {
 
     public static FormatVersion previous(FormatVersion version) {
         return Arrays.stream(FormatVersion.values())
-                .filter(other -> other.compareTo(version) < 0)
+                .filter(other -> !other.isAtLeast(version))
                 .max(Comparator.naturalOrder())
                 .orElseThrow(() -> new IllegalArgumentException("No versions previous to " + version));
     }
