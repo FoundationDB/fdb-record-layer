@@ -36,7 +36,7 @@ import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
-import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunction;
+import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -177,10 +177,10 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     Object visitIndexAttribute(RelationalParser.IndexAttributeContext ctx);
 
     @Override
-    SqlFunction visitCreateFunction(RelationalParser.CreateFunctionContext ctx);
+    CompiledSqlFunction visitCreateFunction(RelationalParser.CreateFunctionContext ctx);
 
     @Override
-    SqlFunction visitSqlInvokedFunction(RelationalParser.SqlInvokedFunctionContext ctx);
+    CompiledSqlFunction visitSqlInvokedFunction(RelationalParser.SqlInvokedFunctionContext ctx);
 
     @Override
     LogicalOperator visitRoutineBody(RelationalParser.RoutineBodyContext ctx);

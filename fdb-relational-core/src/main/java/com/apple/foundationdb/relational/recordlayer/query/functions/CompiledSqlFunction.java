@@ -52,27 +52,35 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * This represents a compilable SQL function. If the function is a table function, it is modeled as a join between
+ * the function body as defined by the user, and a constant row representing the list of arguments as given in the
+ * call site.
+ * <br>
+ * Note that a SQL function is only compiled once, upon invocation, the call site is created representing the compiled
+ * function plan as a leg of a binary join, where
+ */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-public class SqlFunction extends UserDefinedFunction<Value> {
+public class CompiledSqlFunction extends UserDefinedFunction<Value> {
 
     @Nonnull
     private final RelationalExpression body;
 
     private final Optional<CorrelationIdentifier> parametersCorrelation;
 
-    public SqlFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
-                       @Nonnull final List<Type> parameterTypes,
-                       @Nonnull final List<Optional<Value>> parameterDefaults,
-                       @Nonnull final Optional<CorrelationIdentifier> parametersCorrelation,
-                       @Nonnull final RelationalExpression body) {
+    private CompiledSqlFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
+                               @Nonnull final List<Type> parameterTypes,
+                               @Nonnull final List<Optional<Value>> parameterDefaults,
+                               @Nonnull final Optional<CorrelationIdentifier> parametersCorrelation,
+                               @Nonnull final RelationalExpression body) {
         super(functionName, parameterNames, parameterTypes, parameterDefaults);
         this.parametersCorrelation = parametersCorrelation;
         this.body = body;
     }
 
     @Nonnull
-    public RecordMetaDataProto.PUserDefinedFunction toProto(@Nonnull PlanSerializationContext serializationContext) {
-        throw new RecordCoreException("attempt to serialize expandable SQL function");
+    public RecordMetaDataProto.PUserDefinedFunction toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        throw new RecordCoreException("attempt to serialize compiled SQL function");
     }
 
     @Nonnull
@@ -104,7 +112,7 @@ public class SqlFunction extends UserDefinedFunction<Value> {
             final var maybePromotedArgument = PromoteValue.inject(argumentValue, getParameterType(name));
             resultBuilder.addResultColumn(Column.of(Optional.of(name), maybePromotedArgument));
         }
-        final var qun = Quantifier.forEach(Reference.of(resultBuilder.addQuantifier(rangeOneFunc()).build().buildSelect()),
+        final var qun = Quantifier.forEach(Reference.of(resultBuilder.addQuantifier(rangeOfOnePlan()).build().buildSelect()),
                 parametersCorrelation.get());
         final var bodyQun = Quantifier.forEach(Reference.of(body));
         final var selectBuilder = GraphExpansion.builder()
@@ -114,10 +122,15 @@ public class SqlFunction extends UserDefinedFunction<Value> {
         return selectBuilder.build().buildSelect();
     }
 
+    /**
+     * Creates a quantifier over a logical expression that is {@code range(0,1]}.
+     * @return a quantifier over a logical expression that is {@code range(0,1]}.
+     */
     @Nonnull
-    private static Quantifier rangeOneFunc() {
+    private static Quantifier rangeOfOnePlan() {
         final var rangeFunction = new RangeValue.RangeFn();
-        final var rangeValue = Assert.castUnchecked(rangeFunction.encapsulate(ImmutableList.of(LiteralValue.ofScalar(1L))), StreamingValue.class);
+        final var rangeValue = Assert.castUnchecked(rangeFunction.encapsulate(ImmutableList.of(LiteralValue.ofScalar(1L))),
+                StreamingValue.class);
         final var tableFunctionExpression = new TableFunctionExpression(rangeValue);
         return Quantifier.forEach(Reference.of(tableFunctionExpression));
     }
@@ -172,11 +185,11 @@ public class SqlFunction extends UserDefinedFunction<Value> {
             }
 
             @Nonnull
-            public SqlFunction build() {
+            public CompiledSqlFunction build() {
                 final List<Optional<Value>> defaultsValuesList = Streams.stream(parameters.underlying())
                         .map(v -> v instanceof ThrowsValue ? Optional.<Value>empty() : Optional.of(v))
                         .collect(ImmutableList.toImmutableList());
-                return new SqlFunction(outerBuilder.name, parameters.names(), parameters.underlyingTypes(),
+                return new CompiledSqlFunction(outerBuilder.name, parameters.names(), parameters.underlyingTypes(),
                         defaultsValuesList, getParametersCorrelation().map(Quantifier::getAlias), body);
             }
         }

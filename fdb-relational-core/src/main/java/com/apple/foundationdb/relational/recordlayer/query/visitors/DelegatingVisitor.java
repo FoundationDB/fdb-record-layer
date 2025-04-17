@@ -36,7 +36,7 @@ import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
-import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunction;
+import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import org.antlr.v4.runtime.tree.ErrorNode;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.RuleNode;
@@ -249,12 +249,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     }
 
     @Override
-    public SqlFunction visitCreateFunction(final RelationalParser.CreateFunctionContext ctx) {
+    public CompiledSqlFunction visitCreateFunction(final RelationalParser.CreateFunctionContext ctx) {
         return getDelegate().visitCreateFunction(ctx);
     }
 
     @Override
-    public SqlFunction visitSqlInvokedFunction(@Nonnull RelationalParser.SqlInvokedFunctionContext ctx) {
+    public CompiledSqlFunction visitSqlInvokedFunction(@Nonnull RelationalParser.SqlInvokedFunctionContext ctx) {
         return getDelegate().visitSqlInvokedFunction(ctx);
     }
 

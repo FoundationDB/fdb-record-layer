@@ -57,7 +57,6 @@ import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalog;
-import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalogImpl;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.QueryVisitor;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Equivalence;
@@ -713,7 +712,7 @@ public class SemanticAnalyzer {
         }
     }
 
-    public static void validateContinuation(@Nonnull Expression continuation) {
+    public static void validateContinuation(@Nonnull final Expression continuation) {
         // currently, this only validates that the underlying Value is a byte string.
         // in the future, we might add more context-aware checks.
         final var underlying = continuation.getUnderlying();
@@ -726,21 +725,25 @@ public class SemanticAnalyzer {
     }
 
     /**
-     * Resolves a scalar function given its name and a list of arguments by looking it up in the {@link SqlFunctionCatalog}.
+     * Resolves a scalar function given its name and a list of arguments by looking it up in the
+     * {@link SqlFunctionCatalog}.
      * <br>
      * Ideally, this overload should not exist, in other words, the caller should not be responsible for determining
      * whether the single-item records should be flattened or not.
      * Currently almost all supported SQL functions do not expect {@code Record} objects,
      * so this is probably ok, however, this does not necessarily hold for the future.
-     * See {@link SqlFunctionCatalogImpl#flattenRecordWithOneField(Typed)} for more information.
+     * See {@link SqlFunctionCatalog#flattenRecordWithOneField(Typed)} for more information.
+     *
      * @param functionName The function name.
-     * @param flattenSingleItemRecords {@code true} if single-item records should be (recursively) replaced with their
-     *                                 content, otherwise {@code false}.
      * @param arguments The function arguments.
-     * @return A resolved SQL function {@code Expression}.
+     * @param flattenSingleItemRecords {@code true} if single-item records should be (recursively) replaced with their
+     * content, otherwise {@code false}.
+     *
+     * @return An {@link Expression} representing the resolved SQL function.
      */
     @Nonnull
-    public Expression resolveScalarFunction(@Nonnull String functionName, boolean flattenSingleItemRecords, @Nonnull Expressions arguments) {
+    public Expression resolveScalarFunction(@Nonnull final String functionName, @Nonnull final Expressions arguments,
+                                            boolean flattenSingleItemRecords) {
         Assert.thatUnchecked(functionCatalog.containsFunction(functionName), ErrorCode.UNSUPPORTED_QUERY,
                 () -> String.format(Locale.ROOT, "Unsupported operator %s", functionName));
         final var builtInFunction = functionCatalog.lookupFunction(functionName, arguments);
@@ -749,28 +752,32 @@ public class SemanticAnalyzer {
             argumentList.add(Expression.ofUnnamed(new LiteralValue<>(BITMAP_DEFAULT_ENTRY_SIZE)));
         }
         final List<? extends Typed> valueArgs = argumentList.build().stream().map(Expression::getUnderlying)
-                .map(v -> flattenSingleItemRecords ? SqlFunctionCatalogImpl.flattenRecordWithOneField(v) : v)
+                .map(v -> flattenSingleItemRecords ? SqlFunctionCatalog.flattenRecordWithOneField(v) : v)
                 .collect(ImmutableList.toImmutableList());
         final var resultingValue = Assert.castUnchecked(builtInFunction.encapsulate(valueArgs), Value.class);
         return Expression.ofUnnamed(DataTypeUtils.toRelationalType(resultingValue.getResultType()), resultingValue);
     }
 
     /**
-     * Resolves a table function given its name and a list of arguments by looking it up in the {@link SqlFunctionCatalog}.
+     * Resolves a table function given its name and a list of arguments by looking it up in the
+     * {@link SqlFunctionCatalog}.
      * <br>
      * Ideally, this overload should not exist, in other words, the caller should not be responsible for determining
      * whether the single-item records should be flattened or not.
      * Currently almost all supported SQL functions do not expect {@code Record} objects,
      * so this is probably ok, however, this does not necessarily hold for the future.
-     * See {@link SqlFunctionCatalogImpl#flattenRecordWithOneField(Typed)} for more information.
+     * See {@link SqlFunctionCatalog#flattenRecordWithOneField(Typed)} for more information.
+     *
      * @param functionName The function name.
-     * @param flattenSingleItemRecords {@code true} if single-item records should be (recursively) replaced with their
-     *                                 content, otherwise {@code false}.
      * @param arguments The function arguments.
-     * @return A resolved SQL function {@code Expression}.
+     * @param flattenSingleItemRecords {@code true} if single-item records should be (recursively) replaced with their
+     * content, otherwise {@code false}.
+     *
+     * @return A {@link LogicalOperator} representing the semantics of the requested SQL table function.
      */
     @Nonnull
-    public LogicalOperator resolveTableFunction(@Nonnull String functionName, boolean flattenSingleItemRecords, @Nonnull Expressions arguments) {
+    public LogicalOperator resolveTableFunction(@Nonnull final String functionName, @Nonnull final Expressions arguments,
+                                                boolean flattenSingleItemRecords) {
         Assert.thatUnchecked(functionCatalog.containsFunction(functionName), ErrorCode.UNSUPPORTED_QUERY,
                 () -> String.format(Locale.ROOT, "Unsupported operator %s", functionName));
         final var tableFunction = functionCatalog.lookupFunction(functionName, arguments);
@@ -778,7 +785,7 @@ public class SemanticAnalyzer {
             Assert.thatUnchecked(tableFunction instanceof BuiltInTableFunction, functionName + " is not a table-valued function");
         }
         final List<? extends Typed> valueArgs = Streams.stream(arguments.underlying().iterator())
-                .map(v -> flattenSingleItemRecords ? SqlFunctionCatalogImpl.flattenRecordWithOneField(v) : v)
+                .map(v -> flattenSingleItemRecords ? SqlFunctionCatalog.flattenRecordWithOneField(v) : v)
                 .collect(ImmutableList.toImmutableList());
         Assert.thatUnchecked(arguments.allNamed() || arguments.allUnnamed(), ErrorCode.UNSUPPORTED_OPERATION,
                 "mixing named and unnamed arguments is not supported");
@@ -797,8 +804,8 @@ public class SemanticAnalyzer {
         return LogicalOperator.newUnnamedOperator(Expressions.fromQuantifier(topQun), topQun);
     }
 
-    public boolean isUdfFunction(@Nonnull final String functionName) {
-        return functionCatalog.isUdfFunction(functionName);
+    public boolean isJavaCallFunction(@Nonnull final String functionName) {
+        return functionCatalog.isJavaCallFunction(functionName);
     }
 
     public boolean containsReferencesTo(@Nonnull final ParseTree parseTree,

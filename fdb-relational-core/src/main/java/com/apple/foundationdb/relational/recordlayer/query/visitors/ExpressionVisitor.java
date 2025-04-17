@@ -271,7 +271,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         // special case for user-defined functions where we want to exclude the first argument from
         // being literal-stripped.
         @Nonnull Expressions arguments;
-        boolean isUdf = getDelegate().getSemanticAnalyzer().isUdfFunction(functionName);
+        boolean isUdf = getDelegate().getSemanticAnalyzer().isJavaCallFunction(functionName);
         if (isUdf) {
             final var argumentNodes = ctx.functionArgs().children.stream()
                     .filter(arg -> arg instanceof RelationalParser.FunctionArgContext)

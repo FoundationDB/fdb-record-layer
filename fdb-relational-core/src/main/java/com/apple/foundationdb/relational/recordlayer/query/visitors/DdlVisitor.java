@@ -43,7 +43,7 @@ import com.apple.foundationdb.relational.recordlayer.query.IndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
-import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunction;
+import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -330,12 +330,12 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Override
-    public SqlFunction visitCreateFunction(final RelationalParser.CreateFunctionContext ctx) {
+    public CompiledSqlFunction visitCreateFunction(final RelationalParser.CreateFunctionContext ctx) {
         return visitSqlInvokedFunction(ctx.sqlInvokedFunction());
     }
 
     @Override
-    public SqlFunction visitSqlInvokedFunction(@Nonnull RelationalParser.SqlInvokedFunctionContext ctx) {
+    public CompiledSqlFunction visitSqlInvokedFunction(@Nonnull RelationalParser.SqlInvokedFunctionContext ctx) {
         // 1. get the function name.
         final var functionName = visitFullId(ctx.functionSpecification().schemaQualifiedRoutineName).toString();
 
@@ -360,7 +360,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 "mixing named and unnamed arguments is not supported");
         final var parameterTypes = parameters.underlyingTypes();
         //final var returnType = visitReturnsType(ctx.functionSpecification().returnsClause().returnsType());
-        final var sqlFunctionBuilder = SqlFunction.newBuilder()
+        final var sqlFunctionBuilder = CompiledSqlFunction.newBuilder()
                 .setName(functionName)
                 .addAllParameters(parameters)
                 // .setReturnType(returnType)

@@ -1468,6 +1468,81 @@ public class StandardQueryTests {
         }
     }
 
+
+    @Test
+    void sqlFunctionMultiInvocationWorks() throws Exception {
+        final String schemaTemplate =
+                "create table t1(pk1 bigint, a1 bigint, b1 bigint, primary key(pk1))\n" +
+                        "create table t2(pk2 bigint, a2 bigint, b2 bigint, primary key(pk2))\n" +
+                        "create function func(in x bigint) returns table (s bigint) return select a2 from t2 where b2 < x\n"; // +
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (1, 10, 100), (2, 20, 200), (3, 30, 300), (4, 40, 400)");
+                statement.executeUpdate("insert into t2 values (7, 7, 7), (10, 10, 10), (20, 20, 20), (500, 500, 500)");
+                Assertions.assertTrue(statement.execute("select P1.a2, P2.a2 from t1, func(x => 100) as P1, func(x => 200) as P2 where P1.a2 > 15"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .isRowExactly(20L, 7L)
+                            .hasNextRow()
+                            .isRowExactly(30L, 7L)
+                            .hasNextRow()
+                            .isRowExactly(40L, 7L)
+                            .hasNextRow()
+                            .isRowExactly(20L, 10L)
+                            .hasNextRow()
+                            .isRowExactly(30L, 10L)
+                            .hasNextRow()
+                            .isRowExactly(40L, 10L)
+                            .hasNextRow()
+                            .isRowExactly(20L, 20L)
+                            .hasNextRow()
+                            .isRowExactly(30L, 20L)
+                            .hasNextRow()
+                            .isRowExactly(40L, 20L)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void sqlFunctionMultiInvocationWithCtePotentiallyWorks() throws Exception {
+        final String schemaTemplate =
+                "create table t1(pk1 bigint, a1 bigint, b1 bigint, primary key(pk1))\n" +
+                        "create table t2(pk2 bigint, a2 bigint, b2 bigint, primary key(pk2))\n" +
+                        "create function func(in x bigint) returns table (s bigint) return select a2 from t2 where b2 < x\n"; // +
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (1, 10, 100), (2, 20, 200), (3, 30, 300), (4, 40, 400)");
+                statement.executeUpdate("insert into t2 values (7, 7, 7), (10, 10, 10), (20, 20, 20), (500, 500, 500)");
+                Assertions.assertTrue(statement.execute("with cte as (select P1.a2 as X from t1, func(x => 100) as P1 where P1.a2 > 15) select * from cte where X < 4444"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .isRowExactly(20L, 7L)
+                            .hasNextRow()
+                            .isRowExactly(30L, 7L)
+                            .hasNextRow()
+                            .isRowExactly(40L, 7L)
+                            .hasNextRow()
+                            .isRowExactly(20L, 10L)
+                            .hasNextRow()
+                            .isRowExactly(30L, 10L)
+                            .hasNextRow()
+                            .isRowExactly(40L, 10L)
+                            .hasNextRow()
+                            .isRowExactly(20L, 20L)
+                            .hasNextRow()
+                            .isRowExactly(30L, 20L)
+                            .hasNextRow()
+                            .isRowExactly(40L, 20L)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+
+
     @Test
     void sqlFunctionWorks2() throws Exception {
         final String schemaTemplate =

@@ -31,7 +31,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.query.MutablePlanGenerationContext;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.QueryParser;
-import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunction;
+import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor;
 
 import javax.annotation.Nonnull;
@@ -53,7 +53,7 @@ public interface RoutineParser {
 
         @Nonnull
         @Override
-        public SqlFunction parse(@Nonnull final String routineString) {
+        public CompiledSqlFunction parse(@Nonnull final String routineString) {
             final RelationalParser.SqlInvokedFunctionContext parsed;
             try {
                 parsed = QueryParser.parseFunction(routineString);

@@ -26,28 +26,26 @@ import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.BuiltInFunctionCatalog;
-import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.metadata.serde.RoutineParser;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
+import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.util.Assert;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
-import java.util.stream.StreamSupport;
-
-import static java.util.stream.Collectors.toList;
+import java.util.function.Supplier;
 
 /**
  * A catalog of built-in and user-defined SQL functions.
  */
 @API(API.Status.EXPERIMENTAL)
-public final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
+final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
 
     @Nonnull
     private static final ImmutableMap<String, Function<Integer, Optional<BuiltInFunction<? extends Typed>>>> builtInSynonums = createSynonyms();
@@ -61,9 +59,9 @@ public final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
 
     @Nonnull
     @Override
-    public CatalogedFunction<? extends Typed> lookupFunction(@Nonnull final String name, @Nonnull final Expressions expressions) {
-        final var builtInFunctionMaybe = lookupBuiltInFunction(name, expressions);
-        final var userDefinedFunctionMaybe = lookupUserDefinedFunction(name, expressions);
+    public CatalogedFunction<? extends Typed> lookupFunction(@Nonnull final String name, @Nonnull final Expressions arguments) {
+        final var builtInFunctionMaybe = lookupBuiltInFunction(name, arguments);
+        final var userDefinedFunctionMaybe = lookupUserDefinedFunction(name, arguments);
         if (builtInFunctionMaybe.isPresent() && userDefinedFunctionMaybe.isPresent()) {
             // this should never happen.
             Assert.failUnchecked(ErrorCode.INTERNAL_ERROR, "multiple definition of '" + name + "' found in the catalog");
@@ -95,18 +93,19 @@ public final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
     }
 
     @Override
-    public boolean containsFunction(@Nonnull String name) {
+    public boolean containsFunction(@Nonnull final String name) {
         return builtInSynonums.containsKey(name.toLowerCase(Locale.ROOT))
                 || userDefinedFunctionCatalog.containsFunction(name);
     }
 
     @Override
-    public boolean isUdfFunction(@Nonnull final String name) {
+    public boolean isJavaCallFunction(@Nonnull final String name) {
         return "java_call".equals(name.trim().toLowerCase(Locale.ROOT));
     }
 
-    public void registerUserDefinedFunction(@Nonnull final UserDefinedFunction<? extends Typed> function, boolean isCaseSensitive) {
-        userDefinedFunctionCatalog.registerFunction(function, isCaseSensitive);
+    public void registerUserDefinedFunction(@Nonnull final String functionName,
+                                            @Nonnull final Supplier<UserDefinedFunction<? extends Typed>> functionSupplier) {
+        userDefinedFunctionCatalog.registerFunction(functionName, functionSupplier);
     }
 
     @Nonnull
@@ -157,37 +156,11 @@ public final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
     @Nonnull
     public static SqlFunctionCatalogImpl newInstance(@Nonnull RecordLayerSchemaTemplate metadata, boolean isCaseSensitive) {
         final var functionCatalog = new SqlFunctionCatalogImpl();
-        metadata.getInvokedRoutines().stream().map(RecordLayerInvokedRoutine::getCompilableRoutine)
-                .forEach(func -> functionCatalog.registerUserDefinedFunction(func, isCaseSensitive));
+        final var functionParser = RoutineParser.sqlFunctionParser(metadata);
+        metadata.getInvokedRoutines().forEach(func ->
+                functionCatalog.registerUserDefinedFunction(
+                        Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(func.getName(), isCaseSensitive)),
+                        Suppliers.memoize(() -> functionParser.parse(func.getDescription()))));
         return functionCatalog;
-    }
-
-    /**
-     * A utility method that transforms a single-item {@link RecordConstructorValue} value into its inner {@link Value}.
-     * This is mainly used for deterministically distinguishing between:
-     * <ul>
-     *     <li>Single item record constructor</li>
-     *     <li>Order of operations</li>
-     * </ul>
-     * Currently, all of our SQL functions are assumed to be working with primitives, therefore, when there is a scenario
-     * where the arguments can be interpreted as either single-item records or to indicate order of operations,
-     * the precedence is <i>always</i> given to the latter.
-     * For example, the argument {@code (3+4)} in this expression {@code (3+4)*5} is considered to correspond to a
-     * single integer which is the result of {@code 3+4} as opposed to a single-item record whose element is {@code 3+4}.
-     *
-     * @param value The value to potentially simplify
-     * @return if the {@code value} is a single-item record, then the content of the {@code value} is recursively checked
-     * and returned, otherwise, the {@code value} itself is returned without modification.
-     */
-    @Nonnull
-    public static Typed flattenRecordWithOneField(@Nonnull final Typed value) {
-        if (value instanceof RecordConstructorValue && ((RecordConstructorValue) value).getColumns().size() == 1) {
-            return flattenRecordWithOneField(((Value) value).getChildren().iterator().next());
-        }
-        if (value instanceof Value) {
-            return ((Value) value).withChildren(StreamSupport.stream(((Value) value).getChildren().spliterator(), false)
-                    .map(SqlFunctionCatalogImpl::flattenRecordWithOneField).map(v -> (Value) v).collect(toList()));
-        }
-        return value;
     }
 }

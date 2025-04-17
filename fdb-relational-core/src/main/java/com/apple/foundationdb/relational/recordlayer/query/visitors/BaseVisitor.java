@@ -45,9 +45,8 @@ import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
-import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunction;
+import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalog;
-import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalogImpl;
 import com.apple.foundationdb.relational.util.Assert;
 import org.antlr.v4.runtime.tree.AbstractParseTreeVisitor;
 import org.antlr.v4.runtime.tree.ParseTree;
@@ -162,7 +161,7 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     public SqlFunctionCatalog createFunctionCatalog(@Nonnull final RecordLayerSchemaTemplate metadata) {
-        return SqlFunctionCatalogImpl.newInstance(metadata, caseSensitive);
+        return SqlFunctionCatalog.newInstance(metadata, caseSensitive);
     }
 
     @Nonnull
@@ -211,17 +210,17 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     public Expression resolveFunction(@Nonnull String functionName, @Nonnull Expression... arguments) {
-        return getSemanticAnalyzer().resolveScalarFunction(functionName, true, Expressions.of(arguments));
+        return getSemanticAnalyzer().resolveScalarFunction(functionName, Expressions.of(arguments), true);
     }
 
     @Nonnull
     public Expression resolveFunction(@Nonnull String functionName, boolean flattenSingleItemRecords, @Nonnull Expression... arguments) {
-        return getSemanticAnalyzer().resolveScalarFunction(functionName, flattenSingleItemRecords, Expressions.of(arguments));
+        return getSemanticAnalyzer().resolveScalarFunction(functionName, Expressions.of(arguments), flattenSingleItemRecords);
     }
 
     @Nonnull
     public LogicalOperator resolveTableValuedFunction(@Nonnull String functionName, @Nonnull Expressions arguments) {
-        return getSemanticAnalyzer().resolveTableFunction(functionName, true, arguments);
+        return getSemanticAnalyzer().resolveTableFunction(functionName, arguments, true);
     }
 
     @Override
@@ -414,12 +413,12 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     }
 
     @Override
-    public SqlFunction visitCreateFunction(final RelationalParser.CreateFunctionContext ctx) {
+    public CompiledSqlFunction visitCreateFunction(final RelationalParser.CreateFunctionContext ctx) {
         return ddlVisitor.visitCreateFunction(ctx);
     }
 
     @Override
-    public SqlFunction visitSqlInvokedFunction(RelationalParser.SqlInvokedFunctionContext ctx) {
+    public CompiledSqlFunction visitSqlInvokedFunction(RelationalParser.SqlInvokedFunctionContext ctx) {
         return ddlVisitor.visitSqlInvokedFunction(ctx);
     }
 

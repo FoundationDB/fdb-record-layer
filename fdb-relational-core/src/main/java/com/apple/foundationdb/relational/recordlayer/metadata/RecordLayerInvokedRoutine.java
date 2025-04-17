@@ -22,7 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.metadata;
 
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
-import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunction;
+import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -39,11 +39,11 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     private final String name;
 
     @Nonnull
-    private final Supplier<SqlFunction> compilableSqlFunctionSupplier;
+    private final Supplier<CompiledSqlFunction> compilableSqlFunctionSupplier;
 
     public RecordLayerInvokedRoutine(@Nonnull final String description,
                                      @Nonnull final String name,
-                                     @Nonnull final Supplier<SqlFunction> compilableSqlFunctionSupplier) {
+                                     @Nonnull final Supplier<CompiledSqlFunction> compilableSqlFunctionSupplier) {
         this.description = description;
         this.name = name;
         this.compilableSqlFunctionSupplier = Suppliers.memoize(compilableSqlFunctionSupplier);
@@ -56,7 +56,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     }
 
     @Nonnull
-    public SqlFunction getCompilableRoutine() {
+    public CompiledSqlFunction getCompilableRoutine() {
         return compilableSqlFunctionSupplier.get();
     }
 
@@ -96,7 +96,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     public static final class Builder {
         private String description;
         private String name;
-        private Supplier<SqlFunction> compilableSqlFunctionSupplier;
+        private Supplier<CompiledSqlFunction> compilableSqlFunctionSupplier;
 
         @Nonnull
         public Builder setDescription(@Nonnull final String description) {
@@ -111,7 +111,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         }
 
         @Nonnull
-        public Builder withCompilableRoutine(@Nonnull final Supplier<SqlFunction> compilableSqlFunctionSupplier) {
+        public Builder withCompilableRoutine(@Nonnull final Supplier<CompiledSqlFunction> compilableSqlFunctionSupplier) {
             this.compilableSqlFunctionSupplier = compilableSqlFunctionSupplier;
             return this;
         }

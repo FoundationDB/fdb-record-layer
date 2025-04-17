@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
-import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -35,18 +34,20 @@ import javax.annotation.Nonnull;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 final class UserDefinedFunctionCatalog {
 
     @Nonnull
-    private final Map<String, UserDefinedFunction<? extends Typed>> functionsMap;
+    private final Map<String, Supplier<UserDefinedFunction<? extends Typed>>> functionsMap;
 
     UserDefinedFunctionCatalog() {
         this.functionsMap = new LinkedHashMap<>();
     }
 
-    void registerFunction(@Nonnull final UserDefinedFunction<? extends Typed> function, boolean isCaseSensitive) {
-        functionsMap.put(SemanticAnalyzer.normalizeString(function.getFunctionName(), isCaseSensitive), function);
+    void registerFunction(@Nonnull final String functionName,
+                          @Nonnull final Supplier<UserDefinedFunction<? extends Typed>> function) {
+        functionsMap.put(functionName, function);
     }
 
     public boolean containsFunction(@Nonnull final String name) {
@@ -55,10 +56,13 @@ final class UserDefinedFunctionCatalog {
 
     @Nonnull
     public Optional<? extends CatalogedFunction<? extends Typed>> lookup(@Nonnull final String functionName, Expressions arguments) {
-        final var function = functionsMap.get(functionName);
-        if (function == null) {
+        final var functionSupplier = functionsMap.get(functionName);
+        if (functionSupplier == null) {
             return Optional.empty();
         }
+
+        // lazy-compile the function
+        final var function = functionSupplier.get();
 
         // either all arguments are named, or none is named.
         // I think partial naming is supported in SQL standard, but we do not support that at the moment.
