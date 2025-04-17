@@ -2156,10 +2156,11 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         BaseBuilder<M, R> setSerializer(@Nonnull RecordSerializer<M> serializer);
 
         /**
-         * Get the storage format version for this store; deprecated in favor of {@link #getFormatVersionEnum()}.
+         * Get the storage format version for this store.
          * @return the format version to use
+         * @deprecated use {@link #getFormatVersionEnum()}
          */
-        @API(API.Status.DEPRECATED)
+        @Deprecated(forRemoval = true)
         int getFormatVersion();
 
         /**
@@ -2172,13 +2173,11 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
         /**
          * Set the storage format version for this store.
-         * <p>
-         *     This is deprecated, and instead, one should use {@link #setFormatVersion(FormatVersion)}.
-         * </p>
          * @param formatVersion the format version to use
          * @return this builder
+         * @deprecated This is deprecated, and instead, one should use {@link #setFormatVersion(FormatVersion)}.
          */
-        @API(API.Status.DEPRECATED)
+        @Deprecated(forRemoval = true)
         @Nonnull
         BaseBuilder<M, R> setFormatVersion(int formatVersion);
 

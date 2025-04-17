@@ -44,6 +44,7 @@ class FormatVersionTest {
      * didn't change.
      */
     @Test
+    @SuppressWarnings("removal") // This test will be removed when the constants are
     void testOrderingAlignment() {
         final List<Integer> versions = List.of(FDBRecordStore.INFO_ADDED_FORMAT_VERSION,
                 FDBRecordStore.RECORD_COUNT_ADDED_FORMAT_VERSION,

@@ -40,6 +40,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 public class FDBRecordStoreFormatVersionTest extends FDBRecordStoreTestBase {
 
     @Test
+    // this references the recordStore.getFormatVersion() and associated constants, but those assertions can be removed
+    // when the method/constant are removed, as there are already assertions about the enum variant.
+    @SuppressWarnings("removal")
     public void testFormatVersionUpgrade() {
         FormatVersion penultimateVersion = FormatVersionTestUtils.previous(FormatVersion.getMaximumSupportedVersion());
         assertFalse(penultimateVersion.isAtLeast(FormatVersion.getMaximumSupportedVersion()));

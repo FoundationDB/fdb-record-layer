@@ -384,6 +384,8 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
         }
 
         @Override
+        @Deprecated(forRemoval = true)
+        @SuppressWarnings("removal") // this method is deprecated to be removed with parent
         public int getFormatVersion() {
             return untypedStoreBuilder.getFormatVersion();
         }
@@ -395,7 +397,8 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
 
         @Override
         @Nonnull
-        @API(API.Status.DEPRECATED)
+        @Deprecated(forRemoval = true)
+        @SuppressWarnings("removal") // this method is deprecated to be removed with parent
         public Builder<M> setFormatVersion(int formatVersion) {
             untypedStoreBuilder.setFormatVersion(formatVersion);
             return this;
