@@ -123,12 +123,6 @@ class FormatVersionTest {
                 () -> FormatVersion.validateFormatVersion(candidate, new SubspaceProviderBySubspace(new Subspace())));
     }
 
-
-    public static IntStream testGetValidFormatVersion() {
-        return IntStream.rangeClosed(FormatVersion.getMinimumVersion().getValueForSerialization(),
-                FormatVersion.getMaximumSupportedVersion().getValueForSerialization());
-    }
-
     @ParameterizedTest
     @EnumSource(FormatVersion.class)
     void testGetValidFormatVersion(FormatVersion candidate) {
