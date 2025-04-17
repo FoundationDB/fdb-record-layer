@@ -58,6 +58,7 @@ BOTH:                                'BOTH';
 BUCKETS:                             'BUCKETS';
 BY:                                  'BY';
 CALL:                                'CALL';
+CALLED:                              'CALLED';
 CASCADE:                             'CASCADE';
 CASE:                                'CASE';
 CAST:                                'CAST';
@@ -85,6 +86,7 @@ DESC:                                'DESC';
 DESCRIBE:                            'DESCRIBE';
 DETERMINISTIC:                       'DETERMINISTIC';
 DIAGNOSTICS:                         'DIAGNOSTICS';
+DISPATCH:                            'DISPATCH';
 DISTINCT:                            'DISTINCT';
 DISTINCTROW:                         'DISTINCTROW';
 DROP:                                'DROP';
@@ -120,6 +122,7 @@ INDEX:                               'INDEX';
 INFILE:                              'INFILE';
 INNER:                               'INNER';
 INOUT:                               'INOUT';
+INPUT:                               'INPUT';
 INSERT:                              'INSERT';
 INTERVAL:                            'INTERVAL';
 INTO:                                'INTO';
@@ -199,6 +202,7 @@ SQL_BIG_RESULT:                      'SQL_BIG_RESULT';
 SQL_CALC_FOUND_ROWS:                 'SQL_CALC_FOUND_ROWS';
 SQL_SMALL_RESULT:                    'SQL_SMALL_RESULT';
 SSL:                                 'SSL';
+STATIC:                              'STATIC';
 STACKED:                             'STACKED';
 STARTING:                            'STARTING';
 STRAIGHT_JOIN:                       'STRAIGHT_JOIN';
@@ -521,6 +525,7 @@ IO_THREAD:                           'IO_THREAD';
 IPC:                                 'IPC';
 ISOLATION:                           'ISOLATION';
 ISSUER:                              'ISSUER';
+JAVA:                                'JAVA';
 JSON:                                'JSON';
 KEY_BLOCK_SIZE:                      'KEY_BLOCK_SIZE';
 LANGUAGE:                            'LANGUAGE';
@@ -598,6 +603,7 @@ OPTIONS:                             'OPTIONS';
 OWNER:                               'OWNER';
 PACK_KEYS:                           'PACK_KEYS';
 PAGE:                                'PAGE';
+PARAMETER:                           'PARAMETER';
 PARSER:                              'PARSER';
 PARTIAL:                             'PARTIAL';
 PARTITIONING:                        'PARTITIONING';
@@ -688,6 +694,7 @@ STORAGE:                             'STORAGE';
 STORED:                              'STORED';
 STRING:                              'STRING';
 STRUCT:                              'STRUCT';
+STYLE:                               'STYLE';
 SUBCLASS_ORIGIN:                     'SUBCLASS_ORIGIN';
 SUBJECT:                             'SUBJECT';
 SUBPARTITION:                        'SUBPARTITION';
@@ -1189,7 +1196,9 @@ YEARWEEK:                            'YEARWEEK';
 Y_FUNCTION:                          'Y';
 X_FUNCTION:                          'X';
 
+// Calling conventions
 
+NAMED_ARG_ASSIGN_TOKEN:             '=>';
 
 // Operators
 // Operators. Assigns
@@ -1203,7 +1212,6 @@ MOD_ASSIGN:                          '%=';
 AND_ASSIGN:                          '&=';
 XOR_ASSIGN:                          '^=';
 OR_ASSIGN:                           '|=';
-
 
 // Operators. Arithmetics
 

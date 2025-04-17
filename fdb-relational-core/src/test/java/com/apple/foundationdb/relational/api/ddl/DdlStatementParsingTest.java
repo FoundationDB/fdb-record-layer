@@ -318,11 +318,11 @@ public class DdlStatementParsingTest {
         final var maybeNullableArrayColumn = columns.stream().filter(c -> c.getName().equals("FOO_FIELD")).findFirst();
         Assertions.assertTrue(maybeNullableArrayColumn.isPresent());
         if (isNullable) {
-            Assertions.assertTrue(maybeNullableArrayColumn.get().getDatatype().isNullable());
+            Assertions.assertTrue(maybeNullableArrayColumn.get().getDataType().isNullable());
         } else {
-            Assertions.assertFalse(maybeNullableArrayColumn.get().getDatatype().isNullable());
+            Assertions.assertFalse(maybeNullableArrayColumn.get().getDataType().isNullable());
         }
-        Assertions.assertEquals(sqlType, maybeNullableArrayColumn.get().getDatatype().getJdbcSqlCode());
+        Assertions.assertEquals(sqlType, maybeNullableArrayColumn.get().getDataType().getJdbcSqlCode());
     }
 
     @Test

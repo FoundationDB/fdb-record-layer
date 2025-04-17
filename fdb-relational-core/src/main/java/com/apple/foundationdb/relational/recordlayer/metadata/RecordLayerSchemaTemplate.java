@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Index;
+import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.api.metadata.Visitor;
@@ -68,6 +69,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     @Nonnull
     private final Set<RecordLayerTable> tables;
 
+    @Nonnull
+    private final Set<RecordLayerInvokedRoutine> invokedRoutines;
+
     private final int version;
 
     private final boolean enableLongRows;
@@ -85,11 +89,13 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     private RecordLayerSchemaTemplate(@Nonnull final String name,
                                       @Nonnull final Set<RecordLayerTable> tables,
+                                      @Nonnull final Set<RecordLayerInvokedRoutine> invokedRoutines,
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions) {
         this.name = name;
-        this.tables = tables;
+        this.tables = ImmutableSet.copyOf(tables);
+        this.invokedRoutines = ImmutableSet.copyOf(invokedRoutines);
         this.version = version;
         this.enableLongRows = enableLongRows;
         this.storeRowVersions = storeRowVersions;
@@ -100,13 +106,15 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     private RecordLayerSchemaTemplate(@Nonnull final String name,
                                       @Nonnull final Set<RecordLayerTable> tables,
+                                      @Nonnull final Set<RecordLayerInvokedRoutine> invokedRoutines,
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions,
                                       @Nonnull final RecordMetaData cachedMetadata) {
         this.name = name;
         this.version = version;
-        this.tables = tables;
+        this.tables = ImmutableSet.copyOf(tables);
+        this.invokedRoutines = ImmutableSet.copyOf(invokedRoutines);
         this.enableLongRows = enableLongRows;
         this.storeRowVersions = storeRowVersions;
         this.metaDataSupplier = Suppliers.memoize(() -> cachedMetadata);
@@ -174,6 +182,13 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         return metaDataSupplier.get();
     }
 
+    /**
+     * Deserializes given a {@link RecordMetaData} into a corresponding {@link RecordLayerSchemaTemplate} instance.
+     * @param metaData The serialized metadata.
+     * @param templateName The name of the schema template.
+     * @param version The version of the metadata.
+     * @return A {@link RecordLayerSchemaTemplate} instance of the deserialized metadata.
+     */
     @Nonnull
     public static RecordLayerSchemaTemplate fromRecordMetadata(@Nonnull RecordMetaData metaData,
                                                                @Nonnull String templateName,
@@ -279,6 +294,18 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     @Nonnull
     @Override
+    public Set<RecordLayerInvokedRoutine> getInvokedRoutines() {
+        return invokedRoutines;
+    }
+
+    @Nonnull
+    @Override
+    public Optional<InvokedRoutine> findInvokedRoutineByName(@Nonnull final String routineName) throws RelationalException {
+        return Optional.empty();
+    }
+
+    @Nonnull
+    @Override
     public <T extends SchemaTemplate> T unwrap(@Nonnull final Class<T> iface) throws RelationalException {
         return iface.cast(this);
     }
@@ -289,6 +316,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         visitor.visit(this);
         for (final var table : getTables()) {
             table.accept(visitor);
+        }
+        for (final var invokedRoutine : getInvokedRoutines()) {
+            invokedRoutine.accept(visitor);
         }
         visitor.finishVisit(this);
     }
@@ -307,15 +337,22 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
         private boolean storeRowVersions;
 
+        @Nonnull
         private final Map<String, RecordLayerTable> tables;
 
+        @Nonnull
         private final Map<String, DataType.Named> auxiliaryTypes; // for quick lookup
+
+        @Nonnull
+        private final Map<String, RecordLayerInvokedRoutine> invokedRoutines;
+
 
         private RecordMetaData cachedMetadata;
 
         private Builder() {
             tables = new LinkedHashMap<>();
             auxiliaryTypes = new LinkedHashMap<>();
+            invokedRoutines = new LinkedHashMap<>();
             // enable long rows is TRUE by default
             enableLongRows = true;
         }
@@ -369,6 +406,14 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         @Nonnull
         public Builder addTables(@Nonnull final Collection<RecordLayerTable> tables) {
             tables.forEach(this::addTable);
+            return this;
+        }
+
+        @Nonnull
+        public Builder addInvokedRoutine(@Nonnull final RecordLayerInvokedRoutine invokedRoutine) {
+            Assert.thatUnchecked(!invokedRoutines.containsKey(invokedRoutine.getName()), ErrorCode.INVALID_SCHEMA_TEMPLATE,
+                    () -> "routine " + invokedRoutine.getName() + " is already defined");
+            invokedRoutines.put(invokedRoutine.getName(), invokedRoutine);
             return this;
         }
 
@@ -461,9 +506,11 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             }
 
             if (cachedMetadata != null) {
-                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), version, enableLongRows, storeRowVersions, cachedMetadata);
+                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()),
+                        new LinkedHashSet<>(invokedRoutines.values()), version, enableLongRows, storeRowVersions, cachedMetadata);
             } else {
-                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), version, enableLongRows, storeRowVersions);
+                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()),
+                        new LinkedHashSet<>(invokedRoutines.values()), version, enableLongRows, storeRowVersions);
             }
         }
 
@@ -524,12 +571,12 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             tables.putAll(resolvedTables.build());
 
             final var resolvedAuxiliaryTypes = ImmutableMap.<String, DataType.Named>builder();
-            for (final var auxiliarytype : auxiliaryTypes.entrySet()) {
-                final var dataType = (DataType) auxiliarytype.getValue();
+            for (final var auxiliaryType : auxiliaryTypes.entrySet()) {
+                final var dataType = (DataType) auxiliaryType.getValue();
                 if (!dataType.isResolved()) {
-                    resolvedAuxiliaryTypes.put(auxiliarytype.getKey(), (DataType.Named) ((DataType) resolvedTypes.get(auxiliarytype.getKey())).withNullable(dataType.isNullable()));
+                    resolvedAuxiliaryTypes.put(auxiliaryType.getKey(), (DataType.Named) ((DataType) resolvedTypes.get(auxiliaryType.getKey())).withNullable(dataType.isNullable()));
                 } else {
-                    resolvedAuxiliaryTypes.put(auxiliarytype.getKey(), auxiliarytype.getValue());
+                    resolvedAuxiliaryTypes.put(auxiliaryType.getKey(), auxiliaryType.getValue());
                 }
             }
 

@@ -20,14 +20,15 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.Map;
 
 /**
  * Main interface for defining a built-in function that can be evaluated against a number of arguments.
@@ -38,7 +39,7 @@ import java.util.Optional;
  * @param <T> The resulting type of the function.
  */
 @SuppressWarnings("PMD.AbstractClassWithoutAbstractMethod")
-public abstract class BuiltInFunction<T extends Typed> extends CatalogedFunction {
+public abstract class BuiltInFunction<T extends Typed> extends CatalogedFunction<Value> {
     @Nonnull
     final EncapsulationFunction<T> encapsulationFunction;
 
@@ -64,46 +65,6 @@ public abstract class BuiltInFunction<T extends Typed> extends CatalogedFunction
         this.encapsulationFunction = encapsulationFunction;
     }
 
-    /**
-     * Checks whether the provided list of argument types matches the list of function's parameter types.
-     *
-     * @param argumentTypes The argument types list.
-     * @return if the arguments type match, an {@link Optional} containing <code>this</code> instance, otherwise
-     * and empty {@link Optional}.
-     */
-    @SuppressWarnings("java:S3776")
-    @Nonnull
-    public Optional<BuiltInFunction<T>> validateCall(@Nonnull final List<Type> argumentTypes) {
-        int numberOfArguments = argumentTypes.size();
-
-        final List<Type> functionParameterTypes = getParameterTypes();
-
-        if (numberOfArguments > functionParameterTypes.size() && !hasVariadicSuffix()) {
-            return Optional.empty();
-        }
-
-        // check the type codes of the fixed parameters
-        for (int i = 0; i < functionParameterTypes.size(); i ++) {
-            final Type typeI = functionParameterTypes.get(i);
-            if (typeI.getTypeCode() != Type.TypeCode.ANY && typeI.getTypeCode() != argumentTypes.get(i).getTypeCode()) {
-                return Optional.empty();
-            }
-        }
-
-        if (hasVariadicSuffix()) { // This is variadic function, match the rest of arguments, if any.
-            final Type functionVariadicSuffixType = Objects.requireNonNull(getVariadicSuffixType());
-            if (functionVariadicSuffixType.getTypeCode() != Type.TypeCode.ANY) {
-                for (int i = getParameterTypes().size(); i < numberOfArguments; i++) {
-                    if (argumentTypes.get(i).getTypeCode() != functionVariadicSuffixType.getTypeCode()) {
-                        return Optional.empty();
-                    }
-                }
-            }
-        }
-
-        return Optional.of(this);
-    }
-
     @Nonnull
     public EncapsulationFunction<T> getEncapsulationFunction() {
         return encapsulationFunction;
@@ -113,5 +74,11 @@ public abstract class BuiltInFunction<T extends Typed> extends CatalogedFunction
     @Override
     public Typed encapsulate(@Nonnull final List<? extends Typed> arguments) {
         return encapsulationFunction.encapsulate(this, arguments);
+    }
+
+    @Nonnull
+    @Override
+    public Typed encapsulate(@Nonnull final Map<String, ? extends Typed> namedArguments) {
+        throw new RecordCoreException("built-in functions do not support named argument calling conventions");
     }
 }

@@ -47,4 +47,6 @@ public interface Visitor {
     void visit(@Nonnull Schema schema);
 
     void visit(@Nonnull Index index);
+
+    void visit(@Nonnull InvokedRoutine invokedRoutine);
 }

@@ -579,7 +579,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                         context.getUserVersion(),
                         context.getSchemaTemplate().getIndexEntriesAsBitset(context.getPlannerConfiguration().getReadableIndexes()),
                         isCaseSensitive,
-                        currentPlanHashMode
+                        currentPlanHashMode,
+                        query
                 ));
     }
 
@@ -591,7 +592,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                                       int userVersion,
                                       @Nonnull final BitSet readableIndexes,
                                       boolean caseSensitive,
-                                      @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode) {
+                                      @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode,
+                                      @Nonnull final String query) {
         final var astNormalizer = new AstNormalizer(preparedStatementParameters, caseSensitive, currentPlanHashMode);
         astNormalizer.visit(context);
         return new Result(
@@ -600,10 +602,11 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                 astNormalizer.getQueryExecutionParameters(),
                 context,
                 astNormalizer.getQueryCachingFlags(),
-                astNormalizer.getQueryOptions());
+                astNormalizer.getQueryOptions(),
+                query);
     }
 
-    public static class Result {
+    public static final class Result {
 
         /**
          * A set of flags that determine how the query should interact with the plan cache.
@@ -643,18 +646,23 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         @Nonnull
         private final Options queryOptions;
 
+        @Nonnull
+        private final String query;
+
         public Result(@Nonnull final String schemaTemplateName,
                       @Nonnull final QueryCacheKey queryCacheKey,
                       @Nonnull final QueryExecutionContext queryExecutionParameters,
                       @Nonnull final ParseTree parseTree,
                       @Nonnull final Set<QueryCachingFlags> queryCachingFlags,
-                      @Nonnull final Options queryOptions) {
+                      @Nonnull final Options queryOptions,
+                      @Nonnull final String query) {
             this.schemaTemplateName = schemaTemplateName;
             this.queryCacheKey = queryCacheKey;
             this.queryExecutionParameters = queryExecutionParameters;
             this.parseTree = parseTree;
             this.queryCachingFlags = queryCachingFlags;
             this.queryOptions = queryOptions;
+            this.query = query;
         }
 
         public String getSchemaTemplateName() {
@@ -686,5 +694,9 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             return queryOptions;
         }
 
+        @Nonnull
+        public String getQuery() {
+            return query;
+        }
     }
 }

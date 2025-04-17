@@ -242,7 +242,7 @@ public class LogicalOperator {
         int colCount = 0;
         for (final var column : table.getColumns()) {
             final var attributeName = Identifier.of(column.getName());
-            final var attributeType = column.getDatatype();
+            final var attributeType = column.getDataType();
             final var fieldType = type.getField(colCount);
             final var attributeExpression = FieldValue.ofFields(resultingQuantifier.getFlowedObjectValue(),
                     FieldValue.FieldPath.ofSingle(FieldValue.ResolvedAccessor.of(fieldType, colCount)));

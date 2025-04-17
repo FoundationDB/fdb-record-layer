@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
@@ -330,7 +331,7 @@ public class CollateValue extends AbstractValue {
 
         @Nonnull
         @Override
-        public Optional<BuiltInFunction<Value>> validateCall(@Nonnull final List<Type> argumentTypes) {
+        public Optional<? extends CatalogedFunction<Value>> validateCall(@Nonnull final List<Type> argumentTypes) {
             // We claimed to be string + variadic any.
             return super.validateCall(argumentTypes).filter(ignoreThis -> {
                 final int nargs = argumentTypes.size();

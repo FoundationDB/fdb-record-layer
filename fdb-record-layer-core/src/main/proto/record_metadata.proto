@@ -85,6 +85,11 @@ message FormerIndex {
   extensions 1000 to 2000;
 }
 
+message PSqlFunction {
+  optional string name = 1;
+  optional string definition = 2;
+}
+
 message MetaData {
   optional google.protobuf.FileDescriptorProto records = 1;
   repeated Index indexes = 2;
@@ -99,13 +104,14 @@ message MetaData {
   optional bool uses_subspace_key_counter = 11;
   repeated JoinedRecordType joined_record_types = 12;
   repeated UnnestedRecordType unnested_record_types = 13;
-  repeated PUserDefinedFunction user_defined_functions = 14;
+  repeated PUserDefinedFunction user_defined_functions = 15;
   extensions 1000 to 2000;
 }
 
 message PUserDefinedFunction {
   oneof specific_function {
     com.apple.foundationdb.record.planprotos.PMacroFunctionValue macro_function = 1;
+    PSqlFunction sql_function = 2;
   }
 }
 

@@ -1,9 +1,9 @@
 /*
- * Column.java
+ * Parameter.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,20 +22,26 @@ package com.apple.foundationdb.relational.api.metadata;
 
 import javax.annotation.Nonnull;
 
-/**
- * Represents a Relational {@code Column} metadata being part of a {@link Table}.
- */
-public interface Column extends Metadata {
+public interface Parameter {
 
-    /**
-     * Returns the {@link DataType} of the column.
-     *
-     * @return The {@link DataType} of the column.
-     */
+    enum Mode {
+        IN,
+        OUT,
+        INOUT
+    }
+
+    boolean isNamed();
+
+    @Nonnull
+    Mode getMode();
+
+    @Nonnull
     DataType getDataType();
 
-    @Override
-    default void accept(@Nonnull final Visitor visitor) {
-        visitor.visit(this);
-    }
+    boolean hasDefaultValue();
+
+    Object getDefaultValue();
+
+    @Nonnull
+    String getName();
 }
