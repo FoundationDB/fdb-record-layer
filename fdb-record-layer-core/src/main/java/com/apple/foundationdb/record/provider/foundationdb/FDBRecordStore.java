@@ -1194,6 +1194,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CloseResource")
     public RecordCursor<Tuple> scanRecordKeys(@Nonnull final TupleRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
         if (scanProperties.isReverse()) {
             throw new UnsupportedOperationException("scanRecordKeys does not support reverse scan");
