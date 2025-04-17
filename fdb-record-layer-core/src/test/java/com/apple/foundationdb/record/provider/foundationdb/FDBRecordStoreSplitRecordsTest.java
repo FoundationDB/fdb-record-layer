@@ -134,9 +134,9 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             // Write a record using the old format
             recordStore = getStoreBuilder(context, simpleMetaData(NO_HOOK))
-                    .setFormatVersion(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION - 1)
+                    .setFormatVersion(FormatVersionTestUtils.previous(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX))
                     .create();
-            assertEquals(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION - 1, recordStore.getFormatVersion());
+            assertEquals(FormatVersionTestUtils.previous(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX), recordStore.getFormatVersionEnum());
             recordStore.saveRecord(rec1);
             final byte[] rec1Key = recordStore.getSubspace().pack(Tuple.from(FDBRecordStore.RECORD_KEY, 1415L));
             FDBStoredRecord<Message> readRec1 = recordStore.loadRecord(Tuple.from(1415L));
@@ -149,9 +149,9 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
 
             // Upgrade the format version to use new format
             recordStore = recordStore.asBuilder()
-                    .setFormatVersion(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION)
+                    .setFormatVersion(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX)
                     .open();
-            assertEquals(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION, recordStore.getFormatVersion());
+            assertEquals(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX, recordStore.getFormatVersionEnum());
             Message rec2 = TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1066L).build();
             recordStore.saveRecord(rec2);
 
@@ -210,8 +210,8 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
             uncheckedOpenSimpleRecordStore(context, metaDataBuilder ->
                     metaDataBuilder.addUniversalIndex(new Index("global$newCount", FDBRecordStoreTestBase.globalCountIndex().getRootExpression(), IndexTypes.COUNT))
             );
-            recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION).open();
-            assertEquals(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION, recordStore.getFormatVersion());
+            recordStore = recordStore.asBuilder().setFormatVersion(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX).open();
+            assertEquals(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX, recordStore.getFormatVersionEnum());
 
             final byte[] rec1Key = recordStore.getSubspace().pack(Tuple.from(FDBRecordStore.RECORD_KEY, 1415L, SplitHelper.UNSPLIT_RECORD));
             FDBStoredRecord<Message> writtenRec1 = recordStore.saveRecord(rec1);
@@ -235,8 +235,8 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
             uncheckedOpenSimpleRecordStore(context, metaDataBuilder ->
                     metaDataBuilder.addUniversalIndex(new Index("global$newCount", globalCountIndex().getRootExpression(), IndexTypes.COUNT))
             );
-            recordStore = recordStore.asBuilder().setFormatVersion(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION - 1).open();
-            assertEquals(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION, recordStore.getFormatVersion());
+            recordStore = recordStore.asBuilder().setFormatVersion(FormatVersionTestUtils.previous(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX)).open();
+            assertEquals(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX, recordStore.getFormatVersionEnum());
 
             final byte[] rawKey1 = recordStore.getSubspace().pack(Tuple.from(FDBRecordStore.RECORD_KEY, 1415L, SplitHelper.UNSPLIT_RECORD));
             FDBStoredRecord<Message> writtenRec1 = recordStore.loadRecord(Tuple.from(1415L));
@@ -276,7 +276,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
         FDBRecordStore.Builder builder = FDBRecordStore.newBuilder()
                 .setKeySpacePath(path)
                 .setMetaDataProvider(metaData)
-                .setFormatVersion(FDBRecordStore.FORMAT_CONTROL_FORMAT_VERSION);
+                .setFormatVersion(FormatVersionTestUtils.previous(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX));
 
         try (FDBRecordContext context = openContext()) {
             recordStore = builder.setContext(context).create();
@@ -299,7 +299,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
         }
 
         metaData.addIndex("MySimpleRecord", "num_value_2");
-        builder.setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION);
+        builder.setFormatVersion(FormatVersion.getMaximumSupportedVersion());
 
         try (FDBRecordContext context = openContext()) {
             recordStore = builder.setContext(context).open();
@@ -318,7 +318,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
         FDBRecordStore.Builder builder = FDBRecordStore.newBuilder()
                 .setKeySpacePath(path)
                 .setMetaDataProvider(metaData)
-                .setFormatVersion(FDBRecordStore.FORMAT_CONTROL_FORMAT_VERSION);
+                .setFormatVersion(FormatVersionTestUtils.previous(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX));
 
         final FDBStoredRecord<Message> saved;
         try (FDBRecordContext context = openContext()) {
@@ -331,7 +331,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
         }
 
         metaData.addIndex("MySimpleRecord", "num_value_2");
-        builder.setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION);
+        builder.setFormatVersion(FormatVersion.getMaximumSupportedVersion());
 
         try (FDBRecordContext context = openContext()) {
             recordStore = builder.setContext(context).open();
@@ -349,7 +349,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
         FDBRecordStore.Builder builder = FDBRecordStore.newBuilder()
                 .setKeySpacePath(path)
                 .setMetaDataProvider(metaData)
-                .setFormatVersion(FDBRecordStore.FORMAT_CONTROL_FORMAT_VERSION);
+                .setFormatVersion(FormatVersionTestUtils.previous(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX));
 
         try (FDBRecordContext context = openContext()) {
             recordStore = builder.setContext(context).create();
@@ -365,7 +365,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
         FDBStoredRecord<Message> saved = recordStore.saveRecord(record);
 
         metaData.addIndex("MySimpleRecord", "num_value_2");
-        builder.setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION);
+        builder.setFormatVersion(FormatVersion.getMaximumSupportedVersion());
 
         // If we did build, we'd create a read confict on the new index.
         // We want to test that a conflict comes from the clearing itself.
@@ -842,14 +842,14 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
         createOrOpenRecordStore(context, RecordMetaData.build(TestRecords2Proto.getDescriptor()));
     }
 
-    private FDBRecordStore openStoreForConflicts(final FDBRecordContext context, int formatVersion, boolean splitLongRecords) {
+    private FDBRecordStore openStoreForConflicts(final FDBRecordContext context, FormatVersion formatVersion, boolean splitLongRecords) {
         final RecordMetaDataHook hook = metaData -> metaData.setSplitLongRecords(splitLongRecords);
         return getStoreBuilder(context, simpleMetaData(hook))
                 .setFormatVersion(formatVersion)
                 .createOrOpen();
     }
 
-    private void checkForConflicts(int formatVersion, boolean splitLongRecords, @Nonnull Consumer<FDBRecordStore> operation1, @Nonnull Consumer<FDBRecordStore> operation2) {
+    private void checkForConflicts(FormatVersion formatVersion, boolean splitLongRecords, @Nonnull Consumer<FDBRecordStore> operation1, @Nonnull Consumer<FDBRecordStore> operation2) {
         final FDBRecordStore.Builder storeBuilder;
         try (FDBRecordContext context = openContext()) {
             // Ensure the store is created here to avoid conflicts on the store header
@@ -873,7 +873,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest(name = "recordReadConflict [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionAndSplitArgs")
-    public void recordReadConflict(int formatVersion, boolean splitLongRecords) {
+    public void recordReadConflict(FormatVersion formatVersion, boolean splitLongRecords) {
         SplitRecordsTestConfig.allConfigs().forEach(config -> {
             this.testConfig = config;
             checkForConflicts(formatVersion, splitLongRecords,
@@ -887,7 +887,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest(name = "recordWriteConflict [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionAndSplitArgs")
-    public void recordWriteConflict(int formatVersion, boolean splitLongRecords) {
+    public void recordWriteConflict(FormatVersion formatVersion, boolean splitLongRecords) {
         SplitRecordsTestConfig.allConfigs().forEach(config -> {
             this.testConfig = config;
             checkForConflicts(formatVersion, splitLongRecords,
@@ -901,7 +901,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest(name = "recordDeleteConflict [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionAndSplitArgs")
-    public void recordDeleteConflict(int formatVersion, boolean splitLongRecords) {
+    public void recordDeleteConflict(FormatVersion formatVersion, boolean splitLongRecords) {
         SplitRecordsTestConfig.allConfigs().forEach(config -> {
             this.testConfig = config;
             try (FDBRecordContext context = openContext()) {
@@ -922,7 +922,7 @@ public class FDBRecordStoreSplitRecordsTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest(name = "saveDeleteConflict [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionAndSplitArgs")
-    public void saveDeleteConflict(int formatVersion, boolean splitLongRecords) {
+    public void saveDeleteConflict(FormatVersion formatVersion, boolean splitLongRecords) {
         SplitRecordsTestConfig.allConfigs().forEach(config -> {
             this.testConfig = config;
             try (FDBRecordContext context = openContext()) {

@@ -122,7 +122,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
 
     /**
-     * If there are two primary keys that overlap in the just the right way, then one can have the representation
+     * If there are two primary keys that overlap in just the right way, then one can have the representation
      * of one record's primary key be a strict prefix of the other record's. With older versions of the Record Layer,
      * this could lead to problems where attempting to load the record with the shorter key would also read data for
      * the record with the longer key. See <a href="https://github.com/FoundationDB/fdb-record-layer/issues/782">Issue #782</a>.
@@ -130,7 +130,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
      * <p>
      * This test is parameterized by format version because the fix involves being more particular about the range that
      * is scanned. In particular, the scan range is now only over those keys which are strict prefixes of the primary
-     * key. This is fine as long as there aren't any data stored at that key. Prior to {@link FDBRecordStore#SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION},
+     * key. This is fine as long as there aren't any data stored at that key. Prior to {@link FormatVersion#SAVE_UNSPLIT_WITH_SUFFIX},
      * there could be data in that key was not true if {@code splitLongRecords} was {@code false}. Parameterizing here
      * tests those older configurations.
      * </p>
@@ -140,7 +140,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
      */
     @ParameterizedTest(name = "prefixPrimaryKeysWithNullByteAfterPrefix [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionAndSplitArgs")
-    public void prefixPrimaryKeysWithNullByteAfterPrefix(int formatVersion, boolean splitLongRecords) throws Exception {
+    public void prefixPrimaryKeysWithNullByteAfterPrefix(FormatVersion formatVersion, boolean splitLongRecords) throws Exception {
         final RecordMetaDataHook hook = metaData -> {
             metaData.setSplitLongRecords(splitLongRecords);
             metaData.getRecordType("MySimpleRecord").setPrimaryKey(field("str_value_indexed"));

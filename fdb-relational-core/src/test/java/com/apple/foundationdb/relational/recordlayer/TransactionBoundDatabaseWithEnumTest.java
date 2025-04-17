@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
 import com.apple.foundationdb.record.provider.foundationdb.SubspaceProvider;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
@@ -235,7 +236,7 @@ public class TransactionBoundDatabaseWithEnumTest {
         return FDBRecordStore.newBuilder()
                 .setContext(context)
                 .setMetaDataProvider(createRecordMetaData())
-                .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
+                .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
                 .setSubspaceProvider(subspaceProvider)
                 .createOrOpen();
     }

@@ -464,8 +464,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          *
          * <p>
          * Note: due to <a href="https://github.com/FoundationDB/fdb-record-layer/issues/964">Issue #964</a>, on some
-         * older record stores, namely those that were originally created with a {@linkplain FDBRecordStore#getFormatVersion()
-         * format version} below {@link FDBRecordStore#SAVE_VERSION_WITH_RECORD_FORMAT_VERSION}, records written with a
+         * older record stores, namely those that were originally created with a {@link FormatVersion} below
+         * {@link FormatVersion#SAVE_VERSION_WITH_RECORD}, records written with a
          * version on stores where {@link com.apple.foundationdb.record.RecordMetaData#isStoreRecordVersions()} is
          * {@code false} will not return the version with a record when read, even though the version will be stored.
          * Users can avoid this by either migrating data to a new store or by setting {@code isStoreRecordVersions()}
@@ -2158,25 +2158,51 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         /**
          * Get the storage format version for this store.
          * @return the format version to use
+         * @deprecated use {@link #getFormatVersionEnum()}
          */
+        @Deprecated(forRemoval = true)
         int getFormatVersion();
 
         /**
+         * Get the {@link FormatVersion} for this store.
+         * @return the format version to use
+         */
+        default FormatVersion getFormatVersionEnum() {
+            return FormatVersion.getFormatVersion(getFormatVersion());
+        }
+
+        /**
          * Set the storage format version for this store.
-         *
-         * Normally, this should be set to the highest format version supported by all code that may access the record
-         * store. {@link #open} will set the store's format version to <code>max(max_supported_version, current_version)</code>.
-         * This is to support cases where the target cannot be changed everywhere at once and some instances write the new version before others
-         * know that they are licensed to do so. It is still <em>critically</em> important that <em>all</em> instances know how to handle
-         * the new version before <em>any</em> instance allows it.
-         *
-         * When installing a new version of the record layer library that includes a format change, first install everywhere having arranged for
-         * {@link #setFormatVersion} to be called with the <em>old</em> format version. Then, after that install is complete, change to the newer version.
+         * @param formatVersion the format version to use
+         * @return this builder
+         * @deprecated This is deprecated, and instead, one should use {@link #setFormatVersion(FormatVersion)}.
+         */
+        @Deprecated(forRemoval = true)
+        @Nonnull
+        BaseBuilder<M, R> setFormatVersion(int formatVersion);
+
+        /**
+         * Set the storage format version for this store.
+         * <p>
+         *     Normally, this should be set to the highest format version supported by all code that may access the
+         *     record store. {@link #open} will set the store's format version to the greater of what is provided here
+         *     and the one currently set on the store.
+         *     This is to support cases where the target cannot be changed everywhere at once and some instances write
+         *     the new version before others know that they are licensed to do so. It is still <em>critically</em>
+         *     important that <em>all</em> instances know how to handle the new version before <em>any</em> instance
+         *     allows it.
+         * </p>
+         * <p>
+         *     When installing a new version of the record layer library that includes a format change, first install
+         *     everywhere having arranged for {@link #setFormatVersion} to be called with the <em>old</em> format
+         *     version. Then, after that install is complete, change to the newer version.
+         * </p>
          * @param formatVersion the format version to use
          * @return this builder
          */
-        @Nonnull
-        BaseBuilder<M, R> setFormatVersion(int formatVersion);
+        default BaseBuilder<M, R> setFormatVersion(FormatVersion formatVersion) {
+            return setFormatVersion(formatVersion.getValueForSerialization());
+        }
 
         /**
          * Get the provider for the record store's meta-data.

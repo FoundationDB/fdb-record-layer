@@ -757,7 +757,7 @@ public class MetaDataEvolutionValidator {
     /**
      * Whether this validator allows the meta-data to begin to split long records. For record stores that were first
      * created with format version
-     * {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore#SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION}
+     * {@link com.apple.foundationdb.record.provider.foundationdb.FormatVersion#SAVE_UNSPLIT_WITH_SUFFIX FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX}
      * or newer, this change is safe as the data layout is the same regardless of the value of
      * {@link RecordMetaData#isSplitLongRecords()}. However, older stores used a different format for if records were
      * unsplit, and accidentally upgrading the meta-data to split long records is potentially catastrophic as every

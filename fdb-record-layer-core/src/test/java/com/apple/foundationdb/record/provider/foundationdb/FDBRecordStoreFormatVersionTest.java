@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -39,25 +40,33 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 public class FDBRecordStoreFormatVersionTest extends FDBRecordStoreTestBase {
 
     @Test
+    // this references the recordStore.getFormatVersion() and associated constants, but those assertions can be removed
+    // when the method/constant are removed, as there are already assertions about the enum variant.
+    @SuppressWarnings("removal")
     public void testFormatVersionUpgrade() {
+        FormatVersion penultimateVersion = FormatVersionTestUtils.previous(FormatVersion.getMaximumSupportedVersion());
+        assertFalse(penultimateVersion.isAtLeast(FormatVersion.getMaximumSupportedVersion()));
         try (FDBRecordContext context = openContext()) {
             recordStore = getStoreBuilder(context, simpleMetaData(NO_HOOK))
-                    .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION - 1)
+                    .setFormatVersion(penultimateVersion)
                     .create();
+            assertEquals(penultimateVersion, recordStore.getFormatVersionEnum());
             assertEquals(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION - 1, recordStore.getFormatVersion());
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
             recordStore = getStoreBuilder(context, simpleMetaData(NO_HOOK))
-                    .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
+                    .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
                     .open();
+            assertEquals(FormatVersion.getMaximumSupportedVersion(), recordStore.getFormatVersionEnum());
             assertEquals(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION, recordStore.getFormatVersion());
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
             recordStore = getStoreBuilder(context, simpleMetaData(NO_HOOK))
-                    .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION - 1)
+                    .setFormatVersion(penultimateVersion)
                     .open();
+            assertEquals(FormatVersion.getMaximumSupportedVersion(), recordStore.getFormatVersionEnum());
             assertEquals(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION, recordStore.getFormatVersion());
             commit(context);
         }
@@ -72,7 +81,7 @@ public class FDBRecordStoreFormatVersionTest extends FDBRecordStoreTestBase {
         final RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         FDBRecordStore.Builder storeBuilder = FDBRecordStore.newBuilder()
                 .setKeySpacePath(path).setMetaDataProvider(metaData)
-                .setFormatVersion(FDBRecordStore.HEADER_USER_FIELDS_FORMAT_VERSION - 1);
+                .setFormatVersion(FormatVersionTestUtils.previous(FormatVersion.HEADER_USER_FIELDS));
         try (FDBRecordContext context = openContext()) {
             recordStore = storeBuilder.setContext(context).create();
             RecordCoreException err = assertThrows(RecordCoreException.class,
@@ -88,8 +97,9 @@ public class FDBRecordStoreFormatVersionTest extends FDBRecordStoreTestBase {
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
-            recordStore = storeBuilder.setFormatVersion(FDBRecordStore.INFO_ADDED_FORMAT_VERSION).setContext(context).open();
-            assertEquals(FDBRecordStore.HEADER_USER_FIELDS_FORMAT_VERSION - 1, recordStore.getFormatVersion());
+            recordStore = storeBuilder.setFormatVersion(FormatVersion.INFO_ADDED).setContext(context).open();
+            assertEquals(FormatVersionTestUtils.previous(FormatVersion.HEADER_USER_FIELDS),
+                    recordStore.getFormatVersionEnum());
             RecordCoreException err = assertThrows(RecordCoreException.class,
                     () -> recordStore.clearHeaderUserField("foo"));
             assertEquals(expectedErrMsg, err.getMessage());
@@ -97,9 +107,9 @@ public class FDBRecordStoreFormatVersionTest extends FDBRecordStoreTestBase {
         }
         // Now try upgrading the format version and validate that the fields can be read
         try (FDBRecordContext context = openContext()) {
-            recordStore = storeBuilder.setFormatVersion(FDBRecordStore.HEADER_USER_FIELDS_FORMAT_VERSION)
+            recordStore = storeBuilder.setFormatVersion(FormatVersion.HEADER_USER_FIELDS)
                     .setContext(context).open();
-            assertEquals(FDBRecordStore.HEADER_USER_FIELDS_FORMAT_VERSION, recordStore.getFormatVersion());
+            assertEquals(FormatVersion.HEADER_USER_FIELDS, recordStore.getFormatVersionEnum());
             recordStore.setHeaderUserField("foo", "bar".getBytes(Charsets.UTF_8));
             String val = recordStore.getHeaderUserField("foo").toStringUtf8();
             assertEquals("bar", val);

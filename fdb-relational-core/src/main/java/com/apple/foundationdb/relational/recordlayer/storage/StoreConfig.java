@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.NoSuchDirectoryException;
 import com.apple.foundationdb.relational.api.Transaction;
@@ -78,7 +79,7 @@ public final class StoreConfig {
         return recordLayerConfig.getUserVersionChecker();
     }
 
-    public int getFormatVersion() {
+    public FormatVersion getFormatVersion() {
         return recordLayerConfig.getFormatVersion();
     }
 

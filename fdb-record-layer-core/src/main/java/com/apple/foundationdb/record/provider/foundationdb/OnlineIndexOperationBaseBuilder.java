@@ -614,11 +614,14 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
 
     /**
      * Set the store format version to use while building the index.
-     *
-     * Normally this is set by {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
      * @param formatVersion the format version to use
      * @return this builder
+     * @deprecated Instead, provide a {@link FDBRecordStore} or {@link FDBRecordStore.Builder} with an appropriate format
+     * version to {@link #setRecordStore(FDBRecordStore)} or {@link #setRecordStoreBuilder(FDBRecordStore.Builder)}
+     * respectively
      */
+    @Deprecated(forRemoval = true)
+    @SuppressWarnings("removal") // this will be removed when the method it calls is removed
     public B setFormatVersion(int formatVersion) {
         if (recordStoreBuilder == null) {
             throw new MetaDataException("format version can only be set after record store builder has been set");

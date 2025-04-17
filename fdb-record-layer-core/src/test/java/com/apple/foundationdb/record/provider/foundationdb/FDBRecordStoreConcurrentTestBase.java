@@ -113,7 +113,7 @@ public class FDBRecordStoreConcurrentTestBase {
                                                      @Nonnull RecordMetaDataProvider metaData,
                                                      @Nonnull final KeySpacePath path) {
         return FDBRecordStore.newBuilder()
-                .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION) // set to max to test newest features (unsafe for real deployments)
+                .setFormatVersion(FormatVersion.getMaximumSupportedVersion()) // set to max to test newest features (unsafe for real deployments)
                 .setKeySpacePath(path)
                 .setContext(context)
                 .setMetaDataProvider(metaData);

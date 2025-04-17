@@ -38,6 +38,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreKeyspace;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
+import com.apple.foundationdb.record.provider.foundationdb.FormatVersionTestUtils;
 import com.apple.foundationdb.record.provider.foundationdb.RecordStoreAlreadyExistsException;
 import com.apple.foundationdb.record.provider.foundationdb.RecordStoreNoInfoAndNotEmptyException;
 import com.apple.foundationdb.record.provider.foundationdb.RecordStoreStaleMetaDataVersionException;
@@ -1125,7 +1127,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
             // do not commit
         }
 
-        storeBuilder.setFormatVersion(FDBRecordStore.CACHEABLE_STATE_FORMAT_VERSION - 1);
+        storeBuilder.setFormatVersion(FormatVersionTestUtils.previous(FormatVersion.CACHEABLE_STATE));
 
         try (FDBRecordContext context = openContext()) {
             recordStore = storeBuilder
@@ -1151,7 +1153,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
             recordStore = storeBuilder
                     .setContext(context)
                     .setStateCacheabilityOnOpen(FDBRecordStore.StateCacheabilityOnOpen.CACHEABLE)
-                    .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
+                    .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
                     .open();
             assertCacheable();
             recordStore.setStateCacheability(false);
@@ -1165,7 +1167,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
             recordStore = storeBuilder
                     .setContext(context)
                     .setStateCacheabilityOnOpen(FDBRecordStore.StateCacheabilityOnOpen.CACHEABLE)
-                    .setFormatVersion(FDBRecordStore.CACHEABLE_STATE_FORMAT_VERSION - 1)
+                    .setFormatVersion(FormatVersionTestUtils.previous(FormatVersion.CACHEABLE_STATE))
                     .open();
             assertCacheable();
             commit(context);
@@ -1204,7 +1206,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
         FDBRecordStore.Builder storeBuilder = FDBRecordStore.newBuilder()
                 .setKeySpacePath(path)
                 .setMetaDataProvider(RecordMetaData.build(TestRecords1Proto.getDescriptor()))
-                .setFormatVersion(FDBRecordStore.CACHEABLE_STATE_FORMAT_VERSION - 1);
+                .setFormatVersion(FormatVersionTestUtils.previous(FormatVersion.CACHEABLE_STATE));
         try (FDBRecordContext context = openContext()) {
             storeBuilder.copyBuilder().setContext(context).create();
             commit(context);
@@ -1214,7 +1216,7 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
             FDBRecordStore recordStore = storeBuilder.copyBuilder()
                     .setContext(context)
                     .open();
-            assertEquals(FDBRecordStore.CACHEABLE_STATE_FORMAT_VERSION - 1, recordStore.getFormatVersion());
+            assertEquals(FormatVersion.SAVE_VERSION_WITH_RECORD, recordStore.getFormatVersionEnum());
             RecordCoreException e = assertThrows(RecordCoreException.class, () -> recordStore.setStateCacheability(true));
             assertThat(e.getMessage(), containsString("cannot mark record store state cacheable at format version"));
             commit(context);
@@ -1224,18 +1226,18 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             storeBuilder.copyBuilder()
                     .setContext(context)
-                    .setFormatVersion(FDBRecordStore.CACHEABLE_STATE_FORMAT_VERSION)
+                    .setFormatVersion(FormatVersion.CACHEABLE_STATE)
                     .open();
             commit(context);
         }
 
         try (FDBRecordContext context = openContext()) {
             // Assert that format version happens because of the upgrade behind the scenes
-            assertEquals(FDBRecordStore.CACHEABLE_STATE_FORMAT_VERSION - 1, storeBuilder.getFormatVersion());
+            assertEquals(FormatVersionTestUtils.previous(FormatVersion.CACHEABLE_STATE), storeBuilder.getFormatVersionEnum());
             FDBRecordStore recordStore = storeBuilder.copyBuilder()
                     .setContext(context)
                     .open();
-            assertEquals(FDBRecordStore.CACHEABLE_STATE_FORMAT_VERSION, recordStore.getFormatVersion());
+            assertEquals(FormatVersion.CACHEABLE_STATE, recordStore.getFormatVersionEnum());
             assertTrue(recordStore.setStateCacheability(true));
             commit(context);
         }
