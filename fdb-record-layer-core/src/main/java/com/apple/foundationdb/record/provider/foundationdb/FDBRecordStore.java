@@ -1194,8 +1194,52 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Nonnull
     @Override
-    public RecordCursor<FDBRawRecord> scanRawRecords(@Nonnull final TupleRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
-        return null;
+    public RecordCursor<Tuple> scanRecordKeys(@Nonnull final TupleRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
+        if (scanProperties.isReverse()) {
+            throw new UnsupportedOperationException("scanRecordKeys does not support reverse scan");
+        }
+        final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
+        final Subspace recordsSubspace = recordsSubspace();
+        if (!metaData.isSplitLongRecords() && omitUnsplitRecordSuffix) {
+            // In this case there are only "simple" records (single split with no version). Return then directly.
+            final SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
+            KeyValueCursor keyValuesCursor = KeyValueCursor.Builder
+                    .withSubspace(recordsSubspace)
+                    .setContext(context)
+                    .setContinuation(continuation)
+                    .setLow(range.getLow(), range.getLowEndpoint())
+                    .setHigh(range.getHigh(), range.getHighEndpoint())
+                    .setScanProperties(scanProperties)
+                    .build();
+            return keyValuesCursor
+                    .map(kv -> {
+                        sizeInfo.set(kv);
+                        return SplitHelper.unpackKey(recordsSubspace, kv);
+                    });
+        }
+        // Create a key scanner
+        RecordCursor<KeyValue> inner = KeyValueCursor.Builder
+                .withSubspace(recordsSubspace)
+                .setContext(context)
+                .setContinuation(continuation)
+                .setLow(range.getLow(), range.getLowEndpoint())
+                .setHigh(range.getHigh(), range.getHighEndpoint())
+                .setScanProperties(scanProperties
+                        .with(executeProperties ->
+                                executeProperties
+                                        // Inner cursor does not have limits
+                                        .clearRowAndTimeLimits()
+                                        .clearState()))
+                .build();
+        return new RecordKeyCursor(
+                context,
+                recordsSubspace,
+                inner,
+                useOldVersionFormat(),
+                new SplitHelper.SizeInfo(),
+                new CursorLimitManager(context, scanProperties.with(executeProperties ->
+                        executeProperties.toBuilder().clearReturnedRowLimit().build())))
+                .limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit());
     }
 
     @Override

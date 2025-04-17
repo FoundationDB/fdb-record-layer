@@ -27,8 +27,6 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
-import com.apple.foundationdb.record.ScanProperties;
-import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -47,24 +45,30 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 /**
- * A cursor that scans through and returns all primary keys within a range of records.
- * This cursor attempts to read and return all keys in the range disregarding any potential issues the records have.
+ * A cursor that scans through and returns all primary keys within a keyspace.
+ * This cursor attempts to read and return all keys in the range disregarding potential issues the records have.
  * The idea is to be able to list the persistent keys in the space without prejudice so that we can then validate them
  * in a separate pass.
  * <p>
  * This class borrows heavily from {@link SplitHelper.KeyValueUnsplitter} with some changes:
  * <ul>
  *     <li>Removed "reverse" option</li>
- *     <li>Removed "oldFormatVersion" option</li>
+ *     <li>Removed "oldFormatVersion" option (and support for omitUnsplitRecordSuffix)</li>
  *     <li>Return type is a {@link Tuple} (representing a primary key)</li>
  *     <li>No accumulation of values - just unique keys are returned</li>
- *     <li>Inner cursor is now created internally instead of being given</li>
  *     <li>Most consistency checks disabled or removed</li>
  * </ul>
+ * <p>
+ * This cursor is designed to handle (potentially) missing Kvs in the DB. There are other failures and checks that were
+ * left in place (e.g. for mis-ordered splits). The idea is that we can handle these errors in case we need to as they
+ * will become apparent if encountered.
  * <p>
  * This cursor may exceed out-of-band limits in order to ensure that it only ever stops in between (split) records.
  * It is therefore unusual since it may exceed the record scan limit arbitrarily based on the size of the record
  * and the maximum value size.
+ * <p>
+ * The inner cursor given should not have its row limit set (or else this cursor may stop midway through a record and return
+ * incorrect or repeated results.
  */
 public class RecordKeyCursor implements BaseCursor<Tuple> {
     private static final Logger LOGGER = LoggerFactory.getLogger(RecordKeyCursor.class);
@@ -73,6 +77,7 @@ public class RecordKeyCursor implements BaseCursor<Tuple> {
     private final FDBRecordContext context;
     @Nonnull
     private final RecordCursor<KeyValue> inner;
+    private final boolean oldVersionFormat;
     @Nonnull
     private final SplitHelper.SizeInfo sizeInfo;
     @Nonnull
@@ -102,29 +107,16 @@ public class RecordKeyCursor implements BaseCursor<Tuple> {
     @Nullable
     private RecordCursorResult<Tuple> nextResult;
 
-    public RecordKeyCursor(@Nonnull FDBRecordContext context, @Nonnull final Subspace subspace,
-                           @Nonnull TupleRange range,
-                           @Nullable final SplitHelper.SizeInfo sizeInfo, @Nonnull ScanProperties scanProperties) {
-        this(context, subspace, range, null, sizeInfo, scanProperties, new CursorLimitManager(scanProperties));
-    }
-
     public RecordKeyCursor(@Nonnull FDBRecordContext context,
                            @Nonnull final Subspace subspace,
-                           @Nonnull TupleRange range,
-                           @Nullable byte[] continuation,
+                           @Nonnull RecordCursor<KeyValue> inner,
+                           final boolean oldVersionFormat,
                            @Nullable final SplitHelper.SizeInfo sizeInfo,
-                           @Nonnull ScanProperties scanProperties,
                            @Nonnull CursorLimitManager limitManager) {
-        inner = KeyValueCursor.Builder
-                .withSubspace(subspace)
-                .setContext(context)
-                .setContinuation(continuation)
-                .setRange(range)
-                .setScanProperties(scanProperties)
-                .build();
-        // TODO: prevent reverse scans
+        this.inner = inner;
         this.context = context;
         this.subspace = subspace;
+        this.oldVersionFormat = oldVersionFormat;
         this.sizeInfo = sizeInfo == null ? new SplitHelper.SizeInfo() : sizeInfo;
         this.limitManager = limitManager;
     }
@@ -162,7 +154,7 @@ public class RecordKeyCursor implements BaseCursor<Tuple> {
                     }
                     return nextResult;
                 }
-                if (nextKey != null) {
+                if (!oldVersionFormat && nextKey != null) {
                     // Account for incomplete version
                     final byte[] versionKey = subspace.subspace(nextKey).pack(SplitHelper.RECORD_VERSION);
                     context.getLocalVersion(versionKey).ifPresent(localVersion -> {
@@ -287,7 +279,6 @@ public class RecordKeyCursor implements BaseCursor<Tuple> {
             continuation = resultWithKv.getContinuation();
             return appendNext(kv);
         } else {
-            continuation = resultWithKv.getContinuation(); // save the continuation in case of premature termination of the splits
             pending = resultWithKv;
             logEndFound();
             return true;
