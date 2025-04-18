@@ -29,8 +29,9 @@ import java.util.EnumSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
-// TODO: Add logs
-
+/**
+ * A class that validates (and optionally repairs) a given record.
+ */
 public class RecordValidationHelper {
     public static CompletableFuture<EnumSet<FDBRecordStoreBase.RecordValidationOptions>> validateRecordAsync(
             final FDBRecordStore store,
@@ -42,7 +43,8 @@ public class RecordValidationHelper {
             throw new UnsupportedOperationException("Allow repair is not yet supported");
         }
 
-        // TODO: Do we want to load the raw record and deserialize separately?
+        // Use loadRecordAsync to perform all record loading operations. We could have split this into the sub-operations
+        // but then would have had to keep in sync with whatever the store is doing to load the record
         return store.loadRecordAsync(primaryKey).handle((rec, exception) -> {
             EnumSet<FDBRecordStoreBase.RecordValidationOptions> result = EnumSet.noneOf(FDBRecordStoreBase.RecordValidationOptions.class);
             if (exception != null) {
@@ -50,10 +52,13 @@ public class RecordValidationHelper {
                     exception = exception.getCause();
                 }
                 if ((exception instanceof SplitHelper.FoundSplitWithoutStartException) ||
-                        (exception instanceof SplitHelper.FoundSplitOutOfOrderException) ||
-                        (exception instanceof FDBRecordStore.RecordDeserializationException)) {
+                        (exception instanceof SplitHelper.FoundSplitOutOfOrderException)) {
                     if (options.contains(FDBRecordStoreBase.RecordValidationOptions.VALID_VALUE)) {
                         result.add(FDBRecordStoreBase.RecordValidationOptions.VALID_VALUE);
+                    }
+                } else if (exception instanceof FDBRecordStore.RecordDeserializationException) {
+                    if (options.contains(FDBRecordStoreBase.RecordValidationOptions.DESERIALIZABLE)) {
+                        result.add(FDBRecordStoreBase.RecordValidationOptions.DESERIALIZABLE);
                     }
                 } else {
                     throw new UnknownValidationException("Unknown exception caught", exception);

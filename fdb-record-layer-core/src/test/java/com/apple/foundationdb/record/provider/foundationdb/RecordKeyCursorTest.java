@@ -55,7 +55,10 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
         return Stream.of(true, false)
                 .flatMap(
                         split -> Arrays.stream(UseContinuations.values())
-                                .flatMap(useContinuations -> Stream.of(3, 6, FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
+                                .flatMap(useContinuations -> Stream.of(
+                                                FDBRecordStore.RECORD_COUNT_KEY_ADDED_FORMAT_VERSION, // 3
+                                                FDBRecordStore.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION, // 6
+                                                FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
                                         .map(version -> Arguments.of(split, useContinuations, version))));
     }
 
@@ -65,7 +68,16 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
         final RecordMetaDataHook hook = getRecordMetaDataHook(splitLongRecords);
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-            saveRecords(store, splitLongRecords, hook, 100);
+            List<FDBStoredRecord<Message>> result = new ArrayList<>(100);
+            for (int i = 1; i <= 100; i++) {
+                final String someText = (splitLongRecords && ((i % 17) == 0)) ? Strings.repeat("x", SplitHelper.SPLIT_RECORD_SIZE * 2 + 2) : "some text (short)";
+                final TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(i)
+                        .setStrValueIndexed(someText)
+                        .setNumValue3Indexed(1415 + i * 7)
+                        .build();
+                result.add(store.saveRecord(record));
+            }
             commit(context);
         }
         // Scan records
@@ -84,12 +96,7 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
     @MethodSource("splitContinuationVersion")
     public void testIterateRecordsMissingRecord(boolean splitLongRecords, UseContinuations useContinuations, int formatVersion) throws Exception {
         final RecordMetaDataHook hook = getRecordMetaDataHook(splitLongRecords);
-        List<FDBStoredRecord<Message>> result;
-        try (FDBRecordContext context = openContext()) {
-            final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-            result = saveRecords(store, splitLongRecords, hook, 100);
-            commit(context);
-        }
+        List<FDBStoredRecord<Message>> result = saveRecords(splitLongRecords, formatVersion, hook);
         // Delete a record
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
@@ -112,7 +119,7 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
         assertEquals(expectedKeys, actualKeys);
     }
 
-    public static Stream<Arguments> splitNumberContinuationsFormat() {
+    public static Stream<Arguments> splitNumberContinuationsVersion() {
         return Stream.of(0, 1, 2, 3)
                 .flatMap(
                         splitNumber -> Stream.of(UseContinuations.NONE, UseContinuations.CONTINUATIONS, UseContinuations.BYTE_LIMIT)
@@ -121,29 +128,23 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
     }
 
     @ParameterizedTest(name = "testIterateRecordsMissingSplit [splitNumber = {0}, useContinuations = {1}, formatVersion = {2}]")
-    @MethodSource("splitNumberContinuationsFormat")
+    @MethodSource("splitNumberContinuationsVersion")
     public void testIterateRecordsMissingSplit(int splitNumber, UseContinuations useContinuations, int formatVersion) throws Exception {
         boolean splitLongRecords = true;
 
         final RecordMetaDataHook hook = getRecordMetaDataHook(splitLongRecords);
-        List<FDBStoredRecord<Message>> savedRecords;
-        try (FDBRecordContext context = openContext()) {
-            final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-            savedRecords = saveRecords(store, splitLongRecords, hook, 100);
-            commit(context);
-        }
+        List<FDBStoredRecord<Message>> savedRecords = saveRecords(splitLongRecords, formatVersion, hook);
         // Delete a split
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
             // If operating on the short record, #0 is the only split
             // If operating on the long record, splits can be 1,2,3
             // Use splitNumber to decide which record to operate on.
-            // Record #1 in the saved records is a short record, #17 is a long (split) record)
-            int recordNumber = (splitNumber == 0) ? 1 : 17; // TODO ensure the record numbers are right
+            // Record #1 in the saved records is a short record, #16 is a long (split) record
+            int recordNumber = (splitNumber == 0) ? 1 : 16;
             final Tuple pkAndSplit = savedRecords.get(recordNumber).getPrimaryKey().add(splitNumber);
             byte[] split = store.recordsSubspace().pack(pkAndSplit);
             store.ensureContextActive().clear(split);
-            // Also delete a split from the first record in the list TODO
             commit(context);
         }
 
@@ -176,12 +177,7 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
     @MethodSource("splitAndContinuation")
     void testIterateRecordsMissingVersion(boolean splitLongRecords, UseContinuations useContinuations) throws Exception {
         final RecordMetaDataHook hook = getRecordMetaDataHook(splitLongRecords);
-        List<FDBStoredRecord<Message>> savedRecords;
-        try (FDBRecordContext context = openContext()) {
-            final FDBRecordStore store = openSimpleRecordStore(context, hook, FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION);
-            savedRecords = saveRecords(store, splitLongRecords, hook, 100);
-            commit(context);
-        }
+        List<FDBStoredRecord<Message>> savedRecords = saveRecords(splitLongRecords, FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION, hook);
         // Delete the versions for the first 20 records
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION);
@@ -214,21 +210,6 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
         };
     }
 
-    @Nonnull
-    private List<FDBStoredRecord<Message>> saveRecords(FDBRecordStore store, final boolean splitLongRecords, final RecordMetaDataHook hook, int numRecords) throws Exception {
-        List<FDBStoredRecord<Message>> result = new ArrayList<>(numRecords);
-        for (int i = 1; i <= numRecords; i++) {
-            final String someText = (splitLongRecords && ((i % 17) == 0)) ? Strings.repeat("x", SplitHelper.SPLIT_RECORD_SIZE * 2 + 2) : "some text (short)";
-            final TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder()
-                    .setRecNo(i)
-                    .setStrValueIndexed(someText)
-                    .setNumValue3Indexed(1415 + i * 7)
-                    .build();
-            result.add(store.saveRecord(record));
-        }
-        return result;
-    }
-
     @Nullable
     private static ScanProperties getScanProperties(final UseContinuations useContinuations) {
         ExecuteProperties executeProperties;
@@ -237,7 +218,7 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
                 return null;
             case CONTINUATIONS:
                 executeProperties = ExecuteProperties.newBuilder()
-                        .setReturnedRowLimit(19) // TODO: It seems we're only getting 10 results back with limit of 19
+                        .setReturnedRowLimit(19)
                         .setIsolationLevel(IsolationLevel.SERIALIZABLE)
                         .build();
                 return new ScanProperties(executeProperties);
@@ -279,30 +260,24 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private List<FDBStoredRecord<Message>> scanKeysOld(@Nonnull FDBRecordStore store, @Nullable ScanProperties scanProperties, boolean withContinuations) throws InterruptedException, ExecutionException {
-        if (scanProperties == null) {
-            scanProperties = ScanProperties.FORWARD_SCAN;
-        }
-        RecordCursor<FDBStoredRecord<Message>> recordKeyCursor = store.scanRecords(TupleRange.allOf(null), null, scanProperties);
-        if (!withContinuations) {
-            return recordKeyCursor.asList().get();
-        } else {
-            boolean done = false;
-            List<FDBStoredRecord<Message>> result = new ArrayList<>();
-            while (!done) {
-                RecordCursorResult<FDBStoredRecord<Message>> currentRecord = recordKeyCursor.getNext();
-                while (currentRecord.hasNext()) {
-                    result.add(currentRecord.get());
-                    currentRecord = recordKeyCursor.getNext();
-                }
-                RecordCursorContinuation continuation = currentRecord.getContinuation();
-                if (continuation.isEnd()) {
-                    done = true;
-                } else {
-                    recordKeyCursor = store.scanRecords(TupleRange.allOf(null), continuation.toBytes(), scanProperties);
-                }
+    @Nonnull
+    private List<FDBStoredRecord<Message>> saveRecords(final boolean splitLongRecords, final int formatVersion, final RecordMetaDataHook hook) throws Exception {
+        List<FDBStoredRecord<Message>> result;
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
+            List<FDBStoredRecord<Message>> result1 = new ArrayList<>(100);
+            for (int i = 1; i <= 100; i++) {
+                final String someText = (splitLongRecords && ((i % 17) == 0)) ? Strings.repeat("x", SplitHelper.SPLIT_RECORD_SIZE * 2 + 2) : "some text (short)";
+                final TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(i)
+                        .setStrValueIndexed(someText)
+                        .setNumValue3Indexed(1415 + i * 7)
+                        .build();
+                result1.add(store.saveRecord(record));
             }
-            return result;
+            result = result1;
+            commit(context);
         }
+        return result;
     }
 }

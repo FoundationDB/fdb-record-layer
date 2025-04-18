@@ -53,7 +53,6 @@ import java.util.concurrent.TimeUnit;
  * This class borrows heavily from {@link SplitHelper.KeyValueUnsplitter} with some changes:
  * <ul>
  *     <li>Removed "reverse" option</li>
- *     <li>Removed "oldFormatVersion" option (and support for omitUnsplitRecordSuffix)</li>
  *     <li>Return type is a {@link Tuple} (representing a primary key)</li>
  *     <li>No accumulation of values - just unique keys are returned</li>
  *     <li>Most consistency checks disabled or removed</li>
@@ -301,16 +300,14 @@ public class RecordKeyCursor implements BaseCursor<Tuple> {
             sizeInfo.setSplit(false);
             done = true;
         } else if (nextIndex == SplitHelper.RECORD_VERSION) {
-            // First key is a record version. This should only happen in
-            // the forward scan direction, so if this happens in
-            // the reverse direction, it means that there isn't any
-            // data associated with the record, but there is a version.
+            // First key is a record version
             sizeInfo.setVersionedInline(true);
             nextVersion = SplitHelper.unpackVersion(kv.getValue());
             next = null;
             done = false;
-        } else if (nextIndex == SplitHelper.START_SPLIT_RECORD) {
+        } else if (nextIndex >= SplitHelper.START_SPLIT_RECORD) {
             // The data is at the beginning of the split
+            // We don't care if it starts at 1 or bigger (some early splits can be missing)
             sizeInfo.setSplit(true);
             done = false;
         } else {
@@ -336,11 +333,12 @@ public class RecordKeyCursor implements BaseCursor<Tuple> {
             nextIndex = index;
             sizeInfo.setSplit(index == SplitHelper.START_SPLIT_RECORD);
             done = nextIndex == SplitHelper.UNSPLIT_RECORD;
-        } else if (index == nextIndex + 1) {
+        } else if (index >= nextIndex + 1) {
             // This is the second or later key (not counting a possible version key)
             // in the forward scan. Append its value to the end of the current
             // key-value pair being accumulated. Return false because there is
             // no way to know if this is the last key or not.
+            // We can have skips in the sequence if splits are missing
             next = Tuple.fromBytes(nextPrefix);
             nextIndex = index;
             done = false;

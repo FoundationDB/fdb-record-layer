@@ -1203,7 +1203,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final Subspace recordsSubspace = recordsSubspace();
         if (!metaData.isSplitLongRecords() && omitUnsplitRecordSuffix) {
             // In this case there are only "simple" records (single split with no version). Return then directly.
-            final SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
             KeyValueCursor keyValuesCursor = KeyValueCursor.Builder
                     .withSubspace(recordsSubspace)
                     .setContext(context)
@@ -1213,10 +1212,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     .setScanProperties(scanProperties)
                     .build();
             return keyValuesCursor
-                    .map(kv -> {
-                        sizeInfo.set(kv);
-                        return SplitHelper.unpackKey(recordsSubspace, kv);
-                    });
+                    .map(kv -> SplitHelper.unpackKey(recordsSubspace, kv));
         }
         // Create a key scanner
         RecordCursor<KeyValue> inner = KeyValueCursor.Builder

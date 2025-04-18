@@ -75,13 +75,8 @@ public abstract class FDBRecordStoreTestBase extends FDBRecordStoreConcurrentTes
     }
 
     @Nonnull
-    public static Stream<Integer> formatVersions() {
-        return Stream.of(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION - 1, FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION, FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION);
-    }
-
-    @Nonnull
     public static Stream<Arguments> formatVersionAndSplitArgs() {
-        return formatVersions()
+        return Stream.of(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION - 1, FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION, FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
                 .flatMap(formatVersion -> Stream.of(Arguments.of(formatVersion, false), Arguments.of(formatVersion, true)));
     }
 
