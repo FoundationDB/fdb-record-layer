@@ -91,7 +91,7 @@ public final class IndexingSubspaces {
      * @return subspace
      */
     @Nonnull
-    public static Subspace indexScrubRecordsRangeSubspaceZero(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+    private static Subspace indexScrubRecordsRangeSubspaceZero(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
         // Backward compatible subspace for range-id zero
         return indexBuildSubspace(store, index, INDEX_SCRUBBED_RECORDS_RANGES_ZERO);
     }
@@ -103,7 +103,7 @@ public final class IndexingSubspaces {
      * @return subspace
      */
     @Nonnull
-    public static Subspace indexScrubRecordsRangeSubspaceRoot(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+    private static Subspace indexScrubRecordsRangeSubspaceRoot(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
         return indexBuildSubspace(store, index, INDEX_SCRUBBED_RECORDS_RANGES);
     }
 
@@ -129,7 +129,7 @@ public final class IndexingSubspaces {
      * @return subspace
      */
     @Nonnull
-    public static Subspace indexScrubIndexRangeSubspaceZero(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+    private static Subspace indexScrubIndexRangeSubspaceZero(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
         // Backward compatible subspace for range-id zero
         return indexBuildSubspace(store, index, INDEX_SCRUBBED_INDEX_RANGES_ZERO);
     }
