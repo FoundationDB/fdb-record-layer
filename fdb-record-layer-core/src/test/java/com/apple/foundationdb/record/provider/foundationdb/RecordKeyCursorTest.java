@@ -66,20 +66,7 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
     @MethodSource("splitContinuationVersion")
     void testIterateRecordsNoIssue(boolean splitLongRecords, UseContinuations useContinuations, int formatVersion) throws Exception {
         final RecordMetaDataHook hook = getRecordMetaDataHook(splitLongRecords);
-        try (FDBRecordContext context = openContext()) {
-            final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-            List<FDBStoredRecord<Message>> result = new ArrayList<>(100);
-            for (int i = 1; i <= 100; i++) {
-                final String someText = (splitLongRecords && ((i % 17) == 0)) ? Strings.repeat("x", SplitHelper.SPLIT_RECORD_SIZE * 2 + 2) : "some text (short)";
-                final TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder()
-                        .setRecNo(i)
-                        .setStrValueIndexed(someText)
-                        .setNumValue3Indexed(1415 + i * 7)
-                        .build();
-                result.add(store.saveRecord(record));
-            }
-            commit(context);
-        }
+        saveRecords(splitLongRecords, formatVersion, hook);
         // Scan records
         ScanProperties scanProperties = getScanProperties(useContinuations);
         final List<Tuple> actualKeys;
@@ -101,10 +88,10 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
             // Note that the PK start with 1, so the location is one-off when removed
-            store.deleteRecord(result.get(20).getPrimaryKey());
+            store.deleteRecord(result.get(16).getPrimaryKey());
             store.deleteRecord(result.get(21).getPrimaryKey());
             store.deleteRecord(result.get(22).getPrimaryKey());
-            store.deleteRecord(result.get(23).getPrimaryKey());
+            store.deleteRecord(result.get(70).getPrimaryKey());
             commit(context);
         }
         // Scan records
@@ -115,7 +102,7 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
             actualKeys = scanKeys(store, scanProperties, useContinuations != UseContinuations.NONE);
             commit(context);
         }
-        List<Tuple> expectedKeys = IntStream.range(1, 101).filter(i -> !Set.of(21, 22, 23, 24).contains(i)).boxed().map(Tuple::from).collect(Collectors.toList());
+        List<Tuple> expectedKeys = IntStream.range(1, 101).filter(i -> !Set.of(17, 22, 23, 71).contains(i)).boxed().map(Tuple::from).collect(Collectors.toList());
         assertEquals(expectedKeys, actualKeys);
     }
 
