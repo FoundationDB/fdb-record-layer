@@ -123,6 +123,7 @@ import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -1073,7 +1074,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 return CompletableFuture.completedFuture(recordBuilder.build());
             }
         } catch (Exception ex) {
-            final LoggableException ex2 = new RecordCoreException("Failed to deserialize record", ex);
+            final LoggableException ex2 = new RecordDeserializationException("Failed to deserialize record", ex);
             ex2.addLogInfo(
                     subspaceProvider.logKey(), subspaceProvider.toString(context),
                     LogMessageKeys.PRIMARY_KEY, primaryKey,
@@ -1189,6 +1190,58 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                               @Nullable byte[] continuation,
                                                               @Nonnull ScanProperties scanProperties) {
         return scanTypedRecords(serializer, low, high, lowEndpoint, highEndpoint, continuation, scanProperties);
+    }
+
+    @Nonnull
+    @Override
+    @SuppressWarnings("PMD.CloseResource")
+    public RecordCursor<Tuple> scanRecordKeys(@Nonnull final TupleRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
+        if (scanProperties.isReverse()) {
+            throw new UnsupportedOperationException("scanRecordKeys does not support reverse scan");
+        }
+        final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
+        final Subspace recordsSubspace = recordsSubspace();
+        if (!metaData.isSplitLongRecords() && omitUnsplitRecordSuffix) {
+            // In this case there are only "simple" records (single split with no version). Return then directly.
+            KeyValueCursor keyValuesCursor = KeyValueCursor.Builder
+                    .withSubspace(recordsSubspace)
+                    .setContext(context)
+                    .setContinuation(continuation)
+                    .setLow(range.getLow(), range.getLowEndpoint())
+                    .setHigh(range.getHigh(), range.getHighEndpoint())
+                    .setScanProperties(scanProperties)
+                    .build();
+            return keyValuesCursor
+                    .map(kv -> SplitHelper.unpackKey(recordsSubspace, kv));
+        }
+        // Create a key scanner
+        RecordCursor<KeyValue> inner = KeyValueCursor.Builder
+                .withSubspace(recordsSubspace)
+                .setContext(context)
+                .setContinuation(continuation)
+                .setLow(range.getLow(), range.getLowEndpoint())
+                .setHigh(range.getHigh(), range.getHighEndpoint())
+                .setScanProperties(scanProperties
+                        .with(executeProperties ->
+                                executeProperties
+                                        // Inner cursor does not have limits
+                                        .clearRowAndTimeLimits()
+                                        .clearState()))
+                .build();
+        return new RecordKeyCursor(
+                context,
+                recordsSubspace,
+                inner,
+                useOldVersionFormat(),
+                new SplitHelper.SizeInfo(),
+                new CursorLimitManager(context, scanProperties.with(executeProperties ->
+                        executeProperties.toBuilder().clearReturnedRowLimit().build())))
+                .limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit());
+    }
+
+    @Override
+    public CompletableFuture<EnumSet<RecordValidationOptions>> validateRecordAsync(final Tuple primaryKey, final EnumSet<RecordValidationOptions> options, final boolean allowRepair) {
+        return RecordValidationHelper.validateRecordAsync(this, primaryKey, options, allowRepair);
     }
 
     @Nonnull
@@ -5432,6 +5485,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             } else {
                 return AsyncUtil.DONE;
             }
+        }
+    }
+
+    @SuppressWarnings({"serial"})
+    public static class RecordDeserializationException extends RecordCoreException {
+        public RecordDeserializationException(final String message, final Throwable cause) {
+            super(message, cause);
         }
     }
 }

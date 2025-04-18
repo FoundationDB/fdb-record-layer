@@ -91,6 +91,13 @@ public class FDBRecordStoreConcurrentTestBase {
         return Pair.of(store, setupPlanner(store, null));
     }
 
+    protected FDBRecordStore createOrOpenRecordStore(@Nonnull FDBRecordContext context,
+                                                     @Nonnull RecordMetaDataProvider metaData,
+                                                     @Nonnull final KeySpacePath path,
+                                                     final int formatVersion) {
+        return getStoreBuilder(context, metaData, path, formatVersion).createOrOpen();
+    }
+
     public QueryPlanner setupPlanner(@Nonnull FDBRecordStore recordStore, @Nullable PlannableIndexTypes indexTypes) {
         final QueryPlanner planner;
         if (useCascadesPlanner) {
@@ -112,8 +119,17 @@ public class FDBRecordStoreConcurrentTestBase {
     protected FDBRecordStore.Builder getStoreBuilder(@Nonnull FDBRecordContext context,
                                                      @Nonnull RecordMetaDataProvider metaData,
                                                      @Nonnull final KeySpacePath path) {
+        // set to max format version to test newest features (unsafe for real deployments)
+        return getStoreBuilder(context, metaData, path, FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION);
+    }
+
+    @Nonnull
+    protected FDBRecordStore.Builder getStoreBuilder(@Nonnull FDBRecordContext context,
+                                                     @Nonnull RecordMetaDataProvider metaData,
+                                                     @Nonnull final KeySpacePath path,
+                                                     final int formatVersion) {
         return FDBRecordStore.newBuilder()
-                .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION) // set to max to test newest features (unsafe for real deployments)
+                .setFormatVersion(formatVersion)
                 .setKeySpacePath(path)
                 .setContext(context)
                 .setMetaDataProvider(metaData);
