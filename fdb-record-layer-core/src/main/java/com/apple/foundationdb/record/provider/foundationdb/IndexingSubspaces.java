@@ -97,7 +97,7 @@ public final class IndexingSubspaces {
     }
 
     /**
-     * Subspace that stores scrubbed records ranges. This subspace is expected to be followed by a range-id.
+     * Subspace that stores scrubbed records ranges.
      * @param store store
      * @param index index
      * @return subspace
@@ -108,7 +108,7 @@ public final class IndexingSubspaces {
     }
 
     /**
-     * Subspace that stores scrubbed records ranges. This subspace is expected to be followed by a range-id.
+     * Subspace that stores scrubbed records ranges.
      * @param store store
      * @param index index
      * @return subspace
