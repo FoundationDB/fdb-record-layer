@@ -1171,7 +1171,7 @@ public class SplitHelper {
     @SuppressWarnings("serial")
     public static class FoundSplitOutOfOrderException extends RecordCoreException {
         public FoundSplitOutOfOrderException(long expected, long found) {
-            super("Found split record out of order");
+            super("Split record segments out of order");
             addLogInfo(LogMessageKeys.EXPECTED_INDEX, expected);
             addLogInfo(LogMessageKeys.FOUND_INDEX, found);
         }
