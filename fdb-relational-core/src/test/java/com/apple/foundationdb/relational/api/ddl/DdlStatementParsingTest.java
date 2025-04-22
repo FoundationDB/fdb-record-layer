@@ -20,31 +20,23 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
-import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordMetaDataProto;
-import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Index;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
-import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
-import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.RelationalConnectionRule;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
-import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
-import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
+import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.utils.PermutationIterator;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
@@ -64,12 +56,9 @@ import org.junit.jupiter.params.provider.ValueSource;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
-import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.function.IntPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -102,33 +91,7 @@ public class DdlStatementParsingTest {
             "integer", "bigint", "double", "boolean", "string", "bytes"
     };
 
-    public DdlStatementParsingTest() throws RelationalException, SQLException {
-    }
-
-    private PlanContext getFakePlanContext() throws SQLException, RelationalException {
-        final var embeddedConnection = connection.getUnderlyingEmbeddedConnection().unwrap(EmbeddedRelationalConnection.class);
-        final var schemaTemplate = embeddedConnection.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toBuilder().setVersion(1).setName(database.getSchemaTemplateName()).build();
-        RecordMetaDataProto.MetaData md = schemaTemplate.toRecordMetadata().toProto();
-        return PlanContext.Builder.create()
-                .withMetadata(RecordMetaData.build(md))
-                .withMetricsCollector(embeddedConnection.getMetricCollector())
-                .withPlannerConfiguration(PlannerConfiguration.ofAllAvailableIndexes())
-                .withUserVersion(0)
-                .withDbUri(URI.create("/DdlStatementParsingTest"))
-                .withDdlQueryFactory(NoOpQueryFactory.INSTANCE)
-                .withConstantActionFactory(NoOpMetadataOperationsFactory.INSTANCE)
-                .withSchemaTemplate(schemaTemplate)
-                .build();
-    }
-
-    private PlanGenerator getPlanGenerator(@Nonnull PlanContext planContext) throws SQLException, RelationalException {
-        final var embeddedConnection = connection.getUnderlyingEmbeddedConnection().unwrap(EmbeddedRelationalConnection.class);
-        final AbstractDatabase database = embeddedConnection.getRecordLayerDatabase();
-        final var storeState = new RecordStoreState(null, Map.of());
-        final FDBRecordStoreBase<?> store = database.loadSchema(connection.getSchema()).loadStore().unwrap(FDBRecordStoreBase.class);
-        return PlanGenerator.of(Optional.empty(), planContext, store.getRecordMetaData(), storeState, Options.NONE);
-    }
-
+    @Nonnull
     public static Stream<Arguments> columnTypePermutations() {
         int numColumns = 2;
         final List<String> items = List.of(validPrimitiveDataTypes);
@@ -137,39 +100,46 @@ public class DdlStatementParsingTest {
         return permutations.stream().map(Arguments::of);
     }
 
-    void shouldFailWith(@Nonnull final String query, @Nullable ErrorCode errorCode) throws Exception {
+    void shouldFailWith(@Nonnull final String query, @Nullable final ErrorCode errorCode) throws Exception {
         connection.setAutoCommit(false);
         (connection.getUnderlyingEmbeddedConnection()).createNewTransaction();
         final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
-                getPlanGenerator(PlanContext.Builder.unapply(getFakePlanContext()).build()).getPlan(query));
+                DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
+                        "/DdlStatementParsingTest").getPlan(query));
         Assertions.assertEquals(errorCode, ve.getErrorCode());
         connection.rollback();
         connection.setAutoCommit(true);
     }
 
-    void shouldFailWithInjectedFactory(@Nonnull final String query, @Nullable ErrorCode errorCode, @Nonnull MetadataOperationsFactory metadataOperationsFactory) throws Exception {
+    void shouldFailWithInjectedFactory(@Nonnull final String query, @Nullable final ErrorCode errorCode,
+                                       @Nonnull final MetadataOperationsFactory metadataOperationsFactory) throws Exception {
         connection.setAutoCommit(false);
         (connection.getUnderlyingEmbeddedConnection()).createNewTransaction();
         final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
-                getPlanGenerator(PlanContext.Builder.unapply(getFakePlanContext()).withConstantActionFactory(metadataOperationsFactory).build()).getPlan(query));
+                DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
+                        "/DdlStatementParsingTest", metadataOperationsFactory).getPlan(query));
         Assertions.assertEquals(errorCode, ve.getErrorCode());
         connection.rollback();
         connection.setAutoCommit(true);
     }
 
-    void shouldWorkWithInjectedFactory(@Nonnull final String query, @Nonnull MetadataOperationsFactory metadataOperationsFactory) throws Exception {
+    void shouldWorkWithInjectedFactory(@Nonnull final String query,
+                                       @Nonnull final MetadataOperationsFactory metadataOperationsFactory) throws Exception {
         connection.setAutoCommit(false);
         (connection.getUnderlyingEmbeddedConnection()).createNewTransaction();
-        getPlanGenerator(PlanContext.Builder.unapply(getFakePlanContext()).withConstantActionFactory(metadataOperationsFactory).build()).getPlan(query);
+        DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
+                "/DdlStatementParsingTest", metadataOperationsFactory).getPlan(query);
         connection.rollback();
         connection.setAutoCommit(true);
     }
 
-    void shouldFailWithInjectedQueryFactory(@Nonnull final String query, @Nullable ErrorCode errorCode, @Nonnull DdlQueryFactory queryFactory) throws Exception {
+    void shouldFailWithInjectedQueryFactory(@Nonnull final String query, @Nullable ErrorCode errorCode,
+                                            @Nonnull final DdlQueryFactory queryFactory) throws Exception {
         connection.setAutoCommit(false);
         (connection.getUnderlyingEmbeddedConnection()).createNewTransaction();
         final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
-                getPlanGenerator(PlanContext.Builder.unapply(getFakePlanContext()).withDdlQueryFactory(queryFactory).build()).getPlan(query));
+                DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
+                        "/DdlStatementParsingTest", queryFactory).getPlan(query));
         connection.rollback();
         connection.setAutoCommit(true);
         Assertions.assertEquals(errorCode, ve.getErrorCode());
@@ -178,14 +148,15 @@ public class DdlStatementParsingTest {
     void shouldWorkWithInjectedQueryFactory(@Nonnull final String query, @Nonnull DdlQueryFactory queryFactory) throws Exception {
         connection.setAutoCommit(false);
         (connection.getUnderlyingEmbeddedConnection()).createNewTransaction();
-        getPlanGenerator(PlanContext.Builder.unapply(getFakePlanContext()).withDdlQueryFactory(queryFactory).build()).getPlan(query);
+        DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
+                "/DdlStatementParsingTest", queryFactory).getPlan(query);
         connection.rollback();
         connection.setAutoCommit(true);
     }
 
     @Nonnull
     private static DescriptorProtos.FileDescriptorProto getProtoDescriptor(@Nonnull final SchemaTemplate schemaTemplate) {
-        Assertions.assertTrue(schemaTemplate instanceof RecordLayerSchemaTemplate);
+        Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, schemaTemplate);
         final var asRecordLayerSchemaTemplate = (RecordLayerSchemaTemplate) schemaTemplate;
         return asRecordLayerSchemaTemplate.toRecordMetadata().toProto().getRecords();
     }
@@ -238,7 +209,7 @@ public class DdlStatementParsingTest {
             @Nonnull
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
-                Assertions.assertTrue(template instanceof RecordLayerSchemaTemplate);
+                Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
                 Assertions.assertEquals(1, ((RecordLayerSchemaTemplate) template).getTables().size(), "should have only 1 table");
                 DescriptorProtos.FileDescriptorProto fileDescriptorProto = getProtoDescriptor(template);
                 Assertions.assertEquals(1, fileDescriptorProto.getEnumTypeCount(), "should have one enum defined");
@@ -335,7 +306,7 @@ public class DdlStatementParsingTest {
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                         @Nonnull Options templateProperties) {
-                Assertions.assertTrue(template instanceof RecordLayerSchemaTemplate);
+                Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
                 Assertions.assertEquals(0, ((RecordLayerSchemaTemplate) template).getTables().size(), "Tables defined!");
                 visited[0] = true;
                 return txn -> {
@@ -366,15 +337,14 @@ public class DdlStatementParsingTest {
     void createSchemaTemplateWithOutOfOrderDefinitionsWork(List<String> columns) throws Exception {
         final String templateStatement = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE TBL " + makeColumnDefinition(columns, true) +
-                "CREATE TYPE AS STRUCT FOO " + makeColumnDefinition(columns, false) +
-                "";
+                "CREATE TYPE AS STRUCT FOO " + makeColumnDefinition(columns, false);
 
         shouldWorkWithInjectedFactory(templateStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                         @Nonnull Options templateProperties) {
-                Assertions.assertTrue(template instanceof RecordLayerSchemaTemplate);
+                Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
                 Assertions.assertEquals(1, ((RecordLayerSchemaTemplate) template).getTables().size(), "Incorrect number of tables");
                 return txn -> {
                 };
@@ -471,11 +441,11 @@ public class DdlStatementParsingTest {
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                         @Nonnull Options templateProperties) {
-                Assertions.assertTrue(template instanceof RecordLayerSchemaTemplate);
+                Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
                 Assertions.assertEquals(1, ((RecordLayerSchemaTemplate) template).getTables().size(), "Incorrect number of tables");
                 Table info = ((RecordLayerSchemaTemplate) template).getTables().stream().findFirst().orElseThrow();
                 Assertions.assertEquals(1, info.getIndexes().size(), "Incorrect number of indexes!");
-                final Index index = info.getIndexes().stream().findFirst().get();
+                final Index index = Assert.optionalUnchecked(info.getIndexes().stream().findFirst());
                 Assertions.assertEquals("V_IDX", index.getName(), "Incorrect index name!");
 
                 final var actualKe = ((RecordLayerIndex) index).getKeyExpression().toKeyExpression();
@@ -521,7 +491,7 @@ public class DdlStatementParsingTest {
                 Assertions.assertEquals(1, ((RecordLayerSchemaTemplate) template).getTables().size(), "Incorrect number of tables");
                 Table info = ((RecordLayerSchemaTemplate) template).getTables().stream().findFirst().orElseThrow();
                 Assertions.assertEquals(1, info.getIndexes().size(), "Incorrect number of indexes!");
-                final Index index = info.getIndexes().stream().findFirst().get();
+                final Index index = Assert.optionalUnchecked(info.getIndexes().stream().findFirst());
                 Assertions.assertEquals("V_IDX", index.getName(), "Incorrect index name!");
 
                 RecordKeyExpressionProto.KeyExpression actualKe = ((RecordLayerIndex) index).getKeyExpression().toKeyExpression();

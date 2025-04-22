@@ -20,30 +20,22 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
-import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordMetaDataProto;
-import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Index;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
-import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.RelationalConnectionRule;
 import com.apple.foundationdb.relational.recordlayer.Utils;
-import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
-import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
-import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
+import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
@@ -57,11 +49,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
-import java.net.URI;
-import java.sql.SQLException;
 import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -92,48 +80,26 @@ public class IndexTest {
         Utils.enableCascadesDebugger();
     }
 
-    private PlanContext getFakePlanContext() throws SQLException, RelationalException {
-        final var embeddedConnection = connection.getUnderlyingEmbeddedConnection();
-        final var schemaTemplate = embeddedConnection.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toBuilder().setVersion(1).setName(database.getSchemaTemplateName()).build();
-        RecordMetaDataProto.MetaData md = schemaTemplate.toRecordMetadata().toProto();
-        return PlanContext.Builder.create()
-                .withMetadata(RecordMetaData.build(md))
-                .withMetricsCollector(embeddedConnection.getMetricCollector())
-                .withPlannerConfiguration(PlannerConfiguration.ofAllAvailableIndexes())
-                .withUserVersion(0)
-                .withDbUri(URI.create("/IndexTest"))
-                .withDdlQueryFactory(NoOpQueryFactory.INSTANCE)
-                .withConstantActionFactory(NoOpMetadataOperationsFactory.INSTANCE)
-                .withSchemaTemplate(schemaTemplate)
-                .build();
-    }
-
-    private PlanGenerator getPlanGenerator(@Nonnull PlanContext planContext) throws SQLException, RelationalException {
-        final var embeddedConnection = connection.getUnderlyingEmbeddedConnection();
-        final AbstractDatabase database = embeddedConnection.getRecordLayerDatabase();
-        final var storeState = new RecordStoreState(null, Map.of());
-        final FDBRecordStoreBase<?> store = database.loadSchema(connection.getSchema()).loadStore().unwrap(FDBRecordStoreBase.class);
-        return PlanGenerator.of(Optional.empty(), planContext, store.getRecordMetaData(), storeState, Options.NONE);
-    }
-
-    void shouldFailWith(@Nonnull final String query, @Nonnull ErrorCode errorCode, @Nonnull final String errorMessage) throws Exception {
+    void shouldFailWith(@Nonnull final String query, @Nonnull final ErrorCode errorCode, @Nonnull final String errorMessage) throws Exception {
         connection.setAutoCommit(false);
         connection.getUnderlyingEmbeddedConnection().createNewTransaction();
         final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
-                getPlanGenerator(DdlTestUtil.createVanillaPlanContext(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
-                        "/IndexTest")).getPlan(query));
+                DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
+                        "/IndexTest").getPlan(query));
         Assertions.assertEquals(errorCode, ve.getErrorCode());
-        Assertions.assertTrue(ve.getMessage().contains(errorMessage), String.format(Locale.ROOT, "expected error message '%s' to contain '%s' but it didn't", ve.getMessage(), errorMessage));
+        Assertions.assertTrue(ve.getMessage().contains(errorMessage), String.format(Locale.ROOT,
+                "expected error message '%s' to contain '%s' but it didn't", ve.getMessage(), errorMessage));
         connection.rollback();
         connection.setAutoCommit(true);
     }
 
-    void shouldWorkWithInjectedFactory(@Nonnull final String query, @Nonnull final MetadataOperationsFactory metadataOperationsFactory) throws Exception {
+    void shouldWorkWithInjectedFactory(@Nonnull final String query, @Nonnull final MetadataOperationsFactory metadataOperationsFactory)
+            throws Exception {
         connection.setAutoCommit(false);
         connection.getUnderlyingEmbeddedConnection().createNewTransaction();
         Assertions.assertDoesNotThrow(() ->
-                getPlanGenerator(PlanContext.Builder.unapply(DdlTestUtil.createVanillaPlanContext(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
-                        "/IndexTest")).withConstantActionFactory(metadataOperationsFactory).build()).getPlan(query));
+                DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
+                        "/IndexTest", metadataOperationsFactory).getPlan(query));
         connection.rollback();
         connection.setAutoCommit(true);
     }
@@ -142,17 +108,18 @@ public class IndexTest {
         indexIs(stmt, expectedKey, indexType, index -> { });
     }
 
-    private void indexIs(@Nonnull String stmt, @Nonnull final KeyExpression expectedKey, @Nonnull final String indexType, @Nonnull Consumer<Index> validator) throws Exception {
+    private void indexIs(@Nonnull String stmt, @Nonnull final KeyExpression expectedKey, @Nonnull final String indexType,
+                         @Nonnull Consumer<Index> validator) throws Exception {
         shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                         @Nonnull Options templateProperties) {
-                Assertions.assertTrue(template instanceof RecordLayerSchemaTemplate);
+                Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
                 Assertions.assertEquals(1, ((RecordLayerSchemaTemplate) template).getTables().size(), "Incorrect number of tables");
                 Table info = ((RecordLayerSchemaTemplate) template).getTables().stream().findFirst().orElseThrow();
                 Assertions.assertEquals(1, info.getIndexes().size(), "Incorrect number of indexes!");
-                final Index index = info.getIndexes().stream().findFirst().get();
+                final Index index = Assert.optionalUnchecked(info.getIndexes().stream().findFirst());
                 Assertions.assertEquals("MV1", index.getName(), "Incorrect index name!");
                 Assertions.assertEquals(indexType, index.getIndexType());
                 final KeyExpression actualKey = KeyExpression.fromProto(((RecordLayerIndex) index).getKeyExpression().toKeyExpression());
