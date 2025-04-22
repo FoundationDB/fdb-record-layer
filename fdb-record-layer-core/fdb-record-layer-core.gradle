@@ -59,20 +59,6 @@ sourceSets {
     }
 }
 
-task testShadowJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
-    archiveClassifier = 'standalone-tests'
-    from sourceSets.main.output
-    from sourceSets.test.output
-    configurations = [ project.configurations.testRuntimeOnly ]
-    manifest {
-        inheritFrom project.tasks.jar.manifest
-        attributes 'Main-Class': 'com.apple.foundationdb.record.provider.foundationdb.FDBRecordStorePerformanceTest',
-                   'Multi-Release': 'true' // https://github.com/johnrengelman/shadow/issues/449
-    }
-    mergeServiceFiles()
-    exclude 'log4j.properties'
-}
-
 task replJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
     archiveClassifier = 'repl'
     from sourceSets.main.output
