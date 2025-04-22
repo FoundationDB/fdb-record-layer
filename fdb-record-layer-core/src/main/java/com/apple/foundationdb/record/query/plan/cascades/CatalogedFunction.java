@@ -160,6 +160,9 @@ public abstract class CatalogedFunction<T extends Typed> {
         return getDefaultValue(paramName).isPresent();
     }
 
+    public boolean isTableFunction() {
+        return false;
+    }
 
     /**
      * Checks whether the provided list of argument types matches the list of function's parameter types.

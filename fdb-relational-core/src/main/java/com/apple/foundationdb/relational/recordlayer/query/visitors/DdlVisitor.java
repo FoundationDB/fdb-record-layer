@@ -249,8 +249,12 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         structClauses.build().stream().map(this::visitStructDefinition).map(RecordLayerTable::getDatatype).forEach(metadataBuilder::addAuxiliaryType);
         tableClauses.build().stream().map(this::visitTableDefinition).forEach(metadataBuilder::addTable);
         final var indexes = indexClauses.build().stream().map(this::visitIndexDefinition).collect(ImmutableList.toImmutableList());
-        final var functions = functionClauses.build().stream().map(this::getInvokedRoutineMetadata).collect(ImmutableList.toImmutableList());
-        functions.forEach(metadataBuilder::addInvokedRoutine);
+        // TODO: this is currently relying on the lexical order of the function to resolve function dependencies which
+        //       is limited.
+        functionClauses.build().forEach(functionClause -> {
+            final var invokedRoutine = getInvokedRoutineMetadata(functionClause);
+            metadataBuilder.addInvokedRoutine(invokedRoutine);
+        });
         for (final var index : indexes) {
             final var table = metadataBuilder.extractTable(index.getTableName());
             final var tableWithIndex = RecordLayerTable.Builder.from(table).addIndex(index).build();
@@ -366,14 +370,22 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 .seal();
         final var parametersCorrelation = sqlFunctionBuilder.getParametersCorrelation();
         final LogicalOperator body;
+
+        // the nested fragment below serves two purposes:
+        // 1. avoid creating a top-level LSE unnecessarily.
+        // 2. add a fake quantifier with the function parameters (if any) to resolve their references in the function body
+        //    during its plan generation.
+        final var fragment = getDelegate().pushPlanFragment();
+
         if (parametersCorrelation.isPresent()) {
-            getDelegate().pushPlanFragment().addOperator(LogicalOperator.newUnnamedOperator(Expressions.fromQuantifier(parametersCorrelation.get()),
+            fragment.addOperator(LogicalOperator.newUnnamedOperator(Expressions.fromQuantifier(parametersCorrelation.get()),
                     parametersCorrelation.get()));
-            body = visitRoutineBody(ctx.routineBody());
-            getDelegate().popPlanFragment();
+            body = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() -> visitRoutineBody(ctx.routineBody()));
+
         } else {
-            body = visitRoutineBody(ctx.routineBody());
+            body = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() -> visitRoutineBody(ctx.routineBody()));
         }
+        getDelegate().popPlanFragment();
         sqlFunctionBuilder.setBody(body.getQuantifier().getRangesOver().get());
         return sqlFunctionBuilder.build();
     }

@@ -78,6 +78,11 @@ public class CompiledSqlFunction extends UserDefinedFunction<Value> {
         this.body = body;
     }
 
+    @Override
+    public boolean isTableFunction() {
+        return true;
+    }
+
     @Nonnull
     public RecordMetaDataProto.PUserDefinedFunction toProto(@Nonnull final PlanSerializationContext serializationContext) {
         throw new RecordCoreException("attempt to serialize compiled SQL function");

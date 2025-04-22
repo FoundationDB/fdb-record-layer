@@ -137,7 +137,7 @@ public class SemanticAnalyzer {
     }
 
     @Nonnull
-    public Optional<LogicalOperator> findCteMaybe(@Nonnull Identifier identifier, @Nonnull LogicalPlanFragment logicalPlanFragment) {
+    public Optional<LogicalOperator> findCteMaybe(@Nonnull final Identifier identifier, @Nonnull final LogicalPlanFragment logicalPlanFragment) {
         var currentFragment = Optional.of(logicalPlanFragment);
         while (currentFragment.isPresent()) {
             final var logicalOperators = currentFragment.get().getLogicalOperators();
@@ -152,7 +152,7 @@ public class SemanticAnalyzer {
         return Optional.empty();
     }
 
-    public boolean tableExists(@Nonnull Identifier tableIdentifier) {
+    public boolean tableExists(@Nonnull final Identifier tableIdentifier) {
         if (tableIdentifier.getQualifier().size() > 1) {
             return false;
         }
@@ -778,8 +778,8 @@ public class SemanticAnalyzer {
     @Nonnull
     public LogicalOperator resolveTableFunction(@Nonnull final String functionName, @Nonnull final Expressions arguments,
                                                 boolean flattenSingleItemRecords) {
-        Assert.thatUnchecked(functionCatalog.containsFunction(functionName), ErrorCode.UNSUPPORTED_QUERY,
-                () -> String.format(Locale.ROOT, "Unsupported operator %s", functionName));
+        Assert.thatUnchecked(functionCatalog.containsFunction(functionName), ErrorCode.UNDEFINED_FUNCTION,
+                () -> String.format(Locale.ROOT, "Unknown function %s", functionName));
         final var tableFunction = functionCatalog.lookupFunction(functionName, arguments);
         if (tableFunction instanceof BuiltInFunction) {
             Assert.thatUnchecked(tableFunction instanceof BuiltInTableFunction, functionName + " is not a table-valued function");

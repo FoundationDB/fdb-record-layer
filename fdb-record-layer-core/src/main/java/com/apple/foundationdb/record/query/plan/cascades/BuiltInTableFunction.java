@@ -38,4 +38,9 @@ public abstract class BuiltInTableFunction extends BuiltInFunction<StreamingValu
                                    @Nullable final Type variadicSuffixType, @Nonnull final EncapsulationFunction<StreamingValue> encapsulationFunction) {
         super(functionName, parameterTypes, variadicSuffixType, encapsulationFunction);
     }
+
+    @Override
+    public boolean isTableFunction() {
+        return true;
+    }
 }

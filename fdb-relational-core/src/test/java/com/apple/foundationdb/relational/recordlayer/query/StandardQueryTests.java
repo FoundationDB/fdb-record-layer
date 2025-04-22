@@ -1540,6 +1540,27 @@ public class StandardQueryTests {
         }
     }
 
+    @Test
+    void sqlFunctionWorks3() throws Exception {
+        final String schemaTemplate =
+                "CREATE TABLE T(a BIGINT, b BIGINT, c bigint, primary key(a)) " +
+                "CREATE FUNCTION SQ1(IN Q BIGINT) RETURNS TABLE (R BIGINT) RETURN SELECT * FROM T WHERE c < Q " +
+                "CREATE FUNCTION SQ2(IN S BIGINT) RETURNS TABLE (R BIGINT) RETURN SELECT * FROM SQ1(Q => 100 + S) WHERE b < S";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t values (1, 10, 100), (5, 16, 100), (2, 20, 200), (3, 30, 300), (4, 40, 400)");
+                Assertions.assertTrue(statement.execute("select * from sq2(S => 22)"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .isRowExactly(1L, 10L, 100L)
+                            .hasNextRow()
+                            .isRowExactly(5L, 16L, 100L)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
 
 
     @Test
