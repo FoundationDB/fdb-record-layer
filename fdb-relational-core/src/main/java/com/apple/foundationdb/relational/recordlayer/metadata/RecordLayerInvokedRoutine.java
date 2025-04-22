@@ -93,6 +93,11 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         return Objects.hash(description, name);
     }
 
+    @Override
+    public String toString() {
+        return "invoked routine (name '" + name + "', description '" + description + "')";
+    }
+
     public static final class Builder {
         private String description;
         private String name;

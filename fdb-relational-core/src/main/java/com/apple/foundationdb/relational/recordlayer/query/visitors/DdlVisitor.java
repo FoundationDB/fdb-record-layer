@@ -318,7 +318,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var queryString = getDelegate().getPlanGenerationContext().getQuery();
         final var start = ctx.start.getStartIndex();
         final var stop = ctx.stop.getStopIndex() + 1; // inclusive.
-        final var functionDefinition = queryString.substring(start, stop);
+        final var functionDefinition = "CREATE " + queryString.substring(start, stop);
 
         // 3. finally, get the compiled SQL function.
         final var function = visitSqlInvokedFunction(ctx);

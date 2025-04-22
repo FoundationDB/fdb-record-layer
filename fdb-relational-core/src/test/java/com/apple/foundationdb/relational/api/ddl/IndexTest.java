@@ -104,22 +104,24 @@ public class IndexTest {
         connection.setAutoCommit(true);
     }
 
-    private void indexIs(@Nonnull String stmt, @Nonnull final KeyExpression expectedKey, @Nonnull final String indexType) throws Exception {
+    private void indexIs(@Nonnull final String stmt, @Nonnull final KeyExpression expectedKey, @Nonnull final String indexType) throws Exception {
         indexIs(stmt, expectedKey, indexType, index -> { });
     }
 
-    private void indexIs(@Nonnull String stmt, @Nonnull final KeyExpression expectedKey, @Nonnull final String indexType,
-                         @Nonnull Consumer<Index> validator) throws Exception {
+    private void indexIs(@Nonnull final String stmt, @Nonnull final KeyExpression expectedKey, @Nonnull final String indexType,
+                         @Nonnull final Consumer<Index> validator) throws Exception {
         shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
-            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                        @Nonnull Options templateProperties) {
+            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template,
+                                                                        @Nonnull final Options templateProperties) {
                 Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
-                Assertions.assertEquals(1, ((RecordLayerSchemaTemplate) template).getTables().size(), "Incorrect number of tables");
-                Table info = ((RecordLayerSchemaTemplate) template).getTables().stream().findFirst().orElseThrow();
-                Assertions.assertEquals(1, info.getIndexes().size(), "Incorrect number of indexes!");
-                final Index index = Assert.optionalUnchecked(info.getIndexes().stream().findFirst());
+                final var recordLayerSchemaTemplate = Assert.castUnchecked(template, RecordLayerSchemaTemplate.class);
+                Assertions.assertEquals(1, recordLayerSchemaTemplate.getTables().size(), "Incorrect number of tables");
+                final Table table = Assert.optionalUnchecked(recordLayerSchemaTemplate.getTables().stream().findFirst());
+                Assertions.assertEquals(1, table.getIndexes().size(), "Incorrect number of indexes!");
+                final Index index = Assert.optionalUnchecked(table.getIndexes().stream().findFirst());
+                Assertions.assertInstanceOf(RecordLayerIndex.class, index);
                 Assertions.assertEquals("MV1", index.getName(), "Incorrect index name!");
                 Assertions.assertEquals(indexType, index.getIndexType());
                 final KeyExpression actualKey = KeyExpression.fromProto(((RecordLayerIndex) index).getKeyExpression().toKeyExpression());
@@ -137,7 +139,8 @@ public class IndexTest {
                 "CREATE TYPE AS STRUCT A(x bigint, y bigint) " +
                 "CREATE TABLE T(p bigint, a A array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT SQ.F from T AS t, (select M.x as F from t.a AS M) SQ";
-        indexIs(stmt, field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))), IndexTypes.VALUE);
+        indexIs(stmt, field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(),
+                KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))), IndexTypes.VALUE);
     }
 
     @Test
@@ -146,7 +149,8 @@ public class IndexTest {
                 "CREATE TYPE AS STRUCT A(x bigint) " +
                 "CREATE TABLE T(p bigint, a A array, primary key(p)) " +
                 "CREATE INDEX mv1 AS SELECT SQ.x, t.p from T AS t, (select M.x from t.a AS M) SQ order by SQ.x, t.p";
-        indexIs(stmt, concat(field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))), field("P")), IndexTypes.VALUE);
+        indexIs(stmt, concat(field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(),
+                KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))), field("P")), IndexTypes.VALUE);
     }
 
     @Test
@@ -155,7 +159,8 @@ public class IndexTest {
                 "CREATE TYPE AS STRUCT A(x bigint) " +
                 "CREATE TABLE T(p bigint, a A array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT t.p, SQ.x from T AS t, (select M.x from t.a AS M) SQ ORDER BY t.p, SQ.x";
-        indexIs(stmt, concat(field("P"), field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None)))), IndexTypes.VALUE);
+        indexIs(stmt, concat(field("P"), field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(),
+                KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None)))), IndexTypes.VALUE);
     }
 
     @Test
@@ -165,7 +170,9 @@ public class IndexTest {
                 "CREATE TYPE AS STRUCT B(a A array) " +
                 "CREATE TABLE T(p bigint, b B array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT SQ.x from T AS t, (select M.x from t.b AS Y, (select x, pp from Y.a) M) SQ";
-        indexIs(stmt, field("B", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))))), IndexTypes.VALUE);
+        indexIs(stmt, field("B", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(),
+                KeyExpression.FanType.FanOut).nest(field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(),
+                KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))))), IndexTypes.VALUE);
     }
 
     @Test
@@ -181,8 +188,10 @@ public class IndexTest {
                 "  (select M.z from t.b AS Y, (select z from Y.c) M) SQ2" +
                 " ORDER BY SQ1.x, SQ2.z";
         indexIs(stmt,
-                concat(field("B", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))))),
-                        field("B", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("C", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("Z", KeyExpression.FanType.None)))))),
+                concat(field("B", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(),
+                                KeyExpression.FanType.FanOut).nest(field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))))),
+                        field("B", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(),
+                                KeyExpression.FanType.FanOut).nest(field("C", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("Z", KeyExpression.FanType.None)))))),
                 IndexTypes.VALUE);
     }
 

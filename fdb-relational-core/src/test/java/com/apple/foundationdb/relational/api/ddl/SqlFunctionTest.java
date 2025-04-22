@@ -20,5 +20,121 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
+import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
+import com.apple.foundationdb.relational.recordlayer.RelationalConnectionRule;
+import com.apple.foundationdb.relational.recordlayer.Utils;
+import com.apple.foundationdb.relational.utils.PermutationIterator;
+import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
+import com.apple.foundationdb.relational.utils.TestSchemas;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.provider.Arguments;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
+
+import static com.apple.foundationdb.relational.matchers.SchemaTemplateMatchers.containsRoutinesInAnyOrder;
+import static com.apple.foundationdb.relational.matchers.SchemaTemplateMatchers.routine;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 public class SqlFunctionTest {
+
+    @RegisterExtension
+    @Order(0)
+    public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
+
+    @RegisterExtension
+    @Order(2)
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, DdlStatementParsingTest.class, TestSchemas.books());
+
+    @RegisterExtension
+    @Order(3)
+    public final RelationalConnectionRule connection = new RelationalConnectionRule(database::getConnectionUri)
+            .withSchema("TEST_SCHEMA");
+
+    @BeforeAll
+    public static void setup() {
+        Utils.enableCascadesDebugger();
+    }
+
+    private static final String[] validPrimitiveDataTypes = new String[]{
+            "integer", "bigint", "double", "boolean", "string", "bytes"
+    };
+
+    @Nonnull
+    public static Stream<Arguments> columnTypePermutations() {
+        int numColumns = 2;
+        final List<String> items = List.of(validPrimitiveDataTypes);
+
+        final PermutationIterator<String> permutations = PermutationIterator.generatePermutations(items, numColumns);
+        return permutations.stream().map(Arguments::of);
+    }
+
+    void shouldFailWith(@Nonnull final String query, @Nullable final ErrorCode errorCode) throws Exception {
+        connection.setAutoCommit(false);
+        (connection.getUnderlyingEmbeddedConnection()).createNewTransaction();
+        final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
+                DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
+                        "/DdlStatementParsingTest").getPlan(query));
+        Assertions.assertEquals(errorCode, ve.getErrorCode());
+        connection.rollback();
+        connection.setAutoCommit(true);
+    }
+
+    void shouldWorkWithInjectedFactory(@Nonnull final String query, @Nonnull final MetadataOperationsFactory metadataOperationsFactory)
+            throws Exception {
+        connection.setAutoCommit(false);
+        connection.getUnderlyingEmbeddedConnection().createNewTransaction();
+        Assertions.assertDoesNotThrow(() ->
+                DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
+                        "/IndexTest", metadataOperationsFactory).getPlan(query));
+        connection.rollback();
+        connection.setAutoCommit(true);
+    }
+
+    void shouldFailWithInjectedFactory(@Nonnull final String query, @Nullable final ErrorCode errorCode,
+                                       @Nonnull final MetadataOperationsFactory metadataOperationsFactory) throws Exception {
+        connection.setAutoCommit(false);
+        (connection.getUnderlyingEmbeddedConnection()).createNewTransaction();
+        final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
+                DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
+                        "/DdlStatementParsingTest", metadataOperationsFactory).getPlan(query));
+        Assertions.assertEquals(errorCode, ve.getErrorCode());
+        connection.rollback();
+        connection.setAutoCommit(true);
+    }
+
+    @Nonnull
+    SchemaTemplate ddl(@Nonnull final String sql) throws Exception {
+        final AtomicReference<SchemaTemplate> t = new AtomicReference<>();
+        shouldWorkWithInjectedFactory(sql, new AbstractMetadataOperationsFactory() {
+            @Nonnull
+            @Override
+            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template,
+                                                                        @Nonnull final Options ignored) {
+                t.set(template);
+                return txn -> {
+                };
+            }
+        });
+        return t.get();
+    }
+
+    @Test
+    void createSqlFunctionWorks() throws Exception {
+        assertThat(ddl("CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(a BIGINT, b BIGINT, primary key(a)) " +
+                "CREATE FUNCTION SQ(IN S BIGINT) RETURNS TABLE (R BIGINT) RETURN SELECT * FROM T WHERE b < S"),
+                containsRoutinesInAnyOrder(routine("SQ", "CREATE FUNCTION SQ(IN S BIGINT) RETURNS TABLE (R BIGINT) RETURN SELECT * FROM T WHERE b < S")));
+    }
 }
