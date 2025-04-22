@@ -7,6 +7,38 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.2
 
+### 4.2.6.0
+
+<h4> Breaking Changes </h4>
+
+* Streaming aggregate cursor now requires 4.1.9.0 or later for continuation deserialization - [PR #3246](https://github.com/FoundationDB/fdb-record-layer/pull/3246)
+* Make INDEX_SCRUBBED_INDEX_RANGES unique + more - [PR #3306](https://github.com/FoundationDB/fdb-record-layer/pull/3306)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Fix getMixedModeVersion() to match display name - [PR #3310](https://github.com/FoundationDB/fdb-record-layer/pull/3310)
+* Fix connection name in Multiserver configs in YAML-tests - [PR #3301](https://github.com/FoundationDB/fdb-record-layer/pull/3301)
+
+</details>
+
+
+**[Full Changelog (4.2.5.0...4.2.6.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.2.5.0...4.2.6.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.1.5.0`, ❌`4.1.6.0`, ❌`4.1.8.0`, ✅`4.1.9.0`, ✅`4.1.10.0`, ✅`4.2.2.0`, ✅`4.2.2.1`, ❌`4.2.3.0`, ❌`4.2.4.0`, ✅`4.2.5.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/14498535409)
+
+
+
 ### 4.2.5.0
 
 <h4> Breaking Changes </h4>
