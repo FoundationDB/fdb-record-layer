@@ -355,9 +355,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         Assert.thatUnchecked(language == CompilableRoutine.Language.SQL, ErrorCode.UNSUPPORTED_OPERATION,
                 "only sql-language functions are supported");
         // 3. create SQL function logical plan by visiting the function body.
-        final var parameters = visitSqlParameterDeclarationList(ctx.functionSpecification().sqlParameterDeclarationList());
-        Assert.thatUnchecked(parameters.allNamed() || parameters.allUnnamed(), ErrorCode.UNSUPPORTED_OPERATION,
-                "mixing named and unnamed arguments is not supported");
+        final var parameters = visitSqlParameterDeclarationList(ctx.functionSpecification().sqlParameterDeclarationList()).asNamedArguments();
         final var parameterTypes = parameters.underlyingTypes();
         //final var returnType = visitReturnsType(ctx.functionSpecification().returnsClause().returnsType());
         final var sqlFunctionBuilder = CompiledSqlFunction.newBuilder()

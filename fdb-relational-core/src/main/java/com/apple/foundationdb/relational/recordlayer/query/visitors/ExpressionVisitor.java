@@ -107,7 +107,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     public Expression visitNamedFunctionArg(@Nonnull final RelationalParser.NamedFunctionArgContext ctx) {
         final var name = visitUid(ctx.key);
         final var expression = Assert.castUnchecked(visit(ctx.value), Expression.class);
-        return expression.withName(name);
+        return expression.toNamedArgument(name);
     }
 
     @Nonnull

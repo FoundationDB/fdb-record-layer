@@ -787,10 +787,10 @@ public class SemanticAnalyzer {
         final List<? extends Typed> valueArgs = Streams.stream(arguments.underlying().iterator())
                 .map(v -> flattenSingleItemRecords ? SqlFunctionCatalog.flattenRecordWithOneField(v) : v)
                 .collect(ImmutableList.toImmutableList());
-        Assert.thatUnchecked(arguments.allNamed() || arguments.allUnnamed(), ErrorCode.UNSUPPORTED_OPERATION,
+        Assert.thatUnchecked(arguments.allNamedArguments() || arguments.noneNamedArguments(), ErrorCode.UNSUPPORTED_OPERATION,
                 "mixing named and unnamed arguments is not supported");
 
-        final var resultingValue = arguments.allNamed()
+        final var resultingValue = arguments.allNamedArguments()
                 ? tableFunction.encapsulate(arguments.toNamedArgumentInvocation())
                 : tableFunction.encapsulate(valueArgs);
         if (resultingValue instanceof StreamingValue) {
@@ -804,6 +804,7 @@ public class SemanticAnalyzer {
         return LogicalOperator.newUnnamedOperator(Expressions.fromQuantifier(topQun), topQun);
     }
 
+    // TODO: this will be removed once we unify both Java- and SQL-UDFs.
     public boolean isJavaCallFunction(@Nonnull final String functionName) {
         return functionCatalog.isJavaCallFunction(functionName);
     }

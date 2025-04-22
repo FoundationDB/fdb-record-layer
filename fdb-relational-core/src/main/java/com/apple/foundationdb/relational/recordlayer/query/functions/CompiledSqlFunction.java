@@ -189,7 +189,7 @@ public class CompiledSqlFunction extends UserDefinedFunction<Value> {
                 final List<Optional<Value>> defaultsValuesList = Streams.stream(parameters.underlying())
                         .map(v -> v instanceof ThrowsValue ? Optional.<Value>empty() : Optional.of(v))
                         .collect(ImmutableList.toImmutableList());
-                return new CompiledSqlFunction(outerBuilder.name, parameters.names(), parameters.underlyingTypes(),
+                return new CompiledSqlFunction(outerBuilder.name, parameters.argumentNames(), parameters.underlyingTypes(),
                         defaultsValuesList, getParametersCorrelation().map(Quantifier::getAlias), body);
             }
         }
@@ -229,7 +229,7 @@ public class CompiledSqlFunction extends UserDefinedFunction<Value> {
             Assert.notNullUnchecked(name);
             final var parameters = Expressions.of(parametersBuilder.build());
             // todo: support unnamed parameters.
-            Assert.thatUnchecked(parameters.allNamed() /*|| parameters.allUnnamed()*/, ErrorCode.UNSUPPORTED_OPERATION,
+            Assert.thatUnchecked(parameters.allNamedArguments() /*|| parameters.allUnnamed()*/, ErrorCode.UNSUPPORTED_OPERATION,
                     "unnamed arguments is not supported");
             return new FinalBuilder(this, parameters);
 

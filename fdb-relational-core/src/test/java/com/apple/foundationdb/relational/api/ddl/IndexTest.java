@@ -35,7 +35,6 @@ import com.apple.foundationdb.relational.api.metadata.Index;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
-import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.RelationalConnectionRule;
 import com.apple.foundationdb.relational.recordlayer.Utils;
@@ -94,7 +93,7 @@ public class IndexTest {
     }
 
     private PlanContext getFakePlanContext() throws SQLException, RelationalException {
-        final var embeddedConnection = connection.getUnderlying().unwrap(EmbeddedRelationalConnection.class);
+        final var embeddedConnection = connection.getUnderlyingEmbeddedConnection();
         final var schemaTemplate = embeddedConnection.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toBuilder().setVersion(1).setName(database.getSchemaTemplateName()).build();
         RecordMetaDataProto.MetaData md = schemaTemplate.toRecordMetadata().toProto();
         return PlanContext.Builder.create()
@@ -110,7 +109,7 @@ public class IndexTest {
     }
 
     private PlanGenerator getPlanGenerator(@Nonnull PlanContext planContext) throws SQLException, RelationalException {
-        final var embeddedConnection = connection.getUnderlying().unwrap(EmbeddedRelationalConnection.class);
+        final var embeddedConnection = connection.getUnderlyingEmbeddedConnection();
         final AbstractDatabase database = embeddedConnection.getRecordLayerDatabase();
         final var storeState = new RecordStoreState(null, Map.of());
         final FDBRecordStoreBase<?> store = database.loadSchema(connection.getSchema()).loadStore().unwrap(FDBRecordStoreBase.class);
@@ -119,19 +118,22 @@ public class IndexTest {
 
     void shouldFailWith(@Nonnull final String query, @Nonnull ErrorCode errorCode, @Nonnull final String errorMessage) throws Exception {
         connection.setAutoCommit(false);
-        ((EmbeddedRelationalConnection) connection.getUnderlying()).createNewTransaction();
+        connection.getUnderlyingEmbeddedConnection().createNewTransaction();
         final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
-                getPlanGenerator(PlanContext.Builder.unapply(getFakePlanContext()).build()).getPlan(query));
+                getPlanGenerator(DdlTestUtil.createVanillaPlanContext(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
+                        "/IndexTest")).getPlan(query));
         Assertions.assertEquals(errorCode, ve.getErrorCode());
         Assertions.assertTrue(ve.getMessage().contains(errorMessage), String.format(Locale.ROOT, "expected error message '%s' to contain '%s' but it didn't", ve.getMessage(), errorMessage));
         connection.rollback();
         connection.setAutoCommit(true);
     }
 
-    void shouldWorkWithInjectedFactory(@Nonnull final String query, @Nonnull MetadataOperationsFactory metadataOperationsFactory) throws Exception {
+    void shouldWorkWithInjectedFactory(@Nonnull final String query, @Nonnull final MetadataOperationsFactory metadataOperationsFactory) throws Exception {
         connection.setAutoCommit(false);
-        ((EmbeddedRelationalConnection) connection.getUnderlying()).createNewTransaction();
-        Assertions.assertDoesNotThrow(() -> getPlanGenerator(PlanContext.Builder.unapply(getFakePlanContext()).withConstantActionFactory(metadataOperationsFactory).build()).getPlan(query));
+        connection.getUnderlyingEmbeddedConnection().createNewTransaction();
+        Assertions.assertDoesNotThrow(() ->
+                getPlanGenerator(PlanContext.Builder.unapply(DdlTestUtil.createVanillaPlanContext(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
+                        "/IndexTest")).withConstantActionFactory(metadataOperationsFactory).build()).getPlan(query));
         connection.rollback();
         connection.setAutoCommit(true);
     }

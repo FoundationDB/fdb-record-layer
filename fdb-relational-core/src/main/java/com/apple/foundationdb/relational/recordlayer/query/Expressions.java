@@ -228,24 +228,29 @@ public final class Expressions implements Iterable<Expression> {
         return underlying;
     }
 
-    public boolean allNamed() {
-        return Streams.stream(this).allMatch(e -> e.getName().isPresent());
+    @Nonnull
+    public Expressions asNamedArguments() {
+        return Expressions.of(Streams.stream(this).map(Expression::toNamedArgument).collect(ImmutableList.toImmutableList()));
+    }
+
+    public boolean allNamedArguments() {
+        return Streams.stream(this).allMatch(Expression::isNamedArgument);
     }
 
     @Nonnull
-    public List<String> names() {
-        Assert.thatUnchecked(allNamed());
+    public List<String> argumentNames() {
+        Assert.thatUnchecked(allNamedArguments());
         return Streams.stream(this).map(Expression::getName).flatMap(Optional::stream).map(Identifier::toString)
                 .collect(ImmutableList.toImmutableList());
     }
 
-    public boolean allUnnamed() {
-        return Streams.stream(this).noneMatch(e -> e.getName().isPresent());
+    public boolean noneNamedArguments() {
+        return Streams.stream(this).noneMatch(Expression::isNamedArgument);
     }
 
     @Nonnull
     public Map<String, Value> toNamedArgumentInvocation() {
-        Assert.thatUnchecked(allNamed());
+        Assert.thatUnchecked(allNamedArguments());
         final var resultBuilder = ImmutableMap.<String, Value>builder();
         for (final var argument : this) {
             final var argumentName = argument.getName();

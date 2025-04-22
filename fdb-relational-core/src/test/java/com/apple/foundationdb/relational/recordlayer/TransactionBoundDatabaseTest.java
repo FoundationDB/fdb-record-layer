@@ -62,7 +62,7 @@ public class TransactionBoundDatabaseTest {
 
     @Test
     void simpleSelect() throws RelationalException, SQLException {
-        final var embeddedConnection = (EmbeddedRelationalConnection) connRule.getUnderlying();
+        final var embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
         final var store = getStore(embeddedConnection);
         final var schemaTemplate = getSchemaTemplate(embeddedConnection);
 
@@ -98,7 +98,7 @@ public class TransactionBoundDatabaseTest {
 
     @Test
     void selectWithIncludedPlanCache() throws RelationalException, SQLException {
-        final var embeddedConnection = (EmbeddedRelationalConnection) connRule.getUnderlying();
+        final var embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
         final var store = getStore(embeddedConnection);
         final var schemaTemplate = getSchemaTemplate(embeddedConnection);
 

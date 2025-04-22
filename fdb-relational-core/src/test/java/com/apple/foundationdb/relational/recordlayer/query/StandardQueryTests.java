@@ -1468,7 +1468,6 @@ public class StandardQueryTests {
         }
     }
 
-
     @Test
     void sqlFunctionMultiInvocationWorks() throws Exception {
         final String schemaTemplate =

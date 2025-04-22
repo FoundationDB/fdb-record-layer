@@ -78,7 +78,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
     @Nonnull
     private Optional<? extends CatalogedFunction<? extends Typed>> lookupBuiltInFunction(@Nonnull final String name,
                                                                                          @Nonnull final Expressions expressions) {
-        final var functionValidator = builtInSynonums.get(name);
+        final var functionValidator = builtInSynonums.get(name.toLowerCase(Locale.ROOT));
         if (functionValidator == null) {
             return Optional.empty();
         }

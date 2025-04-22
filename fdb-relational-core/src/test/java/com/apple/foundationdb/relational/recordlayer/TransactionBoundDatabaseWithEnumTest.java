@@ -241,7 +241,7 @@ public class TransactionBoundDatabaseWithEnumTest {
     }
 
     private Transaction createTransaction(RelationalConnectionRule connRule) throws RelationalException, SQLException {
-        EmbeddedRelationalConnection connection = (EmbeddedRelationalConnection) connRule.getUnderlying();
+        EmbeddedRelationalConnection connection = connRule.getUnderlyingEmbeddedConnection();
         FDBRecordContext context = TransactionBoundDatabaseTest.createNewContext(connection);
         FDBRecordStoreBase<Message> recordStore = getStore(connection, context);
         final var schemaTemplate = TransactionBoundDatabaseTest.getSchemaTemplate(connection);

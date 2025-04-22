@@ -106,7 +106,7 @@ public class DdlStatementParsingTest {
     }
 
     private PlanContext getFakePlanContext() throws SQLException, RelationalException {
-        final var embeddedConnection = connection.getUnderlying().unwrap(EmbeddedRelationalConnection.class);
+        final var embeddedConnection = connection.getUnderlyingEmbeddedConnection().unwrap(EmbeddedRelationalConnection.class);
         final var schemaTemplate = embeddedConnection.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toBuilder().setVersion(1).setName(database.getSchemaTemplateName()).build();
         RecordMetaDataProto.MetaData md = schemaTemplate.toRecordMetadata().toProto();
         return PlanContext.Builder.create()
@@ -122,7 +122,7 @@ public class DdlStatementParsingTest {
     }
 
     private PlanGenerator getPlanGenerator(@Nonnull PlanContext planContext) throws SQLException, RelationalException {
-        final var embeddedConnection = connection.getUnderlying().unwrap(EmbeddedRelationalConnection.class);
+        final var embeddedConnection = connection.getUnderlyingEmbeddedConnection().unwrap(EmbeddedRelationalConnection.class);
         final AbstractDatabase database = embeddedConnection.getRecordLayerDatabase();
         final var storeState = new RecordStoreState(null, Map.of());
         final FDBRecordStoreBase<?> store = database.loadSchema(connection.getSchema()).loadStore().unwrap(FDBRecordStoreBase.class);
@@ -139,7 +139,7 @@ public class DdlStatementParsingTest {
 
     void shouldFailWith(@Nonnull final String query, @Nullable ErrorCode errorCode) throws Exception {
         connection.setAutoCommit(false);
-        ((EmbeddedRelationalConnection) connection.getUnderlying()).createNewTransaction();
+        (connection.getUnderlyingEmbeddedConnection()).createNewTransaction();
         final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
                 getPlanGenerator(PlanContext.Builder.unapply(getFakePlanContext()).build()).getPlan(query));
         Assertions.assertEquals(errorCode, ve.getErrorCode());
@@ -149,7 +149,7 @@ public class DdlStatementParsingTest {
 
     void shouldFailWithInjectedFactory(@Nonnull final String query, @Nullable ErrorCode errorCode, @Nonnull MetadataOperationsFactory metadataOperationsFactory) throws Exception {
         connection.setAutoCommit(false);
-        ((EmbeddedRelationalConnection) connection.getUnderlying()).createNewTransaction();
+        (connection.getUnderlyingEmbeddedConnection()).createNewTransaction();
         final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
                 getPlanGenerator(PlanContext.Builder.unapply(getFakePlanContext()).withConstantActionFactory(metadataOperationsFactory).build()).getPlan(query));
         Assertions.assertEquals(errorCode, ve.getErrorCode());
@@ -159,7 +159,7 @@ public class DdlStatementParsingTest {
 
     void shouldWorkWithInjectedFactory(@Nonnull final String query, @Nonnull MetadataOperationsFactory metadataOperationsFactory) throws Exception {
         connection.setAutoCommit(false);
-        ((EmbeddedRelationalConnection) connection.getUnderlying()).createNewTransaction();
+        (connection.getUnderlyingEmbeddedConnection()).createNewTransaction();
         getPlanGenerator(PlanContext.Builder.unapply(getFakePlanContext()).withConstantActionFactory(metadataOperationsFactory).build()).getPlan(query);
         connection.rollback();
         connection.setAutoCommit(true);
@@ -167,7 +167,7 @@ public class DdlStatementParsingTest {
 
     void shouldFailWithInjectedQueryFactory(@Nonnull final String query, @Nullable ErrorCode errorCode, @Nonnull DdlQueryFactory queryFactory) throws Exception {
         connection.setAutoCommit(false);
-        ((EmbeddedRelationalConnection) connection.getUnderlying()).createNewTransaction();
+        (connection.getUnderlyingEmbeddedConnection()).createNewTransaction();
         final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
                 getPlanGenerator(PlanContext.Builder.unapply(getFakePlanContext()).withDdlQueryFactory(queryFactory).build()).getPlan(query));
         connection.rollback();
@@ -177,7 +177,7 @@ public class DdlStatementParsingTest {
 
     void shouldWorkWithInjectedQueryFactory(@Nonnull final String query, @Nonnull DdlQueryFactory queryFactory) throws Exception {
         connection.setAutoCommit(false);
-        ((EmbeddedRelationalConnection) connection.getUnderlying()).createNewTransaction();
+        (connection.getUnderlyingEmbeddedConnection()).createNewTransaction();
         getPlanGenerator(PlanContext.Builder.unapply(getFakePlanContext()).withDdlQueryFactory(queryFactory).build()).getPlan(query);
         connection.rollback();
         connection.setAutoCommit(true);
