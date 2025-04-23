@@ -40,6 +40,7 @@ import java.util.function.UnaryOperator;
  * Scan indexes for problems and optionally report or repair.
  */
 @API(API.Status.UNSTABLE)
+@SuppressWarnings("PMD.AvoidUsingHardCodedIP") // Dear PMD, the version string in "deprecated since" is not an IP.
 public class OnlineIndexScrubber implements AutoCloseable {
 
     @Nonnull private final IndexingCommon common;
@@ -117,6 +118,16 @@ public class OnlineIndexScrubber implements AutoCloseable {
         return missingCount.get();
     }
 
+    /**
+     * Reset all index scrubbing data. This will make the index "forget" any previous index scrubbing
+     * sessions.
+     * This method was designed to be used as a global reset to clean unwanted partial index scrubbing information and
+     * should probably not be used as a routine.
+     */
+    public void eraseAllIndexingScrubbingData(@Nonnull FDBRecordContext context, @Nonnull FDBRecordStore store) {
+        IndexingSubspaces.eraseAllIndexingScrubbingData(context, store, common.getIndex());
+    }
+
     @Nonnull
     public static Builder newBuilder() {
         return new Builder();
@@ -126,21 +137,25 @@ public class OnlineIndexScrubber implements AutoCloseable {
      * A builder for the scrubbing policy.
      */
     public static class ScrubbingPolicy {
-        public static final ScrubbingPolicy DEFAULT = new ScrubbingPolicy(1000, true, 0, false, false);
+        public static final ScrubbingPolicy DEFAULT = new ScrubbingPolicy(1000, true, 0, false, false, 0, false);
         private final int logWarningsLimit;
         private final boolean allowRepair;
         private final long entriesScanLimit;
         private final boolean ignoreIndexTypeCheck;
         private final boolean useLegacy;
+        private final int rangeId;
+        private final boolean rangeReset;
 
-        public ScrubbingPolicy(int logWarningsLimit, boolean allowRepair, long entriesScanLimit,
-                               boolean ignoreIndexTypeCheck, boolean useLgacy) {
+        private ScrubbingPolicy(int logWarningsLimit, boolean allowRepair, long entriesScanLimit,
+                               boolean ignoreIndexTypeCheck, boolean useLegacy, int rangeId, boolean rangeReset) {
 
             this.logWarningsLimit = logWarningsLimit;
             this.allowRepair = allowRepair;
             this.entriesScanLimit = entriesScanLimit;
             this.ignoreIndexTypeCheck = ignoreIndexTypeCheck;
-            this.useLegacy = useLgacy;
+            this.useLegacy = useLegacy;
+            this.rangeId = rangeId;
+            this.rangeReset = rangeReset;
         }
 
         boolean allowRepair() {
@@ -161,6 +176,14 @@ public class OnlineIndexScrubber implements AutoCloseable {
 
         public int getLogWarningsLimit() {
             return logWarningsLimit;
+        }
+
+        public int getScrubbingRangeId() {
+            return rangeId;
+        }
+
+        public boolean isScrubbingRangeReset() {
+            return rangeReset;
         }
 
         /**
@@ -187,6 +210,8 @@ public class OnlineIndexScrubber implements AutoCloseable {
             long entriesScanLimit = 0;
             boolean ignoreIndexTypeCheck = false;
             boolean useLegacy = false;
+            int rangeId = 0;
+            boolean rangeReset = false;
 
             protected Builder() {
             }
@@ -263,8 +288,33 @@ public class OnlineIndexScrubber implements AutoCloseable {
                 return this;
             }
 
+            /**
+             * Choose a specific id for this scrubbing operation. If the scrubbing stops, then it can be resumed
+             * by constructing the same builder.
+             * Work done with other ids will not affect work done with this id.
+             * 0 is the backward compatible default, which means no prefix.
+             * @param rangeId an id for isolating this scrubbing work
+             * @return this builder
+             */
+            public Builder setScrubbingRangeId(final int rangeId) {
+                this.rangeId = rangeId;
+                return this;
+            }
+
+            /**
+             * Start the scrubbing from scratch, regardless of any progress already made for this scrubber range id
+             * (see {@link #setScrubbingRangeId(int)}).
+             * @param rangeReset reset if true
+             * @return this builder
+             */
+            public Builder setScrubbingRangeReset(final boolean rangeReset) {
+                this.rangeReset = rangeReset;
+                return this;
+            }
+
             public ScrubbingPolicy build() {
-                return new ScrubbingPolicy(logWarningsLimit, allowRepair, entriesScanLimit, ignoreIndexTypeCheck, useLegacy);
+                return new ScrubbingPolicy(logWarningsLimit, allowRepair, entriesScanLimit, ignoreIndexTypeCheck,
+                        useLegacy, rangeId, rangeReset);
             }
         }
     }

@@ -227,7 +227,7 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
             if (connectionSelectionPolicy == ConnectionSelectionPolicy.ALTERNATE) {
                 YamlConnection result = underlyingConnections.get(currentConnectionSelector);
                 if (logger.isInfoEnabled()) {
-                    logger.info("Sending operation {} to connection {}", op, currentConnectionSelector);
+                    logger.info("Sending operation {} to connection: {}", op, result.toString());
                 }
                 if (advance) {
                     currentConnectionSelector = (currentConnectionSelector + 1) % underlyingConnections.size();

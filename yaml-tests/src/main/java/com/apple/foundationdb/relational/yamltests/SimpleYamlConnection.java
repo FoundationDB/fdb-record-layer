@@ -41,10 +41,17 @@ public class SimpleYamlConnection implements YamlConnection {
     private final RelationalConnection underlying;
     @Nonnull
     private final List<SemanticVersion> versions;
+    @Nonnull
+    private final String connectionLabel;
 
     public SimpleYamlConnection(@Nonnull Connection connection, @Nonnull SemanticVersion version) throws SQLException {
+        this(connection, version, version.toString());
+    }
+
+    public SimpleYamlConnection(@Nonnull Connection connection, @Nonnull SemanticVersion version, @Nonnull String connectionLabel) throws SQLException {
         underlying = connection.unwrap(RelationalConnection.class);
         this.versions = List.of(version);
+        this.connectionLabel = connectionLabel;
     }
 
     @Override
@@ -93,5 +100,10 @@ public class SimpleYamlConnection implements YamlConnection {
     @Override
     public SemanticVersion getInitialVersion() {
         return versions.get(0);
+    }
+
+    @Override
+    public String toString() {
+        return connectionLabel;
     }
 }

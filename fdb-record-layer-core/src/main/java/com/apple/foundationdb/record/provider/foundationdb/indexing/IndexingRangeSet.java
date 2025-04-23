@@ -30,7 +30,8 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.IndexingBase;
+import com.apple.foundationdb.record.provider.foundationdb.IndexingSubspaces;
+import com.apple.foundationdb.subspace.Subspace;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -225,8 +226,9 @@ public class IndexingRangeSet {
      * @return a {@code WrappedRangeSet} for scrubbing the index's entries
      */
     @Nonnull
-    public static IndexingRangeSet forScrubbingIndex(@Nonnull FDBRecordStore store, @Nonnull Index index) {
-        RangeSet rangeSet = new RangeSet(IndexingBase.indexScrubIndexRangeSubspace(store, index));
+    public static IndexingRangeSet forScrubbingIndex(@Nonnull FDBRecordStore store, @Nonnull Index index, int rangeId) {
+        final Subspace subspace = IndexingSubspaces.indexScrubIndexRangeSubspace(store, index, rangeId);
+        final RangeSet rangeSet = new RangeSet(subspace);
         return new IndexingRangeSet(store.getRecordContext(), rangeSet);
     }
 
@@ -241,8 +243,9 @@ public class IndexingRangeSet {
      * @return a {@code WrappedRangeSet} for scrubbing the index's records
      */
     @Nonnull
-    public static IndexingRangeSet forScrubbingRecords(@Nonnull FDBRecordStore store, @Nonnull Index index) {
-        RangeSet rangeSet = new RangeSet(IndexingBase.indexScrubRecordsRangeSubspace(store, index));
+    public static IndexingRangeSet forScrubbingRecords(@Nonnull FDBRecordStore store, @Nonnull Index index, int rangeId) {
+        final Subspace subspace = IndexingSubspaces.indexScrubRecordsRangeSubspace(store, index, rangeId);
+        final RangeSet rangeSet = new RangeSet(subspace);
         return new IndexingRangeSet(store.getRecordContext(), rangeSet);
     }
 }

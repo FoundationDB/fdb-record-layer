@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSession;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
@@ -402,7 +401,7 @@ public class OnlineIndexer implements AutoCloseable {
         return getRunner().runAsync(context -> openRecordStore(context).thenCompose(store -> {
             Transaction transaction = store.getContext().ensureActive();
             for (Index targetIndex: common.getTargetIndexes()) {
-                byte[] stampKey = indexBuildTypeSubspace(store, targetIndex).getKey();
+                byte[] stampKey = IndexingSubspaces.indexBuildTypeSubspace(store, targetIndex).getKey();
                 transaction.clear(stampKey);
             }
             return AsyncUtil.DONE;
@@ -615,7 +614,7 @@ public class OnlineIndexer implements AutoCloseable {
      * @param index the index whose builds need to be stopped
      */
     public static void stopOngoingOnlineIndexBuilds(@Nonnull FDBRecordStore recordStore, @Nonnull Index index) {
-        SynchronizedSession.endAnySession(recordStore.ensureContextActive(), indexBuildLockSubspace(recordStore, index));
+        SynchronizedSession.endAnySession(recordStore.ensureContextActive(), IndexingSubspaces.indexBuildLockSubspace(recordStore, index));
     }
 
     /**
@@ -644,7 +643,7 @@ public class OnlineIndexer implements AutoCloseable {
      * @return a future that will complete to <code>true</code> if the index is being built and <code>false</code> otherwise
      */
     public static CompletableFuture<Boolean> checkAnyOngoingOnlineIndexBuildsAsync(@Nonnull FDBRecordStore recordStore, @Nonnull Index index) {
-        return SynchronizedSession.checkActiveSessionExists(recordStore.ensureContextActive(), indexBuildLockSubspace(recordStore, index));
+        return SynchronizedSession.checkActiveSessionExists(recordStore.ensureContextActive(), IndexingSubspaces.indexBuildLockSubspace(recordStore, index));
     }
 
     /**
@@ -676,21 +675,6 @@ public class OnlineIndexer implements AutoCloseable {
     CompletableFuture<Void> buildIndexAsync(boolean markReadable) {
         boolean useSyncLock = (!indexingPolicy.isMutual() || fallbackToRecordsScan) && common.config.shouldUseSynchronizedSession();
         return indexingLauncher(() -> getIndexer().buildIndexAsync(markReadable, useSyncLock));
-    }
-
-    @Nonnull
-    private static Subspace indexBuildLockSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
-        return IndexingBase.indexBuildLockSubspace(store, index);
-    }
-
-    @Nonnull
-    protected static Subspace indexBuildScannedRecordsSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
-        return IndexingBase.indexBuildScannedRecordsSubspace(store, index);
-    }
-
-    @Nonnull
-    protected static Subspace indexBuildTypeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
-        return IndexingBase.indexBuildTypeSubspace(store, index);
     }
 
     /**

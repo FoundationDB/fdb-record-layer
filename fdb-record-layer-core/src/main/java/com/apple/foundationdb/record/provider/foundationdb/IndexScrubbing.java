@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
@@ -86,6 +87,9 @@ public class IndexScrubbing extends IndexingBase {
         return Arrays.asList(
                 LogMessageKeys.INDEXING_METHOD, scrubberName,
                 LogMessageKeys.ALLOW_REPAIR, scrubbingPolicy.allowRepair(),
+                LogMessageKeys.RANGE_ID, scrubbingPolicy.getScrubbingRangeId(),
+                LogMessageKeys.RANGE_RESET, scrubbingPolicy.isScrubbingRangeReset(),
+                LogMessageKeys.SCRUB_TYPE, scrubbingType,
                 LogMessageKeys.SCAN_LIMIT, scrubbingPolicy.getEntriesScanLimit()
         );
     }
@@ -157,6 +161,7 @@ public class IndexScrubbing extends IndexingBase {
             if (range == null) {
                 // Here: no more missing ranges - all done
                 // This scrubbing is done. Clear the rangeSet - the next time scrubbing is called it will start from scratch
+                logScrubberRangeReset("range exhausted");
                 rangeSet.clear();
                 return AsyncUtil.READY_FALSE;
             }
@@ -228,11 +233,47 @@ public class IndexScrubbing extends IndexingBase {
     IndexingRangeSet getRangeset(FDBRecordStore store, Index index) {
         switch (scrubbingType) {
             case MISSING:
-                return IndexingRangeSet.forScrubbingRecords(store, index);
+                return IndexingRangeSet.forScrubbingRecords(store, index, scrubbingPolicy.getScrubbingRangeId());
             case DANGLING:
-                return IndexingRangeSet.forScrubbingIndex(store, index);
+                return IndexingRangeSet.forScrubbingIndex(store, index, scrubbingPolicy.getScrubbingRangeId());
             default:
                 throw new RecordCoreArgumentException("Unpredicted scrubbing type ");
+        }
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
+    @Override
+    protected CompletableFuture<Void> setScrubberTypeOrThrow(FDBRecordStore store) {
+        // HERE: The index must be readable, checked by the caller.
+        IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp = getIndexingTypeStamp(store);
+        validateOrThrowEx(indexingTypeStamp.getMethod().equals(IndexBuildProto.IndexBuildIndexingStamp.Method.SCRUB_REPAIR),
+                "Not a scrubber type-stamp");
+
+        final Index index = common.getIndex(); // Note: multi targets mode is not supported (yet)
+        final IndexingRangeSet rangeSet = getRangeset(store, index);
+        if (scrubbingPolicy.isScrubbingRangeReset()) {
+            logScrubberRangeReset("forced reset");
+            rangeSet.clear();
+            return AsyncUtil.DONE;
+        }
+        return rangeSet.firstMissingRangeAsync()
+                .thenAccept(recordRange -> {
+                    if (recordRange == null) {
+                        // Here: no un-scrubbed range is available for this call. Erase the 'ranges' data to allow
+                        // a new, fresh records re-scrubbing.
+                        logScrubberRangeReset("range exhausted detected");
+                        rangeSet.clear();
+                    }
+                });
+    }
+
+    private void logScrubberRangeReset(String reason) {
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info(KeyValueLogMessage.build("Reset index scrubbing range")
+                    .addKeysAndValues(common.indexLogMessageKeyValues())
+                    .addKeyAndValue(LogMessageKeys.REASON, reason)
+                    .toString());
         }
     }
 
