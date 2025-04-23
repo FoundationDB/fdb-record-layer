@@ -340,32 +340,31 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Override
     public CompiledSqlFunction visitSqlInvokedFunction(@Nonnull RelationalParser.SqlInvokedFunctionContext ctx) {
-        // 1. get the function name.
+        // get the function name.
         final var functionName = visitFullId(ctx.functionSpecification().schemaQualifiedRoutineName).toString();
 
-        // 2. run implementation-specific validations.
+        // run implementation-specific validations.
         final var props = ctx.functionSpecification().routineCharacteristics();
         final var language = (props.languageClause() != null && props.languageClause().languageName().JAVA() != null)
                 ? CompilableRoutine.Language.JAVA
                 : CompilableRoutine.Language.SQL;
         boolean isDeterministic = props.deterministicCharacteristic() != null && props.deterministicCharacteristic().NOT() == null;
-        boolean isNullReturnOnNull = props.nullCallClause() == null || props.nullCallClause().RETURNS() != null;
+        // SQL-invoked routine 11.60, syntax rules, section 6.f.ii
+        boolean isNullReturnOnNull = props.nullCallClause() != null || props.nullCallClause().RETURNS() != null;
+        // ... currently we support only CALLED ON NULL INPUT (which is implicitly defined if not set).
+        Assert.thatUnchecked(!isNullReturnOnNull, "only CALLED ON NULL INPUT clause is supported");
         boolean isSqlParameterStyle = props.parameterStyle() == null || props.parameterStyle().SQL() != null;
         boolean isScalar = ctx.functionSpecification().returnsClause().returnsType().returnsTableType() == null;
         Assert.thatUnchecked(!isScalar, "only table functions are supported");
-
         Assert.thatUnchecked(isSqlParameterStyle, ErrorCode.UNSUPPORTED_OPERATION, "only sql-style parameters are supported");
         // todo: rework Java UDFs to go through this code path as well.
         Assert.thatUnchecked(language == CompilableRoutine.Language.SQL, ErrorCode.UNSUPPORTED_OPERATION,
                 "only sql-language functions are supported");
-        // 3. create SQL function logical plan by visiting the function body.
+        // create SQL function logical plan by visiting the function body.
         final var parameters = visitSqlParameterDeclarationList(ctx.functionSpecification().sqlParameterDeclarationList()).asNamedArguments();
-        final var parameterTypes = parameters.underlyingTypes();
-        //final var returnType = visitReturnsType(ctx.functionSpecification().returnsClause().returnsType());
         final var sqlFunctionBuilder = CompiledSqlFunction.newBuilder()
                 .setName(functionName)
                 .addAllParameters(parameters)
-                // .setReturnType(returnType)
                 .setDeterministic(isDeterministic)
                 .seal();
         final var parametersCorrelation = sqlFunctionBuilder.getParametersCorrelation();
@@ -381,7 +380,6 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             fragment.addOperator(LogicalOperator.newUnnamedOperator(Expressions.fromQuantifier(parametersCorrelation.get()),
                     parametersCorrelation.get()));
             body = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() -> visitRoutineBody(ctx.routineBody()));
-
         } else {
             body = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() -> visitRoutineBody(ctx.routineBody()));
         }

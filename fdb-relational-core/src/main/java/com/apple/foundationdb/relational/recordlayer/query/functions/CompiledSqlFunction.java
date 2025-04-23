@@ -66,6 +66,7 @@ public class CompiledSqlFunction extends UserDefinedFunction<Value> {
     @Nonnull
     private final RelationalExpression body;
 
+    @Nonnull
     private final Optional<CorrelationIdentifier> parametersCorrelation;
 
     private CompiledSqlFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
@@ -76,11 +77,6 @@ public class CompiledSqlFunction extends UserDefinedFunction<Value> {
         super(functionName, parameterNames, parameterTypes, parameterDefaults);
         this.parametersCorrelation = parametersCorrelation;
         this.body = body;
-    }
-
-    @Override
-    public boolean isTableFunction() {
-        return true;
     }
 
     @Nonnull
@@ -140,6 +136,10 @@ public class CompiledSqlFunction extends UserDefinedFunction<Value> {
         return Quantifier.forEach(Reference.of(tableFunctionExpression));
     }
 
+    /**
+     * Creates a new builder of {@link SqlFunctionCatalog}.
+     * @return new builder of {@link SqlFunctionCatalog}.
+     */
     @Nonnull
     public static StepBuilder newBuilder() {
         return new StepBuilder();
