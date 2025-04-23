@@ -28,6 +28,7 @@ import com.google.common.base.Charsets;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.stream.IntStream;
@@ -123,20 +124,23 @@ public class FDBRecordStoreFormatVersionTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @SuppressWarnings("removal") // testing the deprecated function
     public static IntStream testOpenWithProvidedBadVersion() {
         return IntStream.of(-1, 0, FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION + 1);
     }
 
     @ParameterizedTest
     @MethodSource
+    @SuppressWarnings("removal") // testing the deprecated function
     void testOpenWithProvidedBadVersion(int version) {
         try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore.Builder storeBuilder = getStoreBuilder(context, simpleMetaData(NO_HOOK));
             assertThrows(UnsupportedFormatVersionException.class,
-                    () -> getStoreBuilder(context, simpleMetaData(NO_HOOK))
-                            .setFormatVersion(version));
+                    () -> storeBuilder.setFormatVersion(version));
         }
     }
 
+    @SuppressWarnings("removal") // testing the deprecated function
     public static IntStream testOpenWithExistingBadVersion() {
         return IntStream.of(-1, 0, FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION + 1);
     }
@@ -146,7 +150,7 @@ public class FDBRecordStoreFormatVersionTest extends FDBRecordStoreTestBase {
     void testOpenWithExistingBadVersion(int version) {
         try (FDBRecordContext context = openContext()) {
             recordStore = getStoreBuilder(context, simpleMetaData(NO_HOOK))
-                    .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
+                    .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
                     .create();
             recordStore.saveStoreHeader(recordStore.getRecordStoreState().getStoreHeader()
                     .toBuilder()
@@ -158,30 +162,25 @@ public class FDBRecordStoreFormatVersionTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore.Builder storeBuilder = getStoreBuilder(context, simpleMetaData(NO_HOOK));
             assertThrows(UnsupportedFormatVersionException.class, () -> storeBuilder
-                    .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
+                    .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
                     .uncheckedOpen());
         }
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore.Builder storeBuilder = getStoreBuilder(context, simpleMetaData(NO_HOOK));
             assertThrows(UnsupportedFormatVersionException.class, () -> storeBuilder
-                    .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
+                    .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
                     .open());
         }
     }
 
-    static IntStream testUnopenedVersion() {
-        return IntStream.of(FDBRecordStore.DEFAULT_FORMAT_VERSION, FDBRecordStore.INFO_ADDED_FORMAT_VERSION,
-                FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION);
-    }
-
     @ParameterizedTest
-    @MethodSource
-    void testUnopenedVersion(int version) {
+    @EnumSource(FormatVersion.class)
+    void testUnopenedVersion(FormatVersion version) {
         try (FDBRecordContext context = openContext()) {
             recordStore = getStoreBuilder(context, simpleMetaData(NO_HOOK))
                     .setFormatVersion(version)
                     .build();
-            assertEquals(version, recordStore.getFormatVersion());
+            assertEquals(version, recordStore.getFormatVersionEnum());
         }
     }
 }
