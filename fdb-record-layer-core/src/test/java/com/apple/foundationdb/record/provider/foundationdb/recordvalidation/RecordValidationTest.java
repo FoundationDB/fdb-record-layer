@@ -18,9 +18,14 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.provider.foundationdb;
+package com.apple.foundationdb.record.provider.foundationdb.recordvalidation;
 
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.google.common.base.Strings;
@@ -30,12 +35,14 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
-import java.util.EnumSet;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class RecordValidationTest extends FDBRecordStoreTestBase {
     @Nonnull
@@ -55,21 +62,21 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest(name = "testValidateRecordsNoIssue [splitLongRecords = {0}], formatVersion = {1}")
     @MethodSource("splitAndVersion")
-    public void testValidateRecordsNoIssue(boolean splitLongRecords, int formatVersion) throws Exception {
+    void testValidateRecordsNoIssue(boolean splitLongRecords, int formatVersion) throws Exception {
         final RecordMetaDataHook hook = getRecordMetaDataHook(splitLongRecords);
         List<FDBStoredRecord<Message>> result = saveRecords(splitLongRecords, formatVersion, hook);
         // Validate by primary key
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-            validateRecord(store, result.get(0), null);
-            validateRecord(store, result.get(1), null);
+            validateRecord(store, result.get(0).getPrimaryKey(), RecordValidationResult.CODE_VALID, RecordValidationResult.CODE_VALID);
+            validateRecord(store, result.get(1).getPrimaryKey(), RecordValidationResult.CODE_VALID, RecordValidationResult.CODE_VALID);
             context.commit();
         }
     }
 
     @ParameterizedTest(name = "testValidateRecordsMissingRecord [splitLongRecords = {0}], formatVersion = {1}")
     @MethodSource("splitAndVersion")
-    public void testValidateRecordsMissingRecord(boolean splitLongRecords, int formatVersion) throws Exception {
+    void testValidateRecordsMissingRecord(boolean splitLongRecords, int formatVersion) throws Exception {
         final RecordMetaDataHook hook = getRecordMetaDataHook(splitLongRecords);
         List<FDBStoredRecord<Message>> result = saveRecords(splitLongRecords, formatVersion, hook);
         // Delete a record
@@ -81,8 +88,8 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
         // Validate by primary key
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-            validateRecord(store, result.get(0), FDBRecordStoreBase.RecordValidationOptions.RECORD_EXISTS);
-            validateRecord(store, result.get(1), null);
+            validateRecord(store, result.get(0).getPrimaryKey(), RecordValidationResult.CODE_VALID, RecordVersionValidator.CODE_RECORD_MISSING_ERROR);
+            validateRecord(store, result.get(1).getPrimaryKey(), RecordValidationResult.CODE_VALID, RecordValidationResult.CODE_VALID);
             context.commit();
         }
     }
@@ -96,7 +103,7 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest(name = "testValidateRecordsMissingSplit [splitNumber = {0}, formatVersion = {1}]")
     @MethodSource("splitNumberAndFormatVersion")
-    public void testValidateRecordsMissingSplit(int splitNumber, int formatVersion) throws Exception {
+    void testValidateRecordsMissingSplit(int splitNumber, int formatVersion) throws Exception {
         boolean splitLongRecords = true;
         // unsplit (short) records have split #0; split records splits start at #1
         // Use this number to decide which record to operate on
@@ -118,21 +125,21 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
         // Validate by primary key
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-            final FDBRecordStoreBase.RecordValidationOptions expected;
+            final String expected;
             // When format version is 3 and the record is a short record, deleting the only split will make the record disappear
             if ((splitNumber == 0) && (formatVersion == 3)) {
-                expected = FDBRecordStoreBase.RecordValidationOptions.RECORD_EXISTS;
+                validateRecord(store, result.get(recordNumber).getPrimaryKey(), RecordValidationResult.CODE_VALID, RecordVersionValidator.CODE_RECORD_MISSING_ERROR);
             } else {
-                expected = FDBRecordStoreBase.RecordValidationOptions.VALID_VALUE;
+                validateRecord(store, result.get(recordNumber).getPrimaryKey(), RecordValueValidator.CODE_SPLIT_ERROR, null);
+                assertThrows(Exception.class, () -> validateRecord(store, result.get(recordNumber).getPrimaryKey(), null, RecordValidationResult.CODE_VALID));
             }
-            validateRecord(store, result.get(recordNumber), expected);
             context.commit();
         }
     }
 
     @ParameterizedTest(name = "testValidateRecordsDeserialize [formatVersion = {0}]")
     @MethodSource("formatVersions")
-    public void testValidateRecordsDeserialize(int formatVersion) throws Exception {
+    void testValidateRecordsDeserialize(int formatVersion) throws Exception {
         boolean splitLongRecords = true;
         // Remove the last split from the record (#3) so that it fails to deserialize
         int recordNumber = 1;
@@ -151,14 +158,15 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
         // Validate by primary key
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-            validateRecord(store, result.get(recordNumber), FDBRecordStoreBase.RecordValidationOptions.DESERIALIZABLE);
+            validateRecord(store, result.get(recordNumber).getPrimaryKey(), RecordValueValidator.CODE_DESERIALIZE_ERROR, null);
+            assertThrows(Exception.class, () -> validateRecord(store, result.get(recordNumber).getPrimaryKey(), null, RecordValidationResult.CODE_VALID));
             context.commit();
         }
     }
 
     @ParameterizedTest(name = "testValidateRecordsMissingVersion [splitLongRecords = {0}]")
     @BooleanSource
-    public void testValidateRecordsMissingVersion(boolean splitLongRecords) throws Exception {
+    void testValidateRecordsMissingVersion(boolean splitLongRecords) throws Exception {
         final RecordMetaDataHook hook = getRecordMetaDataHook(splitLongRecords);
         List<FDBStoredRecord<Message>> result = saveRecords(splitLongRecords, FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION, hook);
         // Delete the versions
@@ -177,8 +185,8 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
         // Validate by primary key
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION);
-            validateRecord(store, result.get(0), FDBRecordStoreBase.RecordValidationOptions.VALID_VERSION);
-            validateRecord(store, result.get(1), FDBRecordStoreBase.RecordValidationOptions.VALID_VERSION);
+            validateRecord(store, result.get(0).getPrimaryKey(), RecordValidationResult.CODE_VALID, RecordVersionValidator.CODE_VERSION_MISSING_ERROR);
+            validateRecord(store, result.get(1).getPrimaryKey(), RecordValidationResult.CODE_VALID, RecordVersionValidator.CODE_VERSION_MISSING_ERROR);
             commit(context);
         }
     }
@@ -192,18 +200,28 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
         };
     }
 
-    private void validateRecord(FDBRecordStore store, final FDBStoredRecord<Message> rec, final FDBRecordStoreBase.RecordValidationOptions validationOption) throws Exception {
-        EnumSet<FDBRecordStoreBase.RecordValidationOptions> recordValidationOptions;
-        recordValidationOptions = store.validateRecordAsync(rec.getPrimaryKey(), EnumSet.allOf(FDBRecordStoreBase.RecordValidationOptions.class), false).get();
-        assertNotNull(recordValidationOptions);
-        EnumSet<FDBRecordStoreBase.RecordValidationOptions> expected = (validationOption == null) ?
-                                                                       EnumSet.noneOf(FDBRecordStoreBase.RecordValidationOptions.class) :
-                                                                       EnumSet.of(validationOption);
-        assertEquals(expected, recordValidationOptions);
+    private void validateRecord(FDBRecordStore store, final Tuple primaryKey, @Nullable String expectedValueValidationCode, @Nullable String expectedVersionValidationCode) throws Exception {
+        if (expectedValueValidationCode != null) {
+            RecordValidator valueValidator = new RecordValueValidator(store);
+            final RecordValidationResult valueValidatorResult = valueValidator.validateRecordAsync(primaryKey).get();
+            if (expectedValueValidationCode.equals(RecordValidationResult.CODE_VALID)) {
+                assertTrue(valueValidatorResult.isValid());
+            } else {
+                assertFalse(valueValidatorResult.isValid());
+            }
+            assertEquals(expectedValueValidationCode, valueValidatorResult.getErrorCode());
+        }
 
-        recordValidationOptions = store.validateRecordAsync(rec.getPrimaryKey(), EnumSet.noneOf(FDBRecordStoreBase.RecordValidationOptions.class), false).get();
-        assertNotNull(recordValidationOptions);
-        assertEquals(EnumSet.noneOf(FDBRecordStoreBase.RecordValidationOptions.class), recordValidationOptions);
+        if (expectedVersionValidationCode != null) {
+            RecordValidator versionValidator = new RecordVersionValidator(store);
+            final RecordValidationResult versionValidatorResult = versionValidator.validateRecordAsync(primaryKey).get();
+            if (expectedVersionValidationCode.equals(RecordValidationResult.CODE_VALID)) {
+                assertTrue(versionValidatorResult.isValid());
+            } else {
+                assertFalse(versionValidatorResult.isValid());
+            }
+            assertEquals(expectedVersionValidationCode, versionValidatorResult.getErrorCode());
+        }
     }
 
 

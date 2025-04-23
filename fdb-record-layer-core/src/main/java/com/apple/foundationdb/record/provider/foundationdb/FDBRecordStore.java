@@ -1241,11 +1241,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
-    @Override
-    public CompletableFuture<EnumSet<RecordValidationOptions>> validateRecordAsync(final Tuple primaryKey, final EnumSet<RecordValidationOptions> options, final boolean allowRepair) {
-        return RecordValidationHelper.validateRecordAsync(this, primaryKey, options, allowRepair);
-    }
-
     @Nonnull
     @SuppressWarnings("PMD.CloseResource")
     public <M extends Message> RecordCursor<FDBStoredRecord<M>> scanTypedRecords(@Nonnull RecordSerializer<M> typedSerializer,

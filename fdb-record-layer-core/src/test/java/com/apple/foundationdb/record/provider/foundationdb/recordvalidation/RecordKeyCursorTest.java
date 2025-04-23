@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.provider.foundationdb;
+package com.apple.foundationdb.record.provider.foundationdb.recordvalidation;
 
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IsolationLevel;
@@ -28,6 +28,11 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Strings;
 import com.google.protobuf.Message;
@@ -81,7 +86,7 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest(name = "testIterateRecordsMissingRecord [splitLongRecords = {0}], useContinuations = {1}")
     @MethodSource("splitContinuationVersion")
-    public void testIterateRecordsMissingRecord(boolean splitLongRecords, UseContinuations useContinuations, int formatVersion) throws Exception {
+    void testIterateRecordsMissingRecord(boolean splitLongRecords, UseContinuations useContinuations, int formatVersion) throws Exception {
         final RecordMetaDataHook hook = getRecordMetaDataHook(splitLongRecords);
         List<FDBStoredRecord<Message>> result = saveRecords(splitLongRecords, formatVersion, hook);
         // Delete a record
@@ -116,7 +121,7 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest(name = "testIterateRecordsMissingSplit [splitNumber = {0}, useContinuations = {1}, formatVersion = {2}]")
     @MethodSource("splitNumberContinuationsVersion")
-    public void testIterateRecordsMissingSplit(int splitNumber, UseContinuations useContinuations, int formatVersion) throws Exception {
+    void testIterateRecordsMissingSplit(int splitNumber, UseContinuations useContinuations, int formatVersion) throws Exception {
         boolean splitLongRecords = true;
 
         final RecordMetaDataHook hook = getRecordMetaDataHook(splitLongRecords);

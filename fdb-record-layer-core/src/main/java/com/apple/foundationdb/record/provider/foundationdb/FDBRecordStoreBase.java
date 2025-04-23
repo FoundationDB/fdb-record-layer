@@ -901,40 +901,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     @Nonnull
     RecordCursor<Tuple> scanRecordKeys(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties);
 
-    enum RecordValidationOptions {
-        RECORD_EXISTS,
-        VALID_VERSION,
-        VALID_VALUE,
-        DESERIALIZABLE
-    }
-
-    default CompletableFuture<EnumSet<RecordValidationOptions>> validateRecordAsync(Tuple primaryKey, boolean allowRepair) {
-        return validateRecordAsync(primaryKey, EnumSet.allOf(RecordValidationOptions.class), allowRepair);
-    }
-
-    /**
-     * A Method that validates (and potentially repairs) a record for consistency.
-     * The given primary key (representing a potential record in the DB) will be validated to make sure it is consistent.
-     * The given {@link RecordValidationOptions} will enumerate the consistencies to look for. The returned
-     * {@link RecordValidationOptions} will contain inconsistencies found for the record.
-     * This method is meant to be part of a repair operation, where the store will scan through a range of records and
-     * validate they are consistent (see {@link #scanRecordKeys(TupleRange, byte[], ScanProperties)}).
-     * <p>
-     * The supported validations are:
-     * <ul>
-     *     <li>{@link RecordValidationOptions#RECORD_EXISTS}: Whether the record has any data items</li>
-     *     <li>{@link RecordValidationOptions#VALID_VERSION}: Whether the record has a valid inline version</li>
-     *     <li>{@link RecordValidationOptions#VALID_VALUE}: Whether the record has a value that can be concatenated from splits </li>
-     *     <li>{@link RecordValidationOptions#DESERIALIZABLE}: Whether the record has a value that can be deserialized using the schema</li>
-     * </ul>
-     * @param primaryKey the primary key of the record in question
-     * @param options the validation options to check
-     * @param allowRepair whether to attempt repair of the record (Not currently supported)
-     *
-     * @return the set of inconsistencies that were found to be present (that is, inconsistencies found) in the record
-     */
-    CompletableFuture<EnumSet<RecordValidationOptions>> validateRecordAsync(Tuple primaryKey, EnumSet<RecordValidationOptions> options, boolean allowRepair);
-
     /**
      * Count the number of records in the database in a range.
      *

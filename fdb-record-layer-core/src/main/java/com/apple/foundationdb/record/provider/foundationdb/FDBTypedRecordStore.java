@@ -190,11 +190,6 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
         return untypedStore.scanRecordKeys(range, continuation, scanProperties);
     }
 
-    @Override
-    public CompletableFuture<EnumSet<RecordValidationOptions>> validateRecordAsync(final Tuple primaryKey, final EnumSet<RecordValidationOptions> options, final boolean allowRepair) {
-        return untypedStore.validateRecordAsync(primaryKey, options, allowRepair);
-    }
-
     @Nonnull
     @Override
     public CompletableFuture<Integer> countRecords(@Nullable Tuple low, @Nullable Tuple high, @Nonnull EndpointType lowEndpoint, @Nonnull EndpointType highEndpoint, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
