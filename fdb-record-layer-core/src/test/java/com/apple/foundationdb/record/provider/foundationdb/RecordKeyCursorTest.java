@@ -1,5 +1,5 @@
 /*
- * RecordValidationTest.java
+ * RecordKeyCursorTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -240,7 +240,7 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
                 if (continuation.isEnd()) {
                     done = true;
                 } else {
-                    recordKeyCursor = store.scanRecordKeys(TupleRange.allOf(null), continuation.toBytes(), scanProperties);
+                    recordKeyCursor = store.scanRecordKeys(TupleRange.allOf(null), continuation.toBytes(), scanProperties.with(executeProperties -> executeProperties.resetState()));
                 }
             }
             return result;

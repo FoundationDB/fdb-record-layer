@@ -62,6 +62,7 @@ import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
+import com.apple.foundationdb.record.cursors.DedupCursor;
 import com.apple.foundationdb.record.cursors.ListCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -1196,9 +1197,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Override
     @SuppressWarnings("PMD.CloseResource")
     public RecordCursor<Tuple> scanRecordKeys(@Nonnull final TupleRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
-        if (scanProperties.isReverse()) {
-            throw new UnsupportedOperationException("scanRecordKeys does not support reverse scan");
-        }
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
         final Subspace recordsSubspace = recordsSubspace();
         if (!metaData.isSplitLongRecords() && omitUnsplitRecordSuffix) {
@@ -1213,30 +1211,34 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     .build();
             return keyValuesCursor
                     .map(kv -> SplitHelper.unpackKey(recordsSubspace, kv));
+        } else {
+            Function<byte[], RecordCursor<Tuple>> innerFunction = cont -> {
+                // Create the inner cursor
+                final KeyValueCursor cursor = KeyValueCursor.Builder
+                        .withSubspace(recordsSubspace)
+                        .setContext(context)
+                        .setContinuation(cont)
+                        .setLow(range.getLow(), range.getLowEndpoint())
+                        .setHigh(range.getHigh(), range.getHighEndpoint())
+                        .setScanProperties(scanProperties)
+                        .build();
+                // map the KV to the primary key
+                return cursor.map(kv -> {
+                    final Tuple keyTuple = recordsSubspace.unpack(kv.getKey());
+                    Tuple nextKey = keyTuple.popBack(); // Remove index item
+                    long nextIndex = keyTuple.getLong(keyTuple.size() - 1);
+                    // Some validation of the index to match known split enumerators
+                    if ((nextIndex != SplitHelper.RECORD_VERSION) && (nextIndex != SplitHelper.UNSPLIT_RECORD) && !(nextIndex >= SplitHelper.START_SPLIT_RECORD)) {
+                        throw new RecordCoreStorageException("Invalid record split number")
+                                .addLogInfo(LogMessageKeys.SPLIT_NEXT_INDEX,  nextIndex);
+                    }
+                    return nextKey;
+                });
+            };
+
+            return new DedupCursor<>(innerFunction, Tuple::fromBytes, Tuple::pack, continuation)
+                    .limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit());
         }
-        // Create a key scanner
-        RecordCursor<KeyValue> inner = KeyValueCursor.Builder
-                .withSubspace(recordsSubspace)
-                .setContext(context)
-                .setContinuation(continuation)
-                .setLow(range.getLow(), range.getLowEndpoint())
-                .setHigh(range.getHigh(), range.getHighEndpoint())
-                .setScanProperties(scanProperties
-                        .with(executeProperties ->
-                                executeProperties
-                                        // Inner cursor does not have limits
-                                        .clearRowAndTimeLimits()
-                                        .clearState()))
-                .build();
-        return new RecordKeyCursor(
-                context,
-                recordsSubspace,
-                inner,
-                useOldVersionFormat(),
-                new SplitHelper.SizeInfo(),
-                new CursorLimitManager(context, scanProperties.with(executeProperties ->
-                        executeProperties.toBuilder().clearReturnedRowLimit().build())))
-                .limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit());
     }
 
     @Override
