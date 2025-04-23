@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
@@ -40,7 +41,10 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPred
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.google.common.collect.ImmutableList;
@@ -979,5 +983,99 @@ public class PredicatePushDownRuleTest {
     void pushThroughUnique() {
         Quantifier base = baseT();
         pushThroughSingleton(LogicalUniqueExpression::new);
+    }
+
+    @Test
+    void pushDownGroupingValuePredicateWithNestedResults() {
+        Quantifier base = baseT();
+
+        Quantifier groupByQun = forEach(new GroupByExpression(
+                RecordConstructorValue.ofColumns(ImmutableList.of(
+                        column(base, "b"),
+                        column(base, "d")
+                )),
+                (AggregateValue)new NumericAggregationValue.SumFn().encapsulate(ImmutableList.of(fieldValue(base, "a"))),
+                GroupByExpression::nestedResults,
+                base
+        ));
+        SelectExpression selectHaving = selectWithPredicates(groupByQun,
+                ImmutableMap.of("_0.b", "b", "_0.d", "d", "_1", "sum"),
+                fieldPredicate(groupByQun, "_0.b", EQUALS_PARAM));
+
+        Quantifier newInner = forEach(selectWithPredicates(
+                base, fieldPredicate(base, "b", EQUALS_PARAM)
+        ));
+        Quantifier newGroupByQun = forEach(new GroupByExpression(
+                RecordConstructorValue.ofColumns(ImmutableList.of(
+                        column(newInner, "b"),
+                        column(newInner, "d")
+                )),
+                (AggregateValue)new NumericAggregationValue.SumFn().encapsulate(ImmutableList.of(fieldValue(newInner, "a"))),
+                GroupByExpression::nestedResults,
+                newInner
+        ));
+        SelectExpression newSelectHaving = selectWithPredicates(newGroupByQun,
+                ImmutableMap.of("_0.b", "b", "_0.d", "d", "_1", "sum"));
+
+        testHelper.assertYields(selectHaving, newSelectHaving);
+    }
+
+    @Test
+    void pushDownGroupingValuePredicateWithFlattenedResults() {
+        final Comparisons.ValueComparison constantComparison = new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, ConstantObjectValue.of(Quantifier.constant(), "1", Type.primitiveType(Type.TypeCode.BYTES)));
+        Quantifier base = baseT();
+
+        Quantifier groupByQun = forEach(new GroupByExpression(
+                RecordConstructorValue.ofColumns(ImmutableList.of(
+                        column(base, "d"),
+                        column(base, "c")
+                )),
+                (AggregateValue)new NumericAggregationValue.MaxFn().encapsulate(ImmutableList.of(fieldValue(base, "e.one"))),
+                GroupByExpression::flattenedResults,
+                base
+        ));
+        SelectExpression selectHaving = selectWithPredicates(groupByQun,
+                ImmutableMap.of("_0", "d", "_1", "c", "_2", "max"),
+                fieldPredicate(groupByQun, "_1", constantComparison));
+
+        Quantifier newInner = forEach(selectWithPredicates(
+                base, fieldPredicate(base, "c", constantComparison)
+        ));
+        Quantifier newGroupByQun = forEach(new GroupByExpression(
+                RecordConstructorValue.ofColumns(ImmutableList.of(
+                        column(newInner, "d"),
+                        column(newInner, "c")
+                )),
+                (AggregateValue)new NumericAggregationValue.MaxFn().encapsulate(ImmutableList.of(fieldValue(newInner, "e.one"))),
+                GroupByExpression::flattenedResults,
+                newInner
+        ));
+        SelectExpression newSelectHaving = selectWithPredicates(newGroupByQun,
+                ImmutableMap.of("_0", "d", "_1", "c", "_2", "max"));
+
+        testHelper.assertYields(selectHaving, newSelectHaving);
+    }
+
+    @Test
+    void pushDownPredicateOnAggregateValue() {
+        final Comparisons.ValueComparison constantComparison = new Comparisons.ValueComparison(Comparisons.Type.LESS_THAN, ConstantObjectValue.of(Quantifier.constant(), "1", Type.primitiveType(Type.TypeCode.LONG)));
+        Quantifier base = baseT();
+
+        Quantifier groupByQun = forEach(new GroupByExpression(
+                RecordConstructorValue.ofColumns(ImmutableList.of(
+                        column(base, "b"),
+                        column(base, "c")
+                )),
+                (AggregateValue)new NumericAggregationValue.SumFn().encapsulate(ImmutableList.of(fieldValue(base, "a"))),
+                GroupByExpression::nestedResults,
+                base
+        ));
+        SelectExpression selectHaving = selectWithPredicates(
+                groupByQun,
+                ImmutableMap.of("_0.b", "b", "_0.c", "c", "_1", "sum"),
+                fieldPredicate(groupByQun, "_1", constantComparison)
+        );
+
+        testHelper.assertYieldsNothing(selectHaving);
     }
 }

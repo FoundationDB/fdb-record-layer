@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpre
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -283,8 +284,27 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
 
         @Nonnull
         @Override
-        public Optional<? extends RelationalExpression> visitGroupByExpression(@Nonnull final GroupByExpression element) {
-            return Optional.empty();
+        public Optional<GroupByExpression> visitGroupByExpression(@Nonnull final GroupByExpression groupByExpression) {
+            final Quantifier inner = groupByExpression.getInnerQuantifier();
+            if (!(inner instanceof Quantifier.ForEach)) {
+                return Optional.empty();
+            }
+
+            final var translationMap = TranslationMap.builder()
+                    .when(getPushQuantifier().getAlias())
+                    .then((sourceAlias, leafValue) -> groupByExpression.getResultValue())
+                    .build();
+            final var newPredicates = updatedPredicates(translationMap);
+            final var newSelectQun = Quantifier.forEach(Reference.of(new SelectExpression(inner.getFlowedObjectValue(), ImmutableList.of(inner), newPredicates)));
+
+            final var resultTranslation = TranslationMap.rebaseWithAliasMap(AliasMap.ofAliases(inner.getAlias(), newSelectQun.getAlias()));
+
+            return Optional.of(new GroupByExpression(
+                    groupByExpression.getGroupingValue() == null ? null : groupByExpression.getGroupingValue().translateCorrelations(resultTranslation),
+                    (AggregateValue) groupByExpression.getAggregateValue().translateCorrelations(resultTranslation),
+                    (groupIgnore, aggregateIgnore) -> groupByExpression.getResultValue().translateCorrelations(resultTranslation),
+                    newSelectQun
+            ));
         }
 
         @Nonnull

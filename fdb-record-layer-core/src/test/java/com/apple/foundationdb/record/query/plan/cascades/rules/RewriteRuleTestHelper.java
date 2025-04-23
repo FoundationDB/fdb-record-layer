@@ -71,7 +71,7 @@ public class RewriteRuleTestHelper {
             Type.Record.Field.of(Type.primitiveType(Type.TypeCode.BYTES, true), Optional.of("c")),
             Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("d")),
             Type.Record.Field.of(TYPE_S, Optional.of("e")),
-            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG, true), Optional.of("f")),
+            Type.Record.Field.of(new Type.Array(true, Type.primitiveType(Type.TypeCode.LONG, true)), Optional.of("f")),
             Type.Record.Field.of(new Type.Array(true, TYPE_S), Optional.of("g"))
     ));
 
@@ -82,7 +82,7 @@ public class RewriteRuleTestHelper {
             Type.Record.Field.of(Type.primitiveType(Type.TypeCode.BYTES, true), Optional.of("gamma")),
             Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("delta")),
             Type.Record.Field.of(TYPE_S, Optional.of("epsilon")),
-            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG, true), Optional.of("zeta")),
+            Type.Record.Field.of(new Type.Array(true, Type.primitiveType(Type.TypeCode.LONG, true)), Optional.of("zeta")),
             Type.Record.Field.of(new Type.Array(true, TYPE_S), Optional.of("eta"))
     ));
 
