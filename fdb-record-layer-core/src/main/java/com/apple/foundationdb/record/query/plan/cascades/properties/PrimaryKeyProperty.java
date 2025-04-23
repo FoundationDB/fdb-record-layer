@@ -22,12 +22,13 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.WithPrimaryKeyMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
@@ -89,18 +90,61 @@ import java.util.Optional;
  * This property is used by e.g. the implementation of set plans (e.g. distinct unions, intersections) to understand
  * if a stream of records originates from the same source (i.e. table) or not.
  */
-public class PrimaryKeyProperty implements PlanProperty<Optional<List<Value>>> {
-    public static final PlanProperty<Optional<List<Value>>> PRIMARY_KEY = new PrimaryKeyProperty();
+public class PrimaryKeyProperty implements ExpressionProperty<Optional<List<Value>>> {
+    private static final PrimaryKeyProperty PRIMARY_KEY = new PrimaryKeyProperty();
+
+    private PrimaryKeyProperty() {
+        // prevent outside instantiation
+    }
 
     @Nonnull
     @Override
-    public RecordQueryPlanVisitor<Optional<List<Value>>> createVisitor() {
-        return new PrimaryKeyVisitor();
+    public RelationalExpressionVisitor<Optional<List<Value>>> createVisitor() {
+        return ExpressionProperty.toExpressionVisitor(new PrimaryKeyVisitor());
     }
 
     @Override
     public String toString() {
         return getClass().getSimpleName();
+    }
+
+    @Nonnull
+    public Optional<List<Value>> evaluate(@Nonnull final Reference reference) {
+        return evaluate(reference.getAsPlan());
+    }
+
+    @Nonnull
+    public Optional<List<Value>> evaluate(@Nonnull final RecordQueryPlan recordQueryPlan) {
+        return createVisitor().visit(recordQueryPlan);
+    }
+
+    @Nonnull
+    public static PrimaryKeyProperty primaryKey() {
+        return PRIMARY_KEY;
+    }
+
+    @Nonnull
+    @SuppressWarnings("OptionalGetWithoutIsPresent")
+    public static Optional<List<Value>> commonPrimaryKeyValuesMaybeFromOptionals(@Nonnull Iterable<Optional<List<Value>>> primaryKeyOptionals) {
+        if (Streams.stream(primaryKeyOptionals).anyMatch(Optional::isEmpty)) {
+            return Optional.empty();
+        }
+        return commonPrimaryKeyMaybe(Streams.stream(primaryKeyOptionals).map(Optional::get).collect(ImmutableList.toImmutableList()));
+    }
+
+    @Nonnull
+    private static Optional<List<Value>> commonPrimaryKeyMaybe(@Nonnull Iterable<List<Value>> primaryKeys) {
+        List<Value> common = null;
+        var first = true;
+        for (final var primaryKey : primaryKeys) {
+            if (first) {
+                common = primaryKey;
+                first = false;
+            } else if (!common.equals(primaryKey)) {
+                return Optional.empty();
+            }
+        }
+        return Optional.ofNullable(common);
     }
 
     /**
@@ -412,38 +456,9 @@ public class PrimaryKeyProperty implements PlanProperty<Optional<List<Value>>> {
 
         private Optional<List<Value>> evaluateForReference(@Nonnull Reference reference) {
             final var memberPrimaryKeysCollection =
-                    reference.getPlannerAttributeForMembers(PRIMARY_KEY).values();
+                    reference.getProperty(PRIMARY_KEY).values();
 
             return commonPrimaryKeyValuesMaybeFromOptionals(memberPrimaryKeysCollection);
         }
-
-        public static Optional<List<Value>> evaluate(@Nonnull RecordQueryPlan recordQueryPlan) {
-            // Won't actually be null for relational planner expressions.
-            return new PrimaryKeyVisitor().visit(recordQueryPlan);
-        }
-    }
-
-    @Nonnull
-    @SuppressWarnings("OptionalGetWithoutIsPresent")
-    public static Optional<List<Value>> commonPrimaryKeyValuesMaybeFromOptionals(@Nonnull Iterable<Optional<List<Value>>> primaryKeyOptionals) {
-        if (Streams.stream(primaryKeyOptionals).anyMatch(Optional::isEmpty)) {
-            return Optional.empty();
-        }
-        return commonPrimaryKeyMaybe(Streams.stream(primaryKeyOptionals).map(Optional::get).collect(ImmutableList.toImmutableList()));
-    }
-
-    @Nonnull
-    private static Optional<List<Value>> commonPrimaryKeyMaybe(@Nonnull Iterable<List<Value>> primaryKeys) {
-        List<Value> common = null;
-        var first = true;
-        for (final var primaryKey : primaryKeys) {
-            if (first) {
-                common = primaryKey;
-                first = false;
-            } else if (!common.equals(primaryKey)) {
-                return Optional.empty();
-            }
-        }
-        return Optional.ofNullable(common);
     }
 }

@@ -1,5 +1,5 @@
 /*
- * ExplainPlanVisitorTest.java
+ * ExplainPlanPropertyTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -52,6 +52,8 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.properties.ExplainPlanProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.ExplainPlanProperty.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
@@ -114,13 +116,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Tests of the {@link ExplainPlanVisitor} visitor. This test fixture has the ability to generate random plan
+ * Tests of the {@link ExplainPlanProperty} visitor. This test fixture has the ability to generate random plan
  * trees, and then it attempts to compare the expected plan string representations built by those random plans with
  * the plan strings that the visitor produces. The visitor also has logic to terminate early if it has reached
  * a maximum size, which this also tests out on random plans.
  */
-public class ExplainPlanVisitorTest {
-    private static final Logger logger = LoggerFactory.getLogger(ExplainPlanVisitorTest.class);
+public class ExplainPlanPropertyTest {
+    private static final Logger logger = LoggerFactory.getLogger(ExplainPlanPropertyTest.class);
 
     @Nonnull
     private static String randomAlphabetic(@Nonnull Random r, int minCount, int maxCount) {

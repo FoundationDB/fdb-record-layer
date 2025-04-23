@@ -22,12 +22,13 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TypeFilterExpression;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A property that determines the sum, over all elements of a {@code PlannerExpression} tree, of the number of record
@@ -41,39 +42,56 @@ import java.util.List;
  * are aggressively pruned by the planner.
  * </p>
  */
-public class TypeFilterCountProperty implements ExpressionProperty<Integer>, RelationalExpressionVisitorWithDefaults<Integer> {
-    private static final TypeFilterCountProperty INSTANCE = new TypeFilterCountProperty();
+public class TypeFilterCountProperty implements ExpressionProperty<Integer> {
+    private static final TypeFilterCountProperty TYPE_FILTER_COUNT = new TypeFilterCountProperty();
 
-    @Nonnull
-    @Override
-    public Integer evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Integer> childResults) {
-        int total = expression instanceof TypeFilterExpression ?
-                    ((TypeFilterExpression)expression).getRecordTypes().size() : 0;
-        for (Integer childCount : childResults) {
-            if (childCount != null) {
-                total += childCount;
-            }
-        }
-        return total;
+    private TypeFilterCountProperty() {
+        // prevent outside instantiation
     }
 
     @Nonnull
     @Override
-    public Integer evaluateAtRef(@Nonnull Reference ref, @Nonnull List<Integer> memberResults) {
-        int min = Integer.MAX_VALUE;
-        for (int memberResult : memberResults) {
-            if (memberResult < min) {
-                min = memberResult;
-            }
-        }
-        return min;
+    public TypeFilterCountVisitor createVisitor() {
+        return new TypeFilterCountVisitor();
     }
 
-    public static int evaluate(@Nonnull RelationalExpression expression) {
-        Integer result = expression.acceptPropertyVisitor(INSTANCE);
-        if (result == null) {
-            return 0;
+    public int evaluate(@Nonnull final Reference reference) {
+        return Objects.requireNonNull(reference.acceptPropertyVisitor(createVisitor()));
+    }
+
+    public int evaluate(@Nonnull final RelationalExpression expression) {
+        return Objects.requireNonNull(expression.acceptPropertyVisitor(createVisitor()));
+    }
+
+    @Nonnull
+    public static TypeFilterCountProperty typeFilterCount() {
+        return TYPE_FILTER_COUNT;
+    }
+
+    public static class TypeFilterCountVisitor implements SimpleExpressionVisitor<Integer> {
+        @Nonnull
+        @Override
+        public Integer evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Integer> childResults) {
+            int total = expression instanceof TypeFilterExpression ?
+                        ((TypeFilterExpression)expression).getRecordTypes().size() : 0;
+            for (Integer childCount : childResults) {
+                if (childCount != null) {
+                    total += childCount;
+                }
+            }
+            return total;
         }
-        return result;
+
+        @Nonnull
+        @Override
+        public Integer evaluateAtRef(@Nonnull Reference ref, @Nonnull List<Integer> memberResults) {
+            int min = Integer.MAX_VALUE;
+            for (int memberResult : memberResults) {
+                if (memberResult < min) {
+                    min = memberResult;
+                }
+            }
+            return min;
+        }
     }
 }

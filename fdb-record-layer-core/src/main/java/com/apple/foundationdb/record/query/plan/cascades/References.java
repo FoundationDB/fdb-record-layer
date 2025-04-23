@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithChildren;
-import com.apple.foundationdb.record.query.plan.cascades.properties.ReferencesAndDependenciesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -35,6 +34,8 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+
+import static com.apple.foundationdb.record.query.plan.cascades.properties.ReferencesAndDependenciesProperty.referencesAndDependencies;
 
 /**
  * Utility methods for {@link Reference}s.
@@ -51,7 +52,7 @@ public class References {
             return ImmutableList.of();
         }
 
-        final var partialOrder = ReferencesAndDependenciesProperty.evaluate(refs);
+        final var partialOrder = referencesAndDependencies().evaluate(refs);
 
         final var references =
                 TopologicalSort.anyTopologicalOrderPermutation(partialOrder)

@@ -52,7 +52,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalInte
 import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.Cardinality;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
@@ -82,6 +81,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+
+import static com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.cardinalities;
 
 /**
  * A rule that utilizes index matching information compiled by {@link CascadesPlanner} to create one or more
@@ -1008,7 +1009,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             intersectionInfoMap.put(cacheKey, IntersectionInfo.ofImpossibleAccess(orderingFromSingleMatchedAccess));
         } else {
             final var compensatedExpression = compensatedExpressionOptional.get();
-            final var cardinalities = CardinalitiesProperty.evaluate(compensatedExpression);
+            final var cardinalities = cardinalities().evaluate(compensatedExpression);
 
             intersectionInfoMap.put(cacheKey,
                     IntersectionInfo.ofSingleAccess(orderingFromSingleMatchedAccess, compensatedExpression,

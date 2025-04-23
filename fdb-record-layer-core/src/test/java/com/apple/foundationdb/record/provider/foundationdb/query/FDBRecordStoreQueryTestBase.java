@@ -60,10 +60,9 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.ExplainPlanProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
-import com.apple.foundationdb.record.query.plan.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
@@ -97,6 +96,7 @@ import java.util.stream.IntStream;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty.usedTypes;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.instanceOf;
@@ -246,7 +246,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     @Nonnull
     protected List<Map<String, Object>> queryAsMaps(@Nonnull RecordQueryPlan plan, @Nonnull Bindings bindings) {
         final TypeRepository types = TypeRepository.newBuilder()
-                .addAllTypes(UsedTypesProperty.evaluate(plan))
+                .addAllTypes(usedTypes().evaluate(plan))
                 .build();
         final EvaluationContext evaluationContext = EvaluationContext.forBindingsAndTypeRepository(bindings, types);
         try (RecordCursor<QueryResult> resultCursor = plan.executePlan(recordStore, evaluationContext, null, ExecuteProperties.SERIAL_EXECUTE)) {
@@ -428,7 +428,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     protected <T> List<T> fetchResultValues(FDBRecordContext context, RecordQueryPlan plan, Function<Message, T> rowHandler,
                                             EvaluationContext extraEvaluationContext,
                                             TestHelpers.DangerousConsumer<FDBRecordContext> checkDiscarded, ExecuteProperties executeProperties) throws Exception {
-        final var usedTypes = UsedTypesProperty.evaluate(plan);
+        final var usedTypes = usedTypes().evaluate(plan);
         List<T> result = new ArrayList<>();
         var evaluationContext = EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(usedTypes).build());
         for (final var binding : extraEvaluationContext.getBindings().asMappingList()) {
@@ -636,7 +636,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
             return plannedPlan;
         }
         assertThat(planner, instanceOf(CascadesPlanner.class));
-        System.out.println("\n" + ExplainPlanVisitor.prettyExplain(plannedPlan) + "\n");
+        System.out.println("\n" + ExplainPlanProperty.prettyExplain(plannedPlan) + "\n");
         return verifySerialization(plannedPlan);
     }
 
@@ -667,7 +667,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         assertTrue(eventClassStatsMap.get(Debugger.ExecutingTaskEvent.class).getCount(Debugger.Location.BEGIN) > 0);
 
         final var plan = planResult.getPlan();
-        System.out.println("\n" + ExplainPlanVisitor.prettyExplain(plan) + "\n");
+        System.out.println("\n" + ExplainPlanProperty.prettyExplain(plan) + "\n");
         return verifySerialization(plan);
     }
 
@@ -705,7 +705,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
 
     @Nonnull
     protected RecordCursorIterator<FDBQueriedRecord<Message>> executeQuery(@Nonnull final RecordQueryPlan plan, @Nonnull Bindings bindings) {
-        final var usedTypes = UsedTypesProperty.evaluate(plan);
+        final var usedTypes = usedTypes().evaluate(plan);
         final var typeRepository = TypeRepository.newBuilder().addAllTypes(usedTypes).build();
         return plan.execute(recordStore, EvaluationContext.forBindingsAndTypeRepository(bindings, typeRepository)).asIterator();
     }

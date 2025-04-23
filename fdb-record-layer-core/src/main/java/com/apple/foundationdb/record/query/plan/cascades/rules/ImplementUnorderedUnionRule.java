@@ -39,9 +39,9 @@ import javax.annotation.Nonnull;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyPlanPartition;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.planPartitions;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.rollUp;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.rollUpPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalUnionExpression;
 
 /**
@@ -57,7 +57,7 @@ public class ImplementUnorderedUnionRule extends CascadesRule<LogicalUnionExpres
 
     @Nonnull
     private static final BindingMatcher<Reference> unionLegReferenceMatcher =
-            planPartitions(rollUp(any(unionLegPlanPartitionsMatcher)));
+            planPartitions(rollUpPartitions(any(unionLegPlanPartitionsMatcher)));
 
     @Nonnull
     private static final CollectionMatcher<Quantifier.ForEach> allForEachQuantifiersMatcher =

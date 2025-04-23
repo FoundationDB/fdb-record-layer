@@ -38,15 +38,14 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Stats;
 import com.apple.foundationdb.record.query.plan.cascades.debug.StatsMaps;
-import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.DatabaseObjectDependenciesPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.ExplainPlanProperty.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
-import com.apple.foundationdb.record.query.plan.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDeletePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
@@ -102,6 +101,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
+
+import static com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty.usedTypes;
 
 public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typed {
 
@@ -334,12 +335,12 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                         ), plannerMetricsMetadata);
             }
 
-            final var plannerGraph = Objects.requireNonNull(recordQueryPlan.acceptPropertyVisitor(PlannerGraphProperty.forExplain()));
+            final var plannerGraph = Objects.requireNonNull(recordQueryPlan.acceptPropertyVisitor(PlannerGraphVisitor.forExplain()));
             return new IteratorResultSet(metaData, Collections.singleton(new ArrayRow(
                     explain(),
                     planHashSupplier.get(),
-                    PlannerGraphProperty.exportToDot(plannerGraph),
-                    PlannerGraphProperty.exportToGml(plannerGraph, Map.of()),
+                    PlannerGraphVisitor.exportToDot(plannerGraph),
+                    PlannerGraphVisitor.exportToGml(plannerGraph, Map.of()),
                     continuationInfo,
                     plannerMetrics)).iterator(), 0);
         }
@@ -584,7 +585,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             }
             return planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.OPTIMIZE_PLAN, () -> {
                 final TypeRepository.Builder builder = TypeRepository.newBuilder();
-                final Set<Type> usedTypes = UsedTypesProperty.evaluate(relationalExpression);
+                final Set<Type> usedTypes = usedTypes().evaluate(relationalExpression);
                 usedTypes.forEach(builder::addTypeIfNeeded);
                 final var evaluationContext = context.getEvaluationContext();
                 final var typedEvaluationContext = EvaluationContext.forBindingsAndTypeRepository(evaluationContext.getBindings(), builder.build());
@@ -604,7 +605,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                 // The plan itself can introduce new types. Collect those and include them in the type repository stored with the PhysicalQueryPlan
                 final RecordQueryPlan recordQueryPlan = planResult.getPlan();
 
-                Set<Type> planTypes = UsedTypesProperty.evaluate(recordQueryPlan);
+                Set<Type> planTypes = usedTypes().evaluate(recordQueryPlan);
                 planTypes.forEach(builder::addTypeIfNeeded);
                 optimizedPlan = Optional.of(
                         new PhysicalQueryPlan(recordQueryPlan, statsMaps, builder.build(),
