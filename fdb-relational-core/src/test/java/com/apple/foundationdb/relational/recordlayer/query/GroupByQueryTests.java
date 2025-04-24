@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.Utils;
@@ -44,6 +46,56 @@ public class GroupByQueryTests {
 
     public GroupByQueryTests() {
         Utils.enableCascadesDebugger();
+    }
+
+    @Test
+    void groupByEmptyColumn() throws Exception {
+        final String schemaTemplate =
+                "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
+                        //"CREATE INDEX idx1 as select a, b, c from t1 order by a, b, c";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var conn = ddl.setSchemaAndGetConnection()) {
+                conn.setOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT,1);
+                conn.setOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
+                var statement = conn.createStatement();
+                insertT1Record(statement, 2, 1, 1, 20);
+                insertT1Record(statement, 3, 1, 2, 5);
+                insertT1Record(statement, 4, 1, 2, 15);
+                insertT1Record(statement, 5, 1, 2, 5);
+                insertT1Record(statement, 6, 2, 1, 10);
+                insertT1Record(statement, 7, 2, 1, 40);
+                insertT1Record(statement, 8, 2, 1, 20);
+                insertT1Record(statement, 9, 2, 1, 90);
+
+                /*
+                Assertions.assertTrue(statement.execute("SELECT sum(b) FROM T1 WHERE b > 1 group by a"), "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNoNextRow();
+                }
+
+                 */
+                Assertions.assertTrue(statement.execute("SELECT sum(a) FROM T1 WHERE a = 3"), "Did not return a result set from a select statement!");
+                Continuation continuation;
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow()
+                            .isEmpty()
+                            .hasNoNextRow();
+                    continuation = resultSet.getContinuation();
+                    System.out.println("continuation serialize:" + continuation.serialize());
+                }
+                var preparedStatement = conn.prepareStatement("EXECUTE CONTINUATION ?param");
+                preparedStatement.setBytes("param", continuation.serialize());
+                Assertions.assertTrue(preparedStatement.execute(), "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow()
+                            .isEmpty()
+                            .hasNoNextRow();
+                }
+            }
+        }
     }
 
     @Test
