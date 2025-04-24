@@ -5434,6 +5434,17 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
         }
 
+        /**
+         * In the event that a store has been corrupted, and the header has been lost, this method can be used to open
+         * the store, and fill in the missing header.
+         * <p>
+         *     If it is possible that multiple different instances have a different idea of any of the versions
+         *     ({@link #setFormatVersion format version}, {@link RecordMetaData#getVersion() metaData version}, or
+         *     {@link #getUserVersion() user version}), that this builder is created with the maximal option for each.
+         * </p>
+         * @param userVersion the user version to set in the store header
+         * @return a store
+         */
         @API(API.Status.INTERNAL)
         public CompletableFuture<FDBRecordStore> repairMissingHeader(final int userVersion) {
             return uncheckedOpenAsync()
@@ -5454,6 +5465,22 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                             dataStoreInfo.setRecordCountKey(recordMetaData.getRecordCountKey().toKeyExpression());
                         }
                         store.saveStoreHeader(dataStoreInfo.build());
+                        // It's possible that the old store header was cacheable, in which case, another store may
+                        // still have a cached version, even though we don't. We need to make sure that the other
+                        // instance refreshes it's cached version after we generate a new missing store header.
+                        // Obviously, being able to recover from the cached version would be ideal, but that would
+                        // is a limited use case, as you wouldn't notice it was missing until after caches started
+                        // expiring, and you would have to repair before they all expired.
+                        final CompletableFuture<Void> bumpMetaDataVersionStamp = context.getMetaDataVersionStampAsync(IsolationLevel.SNAPSHOT)
+                                .thenAccept(metaDataVersionStamp -> {
+                                    // If the metaDataVersionStamp was null before than nothing was cached based on
+                                    // the metaDataVersionStamp, so we don't need to set the stamp.
+                                    if (metaDataVersionStamp != null) {
+                                        context.setMetaDataVersionStamp();
+                                    }
+                                });
+                        // Since another instance may still have a cached version of the store header, we need to make
+                        // sure that the cache is invalidated
                         // This could be improved with:
                         // 1. If the index was added in the same metadata version that added the type, and has not been
                         //    modified, we could mark that as readable, because they either do not have any records of
@@ -5469,11 +5496,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                         //    or it could be that the store was on a metadata version that didn't have the index, or
                         //    had an older version of the index. If it wasn't readable on the current version, than
                         //    leaving the index would leave it in a corrupted state.
-                        return AsyncUtil.whenAll(
-                                        recordMetaData.getAllIndexes().stream()
+                        return bumpMetaDataVersionStamp.thenCompose(vignore -> AsyncUtil.whenAll(
+                                                recordMetaData.getAllIndexes().stream()
                                                 .map(store::markIndexDisabled)
                                                 .collect(Collectors.toList()))
-                                .thenApply(ignored -> store);
+                                .thenApply(ignored -> store));
                     });
         }
     }

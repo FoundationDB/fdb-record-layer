@@ -26,8 +26,11 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
+import com.apple.foundationdb.record.provider.foundationdb.storestate.MetaDataVersionStampStoreStateCacheFactory;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Tag;
@@ -72,10 +75,9 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
         validateCannotOpen(recordMetaData);
 
         try (FDBRecordContext context = openContext()) {
-            recordStore = context.asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION,
-                    getStoreBuilder(context, recordMetaData)
-                            .setFormatVersion(newFormatVersion)
-                            .repairMissingHeader(1));
+            final FDBRecordStore.Builder builder = getStoreBuilder(context, recordMetaData)
+                    .setFormatVersion(newFormatVersion);
+            repairHeader(context, 1, builder);
             commit(context);
         }
 
@@ -98,27 +100,12 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
         clearStoreHeader(recordMetaData);
         validateCannotOpen(recordMetaData);
 
-        final FDBRecordStoreBase.UserVersionChecker userVersionChecker = new FDBRecordStoreBase.UserVersionChecker() {
-            @Override
-            public CompletableFuture<Integer> checkUserVersion(@Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
-                assertEquals(storeHeader.getUserVersion(), userVersion);
-                return CompletableFuture.completedFuture(storeHeader.getUserVersion());
-            }
-
-            @Override
-            @SuppressWarnings("deprecation") // overriding deprecated method
-            public CompletableFuture<Integer> checkUserVersion(final int oldUserVersion, final int oldMetaDataVersion, final RecordMetaDataProvider metaData) {
-                assertEquals(oldUserVersion, userVersion);
-                return CompletableFuture.completedFuture(oldUserVersion);
-            }
-        };
+        final FDBRecordStoreBase.UserVersionChecker userVersionChecker = new AssertMatchingUserVersion(userVersion, userVersion);
 
         try (FDBRecordContext context = openContext()) {
-            recordStore = context.asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION,
-                    getStoreBuilder(context, recordMetaData)
-                            .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
-                            .setUserVersionChecker(userVersionChecker)
-                            .repairMissingHeader(userVersion));
+            repairHeader(context, userVersion, getStoreBuilder(context, recordMetaData)
+                    .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
+                    .setUserVersionChecker(userVersionChecker));
             commit(context);
         }
 
@@ -127,6 +114,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
                     .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
                     .setUserVersionChecker(userVersionChecker)
                     .open();
+            assertEquals(userVersion, recordStore.getUserVersion());
             validateRecords(originalRecords);
             validateIndexesDisabled(recordMetaData);
             commit(context);
@@ -142,20 +130,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
         validateCannotOpen(recordMetaData);
 
         final int userVersion = 2;
-        final FDBRecordStoreBase.UserVersionChecker userVersionChecker = new FDBRecordStoreBase.UserVersionChecker() {
-            @Override
-            public CompletableFuture<Integer> checkUserVersion(@Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
-                assertEquals(storeHeader.getUserVersion(), userVersion);
-                return CompletableFuture.completedFuture(storeHeader.getUserVersion());
-            }
-
-            @Override
-            @SuppressWarnings("deprecation") // overriding deprecated method
-            public CompletableFuture<Integer> checkUserVersion(final int oldUserVersion, final int oldMetaDataVersion, final RecordMetaDataProvider metaData) {
-                assertEquals(oldUserVersion, userVersion);
-                return CompletableFuture.completedFuture(oldUserVersion);
-            }
-
+        final FDBRecordStoreBase.UserVersionChecker userVersionChecker = new AssertMatchingUserVersion(userVersion, userVersion) {
             @Nonnull
             @Override
             public CompletableFuture<IndexState> needRebuildIndex(final Index index, final Supplier<CompletableFuture<Long>> lazyRecordCount, final Supplier<CompletableFuture<Long>> lazyEstimatedSize, final boolean indexOnNewRecordTypes) {
@@ -169,11 +144,10 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
         };
 
         try (FDBRecordContext context = openContext()) {
-            recordStore = context.asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION,
+            repairHeader(context, userVersion,
                     getStoreBuilder(context, recordMetaData)
                             .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
-                            .setUserVersionChecker(userVersionChecker)
-                            .repairMissingHeader(userVersion));
+                            .setUserVersionChecker(userVersionChecker));
             commit(context);
         }
 
@@ -190,12 +164,122 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
 
     @Test
     void repairUserField() {
-        Assertions.fail("TODO make sure user can update the user field entry transactionally");
+        final RecordMetaData recordMetaData = getRecordMetaData(true);
+        final List<Tuple> primaryKeys = createInitialStore(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION, recordMetaData);
+        getOriginalRecords(recordMetaData, primaryKeys);
+        clearStoreHeader(recordMetaData);
+        validateCannotOpen(recordMetaData);
+
+        final int userVersion = 2;
+        final String key = "someState";
+        final ByteString value = ByteString.copyFromUtf8("My value");
+        try (FDBRecordContext context = openContext()) {
+            repairHeader(context, userVersion,
+                    getStoreBuilder(context, recordMetaData)
+                            .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION));
+            recordStore.setHeaderUserField(key, value);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            recordStore = getStoreBuilder(context, recordMetaData, path)
+                    .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
+                    .open();
+            assertEquals(value, recordStore.getHeaderUserField(key));
+            commit(context);
+        }
     }
 
     @Test
     void repairCacheable() {
-        Assertions.fail("TODO test with cacheable store");
+        // Generally speaking, if a store state is cacheable, you won't notice that the header is missing until the
+        // cache is invalidated, however, it is possible that one instance is bounced, and see's that the header is
+        // missing, while another store is not bounced, and thus is still interacting with the cache. Thus, we need
+        // to make sure that the cache is invalidated globally when we update the store. Particularly this means that
+        // we need to bump the MetaDataVersionStamp in the database to invalidate globally.
+        // This does mean that if you have an environment that has a lot of stores that are definitely never cached,
+        // and a couple that are, the repair would be causing invalidation of the store that is cacheable, but this
+        // performance hit is worth correctness.
+        final var metaDataVersionStampCacheFactory = MetaDataVersionStampStoreStateCacheFactory.newInstance();
+        final FDBRecordStoreStateCache populatedCache = metaDataVersionStampCacheFactory.getCache(fdb);
+        fdb.setStoreStateCache(populatedCache);
+        final RecordMetaData recordMetaData = getRecordMetaData(true);
+        final List<Tuple> primaryKeys = createInitialStore(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION, recordMetaData);
+        getOriginalRecords(recordMetaData, primaryKeys);
+
+        FDBRecordStoreBase.UserVersionChecker userVersionChecker = new AssertMatchingUserVersion(0, 1);
+
+        try (FDBRecordContext context = openContext()) {
+            getStoreBuilder(context, recordMetaData)
+                    .setUserVersionChecker(userVersionChecker)
+                    .open()
+                    .setStateCacheability(true);
+            commit(context);
+        }
+
+        userVersionChecker = new AssertMatchingUserVersion(1, 1);
+
+        timer.reset();
+        try (FDBRecordContext context = openContext()) {
+            getStoreBuilder(context, recordMetaData)
+                    .setUserVersionChecker(userVersionChecker)
+                    .open();
+            assertEquals(1, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
+            commit(context);
+        }
+
+        timer.reset();
+        try (FDBRecordContext context = openContext()) {
+            getStoreBuilder(context, recordMetaData)
+                    .setUserVersionChecker(userVersionChecker)
+                    .open();
+            assertEquals(1, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
+            commit(context);
+        }
+
+        timer.reset();
+
+
+        clearStoreHeader(recordMetaData);
+
+        // this will use the cache and not fail
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore recordStore = getStoreBuilder(context, recordMetaData, path)
+                    .setUserVersionChecker(userVersionChecker).open();
+            assertEquals(1, recordStore.getUserVersion());
+        }
+
+        // Now pretend we are on an instance that was not populated
+        fdb.setStoreStateCache(metaDataVersionStampCacheFactory.getCache(fdb));
+        validateCannotOpen(recordMetaData);
+
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore.Builder builder = getStoreBuilder(context, recordMetaData)
+                    // it should not call checkVersion, so just give random values
+                    .setUserVersionChecker(new AssertMatchingUserVersion(3249, 234908));
+            repairHeader(context, 3, builder);
+            commit(context);
+        }
+
+        // now go back to the original store which has a cached version of the store state
+        // it should have to read from the database, and pick up the new store header
+        fdb.setStoreStateCache(populatedCache);
+
+        userVersionChecker = new AssertMatchingUserVersion(3, 3);
+        timer.reset();
+        try (FDBRecordContext context = openContext()) {
+            recordStore = getStoreBuilder(context, recordMetaData, path)
+                    .setUserVersionChecker(userVersionChecker)
+                    .open();
+            assertEquals(1, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
+            assertEquals(3, recordStore.getUserVersion());
+        }
+    }
+
+    @Test
+    void failIfHeaderExists() {
+        Assertions.fail("TODO we should fail if there is a header");
     }
 
     @Test
@@ -252,6 +336,11 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
         }
     }
 
+    private void repairHeader(final FDBRecordContext context, final int userVersion, final FDBRecordStore.Builder builder) {
+        recordStore = context.asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION,
+                builder.repairMissingHeader(userVersion));
+    }
+
     private List<Tuple> createInitialStore(final int initialFormatVersion, final RecordMetaDataProvider metaData) {
         try (FDBRecordContext context = openContext()) {
             recordStore = getStoreBuilder(context, metaData, path)
@@ -265,6 +354,29 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
             final FDBStoredRecord<Message> storedRecord = recordStore.saveRecord(rec);
             commit(context);
             return List.of(storedRecord.getPrimaryKey());
+        }
+    }
+
+    private static class AssertMatchingUserVersion implements FDBRecordStoreBase.UserVersionChecker {
+        private final int oldUserVersion;
+        private final int newUserVersion;
+
+        public AssertMatchingUserVersion(final int oldUserVersion, final int newUserVersion) {
+            this.oldUserVersion = oldUserVersion;
+            this.newUserVersion = newUserVersion;
+        }
+
+        @Override
+        public CompletableFuture<Integer> checkUserVersion(@Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
+            assertEquals(oldUserVersion, storeHeader.getUserVersion());
+            return CompletableFuture.completedFuture(newUserVersion);
+        }
+
+        @Override
+        @SuppressWarnings("deprecation") // overriding deprecated method
+        public CompletableFuture<Integer> checkUserVersion(final int oldUserVersion, final int oldMetaDataVersion, final RecordMetaDataProvider metaData) {
+            assertEquals(this.oldUserVersion, oldUserVersion);
+            return CompletableFuture.completedFuture(newUserVersion);
         }
     }
 }
