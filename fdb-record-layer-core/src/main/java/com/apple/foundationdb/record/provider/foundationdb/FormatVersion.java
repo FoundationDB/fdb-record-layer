@@ -120,7 +120,7 @@ public enum FormatVersion implements Comparable<FormatVersion> {
      * This FormatVersion allows the record state to be cached and invalidated with the meta-data version key.
      * <p>
      *     With this version, every time the {@link com.apple.foundationdb.record.RecordStoreState}
-     *     (storeHeader and index states) is updated for a store, the meta-data-version for the cluster will be bumped,
+     *     (storeHeader and index states) is updated for a store marked as cacheable, the meta-data-version for the cluster will be bumped,
      *     and all cache entries for all stores in the cluster are invalidated. Consequently if a store did not know
      *     that a store was cacheable, when it was, it could update the store header or index state, without
      *     invalidating the cache, causing others to interact with the store using an old version of the metadata, or
