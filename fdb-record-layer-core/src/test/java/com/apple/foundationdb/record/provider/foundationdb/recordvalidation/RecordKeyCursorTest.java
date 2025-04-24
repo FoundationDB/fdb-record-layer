@@ -47,6 +47,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.function.IntPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -85,7 +86,7 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
             actualKeys = scanKeys(store, scanProperties, useContinuations != UseContinuations.NONE);
             commit(context);
         }
-        List<Tuple> expectedKeys = IntStream.range(1, 101).boxed().map(Tuple::from).collect(Collectors.toList());
+        List<Tuple> expectedKeys = getExpectedPrimaryKeys();
         assertEquals(expectedKeys, actualKeys);
     }
 
@@ -112,7 +113,7 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
             actualKeys = scanKeys(store, scanProperties, useContinuations != UseContinuations.NONE);
             commit(context);
         }
-        List<Tuple> expectedKeys = IntStream.range(1, 101).filter(i -> !Set.of(17, 22, 23, 71).contains(i)).boxed().map(Tuple::from).collect(Collectors.toList());
+        List<Tuple> expectedKeys = getExpectedPrimaryKeys(i -> !Set.of(17, 22, 23, 71).contains(i));
         assertEquals(expectedKeys, actualKeys);
     }
 
@@ -156,9 +157,9 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
         List<Tuple> expectedKeys;
         // When format version is 3 and the record is a short record, deleting the only split will make the record disappear
         if ((splitNumber == 0) && (formatVersion == 3)) {
-            expectedKeys = IntStream.range(1, 101).filter(i -> i != 2).boxed().map(Tuple::from).collect(Collectors.toList());
+            expectedKeys = getExpectedPrimaryKeys(i -> i != 2);
         } else {
-            expectedKeys = IntStream.range(1, 101).boxed().map(Tuple::from).collect(Collectors.toList());
+            expectedKeys = getExpectedPrimaryKeys();
         }
         assertEquals(expectedKeys, actualKeys);
     }
@@ -194,7 +195,7 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
             actualKeys = scanKeys(store, scanProperties, useContinuations != UseContinuations.NONE);
             context.commit();
         }
-        List<Tuple> expectedKeys = IntStream.range(1, 101).boxed().map(Tuple::from).collect(Collectors.toList());
+        List<Tuple> expectedKeys = getExpectedPrimaryKeys();
         assertEquals(expectedKeys, actualKeys);
     }
 
@@ -281,5 +282,15 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
             commit(context);
         }
         return result;
+    }
+
+    @Nonnull
+    private static List<Tuple> getExpectedPrimaryKeys() {
+        return getExpectedPrimaryKeys(i -> true);
+    }
+
+    @Nonnull
+    private static List<Tuple> getExpectedPrimaryKeys(@Nonnull IntPredicate filter) {
+        return IntStream.range(1, 101).filter(filter).boxed().map(Tuple::from).collect(Collectors.toList());
     }
 }

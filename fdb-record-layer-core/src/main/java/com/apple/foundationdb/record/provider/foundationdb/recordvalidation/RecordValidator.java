@@ -29,5 +29,5 @@ import java.util.concurrent.CompletableFuture;
 public interface RecordValidator {
     CompletableFuture<RecordValidationResult> validateRecordAsync(Tuple primaryKey);
 
-    CompletableFuture<Void> repairRecordAsync(Tuple primaryKey);
+    CompletableFuture<Void> repairRecordAsync(Tuple primaryKey, final CompletableFuture<RecordValidationResult> validationResult);
 }

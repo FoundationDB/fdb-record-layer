@@ -66,7 +66,7 @@ public class RecordValueValidator implements RecordValidator {
     }
 
     @Override
-    public CompletableFuture<Void> repairRecordAsync(final Tuple primaryKey) {
+    public CompletableFuture<Void> repairRecordAsync(final Tuple primaryKey, final CompletableFuture<RecordValidationResult> validationResult) {
         throw new UnsupportedOperationException("Repair is not yet supported");
     }
 }

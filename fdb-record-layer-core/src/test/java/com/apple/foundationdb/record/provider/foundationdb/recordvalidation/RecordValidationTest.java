@@ -31,13 +31,16 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.google.common.base.Strings;
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
+import java.util.BitSet;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -199,6 +202,107 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
             validateRecordVersion(store, result.get(0).getPrimaryKey(), RecordVersionValidator.CODE_VERSION_MISSING_ERROR);
             validateRecordValue(store, result.get(1).getPrimaryKey(), RecordValidationResult.CODE_VALID);
             validateRecordVersion(store, result.get(1).getPrimaryKey(), RecordVersionValidator.CODE_VERSION_MISSING_ERROR);
+            commit(context);
+        }
+    }
+
+    private static BitSet toBitSet(final long l) {
+        return BitSet.valueOf(new long[] {l});
+    }
+
+    // list of arguments for version and a bitset that has all the combinations of 4 bits set (except all unset)
+    private static Stream<Arguments> versionAndBitset() {
+        return formatVersions().flatMap(
+                version -> LongStream.range(1, 16).mapToObj(l -> toBitSet(l))
+                        .map(bitset -> Arguments.of(version, bitset)));
+    }
+
+    /**
+     * A test that runs through all the combinations of 4-bits and erases a split for every bit that is set.
+     * This simulated all the combinations of splits that can go missing for a record with 3 splits
+     * (version, splits 1-3).
+     *
+     * @param formatVersion the version format
+     * @param splitsToRemove the splits to remove
+     */
+    @ParameterizedTest(name = "testValidateRecordCombinationSplitMissing [formatVersion = {0}, splitsToRemove = {1}]")
+    @MethodSource("versionAndBitset")
+    void testValidateRecordCombinationSplitMissing(int formatVersion, BitSet splitsToRemove) throws Exception {
+        // for formatVersion 3 we don't have a version split, so removing it by itself does nothing
+        Assumptions.assumeFalse((formatVersion == 3) && (splitsToRemove.equals(toBitSet(0b0001))));
+
+        final RecordMetaDataHook hook = getRecordMetaDataHook(true);
+        List<FDBStoredRecord<Message>> result = saveRecords(true, formatVersion, hook);
+        // Delete the splits
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
+            // Delete all the splits that have a bit set
+            splitsToRemove.stream().forEach(bit -> {
+                // bit #0 is the version (-1)
+                // bits #1 - #3 are the split numbers (no split #0 for a split record)
+                int split = (bit == 0) ? -1 : bit;
+                Tuple pkAndSuffix = result.get(1).getPrimaryKey().add(split);
+                byte[] key = store.recordsSubspace().pack(pkAndSuffix);
+                store.ensureContextActive().clear(key);
+            });
+            commit(context);
+        }
+
+        // Validate by primary key
+        // We should see at least one validation fail for each split combination
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
+            RecordValidator valueValidator = new RecordValueValidator(store);
+            final RecordValidationResult valueValidatorResult = valueValidator.validateRecordAsync(result.get(1).getPrimaryKey()).get();
+            if (valueValidatorResult.isValid()) {
+                // ensure there is a version issue instead
+                RecordValidator versionValidator = new RecordVersionValidator(store);
+                final RecordValidationResult versionValidatorResult = versionValidator.validateRecordAsync(result.get(1).getPrimaryKey()).get();
+                assertFalse(versionValidatorResult.isValid());
+            }
+
+            commit(context);
+        }
+    }
+
+    /**
+     * A test that corrupts one of the splits of the recordsand ensures it is not deserializable
+     *
+     * @param formatVersion the version format
+     */
+    @ParameterizedTest(name = "testValidateRecordCorruptSplit [formatVersion = {0}]")
+    @MethodSource("formatVersions")
+    void testValidateRecordCorruptSplit(int formatVersion) throws Exception {
+        final RecordMetaDataHook hook = getRecordMetaDataHook(true);
+        List<FDBStoredRecord<Message>> result = saveRecords(true, formatVersion, hook);
+        // Mess up the splits
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
+            // corrupt the two records
+            Tuple pkAndSuffix = result.get(0).getPrimaryKey().add(0);
+            byte[] key = store.recordsSubspace().pack(pkAndSuffix);
+            final byte[] value = new byte[] {1, 2, 3, 4, 5};
+            store.ensureContextActive().set(key, value);
+
+            pkAndSuffix = result.get(1).getPrimaryKey().add(1);
+            key = store.recordsSubspace().pack(pkAndSuffix);
+            store.ensureContextActive().set(key, value);
+
+            commit(context);
+        }
+
+        // Validate by primary key
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
+            RecordValidator valueValidator = new RecordValueValidator(store);
+            RecordValidationResult valueValidatorResult = valueValidator.validateRecordAsync(result.get(0).getPrimaryKey()).get();
+            assertFalse(valueValidatorResult.isValid());
+            assertEquals(RecordValueValidator.CODE_DESERIALIZE_ERROR, valueValidatorResult.getErrorCode());
+
+            valueValidatorResult = valueValidator.validateRecordAsync(result.get(1).getPrimaryKey()).get();
+            assertFalse(valueValidatorResult.isValid());
+            assertEquals(RecordValueValidator.CODE_DESERIALIZE_ERROR, valueValidatorResult.getErrorCode());
+
             commit(context);
         }
     }
