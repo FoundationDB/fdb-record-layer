@@ -27,6 +27,10 @@ import com.apple.foundationdb.tuple.Tuple;
 import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * A record validator that ensures the record has a valid version.
+ * A record that is valid with this validator has to have a valid value, has to exist and has to have a version.
+ */
 @API(API.Status.UNSTABLE)
 public class RecordVersionValidator implements RecordValidator {
     public static final String CODE_VERSION_MISSING_ERROR = "VersionMissingError";

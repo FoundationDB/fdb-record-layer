@@ -23,11 +23,46 @@ package com.apple.foundationdb.record.provider.foundationdb.recordvalidation;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.tuple.Tuple;
 
+import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * An interface to be implemented by record validators.
+ * A Record Validator should be able to perform two functions: Validate a record (given a primary key) and repair a broken
+ * record. The intent for these os to be done in sequence, that is, a {@link #validateRecordAsync(Tuple)} call is to be
+ * followed by an optional call to {@link #repairRecordAsync(Tuple, CompletableFuture)}. These are separate methods in
+ * order to allow a "dry run" such that validate alone is called as well as to allow specialization by subclassing
+ * the validator and overriding the {@link #repairRecordAsync(Tuple, CompletableFuture)} or {@link #validateRecordAsync(Tuple)}
+ * methods.
+ * <p>
+ * Each call to {@link #validateRecordAsync(Tuple)} will return a {@link RecordValidationResult} that has an error code
+ * {@link RecordValidationResult#getErrorCode()}. When the error code is {@link RecordValidationResult#CODE_VALID} the
+ * {@link RecordValidationResult#isValid()} should return {@code true}. When the {@link RecordValidationResult#isValid()}
+ * returns false, the error code is validator dependant.
+ * <p>
+ * Each call to {@link #repairRecordAsync(Tuple, CompletableFuture)} takes a {@link RecordValidationResult}, presumably
+ * returned by a previous call to {@link #validateRecordAsync(Tuple)}. Mixing results among different validators may result
+ * in unpredictable behavior.
+ * <p>
+ * Ideally, the two calls (validate and repair) would be called within the same transaction. Spanning them across transactions
+ * may allow the database state to change in between the calls and create a repair operation that is incorrect.
+ * Do not store validations results across transactions.
+ *
+ */
 @API(API.Status.UNSTABLE)
 public interface RecordValidator {
-    CompletableFuture<RecordValidationResult> validateRecordAsync(Tuple primaryKey);
+    /**
+     * Validate a record with the given primary key.
+     * @param primaryKey the primary key of the record
+     * @return a future to be completed with the validation result
+     */
+    CompletableFuture<RecordValidationResult> validateRecordAsync(@Nonnull Tuple primaryKey);
 
-    CompletableFuture<Void> repairRecordAsync(Tuple primaryKey, final CompletableFuture<RecordValidationResult> validationResult);
+    /**
+     * Repair a record based on the previously executed validation.
+     * @param primaryKey the primary key of the record
+     * @param validationResult the result of the previously executed validation
+     * @return a future to be completed once the repair is done
+     */
+    CompletableFuture<Void> repairRecordAsync(@Nonnull Tuple primaryKey, @Nonnull CompletableFuture<RecordValidationResult> validationResult);
 }

@@ -266,7 +266,7 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
     }
 
     /**
-     * A test that corrupts one of the splits of the recordsand ensures it is not deserializable
+     * A test that corrupts one of the splits of the recordsand ensures it is not deserializable.
      *
      * @param formatVersion the version format
      */
