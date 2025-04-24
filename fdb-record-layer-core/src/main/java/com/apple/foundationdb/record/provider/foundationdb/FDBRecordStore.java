@@ -124,7 +124,6 @@ import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -1197,6 +1196,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Override
     @SuppressWarnings("PMD.CloseResource")
     public RecordCursor<Tuple> scanRecordKeys(@Nonnull final TupleRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
+        if (getFormatVersion() < FDBRecordStore.RECORD_COUNT_KEY_ADDED_FORMAT_VERSION) {
+            // This is only tested for version >= 3
+            throw new UnsupportedFormatVersionException("scanRecordKeys does not support this format version");
+        }
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
         final Subspace recordsSubspace = recordsSubspace();
         if (!metaData.isSplitLongRecords() && omitUnsplitRecordSuffix) {
@@ -5490,10 +5493,4 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
-    @SuppressWarnings({"serial"})
-    public static class RecordDeserializationException extends RecordCoreException {
-        public RecordDeserializationException(final String message, final Throwable cause) {
-            super(message, cause);
-        }
-    }
 }

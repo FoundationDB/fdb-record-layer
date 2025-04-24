@@ -52,19 +52,24 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
     public enum UseContinuations { NONE, CONTINUATIONS, BYTE_LIMIT }
 
+    @Nonnull
+    private static Stream<Integer> formatVersions() {
+        return Stream.of(
+                FDBRecordStore.RECORD_COUNT_KEY_ADDED_FORMAT_VERSION, // 3
+                FDBRecordStore.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION, // 6
+                FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION);
+    }
+
     public static Stream<Arguments> splitContinuationVersion() {
         return Stream.of(true, false)
-                .flatMap(
-                        split -> Arrays.stream(UseContinuations.values())
-                                .flatMap(useContinuations -> Stream.of(
-                                                FDBRecordStore.RECORD_COUNT_KEY_ADDED_FORMAT_VERSION, // 3
-                                                FDBRecordStore.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION, // 6
-                                                FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
-                                        .map(version -> Arguments.of(split, useContinuations, version))));
+                .flatMap(split -> Arrays.stream(UseContinuations.values())
+                        .flatMap(useContinuations -> formatVersions()
+                                .map(version -> Arguments.of(split, useContinuations, version))));
     }
 
     @ParameterizedTest(name = "testIterateRecordsNoIssue [splitLongRecords = {0}, useContinuations = {1}, formatVersion = {2}]")
@@ -84,7 +89,7 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
         assertEquals(expectedKeys, actualKeys);
     }
 
-    @ParameterizedTest(name = "testIterateRecordsMissingRecord [splitLongRecords = {0}], useContinuations = {1}")
+    @ParameterizedTest(name = "testIterateRecordsMissingRecord [splitLongRecords = {0}, useContinuations = {1}, formatVersion = {2}")
     @MethodSource("splitContinuationVersion")
     void testIterateRecordsMissingRecord(boolean splitLongRecords, UseContinuations useContinuations, int formatVersion) throws Exception {
         final RecordMetaDataHook hook = getRecordMetaDataHook(splitLongRecords);
@@ -92,7 +97,7 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
         // Delete a record
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-            // Note that the PK start with 1, so the location is one-off when removed
+            // Note that the primary keys start with 1, so the location is one-off when removed
             store.deleteRecord(result.get(16).getPrimaryKey());
             store.deleteRecord(result.get(21).getPrimaryKey());
             store.deleteRecord(result.get(22).getPrimaryKey());
@@ -114,9 +119,9 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
     public static Stream<Arguments> splitNumberContinuationsVersion() {
         return Stream.of(0, 1, 2, 3)
                 .flatMap(
-                        splitNumber -> Stream.of(UseContinuations.NONE, UseContinuations.CONTINUATIONS, UseContinuations.BYTE_LIMIT)
-                                .flatMap(useContinuastions -> Stream.of(3, 6, FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
-                                        .map(formatVersion -> Arguments.of(splitNumber, useContinuastions, formatVersion))));
+                        splitNumber -> Stream.of(UseContinuations.values())
+                                .flatMap(useContinuations -> formatVersions()
+                                        .map(formatVersion -> Arguments.of(splitNumber, useContinuations, formatVersion))));
     }
 
     @ParameterizedTest(name = "testIterateRecordsMissingSplit [splitNumber = {0}, useContinuations = {1}, formatVersion = {2}]")
@@ -234,6 +239,7 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
             return recordKeyCursor.asList().get();
         } else {
             boolean done = false;
+            boolean foundContinuation = false;
             List<Tuple> result = new ArrayList<>();
             while (!done) {
                 RecordCursorResult<Tuple> currentRecord = recordKeyCursor.getNext();
@@ -244,10 +250,14 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
                 RecordCursorContinuation continuation = currentRecord.getContinuation();
                 if (continuation.isEnd()) {
                     done = true;
+                    assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, currentRecord.getNoNextReason());
                 } else {
                     recordKeyCursor = store.scanRecordKeys(TupleRange.allOf(null), continuation.toBytes(), scanProperties.with(executeProperties -> executeProperties.resetState()));
+                    foundContinuation = true;
+                    assertTrue(currentRecord.getNoNextReason().isLimitReached());
                 }
             }
+            assertTrue(foundContinuation, "Expected continuations but all records returned in first try");
             return result;
         }
     }

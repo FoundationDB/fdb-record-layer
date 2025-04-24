@@ -1,5 +1,5 @@
 /*
- * RecordValidator.java
+ * RecordDeserializationException.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,16 +18,16 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.provider.foundationdb.recordvalidation;
+package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.record.RecordCoreStorageException;
 
-import java.util.concurrent.CompletableFuture;
-
-@API(API.Status.UNSTABLE)
-public interface RecordValidator {
-    CompletableFuture<RecordValidationResult> validateRecordAsync(Tuple primaryKey);
-
-    CompletableFuture<Void> repairRecordAsync(Tuple primaryKey);
+/**
+ * Exception thrown when a record deserialization fails.
+ */
+@SuppressWarnings({"serial"})
+public class RecordDeserializationException extends RecordCoreStorageException {
+    public RecordDeserializationException(final String message, final Throwable cause) {
+        super(message, cause);
+    }
 }

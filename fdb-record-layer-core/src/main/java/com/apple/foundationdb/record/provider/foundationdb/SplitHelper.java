@@ -33,6 +33,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.FDBRecordStoreProperties;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -1169,11 +1170,11 @@ public class SplitHelper {
      * Exception thrown when splits are out of order.
      */
     @SuppressWarnings("serial")
-    public static class FoundSplitOutOfOrderException extends RecordCoreException {
+    public static class FoundSplitOutOfOrderException extends RecordCoreStorageException {
         public FoundSplitOutOfOrderException(long expected, long found) {
             super("Split record segments out of order");
-            addLogInfo(LogMessageKeys.EXPECTED_INDEX, expected);
-            addLogInfo(LogMessageKeys.FOUND_INDEX, found);
+            addLogInfo(LogMessageKeys.SPLIT_EXPECTED, expected);
+            addLogInfo(LogMessageKeys.SPLIT_FOUND, found);
         }
     }
 }

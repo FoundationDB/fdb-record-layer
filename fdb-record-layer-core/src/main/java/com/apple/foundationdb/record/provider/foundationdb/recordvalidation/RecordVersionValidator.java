@@ -20,12 +20,14 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.recordvalidation;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
 
+@API(API.Status.UNSTABLE)
 public class RecordVersionValidator implements RecordValidator {
     public static final String CODE_VERSION_MISSING_ERROR = "VersionMissingError";
     public static final String CODE_RECORD_MISSING_ERROR = "RecordMissingError";

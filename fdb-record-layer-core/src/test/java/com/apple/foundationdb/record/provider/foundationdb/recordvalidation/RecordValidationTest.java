@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.RecordDeserializationException;
 import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
@@ -35,8 +36,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -68,8 +69,10 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
         // Validate by primary key
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-            validateRecord(store, result.get(0).getPrimaryKey(), RecordValidationResult.CODE_VALID, RecordValidationResult.CODE_VALID);
-            validateRecord(store, result.get(1).getPrimaryKey(), RecordValidationResult.CODE_VALID, RecordValidationResult.CODE_VALID);
+            validateRecordValue(store, result.get(0).getPrimaryKey(), RecordValidationResult.CODE_VALID);
+            validateRecordVersion(store, result.get(0).getPrimaryKey(), RecordValidationResult.CODE_VALID);
+            validateRecordValue(store, result.get(1).getPrimaryKey(), RecordValidationResult.CODE_VALID);
+            validateRecordVersion(store, result.get(1).getPrimaryKey(), RecordValidationResult.CODE_VALID);
             context.commit();
         }
     }
@@ -88,8 +91,10 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
         // Validate by primary key
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-            validateRecord(store, result.get(0).getPrimaryKey(), RecordValidationResult.CODE_VALID, RecordVersionValidator.CODE_RECORD_MISSING_ERROR);
-            validateRecord(store, result.get(1).getPrimaryKey(), RecordValidationResult.CODE_VALID, RecordValidationResult.CODE_VALID);
+            validateRecordValue(store, result.get(0).getPrimaryKey(), RecordValidationResult.CODE_VALID);
+            validateRecordVersion(store, result.get(0).getPrimaryKey(), RecordVersionValidator.CODE_RECORD_MISSING_ERROR);
+            validateRecordValue(store, result.get(1).getPrimaryKey(), RecordValidationResult.CODE_VALID);
+            validateRecordVersion(store, result.get(1).getPrimaryKey(), RecordValidationResult.CODE_VALID);
             context.commit();
         }
     }
@@ -116,6 +121,7 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
             // If operating on the short record, #0 is the only split
             // If operating on the long record, splits can be 1,2,3
+            // Only using 1 and 2 in this test, 3 will cause a deserialization error (tested in testValidateRecordsDeserialize)
             final Tuple pkAndSplit = result.get(recordNumber).getPrimaryKey().add(splitNumber);
             byte[] split = store.recordsSubspace().pack(pkAndSplit);
             store.ensureContextActive().clear(split);
@@ -128,10 +134,13 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
             final String expected;
             // When format version is 3 and the record is a short record, deleting the only split will make the record disappear
             if ((splitNumber == 0) && (formatVersion == 3)) {
-                validateRecord(store, result.get(recordNumber).getPrimaryKey(), RecordValidationResult.CODE_VALID, RecordVersionValidator.CODE_RECORD_MISSING_ERROR);
+                validateRecordValue(store, result.get(recordNumber).getPrimaryKey(), RecordValidationResult.CODE_VALID);
+                validateRecordVersion(store, result.get(recordNumber).getPrimaryKey(), RecordVersionValidator.CODE_RECORD_MISSING_ERROR);
             } else {
-                validateRecord(store, result.get(recordNumber).getPrimaryKey(), RecordValueValidator.CODE_SPLIT_ERROR, null);
-                assertThrows(Exception.class, () -> validateRecord(store, result.get(recordNumber).getPrimaryKey(), null, RecordValidationResult.CODE_VALID));
+                validateRecordValue(store, result.get(recordNumber).getPrimaryKey(), RecordValueValidator.CODE_SPLIT_ERROR);
+                final Exception exception = assertThrows(Exception.class, () -> validateRecordVersion(store, result.get(recordNumber).getPrimaryKey(), RecordValidationResult.CODE_VALID));
+                assertTrue((exception.getCause() instanceof SplitHelper.FoundSplitWithoutStartException) ||
+                        (exception.getCause() instanceof SplitHelper.FoundSplitOutOfOrderException));
             }
             context.commit();
         }
@@ -158,8 +167,9 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
         // Validate by primary key
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-            validateRecord(store, result.get(recordNumber).getPrimaryKey(), RecordValueValidator.CODE_DESERIALIZE_ERROR, null);
-            assertThrows(Exception.class, () -> validateRecord(store, result.get(recordNumber).getPrimaryKey(), null, RecordValidationResult.CODE_VALID));
+            validateRecordValue(store, result.get(recordNumber).getPrimaryKey(), RecordValueValidator.CODE_DESERIALIZE_ERROR);
+            final Exception exception = assertThrows(Exception.class, () -> validateRecordVersion(store, result.get(recordNumber).getPrimaryKey(), RecordValidationResult.CODE_VALID));
+            assertTrue(exception.getCause() instanceof RecordDeserializationException);
             context.commit();
         }
     }
@@ -185,8 +195,10 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
         // Validate by primary key
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION);
-            validateRecord(store, result.get(0).getPrimaryKey(), RecordValidationResult.CODE_VALID, RecordVersionValidator.CODE_VERSION_MISSING_ERROR);
-            validateRecord(store, result.get(1).getPrimaryKey(), RecordValidationResult.CODE_VALID, RecordVersionValidator.CODE_VERSION_MISSING_ERROR);
+            validateRecordValue(store, result.get(0).getPrimaryKey(), RecordValidationResult.CODE_VALID);
+            validateRecordVersion(store, result.get(0).getPrimaryKey(), RecordVersionValidator.CODE_VERSION_MISSING_ERROR);
+            validateRecordValue(store, result.get(1).getPrimaryKey(), RecordValidationResult.CODE_VALID);
+            validateRecordVersion(store, result.get(1).getPrimaryKey(), RecordVersionValidator.CODE_VERSION_MISSING_ERROR);
             commit(context);
         }
     }
@@ -200,28 +212,26 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
         };
     }
 
-    private void validateRecord(FDBRecordStore store, final Tuple primaryKey, @Nullable String expectedValueValidationCode, @Nullable String expectedVersionValidationCode) throws Exception {
-        if (expectedValueValidationCode != null) {
-            RecordValidator valueValidator = new RecordValueValidator(store);
-            final RecordValidationResult valueValidatorResult = valueValidator.validateRecordAsync(primaryKey).get();
-            if (expectedValueValidationCode.equals(RecordValidationResult.CODE_VALID)) {
-                assertTrue(valueValidatorResult.isValid());
-            } else {
-                assertFalse(valueValidatorResult.isValid());
-            }
-            assertEquals(expectedValueValidationCode, valueValidatorResult.getErrorCode());
+    private static void validateRecordVersion(final FDBRecordStore store, final Tuple primaryKey, final @Nonnull String expectedVersionValidationCode) throws InterruptedException, ExecutionException {
+        RecordValidator versionValidator = new RecordVersionValidator(store);
+        final RecordValidationResult versionValidatorResult = versionValidator.validateRecordAsync(primaryKey).get();
+        if (expectedVersionValidationCode.equals(RecordValidationResult.CODE_VALID)) {
+            assertTrue(versionValidatorResult.isValid());
+        } else {
+            assertFalse(versionValidatorResult.isValid());
         }
+        assertEquals(expectedVersionValidationCode, versionValidatorResult.getErrorCode());
+    }
 
-        if (expectedVersionValidationCode != null) {
-            RecordValidator versionValidator = new RecordVersionValidator(store);
-            final RecordValidationResult versionValidatorResult = versionValidator.validateRecordAsync(primaryKey).get();
-            if (expectedVersionValidationCode.equals(RecordValidationResult.CODE_VALID)) {
-                assertTrue(versionValidatorResult.isValid());
-            } else {
-                assertFalse(versionValidatorResult.isValid());
-            }
-            assertEquals(expectedVersionValidationCode, versionValidatorResult.getErrorCode());
+    private static void validateRecordValue(final FDBRecordStore store, final Tuple primaryKey, final @Nonnull String expectedValueValidationCode) throws InterruptedException, ExecutionException {
+        RecordValidator valueValidator = new RecordValueValidator(store);
+        final RecordValidationResult valueValidatorResult = valueValidator.validateRecordAsync(primaryKey).get();
+        if (expectedValueValidationCode.equals(RecordValidationResult.CODE_VALID)) {
+            assertTrue(valueValidatorResult.isValid());
+        } else {
+            assertFalse(valueValidatorResult.isValid());
         }
+        assertEquals(expectedValueValidationCode, valueValidatorResult.getErrorCode());
     }
 
 
