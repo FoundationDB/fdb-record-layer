@@ -1,0 +1,34 @@
+name: Create Release Branch
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Base version to build off of (format: x.y.z)'
+        required: true
+
+
+jobs:
+  # Simple workflow that creates a release branch off of a given tag.
+  # Our branch protection rules prevent users from creating branches
+  # on their own, as we don't want too much clutter. This allows
+  # maintainers to create a new branch for generating patches when
+  # necessary.
+  branch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # Checkout the tag corresponding to patch 0 for the given version
+      - name: Checkout sources
+        uses: actions/checkout@v4.2.2
+        with:
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+          fetch-tags: true
+          ref: ${{ inputs.version }}.0
+
+      # Create and push the branch
+      - name: Create Branch
+        run: git checkout -b ${{ inputs.version }}-release
+      - name: Push
+        run: git push -u origin ${{ inputs.version }}-release

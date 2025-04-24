@@ -7,6 +7,112 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.2
 
+### 4.2.6.0
+
+<h4> Breaking Changes </h4>
+
+* Streaming aggregate cursor now requires 4.1.9.0 or later for continuation deserialization - [PR #3246](https://github.com/FoundationDB/fdb-record-layer/pull/3246)
+* Make INDEX_SCRUBBED_INDEX_RANGES unique + more - [PR #3306](https://github.com/FoundationDB/fdb-record-layer/pull/3306)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Fix getMixedModeVersion() to match display name - [PR #3310](https://github.com/FoundationDB/fdb-record-layer/pull/3310)
+* Fix connection name in Multiserver configs in YAML-tests - [PR #3301](https://github.com/FoundationDB/fdb-record-layer/pull/3301)
+
+</details>
+
+
+**[Full Changelog (4.2.5.0...4.2.6.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.2.5.0...4.2.6.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.1.5.0`, ❌`4.1.6.0`, ❌`4.1.8.0`, ✅`4.1.9.0`, ✅`4.1.10.0`, ✅`4.2.2.0`, ✅`4.2.2.1`, ❌`4.2.3.0`, ❌`4.2.4.0`, ✅`4.2.5.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/14498535409)
+
+
+
+### 4.2.5.0
+
+<h4> Breaking Changes </h4>
+
+* Rollback UUID support in SQL Layer - [PR #3293](https://github.com/FoundationDB/fdb-record-layer/pull/3293)
+* Synthetic record orphan policy - [PR #3271](https://github.com/FoundationDB/fdb-record-layer/pull/3271)
+<h4> New Features </h4>
+
+* Index scrubbing should support range id & range reset - [PR #3298](https://github.com/FoundationDB/fdb-record-layer/pull/3298)
+* Support SQL Table Valued Functions - [PR #3280](https://github.com/FoundationDB/fdb-record-layer/pull/3280)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* When downloading old servers, only cache latest version for 10 minutes - [PR #3284](https://github.com/FoundationDB/fdb-record-layer/pull/3284)
+* Updating release notes for 4.2.2.1 - [PR #3294](https://github.com/FoundationDB/fdb-record-layer/pull/3294)
+
+</details>
+
+
+**[Full Changelog (4.2.4.0...4.2.5.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.2.4.0...4.2.5.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.1.4.0`, ✅`4.1.5.0`, ✅`4.1.6.0`, ✅`4.1.8.0`, ✅`4.1.9.0`, ✅`4.1.10.0`, ✅`4.2.2.0`, ✅`4.2.2.1`, ❌`4.2.3.0`, ❌`4.2.4.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/14470024338)
+
+
+
+### 4.2.4.0
+
+<h4> Bug Fixes </h4>
+
+* Fix wasNull state across toString() calls in RowStruct - [PR #3276](https://github.com/FoundationDB/fdb-record-layer/pull/3276)
+<h4> Dependency Updates </h4>
+
+* Downgrade protobuf version back to 3.25.5 and grpc common proto to 2.37.0 - [PR #3287](https://github.com/FoundationDB/fdb-record-layer/pull/3287)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Decrease the number of builds compared during mixed mode to the most recent 10 - [PR #3289](https://github.com/FoundationDB/fdb-record-layer/pull/3289)
+* Added workflow for creating branches for patch releases - [PR #3192](https://github.com/FoundationDB/fdb-record-layer/pull/3192)
+* Rework SqlLineTest so that it actually interacts with the database - [PR #3273](https://github.com/FoundationDB/fdb-record-layer/pull/3273)
+* Fix warning from sphinxDocs about missing _static directory. - [PR #3283](https://github.com/FoundationDB/fdb-record-layer/pull/3283)
+* Remove get_old_version step from release build - [PR #3277](https://github.com/FoundationDB/fdb-record-layer/pull/3277)
+* Remove a bunch of blank lines in unsupported methods - [PR #3267](https://github.com/FoundationDB/fdb-record-layer/pull/3267)
+
+</details>
+
+
+**[Full Changelog (4.2.3.0...4.2.4.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.2.3.0...4.2.4.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.0.574.0`, ❌`4.0.575.0`, ❌`4.1.4.0`, ✅`4.1.5.0`, ✅`4.1.6.0`, ✅`4.1.8.0`, ✅`4.1.9.0`, ✅`4.1.10.0`, ✅`4.2.2.0`, ✅`4.2.3.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/14230097202)
+
+
+
 ### 4.2.3.0
 
 <h4> New Features </h4>
@@ -35,6 +141,35 @@ Mixed mode testing run against the following previous versions:
 ❌`4.0.559.1`, ❌`4.0.559.2`, ❌`4.0.559.3`, ❌`4.0.559.4`, ❌`4.0.559.6`, ❌`4.0.561.0`, ❌`4.0.562.0`, ❌`4.0.564.0`, ❌`4.0.565.0`, ❌`4.0.566.0`, ❌`4.0.567.0`, ❌`4.0.568.0`, ❌`4.0.569.0`, ❌`4.0.570.0`, ❌`4.0.571.0`, ❌`4.0.572.0`, ❌`4.0.573.0`, ❌`4.0.574.0`, ❌`4.0.575.0`, ❌`4.1.4.0`, ✅`4.1.5.0`, ✅`4.1.6.0`, ✅`4.1.8.0`, ✅`4.1.9.0`, ✅`4.1.10.0`
 
 [See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/14134843186)
+
+### 4.2.2.1
+
+<h4> Dependency Updates </h4>
+
+* Downgrade protobuf version back to 3.25.5 and grpc common proto to 2.37.0  - [PR #3288](https://github.com/FoundationDB/fdb-record-layer/pull/3288)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Decrease the number of builds compared during mixed mode to the most recent 10 - [PR #3290](https://github.com/FoundationDB/fdb-record-layer/pull/3290)
+
+</details>
+
+
+**[Full Changelog (4.2.2.0...4.2.2.1)](https://github.com/FoundationDB/fdb-record-layer/compare/4.2.2.0...4.2.2.1)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.0.574.0`, ❌`4.0.575.0`, ❌`4.1.4.0`, ✅`4.1.5.0`, ✅`4.1.6.0`, ✅`4.1.8.0`, ✅`4.1.9.0`, ✅`4.1.10.0`, ✅`4.2.2.0`, ✅`4.2.3.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/14239522793)
+
 
 
 

@@ -147,3 +147,7 @@ message AccumulatorState {
   optional string physical_operator_name = 1;
   repeated string state = 2; // 2 for avg
 }
+
+message RangeCursorContinuation {
+    optional int64 nextPosition = 1;
+}

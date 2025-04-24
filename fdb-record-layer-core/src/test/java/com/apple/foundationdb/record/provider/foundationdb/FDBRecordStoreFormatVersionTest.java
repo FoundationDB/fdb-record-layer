@@ -27,13 +27,17 @@ import com.apple.test.Tags;
 import com.google.common.base.Charsets;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+
+import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Tests related to upgrading/downgrading the format version.
+ * Tests related to interacting with the format version.
  */
 @Tag(Tags.RequiresFDB)
 public class FDBRecordStoreFormatVersionTest extends FDBRecordStoreTestBase {
@@ -109,4 +113,65 @@ public class FDBRecordStoreFormatVersionTest extends FDBRecordStoreTestBase {
         }
     }
 
+    public static IntStream testOpenWithProvidedBadVersion() {
+        return IntStream.of(-1, 0, FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION + 1);
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void testOpenWithProvidedBadVersion(int version) {
+        try (FDBRecordContext context = openContext()) {
+            assertThrows(UnsupportedFormatVersionException.class,
+                    () -> getStoreBuilder(context, simpleMetaData(NO_HOOK))
+                            .setFormatVersion(version));
+        }
+    }
+
+    public static IntStream testOpenWithExistingBadVersion() {
+        return IntStream.of(-1, 0, FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION + 1);
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void testOpenWithExistingBadVersion(int version) {
+        try (FDBRecordContext context = openContext()) {
+            recordStore = getStoreBuilder(context, simpleMetaData(NO_HOOK))
+                    .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
+                    .create();
+            recordStore.saveStoreHeader(recordStore.getRecordStoreState().getStoreHeader()
+                    .toBuilder()
+                    .setFormatVersion(version)
+                    .build());
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore.Builder storeBuilder = getStoreBuilder(context, simpleMetaData(NO_HOOK));
+            assertThrows(UnsupportedFormatVersionException.class, () -> storeBuilder
+                    .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
+                    .uncheckedOpen());
+        }
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore.Builder storeBuilder = getStoreBuilder(context, simpleMetaData(NO_HOOK));
+            assertThrows(UnsupportedFormatVersionException.class, () -> storeBuilder
+                    .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
+                    .open());
+        }
+    }
+
+    static IntStream testUnopenedVersion() {
+        return IntStream.of(FDBRecordStore.DEFAULT_FORMAT_VERSION, FDBRecordStore.INFO_ADDED_FORMAT_VERSION,
+                FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION);
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void testUnopenedVersion(int version) {
+        try (FDBRecordContext context = openContext()) {
+            recordStore = getStoreBuilder(context, simpleMetaData(NO_HOOK))
+                    .setFormatVersion(version)
+                    .build();
+            assertEquals(version, recordStore.getFormatVersion());
+        }
+    }
 }

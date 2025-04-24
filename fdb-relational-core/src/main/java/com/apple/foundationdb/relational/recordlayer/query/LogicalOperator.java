@@ -266,7 +266,7 @@ public class LogicalOperator {
     }
 
     @Nonnull
-    private static Expressions convertToExpressions(@Nonnull Quantifier quantifier) {
+    public static Expressions convertToExpressions(@Nonnull Quantifier quantifier) {
         final ImmutableList.Builder<Expression> attributesBuilder = ImmutableList.builder();
         int colCount = 0;
         final var columns = quantifier.getFlowedColumns();

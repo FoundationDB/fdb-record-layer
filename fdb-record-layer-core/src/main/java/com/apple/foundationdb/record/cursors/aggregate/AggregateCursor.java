@@ -55,7 +55,6 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
     // group aggregator to break incoming records into groups
     @Nonnull
     private final StreamGrouping<M> streamGrouping;
-    private final boolean isCreateDefaultOnEmpty;
     // Previous record processed by this cursor
     @Nullable
     private RecordCursorResult<QueryResult> previousResult;
@@ -73,12 +72,10 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
 
     public AggregateCursor(@Nonnull RecordCursor<QueryResult> inner,
                            @Nonnull final StreamGrouping<M> streamGrouping,
-                           final boolean isCreateDefaultOnEmpty,
                            @Nullable byte[] continuation,
                            final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode) {
         this.inner = inner;
         this.streamGrouping = streamGrouping;
-        this.isCreateDefaultOnEmpty = isCreateDefaultOnEmpty;
         this.continuation = continuation;
         this.serializationMode = serializationMode;
     }
@@ -96,8 +93,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
             lastResult = previousResult;
             previousResult = innerResult;
             if (!innerResult.hasNext()) {
-                if (!isNoRecords() || (isCreateDefaultOnEmpty && streamGrouping.isResultOnEmpty())) {
-                    // the method streamGrouping.finalizeGroup() computes previousCompleteResult and resets the accumulator
+                if (!isNoRecords() || streamGrouping.isResultOnEmpty()) {
                     partialAggregationResult = streamGrouping.finalizeGroup();
                 }
                 return false;

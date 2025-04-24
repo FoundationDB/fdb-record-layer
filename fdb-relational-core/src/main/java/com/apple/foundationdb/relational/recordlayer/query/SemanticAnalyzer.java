@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BuiltInTableFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
@@ -500,9 +501,6 @@ public class SemanticAnalyzer {
             case "FLOAT":
                 type = isNullable ? DataType.Primitives.NULLABLE_FLOAT.type() : DataType.Primitives.FLOAT.type();
                 break;
-            case "UUID":
-                type = isNullable ? DataType.Primitives.NULLABLE_UUID.type() : DataType.Primitives.UUID.type();
-                break;
             default:
                 Assert.notNullUnchecked(metadataCatalog);
                 // assume it is a custom type, will fail in upper layers if the type can not be resolved.
@@ -735,15 +733,21 @@ public class SemanticAnalyzer {
      * @param functionName The function name.
      * @param flattenSingleItemRecords {@code true} if single-item records should be (recursively) replaced with their
      *                                 content, otherwise {@code false}.
+     * @param isTableValued {@code true} if the function is expected to be a table-valued function, otherwise {@code false}.
      * @param arguments The function arguments.
      * @return A resolved SQL function {@code Expression}.
      */
     @Nonnull
-    public Expression resolveFunction(@Nonnull final String functionName, boolean flattenSingleItemRecords,
+    public Expression resolveFunction(@Nonnull final String functionName,
+                                      boolean flattenSingleItemRecords,
+                                      boolean isTableValued,
                                       @Nonnull final Expression... arguments) {
         Assert.thatUnchecked(functionCatalog.containsFunction(functionName), ErrorCode.UNSUPPORTED_QUERY,
                 () -> String.format(Locale.ROOT, "Unsupported operator %s", functionName));
         final var builtInFunction = functionCatalog.lookUpFunction(functionName, arguments);
+        if (isTableValued) {
+            Assert.thatUnchecked(builtInFunction instanceof BuiltInTableFunction, functionName + " is not a table-valued function");
+        }
         List<Expression> argumentList = new ArrayList<>();
         argumentList.addAll(List.of(arguments));
         if (BITMAP_SCALAR_FUNCTIONS.contains(functionName.toLowerCase(Locale.ROOT))) {

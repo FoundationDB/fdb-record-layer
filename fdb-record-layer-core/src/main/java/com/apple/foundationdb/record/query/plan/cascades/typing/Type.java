@@ -421,8 +421,6 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                 final var elementField = messageDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName());
                 final var elementTypeCode = TypeCode.fromProtobufType(elementField.getType());
                 return fromProtoTypeToArray(descriptor, protoType, elementTypeCode, true);
-            } else if (TupleFieldsProto.UUID.getDescriptor().equals(messageDescriptor)) {
-                return Type.uuidType(isNullable);
             } else {
                 return Record.fromFieldDescriptorsMap(isNullable, Record.toFieldDescriptorMap(messageDescriptor.getFields()));
             }
@@ -2799,6 +2797,24 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         @Nullable
         public Type getElementType() {
             return elementType;
+        }
+
+        /**
+         * Return the array with a given element {@link Type} and the same nullability semantics.
+         * @param elementType The new element type, can be {@code null}.
+         * @return the array with a given element {@link Type} and the same nullability semantics, if the element type
+         * matches the current element type, the same instance is returned.
+         */
+        @Nonnull
+        @SuppressWarnings("PMD.BrokenNullCheck") // I think PMD got confused or the null check conjunctions below.
+        public Type.Array withElementType(@Nullable final Type elementType) {
+            if (elementType == null && this.elementType == null) {
+                return this;
+            }
+            if (elementType != null && elementType.equals(this.elementType)) {
+                return this;
+            }
+            return new Array(isNullable(), elementType);
         }
 
         /**
