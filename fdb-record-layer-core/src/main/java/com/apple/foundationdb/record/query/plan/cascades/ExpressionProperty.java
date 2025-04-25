@@ -42,12 +42,12 @@ import javax.annotation.Nonnull;
  *         standpoint). In reality, as some properties are meaningless for some expressions but not others, the visitor
  *         may decide to throw an exception for a class it cannot process.
  *         There are some helpers that can transform e.g. a {@link RecordQueryPlanVisitor} into a
- *         {@link RelationalExpressionVisitor} which add lowing to throw an exception when a non-plan is visited. This
- *         does not weaken the usual contracts that these visitor classes have. It just allows for e.g.
+ *         {@link RelationalExpressionVisitor} which add functionality to throw an exception when a non-plan is visited.
+ *         This does not weaken the usual contracts that these visitor classes have. It just allows for e.g.
  *         {@link RecordQueryPlanVisitor}s to be used in place of {@link RelationalExpressionVisitor}s.
  *     </li>
  *     <li>
- *         Properties are not dependent on parameters but is computable solely by traversing the
+ *         Properties are not dependent on parameters but are computed by only traversing the
  *         {@link RelationalExpression} DAG. The method {@link #createVisitor()} does not use any parameters.
  *     </li>
  *     <li>
