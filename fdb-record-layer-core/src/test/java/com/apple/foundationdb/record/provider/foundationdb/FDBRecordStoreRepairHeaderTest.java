@@ -251,6 +251,9 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
     @ParameterizedTest
     @BooleanSource
     void failIfHeaderExists(boolean cached) {
+        // We don't allow repair if it is in the database, or if it is cached.
+        // In theory, we could use the cached value to inform what we fabricate, but the chance that you will discover
+        // that it is missing from the DB, but still have it in cache is pretty slim.
         if (cached) {
             final var metaDataVersionStampCacheFactory = MetaDataVersionStampStoreStateCacheFactory.newInstance();
             final FDBRecordStoreStateCache populatedCache = metaDataVersionStampCacheFactory.getCache(fdb);
@@ -261,7 +264,6 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
         createOriginalRecords(recordMetaData, primaryKeys);
 
         if (cached) {
-            // TODO can we consult the cache without having it fabricate things....
             setupCachedStoreState(recordMetaData);
             clearStoreHeader(recordMetaData);
         }
@@ -274,8 +276,6 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
                     .isInstanceOf(RecordCoreException.class);
             commit(context);
         }
-
-        Assertions.fail("TODO we should fail if there is a header");
     }
 
     @Test

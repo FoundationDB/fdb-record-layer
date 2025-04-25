@@ -5449,8 +5449,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         public CompletableFuture<FDBRecordStore> repairMissingHeader(final int userVersion) {
             return uncheckedOpenAsync()
                     .thenCompose(store ->
-                            store.loadStoreHeaderAsync(StoreExistenceCheck.NONE, IsolationLevel.SERIALIZABLE)
-                                    .thenCompose(storeState -> repairMissingHeader(userVersion, store, storeState)));
+                            store.getStoreStateCache().get(store, StoreExistenceCheck.NONE)
+                                    .thenCompose(storeStateCacheEntry ->
+                                            repairMissingHeader(userVersion, store,
+                                                    storeStateCacheEntry.getRecordStoreState().getStoreHeader())));
         }
 
         private CompletableFuture<FDBRecordStore> repairMissingHeader(final int userVersion,
