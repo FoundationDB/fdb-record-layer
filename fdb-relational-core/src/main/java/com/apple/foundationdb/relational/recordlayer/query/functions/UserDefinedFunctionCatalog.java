@@ -84,7 +84,6 @@ final class UserDefinedFunctionCatalog {
             }
         }
         final var namedArguments = namedArgumentsBuilder.build();
-        final var unnamedArguments = unnamedArgumentsBuilder.build();
         if (!namedArguments.isEmpty()) {
             return function.validateCall(arguments.toNamedArgumentInvocation());
         }

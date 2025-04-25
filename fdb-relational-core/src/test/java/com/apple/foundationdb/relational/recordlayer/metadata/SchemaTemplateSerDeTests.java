@@ -71,6 +71,9 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+/**
+ * Contains a number of tests for serializing and deserializing {@link RecordLayerSchemaTemplate}.
+ */
 public class SchemaTemplateSerDeTests {
 
     @BeforeAll
@@ -463,6 +466,8 @@ public class SchemaTemplateSerDeTests {
         final var actualFunctionMap = invokedRoutines.entrySet().stream().collect(Collectors.toMap(
                 Map.Entry::getKey,
                    e -> ((RawSqlFunction)e.getValue()).getDescription()));
+
+        // Verify that the provided functions match the ones we just deserialized
         Assertions.assertEquals(expectedFunctionMap, actualFunctionMap);
 
         Assertions.assertTrue(invokedRoutines.containsKey("SqlFunction1"));
@@ -479,8 +484,7 @@ public class SchemaTemplateSerDeTests {
         for (final var functionName : expectedFunctionMap.keySet()) {
             Assertions.assertTrue(deserializerWithPeekingCompilationSupplier.hasNoCompilationRequestsFor(functionName));
         }
-        final var metadata = deserializerWithPeekingCompilationSupplier
-                .getSchemaTemplate("schemaUnderTest", 42).build();
+        final var ignored = deserializerWithPeekingCompilationSupplier.getSchemaTemplate("schemaUnderTest", 42);
         for (final var functionName : expectedFunctionMap.keySet()) {
             Assertions.assertTrue(deserializerWithPeekingCompilationSupplier.hasNoCompilationRequestsFor(functionName));
         }
@@ -544,7 +548,7 @@ public class SchemaTemplateSerDeTests {
                     .withMetricsCollector(metricCollector)
                     .withDbUri(URI.create(""))
                     .withMetadata(getRecordMetaData())
-                    .withSchemaTemplate(getSchemaTemplate("testSchema", 42).build())
+                    .withSchemaTemplate(getSchemaTemplate("testSchema", 42))
                     .withPlannerConfiguration(PlannerConfiguration.ofAllAvailableIndexes())
                     .withUserVersion(0)
                     .build();

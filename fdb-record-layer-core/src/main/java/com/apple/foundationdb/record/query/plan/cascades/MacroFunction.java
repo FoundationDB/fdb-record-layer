@@ -67,6 +67,7 @@ public class MacroFunction extends UserDefinedFunction<Value> {
     }
 
     @Nonnull
+    @Override
     public RecordMetaDataProto.PUserDefinedFunction toProto(@Nonnull PlanSerializationContext serializationContext) {
         PMacroFunctionValue.Builder builder = PMacroFunctionValue.newBuilder();
         for (int i = 0; i < parameterTypes.size(); i++) {

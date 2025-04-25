@@ -325,6 +325,7 @@ public class Expression {
             return Assert.optionalUnchecked(getName());
         }
 
+        @Override
         public boolean isNamedArgument() {
             return true;
         }

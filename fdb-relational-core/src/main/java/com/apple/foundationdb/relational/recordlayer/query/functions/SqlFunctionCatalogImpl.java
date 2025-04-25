@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.BuiltInFunctionCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.metadata.serde.RoutineParser;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.util.Assert;
@@ -155,7 +154,6 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
     @Nonnull
     public static SqlFunctionCatalogImpl newInstance(@Nonnull RecordLayerSchemaTemplate metadata, boolean isCaseSensitive) {
         final var functionCatalog = new SqlFunctionCatalogImpl();
-        final var functionParser = RoutineParser.sqlFunctionParser(metadata);
         metadata.getInvokedRoutines().forEach(func ->
                 functionCatalog.registerUserDefinedFunction(
                         Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(func.getName(), isCaseSensitive)),

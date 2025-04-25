@@ -26,8 +26,6 @@ import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
-import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -83,6 +81,7 @@ public class CompilableSqlTableFunction implements CompilableRoutine<Value, Logi
         return name;
     }
 
+    @Override
     public boolean isScalar() {
         return false;
     }
@@ -273,34 +272,8 @@ public class CompilableSqlTableFunction implements CompilableRoutine<Value, Logi
             if (returnType != null) {
                 throw new UnsupportedOperationException("not supported");
             }
-
-            final var qun = getParametersCorrelation();
-
-//            LogicalOperator bodyOp = body;
-//            if (qun.isPresent()) {
-//                final var selectBuilder = GraphExpansion.builder()
-//                        .addQuantifier(body.getQuantifier())
-//                        .addQuantifier(qun.get())
-//                        .addAllResultValues(body.getQuantifier().getFlowedValues()).build();
-//                final var topQun = Quantifier.forEach(Reference.of(selectBuilder.buildSelect()));
-//                final var pulledUpValues = body.getOutput().rewireQov(topQun.getFlowedObjectValue());
-//                bodyOp = LogicalOperator.newOperatorWithPreservedExpressionNames(pulledUpValues, topQun);
-//            }
-
-//            final var rlType = DataTypeUtils.toRecordLayerType(type);
-//            var body = visit(ctx.routineBody());
-//            Assert.thatUnchecked(body instanceof Value || body instanceof LogicalOperator);
-//            if (body instanceof Value) {
-//                final var value = (Value)body;
-//                final var requiresPromotion = PromoteValue.isPromotionNeeded(value.getResultType(), rlType);
-//                if (requiresPromotion) {
-//                    body = PromoteValue.inject(value, rlType);
-//                }
-//            } else {
-//                final var logicalOperator = (LogicalOperator)body;
-//
-//            }
-            return new CompilableSqlTableFunction(isDeterministic, parameters, name, getParametersCorrelation().map(Quantifier::getAlias), body.getQuantifier());
+            return new CompilableSqlTableFunction(isDeterministic, parameters, name,
+                    getParametersCorrelation().map(Quantifier::getAlias), body.getQuantifier());
         }
     }
 }

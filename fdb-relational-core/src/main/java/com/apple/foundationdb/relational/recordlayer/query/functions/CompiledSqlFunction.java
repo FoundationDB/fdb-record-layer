@@ -47,7 +47,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -70,16 +69,17 @@ public class CompiledSqlFunction extends UserDefinedFunction<Value> {
     private final Optional<CorrelationIdentifier> parametersCorrelation;
 
     protected CompiledSqlFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
-                               @Nonnull final List<Type> parameterTypes,
-                               @Nonnull final List<Optional<Value>> parameterDefaults,
-                               @Nonnull final Optional<CorrelationIdentifier> parametersCorrelation,
-                               @Nonnull final RelationalExpression body) {
+                                  @Nonnull final List<Type> parameterTypes,
+                                  @Nonnull final List<Optional<Value>> parameterDefaults,
+                                  @Nonnull final Optional<CorrelationIdentifier> parametersCorrelation,
+                                  @Nonnull final RelationalExpression body) {
         super(functionName, parameterNames, parameterTypes, parameterDefaults);
         this.parametersCorrelation = parametersCorrelation;
         this.body = body;
     }
 
     @Nonnull
+    @Override
     public RecordMetaDataProto.PUserDefinedFunction toProto(@Nonnull final PlanSerializationContext serializationContext) {
         throw new RecordCoreException("attempt to serialize compiled SQL function");
     }
@@ -101,7 +101,7 @@ public class CompiledSqlFunction extends UserDefinedFunction<Value> {
                     () -> "could not find function matching the provided arguments");
         }
         final var resultBuilder = GraphExpansion.builder();
-        for (var paramIdx = 0;  paramIdx < parametersCount; paramIdx++) {
+        for (var paramIdx = 0; paramIdx < parametersCount; paramIdx++) {
             Value argumentValue;
             if (paramIdx >= arguments.size()) {
                 argumentValue = Assert.optionalUnchecked(getDefaultValue(paramIdx));
@@ -160,6 +160,7 @@ public class CompiledSqlFunction extends UserDefinedFunction<Value> {
 
     /**
      * Creates a quantifier over a logical expression that is {@code range(0,1]}.
+     *
      * @return a quantifier over a logical expression that is {@code range(0,1]}.
      */
     @Nonnull
@@ -173,6 +174,7 @@ public class CompiledSqlFunction extends UserDefinedFunction<Value> {
 
     /**
      * Creates a new builder of {@link SqlFunctionCatalog}.
+     *
      * @return new builder of {@link SqlFunctionCatalog}.
      */
     @Nonnull
@@ -181,14 +183,10 @@ public class CompiledSqlFunction extends UserDefinedFunction<Value> {
     }
 
     public static final class StepBuilder {
-        @Nullable
-        private Type returnType;
         private final ImmutableList.Builder<Expression> parametersBuilder;
-        private boolean isDeterministic;
         private String name;
 
         private StepBuilder() {
-            isDeterministic = false;
             this.parametersBuilder = ImmutableList.builder();
         }
 
@@ -253,12 +251,6 @@ public class CompiledSqlFunction extends UserDefinedFunction<Value> {
         }
 
         @Nonnull
-        public StepBuilder setDeterministic(final boolean isDeterministic) {
-            this.isDeterministic = isDeterministic;
-            return this;
-        }
-
-        @Nonnull
         public StepBuilder setName(@Nonnull final String name) {
             this.name = name;
             return this;
@@ -272,34 +264,6 @@ public class CompiledSqlFunction extends UserDefinedFunction<Value> {
             Assert.thatUnchecked(parameters.allNamedArguments() /*|| parameters.allUnnamed()*/, ErrorCode.UNSUPPORTED_OPERATION,
                     "unnamed arguments is not supported");
             return new FinalBuilder(this, parameters);
-
-            // final var qun = getParametersCorrelation();
-
-//            LogicalOperator bodyOp = body;
-//            if (qun.isPresent()) {
-//                final var selectBuilder = GraphExpansion.builder()
-//                        .addQuantifier(body.getQuantifier())
-//                        .addQuantifier(qun.get())
-//                        .addAllResultValues(body.getQuantifier().getFlowedValues()).build();
-//                final var topQun = Quantifier.forEach(Reference.of(selectBuilder.buildSelect()));
-//                final var pulledUpValues = body.getOutput().rewireQov(topQun.getFlowedObjectValue());
-//                bodyOp = LogicalOperator.newOperatorWithPreservedExpressionNames(pulledUpValues, topQun);
-//            }
-
-//            final var rlType = DataTypeUtils.toRecordLayerType(type);
-//            var body = visit(ctx.routineBody());
-//            Assert.thatUnchecked(body instanceof Value || body instanceof LogicalOperator);
-//            if (body instanceof Value) {
-//                final var value = (Value)body;
-//                final var requiresPromotion = PromoteValue.isPromotionNeeded(value.getResultType(), rlType);
-//                if (requiresPromotion) {
-//                    body = PromoteValue.inject(value, rlType);
-//                }
-//            } else {
-//                final var logicalOperator = (LogicalOperator)body;
-//
-//            }
-//            return new SqlFunction(isDeterministic, parametersBuilder, name, getParametersCorrelation().map(Quantifier::getAlias), body.getQuantifier());
         }
     }
 }

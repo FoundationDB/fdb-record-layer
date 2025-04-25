@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.api.ddl;
 
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.RelationalConnectionRule;
@@ -30,24 +29,30 @@ import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.utils.PermutationIterator;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
-import org.junit.jupiter.api.Assertions;
+import com.google.common.collect.Streams;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.relational.matchers.SchemaTemplateMatchers.containsRoutinesInAnyOrder;
 import static com.apple.foundationdb.relational.matchers.SchemaTemplateMatchers.routine;
 import static com.apple.foundationdb.relational.utils.RelationalAssertions.assertThrows;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_PLACEHOLDER;
 
+/**
+ * Contains a number of tests for creating SQL functions.
+ */
 public class SqlFunctionTest {
 
     @RegisterExtension
@@ -81,15 +86,20 @@ public class SqlFunctionTest {
         return permutations.stream().map(Arguments::of);
     }
 
-    void shouldFailWith(@Nonnull final String query, @Nullable final ErrorCode errorCode) throws Exception {
-        connection.setAutoCommit(false);
-        (connection.getUnderlyingEmbeddedConnection()).createNewTransaction();
-        final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
-                DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
-                        "/DdlStatementParsingTest").getPlan(query));
-        Assertions.assertEquals(errorCode, ve.getErrorCode());
-        connection.rollback();
-        connection.setAutoCommit(true);
+    @ParameterizedTest(name = "create sql function with " + ARGUMENTS_PLACEHOLDER + " parameters")
+    @MethodSource("columnTypePermutations")
+    void createSqlFunctionWorksVariousTypes(List<String> types) throws Exception {
+        final var parametersString = Streams.mapWithIndex(types.stream(), (type, idx) -> "IN PARAM" + idx + " " + type)
+                .collect(Collectors.joining(", ", "(", ")"));
+        final var columnsString = Streams.mapWithIndex(types.stream(), (type, idx) -> "COL" + idx + " " + type)
+                .collect(Collectors.joining(", ", "(", ", PRIMARY KEY (COL0))"));
+        final var conditionString = Streams.mapWithIndex(types.stream(), (type, idx) -> "COL" + idx + " = " + " PARAM" + idx)
+                .collect(Collectors.joining(" AND "));
+        assertThat(ddl("CREATE SCHEMA TEMPLATE test_template " +
+                        "CREATE TABLE T " + columnsString +
+                        "CREATE FUNCTION SQ" + parametersString + " AS SELECT * FROM T WHERE " + conditionString),
+                containsRoutinesInAnyOrder(routine("SQ", "CREATE FUNCTION SQ" + parametersString +
+                        " AS SELECT * FROM T WHERE " + conditionString)));
     }
 
     void shouldWorkWithInjectedFactory(@Nonnull final String query, @Nonnull final MetadataOperationsFactory metadataOperationsFactory)
@@ -98,18 +108,6 @@ public class SqlFunctionTest {
         connection.getUnderlyingEmbeddedConnection().createNewTransaction();
         DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
                         "/SqlFunctionTest", metadataOperationsFactory).getPlan(query);
-        connection.rollback();
-        connection.setAutoCommit(true);
-    }
-
-    void shouldFailWithInjectedFactory(@Nonnull final String query, @Nullable final ErrorCode errorCode,
-                                       @Nonnull final MetadataOperationsFactory metadataOperationsFactory) throws Exception {
-        connection.setAutoCommit(false);
-        (connection.getUnderlyingEmbeddedConnection()).createNewTransaction();
-        final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
-                DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
-                        "/DdlStatementParsingTest", metadataOperationsFactory).getPlan(query));
-        Assertions.assertEquals(errorCode, ve.getErrorCode());
         connection.rollback();
         connection.setAutoCommit(true);
     }
@@ -245,5 +243,21 @@ public class SqlFunctionTest {
                 "CREATE FUNCTION SQ1(IN Q BIGINT, IN R BIGINT) AS SELECT * FROM T WHERE b < Q " +
                 "CREATE FUNCTION SQ2(IN S BIGINT) AS SELECT * FROM SQ1('a', 'b') WHERE b < S"))
                 .hasErrorCode(ErrorCode.UNDEFINED_FUNCTION);
+    }
+
+    @Test
+    void createFunctionWithAmbiguousParameterNamesCase1() throws Exception {
+        assertThat(ddl("CREATE SCHEMA TEMPLATE test_template " +
+                        "CREATE TABLE T(a BIGINT, b BIGINT, primary key(a)) " +
+                        "CREATE FUNCTION SQ(IN a BIGINT) AS SELECT * FROM T WHERE b < a"),
+                containsRoutinesInAnyOrder(routine("SQ", "CREATE FUNCTION SQ(IN a BIGINT) AS SELECT * FROM T WHERE b < a")));
+    }
+
+    @Test
+    void createFunctionWithAmbiguousParameterNamesCase2() throws Exception {
+        assertThat(ddl("CREATE SCHEMA TEMPLATE test_template " +
+                        "CREATE TABLE T(a BIGINT, b BIGINT, primary key(a)) " +
+                        "CREATE FUNCTION SQ(IN a BIGINT) AS SELECT * FROM T WHERE T.a < a"),
+                containsRoutinesInAnyOrder(routine("SQ", "CREATE FUNCTION SQ(IN a BIGINT) AS SELECT * FROM T WHERE T.a < a")));
     }
 }

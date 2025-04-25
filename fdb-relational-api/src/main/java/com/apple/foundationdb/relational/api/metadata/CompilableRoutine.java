@@ -53,7 +53,7 @@ public interface CompilableRoutine<ArgT, BodyT> {
     Parameter getParameter(int index);
 
     @Nonnull
-    Parameter getParameter(@Nonnull final String name);
+    Parameter getParameter(@Nonnull String name);
 
     @Nonnull
     Language getLanguage();

@@ -69,5 +69,5 @@ public abstract class UserDefinedFunction<T extends Typed> extends CatalogedFunc
      * @return A serialized version of the {@link UserDefinedFunction} as a protobuf message.
      */
     @Nonnull
-    public abstract RecordMetaDataProto.PUserDefinedFunction toProto(@Nonnull final PlanSerializationContext serializationContext);
+    public abstract RecordMetaDataProto.PUserDefinedFunction toProto(@Nonnull PlanSerializationContext serializationContext);
 }

@@ -348,7 +348,6 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var language = (props.languageClause() != null && props.languageClause().languageName().JAVA() != null)
                 ? CompilableRoutine.Language.JAVA
                 : CompilableRoutine.Language.SQL;
-        boolean isDeterministic = props.deterministicCharacteristic() != null && props.deterministicCharacteristic().NOT() == null;
         // SQL-invoked routine 11.60, syntax rules, section 6.f.ii
         boolean isNullReturnOnNull = props.nullCallClause() != null && props.nullCallClause().RETURNS() != null;
         // ... currently we support only CALLED ON NULL INPUT (which is implicitly set if not defined).
@@ -367,7 +366,6 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var sqlFunctionBuilder = CompiledSqlFunction.newBuilder()
                 .setName(functionName)
                 .addAllParameters(parameters)
-                .setDeterministic(isDeterministic)
                 .seal();
         final var parametersCorrelation = sqlFunctionBuilder.getParametersCorrelation();
         final LogicalOperator body;

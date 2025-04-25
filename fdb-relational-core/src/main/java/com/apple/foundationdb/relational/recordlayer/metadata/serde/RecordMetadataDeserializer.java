@@ -35,6 +35,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.util.Assert;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -53,22 +54,29 @@ public class RecordMetadataDeserializer {
     @Nonnull
     private final RecordMetaData recordMetaData;
 
+    @Nonnull
+    private final RecordLayerSchemaTemplate.Builder builder;
+
     public RecordMetadataDeserializer(@Nonnull final RecordMetaData recordMetaData) {
         this.recordMetaData = recordMetaData;
+        builder = deserializeRecordMetaData();
     }
 
     @Nonnull
-    public RecordLayerSchemaTemplate.Builder getSchemaTemplate(@Nonnull final String schemaTemplateName, int version) {
+    public RecordLayerSchemaTemplate getSchemaTemplate(@Nonnull final String schemaTemplateName, int version) {
+        return builder.setName(schemaTemplateName).setVersion(version).build();
+    }
+
+    @Nonnull
+    private RecordLayerSchemaTemplate.Builder deserializeRecordMetaData() {
         // iterate _only_ over the record types registered in the union descriptor to avoid potentially-expensive
         // deserialization of other descriptors that can never be used by the user.
         final var unionDescriptor = recordMetaData.getUnionDescriptor();
 
         final var registeredTypes = unionDescriptor.getFields();
         final var schemaTemplateBuilder = RecordLayerSchemaTemplate.newBuilder()
-                .setVersion(version)
                 .setStoreRowVersions(recordMetaData.isStoreRecordVersions())
                 .setEnableLongRows(recordMetaData.isSplitLongRecords())
-                .setName(schemaTemplateName)
                 .setIntermingleTables(!recordMetaData.primaryKeyHasRecordTypePrefix());
         final var nameToTableBuilder = new HashMap<String, RecordLayerTable.Builder>();
         for (final var registeredType : registeredTypes) {
@@ -101,6 +109,7 @@ public class RecordMetadataDeserializer {
                 }
             }
         }
+        schemaTemplateBuilder.setCachedMetadata(getRecordMetaData());
         return schemaTemplateBuilder;
     }
 
@@ -140,6 +149,7 @@ public class RecordMetadataDeserializer {
     }
 
     @Nonnull
+    @VisibleForTesting
     protected Supplier<CompiledSqlFunction> getSqlFunctionCompiler(@Nonnull final String name,
                                                                    @Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
                                                                    @Nonnull final String functionBody) {

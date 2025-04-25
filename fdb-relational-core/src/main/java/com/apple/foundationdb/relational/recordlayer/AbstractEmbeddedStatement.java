@@ -64,7 +64,7 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
     }
 
     @Nonnull
-    abstract PlanContext buildPlanContext(@Nonnull final FDBRecordStoreBase<?> store) throws RelationalException;
+    abstract PlanContext buildPlanContext(@Nonnull FDBRecordStoreBase<?> store) throws RelationalException;
 
     @SuppressWarnings("PMD.PreserveStackTrace")
     public boolean executeInternal(String sql) throws SQLException, RelationalException {

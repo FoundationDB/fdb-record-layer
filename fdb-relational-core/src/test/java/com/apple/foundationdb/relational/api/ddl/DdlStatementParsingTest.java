@@ -900,7 +900,8 @@ public class DdlStatementParsingTest {
         });
     }
 
-    private String makeColumnDefinition(List<String> columns, boolean isTable) {
+    @Nonnull
+    private static String makeColumnDefinition(@Nonnull final List<String> columns, boolean isTable) {
         StringBuilder columnStatement = new StringBuilder("(");
         int pos = 0;
         for (String col : columns) {
@@ -917,7 +918,8 @@ public class DdlStatementParsingTest {
         return columnStatement.append(")").toString();
     }
 
-    private List<String> chooseIndexColumns(List<String> columns, IntPredicate indexChoice) {
+    @Nonnull
+    private static List<String> chooseIndexColumns(@Nonnull final List<String> columns, @Nonnull final IntPredicate indexChoice) {
         //choose every other column
         return IntStream.range(0, columns.size())
                 .filter(indexChoice)
@@ -925,7 +927,7 @@ public class DdlStatementParsingTest {
                 .collect(Collectors.toList());
     }
 
-    private void assertColumnsMatch(DdlTestUtil.ParsedType type, List<String> expectedColumns) {
+    private static void assertColumnsMatch(@Nonnull final DdlTestUtil.ParsedType type, @Nonnull final List<String> expectedColumns) {
         Assertions.assertNotNull(type, "No type found!");
         List<String> columnStrings = type.getColumnStrings();
         List<String> expectedColStrings = IntStream.range(0, expectedColumns.size())
