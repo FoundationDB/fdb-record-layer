@@ -668,7 +668,7 @@ public class StandardQueryTests {
     }
 
     @Disabled
-        // until we fix the implicit fetch operator in record layer.
+    // until we fix the implicit fetch operator in record layer.
     void projectIndividualPredicateColumns() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
@@ -681,7 +681,7 @@ public class StandardQueryTests {
     }
 
     @Disabled
-        // until we implement1 operators for type promotion and casts in record layer.
+    // until we implement1 operators for type promotion and casts in record layer.
     void predicateWithImplicitCast() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {

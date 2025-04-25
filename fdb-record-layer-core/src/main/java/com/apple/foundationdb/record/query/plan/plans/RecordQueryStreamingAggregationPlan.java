@@ -369,24 +369,25 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
     @Override
     public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
         if (serializationMode == SerializationMode.TO_OLD) {
-            final var builder = PRecordQueryStreamingAggregationPlan.newBuilder()
-                    .setInner(inner.toProto(serializationContext))
-                    .setAggregateValue(aggregateValue.toValueProto(serializationContext));
+            final var builder = PRecordQueryStreamingAggregationPlan.newBuilder();
             if (groupingKeyValue != null) {
                 builder.setGroupingKeyValue(groupingKeyValue.toValueProto(serializationContext));
             }
-            builder.setGroupingKeyAlias(groupingKeyAlias.getId())
+            builder.setInner(inner.toProto(serializationContext))
+                    .setAggregateValue(aggregateValue.toValueProto(serializationContext))
+                    .setGroupingKeyAlias(groupingKeyAlias.getId())
                     .setAggregateAlias(aggregateAlias.getId())
-                    .setCompleteResultValue(completeResultValue.toValueProto(serializationContext));
+                    .setCompleteResultValue(completeResultValue.toValueProto(serializationContext))
+                    .setIsCreateDefaultOnEmpty(false);
             return builder.build();
         } else {
-            final var builder = PRecordQueryStreamingAggregationPlan2.newBuilder()
-                    .setInner(inner.toProto(serializationContext))
-                    .setAggregateValue(aggregateValue.toValueProto(serializationContext));
+            final var builder = PRecordQueryStreamingAggregationPlan2.newBuilder();
             if (groupingKeyValue != null) {
                 builder.setGroupingKeyValue(groupingKeyValue.toValueProto(serializationContext));
             }
-            builder.setGroupingKeyAlias(groupingKeyAlias.getId())
+            builder.setInner(inner.toProto(serializationContext))
+                    .setAggregateValue(aggregateValue.toValueProto(serializationContext))
+                    .setGroupingKeyAlias(groupingKeyAlias.getId())
                     .setAggregateAlias(aggregateAlias.getId())
                     .setCompleteResultValue(completeResultValue.toValueProto(serializationContext));
             return builder.build();
@@ -433,8 +434,9 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         final CorrelationIdentifier groupingKeyAlias = CorrelationIdentifier.of(Objects.requireNonNull(recordQueryStreamingAggregationPlanProto.getGroupingKeyAlias()));
         final CorrelationIdentifier aggregateAlias = CorrelationIdentifier.of(Objects.requireNonNull(recordQueryStreamingAggregationPlanProto.getAggregateAlias()));
         final Value completeResultValue = Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryStreamingAggregationPlanProto.getCompleteResultValue()));
-        final boolean isCreateDefaultOnEmpty = recordQueryStreamingAggregationPlanProto.hasIsCreateDefaultOnEmpty() ? recordQueryStreamingAggregationPlanProto.getIsCreateDefaultOnEmpty() : true;
+        final boolean isCreateDefaultOnEmpty = recordQueryStreamingAggregationPlanProto.hasIsCreateDefaultOnEmpty() && recordQueryStreamingAggregationPlanProto.getIsCreateDefaultOnEmpty();
         if (isCreateDefaultOnEmpty) {
+            System.out.println("recordQueryStreamingAggregationPlanProto:" + recordQueryStreamingAggregationPlanProto);
             throw new RecordCoreArgumentException("cannot create streaming aggregate plan with default value on empty");
         }
         return new RecordQueryStreamingAggregationPlan(inner, groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias, completeResultValue);
