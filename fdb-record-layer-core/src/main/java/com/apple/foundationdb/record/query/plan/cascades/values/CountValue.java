@@ -343,7 +343,9 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
 
         public SumAccumulator(@Nonnull final PhysicalOperator physicalOperator, @Nonnull RecordCursorProto.AccumulatorState initialState) {
             this.physicalOperator = physicalOperator;
-            this.state = Long.parseLong(initialState.getState(0));
+            Verify.verify(initialState.getStateList().size() == 1);
+            Verify.verify(initialState.getState(0).hasInt64State());
+            this.state = initialState.getState(0).getInt64State();
         }
 
         @Override
@@ -367,7 +369,7 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
                     .setGroupKey(groupingKey.toByteString())
                     .addAccumulatorStates(RecordCursorProto.AccumulatorState.newBuilder()
                             .setPhysicalOperatorName(physicalOperator.name())
-                            .addState(String.valueOf(state)))
+                            .addState(RecordCursorProto.OneOfTypedState.newBuilder().setInt64State((long)state)))
                     .build();
         }
     }
