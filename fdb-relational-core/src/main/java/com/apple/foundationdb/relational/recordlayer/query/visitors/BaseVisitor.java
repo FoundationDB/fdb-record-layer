@@ -423,8 +423,23 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     }
 
     @Override
+    public LogicalOperator visitStatementBody(final RelationalParser.StatementBodyContext ctx) {
+        return ddlVisitor.visitStatementBody(ctx);
+    }
+
+    @Override
+    public Object visitExpressionBody(final RelationalParser.ExpressionBodyContext ctx) {
+        return visitChildren(ctx);
+    }
+
+    @Override
     public Expressions visitSqlParameterDeclarationList(RelationalParser.SqlParameterDeclarationListContext ctx) {
         return ddlVisitor.visitSqlParameterDeclarationList(ctx);
+    }
+
+    @Override
+    public Expressions visitSqlParameterDeclarations(final RelationalParser.SqlParameterDeclarationsContext ctx) {
+        return ddlVisitor.visitSqlParameterDeclarations(ctx);
     }
 
     @Override
@@ -500,11 +515,6 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     @Override
     public Object visitDispatchClause(final RelationalParser.DispatchClauseContext ctx) {
         return null;
-    }
-
-    @Override
-    public LogicalOperator visitRoutineBody(final RelationalParser.RoutineBodyContext ctx) {
-        return ddlVisitor.visitRoutineBody(ctx);
     }
 
     @Override

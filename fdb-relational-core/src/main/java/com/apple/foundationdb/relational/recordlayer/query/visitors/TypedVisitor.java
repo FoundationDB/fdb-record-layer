@@ -183,13 +183,16 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     CompiledSqlFunction visitSqlInvokedFunction(RelationalParser.SqlInvokedFunctionContext ctx);
 
     @Override
-    LogicalOperator visitRoutineBody(RelationalParser.RoutineBodyContext ctx);
+    LogicalOperator visitStatementBody(RelationalParser.StatementBodyContext ctx);
 
     @Override
     RecordLayerInvokedRoutine visitFunctionSpecification(RelationalParser.FunctionSpecificationContext ctx);
 
     @Override
     Expressions visitSqlParameterDeclarationList(RelationalParser.SqlParameterDeclarationListContext ctx);
+
+    @Override
+    Expressions visitSqlParameterDeclarations(RelationalParser.SqlParameterDeclarationsContext ctx);
 
     @Override
     Expression visitSqlParameterDeclaration(RelationalParser.SqlParameterDeclarationContext ctx);

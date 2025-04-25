@@ -69,7 +69,7 @@ public class CompiledSqlFunction extends UserDefinedFunction<Value> {
     @Nonnull
     private final Optional<CorrelationIdentifier> parametersCorrelation;
 
-    private CompiledSqlFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
+    protected CompiledSqlFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
                                @Nonnull final List<Type> parameterTypes,
                                @Nonnull final List<Optional<Value>> parameterDefaults,
                                @Nonnull final Optional<CorrelationIdentifier> parametersCorrelation,
@@ -87,7 +87,40 @@ public class CompiledSqlFunction extends UserDefinedFunction<Value> {
     @Nonnull
     @Override
     public RelationalExpression encapsulate(@Nonnull final List<? extends Typed> arguments) {
-        throw new UnsupportedOperationException("this method is not implemented yet");
+        if (parametersCorrelation.isEmpty()) {
+            // this should never happen.
+            Assert.thatUnchecked(arguments.isEmpty(), ErrorCode.INTERNAL_ERROR,
+                    "unexpected parameterless function invocation with non-zero arguments");
+            return body;
+        }
+        final var parametersCount = getParameterNames().size();
+        Assert.thatUnchecked(arguments.size() <= parametersCount, ErrorCode.UNDEFINED_FUNCTION,
+                () -> "could not find function matching the provided arguments");
+        for (var missingArgIndex = arguments.size(); missingArgIndex < parametersCount; missingArgIndex++) {
+            Assert.thatUnchecked(hasDefaultValue(missingArgIndex), ErrorCode.UNDEFINED_FUNCTION,
+                    () -> "could not find function matching the provided arguments");
+        }
+        final var resultBuilder = GraphExpansion.builder();
+        for (var paramIdx = 0;  paramIdx < parametersCount; paramIdx++) {
+            Value argumentValue;
+            if (paramIdx >= arguments.size()) {
+                argumentValue = Assert.optionalUnchecked(getDefaultValue(paramIdx));
+            } else {
+                final var providedArgValue = Assert.castUnchecked(arguments.get(paramIdx), Value.class);
+                Assert.thatUnchecked(PromoteValue.isPromotable(providedArgValue.getResultType(), getParameterType(paramIdx)),
+                        ErrorCode.UNDEFINED_FUNCTION, () -> "could not find function matching the provided arguments");
+                argumentValue = PromoteValue.inject(providedArgValue, getParameterType(paramIdx));
+            }
+            resultBuilder.addResultColumn(Column.of(Optional.of(getParameterNames().get(paramIdx)), argumentValue));
+        }
+        final var qun = Quantifier.forEach(Reference.of(resultBuilder.addQuantifier(rangeOfOnePlan()).build().buildSelect()),
+                parametersCorrelation.get());
+        final var bodyQun = Quantifier.forEach(Reference.of(body));
+        final var selectBuilder = GraphExpansion.builder()
+                .addQuantifier(bodyQun)
+                .addQuantifier(qun);
+        bodyQun.computeFlowedColumns().forEach(selectBuilder::addResultColumn);
+        return selectBuilder.build().buildSelect();
     }
 
     @Nonnull
@@ -110,6 +143,8 @@ public class CompiledSqlFunction extends UserDefinedFunction<Value> {
                 argumentValue = Assert.optionalUnchecked(getDefaultValue(name), ErrorCode.UNDEFINED_FUNCTION,
                         () -> "could not find function matching the provided arguments");
             }
+            Assert.thatUnchecked(PromoteValue.isPromotable(argumentValue.getResultType(), getParameterType(name)),
+                    ErrorCode.UNDEFINED_FUNCTION, () -> "could not find function matching the provided arguments");
             final var maybePromotedArgument = PromoteValue.inject(argumentValue, getParameterType(name));
             resultBuilder.addResultColumn(Column.of(Optional.of(name), maybePromotedArgument));
         }

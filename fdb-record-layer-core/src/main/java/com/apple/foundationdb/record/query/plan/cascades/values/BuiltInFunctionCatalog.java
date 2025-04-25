@@ -62,8 +62,8 @@ public class BuiltInFunctionCatalog {
 
         loader.forEach(builtInFunction -> {
             catalogBuilder.put(new FunctionKey(builtInFunction.getFunctionName(), builtInFunction.getParameterTypes().size(), builtInFunction.hasVariadicSuffix()), builtInFunction);
-            if (logger.isDebugEnabled()) {
-                logger.debug("loaded function " + builtInFunction);
+            if (logger.isTraceEnabled()) {
+                logger.trace("loaded function " + builtInFunction);
             }
         });
         

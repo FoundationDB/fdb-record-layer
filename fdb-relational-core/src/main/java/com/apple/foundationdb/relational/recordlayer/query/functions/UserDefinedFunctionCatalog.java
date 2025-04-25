@@ -39,14 +39,14 @@ import java.util.function.Supplier;
 final class UserDefinedFunctionCatalog {
 
     @Nonnull
-    private final Map<String, Supplier<UserDefinedFunction<? extends Typed>>> functionsMap;
+    private final Map<String, Supplier<? extends UserDefinedFunction<? extends Typed>>> functionsMap;
 
     UserDefinedFunctionCatalog() {
         this.functionsMap = new LinkedHashMap<>();
     }
 
     void registerFunction(@Nonnull final String functionName,
-                          @Nonnull final Supplier<UserDefinedFunction<? extends Typed>> function) {
+                          @Nonnull final Supplier<? extends UserDefinedFunction<? extends Typed>> function) {
         functionsMap.put(functionName, function);
     }
 

@@ -177,13 +177,17 @@ sqlInvokedFunction
 
 functionSpecification
     : FUNCTION schemaQualifiedRoutineName=fullId sqlParameterDeclarationList
-      returnsClause
+      returnsClause?
       routineCharacteristics
       dispatchClause?
     ;
 
 sqlParameterDeclarationList
-    : '(' sqlParameterDeclaration* ')'
+    : '(' sqlParameterDeclarations? ')'
+    ;
+
+sqlParameterDeclarations
+    : sqlParameterDeclaration (',' sqlParameterDeclaration)*
     ;
 
 sqlParameterDeclaration
@@ -246,7 +250,8 @@ dispatchClause
     ;
 
 routineBody
-    : sqlReturnStatement
+    : AS queryTerm         #statementBody
+    | sqlReturnStatement   #expressionBody
     // | externalBodyReferences TODO
     ;
 
@@ -256,7 +261,6 @@ sqlReturnStatement
 
 returnValue
     : expression
-    | queryTerm
     ;
 
 charSet

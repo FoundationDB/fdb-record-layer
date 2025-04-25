@@ -264,6 +264,11 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     }
 
     @Override
+    public Expressions visitSqlParameterDeclarations(final RelationalParser.SqlParameterDeclarationsContext ctx) {
+        return getDelegate().visitSqlParameterDeclarations(ctx);
+    }
+
+    @Override
     public Expression visitSqlParameterDeclaration(final RelationalParser.SqlParameterDeclarationContext ctx) {
         return getDelegate().visitSqlParameterDeclaration(ctx);
     }
@@ -334,8 +339,13 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     }
 
     @Override
-    public LogicalOperator visitRoutineBody(final RelationalParser.RoutineBodyContext ctx) {
-        return getDelegate().visitRoutineBody(ctx);
+    public LogicalOperator visitStatementBody(final RelationalParser.StatementBodyContext ctx) {
+        return getDelegate().visitStatementBody(ctx);
+    }
+
+    @Override
+    public Object visitExpressionBody(final RelationalParser.ExpressionBodyContext ctx) {
+        return getDelegate().visitExpressionBody(ctx);
     }
 
     @Override

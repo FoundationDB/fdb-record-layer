@@ -32,8 +32,11 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
+import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.util.Assert;
 
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -41,16 +44,20 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.stream.Collectors;
 
+/**
+ * This deserializes a {@link RecordMetaData} object into a corresponding {@link RecordLayerSchemaTemplate}.
+ */
 @API(API.Status.EXPERIMENTAL)
 public class RecordMetadataDeserializer {
 
     @Nonnull
     private final RecordMetaData recordMetaData;
 
-    public RecordMetadataDeserializer(@Nonnull RecordMetaData recordMetaData) {
+    public RecordMetadataDeserializer(@Nonnull final RecordMetaData recordMetaData) {
         this.recordMetaData = recordMetaData;
     }
 
+    @Nonnull
     public RecordLayerSchemaTemplate.Builder getSchemaTemplate(@Nonnull final String schemaTemplateName, int version) {
         // iterate _only_ over the record types registered in the union descriptor to avoid potentially-expensive
         // deserialization of other descriptors that can never be used by the user.
@@ -85,11 +92,11 @@ public class RecordMetadataDeserializer {
         }
         nameToTableBuilder.values().stream().map(RecordLayerTable.Builder::build).forEach(schemaTemplateBuilder::addTable);
         if (!recordMetaData.getUserDefinedFunctionMap().isEmpty()) {
-            final var cachedMetadata = schemaTemplateBuilder.build();
+            final var metadataProvider = Suppliers.memoize(schemaTemplateBuilder::build);
             // TODO: topsort deps of functions.
             for (final var function : recordMetaData.getUserDefinedFunctionMap().entrySet()) {
                 if (function.getValue() instanceof RawSqlFunction) {
-                    schemaTemplateBuilder.addInvokedRoutine(generateInvokedRoutineBuilder(cachedMetadata, function.getKey(),
+                    schemaTemplateBuilder.addInvokedRoutine(generateInvokedRoutineBuilder(metadataProvider, function.getKey(),
                             Assert.castUnchecked(function.getValue(), RawSqlFunction.class).getDescription()).build());
                 }
             }
@@ -133,13 +140,24 @@ public class RecordMetadataDeserializer {
     }
 
     @Nonnull
-    private RecordLayerInvokedRoutine.Builder generateInvokedRoutineBuilder(@Nonnull final RecordLayerSchemaTemplate metadata,
+    protected Supplier<CompiledSqlFunction> getSqlFunctionCompiler(@Nonnull final String name,
+                                                                   @Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
+                                                                   @Nonnull final String functionBody) {
+        return () -> RoutineParser.sqlFunctionParser(metadata.get()).parse(functionBody);
+    }
+
+    @Nonnull
+    private RecordLayerInvokedRoutine.Builder generateInvokedRoutineBuilder(@Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
                                                                             @Nonnull final String name,
                                                                             @Nonnull final String body) {
-        final var functionCompiler = RoutineParser.sqlFunctionParser(metadata);
         return RecordLayerInvokedRoutine.newBuilder()
                 .setName(name)
                 .setDescription(body)
-                .withCompilableRoutine(() -> functionCompiler.parse(body));
+                .withCompilableRoutine(getSqlFunctionCompiler(name, metadata, body));
+    }
+
+    @Nonnull
+    public RecordMetaData getRecordMetaData() {
+        return recordMetaData;
     }
 }

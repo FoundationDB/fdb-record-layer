@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TypeFilterExpression;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
@@ -127,7 +128,8 @@ public class RecordTypesProperty implements ExpressionProperty<Set<String>>, Rel
                         expression instanceof RecordQueryIntersectionPlan ||
                         expression instanceof LogicalUnionExpression ||
                         expression instanceof RecursiveUnionExpression ||
-                        expression instanceof SelectExpression) {
+                        expression instanceof SelectExpression ||
+                        expression instanceof RecordQueryFlatMapPlan ) {
                     final Set<String> union = new HashSet<>();
                     for (Set<String> childResulSet : childResults) {
                         union.addAll(childResulSet);

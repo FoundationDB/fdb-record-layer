@@ -134,48 +134,48 @@ public class SqlFunctionTest {
     void createSqlFunctionWorks() throws Exception {
         assertThat(ddl("CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T(a BIGINT, b BIGINT, primary key(a)) " +
-                "CREATE FUNCTION SQ(IN S BIGINT) RETURNS TABLE (R BIGINT) RETURN SELECT * FROM T WHERE b < S"),
-                containsRoutinesInAnyOrder(routine("SQ", "CREATE FUNCTION SQ(IN S BIGINT) RETURNS TABLE (R BIGINT) RETURN SELECT * FROM T WHERE b < S")));
+                "CREATE FUNCTION SQ(IN S BIGINT) AS SELECT * FROM T WHERE b < S"),
+                containsRoutinesInAnyOrder(routine("SQ", "CREATE FUNCTION SQ(IN S BIGINT) AS SELECT * FROM T WHERE b < S")));
     }
 
     @Test
     void createTwoSqlFunctionWorks() throws Exception {
         assertThat(ddl("CREATE SCHEMA TEMPLATE test_template " +
                         "CREATE TABLE T(a BIGINT, b BIGINT, primary key(a)) " +
-                        "CREATE FUNCTION SQ1(IN S BIGINT) RETURNS TABLE (R BIGINT) RETURN SELECT * FROM T WHERE b < S " +
-                        "CREATE FUNCTION SQ2(IN S BIGINT) RETURNS TABLE (R BIGINT) RETURN SELECT * FROM T WHERE b < S"),
-                containsRoutinesInAnyOrder(routine("SQ1", "CREATE FUNCTION SQ1(IN S BIGINT) RETURNS TABLE (R BIGINT) RETURN SELECT * FROM T WHERE b < S"),
-                        routine("SQ2", "CREATE FUNCTION SQ2(IN S BIGINT) RETURNS TABLE (R BIGINT) RETURN SELECT * FROM T WHERE b < S")));
+                        "CREATE FUNCTION SQ1(IN S BIGINT) AS SELECT * FROM T WHERE b < S " +
+                        "CREATE FUNCTION SQ2(IN S BIGINT) AS SELECT * FROM T WHERE b < S"),
+                containsRoutinesInAnyOrder(routine("SQ1", "CREATE FUNCTION SQ1(IN S BIGINT) AS SELECT * FROM T WHERE b < S"),
+                        routine("SQ2", "CREATE FUNCTION SQ2(IN S BIGINT) AS SELECT * FROM T WHERE b < S")));
     }
 
     @Test
     void createSqlFunctionBeforeReferencedTableWorks() throws Exception {
         assertThat(ddl("CREATE SCHEMA TEMPLATE test_template " +
-                        "CREATE FUNCTION SQ1(IN S BIGINT) RETURNS TABLE (R BIGINT) RETURN SELECT * FROM T WHERE b < S " +
+                        "CREATE FUNCTION SQ1(IN S BIGINT) AS SELECT * FROM T WHERE b < S " +
                         "CREATE TABLE T(a BIGINT, b BIGINT, primary key(a)) " +
-                        "CREATE FUNCTION SQ2(IN S BIGINT) RETURNS TABLE (R BIGINT) RETURN SELECT * FROM T WHERE b < S"),
-                containsRoutinesInAnyOrder(routine("SQ1", "CREATE FUNCTION SQ1(IN S BIGINT) RETURNS TABLE (R BIGINT) RETURN SELECT * FROM T WHERE b < S"),
-                        routine("SQ2", "CREATE FUNCTION SQ2(IN S BIGINT) RETURNS TABLE (R BIGINT) RETURN SELECT * FROM T WHERE b < S")));
+                        "CREATE FUNCTION SQ2(IN S BIGINT) AS SELECT * FROM T WHERE b < S"),
+                containsRoutinesInAnyOrder(routine("SQ1", "CREATE FUNCTION SQ1(IN S BIGINT) AS SELECT * FROM T WHERE b < S"),
+                        routine("SQ2", "CREATE FUNCTION SQ2(IN S BIGINT) AS SELECT * FROM T WHERE b < S")));
     }
 
     @Test
     void createSqlFunctionsWithDependenciesOnOtherFunctionsWork() throws Exception {
         assertThat(ddl("CREATE SCHEMA TEMPLATE test_template " +
                         "CREATE TABLE T(a BIGINT, b BIGINT, primary key(a)) " +
-                        "CREATE FUNCTION SQ1() RETURNS TABLE (R BIGINT) RETURN SELECT * FROM T WHERE b < 100 " +
-                        "CREATE FUNCTION SQ2(IN S BIGINT) RETURNS TABLE (R BIGINT) RETURN SELECT * FROM SQ1() WHERE b < S"),
-                containsRoutinesInAnyOrder(routine("SQ1", "CREATE FUNCTION SQ1() RETURNS TABLE (R BIGINT) RETURN SELECT * FROM T WHERE b < 100"),
-                        routine("SQ2", "CREATE FUNCTION SQ2(IN S BIGINT) RETURNS TABLE (R BIGINT) RETURN SELECT * FROM SQ1() WHERE b < S")));
+                        "CREATE FUNCTION SQ1() AS SELECT * FROM T WHERE b < 100 " +
+                        "CREATE FUNCTION SQ2(IN S BIGINT) AS SELECT * FROM SQ1() WHERE b < S"),
+                containsRoutinesInAnyOrder(routine("SQ1", "CREATE FUNCTION SQ1() AS SELECT * FROM T WHERE b < 100"),
+                        routine("SQ2", "CREATE FUNCTION SQ2(IN S BIGINT) AS SELECT * FROM SQ1() WHERE b < S")));
     }
 
     @Test
     void createSqlFunctionsWithDeepDependenciesOnOtherFunctionsWithParameters() throws Exception {
         assertThat(ddl("CREATE SCHEMA TEMPLATE test_template " +
                         "CREATE TABLE T(a BIGINT, b BIGINT, primary key(a)) " +
-                        "CREATE FUNCTION SQ1(IN Q BIGINT) RETURNS TABLE (R BIGINT) RETURN SELECT * FROM T WHERE b < Q " +
-                        "CREATE FUNCTION SQ2(IN S BIGINT) RETURNS TABLE (R BIGINT) RETURN SELECT * FROM SQ1(Q => 100 + S) WHERE b < S"),
-                containsRoutinesInAnyOrder(routine("SQ1", "CREATE FUNCTION SQ1(IN Q BIGINT) RETURNS TABLE (R BIGINT) RETURN SELECT * FROM T WHERE b < Q"),
-                        routine("SQ2", "CREATE FUNCTION SQ2(IN S BIGINT) RETURNS TABLE (R BIGINT) RETURN SELECT * FROM SQ1(Q => 100 + S) WHERE b < S")));
+                        "CREATE FUNCTION SQ1(IN Q BIGINT) AS SELECT * FROM T WHERE b < Q " +
+                        "CREATE FUNCTION SQ2(IN S BIGINT) AS SELECT * FROM SQ1(Q => 100 + S) WHERE b < S"),
+                containsRoutinesInAnyOrder(routine("SQ1", "CREATE FUNCTION SQ1(IN Q BIGINT) AS SELECT * FROM T WHERE b < Q"),
+                        routine("SQ2", "CREATE FUNCTION SQ2(IN S BIGINT) AS SELECT * FROM SQ1(Q => 100 + S) WHERE b < S")));
     }
 
     @Test
@@ -184,7 +184,7 @@ public class SqlFunctionTest {
         // side effect of resolution logic.
         assertThrows(() -> ddl("CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T(a BIGINT, b BIGINT, primary key(a)) " +
-                "CREATE FUNCTION RecFunc(IN Q BIGINT) RETURNS TABLE (R BIGINT) RETURN SELECT * FROM RecFunc(0) WHERE b < Q "))
+                "CREATE FUNCTION RecFunc(IN Q BIGINT) AS SELECT * FROM RecFunc(0) WHERE b < Q "))
                 .hasErrorCode(ErrorCode.UNDEFINED_FUNCTION);
     }
 
@@ -194,8 +194,56 @@ public class SqlFunctionTest {
         // side effect of resolution logic.
         assertThrows(() -> ddl("CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T(a BIGINT, b BIGINT, primary key(a)) " +
-                "CREATE FUNCTION SQ1(IN Q BIGINT) RETURNS TABLE (R BIGINT) RETURN SELECT * FROM SQ2(0) WHERE b < Q " +
-                "CREATE FUNCTION SQ2(IN S BIGINT) RETURNS TABLE (R BIGINT) RETURN SELECT * FROM SQ1(Q => 100 + S) WHERE b < S"))
+                "CREATE FUNCTION SQ1(IN Q BIGINT) AS SELECT * FROM SQ2(0) WHERE b < Q " +
+                "CREATE FUNCTION SQ2(IN S BIGINT) AS SELECT * FROM SQ1(Q => 100 + S) WHERE b < S"))
+                .hasErrorCode(ErrorCode.UNDEFINED_FUNCTION);
+    }
+
+    @Test
+    void functionWithDefaultValues() throws Exception {
+        assertThat(ddl("CREATE SCHEMA TEMPLATE test_template " +
+                        "CREATE TABLE T(a BIGINT, b BIGINT, primary key(a)) " +
+                        "CREATE FUNCTION SQ1(IN Q BIGINT DEFAULT 42) AS SELECT * FROM T WHERE b < Q " +
+                        "CREATE FUNCTION SQ2(IN S BIGINT DEFAULT 100) AS SELECT * FROM SQ1(Q => 100 + S) WHERE b < S"),
+                containsRoutinesInAnyOrder(routine("SQ1", "CREATE FUNCTION SQ1(IN Q BIGINT DEFAULT 42) AS SELECT * FROM T WHERE b < Q"),
+                        routine("SQ2", "CREATE FUNCTION SQ2(IN S BIGINT DEFAULT 100) AS SELECT * FROM SQ1(Q => 100 + S) WHERE b < S")));
+    }
+
+    @Test
+    void functionWithDefaultValuesInvocation() throws Exception {
+        assertThat(ddl("CREATE SCHEMA TEMPLATE test_template " +
+                        "CREATE TABLE T(a BIGINT, b BIGINT, primary key(a)) " +
+                        "CREATE FUNCTION SQ1(IN Q BIGINT DEFAULT 42) AS SELECT * FROM T WHERE b < Q " +
+                        "CREATE FUNCTION SQ2(IN S BIGINT DEFAULT 100) AS SELECT * FROM SQ1() WHERE b < S"),
+                containsRoutinesInAnyOrder(routine("SQ1", "CREATE FUNCTION SQ1(IN Q BIGINT DEFAULT 42) AS SELECT * FROM T WHERE b < Q"),
+                        routine("SQ2", "CREATE FUNCTION SQ2(IN S BIGINT DEFAULT 100) AS SELECT * FROM SQ1() WHERE b < S")));
+    }
+
+    @Test
+    void nestedFunctionInvocationUnnamedArguments() throws Exception {
+        assertThat(ddl("CREATE SCHEMA TEMPLATE test_template " +
+                        "CREATE TABLE T(a BIGINT, b BIGINT, primary key(a)) " +
+                        "CREATE FUNCTION SQ1(IN Q BIGINT) AS SELECT * FROM T WHERE b < Q " +
+                        "CREATE FUNCTION SQ2(IN S BIGINT DEFAULT 100) AS SELECT * FROM SQ1(100) WHERE b < S"),
+                containsRoutinesInAnyOrder(routine("SQ1", "CREATE FUNCTION SQ1(IN Q BIGINT) AS SELECT * FROM T WHERE b < Q"),
+                        routine("SQ2", "CREATE FUNCTION SQ2(IN S BIGINT DEFAULT 100) AS SELECT * FROM SQ1(100) WHERE b < S")));
+    }
+
+    @Test
+    void nestedFunctionInvocationUnnamedArgumentsMismatch() {
+        assertThrows(() -> ddl("CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(a BIGINT, b BIGINT, primary key(a)) " +
+                "CREATE FUNCTION SQ1(IN Q BIGINT, IN R BIGINT) AS SELECT * FROM T WHERE b < Q " +
+                "CREATE FUNCTION SQ2(IN S BIGINT) AS SELECT * FROM SQ1(100) WHERE b < S"))
+                .hasErrorCode(ErrorCode.UNDEFINED_FUNCTION);
+    }
+
+    @Test
+    void nestedFunctionInvocationUnnamedArgumentsTypeMismatch() {
+        assertThrows(() -> ddl("CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(a BIGINT, b BIGINT, primary key(a)) " +
+                "CREATE FUNCTION SQ1(IN Q BIGINT, IN R BIGINT) AS SELECT * FROM T WHERE b < Q " +
+                "CREATE FUNCTION SQ2(IN S BIGINT) AS SELECT * FROM SQ1('a', 'b') WHERE b < S"))
                 .hasErrorCode(ErrorCode.UNDEFINED_FUNCTION);
     }
 }

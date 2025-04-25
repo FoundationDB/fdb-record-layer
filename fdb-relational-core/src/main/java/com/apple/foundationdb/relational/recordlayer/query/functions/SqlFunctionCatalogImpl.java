@@ -32,7 +32,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.serde.RoutineParse
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.util.Assert;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
@@ -104,7 +103,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
     }
 
     public void registerUserDefinedFunction(@Nonnull final String functionName,
-                                            @Nonnull final Supplier<UserDefinedFunction<? extends Typed>> functionSupplier) {
+                                            @Nonnull final Supplier<? extends UserDefinedFunction<? extends Typed>> functionSupplier) {
         userDefinedFunctionCatalog.registerFunction(functionName, functionSupplier);
     }
 
@@ -160,7 +159,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
         metadata.getInvokedRoutines().forEach(func ->
                 functionCatalog.registerUserDefinedFunction(
                         Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(func.getName(), isCaseSensitive)),
-                        Suppliers.memoize(() -> functionParser.parse(func.getDescription()))));
+                        func.getCompilableSqlFunctionSupplier()));
         return functionCatalog;
     }
 }

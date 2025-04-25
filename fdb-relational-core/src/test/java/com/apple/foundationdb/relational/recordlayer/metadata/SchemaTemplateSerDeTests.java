@@ -21,17 +21,35 @@
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
+import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.ddl.NoOpQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.api.metrics.MetricCollector;
+import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
+import com.apple.foundationdb.relational.recordlayer.Utils;
+import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
+import com.apple.foundationdb.relational.recordlayer.metadata.serde.RecordMetadataDeserializer;
+import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
+import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
+import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
+import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
+import com.apple.foundationdb.relational.util.Assert;
+import com.google.common.base.Supplier;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.DescriptorProtos;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -39,6 +57,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
+import java.net.URI;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -47,10 +66,19 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class SchemaTemplateSerDeTests {
 
+    @BeforeAll
+    public static void setup() {
+        Utils.enableCascadesDebugger();
+    }
+
+    @Nonnull
     private static RecordLayerSchemaTemplate basicTestTemplate() {
         return RecordLayerSchemaTemplate.newBuilder().setName("TestSchemaTemplate")
                 .addTable(RecordLayerTable.newBuilder(false)
@@ -326,5 +354,201 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertDoesNotThrow(() -> sampleRecordSchemaTemplate.findTableByName("BLA"));
         final var nonExisting = sampleRecordSchemaTemplate.findTableByName("BLA");
         Assertions.assertFalse(nonExisting.isPresent());
+    }
+
+    @Test
+    public void sqlFunctionsAreLazilyParsed() throws RelationalException {
+        final var peekingDeserializer = recMetadataSampleWithFunctions(
+                "CREATE FUNCTION SqlFunction1(IN Q BIGINT) AS SELECT * FROM T1 WHERE col1 < Q");
+        Assertions.assertTrue(peekingDeserializer.hasNoCompilationRequestsFor("SqlFunction1"));
+
+        final var planGenerator = peekingDeserializer.getPlanGenerator();
+        var plan = planGenerator.getPlan("select * from SqlFunction1(100)");
+        Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction1"));
+
+        plan = planGenerator.getPlan("select * from SqlFunction1(200)");
+        Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction1"));
+        Assertions.assertNotNull(plan);
+    }
+
+    @Test
+    public void nestedSqlFunctionsAreLazilyParsed() throws RelationalException {
+        final var peekingDeserializer = recMetadataSampleWithFunctions(
+                "CREATE FUNCTION SqlFunction1(IN Q BIGINT) AS SELECT * FROM T1 WHERE col1 < Q",
+                "CREATE FUNCTION SqlFunction2(IN Q BIGINT) AS SELECT * FROM SqlFunction1(100) WHERE col1 < Q");
+        Assertions.assertTrue(peekingDeserializer.hasNoCompilationRequestsFor("SqlFunction1"));
+        Assertions.assertTrue(peekingDeserializer.hasNoCompilationRequestsFor("SqlFunction2"));
+
+        final var planGenerator = peekingDeserializer.getPlanGenerator();
+        Assertions.assertDoesNotThrow(() -> planGenerator.getPlan("select * from SqlFunction1(100)"));
+        Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction1"));
+        Assertions.assertTrue(peekingDeserializer.hasNoCompilationRequestsFor("SqlFunction2"));
+
+        Assertions.assertDoesNotThrow(() -> planGenerator.getPlan("select * from SqlFunction2(200)"));
+        Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction1"));
+        Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction2"));
+
+        Assertions.assertDoesNotThrow(() -> planGenerator.getPlan("select * from SqlFunction2(200) where col1 < 300"));
+        Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction1"));
+        Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction2"));
+    }
+
+    @Test
+    public void onlyQueriedSqlFunctionsAreCompiled() throws RelationalException {
+        final var peekingDeserializer = recMetadataSampleWithFunctions(
+                "CREATE FUNCTION SqlFunction1(IN Q BIGINT) AS SELECT * FROM T1 WHERE col1 < Q",
+                "CREATE FUNCTION SqlFunction2(IN Q BIGINT) AS SELECT * FROM SqlFunction1(100) WHERE col1 < Q",
+                "CREATE FUNCTION SqlFunction3() AS SELECT * FROM T1");
+        Assertions.assertTrue(peekingDeserializer.hasNoCompilationRequestsFor("SqlFunction1"));
+        Assertions.assertTrue(peekingDeserializer.hasNoCompilationRequestsFor("SqlFunction2"));
+        Assertions.assertTrue(peekingDeserializer.hasNoCompilationRequestsFor("SqlFunction3"));
+
+        final var planGenerator = peekingDeserializer.getPlanGenerator();
+        Assertions.assertDoesNotThrow(() -> planGenerator.getPlan("select * from SqlFunction1(100)"));
+        Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction1"));
+        Assertions.assertTrue(peekingDeserializer.hasNoCompilationRequestsFor("SqlFunction2"));
+        Assertions.assertTrue(peekingDeserializer.hasNoCompilationRequestsFor("SqlFunction3"));
+
+        Assertions.assertDoesNotThrow(() -> planGenerator.getPlan("select * from SqlFunction2(200)"));
+        Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction1"));
+        Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction2"));
+        Assertions.assertTrue(peekingDeserializer.hasNoCompilationRequestsFor("SqlFunction3"));
+
+        Assertions.assertDoesNotThrow(() -> planGenerator.getPlan("select * from SqlFunction2(200) where col1 < 300"));
+        Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction1"));
+        Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction2"));
+        Assertions.assertTrue(peekingDeserializer.hasNoCompilationRequestsFor("SqlFunction4"));
+
+        Assertions.assertDoesNotThrow(() -> planGenerator.getPlan("select * from SqlFunction3() where col1 < 300"));
+        Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction1"));
+        Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction2"));
+        Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction3"));
+    }
+
+    @Nonnull
+    private static RecordMetadataDeserializerWithPeekingFunctionSupplier recMetadataSampleWithFunctions(@Nonnull final String... functions) {
+        final var schemaTemplateBuilder = RecordLayerSchemaTemplate.newBuilder()
+                .setName("TestSchemaTemplate")
+                .setVersion(42)
+                .addTable(
+                        RecordLayerTable.newBuilder(false)
+                                .setName("T1")
+                                .addColumn(RecordLayerColumn.newBuilder()
+                                        .setName("COL1")
+                                        .setDataType(DataType.Primitives.INTEGER.type())
+                                        .build())
+                                .build());
+        final var pattern = Pattern.compile("CREATE FUNCTION (\\w+)\\(");
+        final var expectedFunctionMapBuilder = ImmutableMap.<String, String>builder();
+        for (final var function : functions) {
+            Matcher matcher = pattern.matcher(function);
+            Assert.thatUnchecked(matcher.find());
+            final var functionName = matcher.group(1);
+            expectedFunctionMapBuilder.put(functionName, function);
+        }
+
+        final var expectedFunctionMap = expectedFunctionMapBuilder.build();
+        for (final var entry : expectedFunctionMap.entrySet()) {
+            final var functionName = entry.getKey();
+            final var functionDescription = entry.getValue();
+            schemaTemplateBuilder.addInvokedRoutine(RecordLayerInvokedRoutine.newBuilder()
+                    .setName(functionName)
+                    .setDescription(functionDescription)
+                    .withCompilableRoutine(CompiledFunctionStub::new)
+                    .build());
+        }
+
+        final var recordMetadata = schemaTemplateBuilder.build().toRecordMetadata();
+        final var invokedRoutines = recordMetadata.getUserDefinedFunctionMap();
+        final var actualFunctionMap = invokedRoutines.entrySet().stream().collect(Collectors.toMap(
+                Map.Entry::getKey,
+                   e -> ((RawSqlFunction)e.getValue()).getDescription()));
+        Assertions.assertEquals(expectedFunctionMap, actualFunctionMap);
+
+        Assertions.assertTrue(invokedRoutines.containsKey("SqlFunction1"));
+        final var function = invokedRoutines.get("SqlFunction1");
+        Assertions.assertInstanceOf(RawSqlFunction.class, function);
+        final var rawSqlFunction = (RawSqlFunction)function;
+        Assertions.assertEquals("SqlFunction1", rawSqlFunction.getFunctionName());
+        Assertions.assertEquals("CREATE FUNCTION SqlFunction1(IN Q BIGINT) AS SELECT * FROM T1 WHERE col1 < Q",
+                rawSqlFunction.getDescription());
+
+        // let's verify now that _no_ compilation is invoked when deserializing the record metadata.
+        // for that, we use a deserializer with peeking supplier to the function compilation logic.
+        final var deserializerWithPeekingCompilationSupplier = new RecordMetadataDeserializerWithPeekingFunctionSupplier(recordMetadata);
+        for (final var functionName : expectedFunctionMap.keySet()) {
+            Assertions.assertTrue(deserializerWithPeekingCompilationSupplier.hasNoCompilationRequestsFor(functionName));
+        }
+        final var metadata = deserializerWithPeekingCompilationSupplier
+                .getSchemaTemplate("schemaUnderTest", 42).build();
+        for (final var functionName : expectedFunctionMap.keySet()) {
+            Assertions.assertTrue(deserializerWithPeekingCompilationSupplier.hasNoCompilationRequestsFor(functionName));
+        }
+        return deserializerWithPeekingCompilationSupplier;
+    }
+
+    private static final class CompiledFunctionStub extends CompiledSqlFunction {
+        @SuppressWarnings("DataFlowIssue") // only for test.
+        CompiledFunctionStub() {
+            super("something", ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty(), null);
+        }
+    }
+
+    private static final class RecordMetadataDeserializerWithPeekingFunctionSupplier extends RecordMetadataDeserializer {
+
+        @Nonnull
+        private final Map<String, Integer> invocationsCount;
+
+        public RecordMetadataDeserializerWithPeekingFunctionSupplier(@Nonnull final RecordMetaData recordMetaData) {
+            super(recordMetaData);
+            invocationsCount = new HashMap<>();
+        }
+
+        @Nonnull
+        @Override
+        protected Supplier<CompiledSqlFunction> getSqlFunctionCompiler(@Nonnull final String name,
+                                                                       @Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
+                                                                       @Nonnull final String functionBody) {
+            return () -> {
+                invocationsCount.merge(name, 1, Integer::sum);
+                return super.getSqlFunctionCompiler(name, metadata, functionBody).get();
+            };
+        }
+
+        boolean hasNoCompilationRequestsFor(@Nonnull final String functionName) {
+            return invocationsCount.get(functionName) == null;
+        }
+
+        boolean hasOneCompilationRequestFor(@Nonnull final String functionName) {
+            return 1 == invocationsCount.get(functionName);
+        }
+
+        @Nonnull
+        public PlanGenerator getPlanGenerator()
+                throws RelationalException {
+
+            final var metricCollector = new MetricCollector() {
+                @Override
+                public void increment(@Nonnull RelationalMetric.RelationalCount count) {
+                }
+
+                @Override
+                public <T> T clock(@Nonnull RelationalMetric.RelationalEvent event,
+                                   com.apple.foundationdb.relational.util.Supplier<T> supplier) throws RelationalException {
+                    return supplier.get();
+                }
+            };
+            final PlanContext ctx = PlanContext.Builder.create()
+                    .withConstantActionFactory(NoOpMetadataOperationsFactory.INSTANCE)
+                    .withDdlQueryFactory(NoOpQueryFactory.INSTANCE)
+                    .withMetricsCollector(metricCollector)
+                    .withDbUri(URI.create(""))
+                    .withMetadata(getRecordMetaData())
+                    .withSchemaTemplate(getSchemaTemplate("testSchema", 42).build())
+                    .withPlannerConfiguration(PlannerConfiguration.ofAllAvailableIndexes())
+                    .withUserVersion(0)
+                    .build();
+            return PlanGenerator.of(Optional.empty(), ctx, ctx.getMetaData(), new RecordStoreState(null, Map.of()), Options.NONE);
+        }
     }
 }

@@ -22,8 +22,8 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -350,18 +350,20 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 : CompilableRoutine.Language.SQL;
         boolean isDeterministic = props.deterministicCharacteristic() != null && props.deterministicCharacteristic().NOT() == null;
         // SQL-invoked routine 11.60, syntax rules, section 6.f.ii
-        boolean isNullReturnOnNull = props.nullCallClause() != null || props.nullCallClause().RETURNS() != null;
-        // ... currently we support only CALLED ON NULL INPUT (which is implicitly defined if not set).
+        boolean isNullReturnOnNull = props.nullCallClause() != null && props.nullCallClause().RETURNS() != null;
+        // ... currently we support only CALLED ON NULL INPUT (which is implicitly set if not defined).
         Assert.thatUnchecked(!isNullReturnOnNull, "only CALLED ON NULL INPUT clause is supported");
         boolean isSqlParameterStyle = props.parameterStyle() == null || props.parameterStyle().SQL() != null;
-        boolean isScalar = ctx.functionSpecification().returnsClause().returnsType().returnsTableType() == null;
+        boolean isScalar = ctx.functionSpecification().returnsClause() != null &&
+                ctx.functionSpecification().returnsClause().returnsType().returnsTableType() == null;
         Assert.thatUnchecked(!isScalar, "only table functions are supported");
         Assert.thatUnchecked(isSqlParameterStyle, ErrorCode.UNSUPPORTED_OPERATION, "only sql-style parameters are supported");
         // todo: rework Java UDFs to go through this code path as well.
         Assert.thatUnchecked(language == CompilableRoutine.Language.SQL, ErrorCode.UNSUPPORTED_OPERATION,
                 "only sql-language functions are supported");
         // create SQL function logical plan by visiting the function body.
-        final var parameters = visitSqlParameterDeclarationList(ctx.functionSpecification().sqlParameterDeclarationList()).asNamedArguments();
+        final var parameters = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
+                visitSqlParameterDeclarationList(ctx.functionSpecification().sqlParameterDeclarationList()).asNamedArguments());
         final var sqlFunctionBuilder = CompiledSqlFunction.newBuilder()
                 .setName(functionName)
                 .addAllParameters(parameters)
@@ -379,9 +381,11 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         if (parametersCorrelation.isPresent()) {
             fragment.addOperator(LogicalOperator.newUnnamedOperator(Expressions.fromQuantifier(parametersCorrelation.get()),
                     parametersCorrelation.get()));
-            body = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() -> visitRoutineBody(ctx.routineBody()));
+            body = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
+                    Assert.castUnchecked(visit(ctx.routineBody()), LogicalOperator.class));
         } else {
-            body = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() -> visitRoutineBody(ctx.routineBody()));
+            body = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
+                    Assert.castUnchecked(visit(ctx.routineBody()), LogicalOperator.class));
         }
         getDelegate().popPlanFragment();
         sqlFunctionBuilder.setBody(body.getQuantifier().getRangesOver().get());
@@ -389,8 +393,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Override
-    public LogicalOperator visitRoutineBody(final RelationalParser.RoutineBodyContext ctx) {
-        return visitSqlReturnStatement(ctx.sqlReturnStatement());
+    public LogicalOperator visitStatementBody(final RelationalParser.StatementBodyContext ctx) {
+        return Assert.castUnchecked(visit(ctx.queryTerm()), LogicalOperator.class);
     }
 
     @Override
@@ -400,12 +404,20 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Override
     public LogicalOperator visitReturnValue(final RelationalParser.ReturnValueContext ctx) {
-        Assert.thatUnchecked(ctx.expression() == null);
-        return Assert.castUnchecked(visit(ctx.queryTerm()), LogicalOperator.class);
+        Assert.failUnchecked("scalar functions are not implemented");
+        return null;
     }
 
     @Override
     public Expressions visitSqlParameterDeclarationList(@Nonnull RelationalParser.SqlParameterDeclarationListContext ctx) {
+        if (ctx.sqlParameterDeclarations() == null) {
+            return Expressions.empty();
+        }
+        return visitSqlParameterDeclarations(ctx.sqlParameterDeclarations());
+    }
+
+    @Override
+    public Expressions visitSqlParameterDeclarations(final RelationalParser.SqlParameterDeclarationsContext ctx) {
         return Expressions.of(ctx.sqlParameterDeclaration().stream().map(this::visitSqlParameterDeclaration).collect(ImmutableList.toImmutableList()));
     }
 
@@ -414,13 +426,15 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         Assert.thatUnchecked(ctx.sqlParameterName != null, "unnamed parameters not supported");
         final var parameterName = visitUid(ctx.sqlParameterName);
         final var parameterType = visitFunctionColumnType(ctx.parameterType);
+        final var underlyingType = DataTypeUtils.toRecordLayerType(parameterType);
         Assert.thatUnchecked(parameterType.isResolved());
         Assert.thatUnchecked(ctx.parameterMode() == null || ctx.parameterMode().IN() != null, "only IN parameters are supported");
         if (ctx.DEFAULT() != null) {
-            final var defaultValue = Assert.castUnchecked(visit(ctx.parameterDefault), Value.class);
+            final var defaultExpression = Assert.castUnchecked(visit(ctx.parameterDefault), Expression.class);
+            var defaultValue = PromoteValue.inject(defaultExpression.getUnderlying(), underlyingType);
             return Expression.of(defaultValue, parameterName);
         } else {
-            return Expression.of(new ThrowsValue(DataTypeUtils.toRecordLayerType(parameterType)), parameterName);
+            return Expression.of(new ThrowsValue(underlyingType), parameterName);
         }
     }
 

@@ -156,8 +156,16 @@ public abstract class CatalogedFunction<T extends Typed> {
         return parameterDefaults.get(getParamIndex(paramName));
     }
 
+    public Optional<T> getDefaultValue(int paramIndex) {
+        return parameterDefaults.get(paramIndex);
+    }
+
     public boolean hasDefaultValue(@Nonnull final String paramName) {
         return getDefaultValue(paramName).isPresent();
+    }
+
+    public boolean hasDefaultValue(int paramIndex) {
+        return getDefaultValue(paramIndex).isPresent();
     }
 
     /**

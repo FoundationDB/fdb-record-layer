@@ -56,8 +56,8 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     }
 
     @Nonnull
-    public CompiledSqlFunction getCompilableRoutine() {
-        return compilableSqlFunctionSupplier.get();
+    public Supplier<CompiledSqlFunction> getCompilableSqlFunctionSupplier() {
+        return compilableSqlFunctionSupplier;
     }
 
     @Nonnull
