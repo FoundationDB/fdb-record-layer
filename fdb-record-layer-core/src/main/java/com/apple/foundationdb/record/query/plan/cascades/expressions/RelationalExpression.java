@@ -837,7 +837,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      * @return the result of evaluating the property on the subtree rooted at this expression
      */
     @Nullable
-    default <U> U acceptPropertyVisitor(@Nonnull SimpleExpressionVisitor<U> simpleExpressionVisitor) {
+    default <U> U acceptVisitor(@Nonnull SimpleExpressionVisitor<U> simpleExpressionVisitor) {
         if (simpleExpressionVisitor.shouldVisit(this)) {
             return simpleExpressionVisitor.visit(this);
         }

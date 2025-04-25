@@ -57,11 +57,11 @@ public class FieldWithComparisonCountProperty implements ExpressionProperty<Inte
     }
 
     public int evaluate(@Nonnull final Reference ref) {
-        return Objects.requireNonNull(ref.acceptPropertyVisitor(createVisitor()));
+        return Objects.requireNonNull(ref.acceptVisitor(createVisitor()));
     }
 
     public int evaluate(@Nonnull final RelationalExpression expression) {
-        return Objects.requireNonNull(expression.acceptPropertyVisitor(createVisitor()));
+        return Objects.requireNonNull(expression.acceptVisitor(createVisitor()));
     }
 
     @Nonnull

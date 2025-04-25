@@ -30,7 +30,7 @@ import com.apple.foundationdb.record.planprotos.PLuceneIndexQueryPlan;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.cascades.properties.ExplainPlanProperty;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.PlanOrderingKey;
 import com.apple.foundationdb.record.query.plan.PlanWithOrderingKey;
@@ -242,7 +242,7 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan implements PlanWi
     public ExplainTokensWithPrecedence explain() {
         return ExplainTokensWithPrecedence.of(
                 new ExplainTokens().addKeyword("LISCAN").addOptionalWhitespace().addOpeningParen()
-                        .addNested(ExplainPlanProperty.ExplainPlanVisitor.indexDetails(this))
+                        .addNested(ExplainPlanVisitor.indexDetails(this))
                         .addOptionalWhitespace().addClosingParen());
     }
 

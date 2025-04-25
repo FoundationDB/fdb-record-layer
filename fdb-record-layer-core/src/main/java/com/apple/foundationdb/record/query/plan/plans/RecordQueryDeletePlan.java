@@ -41,7 +41,8 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.properties.ExplainPlanProperty.ExplainPlanVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
@@ -67,8 +68,7 @@ import java.util.function.Supplier;
  * {@link QueryResult} that represents the in record. Note that
  * {@link com.apple.foundationdb.record.query.plan.cascades.rules.ImplementDeleteRule} only allows implementation of
  * a {@link com.apple.foundationdb.record.query.plan.cascades.expressions.DeleteExpression} if the plan partition
- * of the child guarantees
- * {@link com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty#STORED_RECORD}.
+ * of the child guarantees {@link StoredRecordProperty#storedRecord()}.
  * Not that we hold on to a target record type in this plan operator only for debugging purposes at the moment.
  */
 @API(API.Status.INTERNAL)

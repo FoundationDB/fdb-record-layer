@@ -38,15 +38,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Class to manage properties for plans. A properties map is part of an expression reference ({@link Reference}).
- * <br>
- * Properties for plans managed by this map are computed lazily when a caller attempts to retrieve the value of a property.
- * The reason for that is twofold. First, we want to avoid unnecessary computation of a property if it is not retrieved
- * at a later point in time. Second, the basic planner {@link RecordQueryPlan} uses a simplified way of creating a dag of
- * {@link RecordQueryPlan}s that lacks some fundamental information (e.g. no type system) that some properties computations
- * depend on meaning that these properties cannot be computed if the plan was created by {@link RecordQueryPlan}.
- * In order to still allow that planner to create the same structures as the {@link CascadesPlanner} we need these property
- * computations to be lazy as {@link RecordQueryPlan} never accesses the properties afterward.
+ * An {@link ExpressionPropertiesMap} for properties that only apply to {@link RecordQueryPlan}s.
+ * @see ExpressionPropertiesMap
  */
 public class PlanPropertiesMap extends ExpressionPropertiesMap<RecordQueryPlan> {
     /**

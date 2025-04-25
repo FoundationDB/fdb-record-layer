@@ -620,9 +620,9 @@ public abstract class Quantifier implements Correlated<Quantifier> {
      * @return the property
      */
     @Nullable
-    public <U> U acceptPropertyVisitor(@Nonnull SimpleExpressionVisitor<U> visitor) {
+    public <U> U acceptVisitor(@Nonnull SimpleExpressionVisitor<U> visitor) {
         if (visitor.shouldVisit(this)) {
-            return visitor.evaluateAtQuantifier(this, getRangesOver().acceptPropertyVisitor(visitor));
+            return visitor.evaluateAtQuantifier(this, getRangesOver().acceptVisitor(visitor));
         }
         return null;
     }

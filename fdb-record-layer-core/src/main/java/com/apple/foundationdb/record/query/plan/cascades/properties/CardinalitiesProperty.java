@@ -194,7 +194,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         public Cardinalities visitRecordQueryAggregateIndexPlan(@Nonnull final RecordQueryAggregateIndexPlan aggregateIndexPlan) {
             final var groupingValueMaybe = aggregateIndexPlan.getGroupingValueMaybe();
             if (groupingValueMaybe.isEmpty()) {
-                return new Cardinalities(Cardinality.ofCardinality(1L), Cardinality.ofCardinality(1L));
+                return new Cardinalities(Cardinality.ofCardinality(0L), Cardinality.ofCardinality(1L));
             }
             final var groupingValue = groupingValueMaybe.get();
             final var indexScanPlan = aggregateIndexPlan.getIndexPlan();
@@ -476,7 +476,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
             // if we do not have any grouping value, we will apply the aggregation(s) over the entire child result set
             // and return a single row comprising the aggregation(s) result
             if (element.getGroupingValue() == null) {
-                return new Cardinalities(Cardinality.ofCardinality(1L), Cardinality.ofCardinality(1L));
+                return new Cardinalities(Cardinality.ofCardinality(0L), Cardinality.ofCardinality(1L));
             }
             // if the grouping value is constant, the cardinality ranges between 0 and 1.
             if (element.getGroupingValue().isConstant()) {

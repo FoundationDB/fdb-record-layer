@@ -77,12 +77,12 @@ public class RecordTypesProperty implements ExpressionProperty<Set<String>> {
 
     @Nonnull
     public Set<String> evaluate(@Nonnull Reference reference) {
-        return Objects.requireNonNull(reference.acceptPropertyVisitor(createVisitor()));
+        return Objects.requireNonNull(reference.acceptVisitor(createVisitor()));
     }
 
     @Nonnull
     public Set<String> evaluate(@Nonnull final RelationalExpression expression) {
-        return Objects.requireNonNull(expression.acceptPropertyVisitor(createVisitor()));
+        return Objects.requireNonNull(expression.acceptVisitor(createVisitor()));
     }
 
     @Nonnull
@@ -105,9 +105,6 @@ public class RecordTypesProperty implements ExpressionProperty<Set<String>> {
         @Nonnull
         @Override
         public Set<String> evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Set<String>> childResults) {
-            // shouldVisit() ensures that we only visit relational planner expressions
-            // If we mess this up, better to find out sooner rather than later.
-
             if (expression instanceof RecordQueryScanPlan) {
                 final var recordTypesFromExpression = ((RecordQueryScanPlan)expression).getRecordTypes();
                 return recordTypesFromExpression == null ? ImmutableSet.of() : recordTypesFromExpression;
@@ -129,7 +126,7 @@ public class RecordTypesProperty implements ExpressionProperty<Set<String>> {
                             .map(aliasResolver -> aliasResolver.resolveCorrelationAlias(expression, alias))
                             .orElse(ImmutableSet.of());
                     for (final Quantifier quantifier : quantifiers) {
-                        recordTypes.addAll(Objects.requireNonNull(quantifier.getRangesOver().acceptPropertyVisitor(this)));
+                        recordTypes.addAll(Objects.requireNonNull(quantifier.getRangesOver().acceptVisitor(this)));
                     }
                 }
 

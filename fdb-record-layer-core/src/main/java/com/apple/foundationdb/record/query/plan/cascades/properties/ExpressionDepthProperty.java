@@ -65,11 +65,11 @@ public class ExpressionDepthProperty implements ExpressionProperty<Integer> {
     }
 
     public int evaluate(@Nonnull final Reference reference) {
-        return Objects.requireNonNull(reference.acceptPropertyVisitor(createVisitor()));
+        return Objects.requireNonNull(reference.acceptVisitor(createVisitor()));
     }
 
     public int evaluate(@Nonnull final RelationalExpression expression) {
-        return Objects.requireNonNull(expression.acceptPropertyVisitor(createVisitor()));
+        return Objects.requireNonNull(expression.acceptVisitor(createVisitor()));
     }
 
     @Nonnull

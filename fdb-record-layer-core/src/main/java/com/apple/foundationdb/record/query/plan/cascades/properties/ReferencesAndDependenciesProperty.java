@@ -63,12 +63,12 @@ public class ReferencesAndDependenciesProperty implements ExpressionProperty<Par
 
     @Nonnull
     public PartiallyOrderedSet<Reference> evaluate(@Nonnull Reference reference) {
-        return Objects.requireNonNull(reference.acceptPropertyVisitor(createVisitor()));
+        return Objects.requireNonNull(reference.acceptVisitor(createVisitor()));
     }
 
     @Nonnull
     public PartiallyOrderedSet<Reference> evaluate(@Nonnull RelationalExpression expression) {
-        return Objects.requireNonNull(expression.acceptPropertyVisitor(createVisitor()));
+        return Objects.requireNonNull(expression.acceptVisitor(createVisitor()));
     }
 
     @Nonnull

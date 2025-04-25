@@ -398,7 +398,7 @@ public class Reference implements Correlated<Reference>, Typed {
     }
 
     @Nullable
-    public <U> U acceptPropertyVisitor(@Nonnull SimpleExpressionVisitor<U> simpleExpressionVisitor) {
+    public <U> U acceptVisitor(@Nonnull SimpleExpressionVisitor<U> simpleExpressionVisitor) {
         if (simpleExpressionVisitor.shouldVisit(this)) {
             final List<U> memberResults = new ArrayList<>(members.size());
             for (RelationalExpression member : members) {

@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -47,12 +46,12 @@ import java.util.Set;
  * property. The reason for that is twofold. First, we want to avoid unnecessary computation of a property if it is not
  * retrieved at a later point in time. Second, the basic planner
  * {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner} uses a simplified way of creating a dag of
- * {@link RecordQueryPlan}s that lacks some fundamental information (e.g. no type system) that some properties computations
- * depend on meaning that these properties cannot be computed if the plan was created by
+ * {@link RecordQueryPlan}s that lacks some fundamental information (e.g. no type system) that some properties
+ * computations depend on meaning that these properties cannot be computed if the plan was created by
  * {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner}.
  * In order to still allow that planner to create the same structures as the {@link CascadesPlanner} we need these
- * property computations to be lazy as {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner} never accesses
- * the properties.
+ * property computations to be lazy as {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner} never
+ * accesses the properties.
  * @param <E> type parameter to capture the kind of expression property map
  */
 public class ExpressionPropertiesMap<E extends RelationalExpression> {
@@ -69,13 +68,13 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
     private final Set<ExpressionProperty<?>> trackedExpressionProperties;
 
     /**
-     * A queue with plans whose properties have not been computed yet.
+     * A queue with expressions whose properties have not been computed yet.
      */
     @Nonnull
     private final Deque<E> toBeInsertedExpressions;
 
     /**
-     * Map from {@code E} to a map of {@link ExpressionProperty} to a computed property value.
+     * Map from each expression to its associated collection of computed property values.
      */
     @Nonnull
     private final Map<E, Map<ExpressionProperty<?>, ?>> propertiesMap;
@@ -99,7 +98,8 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
 
     @Nonnull
     private E narrow(@Nonnull final RelationalExpression expression) {
-        Verify.verify(expressionClass.isInstance(expression));
+        Verify.verify(expressionClass.isInstance(expression),
+                "unable to cast property value to its declared type");
         return expressionClass.cast(expression);
     }
 
@@ -221,13 +221,11 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
      */
     @Nonnull
     public <P> Map<RecordQueryPlan, P> propertyValueForPlans(@Nonnull final ExpressionProperty<P> expressionProperty) {
-        update();
-        return new LinkedIdentityMap<>();
+        throw new UnsupportedOperationException("method cannot provide plans");
     }
 
     @Nonnull
     public List<PlanPartition> toPlanPartitions() {
-        update();
-        return ImmutableList.of();
+        throw new UnsupportedOperationException("method cannot provide plan partitions");
     }
 }

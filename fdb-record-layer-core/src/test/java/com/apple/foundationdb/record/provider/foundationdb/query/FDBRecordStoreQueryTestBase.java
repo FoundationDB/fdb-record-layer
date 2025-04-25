@@ -60,7 +60,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.properties.ExplainPlanProperty;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
@@ -636,7 +636,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
             return plannedPlan;
         }
         assertThat(planner, instanceOf(CascadesPlanner.class));
-        System.out.println("\n" + ExplainPlanProperty.prettyExplain(plannedPlan) + "\n");
+        System.out.println("\n" + ExplainPlanVisitor.prettyExplain(plannedPlan) + "\n");
         return verifySerialization(plannedPlan);
     }
 
@@ -667,7 +667,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         assertTrue(eventClassStatsMap.get(Debugger.ExecutingTaskEvent.class).getCount(Debugger.Location.BEGIN) > 0);
 
         final var plan = planResult.getPlan();
-        System.out.println("\n" + ExplainPlanProperty.prettyExplain(plan) + "\n");
+        System.out.println("\n" + ExplainPlanVisitor.prettyExplain(plan) + "\n");
         return verifySerialization(plan);
     }
 

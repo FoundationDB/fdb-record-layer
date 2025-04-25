@@ -66,12 +66,12 @@ public class NormalizedResidualPredicateProperty implements ExpressionProperty<Q
 
     @Nonnull
     public QueryPredicate evaluate(@Nonnull final Reference reference) {
-        return Objects.requireNonNull(reference.acceptPropertyVisitor(createVisitor()));
+        return Objects.requireNonNull(reference.acceptVisitor(createVisitor()));
     }
 
     @Nonnull
     public QueryPredicate evaluate(@Nonnull final RelationalExpression expression) {
-        return Objects.requireNonNull(expression.acceptPropertyVisitor(createVisitor()));
+        return Objects.requireNonNull(expression.acceptVisitor(createVisitor()));
     }
 
     @Nonnull

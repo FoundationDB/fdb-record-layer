@@ -139,7 +139,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
     @Nonnull
     public static String show(final int flags, @Nonnull final RelationalExpression relationalExpression) {
         final PlannerGraph plannerGraph =
-                Objects.requireNonNull(relationalExpression.acceptPropertyVisitor(new PlannerGraphVisitor(flags)));
+                Objects.requireNonNull(relationalExpression.acceptVisitor(new PlannerGraphVisitor(flags)));
         final String dotString = exportToDot(plannerGraph);
         return show(dotString);
     }
@@ -154,7 +154,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
     @Nonnull
     public static String show(final int flags, @Nonnull final Reference rootReference) {
         final PlannerGraph plannerGraph =
-                Objects.requireNonNull(rootReference.acceptPropertyVisitor(new PlannerGraphVisitor(flags)));
+                Objects.requireNonNull(rootReference.acceptVisitor(new PlannerGraphVisitor(flags)));
         final String dotString = exportToDot(plannerGraph);
         return show(dotString);
     }
@@ -172,13 +172,13 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
                               @Nonnull final Reference queryPlanRootReference,
                               @Nonnull final Set<MatchCandidate> matchCandidates) {
         final PlannerGraph queryPlannerGraph =
-                Objects.requireNonNull(queryPlanRootReference.acceptPropertyVisitor(forInternalShow(renderSingleGroups, true)));
+                Objects.requireNonNull(queryPlanRootReference.acceptVisitor(forInternalShow(renderSingleGroups, true)));
 
         final PlannerGraph.InternalPlannerGraphBuilder graphBuilder = queryPlannerGraph.derived();
 
         final Map<MatchCandidate, PlannerGraph> matchCandidateMap = matchCandidates.stream()
                 .collect(ImmutableMap.toImmutableMap(Function.identity(), matchCandidate -> Objects.requireNonNull(
-                        matchCandidate.getTraversal().getRootReference().acceptPropertyVisitor(forInternalShow(renderSingleGroups)))));
+                        matchCandidate.getTraversal().getRootReference().acceptVisitor(forInternalShow(renderSingleGroups)))));
 
         matchCandidateMap.forEach((matchCandidate, matchCandidateGraph) -> graphBuilder.addGraph(matchCandidateGraph));
 
@@ -353,7 +353,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
                                  @Nonnull final Map<String, Attribute> additionalDescriptionMap) {
         try {
             final PlannerGraph plannerGraph =
-                    Objects.requireNonNull(relationalExpression.acceptPropertyVisitor(forExplain()));
+                    Objects.requireNonNull(relationalExpression.acceptVisitor(forExplain()));
             return exportToGml(plannerGraph, additionalDescriptionMap);
         } catch (final Exception ex) {
             Throwables.throwIfUnchecked(ex);

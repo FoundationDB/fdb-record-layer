@@ -29,8 +29,34 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitor;
 import javax.annotation.Nonnull;
 
 /**
- * Base interface to capture attributes for expressions.
+ * Base interface to capture properties for expressions.
  * An instance of this usually class serves as a key in maps much like an enum, but provides strong typing.
+ * In particular, the following holds true for all properties:
+ * <ul>
+ *     <li>
+ *         Properties are singletons (or multitons; enumerated singletons) of implementors of this class.
+ *     </li>
+ *     <li>
+ *         Properties create a {@link RelationalExpressionVisitor} using the method {@link #createVisitor()}}. That
+ *         means that properties use visitors that operate on all kinds of relational expressions (from a Java typing
+ *         standpoint). In reality, as some properties are meaningless for some expressions but not others, the visitor
+ *         may decide to throw an exception for a class it cannot process.
+ *         There are some helpers that can transform e.g. a {@link RecordQueryPlanVisitor} into a
+ *         {@link RelationalExpressionVisitor} which add lowing to throw an exception when a non-plan is visited. This
+ *         does not weaken the usual contracts that these visitor classes have. It just allows for e.g.
+ *         {@link RecordQueryPlanVisitor}s to be used in place of {@link RelationalExpressionVisitor}s.
+ *     </li>
+ *     <li>
+ *         Properties are not dependent on parameters but is computable solely by traversing the
+ *         {@link RelationalExpression} DAG. The method {@link #createVisitor()} does not use any parameters.
+ *     </li>
+ *     <li>
+ *         Properties may or may not be used in an {@link ExpressionPropertiesMap}. If the property is maintained in
+ *         such a map for a given reference, the implementor of the visitor may assume that the property values for
+ *         children expressions are also maintained in such a map and therefore accessible though the individual
+ *         child's {@link Reference}. In this way, expensive re-computation of the property value can be avoided.
+ *     </li>
+ * </ul>
  * @param <P> the type representing the actual property
  */
 public interface ExpressionProperty<P> {

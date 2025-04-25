@@ -52,11 +52,11 @@ public class UsedTypesProperty implements ExpressionProperty<Set<Type>> {
     }
 
     public Set<Type> evaluate(@Nonnull final Reference ref) {
-        return Objects.requireNonNull(ref.acceptPropertyVisitor(createVisitor()));
+        return Objects.requireNonNull(ref.acceptVisitor(createVisitor()));
     }
 
     public Set<Type> evaluate(@Nonnull final RelationalExpression expression) {
-        return Objects.requireNonNull(expression.acceptPropertyVisitor(createVisitor()));
+        return Objects.requireNonNull(expression.acceptVisitor(createVisitor()));
     }
 
     @Nonnull

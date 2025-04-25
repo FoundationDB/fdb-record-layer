@@ -42,7 +42,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVis
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.DatabaseObjectDependenciesPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.properties.ExplainPlanProperty.ExplainPlanVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
@@ -335,7 +335,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                         ), plannerMetricsMetadata);
             }
 
-            final var plannerGraph = Objects.requireNonNull(recordQueryPlan.acceptPropertyVisitor(PlannerGraphVisitor.forExplain()));
+            final var plannerGraph = Objects.requireNonNull(recordQueryPlan.acceptVisitor(PlannerGraphVisitor.forExplain()));
             return new IteratorResultSet(metaData, Collections.singleton(new ArrayRow(
                     explain(),
                     planHashSupplier.get(),
