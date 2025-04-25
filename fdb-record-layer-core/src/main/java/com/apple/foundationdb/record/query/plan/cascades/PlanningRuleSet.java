@@ -1,5 +1,5 @@
 /*
- * PlannerRuleSet.java
+ * PlanningRuleSet.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -109,7 +109,7 @@ import java.util.stream.Stream;
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
-public class PlannerRuleSet {
+public class PlanningRuleSet {
     private static final List<CascadesRule<? extends RelationalExpression>> NORMALIZATION_RULES = ImmutableList.of(
             new NormalizePredicatesRule()
     );
@@ -205,7 +205,7 @@ public class PlannerRuleSet {
                     .addAll(IMPLEMENTATION_RULES)
                     .build();
 
-    public static final PlannerRuleSet DEFAULT = new PlannerRuleSet(ALL_EXPRESSION_RULES);
+    public static final PlanningRuleSet DEFAULT = new PlanningRuleSet(ALL_EXPRESSION_RULES);
 
     @Nonnull
     private final Multimap<Class<?>, CascadesRule<? extends RelationalExpression>> ruleIndex;
@@ -215,7 +215,7 @@ public class PlannerRuleSet {
 
     @VisibleForTesting
     @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
-    PlannerRuleSet(@Nonnull List<CascadesRule<? extends RelationalExpression>> rules) {
+    PlanningRuleSet(@Nonnull List<CascadesRule<? extends RelationalExpression>> rules) {
         this.ruleIndex =
                 MultimapBuilder
                         .hashKeys()

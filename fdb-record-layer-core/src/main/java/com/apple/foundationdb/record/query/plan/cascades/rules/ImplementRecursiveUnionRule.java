@@ -33,9 +33,9 @@ import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyPlanPartition;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.planPartitions;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.rollUp;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.rollUpPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.recursiveUnionExpression;
 
 /**
@@ -53,14 +53,14 @@ public class ImplementRecursiveUnionRule extends CascadesRule<RecursiveUnionExpr
 
     @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> initialQunMatcher =
-            forEachQuantifierOverRef(planPartitions(rollUp(any(initialPlanPartitionsMatcher))));
+            forEachQuantifierOverRef(planPartitions(rollUpPartitions(any(initialPlanPartitionsMatcher))));
 
     @Nonnull
     private static final BindingMatcher<PlanPartition> recursivePlanPartitionsMatcher = anyPlanPartition();
 
     @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> recursiveQunMatcher =
-            forEachQuantifierOverRef(planPartitions(rollUp(any(recursivePlanPartitionsMatcher))));
+            forEachQuantifierOverRef(planPartitions(rollUpPartitions(any(recursivePlanPartitionsMatcher))));
 
     @Nonnull
     private static final BindingMatcher<RecursiveUnionExpression> root = recursiveUnionExpression(initialQunMatcher, recursiveQunMatcher);

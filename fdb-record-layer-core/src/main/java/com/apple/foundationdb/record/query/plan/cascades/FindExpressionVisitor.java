@@ -1,9 +1,9 @@
 /*
- * FindExpressionProperty.java
+ * FindExpressionVisitor.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,9 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades.properties;
+package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -39,12 +35,12 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * A property that determines finds all occurrences of expressions of interest in a planner graph.
+ * A visitor that finds all occurrences of expressions of interest in a planner graph.
  */
-public class FindExpressionProperty implements ExpressionProperty<Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>>, RelationalExpressionVisitorWithDefaults<Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> {
+public class FindExpressionVisitor implements SimpleExpressionVisitor<Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> {
     private final Set<Class<? extends RelationalExpression>> expressionClasses;
 
-    public FindExpressionProperty(@Nonnull final Set<Class<? extends RelationalExpression>> expressionClasses) {
+    public FindExpressionVisitor(@Nonnull final Set<Class<? extends RelationalExpression>> expressionClasses) {
         this.expressionClasses =
                 ImmutableSet.copyOf(expressionClasses);
     }
@@ -100,7 +96,7 @@ public class FindExpressionProperty implements ExpressionProperty<Map<Class<? ex
     }
 
     public static Set<? extends RelationalExpression> findExpressions(@Nonnull final Set<Class<? extends RelationalExpression>> expressionClasses, @Nonnull final RelationalExpression expression) {
-        final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> expressionClassToExpressionsMap = new FindExpressionProperty(expressionClasses).visit(expression);
+        final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> expressionClassToExpressionsMap = new FindExpressionVisitor(expressionClasses).visit(expression);
         if (expressionClassToExpressionsMap == null) {
             return LinkedIdentitySet.of();
         }
@@ -136,7 +132,8 @@ public class FindExpressionProperty implements ExpressionProperty<Map<Class<? ex
     @Nonnull
     public static Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> evaluate(@Nonnull Set<Class<? extends RelationalExpression>> expressionClasses, @Nonnull RelationalExpression expression) {
         @Nullable final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> nullableResult =
-                expression.acceptPropertyVisitor(new FindExpressionProperty(expressionClasses));
+                expression.acceptVisitor(new FindExpressionVisitor(expressionClasses));
         return nullableResult == null ? ImmutableMap.of() : nullableResult;
     }
 }
+

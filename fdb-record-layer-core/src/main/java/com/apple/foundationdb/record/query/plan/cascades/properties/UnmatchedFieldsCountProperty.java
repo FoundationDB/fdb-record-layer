@@ -26,8 +26,8 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithComparisons;
@@ -56,63 +56,82 @@ import java.util.Objects;
  * The {@code UnmatchedFieldsCountProperty} on such a planner expression is 2.
  */
 @API(API.Status.EXPERIMENTAL)
-public class UnmatchedFieldsCountProperty implements ExpressionProperty<Integer>, RelationalExpressionVisitorWithDefaults<Integer> {
+public class UnmatchedFieldsCountProperty implements ExpressionProperty<Integer> {
+    private static final UnmatchedFieldsCountProperty UNMATCHED_FIELDS_COUNT = new UnmatchedFieldsCountProperty();
+
+    private UnmatchedFieldsCountProperty() {
+        // prevent outside instantiation
+    }
+
     @Nonnull
     @Override
-    public Integer evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Integer> childResults) {
-        int total = 0;
-        for (Integer result : childResults) {
-            if (result != null) {
-                total += result;
+    public UnmatchedFieldsCountVisitor createVisitor() {
+        return new UnmatchedFieldsCountVisitor();
+    }
+
+    public int evaluate(@Nonnull final Reference reference) {
+        return Objects.requireNonNull(reference.acceptVisitor(createVisitor()));
+    }
+
+    public int evaluate(@Nonnull final RelationalExpression expression) {
+        return Objects.requireNonNull(expression.acceptVisitor(createVisitor()));
+    }
+
+    @Nonnull
+    public static UnmatchedFieldsCountProperty unmatchedFieldsCount() {
+        return UNMATCHED_FIELDS_COUNT;
+    }
+
+    public static class UnmatchedFieldsCountVisitor implements SimpleExpressionVisitor<Integer> {
+        @Nonnull
+        @Override
+        public Integer evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Integer> childResults) {
+            int total = 0;
+            for (Integer result : childResults) {
+                if (result != null) {
+                    total += result;
+                }
             }
-        }
 
-        if (expression instanceof RecordQueryCoveringIndexPlan) {
-            expression = ((RecordQueryCoveringIndexPlan)expression).getIndexPlan();
-        }
-        if (expression instanceof RecordQueryAggregateIndexPlan) {
-            expression = ((RecordQueryAggregateIndexPlan)expression).getIndexPlan();
-        }
+            if (expression instanceof RecordQueryCoveringIndexPlan) {
+                expression = ((RecordQueryCoveringIndexPlan)expression).getIndexPlan();
+            }
+            if (expression instanceof RecordQueryAggregateIndexPlan) {
+                expression = ((RecordQueryAggregateIndexPlan)expression).getIndexPlan();
+            }
 
-        final int columnSize;
-        if (expression instanceof RecordQueryPlanWithComparisons) {
-            final ScanComparisons comparisons = ((RecordQueryPlanWithComparisons)expression).getScanComparisons();
-            final int numComparisons = comparisons.getEqualitySize() + (comparisons.isEquality() ? 0 : 1);
-            if (expression instanceof RecordQueryPlanWithIndex) {
-                final var matchCandidateOptional =
-                        ((RecordQueryPlanWithIndex)expression).getMatchCandidateMaybe();
-                final var matchCandidate = matchCandidateOptional.orElseThrow(() -> new RecordCoreException("expected match candidate to be present"));
-                columnSize = matchCandidate.getSargableAliases().size();
-            } else if (expression instanceof RecordQueryScanPlan) {
-                final RecordQueryScanPlan scanPlan = (RecordQueryScanPlan)expression;
-                final KeyExpression primaryKey = Objects.requireNonNull(scanPlan.getCommonPrimaryKey());
-                columnSize = primaryKey.getColumnSize();
+            final int columnSize;
+            if (expression instanceof RecordQueryPlanWithComparisons) {
+                final ScanComparisons comparisons = ((RecordQueryPlanWithComparisons)expression).getScanComparisons();
+                final int numComparisons = comparisons.getEqualitySize() + (comparisons.isEquality() ? 0 : 1);
+                if (expression instanceof RecordQueryPlanWithIndex) {
+                    final var matchCandidateOptional =
+                            ((RecordQueryPlanWithIndex)expression).getMatchCandidateMaybe();
+                    final var matchCandidate = matchCandidateOptional.orElseThrow(() -> new RecordCoreException("expected match candidate to be present"));
+                    columnSize = matchCandidate.getSargableAliases().size();
+                } else if (expression instanceof RecordQueryScanPlan) {
+                    final RecordQueryScanPlan scanPlan = (RecordQueryScanPlan)expression;
+                    final KeyExpression primaryKey = Objects.requireNonNull(scanPlan.getCommonPrimaryKey());
+                    columnSize = primaryKey.getColumnSize();
+                } else {
+                    throw new RecordCoreException("unhandled plan with comparisons: can't find key expression");
+                }
+                return total + columnSize - numComparisons;
             } else {
-                throw new RecordCoreException("unhandled plan with comparisons: can't find key expression");
-            }
-            return total + columnSize - numComparisons;
-        } else {
-            return total;
-        }
-    }
-
-    @Nonnull
-    @Override
-    public Integer evaluateAtRef(@Nonnull Reference ref, @Nonnull List<Integer> memberResults) {
-        int min = Integer.MAX_VALUE;
-        for (Integer memberResult : memberResults) {
-            if (memberResult != null && memberResult < min) {
-                min = memberResult;
+                return total;
             }
         }
-        return min;
-    }
 
-    public static int evaluate(@Nonnull RelationalExpression expression) {
-        Integer result = expression.acceptPropertyVisitor(new UnmatchedFieldsCountProperty());
-        if (result == null) {
-            return Integer.MAX_VALUE;
+        @Nonnull
+        @Override
+        public Integer evaluateAtRef(@Nonnull Reference ref, @Nonnull List<Integer> memberResults) {
+            int min = Integer.MAX_VALUE;
+            for (Integer memberResult : memberResults) {
+                if (memberResult != null && memberResult < min) {
+                    min = memberResult;
+                }
+            }
+            return min;
         }
-        return result;
     }
 }

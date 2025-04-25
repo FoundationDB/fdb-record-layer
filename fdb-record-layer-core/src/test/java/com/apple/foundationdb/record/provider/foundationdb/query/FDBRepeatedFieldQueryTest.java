@@ -38,7 +38,6 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
-import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -61,6 +60,7 @@ import static com.apple.foundationdb.record.TestHelpers.assertDiscardedAtMost;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedNone;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty.usedTypes;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveringIndexScan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.fetch;
@@ -585,7 +585,7 @@ class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 assertEquals(-1199247774, plan.planHash(PlanHashable.CURRENT_LEGACY));
                 assertEquals(325380875, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
             }
-            final var usedTypes = UsedTypesProperty.evaluate(plan);
+            final var usedTypes = usedTypes().evaluate(plan);
             final var typeRepository = TypeRepository.newBuilder().addAllTypes(usedTypes).build();
             List<Message> byQuery =
                     recordStore.executeQuery(plan, null, EvaluationContext.forBindingsAndTypeRepository(Bindings.EMPTY_BINDINGS, typeRepository), ExecuteProperties.SERIAL_EXECUTE)

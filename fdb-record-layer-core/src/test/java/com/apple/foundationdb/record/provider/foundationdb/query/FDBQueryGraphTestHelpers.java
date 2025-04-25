@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
-import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
@@ -54,6 +53,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty.usedTypes;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -109,7 +109,7 @@ public class FDBQueryGraphTestHelpers extends FDBRecordStoreQueryTestBase {
     }
 
     static RecordCursor<QueryResult> executeCascades(FDBRecordStore store, RecordQueryPlan plan, Bindings bindings) {
-        Set<Type> usedTypes = UsedTypesProperty.evaluate(plan);
+        Set<Type> usedTypes = usedTypes().evaluate(plan);
         TypeRepository typeRepository = TypeRepository.newBuilder()
                 .addAllTypes(usedTypes)
                 .build();
