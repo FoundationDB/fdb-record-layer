@@ -260,4 +260,20 @@ public class SqlFunctionTest {
                         "CREATE FUNCTION SQ(IN a BIGINT) AS SELECT * FROM T WHERE T.a < a"),
                 containsRoutinesInAnyOrder(routine("SQ", "CREATE FUNCTION SQ(IN a BIGINT) AS SELECT * FROM T WHERE T.a < a")));
     }
+
+    @Test
+    void createFunctionWithAmbiguousParameterNamesCase3() throws Exception {
+        assertThrows(() -> ddl("CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(a BIGINT, b BIGINT, primary key(a)) " +
+                "CREATE FUNCTION SQ1(IN A BIGINT, IN A BIGINT) AS SELECT * FROM T WHERE b < 42 "))
+                .hasErrorCode(ErrorCode.DUPLICATE_PARAMETER);
+    }
+
+    @Test
+    void createFunctionWithAmbiguousParameterNamesCase4() throws Exception {
+        assertThrows(() -> ddl("CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(a BIGINT, b BIGINT, primary key(a)) " +
+                "CREATE FUNCTION SQ1(IN A BIGINT, IN B STRING, IN A BIGINT) AS SELECT * FROM T WHERE b < 42 "))
+                .hasErrorCode(ErrorCode.DUPLICATE_PARAMETER);
+    }
 }

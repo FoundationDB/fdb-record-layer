@@ -107,7 +107,8 @@ public class CompiledSqlFunction extends UserDefinedFunction<Value> {
                 argumentValue = Assert.optionalUnchecked(getDefaultValue(paramIdx));
             } else {
                 final var providedArgValue = Assert.castUnchecked(arguments.get(paramIdx), Value.class);
-                Assert.thatUnchecked(PromoteValue.isPromotable(providedArgValue.getResultType(), getParameterType(paramIdx)),
+                final var isPromotionNeeded = PromoteValue.isPromotionNeeded(providedArgValue.getResultType(), getParameterType(paramIdx));
+                Assert.thatUnchecked(!isPromotionNeeded || PromoteValue.isPromotable(providedArgValue.getResultType(), getParameterType(paramIdx)),
                         ErrorCode.UNDEFINED_FUNCTION, () -> "could not find function matching the provided arguments");
                 argumentValue = PromoteValue.inject(providedArgValue, getParameterType(paramIdx));
             }
@@ -143,7 +144,8 @@ public class CompiledSqlFunction extends UserDefinedFunction<Value> {
                 argumentValue = Assert.optionalUnchecked(getDefaultValue(name), ErrorCode.UNDEFINED_FUNCTION,
                         () -> "could not find function matching the provided arguments");
             }
-            Assert.thatUnchecked(PromoteValue.isPromotable(argumentValue.getResultType(), getParameterType(name)),
+            final var isPromotionNeeded = PromoteValue.isPromotionNeeded(argumentValue.getResultType(), getParameterType(name));
+            Assert.thatUnchecked(!isPromotionNeeded || PromoteValue.isPromotable(argumentValue.getResultType(), getParameterType(name)),
                     ErrorCode.UNDEFINED_FUNCTION, () -> "could not find function matching the provided arguments");
             final var maybePromotedArgument = PromoteValue.inject(argumentValue, getParameterType(name));
             resultBuilder.addResultColumn(Column.of(Optional.of(name), maybePromotedArgument));

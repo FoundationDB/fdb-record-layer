@@ -263,4 +263,10 @@ public class YamlIntegrationTests {
     public void tableFunctionsTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("table-functions.yamsql");
     }
+
+    @TestTemplate
+    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
+    public void sqlFunctionsTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("sql-functions.yamsql");
+    }
 }

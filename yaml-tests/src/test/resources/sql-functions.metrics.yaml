@@ -1,0 +1,43 @@
+basic-sql-function-tests:
+-   query: EXPLAIN select col1, col2 from f1(a => 103, b => 'b');
+    explain: 'TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c10 AS LONG)
+        AS A, @c14 AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS
+        STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0],
+        COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1
+        AS COL1, q1.COL2 AS COL2) } | MAP (_.COL1 AS COL1, _.COL2 AS COL2)'
+    task_count: 1083
+    task_total_time_ms: 253
+    transform_count: 302
+    transform_time_ms: 152
+    transform_yield_count: 78
+    insert_time_ms: 18
+    insert_new_count: 267
+    insert_reused_count: 5
+-   query: EXPLAIN select col1, col2 from f1(b => 'b', a => 103);
+    explain: 'TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c14 AS LONG)
+        AS A, @c10 AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS
+        STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0],
+        COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1
+        AS COL1, q1.COL2 AS COL2) } | MAP (_.COL1 AS COL1, _.COL2 AS COL2)'
+    task_count: 1083
+    task_total_time_ms: 254
+    transform_count: 302
+    transform_time_ms: 151
+    transform_yield_count: 78
+    insert_time_ms: 18
+    insert_new_count: 267
+    insert_reused_count: 5
+-   query: EXPLAIN select col1, col2 from f1(103, 'b');
+    explain: 'TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c8 AS LONG)
+        AS A, @c10 AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS
+        STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0],
+        COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1
+        AS COL1, q1.COL2 AS COL2) } | MAP (_.COL1 AS COL1, _.COL2 AS COL2)'
+    task_count: 1083
+    task_total_time_ms: 253
+    transform_count: 302
+    transform_time_ms: 152
+    transform_yield_count: 78
+    insert_time_ms: 18
+    insert_new_count: 267
+    insert_reused_count: 5

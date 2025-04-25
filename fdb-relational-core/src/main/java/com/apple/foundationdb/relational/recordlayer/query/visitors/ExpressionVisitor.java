@@ -69,6 +69,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -98,7 +99,16 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Expressions visitTableFunctionArgs(@Nonnull final RelationalParser.TableFunctionArgsContext ctx) {
         if (!ctx.namedFunctionArg().isEmpty()) {
-            return Expressions.of(ctx.namedFunctionArg().stream().map(this::visitNamedFunctionArg).collect(ImmutableList.toImmutableList()));
+            final var namedArguments = Expressions.of(ctx.namedFunctionArg().stream().map(this::visitNamedFunctionArg).collect(ImmutableList.toImmutableList()));
+            final var duplicateArguments = namedArguments.asList().stream().flatMap(p -> p.getName().stream())
+                    .collect( Collectors.groupingBy( Function.identity(), Collectors.counting() ) )
+                    .entrySet()
+                    .stream()
+                    .filter( p -> p.getValue() > 1 )
+                    .collect(ImmutableList.toImmutableList());
+            Assert.thatUnchecked(duplicateArguments.isEmpty(), ErrorCode.SYNTAX_ERROR, () ->
+                    "argument name(s) used more than once" + duplicateArguments.stream().map(Object::toString).collect(Collectors.joining(",")));
+            return namedArguments;
         }
         return Expressions.of(ctx.functionArg().stream().map(this::visitFunctionArg).collect(ImmutableList.toImmutableList()));
     }

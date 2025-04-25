@@ -54,6 +54,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
 public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
@@ -416,6 +418,15 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Override
     public Expressions visitSqlParameterDeclarations(final RelationalParser.SqlParameterDeclarationsContext ctx) {
+        final var parameters = Expressions.of(ctx.sqlParameterDeclaration().stream().map(this::visitSqlParameterDeclaration).collect(ImmutableList.toImmutableList()));
+        final var duplicateParameters = parameters.asList().stream().flatMap(p -> p.getName().stream())
+                .collect( Collectors.groupingBy( Function.identity(), Collectors.counting() ) )
+                .entrySet()
+                .stream()
+                .filter( p -> p.getValue() > 1 )
+                .collect(ImmutableList.toImmutableList());
+        Assert.thatUnchecked(duplicateParameters.isEmpty(), ErrorCode.DUPLICATE_PARAMETER, () ->
+                "unexpected duplicate parameter(s) " + duplicateParameters.stream().map(Object::toString).collect(Collectors.joining(",")));
         return Expressions.of(ctx.sqlParameterDeclaration().stream().map(this::visitSqlParameterDeclaration).collect(ImmutableList.toImmutableList()));
     }
 
