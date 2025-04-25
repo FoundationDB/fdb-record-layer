@@ -51,6 +51,10 @@ import java.util.function.Function;
  * This cursor also assumes that there is always some forward progress made in each iteration (unless the inner record
  * is exhausted), so that we will get some inner result during every iteration to feed into the continuation.
  *
+ * The cursor assumes that the inner cursor is sorted (the assumption is actually somewhat weaker: that the repeated elements are grouped)
+ * such that all the elements of a certain repeated value appear in sequence, hence it can remove all but the first, and
+ * the stored state can be kept to a minimum.
+ *
  * @param <T> the type of elements of the cursor
  */
 @API(API.Status.EXPERIMENTAL)
