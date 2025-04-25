@@ -3916,7 +3916,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @API(API.Status.INTERNAL)
     @Nonnull
     public CompletableFuture<IndexBuildProto.IndexBuildIndexingStamp> loadIndexingTypeStampAsync(Index index) {
-        byte[] stampKey = OnlineIndexer.indexBuildTypeSubspace(this, index).pack();
+        byte[] stampKey = IndexingSubspaces.indexBuildTypeSubspace(this, index).pack();
         return ensureContextActive().get(stampKey).thenApply(serializedStamp -> {
             if (serializedStamp == null) {
                 return null;
@@ -3944,7 +3944,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @API(API.Status.INTERNAL)
     public void saveIndexingTypeStamp(Index index, IndexBuildProto.IndexBuildIndexingStamp stamp) {
-        byte[] stampKey = OnlineIndexer.indexBuildTypeSubspace(this, index).pack();
+        byte[] stampKey = IndexingSubspaces.indexBuildTypeSubspace(this, index).pack();
         ensureContextActive().set(stampKey, stamp.toByteArray());
     }
 
@@ -4710,14 +4710,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         IndexingRangeSet.forIndexBuild(this, index).clear();
         // clear even if non-unique in case the index was previously unique
         context.clear(indexUniquenessViolationsSubspace(index).range());
-        // Under the index build subspace, there are 3 lower level subspaces, the lock space, the scanned records
-        // subspace, and the type/stamp subspace. We are not supposed to clear the lock subspace, which is used to
-        // run online index jobs which may invoke this method. We should clear:
-        // * the scanned records subspace. Which, roughly speaking, counts how many records of this store are covered in
-        // index range subspace.
-        // * the type/stamp subspace. Which indicates which type of indexing is in progress.
-        context.clear(Range.startsWith(OnlineIndexer.indexBuildScannedRecordsSubspace(this, index).pack()));
-        context.clear(Range.startsWith(OnlineIndexer.indexBuildTypeSubspace(this, index).pack()));
+        // Under the index build subspace, there are multiple lower level subspaces - the lock subspace and few others. We are
+        // not supposed to clear the lock subspace, which might have been used to an online index job that had invoked this method.
+        IndexingSubspaces.eraseAllIndexingDataButTheLock(context, this, index);
     }
 
     @SuppressWarnings("PMD.CloseResource")
@@ -5189,6 +5184,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         @Override
         @Nonnull
         public Builder setFormatVersion(int formatVersion) {
+            if (formatVersion < MIN_FORMAT_VERSION || formatVersion > MAX_SUPPORTED_FORMAT_VERSION) {
+                throw new UnsupportedFormatVersionException("Invalid Format Version")
+                        .addLogInfo(LogMessageKeys.FORMAT_VERSION, formatVersion);
+            }
             this.formatVersion = formatVersion;
             return this;
         }

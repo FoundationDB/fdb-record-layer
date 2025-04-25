@@ -92,7 +92,7 @@ apply from: rootProject.file('gradle/publishing.gradle')
 publishing {
     publications {
         shadow(MavenPublication) { publication ->
-            from project.shadow.component(publication)
+            from components.shadow
             addPublishingInfo(publication) // function imported from publishing.gradle
             publication.pom { pom ->
                 description = 'A record-oriented layer built for FoundationDB (shaded artifacts).'

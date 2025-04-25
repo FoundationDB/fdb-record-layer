@@ -25,7 +25,6 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
-import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.common.base.Verify;
@@ -50,7 +49,6 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
     // group aggregator to break incoming records into groups
     @Nonnull
     private final StreamGrouping<M> streamGrouping;
-    private final boolean isCreateDefaultOnEmpty;
     // Previous record processed by this cursor
     @Nullable
     private RecordCursorResult<QueryResult> previousResult;
@@ -59,11 +57,9 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
     private RecordCursorResult<QueryResult> previousValidResult;
 
     public AggregateCursor(@Nonnull RecordCursor<QueryResult> inner,
-                           @Nonnull final StreamGrouping<M> streamGrouping,
-                           boolean isCreateDefaultOnEmpty) {
+                           @Nonnull final StreamGrouping<M> streamGrouping) {
         this.inner = inner;
         this.streamGrouping = streamGrouping;
-        this.isCreateDefaultOnEmpty = isCreateDefaultOnEmpty;
     }
 
     @Nonnull
@@ -77,7 +73,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
         return AsyncUtil.whileTrue(() -> inner.onNext().thenApply(innerResult -> {
             previousResult = innerResult;
             if (!innerResult.hasNext()) {
-                if (!isNoRecords() || (isCreateDefaultOnEmpty && streamGrouping.isResultOnEmpty())) {
+                if (!isNoRecords()) {
                     streamGrouping.finalizeGroup();
                 }
                 return false;
@@ -93,11 +89,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
         }), getExecutor()).thenApply(vignore -> {
             if (isNoRecords()) {
                 // Edge case where there are no records at all
-                if (isCreateDefaultOnEmpty && streamGrouping.isResultOnEmpty()) {
-                    return RecordCursorResult.withNextValue(QueryResult.ofComputed(streamGrouping.getCompletedGroupResult()), RecordCursorStartContinuation.START);
-                } else {
-                    return RecordCursorResult.exhausted();
-                }
+                return RecordCursorResult.exhausted();
             }
             // Use the last valid result for the continuation as we need non-terminal one here.
             RecordCursorContinuation continuation = Verify.verifyNotNull(previousValidResult).getContinuation();

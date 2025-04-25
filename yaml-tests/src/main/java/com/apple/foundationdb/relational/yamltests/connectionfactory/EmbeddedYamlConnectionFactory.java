@@ -34,7 +34,7 @@ import java.util.Set;
 public class EmbeddedYamlConnectionFactory implements YamlConnectionFactory {
     @Override
     public YamlConnection getNewConnection(@Nonnull URI connectPath) throws SQLException {
-        return new SimpleYamlConnection(DriverManager.getConnection(connectPath.toString()), SemanticVersion.current());
+        return new SimpleYamlConnection(DriverManager.getConnection(connectPath.toString()), SemanticVersion.current(), "Embedded");
     }
 
     @Override
