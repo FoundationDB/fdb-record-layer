@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.record.IndexState;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
@@ -29,6 +30,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.MetaDataVersionStampStoreStateCacheFactory;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
@@ -70,7 +72,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
     void repairUpgradeFormatVersion(int oldFormatVersion, int newFormatVersion, boolean supportSplitRecords) {
         final RecordMetaData recordMetaData = getRecordMetaData(supportSplitRecords);
         final List<Tuple> primaryKeys = createInitialStore(oldFormatVersion, recordMetaData);
-        final List<FDBStoredRecord<Message>> originalRecords = getOriginalRecords(recordMetaData, primaryKeys);
+        final List<FDBStoredRecord<Message>> originalRecords = createOriginalRecords(recordMetaData, primaryKeys);
         clearStoreHeader(recordMetaData);
         validateCannotOpen(recordMetaData);
 
@@ -96,7 +98,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
     void repairUserVersion(int userVersion) {
         final RecordMetaData recordMetaData = getRecordMetaData(true);
         final List<Tuple> primaryKeys = createInitialStore(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION, recordMetaData);
-        final List<FDBStoredRecord<Message>> originalRecords = getOriginalRecords(recordMetaData, primaryKeys);
+        final List<FDBStoredRecord<Message>> originalRecords = createOriginalRecords(recordMetaData, primaryKeys);
         clearStoreHeader(recordMetaData);
         validateCannotOpen(recordMetaData);
 
@@ -125,7 +127,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
     void needRebuildIndex() {
         final RecordMetaData recordMetaData = getRecordMetaData(true);
         final List<Tuple> primaryKeys = createInitialStore(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION, recordMetaData);
-        final List<FDBStoredRecord<Message>> originalRecords = getOriginalRecords(recordMetaData, primaryKeys);
+        final List<FDBStoredRecord<Message>> originalRecords = createOriginalRecords(recordMetaData, primaryKeys);
         clearStoreHeader(recordMetaData);
         validateCannotOpen(recordMetaData);
 
@@ -166,7 +168,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
     void repairUserField() {
         final RecordMetaData recordMetaData = getRecordMetaData(true);
         final List<Tuple> primaryKeys = createInitialStore(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION, recordMetaData);
-        getOriginalRecords(recordMetaData, primaryKeys);
+        createOriginalRecords(recordMetaData, primaryKeys);
         clearStoreHeader(recordMetaData);
         validateCannotOpen(recordMetaData);
 
@@ -205,40 +207,9 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
         fdb.setStoreStateCache(populatedCache);
         final RecordMetaData recordMetaData = getRecordMetaData(true);
         final List<Tuple> primaryKeys = createInitialStore(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION, recordMetaData);
-        getOriginalRecords(recordMetaData, primaryKeys);
+        createOriginalRecords(recordMetaData, primaryKeys);
 
-        FDBRecordStoreBase.UserVersionChecker userVersionChecker = new AssertMatchingUserVersion(0, 1);
-
-        try (FDBRecordContext context = openContext()) {
-            getStoreBuilder(context, recordMetaData)
-                    .setUserVersionChecker(userVersionChecker)
-                    .open()
-                    .setStateCacheability(true);
-            commit(context);
-        }
-
-        userVersionChecker = new AssertMatchingUserVersion(1, 1);
-
-        timer.reset();
-        try (FDBRecordContext context = openContext()) {
-            getStoreBuilder(context, recordMetaData)
-                    .setUserVersionChecker(userVersionChecker)
-                    .open();
-            assertEquals(1, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
-            commit(context);
-        }
-
-        timer.reset();
-        try (FDBRecordContext context = openContext()) {
-            getStoreBuilder(context, recordMetaData)
-                    .setUserVersionChecker(userVersionChecker)
-                    .open();
-            assertEquals(1, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
-            commit(context);
-        }
-
-        timer.reset();
-
+        FDBRecordStoreBase.UserVersionChecker userVersionChecker = setupCachedStoreState(recordMetaData);
 
         clearStoreHeader(recordMetaData);
 
@@ -277,8 +248,33 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    void failIfHeaderExists() {
+    @ParameterizedTest
+    @BooleanSource
+    void failIfHeaderExists(boolean cached) {
+        if (cached) {
+            final var metaDataVersionStampCacheFactory = MetaDataVersionStampStoreStateCacheFactory.newInstance();
+            final FDBRecordStoreStateCache populatedCache = metaDataVersionStampCacheFactory.getCache(fdb);
+            fdb.setStoreStateCache(populatedCache);
+        }
+        final RecordMetaData recordMetaData = getRecordMetaData(true);
+        final List<Tuple> primaryKeys = createInitialStore(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION, recordMetaData);
+        createOriginalRecords(recordMetaData, primaryKeys);
+
+        if (cached) {
+            // TODO can we consult the cache without having it fabricate things....
+            setupCachedStoreState(recordMetaData);
+            clearStoreHeader(recordMetaData);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore.Builder builder = getStoreBuilder(context, recordMetaData)
+                    .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION);
+            assertThatThrownBy(() -> context.asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION,
+                    builder.repairMissingHeader(1)))
+                    .isInstanceOf(RecordCoreException.class);
+            commit(context);
+        }
+
         Assertions.fail("TODO we should fail if there is a header");
     }
 
@@ -287,7 +283,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
         Assertions.fail("TODO");
     }
 
-    private List<FDBStoredRecord<Message>> getOriginalRecords(final RecordMetaData recordMetaData, final List<Tuple> primaryKeys) {
+    private List<FDBStoredRecord<Message>> createOriginalRecords(final RecordMetaData recordMetaData, final List<Tuple> primaryKeys) {
         try (FDBRecordContext context = openContext()) {
             recordStore = getStoreBuilder(context, recordMetaData, path).open();
             return primaryKeys.stream()
@@ -339,6 +335,42 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
     private void repairHeader(final FDBRecordContext context, final int userVersion, final FDBRecordStore.Builder builder) {
         recordStore = context.asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION,
                 builder.repairMissingHeader(userVersion));
+    }
+
+    @Nonnull
+    private FDBRecordStoreBase.UserVersionChecker setupCachedStoreState(final RecordMetaData recordMetaData) {
+        FDBRecordStoreBase.UserVersionChecker userVersionChecker = new AssertMatchingUserVersion(0, 1);
+
+        try (FDBRecordContext context = openContext()) {
+            getStoreBuilder(context, recordMetaData)
+                    .setUserVersionChecker(userVersionChecker)
+                    .open()
+                    .setStateCacheability(true);
+            commit(context);
+        }
+
+        userVersionChecker = new AssertMatchingUserVersion(1, 1);
+
+        timer.reset();
+        try (FDBRecordContext context = openContext()) {
+            getStoreBuilder(context, recordMetaData)
+                    .setUserVersionChecker(userVersionChecker)
+                    .open();
+            assertEquals(1, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
+            commit(context);
+        }
+
+        timer.reset();
+        try (FDBRecordContext context = openContext()) {
+            getStoreBuilder(context, recordMetaData)
+                    .setUserVersionChecker(userVersionChecker)
+                    .open();
+            assertEquals(1, timer.getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_HIT));
+            commit(context);
+        }
+
+        timer.reset();
+        return userVersionChecker;
     }
 
     private List<Tuple> createInitialStore(final int initialFormatVersion, final RecordMetaDataProvider metaData) {

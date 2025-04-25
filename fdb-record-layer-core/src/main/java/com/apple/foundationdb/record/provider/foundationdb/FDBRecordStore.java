@@ -5448,60 +5448,69 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         @API(API.Status.INTERNAL)
         public CompletableFuture<FDBRecordStore> repairMissingHeader(final int userVersion) {
             return uncheckedOpenAsync()
-                    .thenCompose(store -> {
-                        final RecordMetaData recordMetaData = metaDataProvider.getRecordMetaData();
-                        final RecordMetaDataProto.DataStoreInfo.Builder dataStoreInfo = RecordMetaDataProto.DataStoreInfo.newBuilder()
-                                .setFormatVersion(formatVersion)
-                                .setMetaDataversion(recordMetaData.getVersion())
-                                .setUserVersion(userVersion)
-                                // record count key is set below
-                                .setLastUpdateTime(System.currentTimeMillis());
-                        // todo minimumPossibleFormatVersion to mean we don't have to set unsplit suffix
-                        // We could copy a cached version if it is cached, but that's probably not relevant, because
-                        // you'd notice only after the cache expired
-                        // No need to set user_field here, users can set after repairing as they see fit,
-                        // transactionally before doing anything else
-                        if (recordMetaData.getRecordCountKey() != null) {
-                            dataStoreInfo.setRecordCountKey(recordMetaData.getRecordCountKey().toKeyExpression());
+                    .thenCompose(store ->
+                            store.loadStoreHeaderAsync(StoreExistenceCheck.NONE, IsolationLevel.SERIALIZABLE)
+                                    .thenCompose(storeState -> repairMissingHeader(userVersion, store, storeState)));
+        }
+
+        private CompletableFuture<FDBRecordStore> repairMissingHeader(final int userVersion,
+                                                                      @Nonnull final FDBRecordStore store,
+                                                                      @Nonnull final RecordMetaDataProto.DataStoreInfo existing) {
+            if (!existing.equals(RecordMetaDataProto.DataStoreInfo.getDefaultInstance())) {
+                throw new RecordCoreException("Store header is not missing");
+            }
+            final RecordMetaData recordMetaData = metaDataProvider.getRecordMetaData();
+            final RecordMetaDataProto.DataStoreInfo.Builder dataStoreInfo = RecordMetaDataProto.DataStoreInfo.newBuilder()
+                    .setFormatVersion(formatVersion)
+                    .setMetaDataversion(recordMetaData.getVersion())
+                    .setUserVersion(userVersion)
+                    // record count key is set below
+                    .setLastUpdateTime(System.currentTimeMillis());
+            // todo minimumPossibleFormatVersion to mean we don't have to set unsplit suffix
+            // We could copy a cached version if it is cached, but that's probably not relevant, because
+            // you'd notice only after the cache expired
+            // No need to set user_field here, users can set after repairing as they see fit,
+            // transactionally before doing anything else
+            if (recordMetaData.getRecordCountKey() != null) {
+                dataStoreInfo.setRecordCountKey(recordMetaData.getRecordCountKey().toKeyExpression());
+            }
+            store.saveStoreHeader(dataStoreInfo.build());
+            // It's possible that the old store header was cacheable, in which case, another store may
+            // still have a cached version, even though we don't. We need to make sure that the other
+            // instance refreshes it's cached version after we generate a new missing store header.
+            // Obviously, being able to recover from the cached version would be ideal, but that would
+            // is a limited use case, as you wouldn't notice it was missing until after caches started
+            // expiring, and you would have to repair before they all expired.
+            final CompletableFuture<Void> bumpMetaDataVersionStamp = context.getMetaDataVersionStampAsync(IsolationLevel.SNAPSHOT)
+                    .thenAccept(metaDataVersionStamp -> {
+                        // If the metaDataVersionStamp was null before than nothing was cached based on
+                        // the metaDataVersionStamp, so we don't need to set the stamp.
+                        if (metaDataVersionStamp != null) {
+                            context.setMetaDataVersionStamp();
                         }
-                        store.saveStoreHeader(dataStoreInfo.build());
-                        // It's possible that the old store header was cacheable, in which case, another store may
-                        // still have a cached version, even though we don't. We need to make sure that the other
-                        // instance refreshes it's cached version after we generate a new missing store header.
-                        // Obviously, being able to recover from the cached version would be ideal, but that would
-                        // is a limited use case, as you wouldn't notice it was missing until after caches started
-                        // expiring, and you would have to repair before they all expired.
-                        final CompletableFuture<Void> bumpMetaDataVersionStamp = context.getMetaDataVersionStampAsync(IsolationLevel.SNAPSHOT)
-                                .thenAccept(metaDataVersionStamp -> {
-                                    // If the metaDataVersionStamp was null before than nothing was cached based on
-                                    // the metaDataVersionStamp, so we don't need to set the stamp.
-                                    if (metaDataVersionStamp != null) {
-                                        context.setMetaDataVersionStamp();
-                                    }
-                                });
-                        // Since another instance may still have a cached version of the store header, we need to make
-                        // sure that the cache is invalidated
-                        // This could be improved with:
-                        // 1. If the index was added in the same metadata version that added the type, and has not been
-                        //    modified, we could mark that as readable, because they either do not have any records of
-                        //    that type, or the index was built when the type was originally added, and maintained since
-                        //    then.
-                        // 2. If the index has never been modified, and it has an index state, we could leave it. But
-                        //    this would basically just allow WriteOnly indexes or ReadableUniquePending to stay, as we
-                        //    do not store anything for Readable indexes.
-                        // 3. We could give the users an option to leave them as-is and use IndexScrubbing to repair the
-                        //    indexes, but at the time of writing scrubbing can only repair value indexes.
-                        // In the general case, we have no idea whether the index should be readable or not because:
-                        // 1. We don't store that the index should be readable, so it could be that the index was readable
-                        //    or it could be that the store was on a metadata version that didn't have the index, or
-                        //    had an older version of the index. If it wasn't readable on the current version, than
-                        //    leaving the index would leave it in a corrupted state.
-                        return bumpMetaDataVersionStamp.thenCompose(vignore -> AsyncUtil.whenAll(
-                                                recordMetaData.getAllIndexes().stream()
-                                                .map(store::markIndexDisabled)
-                                                .collect(Collectors.toList()))
-                                .thenApply(ignored -> store));
                     });
+            // Since another instance may still have a cached version of the store header, we need to make
+            // sure that the cache is invalidated
+            // This could be improved with:
+            // 1. If the index was added in the same metadata version that added the type, and has not been
+            //    modified, we could mark that as readable, because they either do not have any records of
+            //    that type, or the index was built when the type was originally added, and maintained since
+            //    then.
+            // 2. If the index has never been modified, and it has an index state, we could leave it. But
+            //    this would basically just allow WriteOnly indexes or ReadableUniquePending to stay, as we
+            //    do not store anything for Readable indexes.
+            // 3. We could give the users an option to leave them as-is and use IndexScrubbing to repair the
+            //    indexes, but at the time of writing scrubbing can only repair value indexes.
+            // In the general case, we have no idea whether the index should be readable or not because:
+            // 1. We don't store that the index should be readable, so it could be that the index was readable
+            //    or it could be that the store was on a metadata version that didn't have the index, or
+            //    had an older version of the index. If it wasn't readable on the current version, than
+            //    leaving the index would leave it in a corrupted state.
+            return bumpMetaDataVersionStamp.thenCompose(vignore -> AsyncUtil.whenAll(
+                            recordMetaData.getAllIndexes().stream()
+                                    .map(store::markIndexDisabled)
+                                    .collect(Collectors.toList()))
+                    .thenApply(ignored -> store));
         }
     }
 }
