@@ -210,10 +210,6 @@ public class StreamGrouping<M extends Message> {
         return Objects.requireNonNull(groupingKeyValue).eval(store, nestedContext);
     }
 
-    public boolean isResultOnEmpty() {
-        return groupingKeyValue == null;
-    }
-
     @Nullable
     public RecordCursorProto.PartialAggregationResult getPartialAggregationResult() {
         List<RecordCursorProto.AccumulatorState> accumulatorStates = accumulator.getAccumulatorStates();

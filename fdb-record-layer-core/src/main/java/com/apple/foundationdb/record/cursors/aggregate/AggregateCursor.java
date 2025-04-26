@@ -93,7 +93,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
             lastResult = previousResult;
             previousResult = innerResult;
             if (!innerResult.hasNext()) {
-                if (!isNoRecords() || streamGrouping.isResultOnEmpty()) {
+                if (!isNoRecords()) {
                     partialAggregationResult = streamGrouping.finalizeGroup();
                 }
                 return false;
