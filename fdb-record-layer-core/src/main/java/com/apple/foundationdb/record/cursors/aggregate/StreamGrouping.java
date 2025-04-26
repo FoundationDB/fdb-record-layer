@@ -35,6 +35,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -191,7 +192,7 @@ public class StreamGrouping<M extends Message> {
                 .build(context.getTypeRepository());
         previousCompleteResult = completeResultValue.eval(store, nestedContext);
 
-        RecordCursorProto.PartialAggregationResult result = currentGroup == null ? null : getPartialAggregationResult((Message) currentGroup);
+        RecordCursorProto.PartialAggregationResult result = currentGroup == null ? null : getPartialAggregationResult();
         currentGroup = nextGroup;
         // "Reset" the accumulator by creating a fresh one.
         accumulator = aggregateValue.createAccumulatorWithInitialState(context.getTypeRepository(), null);
@@ -214,11 +215,14 @@ public class StreamGrouping<M extends Message> {
     }
 
     @Nullable
-    public RecordCursorProto.PartialAggregationResult getPartialAggregationResult(@Nonnull Message groupingKey) {
-        return accumulator.getPartialAggregationResult(groupingKey);
-    }
-
     public RecordCursorProto.PartialAggregationResult getPartialAggregationResult() {
-        return accumulator.getPartialAggregationResult((Message)currentGroup);
+        List<RecordCursorProto.AccumulatorState> accumulatorStates = accumulator.getAccumulatorStates();
+        if (accumulatorStates.isEmpty()) {
+            return null;
+        }
+        return RecordCursorProto.PartialAggregationResult.newBuilder()
+                .setGroupKey(((Message)currentGroup).toByteString())
+                .addAllAccumulatorStates(accumulatorStates)
+                .build();
     }
 }

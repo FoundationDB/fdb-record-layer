@@ -359,18 +359,15 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
             return physicalOperator.evalPartialToFinal(state);
         }
 
-        @Nullable
+        @Nonnull
         @Override
-        public RecordCursorProto.PartialAggregationResult getPartialAggregationResult(Message groupingKey) {
+        public List<RecordCursorProto.AccumulatorState> getAccumulatorStates() {
             if (state ==  null) {
-                return null;
+                return List.of();
             }
-            return RecordCursorProto.PartialAggregationResult.newBuilder()
-                    .setGroupKey(groupingKey.toByteString())
-                    .addAccumulatorStates(RecordCursorProto.AccumulatorState.newBuilder()
-                            .setPhysicalOperatorName(physicalOperator.name())
-                            .addState(RecordCursorProto.OneOfTypedState.newBuilder().setInt64State((long)state)))
-                    .build();
+            return List.of(RecordCursorProto.AccumulatorState.newBuilder()
+                    .addState(RecordCursorProto.OneOfTypedState.newBuilder().setInt64State((long)state))
+                    .build());
         }
     }
 

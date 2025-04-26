@@ -144,8 +144,7 @@ message PartialAggregationResult {
 }
 
 message AccumulatorState {
-  optional string physical_operator_name = 1;
-  repeated OneOfTypedState state = 2; // 2 for avg
+  repeated OneOfTypedState state = 1; // 2 for avg
 }
 
 message OneOfTypedState {

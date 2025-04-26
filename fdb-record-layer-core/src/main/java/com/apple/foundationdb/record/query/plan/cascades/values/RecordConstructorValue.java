@@ -399,22 +399,14 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
                 return childAccumulatorsBuilder.build();
             }
 
-            @Nullable
+            @Nonnull
             @Override
-            public RecordCursorProto.PartialAggregationResult getPartialAggregationResult(Message groupingKey) {
+            public List<RecordCursorProto.AccumulatorState> getAccumulatorStates() {
                 List<RecordCursorProto.AccumulatorState> accumulatorStates = new ArrayList<>();
                 for (Accumulator accumulator: childAccumulators) {
-                    if (accumulator.getPartialAggregationResult(groupingKey) != null) {
-                        accumulatorStates.addAll(accumulator.getPartialAggregationResult(groupingKey).getAccumulatorStatesList());
-                    }
+                    accumulatorStates.addAll(accumulator.getAccumulatorStates());
                 }
-                if (accumulatorStates.isEmpty()) {
-                    return null;
-                }
-                return RecordCursorProto.PartialAggregationResult.newBuilder()
-                        .setGroupKey(groupingKey.toByteString())
-                        .addAllAccumulatorStates(accumulatorStates)
-                        .build();
+                return accumulatorStates;
             }
         };
     }

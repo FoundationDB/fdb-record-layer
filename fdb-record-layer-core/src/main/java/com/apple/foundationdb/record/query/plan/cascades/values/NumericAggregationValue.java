@@ -65,7 +65,6 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.List;
@@ -938,13 +937,13 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
             return physicalOperator.evalPartialToFinal(state);
         }
 
-        @Nullable
+        @Nonnull
         @Override
-        public RecordCursorProto.PartialAggregationResult getPartialAggregationResult(@Nonnull Message groupingKey) {
+        public List<RecordCursorProto.AccumulatorState> getAccumulatorStates() {
             if (state ==  null) {
-                return null;
+                return List.of();
             }
-            RecordCursorProto.AccumulatorState.Builder builder = RecordCursorProto.AccumulatorState.newBuilder().setPhysicalOperatorName(physicalOperator.name());
+            RecordCursorProto.AccumulatorState.Builder builder = RecordCursorProto.AccumulatorState.newBuilder();
             Pair<?, ?> pair;
             switch (physicalOperator) {
                 case SUM_I:
@@ -995,10 +994,7 @@ public abstract class NumericAggregationValue extends AbstractValue implements V
                     break;
 
             }
-            return RecordCursorProto.PartialAggregationResult.newBuilder()
-                    .setGroupKey(groupingKey.toByteString())
-                    .addAccumulatorStates(builder)
-                    .build();
+            return List.of(builder.build());
         }
     }
 }
