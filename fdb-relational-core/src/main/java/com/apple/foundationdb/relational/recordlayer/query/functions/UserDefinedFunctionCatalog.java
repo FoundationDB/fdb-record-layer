@@ -71,7 +71,7 @@ final class UserDefinedFunctionCatalog {
         final var namedArgumentsBuilder = ImmutableMap.<String, Value>builder();
         final var unnamedArgumentsBuilder = ImmutableList.<Value>builder();
         for (final var argument : arguments) {
-            if (argument.getName().isPresent()) {
+            if (argument.isNamedArgument()) {
                 Assert.thatUnchecked(countUnnamed == 0, ErrorCode.UNSUPPORTED_OPERATION,
                         "mixing named and unnamed arguments is not supported");
                 countNamed++;
