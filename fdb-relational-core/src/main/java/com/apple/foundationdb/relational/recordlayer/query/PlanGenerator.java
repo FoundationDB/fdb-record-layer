@@ -235,7 +235,7 @@ public final class PlanGenerator {
         final var parameterHash = ast.getQueryExecutionParameters().getParameterHash();
         final var planGenerationContext = new MutablePlanGenerationContext(planContext.getPreparedStatementParameters(),
                 currentPlanHashMode, ast.getQuery(), parameterHash);
-        final var metadata = Assert.castUnchecked(planContext.getSchemaTemplate(), RecordLayerSchemaTemplate.class);
+        final var metadata = RecordLayerSchemaTemplate.fromRecordMetadataWithFakeTemplateNameAndVersion(planContext.getMetaData());
         try {
             final var maybePlan = planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.GENERATE_LOGICAL_PLAN, () ->
                     new BaseVisitor(planGenerationContext, metadata, planContext.getDdlQueryFactory(),

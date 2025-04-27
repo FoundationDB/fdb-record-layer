@@ -197,6 +197,11 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         return deserializer.getSchemaTemplate(templateName, version);
     }
 
+    @Nonnull
+    public static RecordLayerSchemaTemplate fromRecordMetadataWithFakeTemplateNameAndVersion(@Nonnull RecordMetaData metaData) {
+        return fromRecordMetadata(metaData, "fakeTemplateName", 1);
+    }
+
     /**
      * Retrieves a {@link Table} by looking up its name.
      *
