@@ -29,6 +29,9 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorProto;
+import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.cursors.aggregate.AggregateCursor;
 import com.apple.foundationdb.record.cursors.aggregate.StreamGrouping;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
@@ -134,8 +137,15 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                                                                      @Nonnull EvaluationContext context,
                                                                      @Nullable byte[] continuation,
                                                                      @Nonnull ExecuteProperties executeProperties) {
-        AggregateCursor.AggregateCursorContinuation aggregateCursorContinuation = AggregateCursor.AggregateCursorContinuation.fromRawBytes(continuation, serializationMode);
-        final var innerCursor = getInnerPlan().executePlan(store, context, aggregateCursorContinuation.getInnerContinuation(), executeProperties.clearSkipAndLimit());
+        RecordCursorContinuation recordCursorContinuation = RecordCursorStartContinuation.START;
+        byte[] innerContinuation = null;
+        RecordCursorProto.PartialAggregationResult partialAggregationResult = null;
+        if (continuation != null) {
+            recordCursorContinuation = AggregateCursor.AggregateCursorContinuation.fromRawBytes(continuation, serializationMode);
+            innerContinuation = ((AggregateCursor.AggregateCursorContinuation)recordCursorContinuation).getInnerContinuation();
+            partialAggregationResult = ((AggregateCursor.AggregateCursorContinuation)recordCursorContinuation).getPartialAggregationResult();
+        }
+        final var innerCursor = getInnerPlan().executePlan(store, context, innerContinuation, executeProperties.clearSkipAndLimit());
         final var streamGrouping =
                 new StreamGrouping<>(groupingKeyValue,
                         aggregateValue,
@@ -145,10 +155,10 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                         (FDBRecordStoreBase<Message>)store,
                         context,
                         inner.getAlias(),
-                        aggregateCursorContinuation.getPartialAggregationResult()
+                        partialAggregationResult
                         );
 
-        return new AggregateCursor<>(innerCursor, streamGrouping, aggregateCursorContinuation.getInnerContinuation(), serializationMode)
+        return new AggregateCursor<>(innerCursor, streamGrouping, recordCursorContinuation, serializationMode)
                 .skipThenLimit(executeProperties.getSkip(),
                         executeProperties.getReturnedRowLimit());
     }
