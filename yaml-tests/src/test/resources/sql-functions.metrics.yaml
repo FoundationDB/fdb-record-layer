@@ -6,11 +6,11 @@ basic-sql-function-tests:
         COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1
         AS COL1, q1.COL2 AS COL2) } | MAP (_.COL1 AS COL1, _.COL2 AS COL2)'
     task_count: 1083
-    task_total_time_ms: 253
+    task_total_time_ms: 278
     transform_count: 302
-    transform_time_ms: 152
+    transform_time_ms: 185
     transform_yield_count: 78
-    insert_time_ms: 18
+    insert_time_ms: 25
     insert_new_count: 267
     insert_reused_count: 5
 -   query: EXPLAIN select col1, col2 from f1(b => 'b', a => 103);
@@ -20,11 +20,11 @@ basic-sql-function-tests:
         COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1
         AS COL1, q1.COL2 AS COL2) } | MAP (_.COL1 AS COL1, _.COL2 AS COL2)'
     task_count: 1083
-    task_total_time_ms: 254
+    task_total_time_ms: 55
     transform_count: 302
-    transform_time_ms: 151
+    transform_time_ms: 28
     transform_yield_count: 78
-    insert_time_ms: 18
+    insert_time_ms: 4
     insert_new_count: 267
     insert_reused_count: 5
 -   query: EXPLAIN select col1, col2 from f1(103, 'b');
@@ -34,10 +34,52 @@ basic-sql-function-tests:
         COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1
         AS COL1, q1.COL2 AS COL2) } | MAP (_.COL1 AS COL1, _.COL2 AS COL2)'
     task_count: 1083
-    task_total_time_ms: 253
+    task_total_time_ms: 278
     transform_count: 302
-    transform_time_ms: 152
+    transform_time_ms: 171
     transform_yield_count: 78
-    insert_time_ms: 18
+    insert_time_ms: 25
+    insert_new_count: 267
+    insert_reused_count: 5
+-   query: EXPLAIN select col1 + 10, col2 from f1(103, 'b');
+    explain: 'TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c10 AS LONG)
+        AS A, @c12 AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS
+        STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0],
+        COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1
+        AS COL1, q1.COL2 AS COL2) } | MAP (_.COL1 + @c4 AS _0, _.COL2 AS COL2)'
+    task_count: 1083
+    task_total_time_ms: 277
+    transform_count: 302
+    transform_time_ms: 179
+    transform_yield_count: 78
+    insert_time_ms: 25
+    insert_new_count: 267
+    insert_reused_count: 5
+-   query: EXPLAIN select * from f1(103, 'b');
+    explain: 'TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c6 AS LONG)
+        AS A, @c8 AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS
+        STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0],
+        COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1
+        AS COL1, q1.COL2 AS COL2) }'
+    task_count: 1085
+    task_total_time_ms: 276
+    transform_count: 302
+    transform_time_ms: 181
+    transform_yield_count: 78
+    insert_time_ms: 24
+    insert_new_count: 266
+    insert_reused_count: 5
+-   query: EXPLAIN select * from f1(103, 'b') where col1 = 101
+    explain: 'TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c6 AS LONG)
+        AS A, @c8 AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS
+        STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0],
+        COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1
+        AS COL1, q1.COL2 AS COL2) } | FILTER _.COL1 EQUALS promote(@c13 AS LONG)'
+    task_count: 1083
+    task_total_time_ms: 43
+    transform_count: 302
+    transform_time_ms: 19
+    transform_yield_count: 78
+    insert_time_ms: 4
     insert_new_count: 267
     insert_reused_count: 5

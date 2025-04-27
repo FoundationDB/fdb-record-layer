@@ -99,18 +99,22 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Expressions visitTableFunctionArgs(@Nonnull final RelationalParser.TableFunctionArgsContext ctx) {
         if (!ctx.namedFunctionArg().isEmpty()) {
-            final var namedArguments = Expressions.of(ctx.namedFunctionArg().stream().map(this::visitNamedFunctionArg).collect(ImmutableList.toImmutableList()));
+            final var namedArguments = Expressions.of(ctx.namedFunctionArg().stream()
+                    .map(this::visitNamedFunctionArg).collect(ImmutableList.toImmutableList()));
             final var duplicateArguments = namedArguments.asList().stream().flatMap(p -> p.getName().stream())
-                    .collect( Collectors.groupingBy( Function.identity(), Collectors.counting() ) )
+                    .collect(Collectors.groupingBy( Function.identity(), Collectors.counting()))
                     .entrySet()
                     .stream()
                     .filter( p -> p.getValue() > 1 )
                     .collect(ImmutableList.toImmutableList());
             Assert.thatUnchecked(duplicateArguments.isEmpty(), ErrorCode.SYNTAX_ERROR, () ->
-                    "argument name(s) used more than once" + duplicateArguments.stream().map(Object::toString).collect(Collectors.joining(",")));
+                    "argument name(s) used more than once" + duplicateArguments.stream()
+                            .map(Object::toString).collect(Collectors.joining(",")));
             return namedArguments;
+        } else {
+            return Expressions.of(ctx.functionArg().stream().map(this::visitFunctionArg)
+                    .collect(ImmutableList.toImmutableList()));
         }
-        return Expressions.of(ctx.functionArg().stream().map(this::visitFunctionArg).collect(ImmutableList.toImmutableList()));
     }
 
     @Override

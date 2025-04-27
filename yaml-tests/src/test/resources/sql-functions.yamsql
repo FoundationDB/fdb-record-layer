@@ -65,6 +65,22 @@ test_block:
       - explain: "TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c8 AS LONG) AS A, @c10 AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2) } | MAP (_.COL1 AS COL1, _.COL2 AS COL2)"
       - result: [{101, 'b'}, {102, 'b'}]
     -
+      - query: select col1 + 10, col2 from f1(103, 'b');
+      - explain: "TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c10 AS LONG) AS A, @c12 AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2) } | MAP (_.COL1 + @c4 AS _0, _.COL2 AS COL2)"
+      - result: [{111, 'b'}, {112, 'b'}]
+    -
+      - query: select * from f1(103, 'b');
+      - explain: "TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c6 AS LONG) AS A, @c8 AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2) }"
+      - result: [{101, 'b'}, {102, 'b'}]
+    -
+      - query: select * from f1(103, 'b') where col1 = 101
+      - explain: "TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c6 AS LONG) AS A, @c8 AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2) } | FILTER _.COL1 EQUALS promote(@c13 AS LONG)"
+      - result: [{101, 'b'}]
+    -
+      - query: select * from f1(103 + 1, 'b')
+      - explain: "TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c6 AS LONG) AS A, @c8 AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2) } | FILTER _.COL1 EQUALS promote(@c13 AS LONG)"
+      - result: [{101, 'b'}, {102, 'b'}, {103, 'c'}]
+    -
       - query: select col1, col2 from f1('b', 103);
       - error: "42883"
     -
@@ -78,5 +94,8 @@ test_block:
       - error: "42883"
     -
       - query: select col1, col2 from f1(a => 103, a => 104);
+      - error: "42601"
+    -
+      - query: ;
       - error: "42601"
 ...
