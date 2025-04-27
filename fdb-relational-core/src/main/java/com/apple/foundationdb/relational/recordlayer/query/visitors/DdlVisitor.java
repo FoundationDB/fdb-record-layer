@@ -27,8 +27,8 @@ import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.metadata.CompilableRoutine;
 import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
@@ -316,7 +316,6 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         // parse the index SQL query using the newly constructed metadata.
         getDelegate().replaceCatalog(ddlCatalog);
 
-
         // 1. get the function name.
         final var functionName = visitFullId(ctx.functionSpecification().schemaQualifiedRoutineName).toString();
 
@@ -326,8 +325,10 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var stop = ctx.stop.getStopIndex() + 1; // inclusive.
         final var functionDefinition = "CREATE " + queryString.substring(start, stop);
 
-        // 3. finally, get the compiled SQL function.
+        // 3. visit the SQL string to generate (compile) the corresponding SQL plan.
         final var function = visitSqlInvokedFunction(ctx);
+
+        // 4. Return it.
         return RecordLayerInvokedRoutine.newBuilder()
                 .setName(functionName)
                 .setDescription(functionDefinition)
@@ -348,8 +349,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         // run implementation-specific validations.
         final var props = ctx.functionSpecification().routineCharacteristics();
         final var language = (props.languageClause() != null && props.languageClause().languageName().JAVA() != null)
-                ? CompilableRoutine.Language.JAVA
-                : CompilableRoutine.Language.SQL;
+                ? InvokedRoutine.Language.JAVA
+                : InvokedRoutine.Language.SQL;
         // SQL-invoked routine 11.60, syntax rules, section 6.f.ii
         boolean isNullReturnOnNull = props.nullCallClause() != null && props.nullCallClause().RETURNS() != null;
         // ... currently we support only CALLED ON NULL INPUT (which is implicitly set if not defined).
@@ -360,7 +361,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         Assert.thatUnchecked(!isScalar, "only table functions are supported");
         Assert.thatUnchecked(isSqlParameterStyle, ErrorCode.UNSUPPORTED_OPERATION, "only sql-style parameters are supported");
         // todo: rework Java UDFs to go through this code path as well.
-        Assert.thatUnchecked(language == CompilableRoutine.Language.SQL, ErrorCode.UNSUPPORTED_OPERATION,
+        Assert.thatUnchecked(language == InvokedRoutine.Language.SQL, ErrorCode.UNSUPPORTED_OPERATION,
                 "only sql-language functions are supported");
         // create SQL function logical plan by visiting the function body.
         final var parameters = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->

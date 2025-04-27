@@ -102,10 +102,10 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             final var namedArguments = Expressions.of(ctx.namedFunctionArg().stream()
                     .map(this::visitNamedFunctionArg).collect(ImmutableList.toImmutableList()));
             final var duplicateArguments = namedArguments.asList().stream().flatMap(p -> p.getName().stream())
-                    .collect(Collectors.groupingBy( Function.identity(), Collectors.counting()))
+                    .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()))
                     .entrySet()
                     .stream()
-                    .filter( p -> p.getValue() > 1 )
+                    .filter(p -> p.getValue() > 1)
                     .collect(ImmutableList.toImmutableList());
             Assert.thatUnchecked(duplicateArguments.isEmpty(), ErrorCode.SYNTAX_ERROR, () ->
                     "argument name(s) used more than once" + duplicateArguments.stream()

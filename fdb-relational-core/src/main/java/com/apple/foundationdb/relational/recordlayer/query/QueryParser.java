@@ -128,10 +128,10 @@ public class QueryParser {
     @Nonnull
     public static RelationalParser.SqlInvokedFunctionContext parseFunction(@Nonnull final String functionString) throws RelationalException {
         final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(functionString));
-        // the routine here is assumed to start with CREATE
-        // however due to how the parser rules are structured
+        // the routine here is assumed to start with CREATE,
+        // however due to how the parser rules are structured,
         // parsing invoked function starts immediately after CREATE
-        // therefore, to trigger it correctly we'll remove the CREATE token.
+        // therefore, to trigger it correctly, we'll remove the first (CREATE) token.
         final var tokensStream = new CommonTokenStream(tokenSource);
         tokensStream.consume();
         final var parser = new RelationalParser(tokensStream);

@@ -275,12 +275,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Override
     public Object visitParameterMode(final RelationalParser.ParameterModeContext ctx) {
-        return null;
+        return getDelegate().visitParameterMode(ctx);
     }
 
     @Override
     public Object visitReturnsClause(final RelationalParser.ReturnsClauseContext ctx) {
-        return null;
+        return getDelegate().visitReturnsClause(ctx);
     }
 
     @Override
@@ -290,52 +290,52 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Override
     public Object visitReturnsTableType(final RelationalParser.ReturnsTableTypeContext ctx) {
-        return null;
+        return getDelegate().visitReturnsTableType(ctx);
     }
 
     @Override
     public Object visitTableFunctionColumnList(final RelationalParser.TableFunctionColumnListContext ctx) {
-        return null;
+        return getDelegate().visitTableFunctionColumnList(ctx);
     }
 
     @Override
     public Object visitTableFunctionColumnListElement(final RelationalParser.TableFunctionColumnListElementContext ctx) {
-        return null;
+        return getDelegate().visitTableFunctionColumnListElement(ctx);
     }
 
     @Override
     public Object visitRoutineCharacteristics(final RelationalParser.RoutineCharacteristicsContext ctx) {
-        return null;
+        return getDelegate().visitRoutineCharacteristics(ctx);
     }
 
     @Override
     public Object visitLanguageClause(final RelationalParser.LanguageClauseContext ctx) {
-        return null;
+        return getDelegate().visitLanguageClause(ctx);
     }
 
     @Override
     public Object visitLanguageName(final RelationalParser.LanguageNameContext ctx) {
-        return null;
+        return getDelegate().visitLanguageName(ctx);
     }
 
     @Override
     public Object visitParameterStyle(final RelationalParser.ParameterStyleContext ctx) {
-        return null;
+        return getDelegate().visitParameterStyle(ctx);
     }
 
     @Override
     public Object visitDeterministicCharacteristic(final RelationalParser.DeterministicCharacteristicContext ctx) {
-        return null;
+        return getDelegate().visitDeterministicCharacteristic(ctx);
     }
 
     @Override
     public Object visitNullCallClause(final RelationalParser.NullCallClauseContext ctx) {
-        return null;
+        return getDelegate().visitNullCallClause(ctx);
     }
 
     @Override
     public Object visitDispatchClause(final RelationalParser.DispatchClauseContext ctx) {
-        return null;
+        return getDelegate().visitDispatchClause(ctx);
     }
 
     @Override
@@ -430,17 +430,17 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     }
 
     @Override
-    public LogicalOperator visitTableFunction(@Nonnull final RelationalParser.TableFunctionContext ctx) {
+    public LogicalOperator visitTableFunction(@Nonnull RelationalParser.TableFunctionContext ctx) {
         return getDelegate().visitTableFunction(ctx);
     }
 
     @Override
-    public Expressions visitTableFunctionArgs(final RelationalParser.TableFunctionArgsContext ctx) {
+    public Expressions visitTableFunctionArgs(@Nonnull RelationalParser.TableFunctionArgsContext ctx) {
         return getDelegate().visitTableFunctionArgs(ctx);
     }
 
     @Override
-    public Identifier visitTableFunctionName(final RelationalParser.TableFunctionNameContext ctx) {
+    public Identifier visitTableFunctionName(@Nonnull RelationalParser.TableFunctionNameContext ctx) {
         return getDelegate().visitTableFunctionName(ctx);
     }
 

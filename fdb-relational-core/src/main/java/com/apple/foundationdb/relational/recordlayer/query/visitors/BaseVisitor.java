@@ -459,62 +459,62 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Override
     public Object visitParameterMode(final RelationalParser.ParameterModeContext ctx) {
-        return null;
+        return visitChildren(ctx);
     }
 
     @Override
     public Object visitReturnsClause(final RelationalParser.ReturnsClauseContext ctx) {
-        return null;
+        return visitChildren(ctx);
     }
 
     @Override
     public Object visitReturnsTableType(final RelationalParser.ReturnsTableTypeContext ctx) {
-        return null;
+        return visitChildren(ctx);
     }
 
     @Override
     public Object visitTableFunctionColumnList(final RelationalParser.TableFunctionColumnListContext ctx) {
-        return null;
+        return visitChildren(ctx);
     }
 
     @Override
     public Object visitTableFunctionColumnListElement(final RelationalParser.TableFunctionColumnListElementContext ctx) {
-        return null;
+        return visitChildren(ctx);
     }
 
     @Override
     public Object visitRoutineCharacteristics(final RelationalParser.RoutineCharacteristicsContext ctx) {
-        return null;
+        return visitChildren(ctx);
     }
 
     @Override
     public Object visitLanguageClause(final RelationalParser.LanguageClauseContext ctx) {
-        return null;
+        return visitChildren(ctx);
     }
 
     @Override
     public Object visitLanguageName(final RelationalParser.LanguageNameContext ctx) {
-        return null;
+        return visitChildren(ctx);
     }
 
     @Override
     public Object visitParameterStyle(final RelationalParser.ParameterStyleContext ctx) {
-        return null;
+        return visitChildren(ctx);
     }
 
     @Override
     public Object visitDeterministicCharacteristic(final RelationalParser.DeterministicCharacteristicContext ctx) {
-        return null;
+        return visitChildren(ctx);
     }
 
     @Override
     public Object visitNullCallClause(final RelationalParser.NullCallClauseContext ctx) {
-        return null;
+        return visitChildren(ctx);
     }
 
     @Override
     public Object visitDispatchClause(final RelationalParser.DispatchClauseContext ctx) {
-        return null;
+        return visitChildren(ctx);
     }
 
     @Override

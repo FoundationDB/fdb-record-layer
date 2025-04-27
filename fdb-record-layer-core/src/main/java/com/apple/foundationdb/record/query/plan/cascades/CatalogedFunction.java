@@ -175,7 +175,7 @@ public abstract class CatalogedFunction<T extends Typed> {
      * @return if the arguments type match, an {@link Optional} containing <code>this</code> instance, otherwise
      * and empty {@link Optional}.
      *
-     * TODO: this does not work correct with permissible implicit type promotion.
+     * TODO: this does not work correctly with permissible implicit type promotion.
      */
     @SuppressWarnings("java:S3776")
     @Nonnull
@@ -210,7 +210,14 @@ public abstract class CatalogedFunction<T extends Typed> {
         return Optional.of(this);
     }
 
-    // TODO: this does not work correct with permissible implicit type promotion.
+    /**
+     * Validates the function invocation using named arguments. It checks whether the argument names match parameter
+     * names, and that any missing parameter has a default value. It effectively leaves all the work related to handling
+     * permisslbe implicit promotions to the actual function invocation.
+     * @param namedArgumentsTypeMap a list of named arguments.
+     * @return if the arguments type match, an {@link Optional} containing <code>this</code> instance, otherwise
+     * and empty {@link Optional}.
+     */
     @Nonnull
     public Optional<? extends CatalogedFunction<T>> validateCall(@Nonnull final Map<String, ? extends Typed> namedArgumentsTypeMap) {
         if (parameterNamesMap.isEmpty()) {

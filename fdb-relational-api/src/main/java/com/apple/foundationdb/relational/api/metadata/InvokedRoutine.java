@@ -22,8 +22,22 @@ package com.apple.foundationdb.relational.api.metadata;
 
 import javax.annotation.Nonnull;
 
+/**
+ * Base interface for all invoked routines, such as SQL functions.
+ */
 public interface InvokedRoutine extends Metadata {
 
+    enum Language {
+        SQL,
+        JAVA
+    }
+
+    /**
+     * Returns the description of the routine, in case of SQL functions, this would be the actual
+     * SQL definition of the function.
+     *
+     * @return The description of the routine.
+     */
     @Nonnull
     String getDescription();
 
