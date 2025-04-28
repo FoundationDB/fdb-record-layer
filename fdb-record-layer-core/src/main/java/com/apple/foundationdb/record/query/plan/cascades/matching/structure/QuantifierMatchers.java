@@ -129,7 +129,7 @@ public class QuantifierMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<Quantifier.ForEach> forEachQuantifierOverRef(BindingMatcher<? super Boolean> defaultOnEmptyMatcher, @Nonnull final BindingMatcher<? extends Reference> downstream) {
+    public static BindingMatcher<Quantifier.ForEach> forEachQuantifierOverRef(@Nonnull final BindingMatcher<? extends Reference> downstream, BindingMatcher<? super Boolean> defaultOnEmptyMatcher) {
         return typedWithDownstream(Quantifier.ForEach.class,
                 Extractor.identity(),
                 AllOfMatcher.matchingAllOf(Quantifier.ForEach.class,
@@ -146,12 +146,12 @@ public class QuantifierMatchers {
 
     @Nonnull
     public static BindingMatcher<Quantifier.ForEach> forEachQuantifierWithDefaultOnEmptyOverRef(@Nonnull final BindingMatcher<? extends Reference> downstream) {
-        return forEachQuantifierOverRef(PrimitiveMatchers.equalsObject(true), downstream);
+        return forEachQuantifierOverRef(downstream, PrimitiveMatchers.equalsObject(true));
     }
 
     @Nonnull
     public static BindingMatcher<Quantifier.ForEach> forEachQuantifierWithoutDefaultOnEmptyOverRef(@Nonnull final BindingMatcher<? extends Reference> downstream) {
-        return forEachQuantifierOverRef(PrimitiveMatchers.equalsObject(false), downstream);
+        return forEachQuantifierOverRef(downstream, PrimitiveMatchers.equalsObject(false));
     }
 
     @Nonnull
