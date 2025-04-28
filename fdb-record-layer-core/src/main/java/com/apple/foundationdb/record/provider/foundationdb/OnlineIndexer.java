@@ -60,7 +60,6 @@ import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.metadata.Index.decodeSubspaceKey;
-import static com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore.READABLE_UNIQUE_PENDING_FORMAT_VERSION;
 
 /**
  * Builds an index online, i.e., concurrently with other database operations. In order to minimize
@@ -1310,7 +1309,8 @@ public class OnlineIndexer implements AutoCloseable {
          * @return true if allowed
          */
         public boolean shouldAllowUniquePendingState(FDBRecordStore store) {
-            return allowUniquePendingState && store.formatVersion >= READABLE_UNIQUE_PENDING_FORMAT_VERSION;
+            return allowUniquePendingState
+                    && store.getFormatVersionEnum().isAtLeast(FormatVersion.READABLE_UNIQUE_PENDING);
         }
 
         /**
@@ -1438,7 +1438,7 @@ public class OnlineIndexer implements AutoCloseable {
              * source-index covers <em>all</em> the relevant records for the target-index. Also, note that
              * if the {@linkplain OnlineIndexer.Builder#setIndex(Index) target index} is not idempotent,
              * the index build will not be executed using the given source index unless the store's
-             * format version is at least {@link FDBRecordStore#CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION},
+             * format version is at least {@link FormatVersion#CHECK_INDEX_BUILD_TYPE_DURING_UPDATE},
              * as concurrent updates to the index during such a build on older format versions can
              * result in corrupting the index. On older format versions, the indexer will throw an
              * exception and the build may fall back to building the index by a records scan depending
