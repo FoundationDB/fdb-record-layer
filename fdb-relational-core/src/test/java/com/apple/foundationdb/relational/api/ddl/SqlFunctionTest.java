@@ -276,4 +276,14 @@ public class SqlFunctionTest {
                 "CREATE FUNCTION SQ1(IN A BIGINT, IN B STRING, IN A BIGINT) AS SELECT * FROM T WHERE b < 42 "))
                 .hasErrorCode(ErrorCode.DUPLICATE_PARAMETER);
     }
+
+    @Test
+    void createFunctionWithoutExplicitParmeterMode() throws Exception {
+        assertThat(ddl("CREATE SCHEMA TEMPLATE test_template " +
+                        "CREATE TABLE T(a BIGINT, b BIGINT, primary key(a)) " +
+                        "CREATE FUNCTION SQ1(S BIGINT) AS SELECT * FROM T WHERE b < S " +
+                        "CREATE FUNCTION SQ2(S BIGINT) AS SELECT * FROM T WHERE b < S"),
+                containsRoutinesInAnyOrder(routine("SQ1", "CREATE FUNCTION SQ1(S BIGINT) AS SELECT * FROM T WHERE b < S"),
+                        routine("SQ2", "CREATE FUNCTION SQ2(S BIGINT) AS SELECT * FROM T WHERE b < S")));
+    }
 }
