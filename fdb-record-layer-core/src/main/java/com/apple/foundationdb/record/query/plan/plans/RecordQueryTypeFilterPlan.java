@@ -89,7 +89,7 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
     private static final Set<StoreTimer.Count> failureCounts = Collections.singleton(FDBStoreTimer.Counts.QUERY_DISCARDED);
 
     public RecordQueryTypeFilterPlan(@Nonnull RecordQueryPlan inner, @Nonnull Collection<String> recordTypes) {
-        this(Quantifier.physical(Reference.of(inner)), recordTypes, new Type.Any());
+        this(Quantifier.physical(Reference.initial(inner)), recordTypes, new Type.Any());
     }
 
     public RecordQueryTypeFilterPlan(@Nonnull Quantifier.Physical inner, @Nonnull Collection<String> recordTypes, @Nonnull Type resultType) {

@@ -104,14 +104,14 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
         final boolean reverse = children.get(0).isReverse();
         ImmutableList.Builder<Reference> builder = ImmutableList.builder();
         for (RecordQueryPlan child : children) {
-            builder.add(Reference.of(child));
+            builder.add(Reference.initial(child));
         }
         return new RecordQueryUnorderedUnionPlan(Quantifiers.fromPlans(builder.build()), reverse);
     }
 
     @Nonnull
     public static RecordQueryUnorderedUnionPlan from(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right) {
-        return new RecordQueryUnorderedUnionPlan(Quantifiers.fromPlans(ImmutableList.of(Reference.of(left), Reference.of(right))),
+        return new RecordQueryUnorderedUnionPlan(Quantifiers.fromPlans(ImmutableList.of(Reference.initial(left), Reference.initial(right))),
                 left.isReverse());
     }
 

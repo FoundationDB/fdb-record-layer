@@ -144,8 +144,8 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
 
         // 4. add sort on top, if necessary, this will be absorbed later on as an ordering property of the match candidate.
         final var maybeWithSort = placeHolderAliases.isEmpty()
-                ? Reference.of(selectHaving) // single group, sort by constant
-                : Reference.of(new MatchableSortExpression(placeHolderAliases, isReverse, selectHaving));
+                ? Reference.initial(selectHaving) // single group, sort by constant
+                : Reference.initial(new MatchableSortExpression(placeHolderAliases, isReverse, selectHaving));
 
         final var traversal = Traversal.withRoot(maybeWithSort);
         return new AggregateIndexMatchCandidate(index,
@@ -213,7 +213,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         builder.addAllQuantifiers(baseExpansion.getQuantifiers());
         allExpansionsBuilder.add(builder.build());
 
-        return NonnullPair.of(Quantifier.forEach(Reference.of(GraphExpansion.ofOthers(allExpansionsBuilder.build()).buildSelect())), baseExpansion.getPlaceholders());
+        return NonnullPair.of(Quantifier.forEach(Reference.initial(GraphExpansion.ofOthers(allExpansionsBuilder.build()).buildSelect())), baseExpansion.getPlaceholders());
     }
 
     @Nonnull
@@ -268,7 +268,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
                 groupingColsValue.getResultType().getFields().isEmpty() ? null : groupingColsValue,
                 RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
                 GroupByExpression::nestedResults, selectWhereQun);
-        final var groupByReference = Reference.of(groupByExpression);
+        final var groupByReference = Reference.initial(groupByExpression);
         final var groupByQuantifier = Quantifier.forEach(groupByReference);
         return NonnullPair.of(groupByQuantifier, ImmutableList.of());
     }

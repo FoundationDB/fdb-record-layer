@@ -453,7 +453,7 @@ public class Commands {
                 plannerRepl.printKeyValue("kind", reference == null ? "not in cache; " : reference.getClass().getSimpleName() + "; ");
 
                 if (reference != null) {
-                    final var members = reference.getMembers();
+                    final var members = reference.getAllMemberExpressions();
                     final String membersString = members
                             .stream()
                             .map(expression -> Optional.ofNullable(plannerRepl.nameForObject(expression)))

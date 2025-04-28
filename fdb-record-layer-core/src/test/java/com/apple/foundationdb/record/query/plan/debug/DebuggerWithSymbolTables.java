@@ -395,7 +395,7 @@ public class DebuggerWithSymbolTables implements Debugger {
         final var references = referencesAndDependencies().evaluate(root);
         final var referenceList = TopologicalSort.anyTopologicalOrderPermutation(references).orElseThrow();
         for (final var reference : referenceList) {
-            for (final var member : reference.getMembers()) {
+            for (final var member : reference.getAllMemberExpressions()) {
                 consumer.accept(member);
             }
         }

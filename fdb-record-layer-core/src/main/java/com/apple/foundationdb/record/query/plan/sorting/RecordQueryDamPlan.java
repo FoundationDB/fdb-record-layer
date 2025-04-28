@@ -86,7 +86,7 @@ public class RecordQueryDamPlan implements RecordQueryPlanWithChild {
     private final RecordQuerySortKey key;
 
     public RecordQueryDamPlan(@Nonnull RecordQueryPlan plan, @Nonnull RecordQuerySortKey key) {
-        this(Quantifier.physical(Reference.of(plan)), key);
+        this(Quantifier.physical(Reference.initial(plan)), key);
     }
 
     private RecordQueryDamPlan(@Nonnull Quantifier.Physical inner, @Nonnull RecordQuerySortKey key) {

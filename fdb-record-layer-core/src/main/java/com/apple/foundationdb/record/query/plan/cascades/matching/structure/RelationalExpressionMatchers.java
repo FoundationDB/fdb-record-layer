@@ -27,9 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpr
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.InsertExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableInsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalProjectionExpression;
@@ -38,14 +35,16 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalType
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUniqueExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableInsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -53,7 +52,6 @@ import java.util.Collection;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.getTopReferenceMatcher;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcher.typed;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcherWithExtractAndDownstream.typedWithDownstream;
 
@@ -65,11 +63,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 public class RelationalExpressionMatchers {
     private RelationalExpressionMatchers() {
         // do not instantiate
-    }
-
-    @Nonnull
-    public static BindingMatcher<RelationalExpression> isTopExpression() {
-        return ContainsExpressionInReferenceMatcher.containsExpressionInReference(getTopReferenceMatcher());
     }
 
     public static BindingMatcher<RelationalExpression> anyExpression() {
@@ -110,7 +103,7 @@ public class RelationalExpressionMatchers {
         return PrimitiveMatchers.satisfies(relationalExpression ->
                 relationalExpression.getQuantifiers()
                         .stream()
-                        .allMatch(quantifier -> quantifier.getRangesOver().getMembers().stream().anyMatch(innerExpression -> innerExpression instanceof RecordQueryPlan)));
+                        .noneMatch(quantifier -> quantifier.getRangesOver().getFinalExpressions().isEmpty()));
     }
 
     public static <R extends RelationalExpressionWithPredicates, C1 extends Collection<? extends QueryPredicate>, C2 extends Collection<? extends Quantifier>> BindingMatcher<R> ofTypeWithPredicatesAndOwning(@Nonnull final Class<R> bindableClass,

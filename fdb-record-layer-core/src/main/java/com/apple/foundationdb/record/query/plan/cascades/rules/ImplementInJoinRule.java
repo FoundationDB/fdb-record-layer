@@ -435,7 +435,7 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
         for (final var quantifier : quantifiers) {
             final var rangesOver = quantifier.getRangesOver();
             for (final var explodeExpression : explodeExpressions) {
-                if (rangesOver.getMembers().contains(explodeExpression)) {
+                if (rangesOver.containsExactly(explodeExpression)) {
                     resultMap.put(quantifier, explodeExpression);
                     break; // only ever one match possible
                 }

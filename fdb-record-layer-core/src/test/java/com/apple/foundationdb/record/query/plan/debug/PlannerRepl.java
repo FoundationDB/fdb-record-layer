@@ -496,7 +496,7 @@ public class PlannerRepl implements Debugger {
 
         printlnKeyValue(prefix + "name", nameForObjectOrNotInCache(reference));
         printlnKeyValue(prefix + "  members", "");
-        for (final RelationalExpression member : reference.getMembers()) {
+        for (final RelationalExpression member : reference.getAllMemberExpressions()) {
             printlnKeyValue(prefix + "  " + nameForObjectOrNotInCache(member), "");
             printlnKeyValue(prefix + "      toString()", String.valueOf(member.toString()));
         }

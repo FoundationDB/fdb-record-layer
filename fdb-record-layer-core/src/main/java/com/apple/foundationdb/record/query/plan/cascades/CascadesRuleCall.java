@@ -154,8 +154,8 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
             return;
         }
 
-        for (RelationalExpression member : expressionReference.getMembers()) {
-            verifyMemoized(member);
+        for (RelationalExpression member : expressionReference.getAllMemberExpressions()) {
+            verifyChildrenMemoized(member);
             if (root.insertFrom(member, expressionReference)) {
                 newExpressions.add(member);
                 traversal.addExpression(root, member);
@@ -170,14 +170,14 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
     }
 
     public void yieldExpression(@Nonnull RelationalExpression expression) {
-        verifyMemoized(expression);
+        verifyChildrenMemoized(expression);
         if (root.insert(expression)) {
             newExpressions.add(expression);
             traversal.addExpression(root, expression);
         }
     }
 
-    private void verifyMemoized(@Nonnull RelationalExpression expression) {
+    private void verifyChildrenMemoized(@Nonnull RelationalExpression expression) {
         for (final var quantifier : expression.getQuantifiers()) {
             final var rangesOver = quantifier.getRangesOver();
             Verify.verify(traversal.getRefs().contains(rangesOver));
@@ -294,7 +294,7 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
             }
 
             Debugger.withDebugger(debugger -> debugger.onEvent(Debugger.InsertIntoMemoEvent.newExp(expression)));
-            final var newRef = Reference.of(expression);
+            final var newRef = Reference.initial(expression);
             traversal.addExpression(newRef, expression);
             return newRef;
         } finally {
@@ -313,7 +313,7 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
             final var leafRefs = traversal.getLeafReferences();
 
             for (final var leafRef : leafRefs) {
-                for (final var member : leafRef.getMembers()) {
+                for (final var member : leafRef.getExploratoryExpressions()) {
                     if (Reference.isMemoizedExpression(expression, member)) {
                         Debugger.withDebugger(debugger -> debugger.onEvent(Debugger.InsertIntoMemoEvent.reusedExp(expression)));
                         return leafRef;
@@ -321,7 +321,7 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
                 }
             }
             Debugger.withDebugger(debugger -> debugger.onEvent(Debugger.InsertIntoMemoEvent.newExp(expression)));
-            final var newRef = Reference.of(expression);
+            final var newRef = Reference.initial(expression);
             traversal.addExpression(newRef, expression);
             return newRef;
         } finally {
@@ -333,7 +333,7 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
     @Override
     public Reference memoizeMemberPlans(@Nonnull Reference reference,
                                         @Nonnull final Collection<? extends RecordQueryPlan> plans) {
-        return memoizeExpressionsExactly(plans, reference::referenceFromMembers);
+        return memoizeExpressionsExactly(plans, reference::newReferenceFromFinalMembers);
     }
 
     @Nonnull
@@ -351,7 +351,7 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
     @Nonnull
     @Override
     public Reference memoizeReference(@Nonnull final Reference reference) {
-        return memoizeExpressionsExactly(reference.getMembers(), members -> reference);
+        return memoizeExpressionsExactly(reference.getAllMemberExpressions(), members -> reference);
     }
 
     @Nonnull
@@ -361,25 +361,6 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
                 expression -> debugger.onEvent(Debugger.InsertIntoMemoEvent.begin())));
         try {
             final var expressionSet = new LinkedIdentitySet<>(expressions);
-
-            //
-            // Note that we cannot ever reuse a reference containing just plans unless we can somehow prove
-            // that the reference cannot subsequently be pruned. Currently, we cannot prove that.
-            // TODO Check if we can reuse a reference if at least one expression is not a plan as that reference
-            //      is only pruned at the very last OptimizeGroup of the root. I will leave the disabled code here
-            //      for now. https://github.com/FoundationDB/fdb-record-layer/issues/2766
-            //
-            //noinspection PointlessBooleanExpression
-            if (false && expressionSet.size() == 1) {
-                final Optional<Reference> memoizedRefMaybe = findExpressionsInMemo(expressionSet);
-                if (memoizedRefMaybe.isPresent()) {
-                    Debugger.withDebugger(debugger ->
-                            expressionSet.forEach(
-                                    plan -> debugger.onEvent(Debugger.InsertIntoMemoEvent.reusedExpWithReferences(plan, ImmutableList.of(memoizedRefMaybe.get())))));
-                    return memoizedRefMaybe.get();
-                }
-            }
-
             final var newRef = referenceCreator.apply(expressionSet);
             for (final var plan : expressionSet) {
                 Debugger.withDebugger(debugger -> expressions.forEach(
@@ -390,24 +371,6 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
         } finally {
             Debugger.withDebugger(debugger -> debugger.onEvent(Debugger.InsertIntoMemoEvent.end()));
         }
-    }
-
-    @Nonnull
-    private Optional<Reference> findExpressionsInMemo(final LinkedIdentitySet<? extends RelationalExpression> planSet) {
-        final var planIterator = planSet.iterator();
-        Verify.verify(planIterator.hasNext());
-        final var refsContainingAllPlans = new LinkedIdentitySet<>(traversal.getRefsContaining(planIterator.next()));
-        while (planIterator.hasNext()) {
-            final var currentRefsContainingPlan = traversal.getRefsContaining(planIterator.next());
-            refsContainingAllPlans.retainAll(currentRefsContainingPlan);
-        }
-
-        //
-        // There should only at most be one exact match which is the ref that contains exactly all plans and nothing else.
-        //
-        return refsContainingAllPlans.stream()
-                .filter(refContainingAllPlans -> refContainingAllPlans.getMembers().size() == planSet.size())
-                .findFirst();
     }
 
     @Nonnull
@@ -432,7 +395,7 @@ public class CascadesRuleCall implements PlannerRuleCall<Reference>, Memoizer {
     @Override
     public ReferenceBuilder memoizeMemberPlansBuilder(@Nonnull Reference reference,
                                                       @Nonnull final Collection<? extends RecordQueryPlan> plans) {
-        return memoizeExpressionsBuilder(plans, reference::referenceFromMembers);
+        return memoizeExpressionsBuilder(plans, reference::newReferenceFromFinalMembers);
     }
 
     @Nonnull

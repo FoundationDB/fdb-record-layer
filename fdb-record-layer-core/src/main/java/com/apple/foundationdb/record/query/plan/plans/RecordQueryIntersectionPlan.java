@@ -317,7 +317,7 @@ public abstract class RecordQueryIntersectionPlan implements RecordQueryPlanWith
         if (left.isReverse() != right.isReverse()) {
             throw new RecordCoreArgumentException("left plan and right plan for union do not have same value for reverse field");
         }
-        final List<Reference> childRefs = ImmutableList.of(Reference.of(left), Reference.of(right));
+        final List<Reference> childRefs = ImmutableList.of(Reference.initial(left), Reference.initial(right));
         return new RecordQueryIntersectionOnKeyExpressionPlan(Quantifiers.fromPlans(childRefs), comparisonKey, left.isReverse());
     }
 
@@ -344,7 +344,7 @@ public abstract class RecordQueryIntersectionPlan implements RecordQueryPlanWith
         }
         final ImmutableList.Builder<Reference> childRefsBuilder = ImmutableList.builder();
         for (RecordQueryPlan child : children) {
-            childRefsBuilder.add(Reference.of(child));
+            childRefsBuilder.add(Reference.initial(child));
         }
         return new RecordQueryIntersectionOnKeyExpressionPlan(Quantifiers.fromPlans(childRefsBuilder.build()), comparisonKey, firstReverse);
     }

@@ -111,7 +111,7 @@ public class ReferencesAndDependenciesProperty implements ExpressionProperty<Par
             setBuilder.add(ref);
             dependencyMapBuilder.putAll(membersDependencyMap.entries());
 
-            for (final var member : ref.getMembers()) {
+            for (final var member : ref.getAllMemberExpressions()) {
                 for (final var quantifier : member.getQuantifiers()) {
                     dependencyMapBuilder.put(ref, quantifier.getRangesOver());
                 }

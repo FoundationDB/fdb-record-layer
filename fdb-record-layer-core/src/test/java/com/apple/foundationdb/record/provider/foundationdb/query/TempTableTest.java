@@ -88,12 +88,12 @@ public class TempTableTest extends TempTableTestBase {
             final var tempTable = tempTableInstance();
             addSampleDataToTempTable(tempTable);
             final var tempTableId = CorrelationIdentifier.uniqueID();
-            final var tempTableScanQun = Quantifier.forEach(Reference.of(TempTableScanExpression.ofCorrelated(tempTableId, getTempTableType())));
+            final var tempTableScanQun = Quantifier.forEach(Reference.initial(TempTableScanExpression.ofCorrelated(tempTableId, getTempTableType())));
             final var selectExpressionBuilder = GraphExpansion.builder()
                     .addAllResultColumns(ImmutableList.of(getIdCol(tempTableScanQun), getValueCol(tempTableScanQun)))
                     .addPredicate(new ValuePredicate(getIdField(tempTableScanQun), new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 44L)))
                     .addQuantifier(tempTableScanQun);
-            final var logicalPlan = Reference.of(LogicalSortExpression.unsorted(Quantifier.forEach(Reference.of(selectExpressionBuilder.build().buildSelect()))));
+            final var logicalPlan = Reference.initial(LogicalSortExpression.unsorted(Quantifier.forEach(Reference.initial(selectExpressionBuilder.build().buildSelect()))));
             final var cascadesPlanner = (CascadesPlanner)planner;
             final var plan = cascadesPlanner.planGraph(() -> logicalPlan, Optional.empty(), IndexQueryabilityFilter.TRUE, EvaluationContext.empty()).getPlan();
             assertMatchesExactly(plan, mapPlan(predicatesFilterPlan(tempTableScanPlan()).where(predicates(only(valuePredicate(fieldValueWithFieldNames("id"),
@@ -111,11 +111,11 @@ public class TempTableTest extends TempTableTestBase {
             final var firstRecord = rcv(1L, "first");
             final var secondArray = rcv(2L, "second");
             final var explodeExpression = new ExplodeExpression(AbstractArrayConstructorValue.LightArrayConstructorValue.of(firstRecord, secondArray));
-            var qun = Quantifier.forEach(Reference.of(explodeExpression));
+            var qun = Quantifier.forEach(Reference.initial(explodeExpression));
 
-            qun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofCorrelated(qun,
+            qun = Quantifier.forEach(Reference.initial(TempTableInsertExpression.ofCorrelated(qun,
                     tempTableId, getInnerType(qun), false)));
-            final var insertPlan = Reference.of(LogicalSortExpression.unsorted(qun));
+            final var insertPlan = Reference.initial(LogicalSortExpression.unsorted(qun));
 
             final var cascadesPlanner = (CascadesPlanner)planner;
             var plan = cascadesPlanner.planGraph(() -> insertPlan, Optional.empty(),
@@ -143,10 +143,10 @@ public class TempTableTest extends TempTableTestBase {
             final var firstRecord = rcv(1L, "first");
             final var secondArray = rcv(2L, "second");
             final var explodeExpression = new ExplodeExpression(AbstractArrayConstructorValue.LightArrayConstructorValue.of(firstRecord, secondArray));
-            var qun = Quantifier.forEach(Reference.of(explodeExpression));
+            var qun = Quantifier.forEach(Reference.initial(explodeExpression));
 
-            qun = Quantifier.forEach(Reference.of(TempTableInsertExpression.ofCorrelated(qun, tempTableId, getInnerType(qun))));
-            final var insertPlan = Reference.of(LogicalSortExpression.unsorted(qun));
+            qun = Quantifier.forEach(Reference.initial(TempTableInsertExpression.ofCorrelated(qun, tempTableId, getInnerType(qun))));
+            final var insertPlan = Reference.initial(LogicalSortExpression.unsorted(qun));
 
             final var cascadesPlanner = (CascadesPlanner)planner;
             planToResume = cascadesPlanner.planGraph(() -> insertPlan, Optional.empty(),

@@ -77,7 +77,7 @@ public class RecordQuerySortPlan implements RecordQueryPlanWithChild {
     private final RecordQuerySortKey key;
 
     public RecordQuerySortPlan(@Nonnull final RecordQueryPlan plan, @Nonnull final RecordQuerySortKey key) {
-        this(Quantifier.physical(Reference.of(plan)), key);
+        this(Quantifier.physical(Reference.initial(plan)), key);
     }
 
     private RecordQuerySortPlan(@Nonnull final Quantifier.Physical inner, @Nonnull final RecordQuerySortKey key) {

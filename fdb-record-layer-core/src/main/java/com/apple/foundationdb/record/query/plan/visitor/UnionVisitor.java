@@ -110,7 +110,7 @@ public class UnionVisitor extends RecordQueryPlannerSubstitutionVisitor {
                 if (newPlan == null) { // can't remove index fetch, so give up
                     return recordQueryPlan;
                 }
-                newChildren.add(Reference.of(newPlan));
+                newChildren.add(Reference.initial(newPlan));
             }
 
             RecordQueryPlan newUnionPlan = new RecordQueryFetchFromPartialRecordPlan(

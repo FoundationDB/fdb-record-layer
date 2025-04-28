@@ -255,11 +255,11 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     RecordQueryPlan createAndOptimizeTempTableScanPlan(@Nonnull final CorrelationIdentifier tempTableId) {
-        final var tempTableScanQun = Quantifier.forEach(Reference.of(TempTableScanExpression.ofCorrelated(tempTableId, getTempTableType())));
+        final var tempTableScanQun = Quantifier.forEach(Reference.initial(TempTableScanExpression.ofCorrelated(tempTableId, getTempTableType())));
         final var selectExpressionBuilder = GraphExpansion.builder()
                 .addAllResultColumns(ImmutableList.of(getIdCol(tempTableScanQun), getValueCol(tempTableScanQun)))
                 .addQuantifier(tempTableScanQun);
-        final var logicalPlan = Reference.of(LogicalSortExpression.unsorted(Quantifier.forEach(Reference.of(selectExpressionBuilder.build().buildSelect()))));
+        final var logicalPlan = Reference.initial(LogicalSortExpression.unsorted(Quantifier.forEach(Reference.initial(selectExpressionBuilder.build().buildSelect()))));
         final var cascadesPlanner = (CascadesPlanner)planner;
         final var plan = cascadesPlanner.planGraph(() -> logicalPlan, Optional.empty(), IndexQueryabilityFilter.TRUE,
                 EvaluationContext.empty()).getPlan();

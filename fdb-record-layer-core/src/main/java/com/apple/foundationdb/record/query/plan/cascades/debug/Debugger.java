@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PAbstractEventWithState;
@@ -35,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PEven
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PExecutingTaskEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PExploreExpressionEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PExploreGroupEvent;
+import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PInitiatePlannerPhaseEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PInsertIntoMemoEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PMatchPartition;
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.POptimizeGroupEvent;
@@ -65,13 +67,13 @@ import java.util.function.IntUnaryOperator;
  * As the planner is currently single-threaded as per planning of a query, we keep an instance of an implementor of
  * this class in the thread-local. (per-thread singleton).
  * The main mean of communication with the debugger is the set of statics defined within this interface.
- *
+ * <br>
  * <b>Debugging functionality should only be enabled in test cases, never in deployments</b>.
- *
+ * <br>
  * In order to enable debugging capabilities, clients should use {@link #setDebugger} which sets a debugger to be used
  * for the current thread. Once set, the planner starts interacting with the debugger in order to communicate important
  * state changes, like <em>begin of planning</em>, <em>end of planner</em>, etc.
- *
+ * <br>
  * Clients using the debugger should never hold on/manage/use an instance of a debugger directly. Instead, clients
  * should use {@link #withDebugger} and {@link #mapDebugger} to invoke methods on the currently installed debugger.
  * There is a guarantee that {@link #withDebugger} does not invoke any given action if there is no debugger currently
@@ -83,7 +85,6 @@ public interface Debugger {
     /**
      * The thread local variable. This constructor by itself does not set anything within the thread locals of
      * the loading thread.
-     * TODO make this private when we use Java 11
      */
     ThreadLocal<Debugger> THREAD_LOCAL = new ThreadLocal<>();
 
@@ -234,6 +235,7 @@ public interface Debugger {
         TRANSFORM,
         INSERT_INTO_MEMO,
         TRANSLATE_CORRELATIONS,
+        INITPHASE
     }
 
     /**
@@ -307,7 +309,7 @@ public interface Debugger {
         static PRegisteredReference toReferenceProto(@Nonnull final Reference reference) {
             final var builder = PRegisteredReference.newBuilder()
                     .setName(Debugger.mapDebugger(debugger -> debugger.nameForObject(reference)).orElseThrow());
-            for (final var member : reference.getMembers()) {
+            for (final var member : reference.getAllMemberExpressions()) {
                 builder.addExpressions(toExpressionProto(member));
             }
             return builder.build();
@@ -483,6 +485,54 @@ public interface Debugger {
         public PEvent.Builder toEventBuilder() {
             return PEvent.newBuilder()
                     .setExecutingTaskEvent(toProto());
+        }
+    }
+
+    /**
+     * Events of this class are generated every time the planner executes a task.
+     */
+    class InitiatePlannerPhaseEvent extends AbstractEventWithState {
+        @Nonnull
+        private final PlannerPhase plannerPhase;
+
+        public InitiatePlannerPhaseEvent(@Nonnull final Reference rootReference,
+                                         @Nonnull final Deque<Task> taskStack,
+                                         @Nonnull final PlannerPhase plannerPhase) {
+            super(rootReference, taskStack, Location.COUNT);
+            this.plannerPhase = plannerPhase;
+        }
+
+        @Override
+        @Nonnull
+        public String getDescription() {
+            return "initiating planner phase " + getPlannerPhase().name();
+        }
+
+        @Override
+        @Nonnull
+        public Shorthand getShorthand() {
+            return Shorthand.INITPHASE;
+        }
+
+        @Nonnull
+        public PlannerPhase getPlannerPhase() {
+            return plannerPhase;
+        }
+
+        @Nonnull
+        @Override
+        public PInitiatePlannerPhaseEvent toProto() {
+            return PInitiatePlannerPhaseEvent.newBuilder()
+                    .setSuper(toAbstractEventWithStateProto())
+                    .setPlannerPhase(plannerPhase.name())
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public PEvent.Builder toEventBuilder() {
+            return PEvent.newBuilder()
+                    .setInitiatePlannerPhaseEvent(toProto());
         }
     }
 

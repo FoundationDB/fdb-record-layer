@@ -73,7 +73,7 @@ public class CombineFilterRuleTest {
 
     private static LogicalFilterExpression buildLogicalFilter(@Nonnull QueryComponent queryComponent,
                                                               @Nonnull RelationalExpression inner) {
-        final var baseRef = Reference.of(inner);
+        final var baseRef = Reference.initial(inner);
         final Quantifier.ForEach innerQuantifier = Quantifier.forEach(baseRef);
         return new LogicalFilterExpression(
                 queryComponent.expand(innerQuantifier, () -> Quantifier.forEach(baseRef)).getPredicates(),
@@ -85,7 +85,7 @@ public class CombineFilterRuleTest {
         for (RecordQueryPlan basePlan : basePlans) {
             QueryComponent filter1 = Query.field("testField").equalsValue(5);
             QueryComponent filter2 = Query.field("testField2").equalsValue(10);
-            Reference root = Reference.of(
+            Reference root = Reference.initial(
                     buildLogicalFilter(filter1, buildLogicalFilter(filter2, basePlan)));
             TestRuleExecution execution = TestRuleExecution.applyRule(blankContext, rule, root, EvaluationContext.empty());
             assertTrue(execution.isRuleMatched());
@@ -98,7 +98,7 @@ public class CombineFilterRuleTest {
     public void doesNotCoalesce() {
         for (RecordQueryPlan basePlan : basePlans) {
             QueryComponent filter1 = Query.field("testField").equalsValue(5);
-            Reference root = Reference.of(
+            Reference root = Reference.initial(
                     buildLogicalFilter(filter1, buildLogicalFilter(filter1, basePlan)));
             TestRuleExecution execution = TestRuleExecution.applyRule(blankContext, rule, root, EvaluationContext.empty());
             assertTrue(execution.isRuleMatched());
@@ -112,7 +112,7 @@ public class CombineFilterRuleTest {
     public void doesNotMatchSingleFilter() {
         for (RecordQueryPlan basePlan : basePlans) {
             QueryComponent filter1 = Query.field("testField").equalsValue(5);
-            Reference root = Reference.of(
+            Reference root = Reference.initial(
                     buildLogicalFilter(filter1, basePlan));
             TestRuleExecution execution = TestRuleExecution.applyRule(blankContext, rule, root, EvaluationContext.empty());
             assertFalse(execution.isRuleMatched());

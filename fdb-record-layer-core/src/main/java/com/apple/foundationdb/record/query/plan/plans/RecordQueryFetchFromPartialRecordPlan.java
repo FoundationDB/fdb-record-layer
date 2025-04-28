@@ -99,7 +99,7 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
     }
 
     public RecordQueryFetchFromPartialRecordPlan(@Nonnull RecordQueryPlan inner, @Nonnull final TranslateValueFunction translateValueFunction, @Nonnull final Type resultType, @Nonnull final FetchIndexRecords fetchIndexRecords) {
-        this(Quantifier.physical(Reference.of(inner)), translateValueFunction, resultType, fetchIndexRecords);
+        this(Quantifier.physical(Reference.initial(inner)), translateValueFunction, resultType, fetchIndexRecords);
     }
 
     public RecordQueryFetchFromPartialRecordPlan(@Nonnull final Quantifier.Physical inner, @Nonnull final TranslateValueFunction translateValueFunction, @Nonnull final Type resultType, @Nonnull final FetchIndexRecords fetchIndexRecords) {

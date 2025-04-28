@@ -60,7 +60,7 @@ public class TestRuleExecution {
     @SuppressWarnings("unchecked")
     @Nullable
     public <T> T getResultMemberWithClass(@Nonnull Class<T> clazz) {
-        for (RelationalExpression member : result.getMembers()) {
+        for (RelationalExpression member : result.getAllMemberExpressions()) {
             if (clazz.isInstance(member)) {
                 return (T) member;
             }
@@ -73,7 +73,7 @@ public class TestRuleExecution {
                                               @Nonnull Reference group,
                                               @Nonnull final EvaluationContext evaluationContext) {
         boolean ruleMatched = false;
-        for (RelationalExpression expression : group.getMembers()) {
+        for (RelationalExpression expression : group.getAllMemberExpressions()) {
             final Iterator<CascadesRuleCall> ruleCalls = rule.getMatcher().bindMatches(context.getPlannerConfiguration(), PlannerBindings.empty(), expression)
                     .map(bindings -> new CascadesRuleCall(context, rule, group, Traversal.withRoot(group), new ArrayDeque<>(), bindings, evaluationContext))
                     .iterator();

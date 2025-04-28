@@ -149,7 +149,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
                             .addResultValue(rankValue)
                             .build();
             final var rankSelectExpression = rankExpansion.buildSelect();
-            final var rankQuantifier = Quantifier.forEach(Reference.of(rankSelectExpression));
+            final var rankQuantifier = Quantifier.forEach(Reference.initial(rankSelectExpression));
 
             //
             // Construct another select expression that applies the predicate on the rank value as well as adds a join
@@ -174,7 +174,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
             final var rankAndJoiningPredicateSelectExpression =
                     GraphExpansion.ofOthers(rankComparisonExpansion, selfJoinPredicateExpansion).buildSelect();
             final var rankComparisonQuantifier =
-                    Quantifier.existential(Reference.of(rankAndJoiningPredicateSelectExpression));
+                    Quantifier.existential(Reference.initial(rankAndJoiningPredicateSelectExpression));
 
             // create a query component that creates a path to this prefix and then applies this to it
             // this is needed for reapplication of the component if the sub query cannot be matched or only matched with

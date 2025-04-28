@@ -40,13 +40,13 @@ public interface Memoizer  {
         @Nonnull
         @Override
         public Reference memoizeExpression(@Nonnull final RelationalExpression expression) {
-            return Reference.of(expression);
+            return Reference.initial(expression);
         }
 
         @Nonnull
         @Override
         public Reference memoizeLeafExpression(@Nonnull final RelationalExpression expression) {
-            return Reference.of(expression);
+            return Reference.initial(expression);
         }
 
         @Nonnull

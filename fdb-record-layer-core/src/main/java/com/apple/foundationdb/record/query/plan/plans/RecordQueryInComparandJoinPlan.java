@@ -71,7 +71,7 @@ public class RecordQueryInComparandJoinPlan extends RecordQueryInJoinPlan {
                                           @Nonnull final Comparisons.Comparison comparison,
                                           final boolean sortValues,
                                           final boolean sortReverse) {
-        this(Quantifier.physical(Reference.of(plan)),
+        this(Quantifier.physical(Reference.initial(plan)),
                 bindingName,
                 internal,
                 comparison,

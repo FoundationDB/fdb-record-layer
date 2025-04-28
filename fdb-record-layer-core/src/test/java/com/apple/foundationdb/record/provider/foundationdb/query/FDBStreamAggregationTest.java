@@ -469,10 +469,10 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             final var resultType = Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromNames(ImmutableSet.of(recordTypeName)));
             final var scanPlan = new RecordQueryScanPlan(ImmutableSet.of(recordTypeName), resultType, null, ScanComparisons.EMPTY, false, false);
             final var filterPlan =
-                    new RecordQueryTypeFilterPlan(Quantifier.physical(Reference.of(scanPlan)),
+                    new RecordQueryTypeFilterPlan(Quantifier.physical(Reference.initial(scanPlan)),
                             Collections.singleton(recordTypeName),
                             resultType);
-            return Quantifier.physical(Reference.of(filterPlan));
+            return Quantifier.physical(Reference.initial(filterPlan));
         }
     }
 }

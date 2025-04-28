@@ -540,10 +540,10 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         public PPhysicalQuantifier toProto(@Nonnull final PlanSerializationContext serializationContext) {
             final PPhysicalQuantifier.Builder builder = PPhysicalQuantifier.newBuilder()
                     .setAlias(getAlias().getId());
-            final LinkedIdentitySet<RelationalExpression> members = getRangesOver().getMembers();
-            for (final RelationalExpression member : members) {
-                Verify.verify(member instanceof RecordQueryPlan);
-                builder.addPlanReferences(serializationContext.toPlanReferenceProto((RecordQueryPlan)member));
+            final var finalExpressions = getRangesOver().getFinalExpressions();
+            for (final RelationalExpression finalExpression : finalExpressions) {
+                Verify.verify(finalExpression instanceof RecordQueryPlan);
+                builder.addPlanReferences(serializationContext.toPlanReferenceProto((RecordQueryPlan)finalExpression));
             }
             return builder.build();
         }
@@ -775,7 +775,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     @Override
     @Nonnull
     public Quantifier rebase(@Nonnull final AliasMap translationMap) {
-        return translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap), false);
+        throw new UnsupportedOperationException("rebase not supported on quantifier");
     }
 
     @Nonnull

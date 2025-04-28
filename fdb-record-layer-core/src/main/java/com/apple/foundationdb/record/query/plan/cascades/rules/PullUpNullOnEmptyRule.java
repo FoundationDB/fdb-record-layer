@@ -68,7 +68,7 @@ public class PullUpNullOnEmptyRule extends CascadesRule<SelectExpression> {
         final var bindings = call.getBindings();
         final var selectExpression = bindings.get(root);
         final var quantifier = bindings.get(defaultOnEmptyQuantifier);
-        final var childrenExpressions = quantifier.getRangesOver().getMembers();
+        final var childrenExpressions = quantifier.getRangesOver().getExploratoryExpressions();
         boolean pullUpDesired = false;
         for (final var childExpression : childrenExpressions) {
             final var childClassification =

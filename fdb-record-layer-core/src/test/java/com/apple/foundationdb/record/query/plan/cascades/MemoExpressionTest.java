@@ -79,7 +79,7 @@ public class MemoExpressionTest {
             for (int i = childSplitPosition + 1; i <= 4; i++) {
                 rightGroup.insert(leafExpressions.get("leaf" + i));
             }
-            assertEquals(4, leftGroup.getMembers().size() + rightGroup.getMembers().size());
+            assertEquals(4, leftGroup.getAllMemberExpressions().size() + rightGroup.getAllMemberExpressions().size());
             final String name = "middle" + childSplitPosition + "-" + (4 - childSplitPosition);
             middleExpressions.put(name, new SyntheticPlannerExpression(name, ImmutableList.of(leftGroup, rightGroup)));
         }
@@ -87,8 +87,8 @@ public class MemoExpressionTest {
 
     @Test
     public void identicalSets() {
-        Reference justALeaf1 = Reference.of(leafExpressions.get("leaf1"));
-        Reference justALeaf2 = Reference.of(leafExpressions.get("leaf2"));
+        Reference justALeaf1 = Reference.initial(leafExpressions.get("leaf1"));
+        Reference justALeaf2 = Reference.initial(leafExpressions.get("leaf2"));
         assertTrue(justALeaf1.containsAllInMemo(justALeaf1, AliasMap.emptyMap()));
         assertFalse(justALeaf1.containsAllInMemo(justALeaf2, AliasMap.emptyMap()));
 
@@ -104,7 +104,7 @@ public class MemoExpressionTest {
     @Test
     public void flatSets() {
         Reference allLeaves = Reference.from(leafExpressions.values());
-        Reference justALeaf = Reference.of(leafExpressions.get("leaf1"));
+        Reference justALeaf = Reference.initial(leafExpressions.get("leaf1"));
         assertTrue(allLeaves.containsAllInMemo(justALeaf, AliasMap.emptyMap()));
         assertFalse(justALeaf.containsAllInMemo(allLeaves, AliasMap.emptyMap()));
 
@@ -122,22 +122,22 @@ public class MemoExpressionTest {
                 ImmutableList.of(Reference.from(middleExpressions.get("middle1-3"), middleExpressions.get("middle2-2")),
                         Reference.from(leafExpressions.get("leaf3"), leafExpressions.get("leaf4"))));
         SyntheticPlannerExpression root1copy = new SyntheticPlannerExpression("root1",
-                    ImmutableList.of(Reference.of(leafExpressions.get("leaf3")),
-                            Reference.of(leafExpressions.get("leaf4"))));
+                    ImmutableList.of(Reference.initial(leafExpressions.get("leaf3")),
+                            Reference.initial(leafExpressions.get("leaf4"))));
         Reference firstTwoRoots = Reference.from(root1, root2);
         Reference allRoots = Reference.from(root1, root2, root1copy);
-        assertEquals(3, allRoots.getMembers().size());
+        assertEquals(3, allRoots.getAllMemberExpressions().size());
 
-        assertTrue(firstTwoRoots.containsAllInMemo(Reference.of(root1), AliasMap.emptyMap()));
+        assertTrue(firstTwoRoots.containsAllInMemo(Reference.initial(root1), AliasMap.emptyMap()));
         assertTrue(firstTwoRoots.containsAllInMemo(Reference.from(root1, root2), AliasMap.emptyMap()));
         assertTrue(allRoots.containsAllInMemo(firstTwoRoots, AliasMap.emptyMap()));
-        assertFalse(firstTwoRoots.containsAllInMemo(Reference.of(root1copy), AliasMap.emptyMap()));
+        assertFalse(firstTwoRoots.containsAllInMemo(Reference.initial(root1copy), AliasMap.emptyMap()));
         assertFalse(firstTwoRoots.containsAllInMemo(allRoots, AliasMap.emptyMap()));
 
         SyntheticPlannerExpression singleRefExpression = new SyntheticPlannerExpression("root1",
-                ImmutableList.of(Reference.of(middleExpressions.get("middle1")), // has only a single member in its child group
-                        Reference.of(leafExpressions.get("leaf1"))));
-        assertTrue(firstTwoRoots.containsAllInMemo(Reference.of(singleRefExpression), AliasMap.emptyMap()));
+                ImmutableList.of(Reference.initial(middleExpressions.get("middle1")), // has only a single member in its child group
+                        Reference.initial(leafExpressions.get("leaf1"))));
+        assertTrue(firstTwoRoots.containsAllInMemo(Reference.initial(singleRefExpression), AliasMap.emptyMap()));
     }
 
     @ParameterizedTest
@@ -229,7 +229,7 @@ public class MemoExpressionTest {
             int numChildren = random.nextInt(4); // Uniform random integer 0 and 3 (inclusive)
             List<Reference> children = new ArrayList<>(numChildren);
             for (int i = 0; i < numChildren; i++) {
-                children.add(Reference.of(generate(random, maxDepth - 1)));
+                children.add(Reference.initial(generate(random, maxDepth - 1)));
             }
             return new SyntheticPlannerExpression(name, children);
         }

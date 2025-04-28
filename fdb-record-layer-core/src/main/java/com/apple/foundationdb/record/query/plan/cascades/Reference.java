@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
@@ -37,9 +38,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.SetMultimap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.AbstractCollection;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -48,6 +51,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -66,7 +70,11 @@ import java.util.stream.StreamSupport;
 @API(API.Status.EXPERIMENTAL)
 public class Reference implements Correlated<Reference>, Typed {
     @Nonnull
-    private final LinkedIdentitySet<RelationalExpression> members;
+    private PlannerStage plannerStage;
+    @Nonnull
+    private final Members exploratoryMembers;
+    @Nonnull
+    private final Members finalMembers;
 
     @Nonnull
     private final SetMultimap<MatchCandidate, PartialMatch> partialMatchMap;
@@ -74,22 +82,60 @@ public class Reference implements Correlated<Reference>, Typed {
     private final ConstraintsMap constraintsMap;
 
     @Nonnull
-    private final ExpressionPropertiesMap<? extends RelationalExpression> propertiesMap;
+    private ExpressionPropertiesMap<? extends RelationalExpression> propertiesMap;
+
+    @Nonnull
+    private final Supplier<Collection<RelationalExpression>> allMembersSupplier;
 
     private Reference() {
-        this(new LinkedIdentitySet<>());
+        this(PlannerStage.INITIAL, new LinkedIdentitySet<>(), new LinkedIdentitySet<>());
     }
 
-    private Reference(@Nonnull final LinkedIdentitySet<RelationalExpression> members) {
-        this.members = members;
+    private Reference(@Nonnull final PlannerStage plannerStage,
+                      @Nonnull final LinkedIdentitySet<RelationalExpression> exploratoryExpressions,
+                      @Nonnull final LinkedIdentitySet<RelationalExpression> finalExpressions) {
+        Debugger.sanityCheck(() -> {
+            Verify.verify(plannerStage == PlannerStage.PLANNED ||
+                    (exploratoryExpressions.stream()
+                             .noneMatch(member -> member instanceof RecordQueryPlan) &&
+                             finalExpressions.stream()
+                                     .noneMatch(member -> member instanceof RecordQueryPlan)));
+        });
+        this.plannerStage = plannerStage;
+        this.exploratoryMembers = new Members(exploratoryExpressions);
+        this.finalMembers = new Members(finalExpressions);
         this.partialMatchMap = LinkedHashMultimap.create();
         this.constraintsMap = new ConstraintsMap();
         // TODO create based on the (yet) non-existing planner stage
-        this.propertiesMap = new PlanPropertiesMap(members.stream()
+        this.propertiesMap = new PlanPropertiesMap(finalExpressions.stream()
                 .filter(m -> m instanceof RecordQueryPlan)
                 .collect(Collectors.toList()));
+        allMembersSupplier = Suppliers.memoize(() -> exploratoryMembers.concatExpressions(finalMembers));
         // Call debugger hook for this new reference.
         Debugger.registerReference(this);
+    }
+
+    @Nonnull
+    public PlannerStage getPlannerStage() {
+        return plannerStage;
+    }
+
+    @Nonnull
+    public ConstraintsMap getConstraintsMap() {
+        return constraintsMap;
+    }
+
+    @Nonnull
+    public ExpressionPropertiesMap<? extends RelationalExpression> getPropertiesMap() {
+        return propertiesMap;
+    }
+
+    public void advancePlannerStage(@Nonnull final PlannerStage newStage) {
+        this.plannerStage = newStage;
+        this.propertiesMap = plannerStage.createPropertiesMap();
+        exploratoryMembers.clear();
+        exploratoryMembers.add(finalMembers.getOnlyElement());
+        finalMembers.clear();
     }
 
     /**
@@ -99,8 +145,13 @@ public class Reference implements Correlated<Reference>, Typed {
      * @throws ClassCastException if the only member of this reference is not a {@link RecordQueryPlan}
      */
     @Nonnull
-    public RecordQueryPlan getAsPlan() {
-        return (RecordQueryPlan)get();
+    public RecordQueryPlan getOnlyElementAsPlan() {
+        Verify.verify(exploratoryMembers.isEmpty(), "exploratory members must be empty");
+        return finalMembers.getOnlyElementAsPlan();
+    }
+
+    public int getTotalMembersSize() {
+        return exploratoryMembers.size() + finalMembers.size();
     }
 
     /**
@@ -111,92 +162,89 @@ public class Reference implements Correlated<Reference>, Typed {
      */
     @Nonnull
     public RelationalExpression get() {
-        if (members.size() == 1) {
-            return members.iterator().next();
+        final int totalMembersSize = getTotalMembersSize();
+        if (totalMembersSize != 1) {
+            throw new UngettableReferenceException("tried to dereference reference with " + totalMembersSize +
+                    " members");
         }
-        throw new UngettableReferenceException("tried to dereference reference with " + members.size() + " members");
-    }
-
-    @Nonnull
-    public ConstraintsMap getConstraintsMap() {
-        return constraintsMap;
+        return exploratoryMembers.isEmpty() ? finalMembers.getOnlyElement() : exploratoryMembers.getOnlyElement();
     }
 
     /**
      * Legacy method that calls {@link #pruneWith(RelationalExpression)} while being synchronized on {@code this}.
-     * @param newValue new expression to replace members of this reference.
+     * @param plan new expression to replace members of this reference.
      */
-    public synchronized void replace(@Nonnull RelationalExpression newValue) {
-        pruneWith(newValue);
+    public synchronized void replace(@Nonnull final RecordQueryPlan plan) {
+        pruneWith(plan);
     }
 
     /**
      * Method that replaces the current members of this reference with a new value. This is called by the planner
      * to prune the variations of a reference down to exactly one new member.
-     * @param newValue new value to replace existing members
+     * @param expression expression to replace existing members with
      */
-    public void pruneWith(@Nonnull RelationalExpression newValue) {
-        final Map<ExpressionProperty<?>, ?> propertiesForPlan;
-        if (newValue instanceof RecordQueryPlan) {
-            propertiesForPlan = propertiesMap.getCurrentProperties(newValue);
-        } else {
-            propertiesForPlan = null;
-        }
+    public void pruneWith(@Nonnull final RelationalExpression expression) {
+        Verify.verify(isFinal(expression));
+        final var properties = propertiesMap.getCurrentProperties(expression);
         clear();
-        insertUnchecked(newValue, propertiesForPlan);
+        insertUnchecked(expression, true, properties);
     }
 
     /**
-     * Inserts a new expression into this reference. This particular overload utilized the precomputed propertied of
-     * a {@link RecordQueryPlan} that already is thought to reside in another {@link Reference}.
-     * @param newValue new expression to be inserted
-     * @param otherRef a reference that already contains {@code newValue}
+     * Inserts a new expression into this reference. This particular overload utilized the precomputed properties of
+     * a final {@link RelationalExpression} that already is thought to reside in another {@link Reference}.
+     * @param expression new expression to be inserted
+     * @param otherRef a reference that already contains {@code expression}
      * @return {@code true} if and only if the new expression was successfully inserted into this reference, {@code false}
      *         otherwise.
      */
-    public boolean insertFrom(@Nonnull final RelationalExpression newValue, @Nonnull final Reference otherRef) {
-        if (newValue instanceof RecordQueryPlan) {
+    public boolean insertFrom(@Nonnull final RelationalExpression expression, @Nonnull final Reference otherRef) {
+        if (otherRef.isFinal(expression)) {
             final var propertiesForPlan =
-                    Objects.requireNonNull(otherRef.propertiesMap.getProperties(newValue));
-
-            return insert(newValue, propertiesForPlan);
+                    Objects.requireNonNull(otherRef.getPropertiesMap().getProperties(expression));
+            return insert(expression, true, propertiesForPlan);
         }
-        return insert(newValue, null);
+
+        return insert(expression, false, null);
     }
 
     /**
      * Inserts a new expression into this reference. This method checks for prior memoization of the expression passed
      * in within the reference. If the expression is already contained in this reference, the reference is not modified.
      * @param newValue new expression to be inserted
+     * @param isFinal indicator whether the new expression is final or not
      * @return {@code true} if and only if the new expression was successfully inserted into this reference, {@code false}
      *         otherwise.
      */
-    public boolean insert(@Nonnull final RelationalExpression newValue) {
-        return insert(newValue, null);
+    public boolean insert(@Nonnull final RelationalExpression newValue, final boolean isFinal) {
+        return insert(newValue, isFinal, null);
     }
 
     /**
      * Inserts a new expression into this reference. This method checks for prior memoization of the expression passed
      * in within the reference. If the expression is already contained in this reference, the reference is not modified.
-     * @param newValue new expression to be inserted
-     * @param precomputedPropertiesMap if not {@code null}, a map of precomputed properties for a {@link RecordQueryPlan}
+     * @param newExpression new expression to be inserted
+     * @param isFinal indicator whether the new expression is final or not
+     * @param precomputedPropertiesMap if not {@code null}, a map of precomputed properties for a final expression
      *        that will be inserted into this reference verbatim, otherwise it will be computed
      * @return {@code true} if and only if the new expression was successfully inserted into this reference, {@code false}
      *         otherwise.
      */
-    private boolean insert(@Nonnull final RelationalExpression newValue, @Nullable final Map<ExpressionProperty<?>, ?> precomputedPropertiesMap) {
+    private boolean insert(@Nonnull final RelationalExpression newExpression,
+                           final boolean isFinal,
+                           @Nullable final Map<ExpressionProperty<?>, ?> precomputedPropertiesMap) {
         Debugger.withDebugger(debugger -> debugger.onEvent(Debugger.InsertIntoMemoEvent.begin()));
         try {
-            final boolean containsInMemo = containsInMemo(newValue);
+            final boolean containsInMemo = containsInMemo(newExpression, isFinal);
             Debugger.withDebugger(debugger -> {
                 if (containsInMemo) {
-                    debugger.onEvent(Debugger.InsertIntoMemoEvent.reusedExpWithReferences(newValue, ImmutableList.of(this)));
+                    debugger.onEvent(Debugger.InsertIntoMemoEvent.reusedExpWithReferences(newExpression, ImmutableList.of(this)));
                 } else {
-                    debugger.onEvent(Debugger.InsertIntoMemoEvent.newExp(newValue));
+                    debugger.onEvent(Debugger.InsertIntoMemoEvent.newExp(newExpression));
                 }
             });
             if (!containsInMemo) {
-                insertUnchecked(newValue, precomputedPropertiesMap);
+                insertUnchecked(newExpression, isFinal, precomputedPropertiesMap);
                 return true;
             }
             return false;
@@ -206,45 +254,60 @@ public class Reference implements Correlated<Reference>, Typed {
     }
 
     /**
-     * Inserts a new expression into this reference. Unlike {{@link #insert(RelationalExpression, Map)}}, this method does
-     * not check for prior memoization of the expression passed in within the reference. The caller needs to exercise
-     * caution to only call this method on a reference if it is known that the reference cannot possibly already have
-     * the expression memoized.
-     * @param newValue new expression to be inserted (without check)
+     * Inserts a new expression into this reference. Unlike {{@link #insert(RelationalExpression, boolean, Map)}}, this
+     * method does not check for prior memoization of the expression passed in within the reference. The caller needs to
+     * exercise caution to only call this method on a reference if it is known that the reference cannot possibly
+     * already have the expression memoized.
+     * @param newExpression new expression to be inserted (without check)
+     * @param isFinal indicator whether the new expression is final or not
      */
-    public void insertUnchecked(@Nonnull final RelationalExpression newValue) {
-        insertUnchecked(newValue, null);
+    public void insertUnchecked(@Nonnull final RelationalExpression newExpression, final boolean isFinal) {
+        insertUnchecked(newExpression, isFinal, null);
     }
 
     /**
-     * Inserts a new expression into this reference. Unlike {{@link #insert(RelationalExpression, Map)}}, this method does
-     * not check for prior memoization of the expression passed in within the reference. The caller needs to exercise
-     * caution to only call this method on a reference if it is known that the reference cannot possibly already have
-     * the expression memoized.
-     * @param newValue new expression to be inserted (without check)
-     * @param precomputedPropertiesMap if not {@code null}, a map of precomputed properties for a {@link RecordQueryPlan}
+     * Inserts a new expression into this reference. Unlike {{@link #insert(RelationalExpression, boolean, Map)}}, this
+     * method does not check for prior memoization of the expression passed in within the reference. The caller needs to
+     * exercise caution to only call this method on a reference if it is known that the reference cannot possibly
+     * already have the expression memoized.
+     * @param newExpression new expression to be inserted (without check)
+     * @param isFinal indicator whether the new expression is final or not
+     * @param precomputedPropertiesMap if not {@code null}, a map of precomputed properties for a final expression
      *        that will be inserted into this reference verbatim, otherwise it will be computed
      */
-    public void insertUnchecked(@Nonnull final RelationalExpression newValue, @Nullable final Map<ExpressionProperty<?>, ?> precomputedPropertiesMap) {
+    public void insertUnchecked(@Nonnull final RelationalExpression newExpression,
+                                final boolean isFinal,
+                                @Nullable final Map<ExpressionProperty<?>, ?> precomputedPropertiesMap) {
         // Call debugger hook to potentially register this new expression.
-        Debugger.registerExpression(newValue);
+        Debugger.registerExpression(newExpression);
 
-        Debugger.sanityCheck(() -> Verify.verify(members.isEmpty() ||
-                getResultType().equals(newValue.getResultType())));
+        Debugger.sanityCheck(() -> Verify.verify(getTotalMembersSize() == 0 ||
+                getResultType().equals(newExpression.getResultType())));
 
-        members.add(newValue);
-        if (newValue instanceof RecordQueryPlan) {
-            final var newRecordQueryPlan = (RecordQueryPlan)newValue;
+        if (isFinal) {
+            finalMembers.add(newExpression);
             if (precomputedPropertiesMap != null) {
-                propertiesMap.add(newRecordQueryPlan, precomputedPropertiesMap);
+                propertiesMap.add(newExpression, precomputedPropertiesMap);
             } else {
-                propertiesMap.add(newRecordQueryPlan);
+                propertiesMap.add(newExpression);
             }
+        } else {
+            exploratoryMembers.add(newExpression);
         }
     }
 
-    public boolean containsExactly(@Nonnull RelationalExpression expression) {
-        return members.contains(expression);
+    public boolean containsExactly(@Nonnull final RelationalExpression expression) {
+        return exploratoryMembers.containsExactly(expression) || finalMembers.containsExactly(expression);
+    }
+
+    public boolean isFinal(@Nonnull final RelationalExpression expression) {
+        if (finalMembers.containsExactly(expression)) {
+            return true;
+        }
+        if (exploratoryMembers.containsExactly(expression)) {
+            return false;
+        }
+        throw new RecordCoreException("expression has to be a member of this reference");
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
@@ -254,42 +317,34 @@ public class Reference implements Correlated<Reference>, Typed {
             return true;
         }
 
-        for (final RelationalExpression otherMember : otherRef.getMembers()) {
-            if (!containsInMemo(otherMember, equivalenceMap, members)) {
+        for (final RelationalExpression otherExpression : otherRef.getExploratoryExpressions()) {
+            if (!exploratoryMembers.containsInMemo(otherExpression, equivalenceMap)) {
+                return false;
+            }
+        }
+
+        for (final RelationalExpression otherExpression : otherRef.getFinalExpressions()) {
+            if (!finalMembers.containsInMemo(otherExpression, equivalenceMap)) {
                 return false;
             }
         }
         return true;
     }
 
-    public boolean containsInMemo(@Nonnull final RelationalExpression expression) {
+    public boolean containsInMemo(@Nonnull final RelationalExpression expression,
+                                  final boolean isFinal) {
         if (!getCorrelatedTo().equals(expression.getCorrelatedTo())) {
             return false;
         }
-        return containsInMemo(expression, AliasMap.emptyMap());
-    }
-
-    private boolean containsInMemo(@Nonnull final RelationalExpression expression,
-                                   @Nonnull final AliasMap equivalenceMap) {
-        return containsInMemo(expression, equivalenceMap, members);
-    }
-
-    private boolean containsInMemo(@Nonnull final RelationalExpression expression,
-                                   @Nonnull final AliasMap equivalenceMap,
-                                   @Nonnull final Iterable<? extends RelationalExpression> membersToSearch) {
-        for (final RelationalExpression member : membersToSearch) {
-            if (isMemoizedExpression(member, expression, equivalenceMap)) {
-                return true;
-            }
-        }
-        return false;
+        return isFinal ? finalMembers.containsInMemo(expression, AliasMap.emptyMap()) :
+               exploratoryMembers.containsInMemo(expression, AliasMap.emptyMap());
     }
 
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
         final ImmutableSet.Builder<CorrelationIdentifier> builder = ImmutableSet.builder();
-        for (final RelationalExpression member : getMembers()) {
+        for (final RelationalExpression member : getAllMemberExpressions()) {
             builder.addAll(member.getCorrelatedTo());
         }
         return builder.build();
@@ -299,7 +354,7 @@ public class Reference implements Correlated<Reference>, Typed {
     @Nonnull
     @Override
     public Reference rebase(@Nonnull final AliasMap translationMap) {
-        return translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap), false);
+        throw new UnsupportedOperationException("rebase unsupported for reference");
     }
 
     @Nonnull
@@ -317,7 +372,7 @@ public class Reference implements Correlated<Reference>, Typed {
     @Nonnull
     @Override
     public Type getResultType() {
-        return getMembers()
+        return getAllMemberExpressions()
                 .stream()
                 .map(RelationalExpression::getResultType)
                 .reduce((left, right) -> {
@@ -329,7 +384,8 @@ public class Reference implements Correlated<Reference>, Typed {
 
     public void clear() {
         propertiesMap.clear();
-        members.clear();
+        exploratoryMembers.clear();
+        finalMembers.clear();
     }
 
     public void startExploration() {
@@ -361,25 +417,33 @@ public class Reference implements Correlated<Reference>, Typed {
     }
 
     @Nonnull
-    public LinkedIdentitySet<RelationalExpression> getMembers() {
-        return members;
+    public Set<RelationalExpression> getExploratoryExpressions() {
+        return exploratoryMembers.getExpressions();
+    }
+
+    @Nonnull
+    public Set<RelationalExpression> getFinalExpressions() {
+        return finalMembers.getExpressions();
+    }
+
+    @Nonnull
+    public Collection<RelationalExpression> getAllMemberExpressions() {
+        return allMembersSupplier.get();
     }
 
     /**
-     * Re-reference members of this group, i.e., use a subset of members to from a new {@link Reference}.
+     * Re-reference final members of this group, i.e., use a subset of members to from a new {@link Reference}.
      * Note that {@code this} group must not need exploration.
      *
      * @param expressions a collection of expressions that all have to be members of this group
      * @return a new explored {@link Reference}
      */
     @Nonnull
-    public Reference referenceFromMembers(@Nonnull Collection<? extends RelationalExpression> expressions) {
+    public Reference newReferenceFromFinalMembers(@Nonnull final Collection<? extends RelationalExpression> expressions) {
         Verify.verify(!needsExploration());
-        Verify.verify(getMembers().containsAll(expressions));
+        Verify.verify(getFinalExpressions().containsAll(expressions));
 
-        final var members = new LinkedIdentitySet<RelationalExpression>();
-        members.addAll(expressions);
-        final var newRef = new Reference(members);
+        final var newRef = Reference.of(getPlannerStage(), ImmutableList.of(), expressions);
         newRef.getConstraintsMap().setExplored();
         return newRef;
     }
@@ -397,9 +461,10 @@ public class Reference implements Correlated<Reference>, Typed {
     @Nullable
     public <U> U acceptVisitor(@Nonnull SimpleExpressionVisitor<U> simpleExpressionVisitor) {
         if (simpleExpressionVisitor.shouldVisit(this)) {
-            final List<U> memberResults = new ArrayList<>(members.size());
-            for (RelationalExpression member : members) {
-                final U result = simpleExpressionVisitor.shouldVisit(member) ? simpleExpressionVisitor.visit(member) : null;
+            final List<U> memberResults = new ArrayList<>(getAllMemberExpressions().size());
+            for (RelationalExpression member : getAllMemberExpressions()) {
+                final U result = simpleExpressionVisitor.shouldVisit(member)
+                                 ? simpleExpressionVisitor.visit(member) : null;
                 if (result == null) {
                     return null;
                 }
@@ -410,11 +475,10 @@ public class Reference implements Correlated<Reference>, Typed {
         return null;
     }
 
-    @SuppressWarnings("checkstyle:Indentation")
     @Override
     public String toString() {
         return Debugger.mapDebugger(debugger -> debugger.nameForObject(this) + "[" +
-                        getMembers().stream()
+                        getAllMemberExpressions().stream()
                                 .map(debugger::nameForObject)
                                 .collect(Collectors.joining(",")) + "]")
                 .orElse("Reference@" + hashCode() + "(" + "isExplored=" + constraintsMap.isExplored() + ")");
@@ -431,36 +495,14 @@ public class Reference implements Correlated<Reference>, Typed {
             return false;
         }
 
-        final Reference otherRef = (Reference)other;
-
-        final Iterator<RelationalExpression> iterator = members.iterator();
-        final ImmutableMultimap.Builder<Integer, RelationalExpression> expressionsMapBuilder = ImmutableMultimap.builder();
-
-        while (iterator.hasNext()) {
-            final RelationalExpression next = iterator.next();
-            expressionsMapBuilder.put(next.semanticHashCode(), next);
-        }
-        final ImmutableMultimap<Integer, RelationalExpression> expressionsMap = expressionsMapBuilder.build();
-
-        for (final RelationalExpression otherMember : otherRef.getMembers()) {
-            if (expressionsMap.get(otherMember.semanticHashCode()).stream().anyMatch(member -> member.semanticEquals(otherMember, aliasMap))) {
-                return true;
-            }
-        }
-        return false;
+        final var otherReference = (Reference)other;
+        return (exploratoryMembers.semanticEquals(otherReference.getExploratoryExpressions(), aliasMap) &&
+                        finalMembers.semanticEquals(otherReference.getExploratoryExpressions(), aliasMap));
     }
 
     @Override
     public int semanticHashCode() {
-        final Iterator<RelationalExpression> iterator = members.iterator();
-        final ImmutableSet.Builder<Integer> builder = ImmutableSet.builder();
-
-        while (iterator.hasNext()) {
-            final RelationalExpression next = iterator.next();
-            builder.add(next.semanticHashCode());
-        }
-
-        return Objects.hash(builder.build());
+        return Objects.hash(exploratoryMembers.semanticHashCode(), finalMembers.semanticHashCode());
     }
 
     /**
@@ -606,12 +648,23 @@ public class Reference implements Correlated<Reference>, Typed {
         return new Reference();
     }
 
-    public static Reference of(@Nonnull RelationalExpression expression) {
+    public static Reference initial(@Nonnull RelationalExpression expression) {
         LinkedIdentitySet<RelationalExpression> members = new LinkedIdentitySet<>();
         // Call debugger hook to potentially register this new expression.
         Debugger.registerExpression(expression);
         members.add(expression);
-        return new Reference(members);
+        return new Reference(PlannerStage.INITIAL, new LinkedIdentitySet<>(), members);
+    }
+
+    public static Reference of(@Nonnull final PlannerStage plannerStage,
+                               @Nonnull final Collection<? extends RelationalExpression> exploratoryExpressions,
+                               @Nonnull final Collection<? extends RelationalExpression> finalExpressions) {
+        // Call debugger hook to potentially register this new expression.
+        exploratoryExpressions.forEach(Debugger::registerExpression);
+        finalExpressions.forEach(Debugger::registerExpression);
+
+        return new Reference(plannerStage, new LinkedIdentitySet<>(exploratoryExpressions),
+                new LinkedIdentitySet<>(finalExpressions));
     }
 
     public static Reference from(@Nonnull RelationalExpression... expressions) {
@@ -623,6 +676,151 @@ public class Reference implements Correlated<Reference>, Typed {
         expressions.forEach(Debugger::registerExpression);
         members.addAll(expressions);
         return new Reference(members);
+    }
+
+    private static class Members {
+        @Nonnull
+        private final Set<RelationalExpression> expressions;
+
+        private Members(@Nonnull final LinkedIdentitySet<RelationalExpression> expressions) {
+            this.expressions = expressions;
+        }
+
+        @Nonnull
+        private Set<RelationalExpression> getExpressions() {
+            return expressions;
+        }
+
+        private boolean isEmpty() {
+            return expressions.isEmpty();
+        }
+
+        private int size() {
+            return expressions.size();
+        }
+
+        private boolean containsExactly(@Nonnull RelationalExpression expression) {
+            return expressions.contains(expression);
+        }
+
+        @Nonnull
+        private RelationalExpression getOnlyElement() {
+            return Iterables.getOnlyElement(expressions);
+        }
+
+        @Nonnull
+        private RecordQueryPlan getOnlyElementAsPlan() {
+            return (RecordQueryPlan)Iterables.getOnlyElement(expressions);
+        }
+
+        @Nonnull
+        private Collection<RelationalExpression> concatExpressions(@Nonnull final Members other) {
+            return concatSetsView(expressions, other.getExpressions());
+        }
+
+        private void clear() {
+            expressions.clear();
+        }
+
+        public int semanticHashCode() {
+            final var iterator = expressions.iterator();
+            final var builder = ImmutableSet.builder();
+
+            while (iterator.hasNext()) {
+                final RelationalExpression next = iterator.next();
+                builder.add(next.semanticHashCode());
+            }
+
+            return Objects.hash(builder.build());
+        }
+
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
+        public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
+            if (this == other) {
+                return true;
+            }
+
+            if (other == null || getClass() != other.getClass()) {
+                return false;
+            }
+
+            final var otherMembers = (Members)other;
+
+            final var iterator = expressions.iterator();
+            final var expressionsMapBuilder =
+                    ImmutableMultimap.<Integer, RelationalExpression>builder();
+
+            while (iterator.hasNext()) {
+                final RelationalExpression next = iterator.next();
+                expressionsMapBuilder.put(next.semanticHashCode(), next);
+            }
+            final var expressionsMap = expressionsMapBuilder.build();
+
+            for (final RelationalExpression otherExpression : otherMembers.getExpressions()) {
+                if (expressionsMap.get(otherExpression.semanticHashCode())
+                        .stream()
+                        .anyMatch(member -> member.semanticEquals(otherExpression, aliasMap))) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        @CanIgnoreReturnValue
+        private boolean add(@Nonnull final RelationalExpression expression) {
+            return expressions.add(expression);
+        }
+
+        private boolean containsInMemo(@Nonnull final RelationalExpression expression,
+                                       @Nonnull final AliasMap equivalenceMap) {
+            for (final RelationalExpression member : expressions) {
+                if (isMemoizedExpression(member, expression, equivalenceMap)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        @Nonnull
+        private static Members copyOf(@Nonnull final Members members) {
+            return copyOf(members.getExpressions());
+        }
+
+        @Nonnull
+        private static Members copyOf(@Nonnull final Set<RelationalExpression> expressions) {
+            return new Members(new LinkedIdentitySet<>(expressions));
+        }
+    }
+
+    private static <T> Collection<T> concatSetsView(@Nonnull final Set<T> first,
+                                                    @Nonnull final Set<T> second) {
+        return new AbstractCollection<>() {
+            @Override
+            public Iterator<T> iterator() {
+                return new Iterator<>() {
+                    private final Iterator<T> it1 = first.iterator();
+                    private final Iterator<T> it2 = second.iterator();
+
+                    @Override
+                    public boolean hasNext() {
+                        return it1.hasNext() || it2.hasNext();
+                    }
+
+                    @Override
+                    public T next() {
+                        if (it1.hasNext()) {
+                            return it1.next();
+                        }
+                        return it2.next();
+                    }
+                };
+            }
+
+            @Override
+            public int size() {
+                return first.size() + second.size();
+            }
+        };
     }
 
     /**

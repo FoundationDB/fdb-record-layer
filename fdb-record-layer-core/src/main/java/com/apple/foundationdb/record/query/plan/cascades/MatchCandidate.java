@@ -457,11 +457,11 @@ public interface MatchCandidate {
                                    @Nonnull AccessHint accessHint) {
         final var quantifier =
                 Quantifier.forEach(
-                        Reference.of(
+                        Reference.initial(
                                 new FullUnorderedScanExpression(availableRecordTypeNames,
                                         new Type.AnyRecord(false),
                                         new AccessHints(accessHint))));
-        return Reference.of(
+        return Reference.initial(
                 new LogicalTypeFilterExpression(queriedRecordTypeNames,
                         quantifier,
                         Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(queriedRecordTypes))));

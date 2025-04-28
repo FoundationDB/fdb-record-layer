@@ -63,7 +63,7 @@ public class ReferenceMatchers {
     @SuppressWarnings("unchecked")
     public static <R extends Reference, E extends RelationalExpression> BindingMatcher<R> members(@Nonnull final CollectionMatcher<E> downstream) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<R>)(Class<?>)Reference.class,
-                Extractor.of(Reference::getMembers, name -> "members(" + name + ")"),
+                Extractor.of(Reference::getAllMemberExpressions, name -> "allMembers(" + name + ")"),
                 downstream);
     }
 }

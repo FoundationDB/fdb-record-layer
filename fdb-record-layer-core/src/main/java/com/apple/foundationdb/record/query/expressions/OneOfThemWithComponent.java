@@ -108,13 +108,13 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
                 .build();
-        final Quantifier.ForEach childBase = Quantifier.forEach(Reference.of(ExplodeExpression.explodeField(baseQuantifier, fieldNames)));
+        final Quantifier.ForEach childBase = Quantifier.forEach(Reference.initial(ExplodeExpression.explodeField(baseQuantifier, fieldNames)));
         final GraphExpansion graphExpansion = getChild().expand(childBase, outerQuantifierSupplier, Collections.emptyList());
         final SelectExpression selectExpression =
                 GraphExpansion.ofOthers(GraphExpansion.builder().addQuantifier(childBase).build(), graphExpansion)
                         .buildSimpleSelectOverQuantifier(childBase);
 
-        Quantifier.Existential childQuantifier = Quantifier.existential(Reference.of(selectExpression));
+        Quantifier.Existential childQuantifier = Quantifier.existential(Reference.initial(selectExpression));
 
         // create a query component that creates a path to this prefix and then applies this to it
         // this is needed for reapplication of the component if the sub query cannot be matched or only matched with

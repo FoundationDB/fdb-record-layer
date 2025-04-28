@@ -111,7 +111,7 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
         }
         final ImmutableList.Builder<Reference> childRefsBuilder = ImmutableList.builder();
         for (RecordQueryPlan child : children) {
-            childRefsBuilder.add(Reference.of(child));
+            childRefsBuilder.add(Reference.initial(child));
         }
         return new RecordQuerySelectorPlan(Quantifiers.fromPlans(childRefsBuilder.build()), planSelector);
     }

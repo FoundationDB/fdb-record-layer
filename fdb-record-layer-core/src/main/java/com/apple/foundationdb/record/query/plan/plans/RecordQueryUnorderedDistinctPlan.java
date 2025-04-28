@@ -86,7 +86,7 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
 
     public RecordQueryUnorderedDistinctPlan(@Nonnull final RecordQueryPlan plan,
                                             @Nonnull final KeyExpression comparisonKey) {
-        this(Quantifier.physical(Reference.of(plan)), comparisonKey);
+        this(Quantifier.physical(Reference.initial(plan)), comparisonKey);
     }
 
     private RecordQueryUnorderedDistinctPlan(@Nonnull final Quantifier.Physical inner,

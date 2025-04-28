@@ -125,7 +125,7 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
 
         final ImmutableList.Builder<Reference> childRefsBuilder = ImmutableList.builder();
         for (RecordQueryPlan child : children) {
-            childRefsBuilder.add(Reference.of(child));
+            childRefsBuilder.add(Reference.initial(child));
         }
         return new RecordQueryComparatorPlan(Quantifiers.fromPlans(childRefsBuilder.build()), comparisonKey, referencePlanIndex, abortOnComparisonFailure);
     }
