@@ -26,14 +26,15 @@ import com.apple.foundationdb.record.query.expressions.ComponentWithNoChildren;
 import com.apple.foundationdb.record.query.expressions.ComponentWithSingleChild;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A property that counts the number of {@link FieldWithComparison}s that appear in a planner expression tree.
@@ -41,63 +42,77 @@ import java.util.List;
  * indexes.
  */
 @API(API.Status.EXPERIMENTAL)
-public class FieldWithComparisonCountProperty implements ExpressionProperty<Integer>, RelationalExpressionVisitorWithDefaults<Integer> {
-    private static final FieldWithComparisonCountProperty INSTANCE = new FieldWithComparisonCountProperty();
+public class FieldWithComparisonCountProperty implements ExpressionProperty<Integer> {
+    private static final FieldWithComparisonCountProperty FIELD_WITH_COMPARISON_COUNT =
+            new FieldWithComparisonCountProperty();
 
-    @Nonnull
-    @Override
-    public Integer evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Integer> childResults) {
-        int total = 0;
-        if (expression instanceof RecordQueryFilterPlan) {
-            QueryComponent filter = ((RecordQueryFilterPlan)expression).getConjunctedFilter();
-            total = getFieldWithComparisonCount(filter);
-        }
-
-        for (Integer childCount : childResults) {
-            if (childCount != null) {
-                total += childCount;
-            }
-        }
-        return total;
-    }
-
-    private static int getFieldWithComparisonCount(@Nonnull QueryComponent component) {
-        if (component instanceof FieldWithComparison)  {
-            return 1;
-        } else if (component instanceof ComponentWithNoChildren) {
-            return 0;
-        } else if (component instanceof ComponentWithSingleChild) {
-            return getFieldWithComparisonCount(((ComponentWithSingleChild)component).getChild());
-        } else if (component instanceof ComponentWithChildren) {
-            return ((ComponentWithChildren)component).getChildren().stream()
-                    .mapToInt(FieldWithComparisonCountProperty::getFieldWithComparisonCount)
-                    .sum();
-        } else {
-            throw new UnsupportedOperationException();
-        }
+    private FieldWithComparisonCountProperty() {
+        // prevent outside instantiation
     }
 
     @Nonnull
     @Override
-    public Integer evaluateAtRef(@Nonnull Reference ref, @Nonnull List<Integer> memberResults) {
-        int min = Integer.MAX_VALUE;
-        for (int memberResult : memberResults) {
-            if (memberResult < min) {
-                min = memberResult;
+    public FieldWithComparisonCountVisitor createVisitor() {
+        return new FieldWithComparisonCountVisitor();
+    }
+
+    public int evaluate(@Nonnull final Reference ref) {
+        return Objects.requireNonNull(ref.acceptVisitor(createVisitor()));
+    }
+
+    public int evaluate(@Nonnull final RelationalExpression expression) {
+        return Objects.requireNonNull(expression.acceptVisitor(createVisitor()));
+    }
+
+    @Nonnull
+    public static FieldWithComparisonCountProperty fieldWithComparisonCount() {
+        return FIELD_WITH_COMPARISON_COUNT;
+    }
+
+    public static class FieldWithComparisonCountVisitor implements SimpleExpressionVisitor<Integer> {
+        @Nonnull
+        @Override
+        public Integer evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Integer> childResults) {
+            int total = 0;
+            if (expression instanceof RecordQueryFilterPlan) {
+                QueryComponent filter = ((RecordQueryFilterPlan)expression).getConjunctedFilter();
+                total = getFieldWithComparisonCount(filter);
+            }
+
+            for (Integer childCount : childResults) {
+                if (childCount != null) {
+                    total += childCount;
+                }
+            }
+            return total;
+        }
+
+        @Nonnull
+        @Override
+        public Integer evaluateAtRef(@Nonnull Reference ref, @Nonnull List<Integer> memberResults) {
+            int min = Integer.MAX_VALUE;
+            for (int memberResult : memberResults) {
+                if (memberResult < min) {
+                    min = memberResult;
+                }
+            }
+            return min;
+        }
+
+        private static int getFieldWithComparisonCount(@Nonnull QueryComponent component) {
+            if (component instanceof FieldWithComparison) {
+                return 1;
+            } else if (component instanceof ComponentWithNoChildren) {
+                return 0;
+            } else if (component instanceof ComponentWithSingleChild) {
+                return getFieldWithComparisonCount(((ComponentWithSingleChild)component).getChild());
+            } else if (component instanceof ComponentWithChildren) {
+                return ((ComponentWithChildren)component).getChildren().stream()
+                        .mapToInt(FieldWithComparisonCountVisitor::getFieldWithComparisonCount)
+                        .sum();
+            } else {
+                throw new UnsupportedOperationException();
             }
         }
-        return min;
-    }
-
-    public static int evaluate(Reference ref) {
-        return ref.acceptPropertyVisitor(INSTANCE);
-    }
-
-    public static int evaluate(@Nonnull RelationalExpression expression) {
-        Integer result = expression.acceptPropertyVisitor(INSTANCE);
-        if (result == null) {
-            return Integer.MAX_VALUE;
-        }
-        return result;
     }
 }

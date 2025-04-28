@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.RestartException;
 import com.apple.foundationdb.record.query.plan.cascades.debug.StatsMaps;
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PEvent;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.properties.ReferencesAndDependenciesProperty;
 import com.google.common.base.Verify;
 import com.google.common.cache.Cache;
 import com.google.common.collect.AbstractIterator;
@@ -58,6 +57,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.IntUnaryOperator;
 import java.util.stream.Collectors;
+
+import static com.apple.foundationdb.record.query.plan.cascades.properties.ReferencesAndDependenciesProperty.referencesAndDependencies;
 
 /**
  * Implementation of a debugger that maintains symbol tables for easier human consumption e.g. in test cases and/or
@@ -391,7 +392,7 @@ public class DebuggerWithSymbolTables implements Debugger {
     }
 
     public static void forEachExpression(@Nonnull final Reference root, @Nonnull final Consumer<RelationalExpression> consumer) {
-        final var references = ReferencesAndDependenciesProperty.evaluate(root);
+        final var references = referencesAndDependencies().evaluate(root);
         final var referenceList = TopologicalSort.anyTopologicalOrderPermutation(references).orElseThrow();
         for (final var reference : referenceList) {
             for (final var member : reference.getMembers()) {

@@ -91,20 +91,34 @@ public final class IndexingSubspaces {
      * @return subspace
      */
     @Nonnull
-    public static Subspace indexScrubRecordsRangeSubspaceZero(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+    private static Subspace indexScrubRecordsRangeSubspaceZero(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
         // Backward compatible subspace for range-id zero
         return indexBuildSubspace(store, index, INDEX_SCRUBBED_RECORDS_RANGES_ZERO);
     }
 
     /**
-     * Subspace that stores scrubbed records ranges. This subspace is expected to be followed by a range-id.
+     * Subspace that stores scrubbed records ranges.
      * @param store store
      * @param index index
      * @return subspace
      */
     @Nonnull
-    public static Subspace indexScrubRecordsRangeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+    private static Subspace indexScrubRecordsRangeSubspaceRoot(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
         return indexBuildSubspace(store, index, INDEX_SCRUBBED_RECORDS_RANGES);
+    }
+
+    /**
+     * Subspace that stores scrubbed records ranges.
+     * @param store store
+     * @param index index
+     * @return subspace
+     */
+    @Nonnull
+    public static Subspace indexScrubRecordsRangeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, int rangeId) {
+        return rangeId == 0 ?
+               // Backward compatible
+               IndexingSubspaces.indexScrubRecordsRangeSubspaceZero(store, index) :
+               IndexingSubspaces.indexScrubRecordsRangeSubspaceRoot(store, index).subspace(Tuple.from(rangeId));
     }
 
     /**
@@ -115,7 +129,7 @@ public final class IndexingSubspaces {
      * @return subspace
      */
     @Nonnull
-    public static Subspace indexScrubIndexRangeSubspaceLegacy(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+    private static Subspace indexScrubIndexRangeSubspaceZero(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
         // Backward compatible subspace for range-id zero
         return indexBuildSubspace(store, index, INDEX_SCRUBBED_INDEX_RANGES_ZERO);
     }
@@ -127,8 +141,23 @@ public final class IndexingSubspaces {
      * @return subspace
      */
     @Nonnull
-    public static Subspace indexScrubIndexRangeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+    private static Subspace indexScrubIndexRangeSubspaceRoot(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
         return indexBuildSubspace(store, index, INDEX_SCRUBBED_INDEX_RANGES);
+    }
+
+    /**
+     * Subspace that stores scrubbed index entries ranges.
+     * @param store store
+     * @param index index
+     * @param rangeId used by the caller to distinct different scrubbing sessions.
+     * @return subspace
+     */
+    @Nonnull
+    public static Subspace indexScrubIndexRangeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, int rangeId) {
+        return rangeId == 0 ?
+            // Backward compatible
+            IndexingSubspaces.indexScrubIndexRangeSubspaceZero(store, index) :
+            IndexingSubspaces.indexScrubIndexRangeSubspaceRoot(store, index).subspace(Tuple.from(rangeId));
     }
 
     /**
@@ -138,10 +167,10 @@ public final class IndexingSubspaces {
      * @param index index
      */
     public static void eraseAllIndexingScrubbingData(@Nonnull FDBRecordContext context, @Nonnull FDBRecordStore store, @Nonnull Index index) {
-        context.clear(Range.startsWith(indexScrubIndexRangeSubspaceLegacy(store, index).pack()));
-        context.clear(Range.startsWith(indexScrubIndexRangeSubspace(store, index).pack()));
+        context.clear(Range.startsWith(indexScrubIndexRangeSubspaceZero(store, index).pack()));
+        context.clear(Range.startsWith(indexScrubIndexRangeSubspaceRoot(store, index).pack()));
         context.clear(Range.startsWith(indexScrubRecordsRangeSubspaceZero(store, index).pack()));
-        context.clear(Range.startsWith(indexScrubRecordsRangeSubspace(store, index).pack()));
+        context.clear(Range.startsWith(indexScrubRecordsRangeSubspaceRoot(store, index).pack()));
     }
 
     /**

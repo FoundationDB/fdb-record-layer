@@ -42,7 +42,7 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 /**
- * The planner graph class. Objects of this class are computed by {@link PlannerGraphProperty},
+ * The planner graph class. Objects of this class are produced by {@link PlannerGraphVisitor},
  * i.e., they get computed by walking a {@link RelationalExpression} DAG.
  *
  * Once computed, the property is immutable.

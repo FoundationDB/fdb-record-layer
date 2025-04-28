@@ -31,7 +31,7 @@ import java.util.List;
  *
  * This interface allows a {@link RelationalExpression} to create/modify
  * low level planner graph structures while a planner graph is created through an expression walk in
- * {@link PlannerGraphProperty}. Such a rewrite can be useful if the standard representation is confusing, misleading,
+ * {@link PlannerGraphVisitor}. Such a rewrite can be useful if the standard representation is confusing, misleading,
  * or just too complicated. For instance, {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex}
  * additionally creates a separate node underneath the actual plan operator to show the index as a record producer.
  * The nature of the rewrite is highly operator-specific, therefore, the rewrite is not part of the visitor or some

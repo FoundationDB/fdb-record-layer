@@ -26,11 +26,14 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
-import com.apple.foundationdb.record.query.plan.cascades.PropertiesMap;
+import com.apple.foundationdb.record.query.plan.cascades.PlanPropertiesMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalIntersectionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.properties.DistinctRecordsProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.ImmutableList;
@@ -42,13 +45,10 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.logicalIntersectionExpression;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyPlanPartition;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.planPartitions;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.rollUpTo;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.where;
-import static com.apple.foundationdb.record.query.plan.cascades.properties.DistinctRecordsProperty.DISTINCT_RECORDS;
-import static com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty.ORDERING;
-import static com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty.STORED_RECORD;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.rollUpPartitionsTo;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.filterPartition;
 
 /**
  * A rule that implements an intersection of its (already implemented) children. This will extract the
@@ -63,9 +63,8 @@ public class ImplementIntersectionRule extends CascadesRule<LogicalIntersectionE
 
     @Nonnull
     private static final BindingMatcher<Reference> intersectionLegReferenceMatcher =
-            planPartitions(where(planPartition -> planPartition.getAttributeValue(STORED_RECORD),
-                    rollUpTo(any(intersectionLegPlanPartitionMatcher), PropertiesMap.allAttributesExcept(DISTINCT_RECORDS, ORDERING))));
-
+            planPartitions(filterPartition(planPartition -> planPartition.getPropertyValue(StoredRecordProperty.storedRecord()),
+                    rollUpPartitionsTo(any(intersectionLegPlanPartitionMatcher), PlanPropertiesMap.allAttributesExcept(DistinctRecordsProperty.distinctRecords(), OrderingProperty.ordering()))));
     @Nonnull
     private static final CollectionMatcher<Quantifier.ForEach> allForEachQuantifiersMatcher =
             all(forEachQuantifierOverRef(intersectionLegReferenceMatcher));

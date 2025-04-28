@@ -30,7 +30,7 @@ import com.apple.foundationdb.record.planprotos.PLuceneIndexQueryPlan;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.explain.ExplainPlanVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.PlanOrderingKey;
 import com.apple.foundationdb.record.query.plan.PlanWithOrderingKey;

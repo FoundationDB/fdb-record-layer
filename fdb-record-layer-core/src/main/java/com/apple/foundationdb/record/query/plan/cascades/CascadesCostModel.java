@@ -26,15 +26,10 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanner.IndexScanPreference;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.Cardinalities;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.Cardinality;
-import com.apple.foundationdb.record.query.plan.cascades.properties.ComparisonsProperty;
-import com.apple.foundationdb.record.query.plan.cascades.properties.FindExpressionProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionDepthProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.NormalizedResidualPredicateProperty;
-import com.apple.foundationdb.record.query.plan.cascades.properties.RelationalExpressionDepthProperty;
-import com.apple.foundationdb.record.query.plan.cascades.properties.TypeFilterCountProperty;
-import com.apple.foundationdb.record.query.plan.cascades.properties.UnmatchedFieldsCountProperty;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
@@ -55,11 +50,18 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 import static com.apple.foundationdb.record.Bindings.Internal.CORRELATION;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.cardinalities;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.ComparisonsProperty.comparisons;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionDepthProperty.fetchDepth;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionDepthProperty.typeFilterDepth;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.TypeFilterCountProperty.typeFilterCount;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.UnmatchedFieldsCountProperty.unmatchedFieldsCount;
 
 /**
  * A comparator implementing the current heuristic cost model for the {@link CascadesPlanner}.
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class CascadesCostModel implements Comparator<RelationalExpression> {
     @Nonnull
     private static final Set<Class<? extends RelationalExpression>> interestingPlanClasses =
@@ -89,13 +91,13 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
         }
 
         final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapA =
-                FindExpressionProperty.evaluate(interestingPlanClasses, a);
+                FindExpressionVisitor.evaluate(interestingPlanClasses, a);
 
         final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMapB =
-                FindExpressionProperty.evaluate(interestingPlanClasses, b);
+                FindExpressionVisitor.evaluate(interestingPlanClasses, b);
 
-        final Cardinalities cardinalitiesA = CardinalitiesProperty.evaluate(a);
-        final Cardinalities cardinalitiesB = CardinalitiesProperty.evaluate(b);
+        final Cardinalities cardinalitiesA = cardinalities().evaluate(a);
+        final Cardinalities cardinalitiesB = cardinalities().evaluate(b);
 
         //
         // Technically, both cardinalities at runtime must be the same. The question is if we can actually
@@ -155,8 +157,8 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
             return inPlanVsOtherOptional.getAsInt();
         }
 
-        final int typeFilterCountA = TypeFilterCountProperty.evaluate(a);
-        final int typeFilterCountB = TypeFilterCountProperty.evaluate(b);
+        final int typeFilterCountA = typeFilterCount().evaluate(a);
+        final int typeFilterCountB = typeFilterCount().evaluate(b);
 
         // special case
         // if one plan is a primary scan with a type filter and the other one is an index scan with the same number of
@@ -174,8 +176,8 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
             return typeFilterCountCompare;
         }
 
-        int typeFilterPositionCompare = Integer.compare(RelationalExpressionDepthProperty.TYPE_FILTER_DEPTH.evaluate(b),
-                RelationalExpressionDepthProperty.TYPE_FILTER_DEPTH.evaluate(a)); // prefer the one with a deeper type filter
+        // prefer the one with a deeper type filter
+        int typeFilterPositionCompare = Integer.compare(typeFilterDepth().evaluate(b), typeFilterDepth().evaluate(a));
         if (typeFilterPositionCompare != 0) {
             return typeFilterPositionCompare;
         }
@@ -193,8 +195,8 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
                 return numFetchesCompare;
             }
 
-            final int fetchDepthB = RelationalExpressionDepthProperty.FETCH_DEPTH.evaluate(b);
-            final int fetchDepthA = RelationalExpressionDepthProperty.FETCH_DEPTH.evaluate(a);
+            final int fetchDepthB = fetchDepth().evaluate(b);
+            final int fetchDepthA = fetchDepth().evaluate(a);
             int fetchPositionCompare = Integer.compare(fetchDepthA, fetchDepthB);
             if (fetchPositionCompare != 0) {
                 return fetchPositionCompare;
@@ -211,14 +213,14 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
             }
         }
 
-        int distinctFilterPositionCompare = Integer.compare(RelationalExpressionDepthProperty.DISTINCT_FILTER_DEPTH.evaluate(b),
-                RelationalExpressionDepthProperty.DISTINCT_FILTER_DEPTH.evaluate(a));
+        int distinctFilterPositionCompare = Integer.compare(ExpressionDepthProperty.distinctDepth().evaluate(b),
+                ExpressionDepthProperty.distinctDepth().evaluate(a));
         if (distinctFilterPositionCompare != 0) {
             return distinctFilterPositionCompare;
         }
 
-        int ufpA = UnmatchedFieldsCountProperty.evaluate(a);
-        int ufpB = UnmatchedFieldsCountProperty.evaluate(b);
+        int ufpA = unmatchedFieldsCount().evaluate(a);
+        int ufpB = unmatchedFieldsCount().evaluate(b);
         if (ufpA != ufpB) {
             return Integer.compare(ufpA, ufpB);
         }
@@ -266,9 +268,9 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
 
     @Nonnull
     private Cardinality maxOfMaxCardinalitiesOfAllDataAccesses(@Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> planOpsMap) {
-        return FindExpressionProperty.slice(planOpsMap, RecordQueryScanPlan.class, RecordQueryPlanWithIndex.class, RecordQueryCoveringIndexPlan.class)
+        return FindExpressionVisitor.slice(planOpsMap, RecordQueryScanPlan.class, RecordQueryPlanWithIndex.class, RecordQueryCoveringIndexPlan.class)
                 .stream()
-                .map(plan -> CardinalitiesProperty.evaluate(plan).getMaxCardinality())
+                .map(plan -> cardinalities().evaluate(plan).getMaxCardinality())
                 .reduce(Cardinality.ofCardinality(0),
                         (l, r) -> {
                             if (l.isUnknown()) {
@@ -314,8 +316,8 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
                 isSingularIndexScanWithFetch(planOpsMapIndexScan)) {
 
             if (typeFilterCountPrimaryScan > 0 && typeFilterCountIndexScan == 0) {
-                final var primaryScanComparisons = ComparisonsProperty.evaluate(primaryScan);
-                final var indexScanComparisons = ComparisonsProperty.evaluate(indexScan);
+                final var primaryScanComparisons = comparisons().evaluate(primaryScan);
+                final var indexScanComparisons = comparisons().evaluate(indexScan);
 
                 //
                 // The primary scan side has a type filter in it, the index scan side does not. The primary side
@@ -373,7 +375,7 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
         
         // If no scan comparison on the in union side uses a comparison to the in-values, then the in union
         // plan is not useful.
-        final Set<Comparisons.Comparison> scanComparisonsSet = ComparisonsProperty.evaluate(leftExpression);
+        final Set<Comparisons.Comparison> scanComparisonsSet = comparisons().evaluate(leftExpression);
 
         final ImmutableSet<CorrelationIdentifier> scanComparisonsCorrelatedTo =
                 scanComparisonsSet
@@ -429,6 +431,6 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
 
     @SafeVarargs
     private static int count(@Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> expressionsMap, @Nonnull final Class<? extends RelationalExpression>... interestingClasses) {
-        return FindExpressionProperty.slice(expressionsMap, interestingClasses).size();
+        return FindExpressionVisitor.slice(expressionsMap, interestingClasses).size();
     }
 }

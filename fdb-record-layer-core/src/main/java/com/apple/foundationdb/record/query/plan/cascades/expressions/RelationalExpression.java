@@ -46,8 +46,9 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
-import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.BoundMatch;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.MatchFunction;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.MatchPredicate;
@@ -829,16 +830,16 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     }
 
     /**
-     * Apply the given property visitor to this planner expression and its children. Returns {@code null} if
-     * {@link ExpressionProperty#shouldVisit(RelationalExpression)} called on this expression returns {@code false}.
-     * @param visitor a {@link ExpressionProperty} visitor to evaluate
+     * Apply the given visitor to this planner expression and its children. Returns {@code null} if
+     * {@link SimpleExpressionVisitor#shouldVisit(RelationalExpression)} called on this expression returns {@code false}.
+     * @param simpleExpressionVisitor a {@link ExpressionProperty} visitor to evaluate
      * @param <U> the type of the evaluated property
      * @return the result of evaluating the property on the subtree rooted at this expression
      */
     @Nullable
-    default <U> U acceptPropertyVisitor(@Nonnull ExpressionProperty<U> visitor) {
-        if (visitor.shouldVisit(this)) {
-            return visitor.visit(this);
+    default <U> U acceptVisitor(@Nonnull SimpleExpressionVisitor<U> simpleExpressionVisitor) {
+        if (simpleExpressionVisitor.shouldVisit(this)) {
+            return simpleExpressionVisitor.visit(this);
         }
         return null;
     }
@@ -852,6 +853,6 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      */
     @Nonnull
     default String show(final boolean renderSingleGroups) {
-        return PlannerGraphProperty.show(renderSingleGroups, this);
+        return PlannerGraphVisitor.show(renderSingleGroups, this);
     }
 }

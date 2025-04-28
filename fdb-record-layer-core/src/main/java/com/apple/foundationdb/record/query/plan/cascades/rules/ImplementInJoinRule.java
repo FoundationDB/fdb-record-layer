@@ -34,7 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
-import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
+import com.apple.foundationdb.record.query.plan.cascades.PlanPartitions;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
@@ -141,10 +141,10 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
                 computeQuantifierToExplodeMap(explodeQuantifiers, explodeExpressions.stream().collect(LinkedIdentitySet.toLinkedIdentitySet()));
         
         final var innerReference = innerQuantifier.getRangesOver();
-        final var planPartitions = PlanPartition.rollUpTo(innerReference.getPlanPartitions(), OrderingProperty.ORDERING);
+        final var planPartitions = PlanPartitions.rollUpTo(innerReference.toPlanPartitions(), OrderingProperty.ordering());
 
         for (final var planPartition  : planPartitions) {
-            final var providedOrdering = planPartition.getAttributeValue(OrderingProperty.ORDERING);
+            final var providedOrdering = planPartition.getPropertyValue(OrderingProperty.ordering());
 
             for (final RequestedOrdering requestedOrdering : requestedOrderings) {
                 final var sourcesStream =

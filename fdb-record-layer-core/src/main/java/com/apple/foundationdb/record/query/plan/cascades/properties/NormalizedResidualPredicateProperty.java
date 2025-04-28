@@ -23,8 +23,8 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
@@ -49,64 +49,83 @@ import java.util.Objects;
  * filter factor. Note that such a number can always be computed without actually materializing the CNF.
  */
 @API(API.Status.EXPERIMENTAL)
-public class NormalizedResidualPredicateProperty implements ExpressionProperty<QueryPredicate>, RelationalExpressionVisitorWithDefaults<QueryPredicate> {
+public class NormalizedResidualPredicateProperty implements ExpressionProperty<QueryPredicate> {
     @Nonnull
-    private static final NormalizedResidualPredicateProperty INSTANCE = new NormalizedResidualPredicateProperty();
+    private static final NormalizedResidualPredicateProperty NORMALIZED_RESIDUAL_PREDICATE =
+            new NormalizedResidualPredicateProperty();
 
-    @Nonnull
-    @Override
-    public QueryPredicate visitRecordQueryUnionOnValuesPlan(@Nonnull final RecordQueryUnionOnValuesPlan unionPlan) {
-        final var predicatesFromQuantifiers = visitQuantifiers(unionPlan).stream()
-                .filter(Objects::nonNull)
-                .filter(predicate -> !predicate.isTautology())
-                .collect(ImmutableList.toImmutableList());
-        return OrPredicate.orOrTrue(predicatesFromQuantifiers);
+    private NormalizedResidualPredicateProperty() {
+        // prevent outside instantiation
     }
 
     @Nonnull
     @Override
-    public QueryPredicate evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<QueryPredicate> childResults) {
-        final var resultPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
-
-        childResults.stream()
-                .filter(Objects::nonNull)
-                .filter(predicate -> !predicate.isTautology())
-                .forEach(resultPredicatesBuilder::add);
-
-        if (expression instanceof RelationalExpressionWithPredicates) {
-            ((RelationalExpressionWithPredicates)expression).getPredicates()
-                    .stream()
-                    .filter(predicate -> !predicate.isTautology())
-                    .forEach(resultPredicatesBuilder::add);
-        }
-
-        return AndPredicate.and(resultPredicatesBuilder.build());
+    public NormalizedResidualPredicateVisitor createVisitor() {
+        return new NormalizedResidualPredicateVisitor();
     }
 
     @Nonnull
-    @Override
-    public QueryPredicate evaluateAtRef(@Nonnull Reference ref, @Nonnull List<QueryPredicate> memberResults) {
-        Verify.verify(memberResults.size() == 1);
-        return Iterables.getOnlyElement(memberResults);
+    public QueryPredicate evaluate(@Nonnull final Reference reference) {
+        return Objects.requireNonNull(reference.acceptVisitor(createVisitor()));
     }
 
     @Nonnull
-    public static QueryPredicate evaluate(Reference ref) {
-        return Verify.verifyNotNull(ref.acceptPropertyVisitor(INSTANCE));
+    public QueryPredicate evaluate(@Nonnull final RelationalExpression expression) {
+        return Objects.requireNonNull(expression.acceptVisitor(createVisitor()));
     }
 
     @Nonnull
-    public static QueryPredicate evaluate(@Nonnull RelationalExpression expression) {
-        return Verify.verifyNotNull(expression.acceptPropertyVisitor(INSTANCE));
+    public static NormalizedResidualPredicateProperty normalizedResidualPredicate() {
+        return NORMALIZED_RESIDUAL_PREDICATE;
     }
 
     public static long countNormalizedConjuncts(@Nonnull RelationalExpression expression) {
-        final var magicPredicate = evaluate(expression);
+        final var magicPredicate = normalizedResidualPredicate().evaluate(expression);
         return magicPredicate.isTautology()
                ? 0
                : BooleanPredicateNormalizer
                        .getDefaultInstanceForCnf()
                        .getMetrics(magicPredicate)
                        .getNormalFormFullSize();
+    }
+
+    public static class NormalizedResidualPredicateVisitor implements SimpleExpressionVisitor<QueryPredicate> {
+        @Nonnull
+        @Override
+        public QueryPredicate visitRecordQueryUnionOnValuesPlan(@Nonnull final RecordQueryUnionOnValuesPlan unionPlan) {
+            final var predicatesFromQuantifiers = visitQuantifiers(unionPlan).stream()
+                    .filter(Objects::nonNull)
+                    .filter(predicate -> !predicate.isTautology())
+                    .collect(ImmutableList.toImmutableList());
+            return OrPredicate.orOrTrue(predicatesFromQuantifiers);
+        }
+
+        @Nonnull
+        @Override
+        public QueryPredicate evaluateAtExpression(@Nonnull final RelationalExpression expression,
+                                                   @Nonnull final List<QueryPredicate> childResults) {
+            final var resultPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
+
+            childResults.stream()
+                    .filter(Objects::nonNull)
+                    .filter(predicate -> !predicate.isTautology())
+                    .forEach(resultPredicatesBuilder::add);
+
+            if (expression instanceof RelationalExpressionWithPredicates) {
+                ((RelationalExpressionWithPredicates)expression).getPredicates()
+                        .stream()
+                        .filter(predicate -> !predicate.isTautology())
+                        .forEach(resultPredicatesBuilder::add);
+            }
+            return AndPredicate.and(resultPredicatesBuilder.build());
+        }
+
+        @Nonnull
+        @Override
+        public QueryPredicate evaluateAtRef(@Nonnull final Reference ref,
+                                            @Nonnull final List<QueryPredicate> memberResults) {
+            Verify.verify(memberResults.size() == 1);
+            return Iterables.getOnlyElement(memberResults);
+        }
     }
 }
