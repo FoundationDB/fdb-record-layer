@@ -20,17 +20,14 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
-import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -45,14 +42,12 @@ import javax.annotation.Nonnull;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Test that the rule for combining logical filter expressions does precisely what is expected of it.
  */
 public class CombineFilterRuleTest {
-    private static CascadesRule<LogicalFilterExpression> rule = new CombineFilterRule();
-    private static PlanContext blankContext = new FakePlanContext();
+    private static final RuleTestHelper testHelper = new RuleTestHelper(new CombineFilterRule());
 
     private static Type type = Type.Record.fromFields(false,
             ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("testField")),
@@ -85,12 +80,9 @@ public class CombineFilterRuleTest {
         for (RecordQueryPlan basePlan : basePlans) {
             QueryComponent filter1 = Query.field("testField").equalsValue(5);
             QueryComponent filter2 = Query.field("testField2").equalsValue(10);
-            Reference root = Reference.of(
-                    buildLogicalFilter(filter1, buildLogicalFilter(filter2, basePlan)));
-            TestRuleExecution execution = TestRuleExecution.applyRule(blankContext, rule, root, EvaluationContext.empty());
-            assertTrue(execution.isRuleMatched());
-            assertTrue(execution.getResult().containsInMemo(
-                    buildLogicalFilter(Query.and(filter1, filter2), basePlan)));
+            testHelper.assertYields(
+                    buildLogicalFilter(filter1, buildLogicalFilter(filter2, basePlan)),
+                    buildLogicalFilter(Query.and(filter1, filter2), basePlan));
         }
     }
 
@@ -98,13 +90,12 @@ public class CombineFilterRuleTest {
     public void doesNotCoalesce() {
         for (RecordQueryPlan basePlan : basePlans) {
             QueryComponent filter1 = Query.field("testField").equalsValue(5);
-            Reference root = Reference.of(
-                    buildLogicalFilter(filter1, buildLogicalFilter(filter1, basePlan)));
-            TestRuleExecution execution = TestRuleExecution.applyRule(blankContext, rule, root, EvaluationContext.empty());
-            assertTrue(execution.isRuleMatched());
+            TestRuleExecution execution = testHelper.assertYields(
+                    buildLogicalFilter(filter1, buildLogicalFilter(filter1, basePlan)),
+                    buildLogicalFilter(Query.and(filter1, filter1), basePlan));
+
             // this rule should not try to coalesce the two filters
-            assertTrue(root.containsInMemo(buildLogicalFilter(Query.and(filter1, filter1), basePlan)));
-            assertFalse(root.containsInMemo(buildLogicalFilter(filter1, basePlan)));
+            assertFalse(execution.getResult().containsInMemo(buildLogicalFilter(filter1, basePlan)));
         }
     }
 
@@ -112,10 +103,7 @@ public class CombineFilterRuleTest {
     public void doesNotMatchSingleFilter() {
         for (RecordQueryPlan basePlan : basePlans) {
             QueryComponent filter1 = Query.field("testField").equalsValue(5);
-            Reference root = Reference.of(
-                    buildLogicalFilter(filter1, basePlan));
-            TestRuleExecution execution = TestRuleExecution.applyRule(blankContext, rule, root, EvaluationContext.empty());
-            assertFalse(execution.isRuleMatched());
+            testHelper.assertYieldsNothing(buildLogicalFilter(filter1, basePlan), false);
         }
     }
 }
