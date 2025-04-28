@@ -26,13 +26,18 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record;
@@ -42,6 +47,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -51,8 +57,10 @@ import org.junit.jupiter.api.Tag;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -63,12 +71,25 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 @Tag(Tags.RequiresFDB)
 public class FDBQueryGraphTestHelpers extends FDBRecordStoreQueryTestBase {
     @Nonnull
+    public static Quantifier forEach(RelationalExpression relationalExpression) {
+        return Quantifier.forEach(Reference.of(relationalExpression));
+    }
+
+    @Nonnull
+    public static Quantifier forEachWithNullOnEmpty(RelationalExpression relationalExpression) {
+        return Quantifier.forEachWithNullOnEmpty(Reference.of(relationalExpression));
+    }
+
+    @Nonnull
+    public static Quantifier exists(RelationalExpression relationalExpression) {
+        return Quantifier.existential(Reference.of(relationalExpression));
+    }
+
+    @Nonnull
     public static Quantifier fullScan(@Nonnull RecordMetaData metaData, AccessHints hints) {
         Set<String> allRecordTypes = ImmutableSet.copyOf(metaData.getRecordTypes().keySet());
-        return Quantifier.forEach(Reference.of(
-                new FullUnorderedScanExpression(allRecordTypes,
-                        new Type.AnyRecord(false),
-                        hints)));
+        return forEach(
+                new FullUnorderedScanExpression(allRecordTypes, new Type.AnyRecord(false), hints));
     }
 
     @Nonnull
@@ -78,15 +99,33 @@ public class FDBQueryGraphTestHelpers extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     public static Quantifier fullTypeScan(@Nonnull RecordMetaData metaData, @Nonnull String typeName, @Nonnull Quantifier fullScanQun) {
-        return Quantifier.forEach(Reference.of(
+        return forEach(
                 new LogicalTypeFilterExpression(ImmutableSet.of(typeName),
                         fullScanQun,
-                        Record.fromDescriptor(metaData.getRecordType(typeName).getDescriptor()))));
+                        Record.fromDescriptor(metaData.getRecordType(typeName).getDescriptor())));
     }
 
     @Nonnull
     public static Quantifier fullTypeScan(@Nonnull RecordMetaData metaData, @Nonnull String typeName) {
         return fullTypeScan(metaData, typeName, fullScan(metaData));
+    }
+
+    @Nonnull
+    public static FieldValue fieldValue(Value value, String fieldName) {
+        int dotPos = fieldName.indexOf('.');
+        if (dotPos >= 0) {
+            String parentFieldName = fieldName.substring(0, dotPos);
+            FieldValue parentField = FieldValue.ofFieldNameAndFuseIfPossible(value, parentFieldName);
+            String childFieldName = fieldName.substring(dotPos + 1);
+            return fieldValue(parentField, childFieldName);
+        } else {
+            return FieldValue.ofFieldNameAndFuseIfPossible(value, fieldName);
+        }
+    }
+
+    @Nonnull
+    public static FieldValue fieldValue(Quantifier qun, String fieldName) {
+        return fieldValue(qun.getFlowedObjectValue(), fieldName);
     }
 
     @Nonnull
@@ -96,7 +135,12 @@ public class FDBQueryGraphTestHelpers extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     public static Column<FieldValue> projectColumn(@Nonnull Value value, @Nonnull String columnName) {
-        return Column.of(Optional.of(columnName), FieldValue.ofFieldNameAndFuseIfPossible(value, columnName));
+        return Column.of(Optional.of(columnName), fieldValue(value, columnName));
+    }
+
+    @Nonnull
+    public static Column<FieldValue> column(@Nonnull Quantifier qun, @Nonnull String fieldName, @Nonnull String resultName) {
+        return resultColumn(fieldValue(qun, fieldName), resultName);
     }
 
     @Nonnull
@@ -140,9 +184,35 @@ public class FDBQueryGraphTestHelpers extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
+    public static QueryPredicate fieldPredicate(Quantifier qun, String fieldName, Comparisons.Comparison comparison) {
+        return fieldValue(qun, fieldName).withComparison(comparison);
+    }
+
+    @Nonnull
+    public static SelectExpression selectWithPredicates(Quantifier qun, Map<String, String> projection, QueryPredicate... predicates) {
+        GraphExpansion.Builder builder = GraphExpansion.builder().addQuantifier(qun);
+        for (Map.Entry<String, String> p : projection.entrySet()) {
+            builder.addResultColumn(column(qun, p.getKey(), p.getValue()));
+        }
+        builder.addAllPredicates(List.of(predicates));
+        return builder.build().buildSelect();
+    }
+
+    @Nonnull
+    public static SelectExpression selectWithPredicates(Quantifier qun, List<String> projection, QueryPredicate... predicates) {
+        Map<String, String> identityProjectionMap = projection.stream().collect(ImmutableMap.toImmutableMap(Function.identity(), Function.identity()));
+        return selectWithPredicates(qun, identityProjectionMap, predicates);
+    }
+
+    @Nonnull
+    public static SelectExpression selectWithPredicates(Quantifier qun, QueryPredicate... predicates) {
+        return new SelectExpression(qun.getFlowedObjectValue(), List.of(qun), List.of(predicates));
+    }
+
+    @Nonnull
     public static LogicalSortExpression sortExpression(@Nonnull List<Value> sortValues,
-                                                final boolean reverse,
-                                                @Nonnull final Quantifier inner) {
+                                                       final boolean reverse,
+                                                       @Nonnull final Quantifier inner) {
         return new LogicalSortExpression(LogicalSortExpression.buildRequestedOrdering(sortValues, reverse, inner), inner);
     }
 }

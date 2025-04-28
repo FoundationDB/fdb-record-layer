@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -32,24 +31,18 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import org.assertj.core.api.Assertions;
 import org.assertj.core.api.AutoCloseableSoftAssertions;
 
 import javax.annotation.Nonnull;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 
-public class RewriteRuleTestHelper {
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.forEach;
+
+public class RuleTestHelper {
     @Nonnull
     public static final Comparisons.Comparison EQUALS_42 = new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 42L);
     @Nonnull
@@ -87,16 +80,6 @@ public class RewriteRuleTestHelper {
     ));
 
     @Nonnull
-    public static Quantifier forEach(RelationalExpression relationalExpression) {
-        return Quantifier.forEach(Reference.of(relationalExpression));
-    }
-
-    @Nonnull
-    public static Quantifier exists(RelationalExpression relationalExpression) {
-        return Quantifier.existential(Reference.of(relationalExpression));
-    }
-
-    @Nonnull
     public static Quantifier fuseQun() {
         return forEach(new FullUnorderedScanExpression(ImmutableSet.of("T", "TAU"), Type.Record.fromFields(ImmutableList.of()), new AccessHints()));
     }
@@ -112,91 +95,45 @@ public class RewriteRuleTestHelper {
     }
 
     @Nonnull
-    public static FieldValue fieldValue(Value value, String fieldName) {
-        int dotPos = fieldName.indexOf('.');
-        if (dotPos >= 0) {
-            String parentFieldName = fieldName.substring(0, dotPos);
-            FieldValue parentField = FieldValue.ofFieldNameAndFuseIfPossible(value, parentFieldName);
-            String childFieldName = fieldName.substring(dotPos + 1);
-            return fieldValue(parentField, childFieldName);
-        } else {
-            return FieldValue.ofFieldNameAndFuseIfPossible(value, fieldName);
-        }
-    }
-
-    @Nonnull
-    public static FieldValue fieldValue(Quantifier qun, String fieldName) {
-        return fieldValue(qun.getFlowedObjectValue(), fieldName);
-    }
-
-    @Nonnull
-    public static QueryPredicate fieldPredicate(Quantifier qun, String fieldName, Comparisons.Comparison comparison) {
-        return fieldValue(qun, fieldName).withComparison(comparison);
-    }
-
-    @Nonnull
     public static GraphExpansion.Builder join(Quantifier... quns) {
         return GraphExpansion.builder().addAllQuantifiers(List.of(quns));
     }
 
     @Nonnull
-    public static Column<FieldValue> column(@Nonnull Quantifier qun, @Nonnull String fieldName, @Nonnull String resultName) {
-        return Column.of(Optional.of(resultName), fieldValue(qun, fieldName));
-    }
-
-    @Nonnull
-    public static Column<FieldValue> column(@Nonnull Quantifier qun, @Nonnull String fieldName) {
-        return column(qun, fieldName, fieldName);
-    }
-
-    @Nonnull
-    public static SelectExpression selectWithPredicates(Quantifier qun, Map<String, String> projection, QueryPredicate... predicates) {
-        GraphExpansion.Builder builder = GraphExpansion.builder().addQuantifier(qun);
-        for (Map.Entry<String, String> p : projection.entrySet()) {
-            builder.addResultColumn(column(qun, p.getKey(), p.getValue()));
-        }
-        builder.addAllPredicates(List.of(predicates));
-        return builder.build().buildSelect();
-    }
-
-    @Nonnull
-    public static SelectExpression selectWithPredicates(Quantifier qun, List<String> projection, QueryPredicate... predicates) {
-        Map<String, String> identityProjectionMap = projection.stream().collect(ImmutableMap.toImmutableMap(Function.identity(), Function.identity()));
-        return selectWithPredicates(qun, identityProjectionMap, predicates);
-    }
-
-    @Nonnull
-    public static SelectExpression selectWithPredicates(Quantifier qun, QueryPredicate... predicates) {
-        return new SelectExpression(qun.getFlowedObjectValue(), List.of(qun), List.of(predicates));
-    }
-
-    @Nonnull
     private final CascadesRule<? extends RelationalExpression> rule;
 
-    public RewriteRuleTestHelper(@Nonnull CascadesRule<? extends RelationalExpression> rule) {
+    public RuleTestHelper(@Nonnull CascadesRule<? extends RelationalExpression> rule) {
         this.rule = rule;
     }
 
     @Nonnull
-    private Reference runRewrite(RelationalExpression original) {
+    private TestRuleExecution run(RelationalExpression original) {
         Reference ref = Reference.of(original);
         PlanContext planContext = new FakePlanContext();
-        TestRuleExecution ruleExecution = TestRuleExecution.applyRule(planContext, rule, ref, EvaluationContext.EMPTY);
-        return ref;
+        return TestRuleExecution.applyRule(planContext, rule, ref, EvaluationContext.EMPTY);
     }
 
-    public void assertYields(RelationalExpression original, RelationalExpression... expected) {
-        Reference ref = runRewrite(original);
+    @Nonnull
+    public TestRuleExecution assertYields(RelationalExpression original, RelationalExpression... expected) {
+        TestRuleExecution execution = run(original);
         try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
-            softly.assertThat(ref.getMembers())
+            softly.assertThat(execution.getResult().getMembers())
                     .hasSize(1 + expected.length)
                     .containsAll(List.of(expected));
         }
+        return execution;
     }
 
-    public void assertYieldsNothing(RelationalExpression original) {
-        Reference ref = runRewrite(original);
-        Assertions.assertThat(ref.getMembers())
-                .containsExactly(original);
+    @Nonnull
+    public TestRuleExecution assertYieldsNothing(RelationalExpression original, boolean matched) {
+        TestRuleExecution execution = run(original);
+        try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
+            softly.assertThat(execution.getResult().getMembers())
+                    .containsExactly(original);
+            softly.assertThat(execution.isRuleMatched())
+                    .as("rule should %shave been matched", matched ? "" : "not ")
+                    .isEqualTo(matched);
+        }
+        return execution;
     }
 }

@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb.query;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecords4WrapperProto;
 import com.apple.foundationdb.record.metadata.Index;
@@ -53,12 +54,15 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Tag;
@@ -71,10 +75,15 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.executeCascades;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fieldPredicate;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.forEach;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.forEachWithNullOnEmpty;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fullScan;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fullTypeScan;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.projectColumn;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.resultColumn;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.selectWithPredicates;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.sortExpression;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.anyValueComparison;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.equalities;
@@ -106,6 +115,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
@@ -187,17 +197,10 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 () -> {
                     var qun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
 
-                    final var graphExpansionBuilder = GraphExpansion.builder();
-
-                    graphExpansionBuilder.addQuantifier(qun);
-                    final var nameValue =
-                            FieldValue.ofFieldName(qun.getFlowedObjectValue(), "name");
-                    final var restNoValue =
-                            FieldValue.ofFieldName(qun.getFlowedObjectValue(), "rest_no");
-                    graphExpansionBuilder.addPredicate(new ValuePredicate(restNoValue, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1L)));
-                    graphExpansionBuilder.addResultColumn(resultColumn(nameValue, "nameNew"));
-                    graphExpansionBuilder.addResultColumn(resultColumn(restNoValue, "restNoNew"));
-                    qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
+                    qun = forEach(selectWithPredicates(qun,
+                            ImmutableMap.of("name", "nameNew", "rest_no", "restNoNew"),
+                            fieldPredicate(qun, "rest_no", new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1L))
+                    ));
                     return Reference.of(LogicalSortExpression.unsorted(qun));
                 });
         assertMatchesExactly(plan,
@@ -206,6 +209,72 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                                 scanPlan()
                                         .where(scanComparisons(range("([1],>")))))
                         .where(mapResult(recordConstructorValue(exactly(fieldValueWithFieldNames("name"), fieldValueWithFieldNames("rest_no"))))));
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void testPlanQueryOnRestNoWithNullOnEmpty() {
+        CascadesPlanner cascadesPlanner = setUp();
+        final var plan = planGraph(
+                () -> {
+                    var qun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
+
+                    qun = forEachWithNullOnEmpty(selectWithPredicates(qun,
+                            ImmutableList.of("rest_no", "name"),
+                            fieldPredicate(qun, "rest_no", new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1_000_000L))
+                    ));
+                    return Reference.of(LogicalSortExpression.unsorted(qun));
+                });
+
+        // Note: this is a bug as the "null on empty" part of the quantifier is dropped
+        assertMatchesExactly(plan,
+                mapPlan(
+                        typeFilterPlan(
+                                scanPlan()
+                                        .where(scanComparisons(range("([1000000],>")))))
+                        .where(mapResult(recordConstructorValue(exactly(fieldValueWithFieldNames("rest_no"), fieldValueWithFieldNames("name"))))));
+
+        try (FDBRecordContext context = openContext()) {
+            openNestedRecordStore(context);
+
+            // Note: this should return a single null value rather than an empty list
+            try (RecordCursor<QueryResult> cursor = executeCascades(recordStore, plan)) {
+                List<QueryResult> results = cursor.asList().join();
+                assertThat(results, Matchers.empty());
+            }
+        }
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void testPlanQueryOnNameWithNullOnEmpty() {
+        CascadesPlanner cascadesPlanner = setUp();
+        final var plan = planGraph(
+                () -> {
+                    var qun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
+
+                    qun = forEachWithNullOnEmpty(selectWithPredicates(qun,
+                            ImmutableList.of("rest_no", "name"),
+                            fieldPredicate(qun, "name", new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "not_in_db"))
+                    ));
+                    return Reference.of(LogicalSortExpression.unsorted(qun));
+                });
+
+        // Note: this is a bug as the "null on empty" part of the quantifier is dropped
+        assertMatchesExactly(plan,
+                mapPlan(
+                        coveringIndexPlan()
+                                .where(indexPlanOf(indexPlan().where(indexName("RestaurantRecord$name")).and(scanComparisons(range("[[not_in_db],[not_in_db]]")))))
+                ).where(mapResult(recordConstructorValue(exactly(fieldValueWithFieldNames("rest_no"), fieldValueWithFieldNames("name")))))
+        );
+
+        try (FDBRecordContext context = openContext()) {
+            openNestedRecordStore(context);
+
+            // Note: this should return a single null value rather than an empty list
+            try (RecordCursor<QueryResult> cursor = executeCascades(recordStore, plan)) {
+                List<QueryResult> results = cursor.asList().join();
+                assertThat(results, Matchers.empty());
+            }
+        }
     }
 
     /**

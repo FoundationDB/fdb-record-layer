@@ -23,9 +23,9 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Traversal;
-import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 

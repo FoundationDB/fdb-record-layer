@@ -265,6 +265,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public QueryPredicate translateValues(@Nonnull TranslationMap translationMap) {
         Value newValue = value.translateCorrelations(translationMap, true);
         ImmutableSet.Builder<RangeConstraints> newRangeBuilder = ImmutableSet.builder();

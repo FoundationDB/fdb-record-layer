@@ -51,6 +51,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
@@ -58,18 +59,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.EQUALS_42;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.EQUALS_PARAM;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.GREATER_THAN_HELLO;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.baseT;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.baseTau;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.column;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.exists;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.fieldPredicate;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.fieldValue;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.forEach;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.join;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RewriteRuleTestHelper.selectWithPredicates;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.column;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.exists;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fieldPredicate;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fieldValue;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.forEach;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.forEachWithNullOnEmpty;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.projectColumn;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.selectWithPredicates;
+import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.EQUALS_42;
+import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.EQUALS_PARAM;
+import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.GREATER_THAN_HELLO;
+import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.baseT;
+import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.baseTau;
+import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.join;
 
 /**
  * Tests of the {@link PredicatePushDownRule}. These operate by constructing expressions that
@@ -80,7 +83,7 @@ public class PredicatePushDownRuleTest {
     @Nonnull
     private static final PredicatePushDownRule rule = new PredicatePushDownRule();
     @Nonnull
-    private static final RewriteRuleTestHelper testHelper = new RewriteRuleTestHelper(rule);
+    private static final RuleTestHelper testHelper = new RuleTestHelper(rule);
 
     @BeforeEach
     void setUp() {
@@ -236,7 +239,7 @@ public class PredicatePushDownRuleTest {
                 baseQun, List.of("a", "b", "c"),
                 fieldPredicate(baseQun, "b", GREATER_THAN_HELLO));
 
-        testHelper.assertYieldsNothing(singleExpression);
+        testHelper.assertYieldsNothing(singleExpression, true);
     }
 
     /**
@@ -430,8 +433,8 @@ public class PredicatePushDownRuleTest {
                 explodeQun, List.of("two", "three")
         ));
         SelectExpression topSelect = join(baseQun, nestedSelectQun)
-                .addResultColumn(column(baseQun, "a"))
-                .addResultColumn(column(nestedSelectQun, "three"))
+                .addResultColumn(projectColumn(baseQun, "a"))
+                .addResultColumn(projectColumn(nestedSelectQun, "three"))
                 .addPredicate(fieldPredicate(baseQun, "b", GREATER_THAN_HELLO))
                 .addPredicate(fieldPredicate(nestedSelectQun, "two", EQUALS_PARAM))
                 .build()
@@ -442,8 +445,8 @@ public class PredicatePushDownRuleTest {
                 fieldPredicate(explodeQun, "two", EQUALS_PARAM)
         ));
         SelectExpression newTopSelect = join(baseQun, newNestedSelectQun)
-                .addResultColumn(column(baseQun, "a"))
-                .addResultColumn(column(newNestedSelectQun, "three"))
+                .addResultColumn(projectColumn(baseQun, "a"))
+                .addResultColumn(projectColumn(newNestedSelectQun, "three"))
                 .addPredicate(fieldPredicate(baseQun, "b", GREATER_THAN_HELLO))
                 .build()
                 .buildSelect();
@@ -461,13 +464,13 @@ public class PredicatePushDownRuleTest {
                 fieldPredicate(explodeQun, "two", GREATER_THAN_HELLO)
         ));
         SelectExpression topSelect = join(baseQun, nestedExistsQun)
-                .addResultColumn(column(baseQun, "a"))
+                .addResultColumn(projectColumn(baseQun, "a"))
                 .addPredicate(new ExistsPredicate(nestedExistsQun.getAlias()))
                 .addPredicate(fieldPredicate(baseQun, "b", GREATER_THAN_HELLO))
                 .build()
                 .buildSelect();
 
-        testHelper.assertYieldsNothing(topSelect);
+        testHelper.assertYieldsNothing(topSelect, true);
     }
 
     /**
@@ -588,6 +591,94 @@ public class PredicatePushDownRuleTest {
     }
 
     /**
+     * Do not push through a for each quantifier with null-on-empty semantics. The reason for this is that
+     * pushing down the predicate can change whether the quantifier returns empty or not. For example,
+     * the query in the test is:
+     * <pre>{@code
+     * SELECT a, c
+     *   FROM (SELECT a, b, c FROM t WHERE starts_with(d, 'blah')) OR ELSE NULL
+     *   WHERE b = 'bar'
+     * }</pre>
+     * <p>
+     * Suppose there is only one element in {@code t} that satisfies the predicate on {@code d}, and
+     * suppose further that {@code b} does not equal {@code "bar"} on that row. Then the initial query
+     * would return no results (as the single row would be returned by the lower select and then filtered
+     * out by the {@code b = 'bar'} filter). If it were to be rewritten the same way as other select
+     * queries are, say:
+     * </p>
+     * <pre>{@code
+     * SELECT a, c
+     *   FROM (SELECT a, b, c FROM t WHERE starts_with(d, 'blah') AND b = 'bar') OR ELSE NULL
+     * }</pre>
+     * <p>
+     * Then the underlying query would return zero results, so we'd get back a single {@code null}
+     * value back. We could theoretically re-apply the predicate, something like:
+     * </p>
+     * <pre>{@code
+     * SELECT a, c
+     *   FROM (SELECT a, b, c FROM t WHERE starts_with(d, 'blah') AND b = 'bar') OR ELSE NULL
+     *   WHERE b = 'bar'
+     * }</pre>
+     * <p>
+     * And that works here because the {@code b} predicate can never be true if the underlying quantifier
+     * returned an injected {@code null}. However, if the predicate were {@code b IS NULL}, we'd have a harder
+     * time, as we'd be unable to validate whether the result from the lower select was {@code null} because
+     * there was an all-null row or if the null came from
+     * </p>
+     */
+    @Test
+    void doNotPushIntoSelectWithNullOnEmpty() {
+        Quantifier baseQun = baseT();
+
+        SelectExpression lowerSelect = selectWithPredicates(baseQun,
+                ImmutableList.of("a", "b", "c"),
+                fieldPredicate(baseQun, "d", new Comparisons.SimpleComparison(Comparisons.Type.STARTS_WITH, "blah"))
+        );
+        Quantifier lowerQun = Quantifier.forEachWithNullOnEmpty(Reference.of(lowerSelect));
+
+        SelectExpression higher = selectWithPredicates(lowerQun,
+                ImmutableList.of("a", "c"),
+                fieldPredicate(lowerQun, "b", new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "bar"))
+        );
+
+        // The rule shouldn't even match if there are only null-on-empty quantifiers.
+        // If this assert fails because we start inspecting this kind of expression more,
+        // that's fine, but we may need additional test coverage
+        testHelper.assertYieldsNothing(higher, false);
+    }
+
+    /**
+     * Similar to {@link #doNotPushIntoSelectWithNullOnEmpty()}, but the predicate is {@code IS NULL}. This has
+     * some extra complexity, as if it gets pushed down, that it can end up returning a {@code null} value back,
+     * and so we have to guard against the possibility of us evaluating the {@code IS NULL} as {@code true} and
+     * returning a result. The query in question here is similar to the one in {@link #doNotPushIntoSelectWithNullOnEmpty()},
+     * but the predicate is a null check which means that unlike in the other case, it is definitely not
+     * sufficient to re-apply the predicate in the top-level select:
+     * <pre>{@code
+     * SELECT a, c
+     *   FROM (SELECT a, b, c, d, WHERE starts_with(d, 'blah') OR ELSE NULL
+     *   WHERE b IS NULL
+     * }</pre>
+     */
+    @Test
+    void doNotPushNullCheckIntoSelectWithNullOnEmpty() {
+        Quantifier baseQun = baseT();
+
+        SelectExpression lowerSelect = selectWithPredicates(baseQun,
+                ImmutableList.of("a", "b", "c", "d"),
+                fieldPredicate(baseQun, "d", new Comparisons.SimpleComparison(Comparisons.Type.STARTS_WITH, "blah"))
+        );
+        Quantifier lowerQun = Quantifier.forEachWithNullOnEmpty(Reference.of(lowerSelect));
+
+        SelectExpression higher = selectWithPredicates(lowerQun,
+                ImmutableList.of("a", "c"),
+                fieldPredicate(lowerQun, "b", new Comparisons.NullComparison(Comparisons.Type.IS_NULL))
+        );
+
+        testHelper.assertYieldsNothing(higher, false);
+    }
+
+    /**
      * Test a rewrite where field names have been moved around by the lower select. So something like:
      * <pre>{@code
      * SELECT y FROM (SELECT a AS x, b AS y FROM T) WHERE x = 42 AND y > 'hello'
@@ -688,7 +779,7 @@ public class PredicatePushDownRuleTest {
                 .build()
                 .buildSelect();
 
-        testHelper.assertYieldsNothing(higher);
+        testHelper.assertYieldsNothing(higher, true);
     }
 
     /**
@@ -725,7 +816,7 @@ public class PredicatePushDownRuleTest {
                 .build()
                 .buildSelect();
 
-        testHelper.assertYieldsNothing(higher);
+        testHelper.assertYieldsNothing(higher, true);
     }
 
     /**
@@ -931,7 +1022,8 @@ public class PredicatePushDownRuleTest {
     }
 
     private <R extends RelationalExpression> void pushThroughSingleton(@Nonnull Function<Quantifier, R> wrap) {
-        Quantifier base = baseT();
+        // Simple case: select on top of wrapped base. Push predicate through expression
+        final Quantifier base = baseT();
 
         Quantifier wrapped = forEach(wrap.apply(base));
         SelectExpression select = selectWithPredicates(
@@ -945,6 +1037,27 @@ public class PredicatePushDownRuleTest {
         SelectExpression newSelect = selectWithPredicates(newWrapped, List.of("a", "b"));
 
         testHelper.assertYields(select, newSelect);
+
+        // Slightly more involved: the inner select is a quantifier with a null-on-empty quantifier
+        Quantifier baseOrEmpty = forEachWithNullOnEmpty(selectWithPredicates(base));
+        Quantifier wrappedWithEmpty = forEach(wrap.apply(baseOrEmpty));
+        SelectExpression selectWithEmpty = selectWithPredicates(
+                wrappedWithEmpty, List.of("c", "d"),
+                fieldPredicate(wrappedWithEmpty, "a", EQUALS_42));
+
+        Quantifier newInnerWithEmpty = forEach(selectWithPredicates(baseOrEmpty,
+                fieldPredicate(baseOrEmpty, "a", EQUALS_42)));
+        Quantifier newWrappedWithEmpty = forEach(wrap.apply(newInnerWithEmpty));
+        SelectExpression newSelectWithEmpty = selectWithPredicates(newWrappedWithEmpty, List.of("c", "d"));
+
+        testHelper.assertYields(selectWithEmpty, newSelectWithEmpty);
+
+        // Finally, do not push through if the quantifier itself has a null-on-empty
+        Quantifier wrappedOrEmpty = forEachWithNullOnEmpty(wrap.apply(base));
+        SelectExpression selectOnEmptyDirectly = selectWithPredicates(
+                wrappedOrEmpty, List.of("a", "c"),
+                fieldPredicate(wrappedOrEmpty, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(wrappedOrEmpty, "d"))));
+        testHelper.assertYieldsNothing(selectOnEmptyDirectly, false);
     }
 
     /**
@@ -981,18 +1094,41 @@ public class PredicatePushDownRuleTest {
      */
     @Test
     void pushThroughUnique() {
-        Quantifier base = baseT();
         pushThroughSingleton(LogicalUniqueExpression::new);
     }
 
+    /**
+     * Push predicate on a grouping column through a group by. This is something like:
+     * <pre>{@code
+     * SELECT b, d, sum(a)
+     *  FROM T
+     *  GROUP BY b, d
+     *  HAVING b = ?param
+     * }</pre>
+     * <p>
+     * And rewrites it as:
+     * </p>
+     * <pre>{@code
+     * SELECT b, d, sum(a)
+     *  FROM T
+     *  WHERE b = ?param
+     *  GROUP BY b, d
+     * }</pre>
+     * <p>
+     * In other words, it moves predicates from the {@code SELECT HAVING} to the {@code SELECT WHERE}.
+     * Note that there is a bunch of field re-naming stuff that is elided in the SQL description
+     * above but that the rewriting has to handle.
+     * </p>
+     */
+    @Disabled // should work once we add support for pushing through predicates on grouping columns
     @Test
-    void pushDownGroupingValuePredicateWithNestedResults() {
+    void pushDownGroupingValuePredicateWithNestedResult() {
         Quantifier base = baseT();
 
         Quantifier groupByQun = forEach(new GroupByExpression(
                 RecordConstructorValue.ofColumns(ImmutableList.of(
-                        column(base, "b"),
-                        column(base, "d")
+                        projectColumn(base, "b"),
+                        projectColumn(base, "d")
                 )),
                 (AggregateValue)new NumericAggregationValue.SumFn().encapsulate(ImmutableList.of(fieldValue(base, "a"))),
                 GroupByExpression::nestedResults,
@@ -1007,8 +1143,8 @@ public class PredicatePushDownRuleTest {
         ));
         Quantifier newGroupByQun = forEach(new GroupByExpression(
                 RecordConstructorValue.ofColumns(ImmutableList.of(
-                        column(newInner, "b"),
-                        column(newInner, "d")
+                        projectColumn(newInner, "b"),
+                        projectColumn(newInner, "d")
                 )),
                 (AggregateValue)new NumericAggregationValue.SumFn().encapsulate(ImmutableList.of(fieldValue(newInner, "a"))),
                 GroupByExpression::nestedResults,
@@ -1020,6 +1156,13 @@ public class PredicatePushDownRuleTest {
         testHelper.assertYields(selectHaving, newSelectHaving);
     }
 
+    /**
+     * Push a predicate through a group by expression. This is like {@link #pushDownGroupingValuePredicateWithNestedResult()},
+     * but it uses an alternative format for expressing the result value of the group by expression.
+     *
+     * @see #pushDownGroupingValuePredicateWithNestedResult()
+     */
+    @Disabled // should work once we add support for pushing through predicates on grouping columns
     @Test
     void pushDownGroupingValuePredicateWithFlattenedResults() {
         final Comparisons.ValueComparison constantComparison = new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, ConstantObjectValue.of(Quantifier.constant(), "1", Type.primitiveType(Type.TypeCode.BYTES)));
@@ -1027,8 +1170,8 @@ public class PredicatePushDownRuleTest {
 
         Quantifier groupByQun = forEach(new GroupByExpression(
                 RecordConstructorValue.ofColumns(ImmutableList.of(
-                        column(base, "d"),
-                        column(base, "c")
+                        projectColumn(base, "d"),
+                        projectColumn(base, "c")
                 )),
                 (AggregateValue)new NumericAggregationValue.MaxFn().encapsulate(ImmutableList.of(fieldValue(base, "e.one"))),
                 GroupByExpression::flattenedResults,
@@ -1043,8 +1186,8 @@ public class PredicatePushDownRuleTest {
         ));
         Quantifier newGroupByQun = forEach(new GroupByExpression(
                 RecordConstructorValue.ofColumns(ImmutableList.of(
-                        column(newInner, "d"),
-                        column(newInner, "c")
+                        projectColumn(newInner, "d"),
+                        projectColumn(newInner, "c")
                 )),
                 (AggregateValue)new NumericAggregationValue.MaxFn().encapsulate(ImmutableList.of(fieldValue(newInner, "e.one"))),
                 GroupByExpression::flattenedResults,
@@ -1056,15 +1199,39 @@ public class PredicatePushDownRuleTest {
         testHelper.assertYields(selectHaving, newSelectHaving);
     }
 
+    /**
+     * Do not push predicate on an aggregate value through a group by. This is something like:
+     * <pre>{@code
+     * SELECT b, d, sum(a)
+     *  FROM T
+     *  GROUP BY b, d
+     *  HAVING sum(a) < @1
+     * }</pre>
+     * <p>
+     * In this case, because the sum is dependent on the grouping, it would be invalid to do something
+     * like:
+     * </p>
+     * <pre>{@code
+     * SELECT b, d, sum(a)
+     *  FROM T
+     *  WHERE sum(a) < @1
+     *  GROUP BY b, d
+     * }</pre>
+     * <p>
+     * Which probably doesn't mean anything at all, but if it does, it isn't semantically equivalent.
+     * Nevertheless, it is (approximately) what some buggy versions of predicate push down through a
+     * group-by expression would do. Validate that this instead yields nothing.
+     * </p>
+     */
     @Test
-    void pushDownPredicateOnAggregateValue() {
+    void doNotPushDownPredicateOnAggregateValueNestedResult() {
         final Comparisons.ValueComparison constantComparison = new Comparisons.ValueComparison(Comparisons.Type.LESS_THAN, ConstantObjectValue.of(Quantifier.constant(), "1", Type.primitiveType(Type.TypeCode.LONG)));
         Quantifier base = baseT();
 
         Quantifier groupByQun = forEach(new GroupByExpression(
                 RecordConstructorValue.ofColumns(ImmutableList.of(
-                        column(base, "b"),
-                        column(base, "c")
+                        projectColumn(base, "b"),
+                        projectColumn(base, "c")
                 )),
                 (AggregateValue)new NumericAggregationValue.SumFn().encapsulate(ImmutableList.of(fieldValue(base, "a"))),
                 GroupByExpression::nestedResults,
@@ -1076,6 +1243,36 @@ public class PredicatePushDownRuleTest {
                 fieldPredicate(groupByQun, "_1", constantComparison)
         );
 
-        testHelper.assertYieldsNothing(selectHaving);
+        testHelper.assertYieldsNothing(selectHaving, true);
+    }
+
+    /**
+     * Do not push predicate on an aggregate value through a group by. This is like
+     * {@link #doNotPushDownPredicateOnAggregateValueNestedResult()}, but it uses an
+     * alternative form for the group by expression's result value.
+     *
+     * @see #doNotPushDownPredicateOnAggregateValueNestedResult()
+     */
+    @Test
+    void doNotPushDownPredicateOnAggregateValueFlattenedResult() {
+        final Comparisons.ValueComparison constantComparison = new Comparisons.ValueComparison(Comparisons.Type.LESS_THAN, ConstantObjectValue.of(Quantifier.constant(), "1", Type.primitiveType(Type.TypeCode.LONG)));
+        Quantifier base = baseT();
+
+        Quantifier groupByQun = forEach(new GroupByExpression(
+                RecordConstructorValue.ofColumns(ImmutableList.of(
+                        projectColumn(base, "b"),
+                        projectColumn(base, "c")
+                )),
+                (AggregateValue)new NumericAggregationValue.SumFn().encapsulate(ImmutableList.of(fieldValue(base, "a"))),
+                GroupByExpression::flattenedResults,
+                base
+        ));
+        SelectExpression selectHaving = selectWithPredicates(
+                groupByQun,
+                ImmutableMap.of("_0", "b", "_1", "c", "_2", "sum"),
+                fieldPredicate(groupByQun, "_2", constantComparison)
+        );
+
+        testHelper.assertYieldsNothing(selectHaving, true);
     }
 }

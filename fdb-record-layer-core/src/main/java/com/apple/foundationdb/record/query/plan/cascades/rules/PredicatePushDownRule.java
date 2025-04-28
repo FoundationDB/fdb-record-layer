@@ -41,7 +41,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpre
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -54,7 +53,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierWithoutDefaultOnEmptyOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.members;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.anyExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
@@ -71,7 +70,7 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
     private static final BindingMatcher<Reference> belowReferenceMatcher = members(belowExpressionsMatcher);
     @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> forEachQuantifierMatcher =
-            forEachQuantifierOverRef(belowReferenceMatcher);
+            forEachQuantifierWithoutDefaultOnEmptyOverRef(belowReferenceMatcher);
     private static final BindingMatcher<SelectExpression> root =
             selectExpression(forEachQuantifierMatcher);
 
@@ -285,26 +284,9 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
         @Nonnull
         @Override
         public Optional<GroupByExpression> visitGroupByExpression(@Nonnull final GroupByExpression groupByExpression) {
-            final Quantifier inner = groupByExpression.getInnerQuantifier();
-            if (!(inner instanceof Quantifier.ForEach)) {
-                return Optional.empty();
-            }
-
-            final var translationMap = TranslationMap.builder()
-                    .when(getPushQuantifier().getAlias())
-                    .then((sourceAlias, leafValue) -> groupByExpression.getResultValue())
-                    .build();
-            final var newPredicates = updatedPredicates(translationMap);
-            final var newSelectQun = Quantifier.forEach(Reference.of(new SelectExpression(inner.getFlowedObjectValue(), ImmutableList.of(inner), newPredicates)));
-
-            final var resultTranslation = TranslationMap.rebaseWithAliasMap(AliasMap.ofAliases(inner.getAlias(), newSelectQun.getAlias()));
-
-            return Optional.of(new GroupByExpression(
-                    groupByExpression.getGroupingValue() == null ? null : groupByExpression.getGroupingValue().translateCorrelations(resultTranslation),
-                    (AggregateValue) groupByExpression.getAggregateValue().translateCorrelations(resultTranslation),
-                    (groupIgnore, aggregateIgnore) -> groupByExpression.getResultValue().translateCorrelations(resultTranslation),
-                    newSelectQun
-            ));
+            // We have to be a little careful here. In particular, we can push down any predicates on a
+            // grouping column, but not any on the aggregate value. For now, just don't push anything down
+            return Optional.empty();
         }
 
         @Nonnull

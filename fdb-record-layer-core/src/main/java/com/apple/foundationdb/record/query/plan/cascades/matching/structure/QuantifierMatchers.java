@@ -21,8 +21,8 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.ImmutableList;
@@ -129,17 +129,29 @@ public class QuantifierMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<Quantifier.ForEach> forEachQuantifierWithDefaultOnEmptyOverRef(@Nonnull final BindingMatcher<? extends Reference> downstream) {
+    public static BindingMatcher<Quantifier.ForEach> forEachQuantifierOverRef(BindingMatcher<? super Boolean> defaultOnEmptyMatcher, @Nonnull final BindingMatcher<? extends Reference> downstream) {
         return typedWithDownstream(Quantifier.ForEach.class,
                 Extractor.identity(),
                 AllOfMatcher.matchingAllOf(Quantifier.ForEach.class,
                         ImmutableList.of(
                                 typedWithDownstream(Quantifier.ForEach.class,
                                         Extractor.of(Quantifier.ForEach::isNullOnEmpty, name -> "withDefaultOnEmpty(" + name + ")"),
-                                        PrimitiveMatchers.equalsObject(true)),
+                                        defaultOnEmptyMatcher
+                                ),
                                 typedWithDownstream(Quantifier.ForEach.class,
                                         Extractor.of(Quantifier::getRangesOver, name -> "rangesOver(" + name + ")"),
-                                        downstream))));
+                                        downstream)
+                        )));
+    }
+
+    @Nonnull
+    public static BindingMatcher<Quantifier.ForEach> forEachQuantifierWithDefaultOnEmptyOverRef(@Nonnull final BindingMatcher<? extends Reference> downstream) {
+        return forEachQuantifierOverRef(PrimitiveMatchers.equalsObject(true), downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<Quantifier.ForEach> forEachQuantifierWithoutDefaultOnEmptyOverRef(@Nonnull final BindingMatcher<? extends Reference> downstream) {
+        return forEachQuantifierOverRef(PrimitiveMatchers.equalsObject(false), downstream);
     }
 
     @Nonnull
