@@ -75,7 +75,9 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.executeCascades;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.exists;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fieldPredicate;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fieldValue;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.forEach;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.forEachWithNullOnEmpty;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fullScan;
@@ -91,8 +93,10 @@ import static com.apple.foundationdb.record.query.plan.ScanComparisons.unbounded
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.containsAll;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.equalsObject;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.valuePredicate;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.coveringIndexPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.defaultOnEmptyPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.descendantPlans;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.explodePlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.fetchFromPartialRecordPlan;
@@ -114,9 +118,10 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.DerivationsProperty.derivations;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
  * Tests of query planning and execution for queries that use a query graph to define a query instead of
@@ -277,6 +282,107 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void testSubselectHasNullOnEmpty() {
+        CascadesPlanner cascadesPlanner = setUp();
+        final var plan = planGraph(
+                () -> {
+                    //
+                    // Construct a query like:
+                    //   SELECT rest_no, name
+                    //     FROM (SELECT rest_no, name, FROM RestaurantRecord WHERE name = 'not_in_db') OR ELSE NULL
+                    //    WHERE rest_no > 1000
+                    //
+                    var qun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
+                    qun = forEachWithNullOnEmpty(selectWithPredicates(qun,
+                            ImmutableList.of("rest_no", "name"),
+                            fieldPredicate(qun, "name", new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "not_in_db"))
+                    ));
+                    qun = forEach(selectWithPredicates(qun,
+                            fieldPredicate(qun, "rest_no", new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1_000L))));
+                    return Reference.of(LogicalSortExpression.unsorted(qun));
+                });
+
+        // Note: this is a bug as the "null on empty" part is executed at the wrong level. We should be inserting
+        // null before applying the rest_no predicate
+        assertMatchesExactly(plan,
+                defaultOnEmptyPlan(
+                    predicatesFilterPlan(
+                        mapPlan(
+                                coveringIndexPlan()
+                                        .where(indexPlanOf(indexPlan().where(indexName("RestaurantRecord$name")).and(scanComparisons(range("[[not_in_db],[not_in_db]]")))))
+                        ).where(mapResult(recordConstructorValue(exactly(fieldValueWithFieldNames("rest_no"), fieldValueWithFieldNames("name")))))
+                    ).where(predicates(valuePredicate(fieldValueWithFieldNames("rest_no"), equalsObject(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1_000L)))))
+                )
+        );
+
+        try (FDBRecordContext context = openContext()) {
+            openNestedRecordStore(context);
+
+            // This should be empty, as the rest_no predicate when evaluated on a null field filters out the inserted "null" element
+            // from the inner select
+            try (RecordCursor<QueryResult> cursor = executeCascades(recordStore, plan)) {
+                List<QueryResult> results = cursor.asList().join();
+                assertThat(results, Matchers.hasSize(1));
+                QueryResult result = results.get(0);
+                assertNull(result.getQueriedRecord());
+            }
+        }
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void testSubselectHasNullOnEmptyAndIsNullPredicate() {
+        CascadesPlanner cascadesPlanner = setUp();
+        final var plan = planGraph(
+                () -> {
+                    //
+                    // Construct a query like:
+                    //   SELECT rest_no, name
+                    //     FROM (SELECT rest_no, name, FROM RestaurantRecord WHERE name = 'not_in_db') OR ELSE NULL
+                    //    WHERE rest_no IS NULL
+                    //
+                    // There are no elements with that name, so the inner select should return a NULL
+                    // Then the outer predicate may return true, so we get the null element back
+                    //
+                    var qun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
+
+                    qun = forEachWithNullOnEmpty(selectWithPredicates(qun,
+                            ImmutableList.of("rest_no", "name"),
+                            fieldPredicate(qun, "name", new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "not_in_db"))
+                    ));
+                    qun = forEach(selectWithPredicates(qun,
+                            fieldPredicate(qun, "rest_no", new Comparisons.NullComparison(Comparisons.Type.IS_NULL))));
+                    return Reference.of(LogicalSortExpression.unsorted(qun));
+                });
+
+        // Note: this is a bug as the "null on empty" part is executed at the wrong level. We should be inserting
+        // null before applying the rest_no predicate. In this case, it cancels out because the IS_NULL predicate
+        // would have left the result through anyway
+        assertMatchesExactly(plan,
+                defaultOnEmptyPlan(
+                        predicatesFilterPlan(
+                                mapPlan(
+                                        coveringIndexPlan()
+                                                .where(indexPlanOf(indexPlan().where(indexName("RestaurantRecord$name")).and(scanComparisons(range("[[not_in_db],[not_in_db]]")))))
+                                ).where(mapResult(recordConstructorValue(exactly(fieldValueWithFieldNames("rest_no"), fieldValueWithFieldNames("name")))))
+                        ).where(predicates(valuePredicate(fieldValueWithFieldNames("rest_no"), equalsObject(new Comparisons.NullComparison(Comparisons.Type.IS_NULL)))))
+                )
+        );
+
+        try (FDBRecordContext context = openContext()) {
+            openNestedRecordStore(context);
+
+            // The inner select should return a single null element, which then passes the
+            // outer predicate, so we get a single null element back
+            try (RecordCursor<QueryResult> cursor = executeCascades(recordStore, plan)) {
+                List<QueryResult> results = cursor.asList().join();
+                assertThat(results, Matchers.hasSize(1));
+                QueryResult result = results.get(0);
+                assertNull(result.getQueriedRecord());
+            }
+        }
+    }
+
     /**
      * Test a query running a simple existential query against a FanOut index on the relevant field. This test
      * is actually designed to exercise a code path that was hit by
@@ -315,14 +421,11 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
                     var qun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
 
-                    final var explodeTagsQun = Quantifier.forEach(Reference.of(new ExplodeExpression(FieldValue.ofFieldName(qun.getFlowedObjectValue(), "tags"))));
-                    final var existentialQun = Quantifier.existential(Reference.of(GraphExpansion.builder()
-                            .addQuantifier(explodeTagsQun)
-                            .addResultColumn(projectColumn(explodeTagsQun.getFlowedObjectValue(), "value"))
-                            .addPredicate(new ValuePredicate(FieldValue.ofFieldName(explodeTagsQun.getFlowedObjectValue(), "value"),
-                                    new Comparisons.ParameterComparison(inComparison ? Comparisons.Type.IN : Comparisons.Type.EQUALS, tagValueParam)))
-                            .build()
-                            .buildSelect()));
+                    final var explodeTagsQun = forEach(new ExplodeExpression(fieldValue(qun, "tags")));
+                    final var existentialQun = exists(selectWithPredicates(
+                            explodeTagsQun, ImmutableList.of("value"),
+                            fieldPredicate(explodeTagsQun, "value", new Comparisons.ParameterComparison(inComparison ? Comparisons.Type.IN : Comparisons.Type.EQUALS, tagValueParam))
+                    ));
 
                     qun = Quantifier.forEach(Reference.of(GraphExpansion.builder()
                             .addQuantifier(qun)
