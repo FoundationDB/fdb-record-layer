@@ -57,7 +57,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSort
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
-import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
@@ -164,6 +163,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedUnionPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty.usedTypes;
 import static java.util.Arrays.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anyOf;
@@ -451,7 +451,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                         mapPlan(predicatesFilterPlan(typeFilterPlan(scanPlan()))));
         assertEquals(-1783159911, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
-        final var usedTypes = UsedTypesProperty.evaluate(plan);
+        final var usedTypes = usedTypes().evaluate(plan);
         final var evaluationContext =
                 EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(usedTypes).build());
         assertEquals(20, querySimpleRecordStore(hook, plan, () -> evaluationContext,
@@ -2694,7 +2694,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         final Consumer<TestRecords1Proto.MySimpleRecord> numValue2Check = simpleRecord -> assertThat(simpleRecord.getNumValue2(), in(nv2List));
         final Function<TestRecords1Proto.MySimpleRecord, Tuple> sortKey = simpleRecord -> Tuple.from(simpleRecord.getNumValue3Indexed());
         final Bindings base = Bindings.newBuilder().set("nv2_list", nv2List).build();
-        TypeRepository typeRepository = TypeRepository.newBuilder().addAllTypes(UsedTypesProperty.evaluate(plan)).build();
+        TypeRepository typeRepository = TypeRepository.newBuilder().addAllTypes(usedTypes().evaluate(plan)).build();
         assertEquals(34,
                 querySimpleRecordStore(hook, plan,
                         () -> EvaluationContext.forBindingsAndTypeRepository(base.childBuilder().set("str_list", List.of("even")).build(), typeRepository),
@@ -2817,7 +2817,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         final Consumer<TestRecords1Proto.MySimpleRecord> numValue2Check = simpleRecord -> assertThat(simpleRecord.getNumValue2(), in(nv2List));
         final Function<TestRecords1Proto.MySimpleRecord, Tuple> sortKey = simpleRecord -> Tuple.from(simpleRecord.getNumValue3Indexed());
         final Bindings base = Bindings.newBuilder().set("nv2_list", nv2List).build();
-        TypeRepository typeRepository = TypeRepository.newBuilder().addAllTypes(UsedTypesProperty.evaluate(plan)).build();
+        TypeRepository typeRepository = TypeRepository.newBuilder().addAllTypes(usedTypes().evaluate(plan)).build();
         assertEquals(34,
                 querySimpleRecordStore(hook, plan,
                         () -> EvaluationContext.forBindingsAndTypeRepository(base.childBuilder().set("str_list", List.of("even")).build(), typeRepository),

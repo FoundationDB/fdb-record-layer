@@ -48,7 +48,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPred
 import com.apple.foundationdb.record.query.plan.cascades.predicates.DatabaseObjectDependenciesPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
-import com.apple.foundationdb.record.query.plan.cascades.properties.DerivationsProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Field;
@@ -116,6 +115,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.DerivationsProperty.derivations;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
@@ -652,7 +652,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         // find restaurants that where at least reviewed by two common reviewers
         final var plannedPlan = planMediumJoin(cascadesPlanner);
 
-        final var derivations = DerivationsProperty.evaluateDerivations(plannedPlan);
+        final var derivations = derivations().evaluate(plannedPlan);
         final var simplifiedLocalValues = derivations.simplifyLocalValues();
         final var fieldAccesses = CompatibleTypeEvolutionPredicate.computeFieldAccesses(simplifiedLocalValues);
         final var compatibleTypeEvolutionPredicate = new CompatibleTypeEvolutionPredicate(fieldAccesses);
@@ -773,7 +773,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         // find restaurants that where at least reviewed by two common reviewers
         final var plannedPlan = planMediumJoin(cascadesPlanner);
 
-        final var derivations = DerivationsProperty.evaluateDerivations(plannedPlan);
+        final var derivations = derivations().evaluate(plannedPlan);
         final var simplifiedLocalValues = derivations.simplifyLocalValues();
         final var fieldAccesses = CompatibleTypeEvolutionPredicate.computeFieldAccesses(simplifiedLocalValues);
 
@@ -860,7 +860,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         // find restaurants that where at least reviewed by two common reviewers
         final var plannedPlan = planMediumJoin(cascadesPlanner);
 
-        final var derivations = DerivationsProperty.evaluateDerivations(plannedPlan);
+        final var derivations = derivations().evaluate(plannedPlan);
         final var simplifiedLocalValues = derivations.simplifyLocalValues();
         final var fieldAccesses = CompatibleTypeEvolutionPredicate.computeFieldAccesses(simplifiedLocalValues);
 
@@ -941,7 +941,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
         // find restaurants that where at least reviewed by two common reviewers
         final var plannedPlan = planMediumJoin(cascadesPlanner);
 
-        final var derivations = DerivationsProperty.evaluateDerivations(plannedPlan);
+        final var derivations = derivations().evaluate(plannedPlan);
         final var simplifiedLocalValues = derivations.simplifyLocalValues();
         final var fieldAccesses = CompatibleTypeEvolutionPredicate.computeFieldAccesses(simplifiedLocalValues);
 

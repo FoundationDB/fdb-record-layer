@@ -23,60 +23,74 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
  * A property that computes the set of complex (dynamic) types that is used by the graph passed in.
  */
 @API(API.Status.EXPERIMENTAL)
-public class UsedTypesProperty implements ExpressionProperty<Set<Type>>, RelationalExpressionVisitorWithDefaults<Set<Type>> {
-    private static final UsedTypesProperty INSTANCE = new UsedTypesProperty();
+public class UsedTypesProperty implements ExpressionProperty<Set<Type>> {
+    private static final UsedTypesProperty USED_TYPES = new UsedTypesProperty();
 
-    @Nonnull
-    @Override
-    public Set<Type> evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Set<Type>> childResults) {
-        final ImmutableSet.Builder<Type> resultBuilder = ImmutableSet.builder();
-        for (final Set<Type> childResult : childResults) {
-            resultBuilder.addAll(childResult);
-        }
-
-        resultBuilder.addAll(expression.getDynamicTypes());
-
-        return resultBuilder.build();
+    private UsedTypesProperty() {
+        // prevent outside instantiation
     }
 
     @Nonnull
     @Override
-    public Set<Type> evaluateAtRef(@Nonnull Reference ref, @Nonnull List<Set<Type>> memberResults) {
-        return unionTypes(memberResults);
+    public UsedTypesVisitor createVisitor() {
+        return new UsedTypesVisitor();
+    }
+
+    public Set<Type> evaluate(@Nonnull final Reference ref) {
+        return Objects.requireNonNull(ref.acceptVisitor(createVisitor()));
+    }
+
+    public Set<Type> evaluate(@Nonnull final RelationalExpression expression) {
+        return Objects.requireNonNull(expression.acceptVisitor(createVisitor()));
     }
 
     @Nonnull
-    private static Set<Type> unionTypes(@Nonnull final Collection<Set<Type>> types) {
-        final ImmutableSet.Builder<Type> resultBuilder = ImmutableSet.builder();
-        for (final Set<Type> childResult : types) {
-            resultBuilder.addAll(childResult);
-        }
-        return resultBuilder.build();
+    public static UsedTypesProperty usedTypes() {
+        return USED_TYPES;
     }
 
-    public static Set<Type> evaluate(Reference ref) {
-        return ref.acceptPropertyVisitor(INSTANCE);
-    }
+    public static class UsedTypesVisitor implements SimpleExpressionVisitor<Set<Type>> {
+        @Nonnull
+        @Override
+        public Set<Type> evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Set<Type>> childResults) {
+            final ImmutableSet.Builder<Type> resultBuilder = ImmutableSet.builder();
+            for (final Set<Type> childResult : childResults) {
+                resultBuilder.addAll(childResult);
+            }
 
-    public static Set<Type> evaluate(@Nonnull RelationalExpression expression) {
-        final Set<Type> result = expression.acceptPropertyVisitor(INSTANCE);
-        if (result == null) {
-            return ImmutableSet.of();
+            resultBuilder.addAll(expression.getDynamicTypes());
+
+            return resultBuilder.build();
         }
-        return result;
+
+        @Nonnull
+        @Override
+        public Set<Type> evaluateAtRef(@Nonnull Reference ref, @Nonnull List<Set<Type>> memberResults) {
+            return unionTypes(memberResults);
+        }
+
+        @Nonnull
+        private static Set<Type> unionTypes(@Nonnull final Collection<Set<Type>> types) {
+            final ImmutableSet.Builder<Type> resultBuilder = ImmutableSet.builder();
+            for (final Set<Type> childResult : types) {
+                resultBuilder.addAll(childResult);
+            }
+            return resultBuilder.build();
+        }
     }
 }

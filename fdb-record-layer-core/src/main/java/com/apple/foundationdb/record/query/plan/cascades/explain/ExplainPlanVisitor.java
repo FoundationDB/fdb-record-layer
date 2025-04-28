@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.explain;
+package com.apple.foundationdb.record.query.plan.cascades.explain;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.Bindings;
@@ -28,6 +28,14 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.plan.TextScan;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.explain.DefaultExplainFormatter;
+import com.apple.foundationdb.record.query.plan.explain.DefaultExplainSymbolMap;
+import com.apple.foundationdb.record.query.plan.explain.ExplainFormatter;
+import com.apple.foundationdb.record.query.plan.explain.ExplainLevel;
+import com.apple.foundationdb.record.query.plan.explain.ExplainSelfContainedSymbolMap;
+import com.apple.foundationdb.record.query.plan.explain.ExplainSymbolMap;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.PrettyExplainFormatter;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
@@ -142,6 +150,7 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
 
     public ExplainPlanVisitor(final int maxSize) {
         this.maxSize = maxSize;
+        this.done = false;
     }
 
     /**
@@ -398,8 +407,8 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
                 .addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(),
                         new ExplainTokens().addAliasDefinition(recursiveUnionPlan.getTempTableScanAlias()),
                         new ExplainTokens().addAliasDefinition(recursiveUnionPlan.getTempTableInsertAlias())
-                .addWhitespace().addOpeningBrace().addLinebreakOrWhitespace()
-                .addKeyword("INITIAL").addWhitespace().addOpeningBrace().addLinebreakOrWhitespace());
+                                .addWhitespace().addOpeningBrace().addLinebreakOrWhitespace()
+                                .addKeyword("INITIAL").addWhitespace().addOpeningBrace().addLinebreakOrWhitespace());
         visit(recursiveUnionPlan.getChildren().get(0)).addWhitespace().addClosingBrace().addLinebreakOrWhitespace();
         addKeyword("RECURSIVE").addWhitespace().addWhitespace().addOpeningBrace().addLinebreakOrWhitespace();
         return visit(recursiveUnionPlan.getChildren().get(1)).addWhitespace().addClosingBrace()
@@ -685,11 +694,6 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
     }
 
     @Nonnull
-    public static String prettyExplain(@Nonnull final RecordQueryPlan plan) {
-        return prettyExplain(plan, ExplainLevel.ALL_DETAILS);
-    }
-
-    @Nonnull
     public static String prettyExplain(@Nonnull final RecordQueryPlan plan, final int explainLevel) {
         final var visitor = new ExplainPlanVisitor(Integer.MAX_VALUE);
         return visitor.visit(plan).render(explainLevel,
@@ -709,7 +713,7 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
         final var visitor = new ExplainPlanVisitor(maxSize);
         final var explainTokens = visitor.visit(plan);
         return explainTokens.render(explainLevel,
-                        new DefaultExplainFormatter(DefaultExplainSymbolMap::new), maxSize).toString();
+                new DefaultExplainFormatter(DefaultExplainSymbolMap::new), maxSize).toString();
     }
 
     @Nonnull
@@ -738,5 +742,10 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
 
         return explainTokens.render(level, new DefaultExplainFormatter(ExplainSelfContainedSymbolMap::new), maxSize)
                 .toString();
+    }
+
+    @Nonnull
+    public static String prettyExplain(@Nonnull final RecordQueryPlan plan) {
+        return ExplainPlanVisitor.prettyExplain(plan, ExplainLevel.ALL_DETAILS);
     }
 }

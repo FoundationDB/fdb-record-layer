@@ -63,7 +63,7 @@ task testShadowJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.Shadow
     archiveClassifier = 'standalone-tests'
     from sourceSets.main.output
     from sourceSets.test.output
-    configurations = [ project.configurations.testRuntimeOnly ]
+    configurations = [ project.configurations.testRuntimeClasspath ]
     manifest {
         inheritFrom project.tasks.jar.manifest
         attributes 'Main-Class': 'com.apple.foundationdb.record.provider.foundationdb.FDBRecordStorePerformanceTest',

@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
-import com.apple.foundationdb.record.query.plan.cascades.properties.RecordTypesProperty;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
@@ -42,6 +41,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import static com.apple.foundationdb.record.query.plan.cascades.properties.RecordTypesProperty.recordTypes;
 
 /**
  * A {@link PlanContext} where the underlying meta-data comes from {@link RecordMetaData} and {@link RecordStoreState}
@@ -170,7 +171,7 @@ public class MetaDataPlanContext implements PlanContext {
                                                @Nonnull final Reference rootReference,
                                                @Nonnull final Optional<Collection<String>> allowedIndexesOptional,
                                                @Nonnull final IndexQueryabilityFilter indexQueryabilityFilter) {
-        final var queriedRecordTypeNames = RecordTypesProperty.evaluate(rootReference);
+        final var queriedRecordTypeNames = recordTypes().evaluate(rootReference);
 
         if (queriedRecordTypeNames.isEmpty()) {
             return new MetaDataPlanContext(plannerConfiguration, ImmutableSet.of());

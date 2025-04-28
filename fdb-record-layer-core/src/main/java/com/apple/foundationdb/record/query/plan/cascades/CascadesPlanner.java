@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.RecordQuery;
-import com.apple.foundationdb.record.query.plan.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.QueryPlanInfo;
 import com.apple.foundationdb.record.query.plan.QueryPlanInfoKeys;
@@ -42,11 +41,12 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRul
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.Location;
 import com.apple.foundationdb.record.query.plan.cascades.debug.RestartException;
-import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Suppliers;
@@ -83,7 +83,7 @@ import java.util.function.Supplier;
  * Like many optimization frameworks, Cascades is driven by sets of {@link CascadesRule}s that can be defined for
  * {@link RelationalExpression}s, {@link PartialMatch}es and {@link MatchPartition}s, each of which describes a
  * particular transformation and encapsulates the logic for determining its applicability and applying it. The planner
- * searches through its {@link PlannerRuleSet} to find a matching rule and then executes that rule, creating zero or
+ * searches through its {@link PlanningRuleSet} to find a matching rule and then executes that rule, creating zero or
  * more additional {@code PlannerExpression}s and/or zero or more additional {@link PartialMatch}es. A rule is defined by:
  * </p>
  * <ul>
@@ -206,7 +206,7 @@ public class CascadesPlanner implements QueryPlanner {
     @Nonnull
     private final RecordStoreState recordStoreState;
     @Nonnull
-    private final PlannerRuleSet ruleSet;
+    private final PlanningRuleSet ruleSet;
     @Nonnull
     private Reference currentRoot;
     @Nonnull
@@ -222,7 +222,7 @@ public class CascadesPlanner implements QueryPlanner {
         this(metaData, recordStoreState, defaultPlannerRuleSet());
     }
 
-    public CascadesPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState, @Nonnull PlannerRuleSet ruleSet) {
+    public CascadesPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState, @Nonnull PlanningRuleSet ruleSet) {
         this.configuration = RecordQueryPlannerConfiguration.builder().build();
         this.metaData = metaData;
         this.recordStoreState = recordStoreState;
@@ -375,13 +375,13 @@ public class CascadesPlanner implements QueryPlanner {
         if (singleRoot instanceof RecordQueryPlan) {
             if (logger.isDebugEnabled()) {
                 logger.debug(KeyValueLogMessage.of("GML explain of plan",
-                        "explain", PlannerGraphProperty.explain(singleRoot)));
+                        "explain", PlannerGraphVisitor.explain(singleRoot)));
                 logger.debug(KeyValueLogMessage.of("string explain of plan",
                         "explain", ExplainPlanVisitor.toStringForDebugging((RecordQueryPlan)singleRoot)));
             }
             return (RecordQueryPlan)singleRoot;
         } else {
-            throw new RecordCoreException("Cascades planner could not plan query")
+            throw new UnableToPlanException("Cascades planner could not plan query")
                     .addLogInfo("finalExpression", currentRoot.get());
         }
     }
@@ -656,7 +656,7 @@ public class CascadesPlanner implements QueryPlanner {
         }
 
         @Nonnull
-        protected PlannerRuleSet getRules() {
+        protected PlanningRuleSet getRules() {
             return ruleSet;
         }
     }
@@ -1125,10 +1125,10 @@ public class CascadesPlanner implements QueryPlanner {
 
     /**
      * Returns the default set of transformation rules.
-     * @return a {@link PlannerRuleSet} using the default set of transformation rules
+     * @return a {@link PlanningRuleSet} using the default set of transformation rules
      */
     @Nonnull
-    public static PlannerRuleSet defaultPlannerRuleSet() {
-        return PlannerRuleSet.DEFAULT;
+    public static PlanningRuleSet defaultPlannerRuleSet() {
+        return PlanningRuleSet.DEFAULT;
     }
 }

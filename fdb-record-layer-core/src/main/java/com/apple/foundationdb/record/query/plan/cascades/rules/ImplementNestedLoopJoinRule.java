@@ -49,9 +49,9 @@ import java.util.List;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyQuantifierOverRef;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyPlanPartition;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.planPartitions;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.rollUp;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.rollUpPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.canBeImplemented;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.SetMatcher.exactlyInAnyOrder;
@@ -70,7 +70,7 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
 
     @Nonnull
     private static final BindingMatcher<Reference> outerReferenceMatcher =
-            planPartitions(rollUp(all(outerPlanPartitionsMatcher)));
+            planPartitions(rollUpPartitions(all(outerPlanPartitionsMatcher)));
     @Nonnull
     private static final BindingMatcher<Quantifier> outerQuantifierMatcher = anyQuantifierOverRef(outerReferenceMatcher);
     @Nonnull
@@ -78,7 +78,7 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
 
     @Nonnull
     private static final BindingMatcher<Reference> innerReferenceMatcher =
-            planPartitions(rollUp(all(innerPlanPartitionsMatcher)));
+            planPartitions(rollUpPartitions(all(innerPlanPartitionsMatcher)));
     @Nonnull
     private static final BindingMatcher<Quantifier> innerQuantifierMatcher = anyQuantifierOverRef(innerReferenceMatcher);
     @Nonnull

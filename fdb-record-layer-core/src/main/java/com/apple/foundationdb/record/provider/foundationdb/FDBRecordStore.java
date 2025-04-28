@@ -5184,6 +5184,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         @Override
         @Nonnull
         public Builder setFormatVersion(int formatVersion) {
+            if (formatVersion < MIN_FORMAT_VERSION || formatVersion > MAX_SUPPORTED_FORMAT_VERSION) {
+                throw new UnsupportedFormatVersionException("Invalid Format Version")
+                        .addLogInfo(LogMessageKeys.FORMAT_VERSION, formatVersion);
+            }
             this.formatVersion = formatVersion;
             return this;
         }
