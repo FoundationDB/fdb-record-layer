@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.MetaDataVersionStampStoreStateCacheFactory;
 import com.apple.foundationdb.tuple.Tuple;
@@ -83,14 +84,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
-        try (FDBRecordContext context = openContext()) {
-            recordStore = getStoreBuilder(context, recordMetaData, path)
-                    .setFormatVersion(newFormatVersion)
-                    .open();
-            validateRecords(originalRecords);
-            validateIndexesDisabled(recordMetaData);
-            commit(context);
-        }
+        validateRepaired(newFormatVersion, recordMetaData, originalRecords);
     }
 
     @ParameterizedTest
@@ -111,16 +105,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
-        try (FDBRecordContext context = openContext()) {
-            recordStore = getStoreBuilder(context, recordMetaData, path)
-                    .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
-                    .setUserVersionChecker(userVersionChecker)
-                    .open();
-            assertEquals(userVersion, recordStore.getUserVersion());
-            validateRecords(originalRecords);
-            validateIndexesDisabled(recordMetaData);
-            commit(context);
-        }
+        validateRepaired(userVersion, recordMetaData, userVersionChecker, originalRecords);
     }
 
     @Test
@@ -153,15 +138,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
-        try (FDBRecordContext context = openContext()) {
-            recordStore = getStoreBuilder(context, recordMetaData, path)
-                    .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
-                    .setUserVersionChecker(userVersionChecker)
-                    .open();
-            validateRecords(originalRecords);
-            validateIndexesDisabled(recordMetaData);
-            commit(context);
-        }
+        validateRepaired(userVersion, recordMetaData, userVersionChecker, originalRecords);
     }
 
     @Test
@@ -271,16 +248,48 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore.Builder builder = getStoreBuilder(context, recordMetaData)
                     .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION);
-            assertThatThrownBy(() -> context.asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION,
-                    builder.repairMissingHeader(1)))
+            assertThatThrownBy(() -> repairHeader(context, 1, builder))
                     .isInstanceOf(RecordCoreException.class);
             commit(context);
         }
     }
 
-    @Test
-    void repairRecordCountKey() {
-        Assertions.fail("TODO");
+    @ParameterizedTest
+    @BooleanSource
+    void preventRepairWithRecordKey(boolean hasRecordCountKey) {
+        // We cannot tell whether the recordCountKey had changed since the last time we did checkVersion, so
+        // we can't guarantee that it is correct. Since we currently don't have a way to disable the RecordCountKey, or
+        // rebuild it across multiple transactions, we fail the repair if there is a recordCountKey on the metadata.
+        // With https://github.com/FoundationDB/fdb-record-layer/issues/3326 we should be able to set the RecordCountKey
+        // to disabled.
+        final RecordMetaData recordMetaData = simpleMetaData(metadata -> {
+            metadata.setSplitLongRecords(true);
+            if (hasRecordCountKey) {
+                metadata.setRecordCountKey(Key.Expressions.empty());
+            }
+        });
+        final List<Tuple> primaryKeys = createInitialStore(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION, recordMetaData);
+        final List<FDBStoredRecord<Message>> originalRecords = createOriginalRecords(recordMetaData, primaryKeys);
+        clearStoreHeader(recordMetaData);
+        validateCannotOpen(recordMetaData);
+
+        final int userVersion = 2;
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore.Builder storeBuilder = getStoreBuilder(context, recordMetaData)
+                    .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION);
+            if (hasRecordCountKey) {
+                assertThatThrownBy(() -> repairHeader(context, userVersion, storeBuilder))
+                        .isInstanceOf(RecordCoreException.class);
+            } else {
+                repairHeader(context, userVersion, storeBuilder);
+            }
+            commit(context);
+        }
+        if (hasRecordCountKey) {
+            validateCannotOpen(recordMetaData);
+        } else {
+            validateRepaired(userVersion, recordMetaData, originalRecords);
+        }
     }
 
     private List<FDBStoredRecord<Message>> createOriginalRecords(final RecordMetaData recordMetaData, final List<Tuple> primaryKeys) {
@@ -289,6 +298,33 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
             return primaryKeys.stream()
                     .map(primaryKey -> recordStore.loadRecord(primaryKey))
                     .collect(Collectors.toList());
+        }
+    }
+
+    private void validateRepaired(final int userVersion, final RecordMetaData recordMetaData,
+                                  final FDBRecordStoreBase.UserVersionChecker userVersionChecker,
+                                  final List<FDBStoredRecord<Message>> originalRecords) {
+        try (FDBRecordContext context = openContext()) {
+            recordStore = getStoreBuilder(context, recordMetaData, path)
+                    .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
+                    .setUserVersionChecker(userVersionChecker)
+                    .open();
+            assertEquals(userVersion, recordStore.getUserVersion());
+            validateRecords(originalRecords);
+            validateIndexesDisabled(recordMetaData);
+            commit(context);
+        }
+    }
+
+    private void validateRepaired(final int newFormatVersion, final RecordMetaData recordMetaData,
+                                  final List<FDBStoredRecord<Message>> originalRecords) {
+        try (FDBRecordContext context = openContext()) {
+            recordStore = getStoreBuilder(context, recordMetaData, path)
+                    .setFormatVersion(newFormatVersion)
+                    .open();
+            validateRecords(originalRecords);
+            validateIndexesDisabled(recordMetaData);
+            commit(context);
         }
     }
 
