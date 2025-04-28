@@ -59,15 +59,15 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
     // Previous record processed by this cursor
     @Nullable
     private RecordCursorResult<QueryResult> previousResult;
-    @Nullable
     // when previousResult = row x, lastResult = row (x-1); when previousResult = null, lastResult = null
+    @Nullable
     private RecordCursorResult<QueryResult> lastResult;
     // Previous non-empty record processed by this cursor
     @Nullable
     private RecordCursorResult<QueryResult> previousValidResult;
     @Nullable
     private RecordCursorProto.PartialAggregationResult partialAggregationResult;
-    @Nullable
+    @Nonnull
     private final RecordCursorContinuation continuation;
     private final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode;
 
