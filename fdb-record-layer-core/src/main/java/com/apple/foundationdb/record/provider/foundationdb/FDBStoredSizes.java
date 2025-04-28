@@ -61,7 +61,7 @@ public interface FDBStoredSizes {
      * In particular, this states whether there was a version stored
      * directly with the record in the database, which should only be
      * true if the format version of the database is greater than or
-     * equal to {@link FDBRecordStore#SAVE_VERSION_WITH_RECORD_FORMAT_VERSION}.
+     * equal to {@link FormatVersion#SAVE_VERSION_WITH_RECORD}.
      * @return {@code true} if this record is stored with a version in-line
      */
     boolean isVersionedInline();
