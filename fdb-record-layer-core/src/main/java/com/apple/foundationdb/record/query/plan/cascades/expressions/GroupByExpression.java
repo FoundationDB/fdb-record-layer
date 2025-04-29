@@ -451,7 +451,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         //
         // Consult already bound predicates from the child match.
         //
-        final var equalityOrIsNullPredicates =
+        final var equalityPredicates =
                 childMatch.pullUpToParent(candidateInnerQuantifier.getAlias(), predicate -> {
                     if (!(predicate instanceof PredicateWithValue)) {
                         return false;
@@ -472,12 +472,12 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
                         return comparisons.stream()
                                 .anyMatch(comparison -> (comparison.getType().isEquality() &&
-                                        comparison.getType() == Comparisons.Type.EQUALS) || (comparison.getType() == Comparisons.Type.IS_NULL));
+                                                                 (comparison.getType() == Comparisons.Type.EQUALS || comparison.getType() == Comparisons.Type.IS_NULL)));
                     }
                     return false;
                 });
 
-        for (final var predicateMapping : equalityOrIsNullPredicates.values()) {
+        for (final var predicateMapping : equalityPredicates.values()) {
             final var translatedPredicate = predicateMapping.getTranslatedQueryPredicate();
             if (translatedPredicate instanceof PredicateWithValue) {
                 final var comparedValue = Objects.requireNonNull(((PredicateWithValue)translatedPredicate).getValue());
