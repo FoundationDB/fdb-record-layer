@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
 import com.apple.foundationdb.record.provider.foundationdb.RecordDeserializationException;
 import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
 import com.apple.foundationdb.tuple.Tuple;
@@ -48,7 +49,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class RecordValidationTest extends FDBRecordStoreTestBase {
     // Repeated here for the benefit of MethodSource
-    private static Stream<Integer> formatVersions() {
+    private static Stream<FormatVersion> formatVersions() {
         return ValidationTestUtils.formatVersions();
     }
 
@@ -60,7 +61,7 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest(name = "testValidateRecordsNoIssue [splitLongRecords = {0}, formatVersion = {1}]")
     @MethodSource("splitAndVersion")
-    void testValidateRecordsNoIssue(boolean splitLongRecords, int formatVersion) throws Exception {
+    void testValidateRecordsNoIssue(boolean splitLongRecords, FormatVersion formatVersion) throws Exception {
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(splitLongRecords);
         List<FDBStoredRecord<Message>> result = saveRecords(splitLongRecords, formatVersion, hook);
         // Validate by primary key
@@ -76,7 +77,7 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest(name = "testValidateRecordsMissingRecord [splitLongRecords = {0}, formatVersion = {1}]")
     @MethodSource("splitAndVersion")
-    void testValidateRecordsMissingRecord(boolean splitLongRecords, int formatVersion) throws Exception {
+    void testValidateRecordsMissingRecord(boolean splitLongRecords, FormatVersion formatVersion) throws Exception {
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(splitLongRecords);
         List<FDBStoredRecord<Message>> result = saveRecords(splitLongRecords, formatVersion, hook);
         // Delete a record
@@ -106,7 +107,7 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest(name = "testValidateRecordsMissingSplit [splitNumber = {0}, formatVersion = {1}]")
     @MethodSource("splitNumberAndFormatVersion")
-    void testValidateRecordsMissingSplit(int splitNumber, int formatVersion) throws Exception {
+    void testValidateRecordsMissingSplit(int splitNumber, FormatVersion formatVersion) throws Exception {
         boolean splitLongRecords = true;
         // unsplit (short) records have split #0; split records splits start at #1
         // Use this number to decide which record to operate on
@@ -130,7 +131,7 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
             final String expected;
             // When format version is 3 and the record is a short record, deleting the only split will make the record disappear
-            if ((splitNumber == 0) && (formatVersion == 3)) {
+            if ((splitNumber == 0) && (formatVersion == FormatVersion.RECORD_COUNT_KEY_ADDED)) {
                 validateRecordValue(store, result.get(recordNumber).getPrimaryKey(), RecordValidationResult.CODE_VALID);
                 validateRecordVersion(store, result.get(recordNumber).getPrimaryKey(), RecordVersionValidator.CODE_RECORD_MISSING_ERROR);
             } else {
@@ -145,7 +146,7 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest(name = "testValidateRecordsDeserialize [formatVersion = {0}]")
     @MethodSource("formatVersions")
-    void testValidateRecordsDeserialize(int formatVersion) throws Exception {
+    void testValidateRecordsDeserialize(FormatVersion formatVersion) throws Exception {
         boolean splitLongRecords = true;
         // Remove the last split from the record (#3) so that it fails to deserialize
         int recordNumber = 1;
@@ -172,7 +173,7 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest(name = "testValidateRecordsMissingVersion [splitLongRecords = {0}, formatVersion = {1}]")
     @MethodSource("splitAndVersion")
-    void testValidateRecordsMissingVersion(boolean splitLongRecords, int formatVersion) throws Exception {
+    void testValidateRecordsMissingVersion(boolean splitLongRecords, FormatVersion formatVersion) throws Exception {
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(splitLongRecords);
         List<FDBStoredRecord<Message>> result = saveRecords(splitLongRecords, formatVersion, hook);
         // Delete the versions
@@ -188,7 +189,7 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
 
         // For format version 3, the version is stored elsewhere so deleting it from the split makes no difference
         String expectedResult;
-        if (formatVersion == 3) {
+        if (formatVersion == FormatVersion.RECORD_COUNT_KEY_ADDED) {
             expectedResult = RecordValidationResult.CODE_VALID;
         } else {
             expectedResult = RecordVersionValidator.CODE_VERSION_MISSING_ERROR;
@@ -206,7 +207,7 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest(name = "testValidateRecordsNoVersionStored [splitLongRecords = {0}, formatVersion = {1}]")
     @MethodSource("splitAndVersion")
-    void testValidateRecordsNoVersionStored(boolean splitLongRecords, int formatVersion) throws Exception {
+    void testValidateRecordsNoVersionStored(boolean splitLongRecords, FormatVersion formatVersion) throws Exception {
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(splitLongRecords, false);
         List<FDBStoredRecord<Message>> result = saveRecords(splitLongRecords, formatVersion, hook);
 
@@ -240,9 +241,9 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
      */
     @ParameterizedTest(name = "testValidateRecordCombinationSplitMissing [formatVersion = {0}, splitsToRemove = {1}]")
     @MethodSource("versionAndBitset")
-    void testValidateRecordCombinationSplitMissing(int formatVersion, BitSet splitsToRemove) throws Exception {
+    void testValidateRecordCombinationSplitMissing(FormatVersion formatVersion, BitSet splitsToRemove) throws Exception {
         // for formatVersion 3 we don't have a version split, so removing it by itself does nothing
-        Assumptions.assumeFalse((formatVersion == 3) && (splitsToRemove.equals(ValidationTestUtils.toBitSet(0b0001))));
+        Assumptions.assumeFalse((formatVersion == FormatVersion.RECORD_COUNT_KEY_ADDED) && (splitsToRemove.equals(ValidationTestUtils.toBitSet(0b0001))));
 
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(true);
         List<FDBStoredRecord<Message>> result = saveRecords(true, formatVersion, hook);
@@ -283,7 +284,7 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
      */
     @ParameterizedTest(name = "testValidateRecordCorruptSplit [formatVersion = {0}]")
     @MethodSource("formatVersions")
-    void testValidateRecordCorruptSplit(int formatVersion) throws Exception {
+    void testValidateRecordCorruptSplit(FormatVersion formatVersion) throws Exception {
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(true);
         List<FDBStoredRecord<Message>> result = saveRecords(true, formatVersion, hook);
         // Mess up the splits
@@ -323,7 +324,7 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
      */
     @ParameterizedTest(name = "testValidateRecordCorruptVersion [formatVersion = {0}]")
     @MethodSource("formatVersions")
-    void testValidateRecordCorruptVersion(int formatVersion) throws Exception {
+    void testValidateRecordCorruptVersion(FormatVersion formatVersion) throws Exception {
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(true);
         List<FDBStoredRecord<Message>> result = saveRecords(true, formatVersion, hook);
         // Mess up the splits
@@ -378,7 +379,7 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
 
 
     @Nonnull
-    private List<FDBStoredRecord<Message>> saveRecords(final boolean splitLongRecords, final int formatVersion, final RecordMetaDataHook hook) throws Exception {
+    private List<FDBStoredRecord<Message>> saveRecords(final boolean splitLongRecords, FormatVersion formatVersion, final RecordMetaDataHook hook) throws Exception {
         List<FDBStoredRecord<Message>> result;
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);

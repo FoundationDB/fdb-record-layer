@@ -94,7 +94,7 @@ public class FDBRecordStoreConcurrentTestBase {
     protected FDBRecordStore createOrOpenRecordStore(@Nonnull FDBRecordContext context,
                                                      @Nonnull RecordMetaDataProvider metaData,
                                                      @Nonnull final KeySpacePath path,
-                                                     final int formatVersion) {
+                                                     @Nonnull FormatVersion formatVersion) {
         return getStoreBuilder(context, metaData, path, formatVersion).createOrOpen();
     }
 

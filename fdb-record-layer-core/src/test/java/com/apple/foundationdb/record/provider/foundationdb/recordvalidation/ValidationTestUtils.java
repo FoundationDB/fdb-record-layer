@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.recordvalidation;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
@@ -31,11 +32,11 @@ import java.util.stream.Stream;
 
 public class ValidationTestUtils {
     @Nonnull
-    public static Stream<Integer> formatVersions() {
+    public static Stream<FormatVersion> formatVersions() {
         return Stream.of(
-                FDBRecordStore.RECORD_COUNT_KEY_ADDED_FORMAT_VERSION, // 3
-                FDBRecordStore.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION, // 6
-                FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION);
+                FormatVersion.RECORD_COUNT_KEY_ADDED, // 3
+                FormatVersion.SAVE_VERSION_WITH_RECORD, // 6
+                FormatVersion.getMaximumSupportedVersion());
     }
 
     public static BitSet toBitSet(final long l) {

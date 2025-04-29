@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
 import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Strings;
@@ -71,7 +72,7 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest(name = "testIterateRecordsNoIssue [splitLongRecords = {0}, useContinuations = {1}, formatVersion = {2}], storeVersions = {3}")
     @MethodSource("splitContinuationVersion")
-    void testIterateRecordsNoIssue(boolean splitLongRecords, UseContinuations useContinuations, int formatVersion, boolean storeVersions) throws Exception {
+    void testIterateRecordsNoIssue(boolean splitLongRecords, UseContinuations useContinuations, FormatVersion formatVersion, boolean storeVersions) throws Exception {
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(splitLongRecords, storeVersions);
         saveRecords(splitLongRecords, formatVersion, hook);
         // Scan records
@@ -83,7 +84,7 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest(name = "testIterateRecordsMissingRecord [splitLongRecords = {0}, useContinuations = {1}, formatVersion = {2}, storeVersions = {3}")
     @MethodSource("splitContinuationVersion")
-    void testIterateRecordsMissingRecord(boolean splitLongRecords, UseContinuations useContinuations, int formatVersion, boolean storeVersions) throws Exception {
+    void testIterateRecordsMissingRecord(boolean splitLongRecords, UseContinuations useContinuations, FormatVersion formatVersion, boolean storeVersions) throws Exception {
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(splitLongRecords, storeVersions);
         List<FDBStoredRecord<Message>> result = saveRecords(splitLongRecords, formatVersion, hook);
         // Delete a record
@@ -113,7 +114,7 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest(name = "testIterateRecordsMissingSplit [splitNumber = {0}, useContinuations = {1}, formatVersion = {2}, storeVersions = {3}]")
     @MethodSource("splitNumberContinuationsVersion")
-    void testIterateRecordsMissingSplit(int splitNumber, UseContinuations useContinuations, int formatVersion, boolean storeVersions) throws Exception {
+    void testIterateRecordsMissingSplit(int splitNumber, UseContinuations useContinuations, FormatVersion formatVersion, boolean storeVersions) throws Exception {
         boolean splitLongRecords = true;
 
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(splitLongRecords, storeVersions);
@@ -137,7 +138,7 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
         List<Tuple> expectedKeys;
         // When format version is 3 and the record is a short record, deleting the only split will make the record disappear
         // When format version is 6 or 10, and we're not saving version, the same
-        if ((splitNumber == 0) && ((formatVersion == 3) || !storeVersions)) {
+        if ((splitNumber == 0) && ((formatVersion == FormatVersion.RECORD_COUNT_KEY_ADDED) || !storeVersions)) {
             expectedKeys = getExpectedPrimaryKeys(i -> i != 2);
         } else {
             expectedKeys = getExpectedPrimaryKeys();
@@ -154,7 +155,7 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest(name = "testIterateRecordsMissingVersion [splitLongRecords = {0}, useContinuations = {1}, formatVersion = {2}]")
     @MethodSource("splitContinuationFormatVersion")
-    void testIterateRecordsMissingVersion(boolean splitLongRecords, UseContinuations useContinuations, int formatVersion) throws Exception {
+    void testIterateRecordsMissingVersion(boolean splitLongRecords, UseContinuations useContinuations, FormatVersion formatVersion) throws Exception {
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(splitLongRecords, true);
         List<FDBStoredRecord<Message>> savedRecords = saveRecords(splitLongRecords, formatVersion, hook);
         // Delete the versions for the first 20 records
@@ -183,7 +184,7 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
      */
     @ParameterizedTest(name = "testIterateRecordsMixedVersions [splitLongRecords = {0}, useContinuations = {1}, formatVersion = {2}]")
     @MethodSource("splitContinuationFormatVersion")
-    void testIterateRecordsMixedVersions(boolean splitLongRecords, UseContinuations useContinuations, int formatVersion) throws Exception {
+    void testIterateRecordsMixedVersions(boolean splitLongRecords, UseContinuations useContinuations, FormatVersion formatVersion) throws Exception {
         // This test changes the metadata so needs special attention to the metadata version
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(splitLongRecords, false);
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
@@ -227,7 +228,7 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
      */
     @ParameterizedTest(name = "testIterateRecordCombinationSplitMissing [useContinuations = {0}, formatVersion = {1}, splitsToRemove = {2}]")
     @MethodSource("continuationVersionAndBitset")
-    void testIterateRecordCombinationSplitMissing(UseContinuations useContinuations, int formatVersion, BitSet splitsToRemove) throws Exception {
+    void testIterateRecordCombinationSplitMissing(UseContinuations useContinuations, FormatVersion formatVersion, BitSet splitsToRemove) throws Exception {
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(true, true);
         List<FDBStoredRecord<Message>> result = saveRecords(true, formatVersion, hook);
         // Delete the splits
@@ -251,7 +252,7 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
         // The cases where the record will go missing altogether
         List<Tuple> expectedKeys;
         if (splitsToRemove.equals(ValidationTestUtils.toBitSet(0b1111)) ||
-                ((formatVersion == 3) && splitsToRemove.equals(ValidationTestUtils.toBitSet(0b1110)))) {
+                ((formatVersion == FormatVersion.RECORD_COUNT_KEY_ADDED) && splitsToRemove.equals(ValidationTestUtils.toBitSet(0b1110)))) {
             expectedKeys = getExpectedPrimaryKeys(i -> (i != 17));
         } else {
             expectedKeys = getExpectedPrimaryKeys();
@@ -282,7 +283,7 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private List<Tuple> scanKeys(final UseContinuations useContinuations, final int formatVersion, final RecordMetaDataHook hook, final ScanProperties scanProperties) throws Exception {
+    private List<Tuple> scanKeys(final UseContinuations useContinuations, FormatVersion formatVersion, final RecordMetaDataHook hook, final ScanProperties scanProperties) throws Exception {
         final List<Tuple> actualKeys;
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
@@ -324,15 +325,15 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private List<FDBStoredRecord<Message>> saveRecords(final boolean splitLongRecords, final int formatVersion, final RecordMetaDataHook hook) throws Exception {
+    private List<FDBStoredRecord<Message>> saveRecords(final boolean splitLongRecords, FormatVersion formatVersion, final RecordMetaDataHook hook) throws Exception {
         return saveRecords(1, 100, splitLongRecords, formatVersion, hook);
     }
 
-    private List<FDBStoredRecord<Message>> saveRecords(int initialId, int totalRecords, final boolean splitLongRecords, final int formatVersion, final RecordMetaDataHook hook) throws Exception {
+    private List<FDBStoredRecord<Message>> saveRecords(int initialId, int totalRecords, final boolean splitLongRecords, FormatVersion formatVersion, final RecordMetaDataHook hook) throws Exception {
         return saveRecords(initialId, totalRecords, splitLongRecords, formatVersion, simpleMetaData(hook));
     }
 
-    private List<FDBStoredRecord<Message>> saveRecords(int initialId, int totalRecords, final boolean splitLongRecords, final int formatVersion, final RecordMetaData metaData) throws Exception {
+    private List<FDBStoredRecord<Message>> saveRecords(int initialId, int totalRecords, final boolean splitLongRecords, FormatVersion formatVersion, final RecordMetaData metaData) throws Exception {
         List<FDBStoredRecord<Message>> result;
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = createOrOpenRecordStore(context, metaData, path, formatVersion);

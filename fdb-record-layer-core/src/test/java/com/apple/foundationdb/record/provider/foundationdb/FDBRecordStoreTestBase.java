@@ -118,7 +118,7 @@ public abstract class FDBRecordStoreTestBase extends FDBRecordStoreConcurrentTes
         return recordStoreQueryPlannerPair;
     }
 
-    public FDBRecordStore openSimpleRecordStore(FDBRecordContext context, @Nullable RecordMetaDataHook hook, final int formatVersion) {
+    public FDBRecordStore openSimpleRecordStore(FDBRecordContext context, @Nullable RecordMetaDataHook hook, @Nonnull FormatVersion formatVersion) {
         return createOrOpenRecordStore(context, simpleMetaData(hook), path, formatVersion);
     }
 
