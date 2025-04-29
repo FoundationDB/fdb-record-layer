@@ -129,7 +129,7 @@ public class LockRegistryTest {
                 Assertions.assertEquals(i, resource.get(i));
             }
         }, readLockAndWait1));
-        // checks that the initials 2 reads get to completion
+        // checks that the initial 2 reads get to completion
         checkAllCompletedNormally(ImmutableList.of(futures.get(2), futures.get(3)));
         // other 2 are still waiting
         checkWaiting(ImmutableList.of(futures.get(0), futures.get(1)));

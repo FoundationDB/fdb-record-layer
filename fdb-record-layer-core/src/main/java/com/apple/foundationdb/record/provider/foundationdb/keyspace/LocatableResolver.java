@@ -429,7 +429,7 @@ public abstract class LocatableResolver {
     /**
      * Lookup the String that maps to the provided value within the scope of the path that this object was constructed with.
      * This will base child transactions needed to access the database on the provided {@code parentContext}, including
-     * borrowing an initials {@linkplain FDBRecordContext#getReadVersion() read version} to avoid needing to pay the
+     * borrowing an initial {@linkplain FDBRecordContext#getReadVersion() read version} to avoid needing to pay the
      * cost of initializing a new transaction with every reverse lookup.
      *
      * @param parentContext the {@link FDBRecordContext} used to base possible child transactions on

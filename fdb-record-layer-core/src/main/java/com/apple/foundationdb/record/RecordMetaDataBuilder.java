@@ -1313,7 +1313,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     }
 
     /**
-     * Set the initials value of the subspace key counter. This method can be handy when users want to assign
+     * Set the initial value of the subspace key counter. This method can be handy when users want to assign
      * subspace keys using a counter, but their indexes already have subspace keys that may conflict with the
      * counter-based assignment.
      *

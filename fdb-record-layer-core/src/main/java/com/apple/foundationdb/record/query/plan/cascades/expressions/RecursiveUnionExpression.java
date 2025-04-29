@@ -38,7 +38,7 @@ import java.util.Set;
 /**
  * This is a logical representation of a recursive union, a recursive union is similar to a normal unordered union, however
  * its legs have special execution semantics; just like a union, it returns the results verbatim of one particular
- * leg called the "initials state" leg. This leg provides the results required to seed the recursion happening during
+ * leg called the "initial state" leg. This leg provides the results required to seed the recursion happening during
  * the execution of the other leg, the "recursive state" leg. The recursive unions repeatedly executes the recursive
  * leg until it does not produce any more results (fix-point).
  */

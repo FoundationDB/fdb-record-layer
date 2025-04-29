@@ -107,7 +107,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
             row3      groupKey2      groupBreak = True          previousValidResult = row2  previousResult = row3
             * returns result (groupKey1, continuation = row2), and set previousValidResult = row3
             *
-            * In scenario 2, a new iteration starts from row2 (because the last returned continuation = row1), and set initials previousResult = null, previousValidResult = null:
+            * In scenario 2, a new iteration starts from row2 (because the last returned continuation = row1), and set initial previousResult = null, previousValidResult = null:
             row2      groupKey1      groupBreak = False         previousValidResult = row2  previousResult = row2
             * (Note that because a new iteration starts, groupBreak = False for row2.)
             row3      groupKey2      groupBreak = True          previousValidResult = row2  previousResult = row3

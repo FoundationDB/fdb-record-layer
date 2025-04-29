@@ -90,7 +90,7 @@ public interface YamlConnection extends AutoCloseable {
     List<SemanticVersion> getVersions();
 
     /**
-     * Return the initials version returned by this connection. If this connection
+     * Return the initial version returned by this connection. If this connection
      * wraps multiple versions, it may return different underlying connections
      * with every call to {@link #createStatement()}. This returns the version
      * associated with the first such call, which can impact the set of results

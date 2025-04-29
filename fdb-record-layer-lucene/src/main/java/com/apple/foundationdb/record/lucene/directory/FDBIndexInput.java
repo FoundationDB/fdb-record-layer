@@ -78,7 +78,7 @@ public class FDBIndexInput extends IndexInput {
     }
 
     /**
-     * Constructor that is utilized by splice calls to take into account initials offsets and modifications to length.
+     * Constructor that is utilized by splice calls to take into account initial offsets and modifications to length.
      *
      * @param resourceDescription opaque description of file; used for logging
      * @param fileName opaque description of file; used for logging
@@ -205,7 +205,7 @@ public class FDBIndexInput extends IndexInput {
 
     /**
      *
-     * This takes an existing FDBIndexInput and provides a new initials offset plus
+     * This takes an existing FDBIndexInput and provides a new initial offset plus
      * a FDBLuceneFileReference that is not <b>not</b> backed in the metadata keyspace.
      *
      * @param sliceDescription new resourceDescription of Slice
@@ -237,9 +237,9 @@ public class FDBIndexInput extends IndexInput {
 
     /**
      *
-     * The relative position plus any initials offsets provided (slice).
+     * The relative position plus any initial offsets provided (slice).
      *
-     * @return postion+initialOffset
+     * @return position+initialOffset
      */
     private long absolutePosition() {
         return position + initialOffset;

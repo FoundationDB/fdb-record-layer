@@ -108,9 +108,9 @@ public class OnlineIndexOperationConfig {
     }
 
     /**
-     * Get the initials number of records to process in one transaction.
+     * Get the initial number of records to process in one transaction.
      *
-     * @return the initials number of records to process in one transaction
+     * @return the initial number of records to process in one transaction
      */
     public int getInitialLimit() {
         return initialLimit > 0 ? Math.min(initialLimit, maxLimit) : maxLimit;
@@ -266,9 +266,9 @@ public class OnlineIndexOperationConfig {
         }
 
         /**
-         * Get the initials number of records to process in one transaction.
+         * Get the initial number of records to process in one transaction.
          *
-         * @return the initials number of records to process in one transaction
+         * @return the initial number of records to process in one transaction
          *
          * @see #setInitialLimit(int)
          */
@@ -277,11 +277,11 @@ public class OnlineIndexOperationConfig {
         }
 
         /**
-         * Set the initials number of records to process in one transaction. This can be useful to avoid
+         * Set the initial number of records to process in one transaction. This can be useful to avoid
          * starting the indexing with the maximum limit (set by {@link #setMaxLimit(int)}), which may cause timeouts.
-         * The default initials limit is {@link #DEFAULT_LIMIT} = {@value #DEFAULT_LIMIT}.
+         * The default initial limit is {@link #DEFAULT_LIMIT} = {@value #DEFAULT_LIMIT}.
          *
-         * @param limit the initials number of records to process in one transaction
+         * @param limit the initial number of records to process in one transaction
          *
          * @return this builder
          */

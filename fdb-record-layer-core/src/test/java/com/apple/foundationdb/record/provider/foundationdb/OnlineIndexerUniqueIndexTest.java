@@ -127,7 +127,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
             buildIndexAssertThrowUniquenessViolation(indexBuilder);
         }
 
-        // Case 4: Some in write-only mode with an initials range build that shouldn't affect anything.
+        // Case 4: Some in write-only mode with an initial range build that shouldn't affect anything.
         fdb.run(context -> {
             FDBRecordStore.deleteStore(context, path);
             return null;

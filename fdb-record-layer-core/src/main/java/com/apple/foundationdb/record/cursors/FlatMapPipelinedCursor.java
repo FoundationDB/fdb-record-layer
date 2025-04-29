@@ -210,8 +210,8 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
                 byte[] innerContinuation = null;
                 if (initialInnerContinuation != null) {
                     // Check if the outer cursor is positioned to the same place as before, by comparing the outer
-                    // check value to the initials check value used to build the cursor. If they match (or one is missing),
-                    // use the given initials inner continuation. Otherwise, something about the outer cursor changed,
+                    // check value to the initial check value used to build the cursor. If they match (or one is missing),
+                    // use the given initial inner continuation. Otherwise, something about the outer cursor changed,
                     // so we should start the inner cursor from the beginning.
                     if (initialCheckValue == null || outerCheckValue == null || Arrays.equals(initialCheckValue, outerCheckValue)) {
                         innerContinuation = initialInnerContinuation;

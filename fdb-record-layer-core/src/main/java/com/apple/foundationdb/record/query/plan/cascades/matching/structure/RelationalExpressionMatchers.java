@@ -303,7 +303,7 @@ public class RelationalExpressionMatchers {
                 AllOfMatcher.matchingAllOf(RecursiveUnionExpression.class,
                         ImmutableList.of(
                                 typedWithDownstream(RecursiveUnionExpression.class,
-                                        Extractor.of(RecursiveUnionExpression::getInitialStateQuantifier, name -> "initials(" + name + ")"),
+                                        Extractor.of(RecursiveUnionExpression::getInitialStateQuantifier, name -> "initial(" + name + ")"),
                                         initialDownstream),
                                 typedWithDownstream(RecursiveUnionExpression.class,
                                         Extractor.of(RecursiveUnionExpression::getRecursiveStateQuantifier, name -> "recursive(" + name + ")"),

@@ -2403,7 +2403,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (info.getCacheable() != cacheable) {
                 if (newStore) {
                     if (LOGGER.isDebugEnabled()) {
-                        LOGGER.debug(KeyValueLogMessage.of("setting initials store state cacheability",
+                        LOGGER.debug(KeyValueLogMessage.of("setting initial store state cacheability",
                                 LogMessageKeys.OLD, info.getCacheable(),
                                 LogMessageKeys.NEW, cacheable,
                                 subspaceProvider.logKey(), subspaceProvider.toString(context)));
@@ -2457,7 +2457,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                         dirty[0] = true;
                         if (oldUserVersion < 0) {
                             if (LOGGER.isDebugEnabled()) {
-                                LOGGER.debug(KeyValueLogMessage.of("setting initials user version",
+                                LOGGER.debug(KeyValueLogMessage.of("setting initial user version",
                                         LogMessageKeys.NEW_VERSION, newUserVersion,
                                         subspaceProvider.logKey(), subspaceProvider.toString(context)));
                             }

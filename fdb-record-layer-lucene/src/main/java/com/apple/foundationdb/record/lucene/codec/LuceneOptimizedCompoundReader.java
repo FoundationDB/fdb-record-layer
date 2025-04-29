@@ -68,7 +68,7 @@ public final class LuceneOptimizedCompoundReader extends CompoundDirectory {
      * @param directory the underlying directory
      * @param si the segment
      * @param context context in which this is being read
-     * @throws IOException if there is an issue reading initials data
+     * @throws IOException if there is an issue reading initial data
      */
     // TODO: we should just pre-strip "entries" and append segment name up-front like simpletext?
     // this need not be a "general purpose" directory anymore (it only writes index files)

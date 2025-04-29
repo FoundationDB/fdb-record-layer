@@ -65,8 +65,8 @@ public interface AtomicMutation {
     BiFunction<Tuple, Tuple, Tuple> getAggregator();
 
     /**
-     * Get the initials value for aggregating multiple index entries.
-     * @return the initials value of a running aggregate for this type
+     * Get the initial value for aggregating multiple index entries.
+     * @return the initial value of a running aggregate for this type
      * @see com.apple.foundationdb.record.RecordCursor#reduce
      */
     @Nullable

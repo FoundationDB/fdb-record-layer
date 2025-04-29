@@ -976,7 +976,7 @@ public interface RecordCursor<T> extends AutoCloseable {
 
     /**
      * Reduce contents of cursor to single value.
-     * @param identity initials value for reduction
+     * @param identity initial value for reduction
      * @param accumulator function that takes previous reduced value and computes new value by combining with each record
      * @param <U> the result type of the reduction
      * @return a future that completes to the result of reduction
@@ -989,7 +989,7 @@ public interface RecordCursor<T> extends AutoCloseable {
 
     /**
      * A reduce variant which allows stopping the processing when the value has been successfully reduced.
-     * @param identity initials value for reduction
+     * @param identity initial value for reduction
      * @param accumulator function that takes previous reduces value and computes new value by combining with each record
      * @param stopCondition predicate which runs against the accumulated result before fetching new records
      * @param <U> the result type of the reduction

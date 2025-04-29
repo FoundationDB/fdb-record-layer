@@ -403,7 +403,7 @@ public class LogicalOperator {
      * to avoid unnecessary "breaking" a record constructor value unnecessarily when the user issues a query as simple
      * as {@code SELECT * FROM T}.
      * <br/>
-     * It can be thought of as a premature optimization considering and should be done by the optimizer during an initials
+     * It can be thought of as a premature optimization considering and should be done by the optimizer during an initial
      * plan canonicalization phase.
      *
      * @param output the {@link LogicalOperator}'s output.

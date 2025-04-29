@@ -168,7 +168,7 @@ class RecordLayerStoreCatalog implements StoreCatalog {
                     .setMetaDataProvider(catalogRecordMetaDataProvider)
                     .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.NONE);
             store.setStateCacheability(true);
-            // Make sure the catalog's schematemplate is in place. It won't be if this is initials start up or if the
+            // Make sure the catalog's schematemplate is in place. It won't be if this is initial start up or if the
             // schemaTemplateCatalog is the non-persisting in-memory implementation.
             if (!schemaTemplateCatalog.doesSchemaTemplateExist(createTxn, this.catalogSchemaTemplate.getName())) {
                 schemaTemplateCatalog.createTemplate(createTxn, this.catalogSchemaTemplate);

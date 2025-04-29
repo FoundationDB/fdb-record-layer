@@ -123,8 +123,8 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
      * Increment and return the next connection's initialConnection number.
      * This allows us to better distribute the connections positions as connections are created per query in the tests
      * and thus connections with a single query should increment their position between connection creation or else they
-     * will always execute with the same initials connection.
-     * @return the next initials connection number to use
+     * will always execute with the same initial connection.
+     * @return the next initial connection number to use
      */
     private int getNextConnectionNumber() {
         switch (connectionSelectionPolicy) {
