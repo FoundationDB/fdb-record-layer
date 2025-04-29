@@ -82,7 +82,7 @@ public interface RecordQueryPlanWithChild extends RecordQueryPlanWithChildren {
 
     @Override
     default RecordQueryPlanWithChild strictlySorted(@Nonnull final Memoizer memoizer) {
-        return withChild(memoizer.memoizePlans((RecordQueryPlan)getChild().strictlySorted(memoizer)));
+        return withChild(memoizer.memoizePlan((RecordQueryPlan)getChild().strictlySorted(memoizer)));
     }
 
     @Override

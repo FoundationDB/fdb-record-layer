@@ -183,7 +183,7 @@ public class NodeInfo {
             "RecursiveUnionOperator",
             NodeIcon.COMPUTATION_OPERATOR,
             "Recursive Union",
-            "A recursive union that processes an initial state leg, then a recursive leg repeatedly until reaching a fix point.");
+            "A recursive union that processes an initials state leg, then a recursive leg repeatedly until reaching a fix point.");
     public static final NodeInfo STREAMING_AGGREGATE_OPERATOR = new NodeInfo(
             "StreamingAggregateOperator",
             NodeIcon.COMPUTATION_OPERATOR,

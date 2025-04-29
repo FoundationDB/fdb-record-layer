@@ -248,7 +248,7 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
 
     @Override
     public QueryPlan<FDBQueriedRecord<Message>> strictlySorted(@Nonnull final Memoizer memoizer) {
-        return withChildrenReferences(getChildren().stream().map(p -> memoizer.memoizePlans((RecordQueryPlan)p.strictlySorted(memoizer))).collect(Collectors.toList()));
+        return withChildrenReferences(getChildren().stream().map(p -> memoizer.memoizePlan((RecordQueryPlan)p.strictlySorted(memoizer))).collect(Collectors.toList()));
     }
 
     @Nonnull

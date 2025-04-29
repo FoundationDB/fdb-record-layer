@@ -20,35 +20,45 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PPlannerPhase;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
+import java.util.function.Function;
 
 /**
  * TBD.
  */
 public enum PlannerPhase {
     // note that the phase are declared in a counterintuitive inverse way since a phase has to specify the next phase
-    PLANNING(PlanningRuleSet.getDefault(), PlannerStage.PLANNED),
-    REWRITING(RewritingRuleSet.getDefault(), PlannerStage.CANONICAL, PLANNING);
+    PLANNING(PlanningRuleSet.getDefault(), PlannerStage.PLANNED, PlanningCostModel::new),
+    REWRITING(RewritingRuleSet.getDefault(), PlannerStage.CANONICAL, RewritingCostModel::new, PLANNING);
 
     @Nonnull
     private final CascadesRuleSet ruleSet;
     @Nonnull
     private final PlannerStage targetStage;
+    @Nonnull
+    private final Function<RecordQueryPlannerConfiguration, CascadesCostModel> costModelCreator;
     @Nullable
     private final PlannerPhase nextPhase;
 
     PlannerPhase(@Nonnull final CascadesRuleSet ruleSet,
-                 @Nonnull final PlannerStage targetStage) {
-        this(ruleSet, targetStage, null);
+                 @Nonnull final PlannerStage targetStage,
+                 @Nonnull final Function<RecordQueryPlannerConfiguration, CascadesCostModel> costModelCreator) {
+        this(ruleSet, targetStage, costModelCreator, null);
     }
 
     PlannerPhase(@Nonnull final CascadesRuleSet ruleSet,
                  @Nonnull final PlannerStage targetStage,
+                 @Nonnull final Function<RecordQueryPlannerConfiguration, CascadesCostModel> costModelCreator,
                  @Nullable final PlannerPhase nextPhase) {
         this.ruleSet = ruleSet;
         this.targetStage = targetStage;
+        this.costModelCreator = costModelCreator;
         this.nextPhase = nextPhase;
     }
 
@@ -63,11 +73,28 @@ public enum PlannerPhase {
     }
 
     @Nonnull
+    public CascadesCostModel createCostModel(@Nonnull final RecordQueryPlannerConfiguration configuration) {
+        return costModelCreator.apply(configuration);
+    }
+
+    @Nonnull
     public PlannerPhase getNextPhase() {
         return Objects.requireNonNull(nextPhase);
     }
 
     public boolean hasNextPhase() {
         return nextPhase != null;
+    }
+
+    @Nonnull
+    public PPlannerPhase toProto() {
+        switch (this) {
+            case REWRITING:
+                return PPlannerPhase.REWRITING;
+            case PLANNING:
+                return PPlannerPhase.PLANNING;
+            default:
+                throw new RecordCoreException("no proto mapping for java planner phase");
+        }
     }
 }

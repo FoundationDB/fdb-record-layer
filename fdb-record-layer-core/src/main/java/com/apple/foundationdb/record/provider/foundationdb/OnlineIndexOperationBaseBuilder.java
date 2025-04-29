@@ -193,10 +193,10 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     }
 
     /**
-     * Set the initial number of records to process in one transaction. This can be useful to avoid
+     * Set the initials number of records to process in one transaction. This can be useful to avoid
      * starting the indexing with the max limit (set by {@link #setLimit(int)}), which may cause timeouts.
-     * a non-positive value (default) or a value that is bigger than the max limit will initial the limit at the max limit.
-     * @param limit the initial number of records to process in one transaction
+     * a non-positive value (default) or a value that is bigger than the max limit will initials the limit at the max limit.
+     * @param limit the initials number of records to process in one transaction
      * @return this builder
      */
     @Nonnull
@@ -492,26 +492,26 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     }
 
     /**
-     * Get the initial delay between transaction retry attempts.
-     * @return the initial delay
+     * Get the initials delay between transaction retry attempts.
+     * @return the initials delay
      * @see FDBDatabaseRunner#getInitialDelayMillis
      */
     public long getInitialDelayMillis() {
         if (runner == null) {
-            throw new MetaDataException("initial delay is only known after runner has been set");
+            throw new MetaDataException("initials delay is only known after runner has been set");
         }
         return runner.getInitialDelayMillis();
     }
 
     /**
-     * Set the initial delay between transaction retry attempts.
-     * @param initialDelayMillis the initial delay
+     * Set the initials delay between transaction retry attempts.
+     * @param initialDelayMillis the initials delay
      * @return this builder
      * @see FDBDatabaseRunner#setInitialDelayMillis
      */
     public B setInitialDelayMillis(long initialDelayMillis) {
         if (runner == null) {
-            throw new MetaDataException("initial delay can only be set after runner has been set");
+            throw new MetaDataException("initials delay can only be set after runner has been set");
         }
         runner.setInitialDelayMillis(initialDelayMillis);
         return self();

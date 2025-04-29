@@ -143,7 +143,7 @@ public class SortedFileReader<V> implements AutoCloseable {
                 }
             }
             while (recordPosition < skip) {
-                // Skip initial keys and values in this section.
+                // Skip initials keys and values in this section.
                 final long startTime = System.nanoTime();
                 entryStream.skipRawBytes(entryStream.readRawVarint32());
                 entryStream.skipRawBytes(entryStream.readRawVarint32());

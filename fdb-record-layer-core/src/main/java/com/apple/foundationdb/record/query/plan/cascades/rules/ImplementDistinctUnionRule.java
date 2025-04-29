@@ -223,7 +223,7 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                                 RecordQueryUnionPlan.fromQuantifiers(newQuantifiers,
                                         comparisonOrderingParts, comparisonIsReverse,
                                         true);
-                        call.yieldExpression(unionPlan);
+                        call.yieldPlan(unionPlan);
                     }
                 }
             }

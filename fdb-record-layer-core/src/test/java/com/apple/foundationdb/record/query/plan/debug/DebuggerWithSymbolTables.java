@@ -34,7 +34,9 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.google.common.base.Verify;
 import com.google.common.cache.Cache;
 import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Streams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -178,16 +180,19 @@ public class DebuggerWithSymbolTables implements Debugger {
             if (event.getLocation() == Location.END && event instanceof TransformRuleCallEvent) {
                 final TransformRuleCallEvent transformRuleCallEvent = (TransformRuleCallEvent)event;
                 final CascadesRuleCall ruleCall = transformRuleCallEvent.getRuleCall();
-                final var newExpressions = ruleCall.getNewExpressions();
-                if (!newExpressions.isEmpty()) {
-                    final var logMessage = KeyValueLogMessage.build("rule yielded new expression(s)",
+                final var newExpressions =
+                        Iterables.concat(ruleCall.getNewFinalExpressions(), ruleCall.getNewExploratoryExpressions());
+                if (!Iterables.isEmpty(newExpressions)) {
+                    final var logMessage =
+                            KeyValueLogMessage.build("rule yielded new expression(s)",
                             "rule", transformRuleCallEvent.getRule().getClass().getSimpleName());
                     final var name  = nameForObject(transformRuleCallEvent.getBindable());
                     if (name != null) {
                         logMessage.addKeyAndValue("name", name);
                     }
 
-                    logMessage.addKeyAndValue("expressions", newExpressions.stream().map(this::nameForObject).collect(Collectors.joining(", ")));
+                    logMessage.addKeyAndValue("expressions", Streams.stream(newExpressions)
+                            .map(this::nameForObject).collect(Collectors.joining(", ")));
                     logger.debug(logMessage.toString());
                 }
             }

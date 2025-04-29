@@ -37,7 +37,7 @@ import java.util.stream.Stream;
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
-public class CascadesRuleSet extends AbstractRuleSet<Reference, CascadesRuleCall, RelationalExpression> {
+public class CascadesRuleSet extends AbstractRuleSet<RelationalExpression, CascadesRuleCall, RelationalExpression> {
     @VisibleForTesting
     @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     CascadesRuleSet(@Nonnull Set<CascadesRule<? extends RelationalExpression>> rules) {
@@ -54,7 +54,7 @@ public class CascadesRuleSet extends AbstractRuleSet<Reference, CascadesRuleCall
     @Nonnull
     @Override
     @SuppressWarnings("unchecked")
-    public Stream<? extends CascadesRule<? extends RelationalExpression>> getRules(@Nonnull final RelationalExpression value, @Nonnull final Predicate<PlannerRule<Reference, CascadesRuleCall, ? extends RelationalExpression>> plannerRulePredicate) {
+    public Stream<? extends CascadesRule<? extends RelationalExpression>> getRules(@Nonnull final RelationalExpression value, @Nonnull final Predicate<PlannerRule<RelationalExpression, CascadesRuleCall, ? extends RelationalExpression>> plannerRulePredicate) {
         return (Stream<? extends CascadesRule<? extends RelationalExpression>>)super.getRules(value, plannerRulePredicate);
     }
 

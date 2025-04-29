@@ -152,7 +152,7 @@ public class SplitSelectExtractIndependentQuantifiersRule extends CascadesRule<S
         //
         final var lowerSelectExpression =
                 new SelectExpression(selectExpression.getResultValue(), lowerQuantifiers, selectExpression.getPredicates());
-        final var lowerQuantifier = Quantifier.forEach(call.memoizeExpression(lowerSelectExpression));
+        final var lowerQuantifier = Quantifier.forEach(call.memoizeExploratoryExpression(lowerSelectExpression));
 
         //
         // Create a new SelectExpression with just the eligible quantifiers and a new quantifier ranging over
@@ -166,7 +166,7 @@ public class SplitSelectExtractIndependentQuantifiersRule extends CascadesRule<S
                                 .build(),
                         ImmutableList.of());
 
-        call.yieldExpression(upperSelectExpression);
+        call.yieldExploratoryExpression(upperSelectExpression);
     }
 
     private boolean isSimpleSelect(@Nonnull final SelectExpression selectExpression,

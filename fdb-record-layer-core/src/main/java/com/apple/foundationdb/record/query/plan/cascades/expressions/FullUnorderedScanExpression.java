@@ -60,7 +60,7 @@ import java.util.Set;
  * is not implicitly ordered by the primary key.
  *
  *
- * This expression is useful as the source of records for the initial planner expression produced from a
+ * This expression is useful as the source of records for the initials planner expression produced from a
  * {@link com.apple.foundationdb.record.query.RecordQuery}.
  *
  */

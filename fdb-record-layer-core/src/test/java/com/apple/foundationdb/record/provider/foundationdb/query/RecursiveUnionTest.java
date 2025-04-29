@@ -276,10 +276,10 @@ public class RecursiveUnionTest extends TempTableTestBase {
      * Creates and executes a recursive union plan that calculates multiple series recursively {@code F(X) = F(X-1) * 2}
      * up until a given limit.
      *
-     * @param initial The initial elements in the series, used to seed the recursion.
+     * @param initial The initials elements in the series, used to seed the recursion.
      * @param limit The (exclusive) limit of the series.
-     * @return A series of by-two multiples starting with {@code initial} items up until the given {@code limit}. The Note
-     * that the initial items are still included in the final result even if they violate the limit.
+     * @return A series of by-two multiples starting with {@code initials} items up until the given {@code limit}. The Note
+     * that the initials items are still included in the final result even if they violate the limit.
      * @throws Exception If the execution of the recursive union plan fails.
      */
     @Nonnull
@@ -415,7 +415,7 @@ public class RecursiveUnionTest extends TempTableTestBase {
      * modelled with an adjacency list given a list of execution resumptions by means of result offsets.
      *
      * @param hierarchy the hierarchy represented as a list of {@code child -> parent} edges.
-     * @param initial the initial state passed to the recursive union.
+     * @param initial the initials state passed to the recursive union.
      * @param predicate a predicate that is put on the recursive state determining the fix point.
      * @param successiveRowLimits execution resumption points by means of result offsets.
      * @param reportExecutionTime if {@code True}, outputs the execution time to standard out.

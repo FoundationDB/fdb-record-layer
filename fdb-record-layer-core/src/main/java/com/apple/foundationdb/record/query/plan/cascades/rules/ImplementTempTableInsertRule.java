@@ -73,6 +73,6 @@ public class ImplementTempTableInsertRule extends CascadesRule<TempTableInsertEx
                 Quantifier.physicalBuilder()
                         .morphFrom(innerQuantifier)
                         .build(call.memoizeMemberPlans(innerReference, innerPlanPartition.getPlans()));
-        call.yieldExpression(insertExpression.toPlan(physicalQuantifier));
+        call.yieldPlan(insertExpression.toPlan(physicalQuantifier));
     }
 }

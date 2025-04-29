@@ -49,13 +49,15 @@ public class ImplementPhysicalScanRule extends CascadesRule<PrimaryScanExpressio
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final PrimaryScanExpression logical = call.get(root);
-        call.yieldExpression(new RecordQueryScanPlan(
-                logical.getRecordTypes(),
-                logical.getResultValue().getResultType().narrowMaybe(Type.Record.class).orElseThrow(() -> new RecordCoreException("type is of wrong implementor")),
-                logical.getPrimaryKey(),
-                logical.scanComparisons(),
-                logical.isReverse(),
-                false,
-                logical.getMatchCandidate()));
+        call.yieldPlan(
+                new RecordQueryScanPlan(
+                        logical.getRecordTypes(),
+                        logical.getResultValue().getResultType()
+                                .narrowMaybe(Type.Record.class).orElseThrow(() -> new RecordCoreException("type is of wrong implementor")),
+                        logical.getPrimaryKey(),
+                        logical.scanComparisons(),
+                        logical.isReverse(),
+                        false,
+                        logical.getMatchCandidate()));
     }
 }

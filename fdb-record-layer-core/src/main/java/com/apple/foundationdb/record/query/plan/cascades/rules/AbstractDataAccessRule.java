@@ -753,7 +753,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                     final var dataAccessPlan = entry.getValue();
                                     if (matchCandidate.createsDuplicates()) {
                                         return new RecordQueryUnorderedPrimaryKeyDistinctPlan(
-                                                Quantifier.physical(memoizer.memoizePlans(dataAccessPlan)));
+                                                Quantifier.physical(memoizer.memoizePlan(dataAccessPlan)));
                                     }
                                     return dataAccessPlan;
                                 }));
@@ -861,7 +861,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                             partition
                                     .stream()
                                     .map(pair -> Objects.requireNonNull(matchToPlanMap.get(pair.getElement().getPartialMatch())))
-                                    .map(memoizer::memoizePlans)
+                                    .map(memoizer::memoizePlan)
                                     .map(Quantifier::physical)
                                     .collect(ImmutableList.toImmutableList());
 

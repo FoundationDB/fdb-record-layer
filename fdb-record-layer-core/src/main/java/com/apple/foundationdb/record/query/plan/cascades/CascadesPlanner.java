@@ -46,7 +46,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
-import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -180,7 +179,7 @@ import java.util.function.Supplier;
  *         Transforms on match partitions {@link TransformMatchPartition}: These transforms are executed only after
  *         all transforms (both {@link TransformExpression}s and {@link TransformPartialMatch}) have been executed
  *         for a current (group, expression). Note, that this kind transformation task can be repeatedly executed for
- *         a given group but it is guaranteed to only be executed once for a (group, expression) pair.
+ *         a given group, but it is guaranteed to only be executed once for a (group, expression) pair.
  *         The root for the corresponding rules is always of type {@link MatchPartition}. These are the rules that react
  *         to all synthesized matches for an expression at once.
  *     </li>
@@ -204,8 +203,6 @@ public class CascadesPlanner implements QueryPlanner {
     @Nonnull
     private final RecordStoreState recordStoreState;
     @Nonnull
-    private final PlanningRuleSet ruleSet;
-    @Nonnull
     private Reference currentRoot;
     @Nonnull
     private PlanContext planContext;
@@ -221,14 +218,9 @@ public class CascadesPlanner implements QueryPlanner {
     private int maxQueueSize;
 
     public CascadesPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState) {
-        this(metaData, recordStoreState, defaultPlannerRuleSet());
-    }
-
-    public CascadesPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState, @Nonnull PlanningRuleSet ruleSet) {
         this.configuration = RecordQueryPlannerConfiguration.builder().build();
         this.metaData = metaData;
         this.recordStoreState = recordStoreState;
-        this.ruleSet = ruleSet;
         // Placeholders until we get a query.
         this.currentRoot = Reference.empty();
         this.planContext = PlanContext.emptyContext();
@@ -471,9 +463,7 @@ public class CascadesPlanner implements QueryPlanner {
                                                     @Nonnull final Reference group,
                                                     @Nonnull final RelationalExpression expression,
                                                     final boolean forceExploration) {
-        if (expression instanceof QueryPlan) {
-            taskStack.push(new OptimizeInputs(plannerPhase, group, expression));
-        }
+        taskStack.push(new OptimizeInputs(plannerPhase, group, expression));
         exploreExpression(plannerPhase, group, expression, forceExploration);
     }
 
@@ -540,7 +530,7 @@ public class CascadesPlanner implements QueryPlanner {
         @Override
         @Nonnull
         public Debugger.Event toTaskEvent(final Location location) {
-            return new Debugger.InitiatePlannerPhaseEvent(currentRoot, taskStack, plannerPhase);
+            return new Debugger.InitiatePlannerPhaseEvent(plannerPhase, currentRoot, taskStack);
         }
 
         @Override
@@ -586,7 +576,7 @@ public class CascadesPlanner implements QueryPlanner {
             RelationalExpression bestFinalExpression = null;
             for (final var finalExpression : group.getFinalExpressions()) {
                 if (bestFinalExpression == null ||
-                        new CascadesCostModel(configuration).compare(finalExpression, bestFinalExpression) < 0) {
+                        plannerPhase.createCostModel(configuration).compare(finalExpression, bestFinalExpression) < 0) {
                     if (bestFinalExpression != null) {
                         // best member is being pruned
                         traversal.removeExpression(group, bestFinalExpression);
@@ -606,7 +596,7 @@ public class CascadesPlanner implements QueryPlanner {
 
         @Override
         public Debugger.Event toTaskEvent(final Location location) {
-            return new Debugger.OptimizeGroupEvent(currentRoot, taskStack, location, group);
+            return new Debugger.OptimizeGroupEvent(plannerPhase, currentRoot, taskStack, location, group);
         }
 
         @Override
@@ -673,7 +663,7 @@ public class CascadesPlanner implements QueryPlanner {
 
         @Override
         public Debugger.Event toTaskEvent(final Location location) {
-            return new Debugger.ExploreGroupEvent(currentRoot, taskStack, location, group);
+            return new Debugger.ExploreGroupEvent(plannerPhase, currentRoot, taskStack, location, group);
         }
 
         @Override
@@ -685,7 +675,7 @@ public class CascadesPlanner implements QueryPlanner {
     /**
      * Abstract base class for all tasks that have a <em>current</em> (group, expression).
      */
-    private abstract class ExploreTask implements Task {
+    private abstract static class ExploreTask implements Task {
         @Nonnull
         private final PlannerPhase plannerPhase;
         @Nonnull
@@ -716,11 +706,6 @@ public class CascadesPlanner implements QueryPlanner {
         public RelationalExpression getExpression() {
             return expression;
         }
-
-        @Nonnull
-        protected PlanningRuleSet getRules() {
-            return ruleSet;
-        }
     }
 
     /**
@@ -743,6 +728,8 @@ public class CascadesPlanner implements QueryPlanner {
 
         @Override
         public void execute() {
+            final var ruleSet = getPlannerPhase().getRuleSet();
+
             // push all rules that need to run after all exploration for a (group, expression) pair is done.
             ruleSet.getMatchPartitionRules(rule -> configuration.isRuleEnabled(rule))
                     .filter(this::shouldPushRule)
@@ -786,7 +773,8 @@ public class CascadesPlanner implements QueryPlanner {
 
         @Override
         public Debugger.Event toTaskEvent(final Location location) {
-            return new Debugger.ExploreExpressionEvent(currentRoot, taskStack, location, getGroup(), getExpression());
+            return new Debugger.ExploreExpressionEvent(getPlannerPhase(), currentRoot, taskStack, location, getGroup(),
+                    getExpression());
         }
 
         @Override
@@ -852,7 +840,7 @@ public class CascadesPlanner implements QueryPlanner {
 
 
     /**
-     * Abstract base class for all transformations. All transformations are defined on a sub class of
+     * Abstract base class for all transformations. All transformations are defined on a subclass of
      * {@link RelationalExpression}, {@link PartialMatch}, of {@link MatchPartition}.
      */
     private abstract class AbstractTransform implements Task {
@@ -933,8 +921,8 @@ public class CascadesPlanner implements QueryPlanner {
 
             rule.getMatcher()
                     .bindMatches(getConfiguration(), initialBindings, getBindable())
-                    .map(bindings -> new CascadesRuleCall(planContext, rule, group, traversal, taskStack,
-                            bindings, evaluationContext))
+                    .map(bindings -> new CascadesRuleCall(plannerPhase, planContext, rule, group,
+                            traversal, taskStack, bindings, evaluationContext))
                     .forEach(ruleCall -> {
                         int ruleMatchesCount = numMatches.incrementAndGet();
                         if (isMaxNumMatchesPerRuleCallExceeded(configuration, ruleMatchesCount)) {
@@ -948,14 +936,14 @@ public class CascadesPlanner implements QueryPlanner {
                         // about begin and end of the rule call event
                         Debugger.withDebugger(debugger -> debugger.onEvent(toTaskEvent(Location.MATCH_PRE)));
                         Debugger.withDebugger(debugger ->
-                                debugger.onEvent(new Debugger.TransformRuleCallEvent(currentRoot, taskStack,
-                                        Location.BEGIN, group, getBindable(), rule, ruleCall)));
+                                debugger.onEvent(new Debugger.TransformRuleCallEvent(plannerPhase, currentRoot,
+                                        taskStack, Location.BEGIN, group, getBindable(), rule, ruleCall)));
                         try {
                             executeRuleCall(ruleCall);
                         } finally {
                             Debugger.withDebugger(debugger ->
-                                    debugger.onEvent(new Debugger.TransformRuleCallEvent(currentRoot, taskStack,
-                                            Location.END, group, getBindable(), rule, ruleCall)));
+                                    debugger.onEvent(new Debugger.TransformRuleCallEvent(plannerPhase, currentRoot,
+                                            taskStack, Location.END, group, getBindable(), rule, ruleCall)));
                         }
                     });
         }
@@ -967,13 +955,24 @@ public class CascadesPlanner implements QueryPlanner {
             // Handle produced artifacts (through yield...() calls)
             //
             for (final PartialMatch newPartialMatch : ruleCall.getNewPartialMatches()) {
-                Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.TransformRuleCallEvent(currentRoot, taskStack, Location.YIELD, group, getBindable(), rule, ruleCall)));
+                Debugger.withDebugger(debugger ->
+                        debugger.onEvent(new Debugger.TransformRuleCallEvent(plannerPhase, currentRoot, taskStack,
+                                Location.YIELD, group, getBindable(), rule, ruleCall)));
                 taskStack.push(new AdjustMatch(getPlannerPhase(), getGroup(), getExpression(), newPartialMatch));
             }
 
-            for (final RelationalExpression newExpression : ruleCall.getNewExpressions()) {
-                Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.TransformRuleCallEvent(currentRoot, taskStack, Location.YIELD, group, getBindable(), rule, ruleCall)));
+            for (final RelationalExpression newExpression : ruleCall.getNewFinalExpressions()) {
+                Debugger.withDebugger(debugger ->
+                        debugger.onEvent(new Debugger.TransformRuleCallEvent(plannerPhase, currentRoot, taskStack,
+                                Location.YIELD, group, getBindable(), rule, ruleCall)));
                 exploreExpressionAndOptimizeInputs(plannerPhase, getGroup(), newExpression, true);
+            }
+
+            for (final RelationalExpression newExpression : ruleCall.getNewExploratoryExpressions()) {
+                Debugger.withDebugger(debugger ->
+                        debugger.onEvent(new Debugger.TransformRuleCallEvent(plannerPhase, currentRoot, taskStack,
+                                Location.YIELD, group, getBindable(), rule, ruleCall)));
+                exploreExpression(plannerPhase, group, newExpression, true);
             }
 
             final var referencesWithPushedRequirements = ruleCall.getReferencesWithPushedRequirements();
@@ -998,7 +997,8 @@ public class CascadesPlanner implements QueryPlanner {
 
         @Override
         public Debugger.Event toTaskEvent(final Location location) {
-            return new Debugger.TransformEvent(currentRoot, taskStack, location, getGroup(), getBindable(), getRule());
+            return new Debugger.TransformEvent(plannerPhase, currentRoot, taskStack, location, getGroup(),
+                    getBindable(), getRule());
         }
 
         @Override
@@ -1108,6 +1108,7 @@ public class CascadesPlanner implements QueryPlanner {
 
         @Override
         public void execute() {
+            final var ruleSet = getPlannerPhase().getRuleSet();
             ruleSet.getPartialMatchRules(rule -> configuration.isRuleEnabled(rule))
                     .forEach(rule ->
                             taskStack.push(new TransformPartialMatch(getPlannerPhase(), getGroup(), getExpression(),
@@ -1116,7 +1117,8 @@ public class CascadesPlanner implements QueryPlanner {
 
         @Override
         public Debugger.Event toTaskEvent(final Location location) {
-            return new Debugger.AdjustMatchEvent(currentRoot, taskStack, location, getGroup(), getExpression());
+            return new Debugger.AdjustMatchEvent(getPlannerPhase(), currentRoot, taskStack, location, getGroup(),
+                    getExpression());
         }
 
         @Override
@@ -1172,21 +1174,12 @@ public class CascadesPlanner implements QueryPlanner {
 
         @Override
         public Debugger.Event toTaskEvent(final Location location) {
-            return new Debugger.OptimizeInputsEvent(currentRoot, taskStack, location, group, expression);
+            return new Debugger.OptimizeInputsEvent(plannerPhase, currentRoot, taskStack, location, group, expression);
         }
 
         @Override
         public String toString() {
             return "OptimizeInputs(" + group + ")";
         }
-    }
-
-    /**
-     * Returns the default set of transformation rules.
-     * @return a {@link PlanningRuleSet} using the default set of transformation rules
-     */
-    @Nonnull
-    public static PlanningRuleSet defaultPlannerRuleSet() {
-        return PlanningRuleSet.DEFAULT;
     }
 }

@@ -51,7 +51,7 @@ class TokenBucketSamplerTest {
     void conformsToAverageRate() {
         //over time, the number of samples should be returned at a rate of maxTokens/refreshIntervalNanos
         //this test checks that it allows through about 1/second. It will allow a little bit more
-        //because the initial burstiness allowed by the tokens
+        //because the initials burstiness allowed by the tokens
         AtomicLong counter = new AtomicLong(0L);
         Clock ticker = Clocks.logicalClock(counter);
 

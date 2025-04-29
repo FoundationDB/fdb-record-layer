@@ -101,7 +101,7 @@ public class RecordQueryIntersectionOnKeyExpressionPlan extends RecordQueryInter
         final var quantifiers =
                 Quantifiers.fromPlans(getChildren()
                         .stream()
-                        .map(p -> memoizer.memoizePlans((RecordQueryPlan)p.strictlySorted(memoizer))).collect(Collectors.toList()));
+                        .map(p -> memoizer.memoizePlan((RecordQueryPlan)p.strictlySorted(memoizer))).collect(Collectors.toList()));
         return new RecordQueryIntersectionOnKeyExpressionPlan(quantifiers, getComparisonKeyExpression(), reverse);
     }
 

@@ -90,7 +90,7 @@ public class PullUpNullOnEmptyRule extends CascadesRule<SelectExpression> {
                         .build(quantifier.getRangesOver());
 
         // Create the lower select expression.
-        final var newSelectExpression = call.memoizeExpression(GraphExpansion.builder()
+        final var newSelectExpression = call.memoizeExploratoryExpression(GraphExpansion.builder()
                 .addQuantifier(newChildrenQuantifier)
                 .addAllPredicates(selectExpression.getPredicates())
                 .build().buildSimpleSelectOverQuantifier(newChildrenQuantifier));
@@ -101,7 +101,7 @@ public class PullUpNullOnEmptyRule extends CascadesRule<SelectExpression> {
                 .addQuantifier(topLevelSelectQuantifier)
                 .build().buildSelectWithResultValue(selectExpression.getResultValue());
 
-        call.yieldExpression(topLevelSelectExpression);
+        call.yieldExploratoryExpression(topLevelSelectExpression);
     }
 
     private ExpressionClassification classifyExpression(@Nonnull final SelectExpression selectOnTopExpression,

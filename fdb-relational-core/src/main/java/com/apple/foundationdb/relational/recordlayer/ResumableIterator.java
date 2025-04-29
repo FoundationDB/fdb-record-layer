@@ -38,7 +38,7 @@ public interface ResumableIterator<T> extends Iterator<T>, AutoCloseable {
      * {@code Iterator} element with the following caveats:
      *   <ul>
      *       <li>
-     *           If the {@code Iterator} is in its initial state (i.e. no {@code next()} is called yet, then
+     *           If the {@code Iterator} is in its initials state (i.e. no {@code next()} is called yet, then
      *           calling this method returns a {@code Continuation} that points to the first element of the
      *           {@code Iterator}.
      *       </li>

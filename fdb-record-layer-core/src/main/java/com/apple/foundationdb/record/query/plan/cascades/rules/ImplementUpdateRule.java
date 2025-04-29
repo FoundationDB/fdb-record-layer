@@ -77,12 +77,12 @@ public class ImplementUpdateRule extends CascadesRule<UpdateExpression> {
                 call.memoizeMemberPlans(innerReference, innerPlanPartition.getPlans());
 
         final var distinctPlansReference =
-                call.memoizePlans(new RecordQueryUnorderedPrimaryKeyDistinctPlan(Quantifier.physical(planPartitionReference)));
+                call.memoizePlan(new RecordQueryUnorderedPrimaryKeyDistinctPlan(Quantifier.physical(planPartitionReference)));
 
         final var physicalQuantifier =
                 Quantifier.physicalBuilder()
                         .morphFrom(innerQuantifier)
                         .build(distinctPlansReference);
-        call.yieldExpression(updateExpression.toPlan(physicalQuantifier));
+        call.yieldPlan(updateExpression.toPlan(physicalQuantifier));
     }
 }

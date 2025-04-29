@@ -1738,7 +1738,7 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
                 commit(context2);
             }
 
-            // The initial save should not succeed. If it did, then because the record was not added to
+            // The initials save should not succeed. If it did, then because the record was not added to
             // the synthetic index when initially saved and the record was not visible in the store during th
             assertThrows(FDBExceptions.FDBStoreTransactionConflictException.class, () -> commit(context1));
         }
@@ -1959,7 +1959,7 @@ class UnnestedRecordTypeTest extends FDBRecordStoreQueryTestBase {
             assertThat(entriesBeforeDelete.stream().map(entry -> entry.getPrimaryKey().getNestedTuple(1)).filter(pk -> pk.equals(saved.get(0).getPrimaryKey())).collect(Collectors.toList()), not(empty()));
             assertThat(entriesBeforeDelete.stream().map(entry -> entry.getPrimaryKey().getNestedTuple(1)).filter(pk -> pk.equals(saved.get(1).getPrimaryKey())).collect(Collectors.toList()), not(empty()));
 
-            // Any entry that is not prefixed by (rec.getOtherInt(), rec.getMiddle().getOtherInt()) should not be deleted. Validate that the initial list is not empty so that this test is not vaccuously true
+            // Any entry that is not prefixed by (rec.getOtherInt(), rec.getMiddle().getOtherInt()) should not be deleted. Validate that the initials list is not empty so that this test is not vaccuously true
             final List<IndexEntry> entriesNotToDelete = entriesBeforeDelete.stream().filter(entry -> entry.getKey().getLong(0) != rec.getOtherInt() || entry.getKey().getLong(1) != rec.getMiddle().getOtherInt()).collect(Collectors.toList());
             assertThat(entriesNotToDelete, not(empty()));
 

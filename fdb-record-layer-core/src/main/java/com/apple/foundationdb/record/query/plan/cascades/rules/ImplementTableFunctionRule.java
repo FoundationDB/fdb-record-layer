@@ -46,6 +46,6 @@ public class ImplementTableFunctionRule extends CascadesRule<TableFunctionExpres
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var tableFunctionExpression = call.get(root);
-        call.yieldExpression(new RecordQueryTableFunctionPlan(tableFunctionExpression.getValue()));
+        call.yieldPlan(new RecordQueryTableFunctionPlan(tableFunctionExpression.getValue()));
     }
 }

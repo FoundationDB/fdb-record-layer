@@ -96,7 +96,7 @@ public class ImplementStreamingAggregationRule extends CascadesRule<GroupByExpre
         for (final var planPartition : planPartitions) {
             final var providedOrdering = planPartition.getPropertyValue(OrderingProperty.ordering());
             if (requiredOrderingKeyValues == null || providedOrdering.satisfiesGroupingValues(requiredOrderingKeyValues)) {
-                call.yieldExpression(implementGroupBy(call, planPartition, groupByExpression));
+                call.yieldPlan(implementGroupBy(call, planPartition, groupByExpression));
             }
         }
     }

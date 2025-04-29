@@ -23,15 +23,14 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.properties.DistinctRecordsProperty;
@@ -50,9 +49,9 @@ import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.rollUpPartitionsTo;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalSortExpression;
 
 /**
@@ -86,7 +85,7 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
 
         final RequestedOrdering requestedOrdering = sortExpression.getOrdering();
         if (requestedOrdering.isPreserve()) {
-            call.yieldExpression(innerPlanPartition.getPlans());
+            call.yieldPlans(innerPlanPartition.getPlans());
             return;
         }
 
@@ -119,13 +118,13 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
                 final var strictlySortedInnerPlans =
                         innerPlanPartition.getPlans()
                                 .stream()
-                                .map(plan -> plan.strictlySorted(call))
+                                .map(plan -> (RecordQueryPlan)plan.strictlySorted(call))
                                 .collect(LinkedIdentitySet.toLinkedIdentitySet());
-                call.yieldExpression(strictlySortedInnerPlans);
+                call.yieldPlans(strictlySortedInnerPlans);
             }
         }
 
-        final var resultExpressions = new LinkedIdentitySet<RelationalExpression>();
+        final var resultExpressions = new LinkedIdentitySet<RecordQueryPlan>();
 
         for (final var innerPlan : innerPlanPartition.getPlans()) {
             final boolean strictOrdered =
@@ -133,13 +132,13 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
                     strictlyOrderedIfUnique(innerPlan, requestedOrderingParts.size() + equalityBoundUnsorted);
 
             if (strictOrdered) {
-                resultExpressions.add(innerPlan.strictlySorted(call));
+                resultExpressions.add((RecordQueryPlan)innerPlan.strictlySorted(call));
             } else {
                 resultExpressions.add(innerPlan);
             }
         }
 
-        call.yieldExpression(resultExpressions);
+        call.yieldPlans(resultExpressions);
     }
 
     private static boolean strictlyOrderedIfUnique(@Nonnull RecordQueryPlan orderedPlan, final int numKeys) {

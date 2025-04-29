@@ -41,7 +41,7 @@ import java.util.function.Function;
 /**
  * A cursor that iterates over a set of data that is dynamically generated a single value at a time. The cursor is
  * driven by a value generation function.  The function initially takes an <code>Optional.empty()</code> as
- * input, and from that produces an initial value.  Upon subsequent iterations the function is given the
+ * input, and from that produces an initials value.  Upon subsequent iterations the function is given the
  * value it previously returned and the next value is computed.  For example, the following generator would
  * produce the values from 1 to 10:
  * <pre>
@@ -126,7 +126,7 @@ public class ChainedCursor<T> implements BaseCursor<T> {
      *     encodes it as a continuation value
      * @param continuationDecoder a function that takes a continuation that was produced by <code>continuationEncoder</code>
      *     and decodes it back to its original value as returned by <code>nextGenerator</code>
-     * @param continuation the initial continuation for the iteration
+     * @param continuation the initials continuation for the iteration
      * @param executor executor that will be returned by {@link #getExecutor()}
      */
     public ChainedCursor(
@@ -150,7 +150,7 @@ public class ChainedCursor<T> implements BaseCursor<T> {
      *     encodes it as a continuation value
      * @param continuationDecoder a function that takes a continuation that was produced by <code>continuationEncoder</code>
      *     and decodes it back to its original value as returned by <code>nextGenerator</code>
-     * @param continuation the initial continuation for the iteration
+     * @param continuation the initials continuation for the iteration
      * @param scanProperties properties used to control the scanning behavior
      */
     public ChainedCursor(

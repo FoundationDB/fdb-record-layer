@@ -158,11 +158,11 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
         var outerRef = call.memoizeMemberPlans(outerReference, outerPartition.getPlans());
 
         if (outerQuantifier instanceof Quantifier.Existential) {
-            outerRef = call.memoizePlans(
+            outerRef = call.memoizePlan(
                     new RecordQueryFirstOrDefaultPlan(Quantifier.physicalBuilder().withAlias(outerAlias).build(outerRef),
                             new NullValue(outerQuantifier.getFlowedObjectType())));
         }  else if (outerQuantifier instanceof Quantifier.ForEach && ((Quantifier.ForEach)outerQuantifier).isNullOnEmpty()) {
-            outerRef = call.memoizePlans(
+            outerRef = call.memoizePlan(
                     new RecordQueryDefaultOnEmptyPlan(
                             Quantifier.physicalBuilder().withAlias(outerAlias).build(outerRef),
                             new NullValue(outerQuantifier.getFlowedObjectType())));
@@ -171,7 +171,7 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
         if (!outerPredicates.isEmpty()) {
             // create a new quantifier using a new alias
             final var newOuterLowerQuantifier = Quantifier.physicalBuilder().withAlias(outerAlias).build(outerRef);
-            outerRef = call.memoizePlans(new RecordQueryPredicatesFilterPlan(newOuterLowerQuantifier, outerPredicates));
+            outerRef = call.memoizePlan(new RecordQueryPredicatesFilterPlan(newOuterLowerQuantifier, outerPredicates));
         }
 
         final var newOuterQuantifier =
@@ -181,17 +181,18 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
                 call.memoizeMemberPlans(innerReference, innerPartition.getPlans());
 
         if (innerQuantifier instanceof Quantifier.Existential) {
-            innerRef = call.memoizePlans(new RecordQueryFirstOrDefaultPlan(Quantifier.physicalBuilder().withAlias(innerAlias).build(innerRef),
+            innerRef = call.memoizePlan(new RecordQueryFirstOrDefaultPlan(Quantifier.physicalBuilder().withAlias(innerAlias).build(innerRef),
                     new NullValue(innerQuantifier.getFlowedObjectType())));
         }
 
         if (!outerInnerPredicates.isEmpty()) {
             final var newInnerLowerQuantifier = Quantifier.physicalBuilder().withAlias(innerAlias).build(innerRef);
-            innerRef = call.memoizePlans(new RecordQueryPredicatesFilterPlan(newInnerLowerQuantifier, outerInnerPredicates));
+            innerRef = call.memoizePlan(new RecordQueryPredicatesFilterPlan(newInnerLowerQuantifier, outerInnerPredicates));
         }
 
         final var newInnerQuantifier = Quantifier.physicalBuilder().withAlias(innerAlias).build(innerRef);
 
-        call.yieldExpression(new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Existential));
+        call.yieldPlan(new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier,
+                selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Existential));
     }
 }

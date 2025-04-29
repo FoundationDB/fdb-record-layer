@@ -244,7 +244,7 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
     @Override
     public RecordQueryComparatorPlan strictlySorted(@Nonnull final Memoizer memoizer) {
         return new RecordQueryComparatorPlan(Quantifiers.fromPlans(getChildStream()
-                    .map(p -> memoizer.memoizePlans((RecordQueryPlan)p.strictlySorted(memoizer))).collect(Collectors.toList())),
+                    .map(p -> memoizer.memoizePlan((RecordQueryPlan)p.strictlySorted(memoizer))).collect(Collectors.toList())),
                 comparisonKey, referencePlanIndex, abortOnComparisonFailure);
     }
 

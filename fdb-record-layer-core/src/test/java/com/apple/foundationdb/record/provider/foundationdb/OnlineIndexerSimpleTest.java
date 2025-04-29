@@ -438,12 +438,12 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(index, timer)
                 .setInitialLimit(4)
-                .setIncreaseLimitAfter(100) // high enough to keep the initial limit
+                .setIncreaseLimitAfter(100) // high enough to keep the initials limit
                 .setLimit(10000)
                 .build()) {
             indexBuilder.buildIndex();
         }
-        // Ensure that 40 records were scanned in 10 separate ranges (of 4 records each - the initial limit)
+        // Ensure that 40 records were scanned in 10 separate ranges (of 4 records each - the initials limit)
         assertEquals(10, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
     }
 

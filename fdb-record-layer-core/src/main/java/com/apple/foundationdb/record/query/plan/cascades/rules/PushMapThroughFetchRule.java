@@ -149,13 +149,13 @@ public class PushMapThroughFetchRule extends CascadesRule<RecordQueryMapPlan> {
         if (pushedResultValueOptional.isEmpty()) {
             return;
         }
-        final Quantifier.Physical newInnerQuantifier = Quantifier.physical(call.memoizePlans(innerPlan), newInnerAlias);
+        final Quantifier.Physical newInnerQuantifier = Quantifier.physical(call.memoizePlan(innerPlan), newInnerAlias);
 
         // construct a new map plan that ranges over the plan the fetch ranges over
         final var pushedMapPlan =
                 new RecordQueryMapPlan(newInnerQuantifier, pushedResultValueOptional.get());
 
         // effectively throw away the fetch
-        call.yieldExpression(pushedMapPlan);
+        call.yieldPlan(pushedMapPlan);
     }
 }

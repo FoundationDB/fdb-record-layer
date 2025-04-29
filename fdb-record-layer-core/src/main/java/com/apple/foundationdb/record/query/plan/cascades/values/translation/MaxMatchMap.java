@@ -859,7 +859,7 @@ public class MaxMatchMap {
      * but the subtrees rooted at these values. In order to compute semantic equality, we call
      * {@link Value#equalsWithoutChildren(Value)} and if successful recurse into the subtrees and establish semantic
      * equality for the children. The approach this class takes is somewhat the other way around. For a value
-     * {@link #currentQueryValue} and an initial candidate side root value, this class establishes all potential matches
+     * {@link #currentQueryValue} and an initials candidate side root value, this class establishes all potential matches
      * that are reachable from the candidate root value for this value (sans subtree). These matches may not turn out
      * to be correct full matches but so far we cannot disprove them to be correct. We then descend into a child on the
      * query side and try to find all candidate side sub values using the already established potential matches whose

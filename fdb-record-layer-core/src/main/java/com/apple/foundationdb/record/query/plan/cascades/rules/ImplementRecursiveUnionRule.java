@@ -86,6 +86,6 @@ public class ImplementRecursiveUnionRule extends CascadesRule<RecursiveUnionExpr
         final var tempTableInsertValueReference = recursiveUnionExpression.getTempTableInsertAlias();
         final var recursiveUnionPlan = new RecordQueryRecursiveUnionPlan(initialPhysicalQun, recursivePhysicalQun, tempTableScanValueReference, tempTableInsertValueReference);
 
-        call.yieldExpression(recursiveUnionPlan);
+        call.yieldPlan(recursiveUnionPlan);
     }
 }

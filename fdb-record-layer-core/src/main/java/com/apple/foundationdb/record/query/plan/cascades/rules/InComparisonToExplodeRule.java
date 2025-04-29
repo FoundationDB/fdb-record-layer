@@ -163,7 +163,7 @@ public class InComparisonToExplodeRule extends CascadesRule<SelectExpression> {
                     Type arrayElementType = ((Type.Array) comparisonValue.getComparandValue().getResultType()).getElementType();
                     Verify.verify(arrayElementType != null);
                     explodeExpression = new ExplodeExpression(comparisonValue.getComparandValue());
-                    newQuantifier = Quantifier.forEach(call.memoizeExpression(explodeExpression));
+                    newQuantifier = Quantifier.forEach(call.memoizeExploratoryExpression(explodeExpression));
                     if (arrayElementType.isRecord()) {
                         transformedPredicates.addAll(createSimpleEqualities(value, newQuantifier));
                     } else {
@@ -173,13 +173,13 @@ public class InComparisonToExplodeRule extends CascadesRule<SelectExpression> {
                 } else if (comparison instanceof Comparisons.ListComparison) {
                     final var listComparison = (Comparisons.ListComparison)comparison;
                     explodeExpression = new ExplodeExpression(LiteralValue.ofList((List<?>)listComparison.getComparand(null, null)));
-                    newQuantifier = Quantifier.forEach(call.memoizeExpression(explodeExpression));
+                    newQuantifier = Quantifier.forEach(call.memoizeExploratoryExpression(explodeExpression));
                     transformedPredicates.add(new ValuePredicate(value,
                             new Comparisons.ValueComparison(Comparisons.Type.EQUALS, QuantifiedObjectValue.of(newQuantifier.getAlias(), elementType))));
 
                 } else if (comparison instanceof Comparisons.ParameterComparison) {
                     explodeExpression = new ExplodeExpression(QuantifiedObjectValue.of(CorrelationIdentifier.of(((Comparisons.ParameterComparison)comparison).getParameter()), new Type.Array(elementType)));
-                    newQuantifier = Quantifier.forEach(call.memoizeExpression(explodeExpression));
+                    newQuantifier = Quantifier.forEach(call.memoizeExploratoryExpression(explodeExpression));
                     transformedPredicates.add(new ValuePredicate(value,
                             new Comparisons.ValueComparison(Comparisons.Type.EQUALS, QuantifiedObjectValue.of(newQuantifier.getAlias(), elementType))));
                 } else {
@@ -193,7 +193,7 @@ public class InComparisonToExplodeRule extends CascadesRule<SelectExpression> {
 
         transformedQuantifiers.addAll(bindings.getAll(innerQuantifierMatcher));
 
-        call.yieldExpression(new SelectExpression(selectExpression.getResultValue(),
+        call.yieldExploratoryExpression(new SelectExpression(selectExpression.getResultValue(),
                 transformedQuantifiers.build(),
                 transformedPredicates.build()));
     }

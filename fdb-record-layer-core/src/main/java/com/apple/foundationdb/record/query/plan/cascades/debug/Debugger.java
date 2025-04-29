@@ -354,6 +354,13 @@ public interface Debugger {
     interface EventWithState extends Event {
         /**
          * Getter.
+         * @return the current planner phase.
+         */
+        @Nonnull
+        PlannerPhase getPlannerPhase();
+
+        /**
+         * Getter.
          * @return the root reference of the event
          */
         @Nonnull
@@ -397,20 +404,28 @@ public interface Debugger {
      */
     abstract class AbstractEventWithState implements EventWithState {
         @Nonnull
+        private final PlannerPhase plannerPhase;
+        @Nonnull
         private final Reference rootReference;
-
         @Nonnull
         private final Deque<Task> taskStack;
-
         @Nonnull
         private final Location location;
 
-        protected AbstractEventWithState(@Nonnull final Reference rootReference,
+        protected AbstractEventWithState(@Nonnull final PlannerPhase plannerPhase,
+                                         @Nonnull final Reference rootReference,
                                          @Nonnull final Deque<Task> taskStack,
                                          @Nonnull final Location location) {
+            this.plannerPhase = plannerPhase;
             this.rootReference = rootReference;
             this.taskStack = taskStack;
             this.location = location;
+        }
+
+        @Nonnull
+        @Override
+        public PlannerPhase getPlannerPhase() {
+            return plannerPhase;
         }
 
         @Override
@@ -434,6 +449,7 @@ public interface Debugger {
         @Nonnull
         public PAbstractEventWithState toAbstractEventWithStateProto() {
             return PAbstractEventWithState.newBuilder()
+                    .setPlannerPhase(plannerPhase.toProto())
                     .setRootReference(Event.toReferenceProto(rootReference))
                     .setLocation(getLocation().name())
                     .build();
@@ -451,7 +467,7 @@ public interface Debugger {
                                   @Nonnull final Deque<Task> taskStack,
                                   @Nonnull final Location location,
                                   @Nonnull final Task task) {
-            super(rootReference, taskStack, location);
+            super(task.getPlannerPhase(), rootReference, taskStack, location);
             this.task = task;
         }
 
@@ -492,14 +508,10 @@ public interface Debugger {
      * Events of this class are generated every time the planner executes a task.
      */
     class InitiatePlannerPhaseEvent extends AbstractEventWithState {
-        @Nonnull
-        private final PlannerPhase plannerPhase;
-
-        public InitiatePlannerPhaseEvent(@Nonnull final Reference rootReference,
-                                         @Nonnull final Deque<Task> taskStack,
-                                         @Nonnull final PlannerPhase plannerPhase) {
-            super(rootReference, taskStack, Location.COUNT);
-            this.plannerPhase = plannerPhase;
+        public InitiatePlannerPhaseEvent(@Nonnull final PlannerPhase plannerPhase,
+                                         @Nonnull final Reference rootReference,
+                                         @Nonnull final Deque<Task> taskStack) {
+            super(plannerPhase, rootReference, taskStack, Location.COUNT);
         }
 
         @Override
@@ -515,16 +527,10 @@ public interface Debugger {
         }
 
         @Nonnull
-        public PlannerPhase getPlannerPhase() {
-            return plannerPhase;
-        }
-
-        @Nonnull
         @Override
         public PInitiatePlannerPhaseEvent toProto() {
             return PInitiatePlannerPhaseEvent.newBuilder()
                     .setSuper(toAbstractEventWithStateProto())
-                    .setPlannerPhase(plannerPhase.name())
                     .build();
         }
 
@@ -543,11 +549,12 @@ public interface Debugger {
         @Nonnull
         private final Reference currentGroupReference;
 
-        public OptimizeGroupEvent(@Nonnull final Reference rootReference,
+        public OptimizeGroupEvent(@Nonnull final PlannerPhase plannerPhase,
+                                  @Nonnull final Reference rootReference,
                                   @Nonnull final Deque<Task> taskStack,
                                   @Nonnull final Location location,
                                   @Nonnull final Reference currentGroupReference) {
-            super(rootReference, taskStack, location);
+            super(plannerPhase, rootReference, taskStack, location);
             this.currentGroupReference = currentGroupReference;
         }
 
@@ -595,12 +602,13 @@ public interface Debugger {
         @Nonnull
         private final RelationalExpression expression;
 
-        public ExploreExpressionEvent(@Nonnull final Reference rootReference,
+        public ExploreExpressionEvent(@Nonnull final PlannerPhase plannerPhase,
+                                      @Nonnull final Reference rootReference,
                                       @Nonnull final Deque<Task> taskStack,
                                       @Nonnull final Location location,
                                       @Nonnull final Reference currentGroupReference,
                                       @Nonnull final RelationalExpression expression) {
-            super(rootReference, taskStack, location);
+            super(plannerPhase, rootReference, taskStack, location);
             this.currentGroupReference = currentGroupReference;
             this.expression = expression;
         }
@@ -653,11 +661,12 @@ public interface Debugger {
         @Nonnull
         private final Reference currentGroupReference;
 
-        public ExploreGroupEvent(@Nonnull final Reference rootReference,
+        public ExploreGroupEvent(@Nonnull final PlannerPhase plannerPhase,
+                                 @Nonnull final Reference rootReference,
                                  @Nonnull final Deque<Task> taskStack,
                                  @Nonnull final Location location,
                                  @Nonnull final Reference currentGroupReference) {
-            super(rootReference, taskStack, location);
+            super(plannerPhase, rootReference, taskStack, location);
             this.currentGroupReference = currentGroupReference;
         }
 
@@ -707,13 +716,14 @@ public interface Debugger {
         @Nonnull
         private final CascadesRule<?> rule;
 
-        public TransformEvent(@Nonnull final Reference rootReference,
+        public TransformEvent(@Nonnull final PlannerPhase plannerPhase,
+                              @Nonnull final Reference rootReference,
                               @Nonnull final Deque<Task> taskStack,
                               @Nonnull final Location location,
                               @Nonnull final Reference currentGroupReference,
                               @Nonnull final Object bindable,
                               @Nonnull final CascadesRule<?> rule) {
-            super(rootReference, taskStack, location);
+            super(plannerPhase, rootReference, taskStack, location);
             this.currentGroupReference = currentGroupReference;
             this.bindable = bindable;
             this.rule = rule;
@@ -780,14 +790,15 @@ public interface Debugger {
         @Nonnull
         private final CascadesRuleCall ruleCall;
 
-        public TransformRuleCallEvent(@Nonnull final Reference rootReference,
+        public TransformRuleCallEvent(@Nonnull final PlannerPhase plannerPhase,
+                                      @Nonnull final Reference rootReference,
                                       @Nonnull final Deque<Task> taskStack,
                                       @Nonnull final Location location,
                                       @Nonnull final Reference currentGroupReference,
                                       @Nonnull final Object bindable,
                                       @Nonnull final CascadesRule<?> rule,
                                       @Nonnull final CascadesRuleCall ruleCall) {
-            super(rootReference, taskStack, location);
+            super(plannerPhase, rootReference, taskStack, location);
             this.currentGroupReference = currentGroupReference;
             this.bindable = bindable;
             this.rule = rule;
@@ -856,12 +867,13 @@ public interface Debugger {
         @Nonnull
         private final RelationalExpression expression;
 
-        public AdjustMatchEvent(@Nonnull final Reference rootReference,
+        public AdjustMatchEvent(@Nonnull final PlannerPhase plannerPhase,
+                                @Nonnull final Reference rootReference,
                                 @Nonnull final Deque<Task> taskStack,
                                 @Nonnull final Location location,
                                 @Nonnull final Reference currentGroupReference,
                                 @Nonnull final RelationalExpression expression) {
-            super(rootReference, taskStack, location);
+            super(plannerPhase, rootReference, taskStack, location);
             this.currentGroupReference = currentGroupReference;
             this.expression = expression;
         }
@@ -916,12 +928,13 @@ public interface Debugger {
         @Nonnull
         private final RelationalExpression expression;
 
-        public OptimizeInputsEvent(@Nonnull final Reference rootReference,
+        public OptimizeInputsEvent(@Nonnull final PlannerPhase plannerPhase,
+                                   @Nonnull final Reference rootReference,
                                    @Nonnull final Deque<Task> taskStack,
                                    @Nonnull final Location location,
                                    @Nonnull final Reference currentGroupReference,
                                    @Nonnull final RelationalExpression expression) {
-            super(rootReference, taskStack, location);
+            super(plannerPhase, rootReference, taskStack, location);
             this.currentGroupReference = currentGroupReference;
             this.expression = expression;
         }

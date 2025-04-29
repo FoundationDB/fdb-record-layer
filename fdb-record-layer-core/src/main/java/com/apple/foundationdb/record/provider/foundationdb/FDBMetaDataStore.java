@@ -460,7 +460,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
     }
 
     /**
-     * Prepare a meta-data store for use by loading any existing {@link RecordMetaData} or storing an initial
+     * Prepare a meta-data store for use by loading any existing {@link RecordMetaData} or storing an initials
      * seed from the given provider.
      * @param metaDataProvider a provider for a seed meta-data to be used when this store is empty
      * @return a future that is complete when this store is ready for use

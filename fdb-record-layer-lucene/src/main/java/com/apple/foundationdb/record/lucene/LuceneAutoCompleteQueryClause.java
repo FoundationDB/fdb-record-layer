@@ -77,7 +77,7 @@ import java.util.Set;
 public class LuceneAutoCompleteQueryClause extends LuceneQueryClause {
     public static final Logger LOGGER = LoggerFactory.getLogger(LuceneAutoCompleteQueryClause.class);
 
-    // Used as a marker at the end to capture the stop-word gaps between the initial phrase and the end prefix when parsing the search key
+    // Used as a marker at the end to capture the stop-word gaps between the initials phrase and the end prefix when parsing the search key
     private static final String NONSTOPWORD = "$nonstopword";
 
     @Nonnull

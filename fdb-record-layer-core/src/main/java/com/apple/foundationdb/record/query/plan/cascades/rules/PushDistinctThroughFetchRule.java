@@ -94,15 +94,15 @@ public class PushDistinctThroughFetchRule extends CascadesRule<RecordQueryUnorde
 
         final CorrelationIdentifier newInnerAlias = Quantifier.uniqueID();
         
-        final Quantifier.Physical newInnerQuantifier = Quantifier.physical(call.memoizePlans(innerPlan), newInnerAlias);
+        final Quantifier.Physical newInnerQuantifier = Quantifier.physical(call.memoizePlan(innerPlan), newInnerAlias);
 
         final RecordQueryUnorderedPrimaryKeyDistinctPlan pushedDistinctPlan =
                 new RecordQueryUnorderedPrimaryKeyDistinctPlan(newInnerQuantifier);
 
         final RecordQueryFetchFromPartialRecordPlan newFetchPlan =
-                new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(call.memoizePlans(pushedDistinctPlan)),
+                new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(call.memoizePlan(pushedDistinctPlan)),
                         fetchPlan.getPushValueFunction(),
                         Type.Relation.scalarOf(fetchPlan.getResultType()), fetchPlan.getFetchIndexRecords());
-        call.yieldExpression(newFetchPlan);
+        call.yieldPlan(newFetchPlan);
     }
 }

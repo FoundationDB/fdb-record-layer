@@ -2833,7 +2833,7 @@ public class VersionIndexTest {
             assertThat(scanIndexToKeys(IndexFetchMethod.SCAN_AND_FETCH, "MySimpleRecord$num2-version", ScanProperties.FORWARD_SCAN),
                     containsInAnyOrder(indexKeys.toArray()));
             assertTrue(context.ensureActive().getRange(indexSubspace.range()).iterator().hasNext(),
-                    "index should not be empty after initial insert and commit");
+                    "index should not be empty after initials insert and commit");
             versionsByKey.forEach((k, v) -> assertEquals(Optional.of(v), recordStore.loadRecordVersion(k)));
 
             // Disable the index. This clears out all index data

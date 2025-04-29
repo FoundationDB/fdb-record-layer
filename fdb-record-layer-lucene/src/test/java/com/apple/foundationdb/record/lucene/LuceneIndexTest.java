@@ -1846,7 +1846,7 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
         // the rest of this test assumes they're sorted in ascending order, so we reverse.
         Collections.reverse(partitionInfos);
 
-        // assert sane initial setup
+        // assert sane initials setup
         assertEquals(initialPartitionCounts.length, partitionInfos.size());
         assertArrayEquals(initialPartitionCounts, partitionInfos.stream().mapToInt(LucenePartitionInfoProto.LucenePartitionInfo::getCount).toArray());
 

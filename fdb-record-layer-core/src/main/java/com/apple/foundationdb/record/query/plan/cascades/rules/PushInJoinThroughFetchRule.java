@@ -109,13 +109,13 @@ public class PushInJoinThroughFetchRule<P extends RecordQueryInJoinPlan> extends
         final RecordQueryFetchFromPartialRecordPlan fetchPlan = bindings.get(fetchPlanMatcher);
         final RecordQueryPlan innerPlan = bindings.get(innerPlanMatcher);
 
-        final RecordQueryPlanWithChild pushedInJoinPlan = inJoinPlan.withChild(call.memoizePlans(innerPlan));
+        final RecordQueryPlanWithChild pushedInJoinPlan = inJoinPlan.withChild(call.memoizePlan(innerPlan));
 
         final var newFetchPlan =
-                new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(call.memoizePlans(pushedInJoinPlan)),
+                new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(call.memoizePlan(pushedInJoinPlan)),
                         fetchPlan.getPushValueFunction(),
                         Type.Relation.scalarOf(fetchPlan.getResultType()), fetchPlan.getFetchIndexRecords());
 
-        call.yieldExpression(newFetchPlan);
+        call.yieldPlan(newFetchPlan);
     }
 }

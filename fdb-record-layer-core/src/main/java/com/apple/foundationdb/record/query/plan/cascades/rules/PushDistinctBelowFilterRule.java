@@ -98,13 +98,12 @@ public class PushDistinctBelowFilterRule extends CascadesRule<RecordQueryUnorder
 
         final RecordQueryUnorderedPrimaryKeyDistinctPlan newDistinctPlan =
                 new RecordQueryUnorderedPrimaryKeyDistinctPlan(Quantifier.physical(inner));
-        final Quantifier.Physical newQun = Quantifier.physical(call.memoizePlans(newDistinctPlan));
+        final Quantifier.Physical newQun = Quantifier.physical(call.memoizePlan(newDistinctPlan));
         final List<QueryPredicate> rebasedPredicates =
                 filterPlan.getPredicates()
                         .stream()
                         .map(queryPredicate -> queryPredicate.rebase(Quantifiers.translate(qun, newQun)))
                         .collect(ImmutableList.toImmutableList());
-        call.yieldExpression(new RecordQueryPredicatesFilterPlan(newQun,
-                        rebasedPredicates));
+        call.yieldPlan(new RecordQueryPredicatesFilterPlan(newQun, rebasedPredicates));
     }
 }

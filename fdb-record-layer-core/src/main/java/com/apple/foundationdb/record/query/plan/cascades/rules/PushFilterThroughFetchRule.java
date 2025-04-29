@@ -198,12 +198,12 @@ public class PushFilterThroughFetchRule extends CascadesRule<RecordQueryPredicat
         // for case 2 and case 3 we can at least build a FILTER(inner, pushedPredicates) as that is
         // required both for case 2 and 3
 
-        final Quantifier.Physical newInnerQuantifier = Quantifier.physical(call.memoizePlans(innerPlan), newInnerAlias);
+        final Quantifier.Physical newInnerQuantifier = Quantifier.physical(call.memoizePlan(innerPlan), newInnerAlias);
 
         final RecordQueryPredicatesFilterPlan pushedFilterPlan =
                 new RecordQueryPredicatesFilterPlan(newInnerQuantifier, pushedPredicates);
 
-        final Quantifier.Physical newQuantifierOverFilter = Quantifier.physical(call.memoizePlans(pushedFilterPlan));
+        final Quantifier.Physical newQuantifierOverFilter = Quantifier.physical(call.memoizePlan(pushedFilterPlan));
 
         final RecordQueryFetchFromPartialRecordPlan newFetchPlan =
                 new RecordQueryFetchFromPartialRecordPlan(newQuantifierOverFilter,
@@ -213,11 +213,11 @@ public class PushFilterThroughFetchRule extends CascadesRule<RecordQueryPredicat
 
         if (residualPredicates.isEmpty()) {
             // case 2
-            call.yieldExpression(newFetchPlan);
+            call.yieldPlan(newFetchPlan);
         } else {
             // case 3
             // create yet another physical quantifier on top of the fetch
-            final Quantifier.Physical newQuantifierOverFetch = Quantifier.physical(call.memoizePlans(newFetchPlan));
+            final Quantifier.Physical newQuantifierOverFetch = Quantifier.physical(call.memoizePlan(newFetchPlan));
 
             final AliasMap translationMap = AliasMap.ofAliases(quantifierOverFetch.getAlias(), newQuantifierOverFetch.getAlias());
 
@@ -226,7 +226,7 @@ public class PushFilterThroughFetchRule extends CascadesRule<RecordQueryPredicat
                     .map(residualPredicate -> residualPredicate.rebase(translationMap))
                     .collect(ImmutableList.toImmutableList());
 
-            call.yieldExpression(new RecordQueryPredicatesFilterPlan(newQuantifierOverFetch, rebasedResidualPredicates));
+            call.yieldPlan(new RecordQueryPredicatesFilterPlan(newQuantifierOverFetch, rebasedResidualPredicates));
         }
     }
 

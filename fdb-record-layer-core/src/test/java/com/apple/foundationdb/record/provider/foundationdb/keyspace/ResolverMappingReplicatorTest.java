@@ -137,7 +137,7 @@ public abstract class ResolverMappingReplicatorTest {
     public void testPickupFromIncompleteCopy() {
         Map<String, ResolverResult> dirLayerMappings;
         try (FDBRecordContext context = database.openContext()) {
-            // seed with some initial values
+            // seed with some initials values
             dirLayerMappings = seedDirectoryLayer(context, primary, 34);
         }
 

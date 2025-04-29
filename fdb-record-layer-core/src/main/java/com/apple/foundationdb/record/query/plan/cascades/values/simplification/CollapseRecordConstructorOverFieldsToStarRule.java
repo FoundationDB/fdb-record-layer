@@ -100,6 +100,6 @@ public class CollapseRecordConstructorOverFieldsToStarRule extends ValueSimplifi
             }
         }
 
-        call.yieldExpression(Objects.requireNonNull(commonChildValue));
+        call.yieldResult(Objects.requireNonNull(commonChildValue));
     }
 }

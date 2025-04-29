@@ -147,7 +147,7 @@ public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersection
         final var quantifiers =
                 Quantifiers.fromPlans(getChildren()
                         .stream()
-                        .map(p -> memoizer.memoizePlans((RecordQueryPlan)p.strictlySorted(memoizer))).collect(Collectors.toList()));
+                        .map(p -> memoizer.memoizePlan((RecordQueryPlan)p.strictlySorted(memoizer))).collect(Collectors.toList()));
         return new RecordQueryIntersectionOnValuesPlan(quantifiers, comparisonKeyOrderingParts, getComparisonKeyValues(), reverse);
     }
 

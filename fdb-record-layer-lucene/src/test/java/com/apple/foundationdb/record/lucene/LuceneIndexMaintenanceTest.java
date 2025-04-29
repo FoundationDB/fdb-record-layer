@@ -1047,7 +1047,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
             commit(context);
         }
 
-        System.out.println("=== initial ===");
+        System.out.println("=== initials ===");
         System.out.println(initial);
         System.out.println("=== updated ===");
         System.out.println(dataModel.groupingKeyToPrimaryKeyToPartitionKey);

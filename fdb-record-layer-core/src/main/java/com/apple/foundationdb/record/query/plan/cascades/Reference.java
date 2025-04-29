@@ -644,18 +644,47 @@ public class Reference implements Correlated<Reference>, Typed {
                 .anyMatch(aliasMap -> member.equalsWithoutChildren(otherExpression, aliasMap));
     }
 
+    @Nonnull
     public static Reference empty() {
         return new Reference();
     }
 
+    @Nonnull
     public static Reference initial(@Nonnull RelationalExpression expression) {
+        return ofFinalExpression(PlannerStage.INITIAL, expression);
+    }
+
+    @Nonnull
+    public static Reference initials(@Nonnull RelationalExpression... expressions) {
+        return initials(Arrays.asList(expressions));
+    }
+
+    @Nonnull
+    public static Reference initials(@Nonnull Collection<? extends RelationalExpression> expressions) {
+        return ofFinalExpressions(PlannerStage.INITIAL, expressions);
+    }
+
+    @Nonnull
+    public static Reference ofExploratoryExpression(@Nonnull final PlannerStage plannerStage,
+                                                    @Nonnull final RelationalExpression expression) {
         LinkedIdentitySet<RelationalExpression> members = new LinkedIdentitySet<>();
         // Call debugger hook to potentially register this new expression.
         Debugger.registerExpression(expression);
         members.add(expression);
-        return new Reference(PlannerStage.INITIAL, new LinkedIdentitySet<>(), members);
+        return new Reference(plannerStage, members, new LinkedIdentitySet<>());
     }
 
+    @Nonnull
+    public static Reference ofFinalExpression(@Nonnull final PlannerStage plannerStage,
+                                              @Nonnull final RelationalExpression expression) {
+        LinkedIdentitySet<RelationalExpression> members = new LinkedIdentitySet<>();
+        // Call debugger hook to potentially register this new expression.
+        Debugger.registerExpression(expression);
+        members.add(expression);
+        return new Reference(plannerStage, new LinkedIdentitySet<>(), members);
+    }
+
+    @Nonnull
     public static Reference of(@Nonnull final PlannerStage plannerStage,
                                @Nonnull final Collection<? extends RelationalExpression> exploratoryExpressions,
                                @Nonnull final Collection<? extends RelationalExpression> finalExpressions) {
@@ -667,15 +696,16 @@ public class Reference implements Correlated<Reference>, Typed {
                 new LinkedIdentitySet<>(finalExpressions));
     }
 
-    public static Reference from(@Nonnull RelationalExpression... expressions) {
-        return from(Arrays.asList(expressions));
+    @Nonnull
+    public static Reference ofExploratoryExpressions(@Nonnull final PlannerStage plannerStage,
+                                                     @Nonnull final Collection<? extends RelationalExpression> expressions) {
+        return of(plannerStage, expressions, new LinkedIdentitySet<>());
     }
 
-    public static Reference from(@Nonnull Collection<? extends RelationalExpression> expressions) {
-        LinkedIdentitySet<RelationalExpression> members = new LinkedIdentitySet<>();
-        expressions.forEach(Debugger::registerExpression);
-        members.addAll(expressions);
-        return new Reference(members);
+    @Nonnull
+    public static Reference ofFinalExpressions(@Nonnull final PlannerStage plannerStage,
+                                               @Nonnull final Collection<? extends RelationalExpression> expressions) {
+        return of(plannerStage, new LinkedIdentitySet<>(), expressions);
     }
 
     private static class Members {

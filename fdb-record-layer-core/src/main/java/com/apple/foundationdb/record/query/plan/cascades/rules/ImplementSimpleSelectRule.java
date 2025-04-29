@@ -94,14 +94,14 @@ public class ImplementSimpleSelectRule extends CascadesRule<SelectExpression> {
                 ((QuantifiedObjectValue)resultValue).getAlias().equals(quantifier.getAlias());
 
         if (quantifier instanceof Quantifier.Existential) {
-            referenceBuilder = call.memoizePlansBuilder(
+            referenceBuilder = call.memoizePlanBuilder(
                     new RecordQueryFirstOrDefaultPlan(
                             Quantifier.physicalBuilder()
                                     .withAlias(quantifier.getAlias())
                                     .build(referenceBuilder.reference()),
                             new NullValue(quantifier.getFlowedObjectType())));
         } else if (quantifier instanceof Quantifier.ForEach && ((Quantifier.ForEach)quantifier).isNullOnEmpty()) {
-            referenceBuilder = call.memoizePlansBuilder(
+            referenceBuilder = call.memoizePlanBuilder(
                     new RecordQueryDefaultOnEmptyPlan(
                             Quantifier.physicalBuilder()
                                     .withAlias(quantifier.getAlias())
@@ -115,12 +115,12 @@ public class ImplementSimpleSelectRule extends CascadesRule<SelectExpression> {
                         .collect(ImmutableList.toImmutableList());
         if (nonTautologyPredicates.isEmpty() &&
                 isSimpleResultValue) {
-            call.yieldExpression(referenceBuilder.members());
+            call.yieldPlans(referenceBuilder.members());
             return;
         }
 
         if (!nonTautologyPredicates.isEmpty()) {
-            referenceBuilder = call.memoizePlansBuilder(
+            referenceBuilder = call.memoizePlanBuilder(
                     new RecordQueryPredicatesFilterPlan(
                             Quantifier.physicalBuilder()
                                     .withAlias(quantifier.getAlias())
@@ -142,9 +142,9 @@ public class ImplementSimpleSelectRule extends CascadesRule<SelectExpression> {
                         .build(referenceBuilder.reference());
             }
 
-            referenceBuilder = call.memoizePlansBuilder(new RecordQueryMapPlan(beforeMapQuantifier, resultValue));
+            referenceBuilder = call.memoizePlanBuilder(new RecordQueryMapPlan(beforeMapQuantifier, resultValue));
         }
 
-        call.yieldExpression(referenceBuilder.members());
+        call.yieldPlans(referenceBuilder.members());
     }
 }

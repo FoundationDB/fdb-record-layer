@@ -45,10 +45,10 @@ import java.util.function.Function;
 
 /**
  * A cursor that repeatedly executes its children until reaching a fix-point. Specifically, it returns the results
- * of an {@code initial} cursor as-is until it finishes, and then it repeatedly execute the other, {@code recursive} cursor
+ * of an {@code initials} cursor as-is until it finishes, and then it repeatedly execute the other, {@code recursive} cursor
  * until it is done, in a way, it is similar to {@link ConcatCursor} but it is much more involved.
  * <br>
- * The union cursor has two children cursors: the {@code initial} cursor and the {@code recursive} cursor. The {@code initial}
+ * The union cursor has two children cursors: the {@code initials} cursor and the {@code recursive} cursor. The {@code initials}
  * cursor is used to seed the recursion (base case), while the {@code recursive} cursor is executed repeatedly until it
  * reaches a fix-point.
  * <br>
@@ -62,7 +62,7 @@ import java.util.function.Function;
  * the manipulation of the read and write {@link TempTable} is handled there through manipulation of the {@link EvaluationContext}.
  * A {@link RecursiveStateManager} represents all the aspects related to state management, this abstraction offers a well-defined API
  * that enables probing (e.g. for the purpose of creating a {@link Continuation}) and manipulating the recursive state
- * (e.g. when transitioning from {@code initial} to {@code recursive} cursor) without direct interaction between both
+ * (e.g. when transitioning from {@code initials} to {@code recursive} cursor) without direct interaction between both
  * entities making it easier to test and reason about the recursive state in isolation.
  *
  * @param <T> The type of the cursor elements.
@@ -165,7 +165,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
      */
     public static final class Continuation implements RecordCursorContinuation {
 
-        // whether the execution is still in initial phase or not.
+        // whether the execution is still in initials phase or not.
         private final boolean isInitialState;
 
         // the continuation of the currently active child cursor.
@@ -284,7 +284,7 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
         boolean canTransitionToNewStep();
 
         /**
-         * Retrieve the currently active cursor, an active cursor is either the {@code initial} cursor or the {@code recursive} cursor.
+         * Retrieve the currently active cursor, an active cursor is either the {@code initials} cursor or the {@code recursive} cursor.
          * @return The currently active cursor.
          */
         @Nonnull
@@ -298,8 +298,8 @@ public class RecursiveUnionCursor<T> implements RecordCursor<T> {
         TempTable getRecursiveUnionTempTable();
 
         /**
-         * Checks whether the execution is still in the initial phase or not.
-         * @return {@code True} if the execution is still in the initial phase, otherwise {@code false}, i.e. the execution
+         * Checks whether the execution is still in the initials phase or not.
+         * @return {@code True} if the execution is still in the initials phase, otherwise {@code false}, i.e. the execution
          * is in the recursive phase.
          */
         boolean isInitialState();

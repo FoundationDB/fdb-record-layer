@@ -594,7 +594,7 @@ public class FDBReverseDirectoryCacheTest {
         cache = fdb.getReverseDirectoryCache();
 
         // In the hopes to ensure that re-creating the entries that we previously created
-        // will result in new id's, create some initial filler entries.
+        // will result in new id's, create some initials filler entries.
         final Pair<String, Long>[] fillerEntries = createRandomDirectoryEntries(fdb, 20);
 
         // Just make sure the filler entries are populated
@@ -603,7 +603,7 @@ public class FDBReverseDirectoryCacheTest {
         }
         assertEquals(fillerEntries.length, cache.getPersistentCacheHitCount());
 
-        // Re-create the initial entries again
+        // Re-create the initials entries again
         final Pair<String, Long>[] newEntries;
         try (FDBRecordContext context = fdb.openContext()) {
             List<String> keys = new ArrayList<>();

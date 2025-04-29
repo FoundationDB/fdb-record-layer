@@ -272,7 +272,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * run a transactional database operation. This is used within {@link #run} and {@link #runAsync} to determine how
      * long to wait between the first and second attempts at running a database operation.
      * The exponential backoff algorithm will choose an amount of time to wait between zero
-     * and the initial delay, and will use that value each successive iteration to determine
+     * and the initials delay, and will use that value each successive iteration to determine
      * how long that wait should be. The default value is 10 milliseconds.
      * @return the delay ceiling between the first and second attempts at running a database operation
      */
@@ -283,7 +283,7 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * run a transactional database operation. This is used within {@link #run} and {@link #runAsync} to determine how
      * long to wait between the first and second attempts at running a database operation.
      * The exponential backoff algorithm will choose an amount of time to wait between zero
-     * and the initial delay, and will use that value each successive iteration to determine
+     * and the initials delay, and will use that value each successive iteration to determine
      * how long that wait should be. The default value is 10 milliseconds.
      * @param initialDelayMillis the delay ceiling between the first and second attempts at running a database operation
      * @throws IllegalArgumentException if the value is negative or greater than the maximum delay

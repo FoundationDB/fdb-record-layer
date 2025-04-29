@@ -149,6 +149,7 @@ public class ExistsValue extends AbstractValue implements BooleanValue, Quantifi
                     ImmutableList.of(new Type.Relation()), (builtInFunction, arguments) -> encapsulateInternal(arguments));
         }
 
+        // TODO this is sus
         private static Value encapsulateInternal(@Nonnull final List<? extends Typed> arguments) {
             // the call is already validated against the resolved function
             Verify.verify(arguments.size() == 1);

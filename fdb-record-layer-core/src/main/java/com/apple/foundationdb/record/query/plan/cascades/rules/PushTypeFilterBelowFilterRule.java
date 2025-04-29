@@ -104,13 +104,13 @@ public class PushTypeFilterBelowFilterRule extends CascadesRule<RecordQueryTypeF
         final Collection<String> recordTypes = bindings.get(root).getRecordTypes();
 
         final RecordQueryTypeFilterPlan newTypeFilterPlan = new RecordQueryTypeFilterPlan(Quantifier.physical(inner), recordTypes, new Type.Any());
-        final Quantifier.Physical newQun = Quantifier.physical(call.memoizePlans(newTypeFilterPlan));
+        final Quantifier.Physical newQun = Quantifier.physical(call.memoizePlan(newTypeFilterPlan));
         final List<QueryPredicate> rebasedPredicates =
                 predicates.stream()
                         .map(queryPredicate -> queryPredicate.rebase(Quantifiers.translate(qun, newQun)))
                         .collect(ImmutableList.toImmutableList());
 
-        call.yieldExpression(new RecordQueryPredicatesFilterPlan(
+        call.yieldPlan(new RecordQueryPredicatesFilterPlan(
                         newQun,
                         rebasedPredicates));
     }

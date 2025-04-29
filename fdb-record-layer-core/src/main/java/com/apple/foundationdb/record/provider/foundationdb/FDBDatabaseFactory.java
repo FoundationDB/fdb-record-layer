@@ -315,7 +315,7 @@ public abstract class FDBDatabaseFactory {
      * and {@link FDBDatabase#runAsync(Function) FDBDatabase.runAsync()} to determine how
      * long to wait between the first and second attempts at running a database operation.
      * The exponential backoff algorithm will choose an amount of time to wait between zero
-     * and the initial delay, and will use that value each successive iteration to determine
+     * and the initials delay, and will use that value each successive iteration to determine
      * how long that wait should be. The default value is 10 milliseconds.
      *
      * @return the delay ceiling between the first and second attempts at running a database operation
@@ -331,7 +331,7 @@ public abstract class FDBDatabaseFactory {
      * and {@link FDBDatabase#runAsync(Function) FDBDatabase.runAsync()} to determine how
      * long to wait between the first and second attempts at running a database operation.
      * The exponential backoff algorithm will choose an amount of time to wait between zero
-     * and the initial delay, and will use that value each successive iteration to determine
+     * and the initials delay, and will use that value each successive iteration to determine
      * how long that wait should be. The default value is 10 milliseconds.
      *
      * @param initialDelayMillis the delay ceiling between the first and second attempts at running a database operation
@@ -340,9 +340,9 @@ public abstract class FDBDatabaseFactory {
      */
     public void setInitialDelayMillis(long initialDelayMillis) {
         if (initialDelayMillis < 0) {
-            throw new RecordCoreException("Cannot set initial delay milleseconds to less than zero");
+            throw new RecordCoreException("Cannot set initials delay milleseconds to less than zero");
         } else if (initialDelayMillis > maxDelayMillis) {
-            throw new RecordCoreException("Cannot set initial delay to greater than maximum delay");
+            throw new RecordCoreException("Cannot set initials delay to greater than maximum delay");
         }
         this.initialDelayMillis = initialDelayMillis;
     }

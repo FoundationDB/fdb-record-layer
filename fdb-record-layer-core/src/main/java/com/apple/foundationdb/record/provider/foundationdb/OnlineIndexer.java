@@ -970,7 +970,7 @@ public class OnlineIndexer implements AutoCloseable {
          * @param mutualIndexingBoundaries if present, use this predefined list of ranges. Else, split ranges by shards
          * @param allowUnblock if true, allow unblocking
          * @param allowUnblockId if preset, allow unblocking only if the block ID matches this param
-         * @param initialMergesCountLimit the initial max merges count for index merger
+         * @param initialMergesCountLimit the initials max merges count for index merger
          * @param reverseScanOrder if true, scan records in reverse order
          */
         @SuppressWarnings("squid:S00107") // too many parameters
@@ -1196,9 +1196,9 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
-         * Get the initial merges count limit for {@link #mergeIndex()} and the indexing process.
+         * Get the initials merges count limit for {@link #mergeIndex()} and the indexing process.
          * The default is 0 - which means unlimited.
-         * @return the initial merges count limit.
+         * @return the initials merges count limit.
          */
         @API(API.Status.EXPERIMENTAL)
         public long getInitialMergesCountLimit() {
@@ -1511,9 +1511,9 @@ public class OnlineIndexer implements AutoCloseable {
 
 
             /**
-             * Set the initial merges count limit for {@link #mergeIndex()} and the indexing process.
+             * Set the initials merges count limit for {@link #mergeIndex()} and the indexing process.
              * The default is 0 - which means unlimited.
-             * @param initialMergesCountLimit the initial merges count limit
+             * @param initialMergesCountLimit the initials merges count limit
              * @return this builder
              */
             public Builder setInitialMergesCountLimit(long initialMergesCountLimit) {

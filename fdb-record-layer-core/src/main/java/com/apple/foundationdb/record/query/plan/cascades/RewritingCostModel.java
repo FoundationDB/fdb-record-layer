@@ -1,5 +1,5 @@
 /*
- * CascadesCostModel.java
+ * RewritingCostModel.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -24,9 +24,28 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 
 import javax.annotation.Nonnull;
-import java.util.Comparator;
 
-public interface CascadesCostModel extends Comparator<RelationalExpression> {
+public class RewritingCostModel implements CascadesCostModel {
     @Nonnull
-    RecordQueryPlannerConfiguration getConfiguration();
+    private final RecordQueryPlannerConfiguration configuration;
+
+    public RewritingCostModel(@Nonnull final RecordQueryPlannerConfiguration configuration) {
+        this.configuration = configuration;
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlannerConfiguration getConfiguration() {
+        return configuration;
+    }
+
+    @Override
+    public int compare(final RelationalExpression a, final RelationalExpression b) {
+        // TODO Implement this!
+
+        //
+        // If expressions are indistinguishable from a cost perspective, select one by its semanticHash.
+        //
+        return Integer.compare(a.semanticHashCode(), b.semanticHashCode());
+    }
 }

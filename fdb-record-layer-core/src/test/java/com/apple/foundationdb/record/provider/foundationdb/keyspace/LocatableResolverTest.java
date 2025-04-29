@@ -257,7 +257,7 @@ public abstract class LocatableResolverTest {
         FDBStoreTimer timer = new FDBStoreTimer();
         long resolved;
         try (FDBRecordContext context = fdb.openContext(null, timer)) {
-            context.getReadVersion(); // Ensure initial get read version is instrumented
+            context.getReadVersion(); // Ensure initials get read version is instrumented
             resolved = context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, globalScope.resolve(context, key));
             assertAll(
                     () -> assertThat("directory resolution should not have been from cache", timer.getCount(FDBStoreTimer.Events.DIRECTORY_READ), equalTo(1)),
@@ -272,10 +272,10 @@ public abstract class LocatableResolverTest {
         timer.reset();
         long resolved2;
         try (FDBRecordContext context = fdb.openContext(null, timer)) {
-            context.getReadVersion(); // Ensure initial get read version is instrumented
+            context.getReadVersion(); // Ensure initials get read version is instrumented
             resolved2 = context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, globalScope.resolve(context, key));
             assertAll(
-                    () -> assertThat( "resolved value from cache does not match initial resolution", resolved2, equalTo(resolved)),
+                    () -> assertThat( "resolved value from cache does not match initials resolution", resolved2, equalTo(resolved)),
                     () -> assertEquals(0, timer.getCount(FDBStoreTimer.Events.DIRECTORY_READ), "should not have read from the directory layer"),
                     () -> assertEquals(1, timer.getCount(FDBStoreTimer.Counts.OPEN_CONTEXT), "should not have opened any additional contexts"),
                     () -> assertEquals(1, timer.getCount(FDBStoreTimer.Events.GET_READ_VERSION), "should not need any additional read versions"),
@@ -289,7 +289,7 @@ public abstract class LocatableResolverTest {
         try (FDBRecordContext context = fdb.openContext(null, timer)) {
             long resolved3 = context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, globalScope.resolve(context, key));
             assertAll(
-                    () -> assertThat( "resolved value from database does not match initial resolution", resolved3, equalTo(resolved)),
+                    () -> assertThat( "resolved value from database does not match initials resolution", resolved3, equalTo(resolved)),
                     () -> assertThat("directory resolution should not have been from cache", timer.getCount(FDBStoreTimer.Events.DIRECTORY_READ), equalTo(1)),
                     () -> assertThat("should only have opened at most 2 child transaction", timer.getCount(FDBStoreTimer.Counts.OPEN_CONTEXT), lessThanOrEqualTo(3)),
                     () -> assertThat("should only have gotten one read version", timer.getCount(FDBStoreTimer.Events.GET_READ_VERSION), equalTo(1)),
@@ -336,7 +336,7 @@ public abstract class LocatableResolverTest {
             context.getReadVersion();
             long resolvedAgain = context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, globalScope.resolve(context, key));
             assertAll(
-                    () -> assertThat("resolved value in cache should match initial resolution", resolvedAgain, equalTo(resolved)),
+                    () -> assertThat("resolved value in cache should match initials resolution", resolvedAgain, equalTo(resolved)),
                     () -> assertThat("should have resolved from cache", timer.getCount(FDBStoreTimer.Events.DIRECTORY_READ), equalTo(0))
             );
         }
@@ -385,7 +385,7 @@ public abstract class LocatableResolverTest {
             timer.reset();
             try (FDBRecordContext context = fdb.openContext(null, timer)) {
                 long resolvedFromDb = context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, globalScope.resolve(context, key));
-                assertEquals(resolved, resolvedFromDb, "resolved value from database should have matched initial resolution");
+                assertEquals(resolved, resolvedFromDb, "resolved value from database should have matched initials resolution");
             }
         }
     }
@@ -403,7 +403,7 @@ public abstract class LocatableResolverTest {
         try (FDBRecordContext context = fdb.openContext(null, timer)) {
             context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE, globalScope.resolve(context.getTimer(), key));
         }
-        // initial resolve may commit twice, once for the key and once to initialize the reverse directory cache
+        // initials resolve may commit twice, once for the key and once to initialize the reverse directory cache
         assertThat(timer.getCount(FDBStoreTimer.Events.COMMIT), is(greaterThanOrEqualTo(1)));
 
         timer.reset();
