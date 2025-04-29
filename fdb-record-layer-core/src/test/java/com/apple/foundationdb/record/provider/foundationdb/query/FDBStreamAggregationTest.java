@@ -28,21 +28,31 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorEndContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
+import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordScanLimiterFactory;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.cursors.FilterCursor;
+import com.apple.foundationdb.record.cursors.aggregate.AggregateCursor;
+import com.apple.foundationdb.record.cursors.aggregate.StreamGrouping;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
@@ -68,8 +78,11 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Stream;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests related to planning and executing queries with string collation.
@@ -313,6 +326,60 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+
+    @Test
+    void aggregateCursorOnFilterCursor() {
+        List<QueryResult> records = new ArrayList<>();
+        for (var i = 0; i <= 10; i++) {
+            TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
+            recBuilder.setRecNo(i);
+            recBuilder.setNumValue2(i);
+            recBuilder.setNumValue3Indexed(i / 2); // some field that changes every 2nd record
+            recBuilder.setStrValueIndexed(Integer.toString(i / 3)); // some field that changes every 3rd record
+            recBuilder.setNumValueUnique(i);
+            records.add(QueryResult.ofComputed(recBuilder.build()));
+        }
+        /*
+                num_value_2          str_value_indexed
+                0,1,2                   "0" -> 2
+                3,4,5                   "1" -> 4
+                6,7,8                   "2" -> 14
+                9, 10                   "3" -> 10
+         */
+        RecordCursor<QueryResult> innerCursor = RecordCursor.fromList(records).filter(i -> ((TestRecords1Proto.MySimpleRecord)i.getMessage()).getNumValue2() % 2 == 0);
+        assertTrue(innerCursor instanceof FilterCursor, "Creating a filter should create a filter cursor");
+
+        try (final var context = openContext()) {
+            openSimpleRecordStore(context, NO_HOOK);
+            AggregationPlanBuilder builder =
+                    new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
+                            .withGroupCriterion("str_value_indexed");
+            final RecordQueryPlan plan = verifySerialization(builder.build(false));
+            final var types = plan.getDynamicTypes();
+            final var typeRepository = TypeRepository.newBuilder().addAllTypes(types).build();
+
+            List<QueryResult> results = new ArrayList<>();
+            RecordCursorContinuation cursorContinuation = RecordCursorStartContinuation.START;
+            while (!cursorContinuation.isEnd()) {
+                try (final var currentCursor = builder.createAggregateCursor(recordStore, EvaluationContext.forTypeRepository(typeRepository), false, innerCursor, cursorContinuation)) {
+                    RecordCursorResult<QueryResult> currentCursorResult;
+                    //while(true) {
+                        currentCursorResult = currentCursor.getNext();
+                        cursorContinuation = currentCursorResult.getContinuation();
+                        if (!currentCursorResult.hasNext()) {
+                            break;
+                        }
+                        QueryResult tmp = currentCursorResult.get();
+                        System.out.println("result tmp:" + tmp.getMessage());
+                        results.add(tmp);
+
+                }
+            }
+
+        }
+    }
+
     @Test
     void partialAggregateSum() {
         try (final var context = openContext()) {
@@ -336,6 +403,33 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes(), null);
             // return the aggregated result of the second group
             RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1, continuation4.toBytes(), resultOf("1", 12));
+
+            Assertions.assertEquals(RecordCursorEndContinuation.END, continuation5);
+        }
+    }
+
+    @Test
+    void partialAggregateSumWithoutGroupingKey() {
+        try (final var context = openContext()) {
+            openSimpleRecordStore(context, NO_HOOK);
+
+            final var plan =
+                    new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
+                            .build(false);
+
+            // In the testing data, there are 6 rows.
+            // recordScanLimit = 5: scans 3 rows, and the 4th scan hits SCAN_LIMIT_REACHED
+            // because source is not exhausted, nothing is returned
+            RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null, null);
+            // start the next scan from 4th row, and scans the 4th row (recordScanLimit = 1), nothing is returned
+            RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 1, continuation1.toBytes(), null);
+            // start the next scan from 5th row, and scans the 5th row (recordScanLimit = 1), nothing is returned
+            RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes(), null);
+            // start the next scan from 6th row, and scans the 6th row (recordScanLimit = 2), hit SCAN_LIMIT_REACHED, so return nothing
+            RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes(), null);
+            // return the aggregated result of the second group
+            RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1, continuation4.toBytes(), resultOf(15));
 
             Assertions.assertEquals(RecordCursorEndContinuation.END, continuation5);
         }
@@ -555,6 +649,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         private final List<Value> groupValues;
         private final RecordMetaData recordMetaData;
         private final String recordTypeName;
+        private final List<QueryComponent> queryComponents;
 
         public AggregationPlanBuilder(final RecordMetaData recordMetaData, final String recordTypeName) {
             this.recordMetaData = recordMetaData;
@@ -562,6 +657,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             this.quantifier = createBaseQuantifier();
             this.aggregateValues = new ArrayList<>();
             this.groupValues = new ArrayList<>();
+            this.queryComponents = new ArrayList<>();
         }
 
         public AggregationPlanBuilder withAggregateValue(final String fieldName, final Function<Value, AggregateValue> aggregateValueFunction) {
@@ -574,13 +670,22 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             return this;
         }
 
+        public AggregationPlanBuilder withQueryComponents(final QueryComponent queryComponent) {
+            this.queryComponents.add(queryComponent);
+            return this;
+        }
+
         public RecordQueryPlan build(final boolean useNestedResult) {
+            Quantifier.Physical q = quantifier;
+            if (!queryComponents.isEmpty()) {
+                q = createFilteredQuantifier();
+            }
             final var groupingKeyValue = RecordConstructorValue.ofUnnamed(groupValues);
             final var aggregateValue = RecordConstructorValue.ofUnnamed(aggregateValues);
             if (useNestedResult) {
-                return RecordQueryStreamingAggregationPlan.ofNested(quantifier, groupingKeyValue, aggregateValue, RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW);
+                return RecordQueryStreamingAggregationPlan.ofNested(q, groupingKeyValue, aggregateValue, RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW);
             } else {
-                return RecordQueryStreamingAggregationPlan.ofFlattened(quantifier, groupingKeyValue, aggregateValue, RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW);
+                return RecordQueryStreamingAggregationPlan.ofFlattened(q, groupingKeyValue, aggregateValue, RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW);
             }
         }
 
@@ -596,6 +701,39 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                             Collections.singleton(recordTypeName),
                             resultType);
             return Quantifier.physical(Reference.of(filterPlan));
+        }
+
+        private Quantifier.Physical createFilteredQuantifier() {
+            final var plan = new RecordQueryFilterPlan(quantifier.getRangesOverPlan(), queryComponents);
+            return Quantifier.physical(Reference.of(plan));
+        }
+
+        private AggregateCursor<? extends Message> createAggregateCursor(FDBRecordStore recordStore, EvaluationContext context, final boolean useNestedResult, RecordCursor<QueryResult> innerCursor, RecordCursorContinuation recordCursorContinuation) {
+            final var streamGrouping = createStreamGrouping(recordStore, context, useNestedResult);
+            return new AggregateCursor<>(innerCursor, streamGrouping, recordCursorContinuation, RecordQueryStreamingAggregationPlan.SerializationMode.TO_OLD);
+        }
+
+        private StreamGrouping<Message> createStreamGrouping(FDBRecordStore recordStore, EvaluationContext context, final boolean useNestedResult) {
+            final var groupingKeyValue = RecordConstructorValue.ofUnnamed(groupValues);
+            final var aggregateValue = RecordConstructorValue.ofUnnamed(aggregateValues);
+            final var groupingKeyAlias = CorrelationIdentifier.uniqueID();
+            final var aggregateAlias = CorrelationIdentifier.uniqueID();
+            final var referencedGroupingKeyValue = ObjectValue.of(groupingKeyAlias, groupingKeyValue.getResultType());
+            final var referencedAggregateValue = ObjectValue.of(aggregateAlias, aggregateValue.getResultType());
+
+            BiFunction<Value, Value, Value> resultValueFunction = useNestedResult ? GroupByExpression::nestedResults : GroupByExpression::flattenedResults;
+
+            return new StreamGrouping<>(groupingKeyValue,
+                            aggregateValue,
+                            resultValueFunction.apply(referencedGroupingKeyValue, referencedAggregateValue),
+                            groupingKeyAlias,
+                            aggregateAlias,
+                            recordStore,
+                            context,
+                            quantifier.getAlias(),
+                            null
+                    );
+
         }
     }
 }
