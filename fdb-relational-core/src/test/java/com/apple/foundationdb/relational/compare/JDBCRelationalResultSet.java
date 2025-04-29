@@ -601,7 +601,6 @@ public class JDBCRelationalResultSet implements RelationalResultSet {
 
     @Override
     public RelationalArray getArray(String columnLabel) throws SQLException {
-        //TODO(bfines) this almost certainly won't work
         return delegate.getArray(columnLabel);
     }
 

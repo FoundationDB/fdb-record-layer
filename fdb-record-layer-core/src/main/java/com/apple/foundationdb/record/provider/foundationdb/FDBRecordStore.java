@@ -189,35 +189,47 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     // TODO: This should probably be configured through the PipelineSizer
     public static final int MAX_PARALLEL_INDEX_REBUILD = 10;
 
-    private static final int MIN_FORMAT_VERSION = 1;
-    // 1 - initial implementation
-    public static final int INFO_ADDED_FORMAT_VERSION = 1;
-    // 2 - added record counting
-    public static final int RECORD_COUNT_ADDED_FORMAT_VERSION = 2;
-    // 3 - added support for a key in record count
-    public static final int RECORD_COUNT_KEY_ADDED_FORMAT_VERSION = 3;
-    // 4 - tightened up format version migration (version mostly for testing)
-    public static final int FORMAT_CONTROL_FORMAT_VERSION = 4;
-    // 5 - started writing unsplit records with a suffix
-    public static final int SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION = 5;
-    // 6 - store record version at a split point within the record
-    public static final int SAVE_VERSION_WITH_RECORD_FORMAT_VERSION = 6;
-    // 7 - allow the record store state to be cached and invalidated with the meta-data version key
-    public static final int CACHEABLE_STATE_FORMAT_VERSION = 7;
-    // 8 - add custom fields to store header
-    public static final int HEADER_USER_FIELDS_FORMAT_VERSION = 8;
-    // 9 - add READABLE_UNIQUE_PENDING index state
-    public static final int READABLE_UNIQUE_PENDING_FORMAT_VERSION = 9;
-    // 10 - check index build type during update
-    public static final int CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION = 10;
+    /** Replaced by {@link FormatVersion#getMinimumVersion()}. **/
+    @Deprecated(forRemoval = true)
+    private static final int MIN_FORMAT_VERSION = FormatVersion.getMinimumVersion().getValueForSerialization();
+    /** Replaced by {@link FormatVersion#INFO_ADDED}. **/
+    @Deprecated(forRemoval = true)
+    public static final int INFO_ADDED_FORMAT_VERSION = FormatVersion.INFO_ADDED.getValueForSerialization();
+    /** Replaced by {@link FormatVersion#RECORD_COUNT_ADDED}. **/
+    @Deprecated(forRemoval = true)
+    public static final int RECORD_COUNT_ADDED_FORMAT_VERSION = FormatVersion.RECORD_COUNT_ADDED.getValueForSerialization();
+    /** Replaced by {@link FormatVersion#RECORD_COUNT_KEY_ADDED}. **/
+    @Deprecated(forRemoval = true)
+    public static final int RECORD_COUNT_KEY_ADDED_FORMAT_VERSION = FormatVersion.RECORD_COUNT_KEY_ADDED.getValueForSerialization();
+    /** Replaced by {@link FormatVersion#FORMAT_CONTROL}. **/
+    @Deprecated(forRemoval = true)
+    public static final int FORMAT_CONTROL_FORMAT_VERSION = FormatVersion.FORMAT_CONTROL.getValueForSerialization();
+    /** Replaced by {@link FormatVersion#SAVE_UNSPLIT_WITH_SUFFIX}. **/
+    @Deprecated(forRemoval = true)
+    public static final int SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION = FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX.getValueForSerialization();
+    /** Replaced by {@link FormatVersion#SAVE_VERSION_WITH_RECORD}. **/
+    @Deprecated(forRemoval = true)
+    public static final int SAVE_VERSION_WITH_RECORD_FORMAT_VERSION = FormatVersion.SAVE_VERSION_WITH_RECORD.getValueForSerialization();
+    /** Replaced by {@link FormatVersion#CACHEABLE_STATE}. **/
+    @Deprecated(forRemoval = true)
+    public static final int CACHEABLE_STATE_FORMAT_VERSION = FormatVersion.CACHEABLE_STATE.getValueForSerialization();
+    /** Replaced by {@link FormatVersion#HEADER_USER_FIELDS}. **/
+    @Deprecated(forRemoval = true)
+    public static final int HEADER_USER_FIELDS_FORMAT_VERSION = FormatVersion.HEADER_USER_FIELDS.getValueForSerialization();
+    /** Replaced by {@link FormatVersion#READABLE_UNIQUE_PENDING}. **/
+    @Deprecated(forRemoval = true)
+    public static final int READABLE_UNIQUE_PENDING_FORMAT_VERSION = FormatVersion.READABLE_UNIQUE_PENDING.getValueForSerialization();
+    /** Replaced by {@link FormatVersion#CHECK_INDEX_BUILD_TYPE_DURING_UPDATE}. **/
+    @Deprecated(forRemoval = true)
+    public static final int CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION = FormatVersion.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE.getValueForSerialization();
 
-    // The current code can read and write up to the format version below
-    public static final int MAX_SUPPORTED_FORMAT_VERSION = CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION;
+    /** Replaced by {@link FormatVersion#getMaximumSupportedVersion()}. **/
+    @Deprecated(forRemoval = true)
+    public static final int MAX_SUPPORTED_FORMAT_VERSION = FormatVersion.getMaximumSupportedVersion().getValueForSerialization();
 
-    // By default, record stores attempt to upgrade to this version
-    // NOTE: Updating this can break certain users during upgrades.
-    // See: https://github.com/FoundationDB/fdb-record-layer/issues/709
-    public static final int DEFAULT_FORMAT_VERSION = CACHEABLE_STATE_FORMAT_VERSION;
+    /** Replaced by {@link FormatVersion#getDefaultFormatVersion()}. **/
+    @Deprecated(forRemoval = true)
+    public static final int DEFAULT_FORMAT_VERSION = FormatVersion.getDefaultFormatVersion().getValueForSerialization();
 
     // These agree with the client's values. They could be tunable and even increased with knobs.
     public static final int KEY_SIZE_LIMIT = 10_000;
@@ -250,7 +262,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @SpotBugsSuppressWarnings("MS_MUTABLE_ARRAY")
     public static final byte[] INT64_ZERO = { 0, 0, 0, 0, 0, 0, 0, 0 };
 
-    protected int formatVersion;
+    protected FormatVersion formatVersion;
     protected int userVersion;
 
     private boolean omitUnsplitRecordSuffix;
@@ -301,9 +313,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     private final PlanSerializationRegistry planSerializationRegistry;
 
     @SuppressWarnings("squid:S00107")
+    @API(API.Status.INTERNAL)
     protected FDBRecordStore(@Nonnull FDBRecordContext context,
                              @Nonnull SubspaceProvider subspaceProvider,
-                             int formatVersion,
+                             @Nonnull FormatVersion formatVersion,
                              @Nonnull RecordMetaDataProvider metaDataProvider,
                              @Nonnull RecordSerializer<Message> serializer,
                              @Nonnull IndexMaintainerRegistry indexMaintainerRegistry,
@@ -311,7 +324,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                              @Nonnull PipelineSizer pipelineSizer,
                              @Nullable FDBRecordStoreStateCache storeStateCache,
                              @Nonnull StateCacheabilityOnOpen stateCacheabilityOnOpen,
-                             @Nullable FDBRecordStoreBase.UserVersionChecker userVersionChecker,
+                             @Nullable UserVersionChecker userVersionChecker,
                              @Nonnull PlanSerializationRegistry planSerializationRegistry) {
         super(context, subspaceProvider);
         this.formatVersion = formatVersion;
@@ -323,7 +336,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         this.storeStateCache = storeStateCache;
         this.stateCacheabilityOnOpen = stateCacheabilityOnOpen;
         this.userVersionChecker = userVersionChecker;
-        this.omitUnsplitRecordSuffix = formatVersion < SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION;
+        this.omitUnsplitRecordSuffix = !formatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX);
         this.preloadCache = new FDBPreloadRecordCache(PRELOAD_CACHE_SIZE);
         this.planSerializationRegistry = planSerializationRegistry;
     }
@@ -347,7 +360,21 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * Index maintainers can use this to determine what format to expect / produce.
      * @return the storage format version
      */
+    @Deprecated(forRemoval = true)
     public int getFormatVersion() {
+        return formatVersion.getValueForSerialization();
+    }
+
+    /**
+     * Get the {@link FormatVersion} currently in use for this record store.
+     * <p>
+     *     After calling {@link FDBRecordStore.Builder#open} or {@link #checkVersion} directly, this will be the format
+     *     stored in the store's info header.
+     * </p>
+     * @return the {@link FormatVersion} currently in use for this record store.
+     */
+    @API(API.Status.INTERNAL)
+    public FormatVersion getFormatVersionEnum() {
         return formatVersion;
     }
 
@@ -2375,7 +2402,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
         final boolean[] dirty = new boolean[1];
         final boolean newStore = isNewStoreHeader(storeHeader);
-        if (Math.max(storeHeader.getFormatVersion(), formatVersion) >= CACHEABLE_STATE_FORMAT_VERSION
+        if (Math.max(storeHeader.getFormatVersion(), formatVersion.getValueForSerialization()) >= CACHEABLE_STATE_FORMAT_VERSION
                 && (stateCacheabilityOnOpen.isUpdateExistingStores() || newStore)) {
             boolean cacheable = stateCacheabilityOnOpen.isCacheable();
             if (info.getCacheable() != cacheable) {
@@ -2599,10 +2626,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             throw new RecordStoreAlreadyExistsException("Record store already exists",
                     subspaceProvider.logKey(), subspaceProvider.toString(context));
         } else {
-            if (storeHeader.getFormatVersion() < MIN_FORMAT_VERSION || storeHeader.getFormatVersion() > MAX_SUPPORTED_FORMAT_VERSION) {
-                throw new UnsupportedFormatVersionException("Unsupported format version " + storeHeader.getFormatVersion(),
-                        subspaceProvider.logKey(), subspaceProvider);
-            }
+            FormatVersion.validateFormatVersion(storeHeader.getFormatVersion(), subspaceProvider);
         }
     }
 
@@ -2981,7 +3005,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (recordStoreStateRef.get() == null) {
             return preloadRecordStoreStateAsync().thenCompose(vignore -> setStateCacheabilityAsync(cacheable));
         }
-        if (formatVersion < CACHEABLE_STATE_FORMAT_VERSION) {
+        if (!formatVersion.isAtLeast(FormatVersion.CACHEABLE_STATE)) {
             throw recordCoreException("cannot mark record store state cacheable at format version " + formatVersion);
         }
         if (isStateCacheableInternal() == cacheable) {
@@ -3012,7 +3036,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     private void validateCanAccessHeaderUserFields() {
-        if (formatVersion < HEADER_USER_FIELDS_FORMAT_VERSION) {
+        if (!formatVersion.isAtLeast(FormatVersion.HEADER_USER_FIELDS)) {
             throw recordCoreException("cannot access header user fields at current format version",
                     LogMessageKeys.FORMAT_VERSION, formatVersion);
         }
@@ -3969,7 +3993,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @API(API.Status.INTERNAL)
     @Nonnull
     public CompletableFuture<IndexBuildProto.IndexBuildIndexingStamp> loadIndexingTypeStampAsync(Index index) {
-        byte[] stampKey = OnlineIndexer.indexBuildTypeSubspace(this, index).pack();
+        byte[] stampKey = IndexingSubspaces.indexBuildTypeSubspace(this, index).pack();
         return ensureContextActive().get(stampKey).thenApply(serializedStamp -> {
             if (serializedStamp == null) {
                 return null;
@@ -3997,7 +4021,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @API(API.Status.INTERNAL)
     public void saveIndexingTypeStamp(Index index, IndexBuildProto.IndexBuildIndexingStamp stamp) {
-        byte[] stampKey = OnlineIndexer.indexBuildTypeSubspace(this, index).pack();
+        byte[] stampKey = IndexingSubspaces.indexBuildTypeSubspace(this, index).pack();
         ensureContextActive().set(stampKey, stamp.toByteArray());
     }
 
@@ -4303,9 +4327,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                          @Nonnull RecordMetaDataProto.DataStoreInfo.Builder info,
                                                          @Nonnull boolean[] dirty) {
         final int oldFormatVersion = info.getFormatVersion();
-        final int newFormatVersion = Math.max(oldFormatVersion, formatVersion);
+        final int newFormatVersion = Math.max(oldFormatVersion, formatVersion.getValueForSerialization());
         final boolean formatVersionChanged = oldFormatVersion != newFormatVersion;
-        formatVersion = newFormatVersion;
+        formatVersion = FormatVersion.getFormatVersion(newFormatVersion);
 
         final boolean newStore = oldFormatVersion == 0;
         final int oldMetaDataVersion = newStore ? -1 : info.getMetaDataversion();
@@ -4358,13 +4382,13 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final List<CompletableFuture<Void>> work = new LinkedList<>();
 
         final int oldFormatVersion = info.getFormatVersion();
-        if (oldFormatVersion != formatVersion) {
-            info.setFormatVersion(formatVersion);
+        if (oldFormatVersion != formatVersion.getValueForSerialization()) {
+            info.setFormatVersion(formatVersion.getValueForSerialization());
             // We must check whether we have to save unsplit records without a suffix before
             // attempting to read data, i.e., before we update any indexes.
             if ((oldFormatVersion >= MIN_FORMAT_VERSION
                     && oldFormatVersion < SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION
-                    && formatVersion >= SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION
+                    && formatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX)
                     && !metaData.isSplitLongRecords())) {
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.info(KeyValueLogMessage.of("unsplit records stored at old format",
@@ -4433,7 +4457,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             AtomicLong recordsSizeRef = new AtomicLong(-1);
             final Supplier<CompletableFuture<Long>> lazyRecordsSize = getAndRememberFutureLong(recordsSizeRef,
                     () -> getRecordSizeForRebuildIndexes(singleRecordTypeWithPrefixKey));
-            if (singleRecordTypeWithPrefixKey == null && formatVersion >= SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION && omitUnsplitRecordSuffix) {
+            if (singleRecordTypeWithPrefixKey == null
+                    && formatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX)
+                    && omitUnsplitRecordSuffix) {
                 // Check to see if the unsplit format can be upgraded on an empty store.
                 // Only works if singleRecordTypeWithPrefixKey is null as otherwise, the recordCount will not contain
                 // all records
@@ -4453,7 +4479,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                 }
                             }
                         }
-                        omitUnsplitRecordSuffix = formatVersion < SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION;
+                        omitUnsplitRecordSuffix = !formatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX);
                         info.clearOmitUnsplitRecordSuffix();
                         addRecordsReadConflict(); // We used snapshot to determine emptiness, and are now acting on it.
                     }
@@ -4763,14 +4789,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         IndexingRangeSet.forIndexBuild(this, index).clear();
         // clear even if non-unique in case the index was previously unique
         context.clear(indexUniquenessViolationsSubspace(index).range());
-        // Under the index build subspace, there are 3 lower level subspaces, the lock space, the scanned records
-        // subspace, and the type/stamp subspace. We are not supposed to clear the lock subspace, which is used to
-        // run online index jobs which may invoke this method. We should clear:
-        // * the scanned records subspace. Which, roughly speaking, counts how many records of this store are covered in
-        // index range subspace.
-        // * the type/stamp subspace. Which indicates which type of indexing is in progress.
-        context.clear(Range.startsWith(OnlineIndexer.indexBuildScannedRecordsSubspace(this, index).pack()));
-        context.clear(Range.startsWith(OnlineIndexer.indexBuildTypeSubspace(this, index).pack()));
+        // Under the index build subspace, there are multiple lower level subspaces - the lock subspace and few others. We are
+        // not supposed to clear the lock subspace, which might have been used to an online index job that had invoked this method.
+        IndexingSubspaces.eraseAllIndexingDataButTheLock(context, this, index);
     }
 
     @SuppressWarnings("PMD.CloseResource")
@@ -4819,7 +4840,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         boolean rebuildRecordCounts =
                 (existingStore && oldFormatVersion < RECORD_COUNT_ADDED_FORMAT_VERSION)
-                || (countKeyExpression != null && formatVersion >= RECORD_COUNT_KEY_ADDED_FORMAT_VERSION &&
+                || (countKeyExpression != null && formatVersion.isAtLeast(FormatVersion.RECORD_COUNT_KEY_ADDED) &&
                         (!info.hasRecordCountKey() || !KeyExpression.fromProto(info.getRecordCountKey()).equals(countKeyExpression)))
                 || (countKeyExpression == null && info.hasRecordCountKey());
 
@@ -4830,7 +4851,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
 
             // Set the new record count key if we have one.
-            if (formatVersion >= RECORD_COUNT_KEY_ADDED_FORMAT_VERSION) {
+            if (formatVersion.isAtLeast(FormatVersion.RECORD_COUNT_KEY_ADDED)) {
                 if (countKeyExpression != null) {
                     info.setRecordCountKey(countKeyExpression.toKeyExpression());
                 } else {
@@ -5136,7 +5157,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         @Nullable
         private RecordSerializer<Message> serializer = DynamicMessageRecordSerializer.instance();
 
-        private int formatVersion = DEFAULT_FORMAT_VERSION;
+        private FormatVersion formatVersion = FormatVersion.getDefaultFormatVersion();
 
         @Nullable
         private RecordMetaDataProvider metaDataProvider;
@@ -5235,15 +5256,29 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
 
         @Override
+        @Deprecated(forRemoval = true)
+        @SuppressWarnings("removal") // this method is deprecated to be removed with parent
         public int getFormatVersion() {
+            return formatVersion.getValueForSerialization();
+        }
+
+        @Override
+        public FormatVersion getFormatVersionEnum() {
             return formatVersion;
         }
 
         @Override
         @Nonnull
+        @Deprecated(forRemoval = true)
+        @SuppressWarnings("removal") // this method is deprecated to be removed with parent
         public Builder setFormatVersion(int formatVersion) {
-            this.formatVersion = formatVersion;
+            this.formatVersion = FormatVersion.getFormatVersion(formatVersion);
             return this;
+        }
+
+        @Override
+        public Builder setFormatVersion(final FormatVersion formatVersion) {
+            return setFormatVersion(formatVersion.getValueForSerialization());
         }
 
         @Override

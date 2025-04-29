@@ -243,6 +243,8 @@ public enum LogMessageKeys {
     RANGE_BYTES,
     RANGE_START,
     RANGE_END,
+    RANGE_ID,
+    RANGE_RESET,
     // meta-data evolution
     FIELD_NAME,
     OLD_FIELD_NAME,
@@ -309,6 +311,7 @@ public enum LogMessageKeys {
     FAILED_TRANSACTIONS_COUNT_IN_RUNNER,
     TOTAL_RECORDS_SCANNED,
     TOTAL_RECORDS_SCANNED_DURING_FAILURES,
+    SCRUB_TYPE,
 
     // time limits milliseconds
     TIME_LIMIT_MILLIS("time_limit_milliseconds"),

@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSession;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
@@ -61,7 +60,6 @@ import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.metadata.Index.decodeSubspaceKey;
-import static com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore.READABLE_UNIQUE_PENDING_FORMAT_VERSION;
 
 /**
  * Builds an index online, i.e., concurrently with other database operations. In order to minimize
@@ -403,7 +401,7 @@ public class OnlineIndexer implements AutoCloseable {
         return getRunner().runAsync(context -> openRecordStore(context).thenCompose(store -> {
             Transaction transaction = store.getContext().ensureActive();
             for (Index targetIndex: common.getTargetIndexes()) {
-                byte[] stampKey = indexBuildTypeSubspace(store, targetIndex).getKey();
+                byte[] stampKey = IndexingSubspaces.indexBuildTypeSubspace(store, targetIndex).getKey();
                 transaction.clear(stampKey);
             }
             return AsyncUtil.DONE;
@@ -616,7 +614,7 @@ public class OnlineIndexer implements AutoCloseable {
      * @param index the index whose builds need to be stopped
      */
     public static void stopOngoingOnlineIndexBuilds(@Nonnull FDBRecordStore recordStore, @Nonnull Index index) {
-        SynchronizedSession.endAnySession(recordStore.ensureContextActive(), indexBuildLockSubspace(recordStore, index));
+        SynchronizedSession.endAnySession(recordStore.ensureContextActive(), IndexingSubspaces.indexBuildLockSubspace(recordStore, index));
     }
 
     /**
@@ -645,7 +643,7 @@ public class OnlineIndexer implements AutoCloseable {
      * @return a future that will complete to <code>true</code> if the index is being built and <code>false</code> otherwise
      */
     public static CompletableFuture<Boolean> checkAnyOngoingOnlineIndexBuildsAsync(@Nonnull FDBRecordStore recordStore, @Nonnull Index index) {
-        return SynchronizedSession.checkActiveSessionExists(recordStore.ensureContextActive(), indexBuildLockSubspace(recordStore, index));
+        return SynchronizedSession.checkActiveSessionExists(recordStore.ensureContextActive(), IndexingSubspaces.indexBuildLockSubspace(recordStore, index));
     }
 
     /**
@@ -677,21 +675,6 @@ public class OnlineIndexer implements AutoCloseable {
     CompletableFuture<Void> buildIndexAsync(boolean markReadable) {
         boolean useSyncLock = (!indexingPolicy.isMutual() || fallbackToRecordsScan) && common.config.shouldUseSynchronizedSession();
         return indexingLauncher(() -> getIndexer().buildIndexAsync(markReadable, useSyncLock));
-    }
-
-    @Nonnull
-    private static Subspace indexBuildLockSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
-        return IndexingBase.indexBuildLockSubspace(store, index);
-    }
-
-    @Nonnull
-    protected static Subspace indexBuildScannedRecordsSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
-        return IndexingBase.indexBuildScannedRecordsSubspace(store, index);
-    }
-
-    @Nonnull
-    protected static Subspace indexBuildTypeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
-        return IndexingBase.indexBuildTypeSubspace(store, index);
     }
 
     /**
@@ -1326,7 +1309,8 @@ public class OnlineIndexer implements AutoCloseable {
          * @return true if allowed
          */
         public boolean shouldAllowUniquePendingState(FDBRecordStore store) {
-            return allowUniquePendingState && store.formatVersion >= READABLE_UNIQUE_PENDING_FORMAT_VERSION;
+            return allowUniquePendingState
+                    && store.getFormatVersionEnum().isAtLeast(FormatVersion.READABLE_UNIQUE_PENDING);
         }
 
         /**
@@ -1454,7 +1438,7 @@ public class OnlineIndexer implements AutoCloseable {
              * source-index covers <em>all</em> the relevant records for the target-index. Also, note that
              * if the {@linkplain OnlineIndexer.Builder#setIndex(Index) target index} is not idempotent,
              * the index build will not be executed using the given source index unless the store's
-             * format version is at least {@link FDBRecordStore#CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION},
+             * format version is at least {@link FormatVersion#CHECK_INDEX_BUILD_TYPE_DURING_UPDATE},
              * as concurrent updates to the index during such a build on older format versions can
              * result in corrupting the index. On older format versions, the indexer will throw an
              * exception and the build may fall back to building the index by a records scan depending

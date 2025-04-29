@@ -390,13 +390,28 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
         }
 
         @Override
+        @Deprecated(forRemoval = true)
+        @SuppressWarnings("removal") // this method is deprecated to be removed with parent
         public int getFormatVersion() {
             return untypedStoreBuilder.getFormatVersion();
         }
 
-        @Nonnull
         @Override
+        public FormatVersion getFormatVersionEnum() {
+            return untypedStoreBuilder.getFormatVersionEnum();
+        }
+
+        @Override
+        @Nonnull
+        @Deprecated(forRemoval = true)
+        @SuppressWarnings("removal") // this method is deprecated to be removed with parent
         public Builder<M> setFormatVersion(int formatVersion) {
+            untypedStoreBuilder.setFormatVersion(formatVersion);
+            return this;
+        }
+
+        @Override
+        public BaseBuilder<M, FDBTypedRecordStore<M>> setFormatVersion(final FormatVersion formatVersion) {
             untypedStoreBuilder.setFormatVersion(formatVersion);
             return this;
         }

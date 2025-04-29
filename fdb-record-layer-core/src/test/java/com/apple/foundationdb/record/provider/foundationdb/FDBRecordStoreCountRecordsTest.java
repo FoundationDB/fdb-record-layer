@@ -228,7 +228,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             // Simulate the state the store would be in if this were done before counting was added.
             recordStore = getStoreBuilder(context, simpleMetaData(countMetaDataHook))
-                    .setFormatVersion(FDBRecordStore.INFO_ADDED_FORMAT_VERSION)
+                    .setFormatVersion(FormatVersion.INFO_ADDED)
                     .uncheckedOpen();
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_EXISTS).join();
 
@@ -244,7 +244,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             recordStore = getStoreBuilder(context, simpleMetaData(countMetaDataHook))
-                    .setFormatVersion(FDBRecordStore.RECORD_COUNT_ADDED_FORMAT_VERSION)
+                    .setFormatVersion(FormatVersion.RECORD_COUNT_ADDED)
                     .uncheckedOpen();
 
             for (int i = 90; i < 100; i++) {
@@ -255,7 +255,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             recordStore = getStoreBuilder(context, simpleMetaData(countMetaDataHook))
-                    .setFormatVersion(FDBRecordStore.RECORD_COUNT_ADDED_FORMAT_VERSION)
+                    .setFormatVersion(FormatVersion.RECORD_COUNT_ADDED)
                     .uncheckedOpen();
 
             assertEquals(10, recordStore.getSnapshotRecordCount().join().longValue(), "should only see new records");

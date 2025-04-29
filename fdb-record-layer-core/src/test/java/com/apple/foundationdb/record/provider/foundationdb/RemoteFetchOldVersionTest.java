@@ -56,7 +56,7 @@ public class RemoteFetchOldVersionTest extends RemoteFetchTestBase {
 
     @BeforeEach
     void setup() throws Exception {
-        complexQuerySetupWithVersion(simpleVersionHook, FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION - 1);
+        complexQuerySetupWithVersion(simpleVersionHook, FormatVersionTestUtils.previous(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX));
     }
 
     @ParameterizedTest
@@ -66,7 +66,7 @@ public class RemoteFetchOldVersionTest extends RemoteFetchTestBase {
 
         int count = 0;
         try (FDBRecordContext context = openContext()) {
-            openStoreWithVersion(context, simpleVersionHook, FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION - 1);
+            openStoreWithVersion(context, simpleVersionHook, FormatVersionTestUtils.previous(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX));
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.SERIAL_EXECUTE).asIterator()) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> record = cursor.next();
@@ -90,7 +90,7 @@ public class RemoteFetchOldVersionTest extends RemoteFetchTestBase {
                 new Index("globalVersion", VersionKeyExpression.VERSION, IndexTypes.VERSION));
     };
 
-    protected void complexQuerySetupWithVersion(RecordMetaDataHook hook, int formatVersion) throws Exception {
+    protected void complexQuerySetupWithVersion(RecordMetaDataHook hook, FormatVersion formatVersion) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openStoreWithVersion(context, hook, formatVersion);
 
@@ -112,7 +112,7 @@ public class RemoteFetchOldVersionTest extends RemoteFetchTestBase {
     }
 
     // TODO: This can be combined with the existing openStore such that it takes a version (and resets it in @AfterEach).
-    protected void openStoreWithVersion(final FDBRecordContext context, @Nullable RecordMetaDataHook hook, int formatVersion) {
+    protected void openStoreWithVersion(final FDBRecordContext context, @Nullable RecordMetaDataHook hook, FormatVersion formatVersion) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
         if (hook != null) {
             hook.apply(metaDataBuilder);

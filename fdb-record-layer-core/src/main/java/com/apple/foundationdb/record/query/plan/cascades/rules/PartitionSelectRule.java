@@ -78,6 +78,10 @@ public class PartitionSelectRule extends CascadesRule<SelectExpression> {
             return;
         }
 
+        //
+        // Form lowerAliases and upperAliases. We get lowerAliases from the matcher; upperAliases is what lowerAliases
+        // is not, i.e. the complement of the quantifiers owned by the select expression.
+        //
         final var lowerAliases = bindings.get(combinationQuantifierMatcher)
                 .stream()
                 .map(Quantifier::getAlias)
@@ -94,6 +98,8 @@ public class PartitionSelectRule extends CascadesRule<SelectExpression> {
             }
         }
         final var upperAliases = upperAliasesBuilder.build();
+
+        // we need to have a non-trivial partitioning.
         if (upperAliases.isEmpty()) {
             return;
         }

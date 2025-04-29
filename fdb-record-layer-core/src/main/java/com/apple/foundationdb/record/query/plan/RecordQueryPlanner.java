@@ -74,9 +74,7 @@ import com.apple.foundationdb.record.query.expressions.QueryRecordFunctionWithCo
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRanges;
-import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
-import com.apple.foundationdb.record.query.plan.cascades.properties.ComparisonsProperty;
-import com.apple.foundationdb.record.query.plan.cascades.properties.FieldWithComparisonCountProperty;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer;
 import com.apple.foundationdb.record.query.plan.planning.FilterSatisfiedMask;
@@ -130,6 +128,9 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+
+import static com.apple.foundationdb.record.query.plan.cascades.properties.ComparisonsProperty.comparisons;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.FieldWithComparisonCountProperty.fieldWithComparisonCount;
 
 /**
  * The query planner.
@@ -333,7 +334,7 @@ public class RecordQueryPlanner implements QueryPlanner {
 
         if (logger.isTraceEnabled()) {
             logger.trace(KeyValueLogMessage.of("explain of plan",
-                    "explain", PlannerGraphProperty.explain(plan)));
+                    "explain", PlannerGraphVisitor.explain(plan)));
         }
 
         return plan;
@@ -543,7 +544,8 @@ public class RecordQueryPlanner implements QueryPlanner {
         final ScoredPlan withInJoin = planFilterWithInJoin(planContext, inExtractor, needOrdering);
         if (withInAsOrUnion != null) {
             if (withInJoin == null || withInAsOrUnion.score > withInJoin.score ||
-                    FieldWithComparisonCountProperty.evaluate(withInAsOrUnion.getPlan()) < FieldWithComparisonCountProperty.evaluate(withInJoin.getPlan())) {
+                    fieldWithComparisonCount().evaluate(withInAsOrUnion.getPlan()) <
+                            fieldWithComparisonCount().evaluate(withInJoin.getPlan())) {
                 return withInAsOrUnion;
             }
         }
@@ -943,7 +945,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     protected Set<Comparisons.Comparison> computeSargedComparisons(@Nonnull final RecordQueryPlan plan) {
-        return ComparisonsProperty.evaluate(plan);
+        return comparisons().evaluate(plan);
     }
 
     @Nullable

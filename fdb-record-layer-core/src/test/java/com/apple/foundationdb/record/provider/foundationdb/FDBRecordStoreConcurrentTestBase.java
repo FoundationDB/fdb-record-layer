@@ -120,14 +120,14 @@ public class FDBRecordStoreConcurrentTestBase {
                                                      @Nonnull RecordMetaDataProvider metaData,
                                                      @Nonnull final KeySpacePath path) {
         // set to max format version to test newest features (unsafe for real deployments)
-        return getStoreBuilder(context, metaData, path, FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION);
+        return getStoreBuilder(context, metaData, path, FormatVersion.getMaximumSupportedVersion());
     }
 
     @Nonnull
     protected FDBRecordStore.Builder getStoreBuilder(@Nonnull FDBRecordContext context,
                                                      @Nonnull RecordMetaDataProvider metaData,
                                                      @Nonnull final KeySpacePath path,
-                                                     final int formatVersion) {
+                                                     @Nonnull FormatVersion formatVersion) {
         return FDBRecordStore.newBuilder()
                 .setFormatVersion(formatVersion)
                 .setKeySpacePath(path)
