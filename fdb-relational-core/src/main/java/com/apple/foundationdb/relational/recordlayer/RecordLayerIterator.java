@@ -83,7 +83,6 @@ public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
 
     private void fetchNextResult() {
         if (result != null) {
-            continuation = ContinuationImpl.fromRecordCursorContinuation(result.getContinuation());
             return;
         }
         result = recordCursor.getNext();

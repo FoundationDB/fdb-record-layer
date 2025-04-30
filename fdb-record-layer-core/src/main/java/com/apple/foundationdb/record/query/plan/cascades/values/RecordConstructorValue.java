@@ -380,6 +380,9 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
 
             @Nonnull
             private List<Accumulator> buildAccumulators(@Nullable List<RecordCursorProto.AccumulatorState> initialState) {
+                if (initialState != null) {
+                    System.out.println("initialState != null");
+                }
                 List<Value> childrenAsList = new ArrayList<>();
                 getChildren().forEach(childrenAsList::add);
                 final ImmutableList.Builder<Accumulator> childAccumulatorsBuilder = ImmutableList.builder();

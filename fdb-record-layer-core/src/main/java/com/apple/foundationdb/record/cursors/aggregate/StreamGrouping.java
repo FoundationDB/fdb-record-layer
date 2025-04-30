@@ -192,7 +192,7 @@ public class StreamGrouping<M extends Message> {
                 .build(context.getTypeRepository());
         previousCompleteResult = completeResultValue.eval(store, nestedContext);
 
-        RecordCursorProto.PartialAggregationResult result = currentGroup == null ? null : getPartialAggregationResult();
+        RecordCursorProto.PartialAggregationResult result = getPartialAggregationResult();
         currentGroup = nextGroup;
         // "Reset" the accumulator by creating a fresh one.
         accumulator = aggregateValue.createAccumulatorWithInitialState(context.getTypeRepository(), null);
@@ -217,7 +217,7 @@ public class StreamGrouping<M extends Message> {
             return null;
         }
         return RecordCursorProto.PartialAggregationResult.newBuilder()
-                .setGroupKey(((Message)currentGroup).toByteString())
+                .setGroupKey(Objects.requireNonNull((Message)currentGroup).toByteString())
                 .addAllAccumulatorStates(accumulatorStates)
                 .build();
     }

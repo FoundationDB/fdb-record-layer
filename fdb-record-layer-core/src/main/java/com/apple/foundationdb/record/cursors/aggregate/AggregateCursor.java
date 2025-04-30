@@ -62,10 +62,11 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
     // Previous non-empty record processed by this cursor
     @Nullable
     private RecordCursorResult<QueryResult> previousValidResult;
+    @Nonnull
+    private RecordCursorContinuation previousContinuationInGroup;
     @Nullable
     private RecordCursorProto.PartialAggregationResult partialAggregationResult;
     @Nonnull
-    private final RecordCursorContinuation continuation;
     private final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode;
 
     public AggregateCursor(@Nonnull RecordCursor<QueryResult> inner,
@@ -74,8 +75,8 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
                            final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode) {
         this.inner = inner;
         this.streamGrouping = streamGrouping;
-        this.continuation = continuation;
         this.serializationMode = serializationMode;
+        this.previousContinuationInGroup = continuation;
     }
 
     @Nonnull
@@ -100,6 +101,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
                 if (!groupBreak) {
                     // previousValidResult is the last row before group break, it sets the continuation
                     previousValidResult = innerResult;
+                    previousContinuationInGroup = previousValidResult.getContinuation();
                 }
                 return (!groupBreak);
             }
@@ -108,7 +110,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
             if (Verify.verifyNotNull(previousResult).hasNext()) {
                 // in this case groupBreak = true, return aggregated result and continuation, partialAggregationResult = null
                 // previousValidResult = null happens when 1st row of current scan != last row of last scan, results in groupBreak = true and previousValidResult = null
-                RecordCursorContinuation c = previousValidResult == null ? new AggregateCursorContinuation(continuation, serializationMode) : new AggregateCursorContinuation(previousValidResult.getContinuation(), serializationMode);
+                RecordCursorContinuation c = new AggregateCursorContinuation(previousContinuationInGroup, serializationMode);
 
                 /*
                 * Update the previousValidResult to the next continuation even though it hasn't been returned. This is to return the correct continuation when there are single-element groups.
@@ -133,6 +135,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
                 * Both scenarios returns the correct result, and continuation are both set to row3 in the end, row2 is scanned twice if a new iteration starts.
                 */
                 previousValidResult = previousResult;
+                previousContinuationInGroup = Verify.verifyNotNull(previousValidResult).getContinuation();
                 return RecordCursorResult.withNextValue(QueryResult.ofComputed(streamGrouping.getCompletedGroupResult()), c);
             } else {
                 // innerResult.hasNext() = false, might stop in the middle of a group
@@ -141,14 +144,16 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
                     if (previousValidResult == null && partialAggregationResult == null) {
                         return RecordCursorResult.exhausted();
                     } else {
-                        RecordCursorContinuation c = previousValidResult == null ? new AggregateCursorContinuation(continuation, serializationMode) : new AggregateCursorContinuation(previousValidResult.getContinuation(), serializationMode);
+                        RecordCursorContinuation c = new AggregateCursorContinuation(previousContinuationInGroup, serializationMode);
                         previousValidResult = previousResult;
+                        previousContinuationInGroup = Verify.verifyNotNull(previousValidResult).getContinuation();
                         return RecordCursorResult.withNextValue(QueryResult.ofComputed(streamGrouping.getCompletedGroupResult()), c);
                     }
                 } else {
                     // stopped in the middle of a group
                     RecordCursorContinuation currentContinuation = new AggregateCursorContinuation(Verify.verifyNotNull(previousResult).getContinuation(), partialAggregationResult, serializationMode);
                     previousValidResult = previousResult;
+                    previousContinuationInGroup = Verify.verifyNotNull(previousValidResult).getContinuation();
                     return RecordCursorResult.withoutNextValue(currentContinuation, Verify.verifyNotNull(previousResult).getNoNextReason());
                 }
             }
