@@ -1353,8 +1353,8 @@ public class StandardQueryTests {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 RelationalAssertions.assertThrows(() ->
-                                ((EmbeddedRelationalStatement) statement)
-                                        .executeInternal("select * from t1 union select * from t1"))
+                        ((EmbeddedRelationalStatement) statement)
+                        .executeInternal("select * from t1 union select * from t1"))
                         .hasErrorCode(ErrorCode.UNSUPPORTED_QUERY);
             }
         }
@@ -1425,8 +1425,8 @@ public class StandardQueryTests {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 RelationalAssertions.assertThrows(() ->
-                                ((EmbeddedRelationalStatement) statement)
-                                        .executeInternal("(select * from t1) union (select * from t1)"))
+                        ((EmbeddedRelationalStatement) statement)
+                        .executeInternal("(select * from t1) union (select * from t1)"))
                         .hasErrorCode(ErrorCode.UNSUPPORTED_QUERY);
             }
         }
