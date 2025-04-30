@@ -59,9 +59,6 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
     // Previous record processed by this cursor
     @Nullable
     private RecordCursorResult<QueryResult> previousResult;
-    // when previousResult = row x, lastResult = row (x-1); when previousResult = null, lastResult = null
-    @Nullable
-    private RecordCursorResult<QueryResult> lastResult;
     // Previous non-empty record processed by this cursor
     @Nullable
     private RecordCursorResult<QueryResult> previousValidResult;
@@ -91,7 +88,6 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
         }
 
         return AsyncUtil.whileTrue(() -> inner.onNext().thenApply(innerResult -> {
-            lastResult = previousResult;
             previousResult = innerResult;
             if (!innerResult.hasNext()) {
                 if (!isNoRecords()) {
@@ -151,7 +147,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
                     }
                 } else {
                     // stopped in the middle of a group
-                    RecordCursorContinuation currentContinuation = new AggregateCursorContinuation(lastResult.getContinuation(), partialAggregationResult, serializationMode);
+                    RecordCursorContinuation currentContinuation = new AggregateCursorContinuation(Verify.verifyNotNull(previousResult).getContinuation(), partialAggregationResult, serializationMode);
                     previousValidResult = previousResult;
                     return RecordCursorResult.withoutNextValue(currentContinuation, Verify.verifyNotNull(previousResult).getNoNextReason());
                 }
