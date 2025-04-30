@@ -1,7 +1,7 @@
-á
+Ö
 4
-primary-key-testsEXPLAIN SELECT COUNT(*) FROM T1Œ
-˘êã©%W ÀÙâ(0‚‹õ8@SCAN(<,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)Ædigraph G {
+primary-key-testsEXPLAIN SELECT COUNT(*) FROM T1Ã
+≤™ã£; Å‘S(0á®	8@SCAN(<,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)Ædigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
