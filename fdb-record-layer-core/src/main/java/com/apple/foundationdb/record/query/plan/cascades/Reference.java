@@ -300,6 +300,16 @@ public class Reference implements Correlated<Reference>, Typed {
         return exploratoryMembers.containsExactly(expression) || finalMembers.containsExactly(expression);
     }
 
+    public boolean isExploratory(@Nonnull final RelationalExpression expression) {
+        if (exploratoryMembers.containsExactly(expression)) {
+            return true;
+        }
+        if (finalMembers.containsExactly(expression)) {
+            return false;
+        }
+        throw new RecordCoreException("expression has to be a member of this reference");
+    }
+
     public boolean isFinal(@Nonnull final RelationalExpression expression) {
         if (finalMembers.containsExactly(expression)) {
             return true;
@@ -451,6 +461,11 @@ public class Reference implements Correlated<Reference>, Typed {
     @Nonnull
     public <A> Map<RecordQueryPlan, A> getProperty(@Nonnull final ExpressionProperty<A> expressionProperty) {
         return propertiesMap.propertyValueForPlans(expressionProperty);
+    }
+
+    @Nonnull
+    public List<? extends ExpressionPartition<? extends RelationalExpression>> toExpressionPartitions() {
+        return propertiesMap.toExpressionPartitions();
     }
 
     @Nonnull

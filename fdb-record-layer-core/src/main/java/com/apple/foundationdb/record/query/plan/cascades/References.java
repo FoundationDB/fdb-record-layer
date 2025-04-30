@@ -116,7 +116,8 @@ public class References {
                     }
                     if (reference.isFinal(expression)) {
                         translatedFinalExpressionsBuilder.add(translatedExpression);
-                    } else {
+                    }
+                    if (reference.isExploratory(expression)) {
                         translatedExploratoryExpressionsBuilder.add(translatedExpression);
                     }
                 }

@@ -889,7 +889,10 @@ public class CascadesPlanner implements QueryPlanner {
 
         @Nonnull
         protected PlannerBindings getInitialBindings() {
-            return PlannerBindings.from(ReferenceMatchers.getTopReferenceMatcher(), currentRoot);
+            return new PlannerBindings.Builder()
+                    .put(ReferenceMatchers.getTopReferenceMatcher(), currentRoot)
+                    .put(ReferenceMatchers.getCurrentReferenceMatcher(), group)
+                    .build();
         }
 
         @SuppressWarnings("BooleanMethodIsAlwaysInverted")

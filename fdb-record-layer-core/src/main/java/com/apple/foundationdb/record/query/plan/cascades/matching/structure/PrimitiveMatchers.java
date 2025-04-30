@@ -164,6 +164,52 @@ public class PrimitiveMatchers {
     }
 
     @Nonnull
+    public static <T, T1> BindingMatcher<T> satisfiesWithOuterBinding(@Nonnull final BindingMatcher<T1> outerBindingMatcher,
+                                                                      @Nonnull final BiPredicate<T, T1> predicate) {
+        return new BindingMatcher<>() {
+            @Nonnull
+            @Override
+            public Class<T> getRootClass() {
+                // Note: We should have the caller pass in a class object as we do for many other matchers. However,
+                // this is not needed as this matcher is not used on top level purposes. Thus, we can avoid that additional
+                // parameter for the sake of readability of the matcher API.
+                throw new RecordCoreException("this should return T.class");
+            }
+
+            @Nonnull
+            @Override
+            @SuppressWarnings("unchecked")
+            public Stream<PlannerBindings> bindMatches(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
+                                                       @Nonnull final PlannerBindings outerBindings,
+                                                       @Nonnull final Object object) {
+                final T in = (T)object;
+                return bindMatchesSafely(plannerConfiguration, outerBindings, in);
+            }
+
+            @Nonnull
+            @Override
+            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
+                                                             @Nonnull final PlannerBindings outerBindings,
+                                                             @Nonnull final T in) {
+                final T1 outerBinding = outerBindings.get(outerBindingMatcher);
+                return Stream.of(PlannerBindings.from(this, in))
+                        .flatMap(bindings -> {
+                            if (predicate.test(in, outerBinding)) {
+                                return Stream.of(bindings);
+                            } else {
+                                return Stream.empty();
+                            }
+                        });
+            }
+
+            @Override
+            public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+                return "match " + boundId + " { case { predicate.test(" + boundId + " with outer binding) => success }";
+            }
+        };
+    }
+
+    @Nonnull
     public static <T> BindingMatcher<T> anyObject() {
         return satisfies(t -> true);
     }

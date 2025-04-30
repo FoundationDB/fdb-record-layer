@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.DeleteExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
@@ -117,6 +118,19 @@ public class RelationalExpressionMatchers {
                                         Extractor.of(RelationalExpressionWithPredicates::getPredicates, name -> "predicates(" + name + ")"),
                                         downstreamPredicates),
                                 typedWithDownstream(bindableClass,
+                                        Extractor.of(RelationalExpression::getQuantifiers, name -> "quantifiers(" + name + ")"),
+                                        downstreamQuantifiers))));
+    }
+
+    public static <Q extends Collection<? extends Quantifier>> BindingMatcher<RelationalExpression>
+            anyExploratoryExpression(@Nonnull final BindingMatcher<Q> downstreamQuantifiers) {
+        return typedWithDownstream(RelationalExpression.class,
+                Extractor.identity(),
+                AllOfMatcher.matchingAllOf(RelationalExpression.class,
+                        ImmutableList.of(
+                                PrimitiveMatchers.<RelationalExpression, Reference>satisfiesWithOuterBinding(ReferenceMatchers.getCurrentReferenceMatcher(),
+                                        (expression, currentReference) -> !currentReference.isFinal(expression)),
+                                typedWithDownstream(RelationalExpression.class,
                                         Extractor.of(RelationalExpression::getQuantifiers, name -> "quantifiers(" + name + ")"),
                                         downstreamQuantifiers))));
     }
