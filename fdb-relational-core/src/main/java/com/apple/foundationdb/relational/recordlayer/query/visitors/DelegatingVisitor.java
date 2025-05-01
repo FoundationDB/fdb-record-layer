@@ -1261,6 +1261,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
+    public Expression visitBetweenComparisonPredicate(@Nonnull RelationalParser.BetweenComparisonPredicateContext ctx) {
+        return getDelegate().visitBetweenComparisonPredicate(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Expression visitInPredicate(@Nonnull RelationalParser.InPredicateContext ctx) {
         return getDelegate().visitInPredicate(ctx);
     }

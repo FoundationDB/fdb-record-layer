@@ -263,4 +263,9 @@ public class YamlIntegrationTests {
     public void tableFunctionsTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("table-functions.yamsql");
     }
+
+    @TestTemplate
+    public void betweenTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("between.yamsql");
+    }
 }
