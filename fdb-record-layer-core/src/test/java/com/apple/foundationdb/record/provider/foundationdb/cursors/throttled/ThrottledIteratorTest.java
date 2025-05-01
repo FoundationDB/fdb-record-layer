@@ -18,13 +18,11 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.provider.foundationdb.cursors;
+package com.apple.foundationdb.record.provider.foundationdb.cursors.throttled;
 
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -373,11 +371,11 @@ final class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private ThrottledRetryingIterator.TriFunction<FDBRecordStore, RecordCursorResult<Integer>, Integer, RecordCursor<Integer>> intCursor(int numInts, AtomicInteger limitRef) {
-        return listCursorCreator(IntStream.range(0, numInts).boxed().collect(Collectors.toList()), limitRef);
+    private CursorFactory<Integer> intCursor(int numInts, AtomicInteger limitRef) {
+        return listCursor(IntStream.range(0, numInts).boxed().collect(Collectors.toList()), limitRef);
     }
 
-    private <T> ThrottledRetryingIterator.TriFunction<FDBRecordStore, RecordCursorResult<T>, Integer, RecordCursor<T>> listCursorCreator(List<T> items, AtomicInteger limitRef) {
+    private <T> CursorFactory<T> listCursor(List<T> items, AtomicInteger limitRef) {
         return (store, cont, limit) -> {
             if (limitRef != null) {
                 limitRef.set(limit);
@@ -388,9 +386,6 @@ final class ThrottledIteratorTest extends FDBRecordStoreTestBase {
     }
 
     private CompletableFuture<Void> futureFailure() {
-//      return CompletableFuture.failedFuture(new RuntimeException("intentionally failed while testing"));
-        CompletableFuture<Void> future = new CompletableFuture<>();
-        future.completeExceptionally(new RuntimeException("intentionally failed while testing"));
-        return future;
+        return CompletableFuture.failedFuture(new RuntimeException("intentionally failed while testing"));
     }
 }
