@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.provider.foundationdb.cursors;
+package com.apple.foundationdb.record.provider.foundationdb.cursors.throttled;
 
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
@@ -62,9 +62,8 @@ public class ThrottledRetryingIterator<T> {
     private final int maxRecordScannedPerSec;
     private final int maxRecordDeletesPerSec;
     private final FDBDatabaseRunner runner;
-    // TODO: use an interface instead of lambdas
-    private final TriFunction<FDBRecordStore, RecordCursorResult<T>, Integer, RecordCursor<T>> cursorCreator;
-    private final TriFunction<FDBRecordStore, RecordCursorResult<T>, QuotaManager, CompletableFuture<Void>> singleItemHandler;
+    private final CursorFactory<T> cursorCreator;
+    private final ItemHandler<T> singleItemHandler;
     private final Consumer<QuotaManager> rangeSuccessNotification;
     private final Consumer<QuotaManager> rangeInitNotification;
 
@@ -119,7 +118,7 @@ public class ThrottledRetryingIterator<T> {
 
             runUnlessNull(rangeInitNotification, singleIterationQuotaManager); // let the user know about this range iteration attempt
             final FDBRecordStore store = userStoreBuilder.setContext(transaction).build();
-            RecordCursor<T> cursor = cursorCreator.apply(store, cursorStartPoint, cursorRowsLimit);
+            RecordCursor<T> cursor = cursorCreator.createCursor(store, cursorStartPoint, cursorRowsLimit);
 
             rangeIterationStartTimeMilliseconds = nowMillis();
 
@@ -133,7 +132,7 @@ public class ThrottledRetryingIterator<T> {
                                     return AsyncUtil.READY_FALSE; // end of this one range
                                 }
                                 singleIterationQuotaManager.scannedCount++;
-                                CompletableFuture<Void> future = singleItemHandler.apply(store, result, singleIterationQuotaManager);
+                                CompletableFuture<Void> future = singleItemHandler.handleOneItem(store, result, singleIterationQuotaManager);
                                 return future.thenCompose(ignore -> AsyncUtil.READY_TRUE);
                             })
                             .thenApply(rangeHasMore -> {
@@ -145,6 +144,7 @@ public class ThrottledRetryingIterator<T> {
                                 return rangeHasMore;
                             }),
                     runner.getExecutor());
+            // TODO: cursor.close()?
         }).thenApply(ignore -> cont.get());
     }
 
@@ -205,9 +205,7 @@ public class ThrottledRetryingIterator<T> {
             }
 
             // Complete exceptionally
-            CompletableFuture<Boolean> future = new CompletableFuture<>();
-            future.completeExceptionally(ex);
-            return future;
+            return CompletableFuture.failedFuture(ex);
         }
         // Here: after a failure, try setting a scan quota that is smaller than the number of scanned items during the failure
         // Note: the runner does not retry
@@ -280,14 +278,9 @@ public class ThrottledRetryingIterator<T> {
         }
     }
 
-    @FunctionalInterface
-    public interface TriFunction<A, B, C, R> {
-        R apply(A a, B b, C c);
-    }
-
     public static <T> Builder<T> builder(FDBDatabaseRunner runner,
-                                         TriFunction<FDBRecordStore, RecordCursorResult<T>, Integer, RecordCursor<T>> cursorCreator,
-                                         TriFunction<FDBRecordStore, RecordCursorResult<T>, QuotaManager, CompletableFuture<Void>> singleItemHandler) {
+                                         CursorFactory<T> cursorCreator,
+                                         ItemHandler<T> singleItemHandler) {
         return new Builder<>(runner, cursorCreator, singleItemHandler);
     }
 
@@ -298,8 +291,8 @@ public class ThrottledRetryingIterator<T> {
      */
     public static class Builder<T> {
         private final FDBDatabaseRunner runner;
-        private final TriFunction<FDBRecordStore, RecordCursorResult<T>, Integer, RecordCursor<T>> cursorCreator;
-        private final TriFunction<FDBRecordStore, RecordCursorResult<T>, QuotaManager, CompletableFuture<Void>> singleItemHandler;
+        private final CursorFactory<T> cursorCreator;
+        private final ItemHandler<T> singleItemHandler;
         private Consumer<QuotaManager> rangeSuccessNotification;
         private Consumer<QuotaManager> rangeInitNotification;
         private int transactionTimeQuotaMillis;
@@ -312,12 +305,10 @@ public class ThrottledRetryingIterator<T> {
         /**
          * Constructor.
          * @param runner the FDB runner to use when creating transactions
-         * @param cursorCreator the method to use when creating the inner cursor
-         * @param singleItemHandler the callback to use for handling a single item while iterating
+         * @param cursorCreator the factory to use when creating the inner cursor
+         * @param singleItemHandler the handler of a single item while iterating
          */
-        Builder(FDBDatabaseRunner runner,
-                TriFunction<FDBRecordStore, RecordCursorResult<T>, Integer, RecordCursor<T>> cursorCreator,
-                TriFunction<FDBRecordStore, RecordCursorResult<T>, QuotaManager, CompletableFuture<Void>> singleItemHandler) {
+        Builder(FDBDatabaseRunner runner, CursorFactory<T> cursorCreator, ItemHandler<T> singleItemHandler) {
             // Mandatory fields are set in the constructor. Everything else is optional.
             this.runner = runner;
             this.cursorCreator = cursorCreator;
