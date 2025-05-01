@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.provider.foundationdb.recordvalidation;
+package com.apple.foundationdb.record.provider.foundationdb.recordrepair;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.tuple.Tuple;
@@ -27,9 +27,9 @@ import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * An interface to be implemented by record validators.
+ * An interface to be implemented by record validation and repair operators.
  * A Record Validator should be able to perform two functions: Validate a record (given a primary key) and repair a broken
- * record. The intent for these os to be done in sequence, that is, a {@link #validateRecordAsync(Tuple)} call is to be
+ * record. The intent for these is to be done in sequence, that is, a {@link #validateRecordAsync(Tuple)} call is to be
  * followed by an optional call to {@link #repairRecordAsync(Tuple, CompletableFuture)}. These are separate methods in
  * order to allow a "dry run" such that validate alone is called as well as to allow specialization by subclassing
  * the validator and overriding the {@link #repairRecordAsync(Tuple, CompletableFuture)} or {@link #validateRecordAsync(Tuple)}
@@ -49,7 +49,7 @@ import java.util.concurrent.CompletableFuture;
  * Do not store validations results across transactions.
  *
  */
-@API(API.Status.UNSTABLE)
+@API(API.Status.EXPERIMENTAL)
 public interface RecordValidator {
     /**
      * Validate a record with the given primary key.

@@ -887,11 +887,12 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     /**
      * Scan a range and return the record primary keys within it.
      * This method will return a cursor that iterates through all the known primary keys in a range regardless of whether
-     * they consist of a valid record or not. The cursor can be used to find all candidate record primary keys that can be (for example)
-     * scanned for validation. The cursor attempts to account for format versions, split records and inline versions, while
-     * assuming that there may be inconsistencies in the data (The inconsistencies as of right now are missing key-value pairs)
+     * they consist of a valid record or not. The cursor can be used to find all candidate record primary keys that can
+     * be (for example) scanned for validation.
+     * The cursor attempts to account for format versions, split records and inline versions, while
+     * assuming that there may be inconsistencies in the data (The inconsistencies as of right now are missing key-value
+     * pairs)
      *
-     * @param range the scan range
      * @param continuation a continuation from a previous scan (null if none)
      * @param scanProperties the scan properties to use (reverse is not supported)
      *
@@ -899,7 +900,10 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      */
     @Nonnull
     @API(API.Status.INTERNAL)
-    RecordCursor<Tuple> scanRecordKeys(@Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties);
+    default RecordCursor<Tuple> scanRecordKeys(@Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
+        // for backwards compatibility, allowing implementers to support later
+        throw new UnsupportedOperationException("scanRecordKeys should be implemented");
+    }
 
     /**
      * Count the number of records in the database in a range.

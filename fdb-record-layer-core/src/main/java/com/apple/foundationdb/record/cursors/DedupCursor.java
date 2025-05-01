@@ -41,16 +41,16 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 /**
- * A cursor that deduplicates the elements in the input and only return unique values.
+ * A cursor that deduplicates adjacent elements in the input and only returns unique values.
  * An example usage for this kind of cursor is the iteration of KV pairs, returning the primary keys of the records. Since
  * there can be multiple Kvs per record, we need to filter out the redundancies.
  * This cursor takes in an <i>inner</i> cursor factory function and a pair of pack/unpack functions. Those are needed as
  * part of the continuation management, as the overall continuation for the cursor needs both the inner cursor continuation
  * and the last found value (so that can can compare it at the beginning of the next iteration).
- *
+ * <p>
  * This cursor also assumes that there is always some forward progress made in each iteration (unless the inner record
  * is exhausted), so that we will get some inner result during every iteration to feed into the continuation.
- *
+ * <p>
  * The cursor assumes that the inner cursor is sorted (the assumption is actually somewhat weaker: that the repeated elements are grouped)
  * such that all the elements of a certain repeated value appear in sequence, hence it can remove all but the first, and
  * the stored state can be kept to a minimum.
@@ -59,16 +59,16 @@ import java.util.function.Function;
  */
 @API(API.Status.EXPERIMENTAL)
 public class DedupCursor<T> implements RecordCursor<T> {
-    // Inner cursor
+    /** Inner cursor. */
     @Nonnull
     private final RecordCursor<T> inner;
-    // The result returned from the cursor
+    /** The result returned from the cursor. */
     @Nullable
     private RecordCursorResult<T> nextResult;
-    // The last value found (to be compared against the next value generated)
+    /** The last value found (to be compared against the next value generated). */
     @Nullable
     private T lastValue;
-    // The method that can pack a value into a byte[]
+    /** The method that can pack a value into a byte[]. */
     @Nonnull
     private final Function<T, byte[]> packValue;
 
@@ -76,7 +76,8 @@ public class DedupCursor<T> implements RecordCursor<T> {
      * Constructor.
      * @param innerCursorFactory factory method to create an inner cursor given a continuation
      * @param unpackValue a method that can unpack a value from byte array (used to deserialize from a continuation)
-     * @param packValue a method that can pack a value into a byte array (used to serialize to a continuation)
+     * @param packValue a method that can pack a value into a byte array (used to serialize to a continuation). Note that
+     * this will only be called if the value is NOT null. Null value will be converted internally to null byte[]
      * @param continuation the cursor continuation (null if none)
      */
     @API(API.Status.EXPERIMENTAL)
@@ -90,9 +91,11 @@ public class DedupCursor<T> implements RecordCursor<T> {
         if (continuation != null) {
             try {
                 RecordCursorProto.DedupContinuation dedupContinuation = RecordCursorProto.DedupContinuation.parseFrom(continuation);
-                // Both fields are required in the continuation
+                // the inner is required in the continuation
                 innerContinuation = dedupContinuation.getInnerContinuation().toByteArray();
-                lastValue = unpackValue.apply(dedupContinuation.getLastValue().toByteArray());
+                if (dedupContinuation.hasLastValue()) {
+                    lastValue = unpackValue.apply(dedupContinuation.getLastValue().toByteArray());
+                }
             } catch (InvalidProtocolBufferException ex) {
                 throw new RecordCoreException("Error parsing continuation", ex)
                         .addLogInfo("raw_bytes", ByteArrayUtil2.loggable(continuation));
@@ -111,8 +114,9 @@ public class DedupCursor<T> implements RecordCursor<T> {
         AtomicReference<RecordCursorResult<T>> currentResult = new AtomicReference<>();
         return AsyncUtil.whileTrue(() -> inner.onNext().thenApply(innerResult -> {
             currentResult.set(innerResult);
-            boolean foundNext = (innerResult.hasNext() && !Objects.equals(innerResult.get(), lastValue));
-            return innerResult.hasNext() && !foundNext; // keep looping if we have more records and value is the same as before
+            final boolean hasNext = innerResult.hasNext();
+            // keep looping if we have more records and value is the same as before
+            return hasNext && Objects.equals(innerResult.get(), lastValue);
         }), getExecutor()).thenApply(vignore -> applyResult(currentResult.get()));
     }
 
@@ -120,12 +124,15 @@ public class DedupCursor<T> implements RecordCursor<T> {
     private RecordCursorResult<T> applyResult(final RecordCursorResult<T> currentResult) {
         if (currentResult.hasNext()) {
             lastValue = currentResult.get();
-            nextResult = RecordCursorResult.withNextValue(lastValue, new DedupCursorContinuation(currentResult.getContinuation(), packValue.apply(lastValue)));
+            nextResult = RecordCursorResult.withNextValue(lastValue,
+                    new DedupCursorContinuation(currentResult.getContinuation(), lastValue));
         } else {
             if (currentResult.getNoNextReason().isSourceExhausted()) {
                 nextResult = RecordCursorResult.exhausted(); //continuation not valid here
             } else {
-                nextResult = RecordCursorResult.withoutNextValue(new DedupCursorContinuation(currentResult.getContinuation(), packValue.apply(lastValue)), currentResult.getNoNextReason());
+                nextResult = RecordCursorResult.withoutNextValue(
+                        new DedupCursorContinuation(currentResult.getContinuation(), lastValue),
+                        currentResult.getNoNextReason());
             }
         }
         return nextResult;
@@ -138,7 +145,7 @@ public class DedupCursor<T> implements RecordCursor<T> {
 
     @Override
     public boolean isClosed() {
-        return (inner.isClosed());
+        return inner.isClosed();
     }
 
     @Nonnull
@@ -155,13 +162,18 @@ public class DedupCursor<T> implements RecordCursor<T> {
         return visitor.visitLeave(this);
     }
 
-    //form a continuation that allows us to restart with the current cursor at its next position
+    /**
+     * Form a continuation that allows us to restart with the current cursor at its next position.
+     * The continuation holds on to the state of the internal cursor as well as the last item seen (if any).
+     */
     private class DedupCursorContinuation implements RecordCursorContinuation {
+        @Nonnull
         private final RecordCursorContinuation innerContinuation;
-        private final byte[] lastValue;
+        @Nullable
+        private final T lastValue;
         private byte[] cachedBytes;
 
-        private DedupCursorContinuation(RecordCursorContinuation innerContinuation, byte[] lastValue) {
+        private DedupCursorContinuation(@Nonnull RecordCursorContinuation innerContinuation, @Nullable T lastValue) {
             this.innerContinuation = innerContinuation;
             this.lastValue = lastValue;
         }
@@ -174,11 +186,13 @@ public class DedupCursor<T> implements RecordCursor<T> {
             } else {
                 //form bytes exactly once
                 if (cachedBytes == null) {
-                    cachedBytes = RecordCursorProto.DedupContinuation.newBuilder()
-                            .setInnerContinuation(innerContinuation.toByteString())
-                            .setLastValue(ByteString.copyFrom(lastValue))
-                            .build()
-                            .toByteArray();
+                    byte[] lastValuePacked = pack(lastValue);
+                    final RecordCursorProto.DedupContinuation.Builder builder = RecordCursorProto.DedupContinuation.newBuilder()
+                            .setInnerContinuation(innerContinuation.toByteString());
+                    if (lastValuePacked != null) {
+                        builder.setLastValue(ByteString.copyFrom(lastValuePacked));
+                    }
+                    cachedBytes = builder.build().toByteArray();
                 }
                 return cachedBytes;
             }
@@ -187,6 +201,10 @@ public class DedupCursor<T> implements RecordCursor<T> {
         @Override
         public boolean isEnd() {
             return innerContinuation.isEnd();
+        }
+
+        private byte[] pack(final T value) {
+            return (value == null) ? null : packValue.apply(value);
         }
     }
 }

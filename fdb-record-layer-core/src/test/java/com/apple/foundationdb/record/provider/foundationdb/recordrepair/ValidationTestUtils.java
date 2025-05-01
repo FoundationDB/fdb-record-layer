@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.provider.foundationdb.recordvalidation;
+package com.apple.foundationdb.record.provider.foundationdb.recordrepair;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
@@ -35,6 +35,7 @@ public class ValidationTestUtils {
     public static Stream<FormatVersion> formatVersions() {
         return Stream.of(
                 FormatVersion.RECORD_COUNT_KEY_ADDED, // 3
+                FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX, // 5
                 FormatVersion.SAVE_VERSION_WITH_RECORD, // 6
                 FormatVersion.getMaximumSupportedVersion());
     }
@@ -66,5 +67,9 @@ public class ValidationTestUtils {
     public static byte[] getSplitKey(FDBRecordStore store, Tuple primaryKey, int splitNumber) {
         final Tuple pkAndSplit = primaryKey.add(splitNumber);
         return store.recordsSubspace().pack(pkAndSplit);
+    }
+
+    public static boolean versionStoredWithRecord(final FormatVersion formatVersion) {
+        return (formatVersion.isAtLeast(FormatVersion.SAVE_VERSION_WITH_RECORD));
     }
 }

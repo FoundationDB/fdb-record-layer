@@ -18,10 +18,11 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.provider.foundationdb.recordvalidation;
+package com.apple.foundationdb.record.provider.foundationdb.recordrepair;
 
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -39,6 +40,7 @@ import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Strings;
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -48,19 +50,50 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.IntPredicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
+/**
+ * Test the store's {@link FDBRecordStore#scanRecordKeys(byte[], ScanProperties)} implementation.
+ * Heavily parameterized test that tries to create various record corruption issues and scans to ensure that the expected
+ * keys can still be picked up by the scan operation.
+ */
+public class ScanRecordKeysTest extends FDBRecordStoreTestBase {
+    private static final int ROW_LIMIT = 19;
+    private static final int BYTES_LIMIT = 2000;
+
+    private static final int LONG_RECORD_SPACING = 17;
+    private static final int RECORD_INDEX_WITH_NO_SPLITS = 1;
+    private static final int RECORD_ID_WITH_NO_SPLITS = RECORD_INDEX_WITH_NO_SPLITS + 1;
+    private static final int RECORD_INDEX_WITH_TWO_SPLITS = 16;
+    private static final int RECORD_ID_WITH_TWO_SPLITS = RECORD_INDEX_WITH_TWO_SPLITS + 1;
+    private static final int RECORD_INDEX_WITH_THREE_SPLITS = 33;
+    private static final int RECORD_ID_WITH_THREE_SPLITS = RECORD_INDEX_WITH_THREE_SPLITS + 1;
+
     public enum UseContinuations { NONE, CONTINUATIONS, BYTE_LIMIT }
+
+    /**
+     * This test class (and the implementations of the key scanner) make assumptions about the structure of the records.
+     * This test method tries to ensure that these assumptions are validated with the new format version added.
+     * Then, update the version below to the latest.
+     */
+    @Test
+    void monitorFormatVersion() {
+        assertEquals(FormatVersion.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE, FormatVersion.getMaximumSupportedVersion(),
+                "New format version found. Please review the key scanner to ensure they still catch corruptions");
+    }
 
     public static Stream<Arguments> splitContinuationVersion() {
         return Stream.of(true, false)
@@ -70,7 +103,7 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
                                         .map(storeVersions -> Arguments.of(split, useContinuations, formatVersion, storeVersions)))));
     }
 
-    @ParameterizedTest(name = "testIterateRecordsNoIssue [splitLongRecords = {0}, useContinuations = {1}, formatVersion = {2}], storeVersions = {3}")
+    @ParameterizedTest(name = "testIterateRecordsNoIssue [splitLongRecords = {0}, useContinuations = {1}, formatVersion = {2}, storeVersions = {3}]")
     @MethodSource("splitContinuationVersion")
     void testIterateRecordsNoIssue(boolean splitLongRecords, UseContinuations useContinuations, FormatVersion formatVersion, boolean storeVersions) throws Exception {
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(splitLongRecords, storeVersions);
@@ -82,7 +115,7 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
         assertEquals(expectedKeys, actualKeys);
     }
 
-    @ParameterizedTest(name = "testIterateRecordsMissingRecord [splitLongRecords = {0}, useContinuations = {1}, formatVersion = {2}, storeVersions = {3}")
+    @ParameterizedTest(name = "testIterateRecordsMissingRecord [splitLongRecords = {0}, useContinuations = {1}, formatVersion = {2}, storeVersions = {3}]")
     @MethodSource("splitContinuationVersion")
     void testIterateRecordsMissingRecord(boolean splitLongRecords, UseContinuations useContinuations, FormatVersion formatVersion, boolean storeVersions) throws Exception {
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(splitLongRecords, storeVersions);
@@ -91,16 +124,17 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
             // Note that the primary keys start with 1, so the location is one-off when removed
-            store.deleteRecord(result.get(16).getPrimaryKey());
+            store.deleteRecord(result.get(RECORD_INDEX_WITH_NO_SPLITS).getPrimaryKey());
+            store.deleteRecord(result.get(RECORD_INDEX_WITH_THREE_SPLITS).getPrimaryKey());
             store.deleteRecord(result.get(21).getPrimaryKey());
             store.deleteRecord(result.get(22).getPrimaryKey());
-            store.deleteRecord(result.get(70).getPrimaryKey());
+            store.deleteRecord(result.get(44).getPrimaryKey());
             commit(context);
         }
         // Scan records
         ScanProperties scanProperties = getScanProperties(useContinuations);
         final List<Tuple> actualKeys = scanKeys(useContinuations, formatVersion, hook, scanProperties);
-        List<Tuple> expectedKeys = getExpectedPrimaryKeys(i -> !Set.of(17, 22, 23, 71).contains(i));
+        List<Tuple> expectedKeys = getExpectedPrimaryKeys(i -> !Set.of(RECORD_ID_WITH_NO_SPLITS, RECORD_ID_WITH_THREE_SPLITS, 22, 23, 45).contains(i));
         assertEquals(expectedKeys, actualKeys);
     }
 
@@ -125,9 +159,9 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
             // If operating on the short record, #0 is the only split
             // If operating on the long record, splits can be 1,2,3
             // Use splitNumber to decide which record to operate on.
-            // Record #1 in the saved records is a short record, #16 is a long (split) record
-            int recordNumber = (splitNumber == 0) ? 1 : 16;
-            byte[] split = ValidationTestUtils.getSplitKey(store, savedRecords.get(recordNumber).getPrimaryKey(), splitNumber);
+            // Record #1 in the saved records is a short record, #33 is a long (split) record
+            int recordIndex = (splitNumber == 0) ? RECORD_INDEX_WITH_NO_SPLITS : RECORD_INDEX_WITH_THREE_SPLITS;
+            byte[] split = ValidationTestUtils.getSplitKey(store, savedRecords.get(recordIndex).getPrimaryKey(), splitNumber);
             store.ensureContextActive().clear(split);
             commit(context);
         }
@@ -136,14 +170,19 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
         ScanProperties scanProperties = getScanProperties(useContinuations);
         final List<Tuple> actualKeys = scanKeys(useContinuations, formatVersion, hook, scanProperties);
         List<Tuple> expectedKeys;
-        // When format version is 3 and the record is a short record, deleting the only split will make the record disappear
+        // When format version is below 6 and the record is a short record, deleting the only split will make the record disappear
         // When format version is 6 or 10, and we're not saving version, the same
-        if ((splitNumber == 0) && ((formatVersion == FormatVersion.RECORD_COUNT_KEY_ADDED) || !storeVersions)) {
-            expectedKeys = getExpectedPrimaryKeys(i -> i != 2);
+        if ((splitNumber == 0) && (!ValidationTestUtils.versionStoredWithRecord(formatVersion) || !storeVersions)) {
+            expectedKeys = getExpectedPrimaryKeys(i -> i != RECORD_ID_WITH_NO_SPLITS);
         } else {
             expectedKeys = getExpectedPrimaryKeys();
         }
         assertEquals(expectedKeys, actualKeys);
+
+        // Verify that the corruption actually made the records unreadable for the normal operation
+        if ((splitNumber > 0) || (ValidationTestUtils.versionStoredWithRecord(formatVersion) && storeVersions)) {
+            assertRecordsCorrupted(formatVersion, hook);
+        }
     }
 
     public static Stream<Arguments> splitContinuationFormatVersion() {
@@ -192,11 +231,11 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
         metaDataBuilder.addUniversalIndex(globalCountUpdatesIndex());
         hook.apply(metaDataBuilder);
 
-        // save 50 records with no version
-        saveRecords(1, 50, splitLongRecords, formatVersion, metaDataBuilder.build());
-        // now save 50 with versions
+        // save 25 records with no version
+        saveRecords(1, 25, splitLongRecords, formatVersion, metaDataBuilder.build());
+        // now save 25 with versions
         metaDataBuilder.setStoreRecordVersions(true);
-        saveRecords(51, 50, splitLongRecords, formatVersion, metaDataBuilder.build());
+        saveRecords(26, 25, splitLongRecords, formatVersion, metaDataBuilder.build());
 
         // Scan records
         final List<Tuple> actualKeys;
@@ -239,8 +278,9 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
                 // bit #0 is the version (-1)
                 // bits #1 - #3 are the split numbers (no split #0 for a split record)
                 int split = (bit == 0) ? -1 : bit;
-                // record #16 is a long record
-                byte[] key = ValidationTestUtils.getSplitKey(store, result.get(16).getPrimaryKey(), split);
+                byte[] key = ValidationTestUtils.getSplitKey(store, result.get(RECORD_INDEX_WITH_THREE_SPLITS).getPrimaryKey(), split);
+                store.ensureContextActive().clear(key);
+                key = ValidationTestUtils.getSplitKey(store, result.get(RECORD_INDEX_WITH_TWO_SPLITS).getPrimaryKey(), split);
                 store.ensureContextActive().clear(key);
             });
             commit(context);
@@ -250,14 +290,41 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
         ScanProperties scanProperties = getScanProperties(useContinuations);
         final List<Tuple> actualKeys = scanKeys(useContinuations, formatVersion, hook, scanProperties);
         // The cases where the record will go missing altogether
-        List<Tuple> expectedKeys;
-        if (splitsToRemove.equals(ValidationTestUtils.toBitSet(0b1111)) ||
-                ((formatVersion == FormatVersion.RECORD_COUNT_KEY_ADDED) && splitsToRemove.equals(ValidationTestUtils.toBitSet(0b1110)))) {
-            expectedKeys = getExpectedPrimaryKeys(i -> (i != 17));
-        } else {
-            expectedKeys = getExpectedPrimaryKeys();
+        Set<Integer> keysExpectedToDisappear = new HashSet<>();
+        if (recordWillDisappear(2, splitsToRemove, formatVersion)) {
+            keysExpectedToDisappear.add(RECORD_ID_WITH_TWO_SPLITS);
         }
+        if (recordWillDisappear(3, splitsToRemove, formatVersion)) {
+            keysExpectedToDisappear.add(RECORD_ID_WITH_THREE_SPLITS);
+        }
+
+        List<Tuple> expectedKeys = getExpectedPrimaryKeys(i -> !keysExpectedToDisappear.contains(i));
         assertEquals(expectedKeys, actualKeys);
+
+        // Verify that the corruption actually made the records unreadable for the normal operation
+        // Only in cases where the corruption actually makes the record corrupt.
+        if ( !(keysExpectedToDisappear.size() < 2) && splitsToRemove.equals(ValidationTestUtils.toBitSet(0b0110))) {
+            assertRecordsCorrupted(formatVersion, hook);
+        }
+    }
+
+    private boolean recordWillDisappear(int numOfSplits, BitSet splitsToRemove, FormatVersion formatVersion) {
+        final BitSet allThreeSplits = ValidationTestUtils.toBitSet(0b1111);
+        final BitSet allThreeSplitsWithoutVersion = ValidationTestUtils.toBitSet(0b1110);
+        final BitSet allTwoSplits = ValidationTestUtils.toBitSet(0b0111);
+        final BitSet allTwoSplitsWithoutVersion = ValidationTestUtils.toBitSet(0b0110);
+        final boolean storingVersion = ValidationTestUtils.versionStoredWithRecord(formatVersion);
+        switch (numOfSplits) {
+            case 3:
+                return (splitsToRemove.equals(allThreeSplits) ||
+                                (!storingVersion && splitsToRemove.equals(allThreeSplitsWithoutVersion)));
+            case 2:
+                return (splitsToRemove.equals(allThreeSplits) || splitsToRemove.equals(allTwoSplits) ||
+                                (!storingVersion &&
+                                         (splitsToRemove.equals(allThreeSplitsWithoutVersion) || splitsToRemove.equals(allTwoSplitsWithoutVersion))));
+            default:
+                throw new IllegalArgumentException("Non supported number of splits");
+        }
     }
 
     @Nullable
@@ -268,13 +335,13 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
                 return null;
             case CONTINUATIONS:
                 executeProperties = ExecuteProperties.newBuilder()
-                        .setReturnedRowLimit(19)
+                        .setReturnedRowLimit(ROW_LIMIT)
                         .setIsolationLevel(IsolationLevel.SERIALIZABLE)
                         .build();
                 return new ScanProperties(executeProperties);
             case BYTE_LIMIT:
                 executeProperties = ExecuteProperties.newBuilder()
-                        .setScannedBytesLimit(2000)
+                        .setScannedBytesLimit(BYTES_LIMIT)
                         .setIsolationLevel(IsolationLevel.SERIALIZABLE)
                         .build();
                 return new ScanProperties(executeProperties);
@@ -297,7 +364,7 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
         if (scanProperties == null) {
             scanProperties = ScanProperties.FORWARD_SCAN;
         }
-        RecordCursor<Tuple> recordKeyCursor = store.scanRecordKeys(TupleRange.allOf(null), null, scanProperties);
+        RecordCursor<Tuple> recordKeyCursor = store.scanRecordKeys(null, scanProperties);
         if (!withContinuations) {
             return recordKeyCursor.asList().get();
         } else {
@@ -306,16 +373,21 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
             List<Tuple> result = new ArrayList<>();
             while (!done) {
                 RecordCursorResult<Tuple> currentRecord = recordKeyCursor.getNext();
+                List<Tuple> temp = new ArrayList<>();
                 while (currentRecord.hasNext()) {
-                    result.add(currentRecord.get());
+                    temp.add(currentRecord.get());
                     currentRecord = recordKeyCursor.getNext();
                 }
+                assertTrue((temp.size() == ROW_LIMIT) ||
+                        (RecordCursor.NoNextReason.BYTE_LIMIT_REACHED.equals(currentRecord.getNoNextReason())) ||
+                        (RecordCursor.NoNextReason.SOURCE_EXHAUSTED.equals(currentRecord.getNoNextReason())));
+                result.addAll(temp);
                 RecordCursorContinuation continuation = currentRecord.getContinuation();
                 if (continuation.isEnd()) {
                     done = true;
                     assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, currentRecord.getNoNextReason());
                 } else {
-                    recordKeyCursor = store.scanRecordKeys(TupleRange.allOf(null), continuation.toBytes(), scanProperties.with(executeProperties -> executeProperties.resetState()));
+                    recordKeyCursor = store.scanRecordKeys(continuation.toBytes(), scanProperties.with(executeProperties -> executeProperties.resetState()));
                     foundContinuation = true;
                     assertTrue(currentRecord.getNoNextReason().isLimitReached());
                 }
@@ -325,8 +397,16 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
         }
     }
 
+    private void assertRecordsCorrupted(final FormatVersion formatVersion, final RecordMetaDataHook hook) {
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
+            final ExecutionException exception = assertThrows(ExecutionException.class, () -> store.scanRecords(TupleRange.allOf(null), null, ScanProperties.FORWARD_SCAN).asList().get());
+            assertInstanceOf(RecordCoreException.class, exception.getCause());
+        }
+    }
+
     private List<FDBStoredRecord<Message>> saveRecords(final boolean splitLongRecords, FormatVersion formatVersion, final RecordMetaDataHook hook) throws Exception {
-        return saveRecords(1, 100, splitLongRecords, formatVersion, hook);
+        return saveRecords(1, 50, splitLongRecords, formatVersion, hook);
     }
 
     private List<FDBStoredRecord<Message>> saveRecords(int initialId, int totalRecords, final boolean splitLongRecords, FormatVersion formatVersion, final RecordMetaDataHook hook) throws Exception {
@@ -339,7 +419,7 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
             final FDBRecordStore store = createOrOpenRecordStore(context, metaData, path, formatVersion);
             List<FDBStoredRecord<Message>> result1 = new ArrayList<>(totalRecords);
             for (int i = initialId; i < initialId + totalRecords; i++) {
-                final String someText = (splitLongRecords && ((i % 17) == 0)) ? Strings.repeat("x", SplitHelper.SPLIT_RECORD_SIZE * 2 + 2) : "some text (short)";
+                final String someText = Strings.repeat("x", recordTextSize(splitLongRecords, i));
                 final TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder()
                         .setRecNo(i)
                         .setStrValueIndexed(someText)
@@ -353,6 +433,16 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
         return result;
     }
 
+    private int recordTextSize(boolean splitLongRecords, int recordId) {
+        // Every 17th record is long. The number of splits increases with the record ID
+        if (splitLongRecords && ((recordId % LONG_RECORD_SPACING) == 0)) {
+            final int sizeInSplits = recordId / LONG_RECORD_SPACING;
+            return SplitHelper.SPLIT_RECORD_SIZE * sizeInSplits + 2;
+        } else {
+            return 10;
+        }
+    }
+
     @Nonnull
     private static List<Tuple> getExpectedPrimaryKeys() {
         return getExpectedPrimaryKeys(i -> true);
@@ -360,6 +450,6 @@ public class RecordKeyCursorTest extends FDBRecordStoreTestBase {
 
     @Nonnull
     private static List<Tuple> getExpectedPrimaryKeys(@Nonnull IntPredicate filter) {
-        return IntStream.range(1, 101).filter(filter).boxed().map(Tuple::from).collect(Collectors.toList());
+        return IntStream.range(1, 51).filter(filter).boxed().map(Tuple::from).collect(Collectors.toList());
     }
 }

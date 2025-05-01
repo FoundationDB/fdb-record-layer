@@ -74,7 +74,7 @@ message ConcatContinuation {
 
 message DedupContinuation {
     required bytes innerContinuation = 1;
-    required bytes lastValue = 2;
+    optional bytes lastValue = 2;
 }
 
 message SizeStatisticsContinuation {

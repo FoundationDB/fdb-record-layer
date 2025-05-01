@@ -1222,8 +1222,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CloseResource")
-    public RecordCursor<Tuple> scanRecordKeys(@Nonnull final TupleRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
-        if (getFormatVersion() < FDBRecordStore.RECORD_COUNT_KEY_ADDED_FORMAT_VERSION) {
+    public RecordCursor<Tuple> scanRecordKeys(@Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
+        if ( ! getFormatVersionEnum().isAtLeast(FormatVersion.RECORD_COUNT_KEY_ADDED)) {
             // This is only tested for version >= 3
             throw new UnsupportedFormatVersionException("scanRecordKeys does not support this format version");
         }
@@ -1235,8 +1235,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     .withSubspace(recordsSubspace)
                     .setContext(context)
                     .setContinuation(continuation)
-                    .setLow(range.getLow(), range.getLowEndpoint())
-                    .setHigh(range.getHigh(), range.getHighEndpoint())
+                    .setRange(TupleRange.ALL)
                     .setScanProperties(scanProperties)
                     .build();
             return keyValuesCursor
@@ -1248,26 +1247,40 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                         .withSubspace(recordsSubspace)
                         .setContext(context)
                         .setContinuation(cont)
-                        .setLow(range.getLow(), range.getLowEndpoint())
-                        .setHigh(range.getHigh(), range.getHighEndpoint())
-                        .setScanProperties(scanProperties)
+                        .setRange(TupleRange.ALL)
+                        // inner cursor should not have return row limit
+                        .setScanProperties(scanProperties.with(ExecuteProperties::clearReturnedRowLimit))
                         .build();
                 // map the KV to the primary key
                 return cursor.map(kv -> {
                     final Tuple keyTuple = recordsSubspace.unpack(kv.getKey());
                     Tuple nextKey = keyTuple.popBack(); // Remove index item
-                    long nextIndex = keyTuple.getLong(keyTuple.size() - 1);
-                    // Some validation of the index to match known split enumerators
-                    if ((nextIndex != SplitHelper.RECORD_VERSION) && (nextIndex != SplitHelper.UNSPLIT_RECORD) && !(nextIndex >= SplitHelper.START_SPLIT_RECORD)) {
-                        throw new RecordCoreStorageException("Invalid record split number")
-                                .addLogInfo(LogMessageKeys.SPLIT_NEXT_INDEX,  nextIndex);
-                    }
+                    validateSuffix(keyTuple);
                     return nextKey;
                 });
             };
 
             return new DedupCursor<>(innerFunction, Tuple::fromBytes, Tuple::pack, continuation)
+                    // Apply row limit to the outer cursor
                     .limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit());
+        }
+    }
+
+    /**
+     * Internal utility to ensure the given key has a valid suffix.
+     * @param keyTuple the key tuple to validate
+     */
+    private void validateSuffix(final Tuple keyTuple) {
+        long nextIndex;
+        try {
+            nextIndex = keyTuple.getLong(keyTuple.size() - 1);
+        } catch (Exception e) {
+            throw new RecordCoreStorageException("Invalid record split: not a number", e);
+        }
+        // Some validation of the index to match known split enumerators
+        if ((nextIndex != SplitHelper.RECORD_VERSION) && (nextIndex != SplitHelper.UNSPLIT_RECORD) && !(nextIndex >= SplitHelper.START_SPLIT_RECORD)) {
+            throw new RecordCoreStorageException("Invalid record split number")
+                    .addLogInfo(LogMessageKeys.SPLIT_NEXT_INDEX,  nextIndex);
         }
     }
 

@@ -18,9 +18,10 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.provider.foundationdb.recordvalidation;
+package com.apple.foundationdb.record.provider.foundationdb.recordrepair;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.RecordDeserializationException;
 import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
@@ -39,7 +40,7 @@ import java.util.concurrent.CompletionException;
  * A record that is valid according to this validator has a split set that is legal (either 0 or 1..n) - or is not split -
  * and a payload that can be serialized with the store's schema.
  */
-@API(API.Status.UNSTABLE)
+@API(API.Status.EXPERIMENTAL)
 public class RecordValueValidator implements RecordValidator {
     public static final String CODE_SPLIT_ERROR = "SplitError";
     public static final String CODE_DESERIALIZE_ERROR = "DeserializeError";
@@ -66,6 +67,11 @@ public class RecordValueValidator implements RecordValidator {
                 }
                 if (exception instanceof RecordDeserializationException) {
                     return RecordValidationResult.invalid(primaryKey, CODE_DESERIALIZE_ERROR, "Record cannot be deseralized");
+                }
+                if (exception instanceof RecordCoreException) {
+                    // In order to facilitate error handling for out of band (and other known errors) by the caller, allow
+                    // RecordCoreExceptions to flow through
+                    throw (RecordCoreException)exception;
                 }
                 throw new UnknownValidationException("Unknown exception caught", exception);
             } else {

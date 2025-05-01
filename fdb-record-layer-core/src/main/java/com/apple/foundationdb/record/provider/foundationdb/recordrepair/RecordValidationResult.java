@@ -18,14 +18,27 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.provider.foundationdb.recordvalidation;
+package com.apple.foundationdb.record.provider.foundationdb.recordrepair;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
 
+/**
+ * A record validation result.
+ * This would be returned from a {@link RecordValidator#validateRecordAsync(Tuple)} call with the results of the validation
+ * operation. The results should have the following fields populated:
+ * <ul>
+ *     <li>primaryKey: The key of the record validated</li>
+ *     <li>isValid: an overall result of the validation operation</li>
+ *     <li>errorCode: A unique key representing the result of the validation. Use {@link #CODE_VALID} for valid result</li>
+ *     <li>message: A message describing the result of the validation</li>
+ * </ul>
+ */
+@API(API.Status.EXPERIMENTAL)
 public class RecordValidationResult {
     public static final String CODE_VALID = "valid";
 

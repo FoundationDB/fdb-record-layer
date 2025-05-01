@@ -1,5 +1,5 @@
 /*
- * UnknownValidationException.java
+ * package-info.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,16 +18,8 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.provider.foundationdb.recordvalidation;
-
-import com.apple.foundationdb.record.RecordCoreException;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-
-@SuppressWarnings({"serial"})
-public class UnknownValidationException extends RecordCoreException {
-    public UnknownValidationException(@Nonnull final String msg, @Nullable final Throwable cause) {
-        super(msg, cause);
-    }
-}
+/**
+ * Classes for validating and repairing records in the DB.
+ * @see com.apple.foundationdb.record.provider.foundationdb.recordrepair.RecordValidator
+ */
+package com.apple.foundationdb.record.provider.foundationdb.recordrepair;
