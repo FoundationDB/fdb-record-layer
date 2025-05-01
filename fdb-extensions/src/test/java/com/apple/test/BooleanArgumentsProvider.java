@@ -20,14 +20,12 @@
 
 package com.apple.test;
 
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.support.AnnotationConsumer;
 
-import javax.annotation.Nonnull;
-import java.util.Arrays;
-import java.util.List;
 import java.util.stream.Stream;
 
 /**
@@ -35,15 +33,20 @@ import java.util.stream.Stream;
  * tests. Regardless of the source or context, this always returns {@code false} and {@code true} in that order.
  */
 class BooleanArgumentsProvider implements ArgumentsProvider, AnnotationConsumer<BooleanSource> {
-    @Nonnull
-    private static final List<Arguments> BOOLEANS = Arrays.asList(Arguments.of(false), Arguments.of(true));
+    private String trueName;
+    private String falseName;
 
     @Override
     public void accept(BooleanSource booleanSource) {
+        this.trueName = booleanSource.trueName();
+        this.falseName = booleanSource.falseName();
     }
 
     @Override
     public Stream<? extends Arguments> provideArguments(ExtensionContext extensionContext) throws Exception {
-        return BOOLEANS.stream();
+        return Stream.of(
+                Arguments.of(Named.of(falseName, false)),
+                Arguments.of(Named.of(trueName, true))
+        );
     }
 }
