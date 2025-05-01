@@ -3189,6 +3189,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_EDIT_HEADER_USER_FIELD, clearHeaderUserFieldAsync(userField));
     }
 
+    public void updateRecordCountState(@Nonnull RecordMetaDataProto.DataStoreInfo.RecordCountState newState) {
+        // TODO implement
+    }
+
     // Actually (1) writes the index state to the database and (2) updates the cached state with the new state
     @SuppressWarnings("PMD.CloseResource")
     private void updateIndexState(@Nonnull String indexName, byte[] indexKey, @Nonnull IndexState indexState) {

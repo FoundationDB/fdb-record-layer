@@ -95,6 +95,14 @@ message DataStoreInfo {
   // When considering using this, one should also consider introducing a new record type to store the data.
   // This was introduced with FormatVersion.HEADER_USER_FIELDS.
   repeated UserFieldEntry user_field = 8;
+
+  enum RecordCountState {
+    READABLE = 1;
+    WRITE_ONLY = 2;
+    DISABLED = 3;
+  }
+
+  optional RecordCountState record_count_state = 9;
 }
 
 message Index {
