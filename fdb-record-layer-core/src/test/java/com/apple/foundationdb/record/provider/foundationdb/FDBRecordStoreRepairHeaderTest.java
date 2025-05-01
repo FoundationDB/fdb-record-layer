@@ -52,6 +52,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.fail;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @Tag(Tags.RequiresFDB)
@@ -290,6 +291,11 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
         } else {
             validateRepaired(userVersion, recordMetaData, originalRecords);
         }
+    }
+
+    @Test
+    void clearAllFormerIndexes() {
+        fail("All formerIndexes should be cleared");
     }
 
     private List<FDBStoredRecord<Message>> createOriginalRecords(final RecordMetaData recordMetaData, final List<Tuple> primaryKeys) {
