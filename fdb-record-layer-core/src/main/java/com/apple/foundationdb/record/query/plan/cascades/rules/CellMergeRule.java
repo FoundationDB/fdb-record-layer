@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Refe
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -65,6 +66,7 @@ public class CellMergeRule extends CascadesRule<SelectExpression> {
         final Quantifier.ForEach child = call.get(qun);
         final Reference childRef = call.get(ref);
 
+        // todo: worry about correlation dependencies
         for (RelationalExpression childExpr : childRef.getMembers()) {
             MergeChildQuantifiersVisitor mergeVisitor = new MergeChildQuantifiersVisitor(child.getAlias());
             if (mergeVisitor.visit(childExpr)) {
@@ -80,8 +82,9 @@ public class CellMergeRule extends CascadesRule<SelectExpression> {
                 }
 
                 // Combine the predicates. These come from two sources: one are the
-                // child predicates, and the rest are the upper predicates, which need to be
-                // translated to apply to the new value
+                // child predicates, which can be pulled up directly.
+                // The rest are the upper predicates, which need to be translated so that any
+                // references to the removed value now applies to the new value.
                 final ImmutableList.Builder<QueryPredicate> predicates = ImmutableList.builder();
                 predicates.addAll(Objects.requireNonNull(mergeVisitor.predicates));
 
@@ -91,7 +94,9 @@ public class CellMergeRule extends CascadesRule<SelectExpression> {
                 // Translate the result value in the same way
                 Value newResultValue = select.getResultValue().translateCorrelations(translationMap, true);
 
-                // Yield a new select with a new value
+                //
+                // Yield a new select merging the existing select with the child
+                //
                 call.yieldExpression(new SelectExpression(newResultValue, children.build(), predicates.build()));
             }
         }
@@ -113,23 +118,33 @@ public class CellMergeRule extends CascadesRule<SelectExpression> {
 
         @Nonnull
         @Override
-        public Boolean visitLogicalFilterExpression(@Nonnull final LogicalFilterExpression element) {
+        public Boolean visitLogicalFilterExpression(@Nonnull final LogicalFilterExpression filterExpression) {
+            //
+            // Logical filters can be absorbed by parent selects. Any references to the filter
+            // expression need to be rewritten in terms of the original inner alias
+            //
             translationMap = TranslationMap.rebaseWithAliasMap(
-                    AliasMap.ofAliases(parentId, element.getInner().getAlias()));
-            childQuantifiers = element.getQuantifiers();
-            predicates = element.getPredicates();
+                    AliasMap.ofAliases(parentId, filterExpression.getInner().getAlias()));
+            childQuantifiers = filterExpression.getQuantifiers();
+            Verify.verify(childQuantifiers.size() == 1, "logical filter expressions should always have exactly 1 child quantifier");
+            predicates = filterExpression.getPredicates();
             return true;
         }
 
         @Nonnull
         @Override
-        public Boolean visitSelectExpression(@Nonnull final SelectExpression element) {
+        public Boolean visitSelectExpression(@Nonnull final SelectExpression select) {
+            //
+            // Select expressions can be merged with higher selects.
+            // References should be rewritten using this expression's base
+            // value in place of the original reference
+            //
             translationMap = TranslationMap.builder()
                     .when(parentId)
-                    .then((alias, leaf) -> element.getResultValue())
+                    .then((alias, leaf) -> select.getResultValue())
                     .build();
-            childQuantifiers = element.getQuantifiers();
-            predicates = element.getPredicates();
+            childQuantifiers = select.getQuantifiers();
+            predicates = select.getPredicates();
             return true;
         }
 
