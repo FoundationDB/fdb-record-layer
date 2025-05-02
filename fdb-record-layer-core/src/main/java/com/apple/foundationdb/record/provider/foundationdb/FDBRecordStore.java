@@ -62,6 +62,7 @@ import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
+import com.apple.foundationdb.record.cursors.DedupCursor;
 import com.apple.foundationdb.record.cursors.ListCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -1108,7 +1109,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 return CompletableFuture.completedFuture(recordBuilder.build());
             }
         } catch (Exception ex) {
-            final LoggableException ex2 = new RecordCoreException("Failed to deserialize record", ex);
+            final LoggableException ex2 = new RecordDeserializationException("Failed to deserialize record", ex);
             ex2.addLogInfo(
                     subspaceProvider.logKey(), subspaceProvider.toString(context),
                     LogMessageKeys.PRIMARY_KEY, primaryKey,
@@ -1224,6 +1225,53 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                               @Nullable byte[] continuation,
                                                               @Nonnull ScanProperties scanProperties) {
         return scanTypedRecords(serializer, low, high, lowEndpoint, highEndpoint, continuation, scanProperties);
+    }
+
+    @Nonnull
+    @Override
+    @SuppressWarnings("PMD.CloseResource")
+    public RecordCursor<Tuple> scanRecordKeys(@Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
+        if ( ! getFormatVersionEnum().isAtLeast(FormatVersion.RECORD_COUNT_KEY_ADDED)) {
+            // This is only tested for version >= 3
+            throw new UnsupportedFormatVersionException("scanRecordKeys does not support this format version");
+        }
+        final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
+        final Subspace recordsSubspace = recordsSubspace();
+        if (!metaData.isSplitLongRecords() && omitUnsplitRecordSuffix) {
+            // In this case there are only "simple" records (single split with no version). Return then directly.
+            KeyValueCursor keyValuesCursor = KeyValueCursor.Builder
+                    .withSubspace(recordsSubspace)
+                    .setContext(context)
+                    .setContinuation(continuation)
+                    .setRange(TupleRange.ALL)
+                    .setScanProperties(scanProperties)
+                    .build();
+            return keyValuesCursor
+                    .map(kv -> SplitHelper.unpackKey(recordsSubspace, kv));
+        } else {
+            Function<byte[], RecordCursor<Tuple>> innerFunction = cont -> {
+                // Create the inner cursor
+                final KeyValueCursor cursor = KeyValueCursor.Builder
+                        .withSubspace(recordsSubspace)
+                        .setContext(context)
+                        .setContinuation(cont)
+                        .setRange(TupleRange.ALL)
+                        // inner cursor should not have return row limit
+                        .setScanProperties(scanProperties.with(ExecuteProperties::clearReturnedRowLimit))
+                        .build();
+                // map the KV to the primary key
+                return cursor.map(kv -> {
+                    final Tuple keyTuple = recordsSubspace.unpack(kv.getKey());
+                    Tuple nextKey = keyTuple.popBack(); // Remove index item
+                    SplitHelper.validatePrimaryKeySuffixNumber(keyTuple);
+                    return nextKey;
+                });
+            };
+
+            return new DedupCursor<>(innerFunction, Tuple::fromBytes, Tuple::pack, continuation)
+                    // Apply row limit to the outer cursor
+                    .limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit());
+        }
     }
 
     @Nonnull
@@ -5547,4 +5595,5 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
         }
     }
+
 }
