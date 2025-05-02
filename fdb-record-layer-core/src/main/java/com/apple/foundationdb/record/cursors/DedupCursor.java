@@ -77,7 +77,8 @@ public class DedupCursor<T> implements RecordCursor<T> {
      * @param innerCursorFactory factory method to create an inner cursor given a continuation
      * @param unpackValue a method that can unpack a value from byte array (used to deserialize from a continuation)
      * @param packValue a method that can pack a value into a byte array (used to serialize to a continuation). Note that
-     * this will only be called if the value is NOT null. Null value will be converted internally to null byte[]
+     * this will only be called if the value is NOT null. Null value will be converted internally to null byte[].
+     * {@code pack} itself should never return {@code null}.
      * @param continuation the cursor continuation (null if none)
      */
     @API(API.Status.EXPERIMENTAL)

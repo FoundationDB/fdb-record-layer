@@ -70,6 +70,6 @@ public class ValidationTestUtils {
     }
 
     public static boolean versionStoredWithRecord(final FormatVersion formatVersion) {
-        return (formatVersion.isAtLeast(FormatVersion.SAVE_VERSION_WITH_RECORD));
+        return formatVersion.isAtLeast(FormatVersion.SAVE_VERSION_WITH_RECORD);
     }
 }

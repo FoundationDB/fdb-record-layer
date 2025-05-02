@@ -549,6 +549,25 @@ public class SplitHelper {
     }
 
     /**
+     * A utility to ensure the given key has a valid suffix.
+     * Suffix has to be a Long, and within the range of supported suffixes.
+     * @param keyTuple the key tuple to validate
+     */
+    public static void validatePrimaryKeySuffixNumber(final Tuple keyTuple) {
+        long nextIndex;
+        try {
+            nextIndex = keyTuple.getLong(keyTuple.size() - 1);
+        } catch (Exception e) {
+            throw new RecordCoreStorageException("Invalid record split number: not a number", e);
+        }
+        // Some validation of the index to match known split enumerators
+        if ((nextIndex != RECORD_VERSION) && (nextIndex != UNSPLIT_RECORD) && !(nextIndex >= START_SPLIT_RECORD)) {
+            throw new RecordCoreStorageException("Invalid record split number: ")
+                    .addLogInfo(LogMessageKeys.SPLIT_NEXT_INDEX,  nextIndex);
+        }
+    }
+
+    /**
      * Accumulator for key-value sizes while loading / saving split records.
      */
     public static class SizeInfo implements FDBStoredSizes {

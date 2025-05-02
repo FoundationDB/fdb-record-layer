@@ -388,11 +388,7 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
 
     private void validate(String expectedValueValidationCode, RecordValidator validator, Tuple primaryKey) {
         RecordValidationResult actualResult = null;
-        try {
-            actualResult = validator.validateRecordAsync(primaryKey).get();
-        } catch (InterruptedException | ExecutionException ex) {
-            throw new RuntimeException("Failed to validate record", ex.getCause());
-        }
+        actualResult = validator.validateRecordAsync(primaryKey).join();
 
         if (expectedValueValidationCode.equals(RecordValidationResult.CODE_VALID)) {
             assertTrue(actualResult.isValid());
