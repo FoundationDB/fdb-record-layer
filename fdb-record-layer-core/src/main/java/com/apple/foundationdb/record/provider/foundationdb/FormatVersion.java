@@ -54,7 +54,7 @@ public enum FormatVersion implements Comparable<FormatVersion> {
      */
     INFO_ADDED(1),
     /**
-     * This FormatVersion introduces support for tracking record conuts as defined by:
+     * This FormatVersion introduces support for tracking record counts as defined by:
      * {@link com.apple.foundationdb.record.RecordMetaData#getRecordCountKey()}.
      */
     RECORD_COUNT_ADDED(2),
