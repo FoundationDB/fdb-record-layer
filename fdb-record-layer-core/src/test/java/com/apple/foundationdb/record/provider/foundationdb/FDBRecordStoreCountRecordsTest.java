@@ -657,7 +657,6 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
                                 .map(grouped -> Arguments.of(fromWriteOnly, hasFallBack, grouped))));
     }
 
-    // TODO test with old format version
     @ParameterizedTest
     @MethodSource
     void disableRecordCountKey(boolean fromWriteOnly, boolean hasFallback, boolean grouped) {
@@ -822,23 +821,23 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
     @Test
     void updateStateShouldFailOnOldVersion() {
         final RecordMetaData metaData = addUngroupedRecordCountKey(simpleMetaDataBuilder(), EmptyKeyExpression.EMPTY).build();
+        final FormatVersion formatVersion = FormatVersionTestUtils.previous(FormatVersion.RECORD_COUNT_STATE);
         saveRecords(metaData, 0, 100,
                 () -> assertUngroupedCount(0),
-                () -> assertUngroupedCount(100));
+                () -> assertUngroupedCount(100),
+                formatVersion);
 
         try (FDBRecordContext context = openContext()) {
-            createOrOpenRecordStore(context, metaData);
+            recordStore = createOrOpenRecordStore(context, metaData, path, formatVersion);
             assertUngroupedCount(100);
         }
 
-        updateRecordCountState(metaData, RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED);
-
-        // Once disabled we cannot change it to not disabled
-        // We could implement something to rebuild the data, but it's deprecated, and that's a fair amount of work
-        try (FDBRecordContext context1 = openContext()) {
-            createOrOpenRecordStore(context1, metaData);
-            assertThrows(RecordCoreException.class, this::markRecordCountWriteOnly);
-            context1.commit();
+        for (final RecordMetaDataProto.DataStoreInfo.RecordCountState newState : RecordMetaDataProto.DataStoreInfo.RecordCountState.values()) {
+            try (FDBRecordContext context1 = openContext()) {
+                recordStore = createOrOpenRecordStore(context1, metaData, path, formatVersion);
+                assertThrows(RecordCoreException.class, () -> recordStore.updateRecordCountStateAsync(newState).join(),
+                        () -> "Should not allow updating to " + newState);
+            }
         }
     }
 
@@ -906,7 +905,6 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
         }
     }
 
-
     private Void markRecordCountWriteOnly() {
         return recordStore.updateRecordCountStateAsync(RecordMetaDataProto.DataStoreInfo.RecordCountState.WRITE_ONLY).join();
     }
@@ -952,8 +950,13 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
 
     private void saveRecords(final RecordMetaData metaData, final int start, final int end,
                              final Runnable beforeHook, final Runnable afterHook) {
+        saveRecords(metaData, start, end, beforeHook, afterHook, FormatVersion.getMaximumSupportedVersion());
+    }
+
+    private void saveRecords(final RecordMetaData metaData, final int start, final int end,
+                             final Runnable beforeHook, final Runnable afterHook, final FormatVersion formatVersion) {
         try (FDBRecordContext context = openContext()) {
-            createOrOpenRecordStore(context, metaData);
+            this.recordStore = createOrOpenRecordStore(context, metaData, path, formatVersion);
 
             beforeHook.run();
 
