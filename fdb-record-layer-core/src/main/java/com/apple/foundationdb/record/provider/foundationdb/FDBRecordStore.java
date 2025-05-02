@@ -1858,6 +1858,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 return null;
             }
 
+            // Note: it's possible that the RecordCount is DISABLED, and we could do the deleteWhere, but in a world
+            // where some stores may have it disabled, and others may not, it's probably best to keep this code
+            // simple
             final KeyExpression recordCountKey = getRecordMetaData().getRecordCountKey();
             if (recordCountKey != null) {
                 final QueryToKeyMatcher.Match match = matcher.matchesSatisfyingQuery(recordCountKey);
