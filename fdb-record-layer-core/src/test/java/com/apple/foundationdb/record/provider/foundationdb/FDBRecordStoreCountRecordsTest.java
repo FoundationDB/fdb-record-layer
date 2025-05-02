@@ -652,6 +652,8 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
                         .map(hasFallBack -> Arguments.of(fromWriteOnly, hasFallBack)));
     }
 
+    // TODO test with old format version
+    // TODO test more with grouped
     @ParameterizedTest
     @MethodSource
     void disableRecordCountKey(boolean fromWriteOnly, boolean hasFallback) {
@@ -676,6 +678,8 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
 
         updateRecordCountState(metaData, RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED);
 
+        rawAssertHasRecordCount(metaData, false);
+
         // We should be able to save new records without issue
         saveRecords(metaData, 100, 110, () -> { }, () -> { });
 
@@ -692,9 +696,8 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
             assertCannotGetUngroupedRecordCount(metaData);
         }
 
+        // ensure that the updates did not write anything to the RecordCountKey space
         rawAssertHasRecordCount(metaData, false);
-
-        fail("TODO Validate space is cleared before modifying records");
     }
 
     static Stream<Arguments> shouldNotRebuildIndexesWhenNotReadable() {
@@ -791,13 +794,13 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
         // We could implement something to rebuild the data, but it's deprecated, and that's a fair amount of work
         try (FDBRecordContext context1 = openContext()) {
             createOrOpenRecordStore(context1, metaData);
-            assertThrows(RecordCoreException.class, () -> recordStore.updateRecordCountState(RecordMetaDataProto.DataStoreInfo.RecordCountState.WRITE_ONLY));
+            assertThrows(RecordCoreException.class, () -> markRecordCountWriteOnly());
             context1.commit();
         }
 
         try (FDBRecordContext context1 = openContext()) {
             createOrOpenRecordStore(context1, metaData);
-            assertThrows(RecordCoreException.class, () -> recordStore.updateRecordCountState(RecordMetaDataProto.DataStoreInfo.RecordCountState.READABLE));
+            assertThrows(RecordCoreException.class, () -> markRecordCountReadable());
             context1.commit();
         }
     }
@@ -863,9 +866,18 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
                                         final RecordMetaDataProto.DataStoreInfo.RecordCountState newState) {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData);
-            recordStore.updateRecordCountState(newState);
+            recordStore.updateRecordCountStateAsync(newState).join();
             context.commit();
         }
+    }
+
+
+    private Void markRecordCountWriteOnly() {
+        return recordStore.updateRecordCountStateAsync(RecordMetaDataProto.DataStoreInfo.RecordCountState.WRITE_ONLY).join();
+    }
+
+    private Void markRecordCountReadable() {
+        return recordStore.updateRecordCountStateAsync(RecordMetaDataProto.DataStoreInfo.RecordCountState.READABLE).join();
     }
 
     private void rawAssertHasRecordCount(final RecordMetaData metaData, final boolean hasRecordCounts) {

@@ -558,13 +558,21 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @SuppressWarnings("PMD.CloseResource")
     private <M extends Message> void addRecordCount(@Nonnull RecordMetaData metaData, @Nonnull FDBStoredRecord<M> rec, @Nonnull byte[] increment) {
-        if (metaData.getRecordCountKey() == null) {
-            return;
+        if (metaData.getRecordCountKey() != null) {
+            beginRecordStoreStateRead();
+            try {
+                RecordMetaDataProto.DataStoreInfo header = recordStoreStateRef.get().getStoreHeader();
+                // We do not need to check the format version here. In order for it to be DISABLED we would have to be
+                // on a format version that supports such a state.
+                if (header.getRecordCountState() != RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED) {
+                    Key.Evaluated subkey = metaData.getRecordCountKey().evaluateSingleton(rec);
+                    final byte[] keyBytes = getSubspace().pack(Tuple.from(RECORD_COUNT_KEY).addAll(subkey.toTupleAppropriateList()));
+                    ensureContextActive().mutate(MutationType.ADD, keyBytes, increment);
+                }
+            } finally {
+                endRecordStoreStateRead();
+            }
         }
-        final Transaction tr = ensureContextActive();
-        Key.Evaluated subkey = metaData.getRecordCountKey().evaluateSingleton(rec);
-        final byte[] keyBytes = getSubspace().pack(Tuple.from(RECORD_COUNT_KEY).addAll(subkey.toTupleAppropriateList()));
-        tr.mutate(MutationType.ADD, keyBytes, increment);
     }
 
     @Nullable
@@ -2030,6 +2038,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
 
             final KeyExpression recordCountKey = getRecordMetaData().getRecordCountKey();
+            // Note: The RecordCountKey may be disabled. But if it is, then the data should be clear, and there is no
+            // harm in clearing it here. Otherwise, we want to clear it to maintain the correct count. Thus, we do not
+            // check the RecordCountKey's state.
             if (recordCountKey != null) {
                 if (prefix.size() == recordCountKey.getColumnSize()) {
                     // Delete a single record used for counting
@@ -2105,17 +2116,39 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Override
     public CompletableFuture<Long> getSnapshotRecordCount(@Nonnull KeyExpression key, @Nonnull Key.Evaluated value,
                                                           @Nonnull IndexQueryabilityFilter indexQueryabilityFilter) {
-        if (getRecordMetaData().getRecordCountKey() != null) {
-            if (key.getColumnSize() != value.size()) {
-                throw recordCoreException("key and value are not the same size");
-            }
-            final ReadTransaction tr = context.readTransaction(true);
-            final Tuple subkey = Tuple.from(RECORD_COUNT_KEY).addAll(value.toTupleAppropriateList());
-            if (getRecordMetaData().getRecordCountKey().equals(key)) {
-                return tr.get(getSubspace().pack(subkey)).thenApply(FDBRecordStore::decodeRecordCount);
-            } else if (key.isPrefixKey(getRecordMetaData().getRecordCountKey())) {
-                AsyncIterable<KeyValue> kvs = tr.getRange(getSubspace().range(Tuple.from(RECORD_COUNT_KEY)));
-                return MoreAsyncUtil.reduce(getExecutor(), kvs.iterator(), 0L, (count, kv) -> count + decodeRecordCount(kv.getValue()));
+        final RecordMetaData recordMetaData = getRecordMetaData();
+        if (recordMetaData.getRecordCountKey() != null) {
+            beginRecordStoreStateRead();
+            boolean futureCreated = false;
+            try {
+                RecordMetaDataProto.DataStoreInfo header = recordStoreStateRef.get().getStoreHeader();
+                // We can always check the state, even if the formatVersion is older, because older versions will always
+                // have the default of READABLE
+                if (header.getRecordCountState() == RecordMetaDataProto.DataStoreInfo.RecordCountState.READABLE) {
+                    if (key.getColumnSize() != value.size()) {
+                        throw recordCoreException("key and value are not the same size");
+                    }
+                    final ReadTransaction tr = context.readTransaction(true);
+                    final Tuple subkey = Tuple.from(RECORD_COUNT_KEY).addAll(value.toTupleAppropriateList());
+                    if (recordMetaData.getRecordCountKey().equals(key)) {
+                        final CompletableFuture<Long> result = tr.get(getSubspace().pack(subkey))
+                                .thenApply(FDBRecordStore::decodeRecordCount)
+                                .whenComplete((ignored, error) -> endRecordStoreStateRead());
+                        futureCreated = true;
+                        return result;
+                    } else if (key.isPrefixKey(recordMetaData.getRecordCountKey())) {
+                        AsyncIterable<KeyValue> kvs = tr.getRange(getSubspace().range(Tuple.from(RECORD_COUNT_KEY)));
+                        final CompletableFuture<Long> result = MoreAsyncUtil.reduce(getExecutor(), kvs.iterator(), 0L,
+                                (count, kv) -> count + decodeRecordCount(kv.getValue()))
+                                .whenComplete((ignored, error) -> endRecordStoreStateRead());
+                        futureCreated = true;
+                        return result;
+                    }
+                }
+            } finally {
+                if (!futureCreated) {
+                    endRecordStoreStateRead();
+                }
             }
         }
         return evaluateAggregateFunction(Collections.emptyList(), IndexFunctionHelper.count(key),
@@ -3189,8 +3222,44 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_EDIT_HEADER_USER_FIELD, clearHeaderUserFieldAsync(userField));
     }
 
-    public void updateRecordCountState(@Nonnull RecordMetaDataProto.DataStoreInfo.RecordCountState newState) {
-        // TODO implement
+    /**
+     * Update the RecordCount to have a new state.
+     * <p>
+     *     The state can go from {@code READABLE} to {@code WRITE_ONLY} and vice-versa, and it can always be set to
+     *     {@code DISABLED}, but it cannot transition out of {@code DISABLED}.
+     *     When the RecordCount is set to {@code DISABLED}, the data will be cleared.
+     * </p>
+     * @param newState the new state to update it to.
+     * @return a future once that completes once the state is updated, and the data is cleared.
+     */
+    public CompletableFuture<Void> updateRecordCountStateAsync(@Nonnull RecordMetaDataProto.DataStoreInfo.RecordCountState newState) {
+        return updateStoreHeaderAsync(builder -> {
+            if (!getFormatVersionEnum().isAtLeast(FormatVersion.RECORD_COUNT_STATE)) {
+                throw new RecordCoreException("Store does not support updating record count state")
+                        .addLogInfo(LogMessageKeys.FORMAT_VERSION, getFormatVersionEnum());
+            }
+            final RecordMetaDataProto.DataStoreInfo.RecordCountState existing = getRecordStoreState().getStoreHeader().getRecordCountState();
+            if (existing == newState) {
+                return builder;
+            }
+            boolean toWriteOnly = existing == RecordMetaDataProto.DataStoreInfo.RecordCountState.READABLE &&
+                    newState == RecordMetaDataProto.DataStoreInfo.RecordCountState.WRITE_ONLY;
+            boolean toReadable = existing == RecordMetaDataProto.DataStoreInfo.RecordCountState.WRITE_ONLY &&
+                    newState == RecordMetaDataProto.DataStoreInfo.RecordCountState.READABLE;
+            if (toWriteOnly || toReadable || newState == RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED) {
+                builder.setRecordCountState(newState);
+                return builder;
+            }
+            throw new RecordCoreException("Invalid state transition for RecordCountState")
+                    .addLogInfo(LogMessageKeys.OLD, existing)
+                    .addLogInfo(LogMessageKeys.NEW, newState);
+        }).thenRun(() -> {
+            if (newState == RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED) {
+                final byte[] begin = Tuple.from(RECORD_COUNT_KEY).pack(getSubspace().getKey());
+                final byte[] end = ByteArrayUtil.strinc(begin);
+                ensureContextActive().clear(begin, end);
+            }
+        });
     }
 
     // Actually (1) writes the index state to the database and (2) updates the cached state with the new state
