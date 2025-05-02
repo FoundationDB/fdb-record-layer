@@ -46,6 +46,7 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.KeyRange;
 import com.apple.foundationdb.record.MutableRecordStoreState;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanHashable;
@@ -136,6 +137,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -1219,32 +1221,56 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Nonnull
-    @SuppressWarnings("PMD.CloseResource")
     public <M extends Message> RecordCursor<FDBStoredRecord<M>> scanTypedRecords(@Nonnull RecordSerializer<M> typedSerializer,
                                                                                  @Nullable final Tuple low, @Nullable final Tuple high,
                                                                                  @Nonnull final EndpointType lowEndpoint, @Nonnull final EndpointType highEndpoint,
                                                                                  @Nullable byte[] continuation,
                                                                                  @Nonnull ScanProperties scanProperties) {
+        return scanTypedRecordsInternal(typedSerializer,
+                                        builder -> builder.setLow(low, lowEndpoint).setHigh(high, highEndpoint),
+                                        continuation, scanProperties);
+    }
+
+    @Nonnull
+    @Override
+    public RecordCursor<FDBStoredRecord<Message>> scanRecordsKeyRange(@Nonnull final KeyRange range, @Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
+        return scanTypedRecordsKeyRange(serializer, range, continuation, scanProperties);
+    }
+
+    @Nonnull
+    public <M extends Message> RecordCursor<FDBStoredRecord<M>> scanTypedRecordsKeyRange(@Nonnull RecordSerializer<M> typedSerializer,
+                                                                                         @Nonnull final KeyRange range,
+                                                                                         @Nullable byte[] continuation,
+                                                                                         @Nonnull ScanProperties scanProperties) {
+        return scanTypedRecordsInternal(typedSerializer,
+                                        builder -> builder.setRange(range),
+                                        continuation, scanProperties);
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.CloseResource")
+    private <M extends Message> RecordCursor<FDBStoredRecord<M>> scanTypedRecordsInternal(@Nonnull RecordSerializer<M> typedSerializer,
+                                                                                          @Nonnull Consumer<KeyValueCursor.Builder> setRange,
+                                                                                          @Nullable byte[] continuation,
+                                                                                          @Nonnull ScanProperties scanProperties) {
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
         final Subspace recordsSubspace = recordsSubspace();
         final SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();
         final RecordCursor<FDBRawRecord> rawRecords;
         if (metaData.isSplitLongRecords()) {
-            RecordCursor<KeyValue> keyValues = KeyValueCursor.Builder.withSubspace(recordsSubspace)
+            KeyValueCursor.Builder keyValuesBuilder = KeyValueCursor.Builder.withSubspace(recordsSubspace)
                     .setContext(context).setContinuation(continuation)
-                    .setLow(low, lowEndpoint)
-                    .setHigh(high, highEndpoint)
-                    .setScanProperties(scanProperties.with(ExecuteProperties::clearRowAndTimeLimits).with(ExecuteProperties::clearState))
-                    .build();
+                    .setScanProperties(scanProperties.with(ExecuteProperties::clearRowAndTimeLimits).with(ExecuteProperties::clearState));
+            setRange.accept(keyValuesBuilder);
+            RecordCursor<KeyValue> keyValues = keyValuesBuilder.build();
             rawRecords = new SplitHelper.KeyValueUnsplitter(context, recordsSubspace, keyValues, useOldVersionFormat(), sizeInfo, scanProperties.isReverse(),
                     new CursorLimitManager(context, scanProperties.with(ExecuteProperties::clearReturnedRowLimit)))
                 .skip(scanProperties.getExecuteProperties().getSkip())
                 .limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit());
         } else {
             KeyValueCursor.Builder keyValuesBuilder = KeyValueCursor.Builder.withSubspace(recordsSubspace)
-                    .setContext(context).setContinuation(continuation)
-                    .setLow(low, lowEndpoint)
-                    .setHigh(high, highEndpoint);
+                    .setContext(context).setContinuation(continuation);
+            setRange.accept(keyValuesBuilder);
             if (omitUnsplitRecordSuffix) {
                 rawRecords = keyValuesBuilder.setScanProperties(scanProperties).build().map(kv -> {
                     sizeInfo.set(kv);
