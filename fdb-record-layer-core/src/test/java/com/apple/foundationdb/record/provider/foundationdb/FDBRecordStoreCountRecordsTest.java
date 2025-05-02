@@ -712,7 +712,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
         rawAssertHasRecordCount(metaData, false);
     }
 
-    static Stream<Arguments> shouldNotRebuildIndexesWhenNotReadable() {
+    static Stream<Arguments> shouldNotRebuildIndexesWhenRecordCountIsNotReadable() {
         return Stream.of(true, false)
                 .flatMap(startsWithCountKey -> Stream.of(true, false)
                         .map(disabled -> Arguments.of(startsWithCountKey, disabled)));
@@ -720,7 +720,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest
     @MethodSource
-    void shouldNotRebuildIndexesWhenNotReadable(boolean startsWithCountKey, boolean disabled) {
+    void shouldNotRebuildIndexesWhenRecordCountIsNotReadable(boolean startsWithCountKey, boolean disabled) {
         // If disabled or WriteOnly, rebuilding indexes should behave the same as if the RecordCountKey didn't exist
         final RecordMetaDataBuilder builder;
         if (startsWithCountKey) {
@@ -758,7 +758,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void recordCountKeyWriteOnly() {
+    void recordCountStateWriteOnly() {
         final RecordMetaData metaData = addRecordCountKey(simpleMetaDataBuilder(), EmptyKeyExpression.EMPTY).build();
         saveRecords(metaData, 0, 100,
                 () -> assertUngroupedCount(0),
@@ -789,7 +789,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void fromDisabledShouldFail() {
+    void recordCountStatefromDisabledShouldFail() {
         final RecordMetaData metaData = addRecordCountKey(simpleMetaDataBuilder(), EmptyKeyExpression.EMPTY).build();
         saveRecords(metaData, 0, 100,
                 () -> assertUngroupedCount(0),
@@ -818,7 +818,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void updateStateShouldFailOnOldVersion() {
+    void updateRecordCountStateShouldFailOnOldVersion() {
         final RecordMetaData metaData = addRecordCountKey(simpleMetaDataBuilder(), EmptyKeyExpression.EMPTY).build();
         final FormatVersion formatVersion = FormatVersionTestUtils.previous(FormatVersion.RECORD_COUNT_STATE);
         saveRecords(metaData, 0, 100,
@@ -843,14 +843,16 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
     @ParameterizedTest
     @EnumSource(RecordMetaDataProto.DataStoreInfo.RecordCountState.class)
     @SuppressWarnings("deprecation")
-    void deleteWhereWhenNotReadable(RecordMetaDataProto.DataStoreInfo.RecordCountState newState) {
+    void deleteWhereWhenRecordCountIsNotReadable(RecordMetaDataProto.DataStoreInfo.RecordCountState newState) {
         // If disabled or WriteOnly, deleteWhere should work
         final RecordMetaDataBuilder recordMetaDataBuilder = simpleMetaDataBuilder();
         recordMetaDataBuilder.setRecordCountKey(GROUP_EXPRESSION);
+        // update the primary keys to support deleteWhere
         recordMetaDataBuilder.getRecordType("MySimpleRecord")
                 .setPrimaryKey(Key.Expressions.concatenateFields(GROUPING_FIELD, "rec_no"));
         recordMetaDataBuilder.getRecordType("MyOtherRecord")
                 .setPrimaryKey(Key.Expressions.concatenateFields(GROUPING_FIELD, "rec_no"));
+        // these indexes have to be removed as they aren't grouped in a way that would allow deleteWhere
         recordMetaDataBuilder.removeIndex("MySimpleRecord$num_value_unique");
         recordMetaDataBuilder.removeIndex("MySimpleRecord$num_value_3_indexed");
         recordMetaDataBuilder.removeIndex("MySimpleRecord$str_value_indexed");
@@ -978,11 +980,8 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
     }
 
     private void assertGroupedCount(final int expected, final int groupingValue) {
-        assertGroupedCount(expected, GROUP_EXPRESSION, Key.Evaluated.concatenate(groupingValue));
-    }
-
-    private void assertGroupedCount(final int expected, final KeyExpression key, final Key.Evaluated value) {
-        assertEquals(expected, recordStore.getSnapshotRecordCount(key, value).join().longValue());
+        final Key.Evaluated value = Key.Evaluated.concatenate(groupingValue);
+        assertEquals(expected, recordStore.getSnapshotRecordCount(GROUP_EXPRESSION, value).join().longValue());
     }
 
     private void saveRecords(final RecordMetaData metaData, final int start, final int end,
