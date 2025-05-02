@@ -21,13 +21,16 @@
 package com.apple.test;
 
 import org.junit.jupiter.api.Named;
+import org.junit.jupiter.params.provider.Arguments;
 
+import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
  * Helper class for generating boolean arguments for {@link org.junit.jupiter.params.ParameterizedTest}s.
  */
-public class BooleanArguments {
+public class ParameterizedTestUtils {
 
     /**
      * Provides a stream of boolean, named arguments.
@@ -35,7 +38,7 @@ public class BooleanArguments {
      * @param falseName the name to provide for {@code false}
      * @return a stream to be used as a return value for a {@link org.junit.jupiter.params.provider.MethodSource}
      */
-    public static Stream<Named<Boolean>> of(String trueName, String falseName) {
+    public static Stream<Named<Boolean>> booleans(String trueName, String falseName) {
         return Stream.of(Named.of(trueName, true), Named.of(falseName, false));
     }
 
@@ -44,7 +47,26 @@ public class BooleanArguments {
      * @param name the name to provide for {@code true}, {@code false} will prefix with {@code "not "}
      * @return a stream to be used as a return value for a {@link org.junit.jupiter.params.provider.MethodSource}
      */
-    public static Stream<Named<Boolean>> of(String name) {
+    public static Stream<Named<Boolean>> booleans(String name) {
         return Stream.of(Named.of(name, true), Named.of("not " + name, false));
+    }
+
+    public static Stream<Arguments> cartesianProduct(Stream<?>... sources) {
+        return cartesianProduct(
+                Stream.of(sources)
+                        .map(stream -> stream.collect(Collectors.toList())).collect(Collectors.toList()))
+                .map(arguments -> Arguments.of(arguments.toArray()));
+    }
+
+    private static Stream<Stream<Object>> cartesianProduct(List<List<?>> sources) {
+        if (sources.isEmpty()) {
+            return Stream.of();
+        }
+        if (sources.size() == 1) {
+            return sources.get(0).stream().map(Stream::of);
+        }
+        return sources.get(0).stream().flatMap(arg ->
+                cartesianProduct(sources.subList(1, sources.size()))
+                        .map(recursed -> Stream.concat(Stream.of(arg), recursed)));
     }
 }
