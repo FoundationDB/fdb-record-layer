@@ -185,6 +185,12 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
 
     @Nonnull
     @Override
+    public RecordCursor<Tuple> scanRecordKeys(@Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
+        return untypedStore.scanRecordKeys(continuation, scanProperties);
+    }
+
+    @Nonnull
+    @Override
     public CompletableFuture<Integer> countRecords(@Nullable Tuple low, @Nullable Tuple high, @Nonnull EndpointType lowEndpoint, @Nonnull EndpointType highEndpoint, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
         return untypedStore.countRecords(low, high, lowEndpoint, highEndpoint, continuation, scanProperties);
     }
