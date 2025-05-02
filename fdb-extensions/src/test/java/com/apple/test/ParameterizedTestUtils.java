@@ -51,6 +51,12 @@ public class ParameterizedTestUtils {
         return Stream.of(Named.of(name, true), Named.of("not " + name, false));
     }
 
+    /**
+     * Produce the cartesian product of the given streams as {@link Arguments}.
+     * @param sources a list of sources to combine.
+     * @return a stream of {@link Arguments} where the 0th element is from the first source, the 1st is from the first,
+     * and so-on. Producing all combinations of an element from each source.
+     */
     public static Stream<Arguments> cartesianProduct(Stream<?>... sources) {
         return cartesianProduct(
                 Stream.of(sources)
