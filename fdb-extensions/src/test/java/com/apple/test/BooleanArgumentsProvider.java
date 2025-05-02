@@ -37,7 +37,7 @@ class BooleanArgumentsProvider implements ArgumentsProvider, AnnotationConsumer<
 
     @Override
     public void accept(BooleanSource booleanSource) {
-        this.name = booleanSource.name();
+        this.name = booleanSource.value();
     }
 
     @Override
