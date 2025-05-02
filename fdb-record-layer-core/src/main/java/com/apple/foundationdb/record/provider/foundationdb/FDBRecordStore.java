@@ -4914,6 +4914,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         if (rebuildRecordCounts) {
             // We want to clear all record counts.
+            // This code will leave data behind if the previous RecordCountKey was not grouped
+            // https://github.com/FoundationDB/fdb-record-layer/issues/3335
             if (existingStore) {
                 context.clear(getSubspace().range(Tuple.from(RECORD_COUNT_KEY)));
             }
@@ -4938,7 +4940,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @SuppressWarnings("PMD.CloseResource")
     public void addRebuildRecordCountsJob(List<CompletableFuture<Void>> work) {
         final KeyExpression recordCountKey = getRecordMetaData().getRecordCountKey();
-        if (recordCountKey == null) {
+        if (recordCountKey == null ||
+                getRecordStoreState().getStoreHeader().getRecordCountState() == RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED) {
             return;
         }
         if (LOGGER.isDebugEnabled()) {
