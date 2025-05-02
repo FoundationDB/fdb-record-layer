@@ -33,20 +33,18 @@ import java.util.stream.Stream;
  * tests. Regardless of the source or context, this always returns {@code false} and {@code true} in that order.
  */
 class BooleanArgumentsProvider implements ArgumentsProvider, AnnotationConsumer<BooleanSource> {
-    private String trueName;
-    private String falseName;
+    private String name;
 
     @Override
     public void accept(BooleanSource booleanSource) {
-        this.trueName = booleanSource.trueName();
-        this.falseName = booleanSource.falseName();
+        this.name = booleanSource.name();
     }
 
     @Override
     public Stream<? extends Arguments> provideArguments(ExtensionContext extensionContext) throws Exception {
         return Stream.of(
-                Arguments.of(Named.of(falseName, false)),
-                Arguments.of(Named.of(trueName, true))
+                Arguments.of(Named.of(name.isBlank() ? "true" : name, true)),
+                Arguments.of(Named.of(name.isBlank() ? "false" : "not " + name, false))
         );
     }
 }

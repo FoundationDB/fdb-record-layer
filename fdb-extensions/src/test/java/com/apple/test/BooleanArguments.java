@@ -30,12 +30,21 @@ import java.util.stream.Stream;
 public class BooleanArguments {
 
     /**
-     * Provides a stream of boolean, named arguments
+     * Provides a stream of boolean, named arguments.
      * @param trueName the name to provide for {@code true}
      * @param falseName the name to provide for {@code false}
      * @return a stream to be used as a return value for a {@link org.junit.jupiter.params.provider.MethodSource}
      */
     public static Stream<Named<Boolean>> of(String trueName, String falseName) {
         return Stream.of(Named.of(trueName, true), Named.of(falseName, false));
+    }
+
+    /**
+     * Provides a stream of boolean, named arguments.
+     * @param name the name to provide for {@code true}, {@code false} will prefix with {@code "not "}
+     * @return a stream to be used as a return value for a {@link org.junit.jupiter.params.provider.MethodSource}
+     */
+    public static Stream<Named<Boolean>> of(String name) {
+        return Stream.of(Named.of(name, true), Named.of("not " + name, false));
     }
 }

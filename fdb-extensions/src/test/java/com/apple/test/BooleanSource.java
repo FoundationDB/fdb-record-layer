@@ -40,13 +40,8 @@ import java.lang.annotation.Target;
 @ArgumentsSource(BooleanArgumentsProvider.class)
 public @interface BooleanSource {
     /**
-     * A name to give the {@code true} value
-     * @return the name, by default {@code "true"}
+     * A name to give the boolean values; if unspecified, {@code "true"} and {@code "false"} will be used.
+     * @return the name
      */
-    String trueName() default "true";
-    /**
-     * A name to give the {@code false} value
-     * @return the name, by default {@code "false"}
-     */
-    String falseName() default "false";
+    String name() default "";
 }

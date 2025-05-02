@@ -648,7 +648,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
 
     static Stream<Arguments> disableRecordCountKey() {
         return BooleanArguments.of("fromWriteOnly", "fromReadable")
-                .flatMap(fromWriteOnly -> BooleanArguments.of("hasFallback", "noFallback")
+                .flatMap(fromWriteOnly -> BooleanArguments.of("with fallback")
                         .map(hasFallBack -> Arguments.of(fromWriteOnly, hasFallBack)));
     }
 
@@ -701,7 +701,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
     }
 
     static Stream<Arguments> shouldNotRebuildIndexesWhenNotReadable() {
-        return BooleanArguments.of("startsWithCountKey", "startsWithoutCountKey")
+        return BooleanArguments.of("startsWithCountKey")
                 .flatMap(startsWithCountKey -> BooleanArguments.of("disabled", "WriteOnly")
                         .map(disabled -> Arguments.of(startsWithCountKey, disabled)));
     }
@@ -794,13 +794,13 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
         // We could implement something to rebuild the data, but it's deprecated, and that's a fair amount of work
         try (FDBRecordContext context1 = openContext()) {
             createOrOpenRecordStore(context1, metaData);
-            assertThrows(RecordCoreException.class, () -> markRecordCountWriteOnly());
+            assertThrows(RecordCoreException.class, this::markRecordCountWriteOnly);
             context1.commit();
         }
 
         try (FDBRecordContext context1 = openContext()) {
             createOrOpenRecordStore(context1, metaData);
-            assertThrows(RecordCoreException.class, () -> markRecordCountReadable());
+            assertThrows(RecordCoreException.class, this::markRecordCountReadable);
             context1.commit();
         }
     }
