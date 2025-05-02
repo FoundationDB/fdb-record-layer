@@ -62,6 +62,7 @@ import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.IntConsumer;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -80,6 +81,9 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 @Tag(Tags.RequiresFDB)
 public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
+
+    private static final String GROUPING_FIELD = "num_value_3_indexed";
+    private static final FieldKeyExpression GROUP_EXPRESSION = field(GROUPING_FIELD);
 
     @Test
     @SuppressWarnings("deprecation")
@@ -188,7 +192,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
     }
 
     private void countRecordsKeyed(boolean useIndex) {
-        final KeyExpression key = field("num_value_3_indexed");
+        final KeyExpression key = GROUP_EXPRESSION;
         final RecordMetaDataHook hook = countKeyHook(key, useIndex, 0);
 
         try (FDBRecordContext context = openContext()) {
@@ -240,7 +244,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
-        KeyExpression key3 = field("num_value_3_indexed");
+        KeyExpression key3 = GROUP_EXPRESSION;
         countMetaDataHook.metaDataVersion++;
         countMetaDataHook.baseHook = countKeyHook(key3, useIndex, countMetaDataHook.metaDataVersion);
 
@@ -365,7 +369,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
             assertThat(e.getMessage(), containsString("requires appropriate index"));
         }
 
-        RecordMetaDataHook hook = countKeyHook(field("num_value_3_indexed"), true, 10);
+        RecordMetaDataHook hook = countKeyHook(GROUP_EXPRESSION, true, 10);
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -417,7 +421,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
 
         AtomicInteger versionCounter = new AtomicInteger(recordStore.getRecordMetaData().getVersion());
         RecordMetaDataHook hook = md -> {
-            md.setRecordCountKey(field("num_value_3_indexed"));
+            md.setRecordCountKey(GROUP_EXPRESSION);
             md.setVersion(md.getVersion() + versionCounter.incrementAndGet());
         };
 
@@ -526,7 +530,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
 
     @Test
     public void countRecordUpdates() {
-        final KeyExpression key = field("num_value_3_indexed");
+        final KeyExpression key = GROUP_EXPRESSION;
         final RecordMetaDataHook hook = countUpdatesKeyHook(key, 0);
         HashMap<Integer, Integer> expectedCountBuckets = new HashMap<>();
 
@@ -649,26 +653,36 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
     static Stream<Arguments> disableRecordCountKey() {
         return BooleanArguments.of("fromWriteOnly", "fromReadable")
                 .flatMap(fromWriteOnly -> BooleanArguments.of("with fallback")
-                        .map(hasFallBack -> Arguments.of(fromWriteOnly, hasFallBack)));
+                        .flatMap(hasFallBack -> BooleanArguments.of("grouped")
+                                .map(grouped -> Arguments.of(fromWriteOnly, hasFallBack, grouped))));
     }
 
     // TODO test with old format version
-    // TODO test more with grouped
     @ParameterizedTest
     @MethodSource
-    void disableRecordCountKey(boolean fromWriteOnly, boolean hasFallback) {
-        final RecordMetaDataBuilder metaDataBuilder = addUngroupedRecordCountKey(simpleMetaDataBuilder());
+    void disableRecordCountKey(boolean fromWriteOnly, boolean hasFallback, boolean grouped) {
+        final RecordMetaDataBuilder metaDataBuilder = simpleMetaDataBuilder();
+        addUngroupedRecordCountKey(metaDataBuilder, grouped ? GROUP_EXPRESSION : EmptyKeyExpression.EMPTY);
         if (hasFallback) {
-            addUngroupedCountIndex(metaDataBuilder);
+            addCountIndex(metaDataBuilder, grouped ? GROUP_EXPRESSION : EmptyKeyExpression.EMPTY);
         }
+        IntConsumer assertCount = expected -> {
+            if (grouped) {
+                for (int groupingValue = 1; groupingValue < 6; groupingValue++) {
+                    assertGroupedCount(expected / 5, 1);
+                }
+            } else {
+                assertUngroupedCount(expected);
+            }
+        };
         final RecordMetaData metaData = metaDataBuilder.build();
         saveRecords(metaData, 0, 100,
-                () -> assertUngroupedCount(0),
-                () -> assertUngroupedCount(100));
+                () -> assertCount.accept(0),
+                () -> assertCount.accept(100));
 
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData);
-            assertUngroupedCount(100);
+            assertCount.accept(100);
         }
 
         rawAssertHasRecordCount(metaData, true);
@@ -690,7 +704,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
         if (hasFallback) {
             try (FDBRecordContext context = openContext()) {
                 createOrOpenRecordStore(context, metaData);
-                assertUngroupedCount(105);
+                assertCount.accept(105);
             }
         } else {
             assertCannotGetUngroupedRecordCount(metaData);
@@ -712,7 +726,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
         // If disabled or WriteOnly, rebuilding indexes should behave the same as if the RecordCountKey didn't exist
         final RecordMetaDataBuilder builder;
         if (startsWithCountKey) {
-            builder = addUngroupedRecordCountKey(simpleMetaDataBuilder());
+            builder = addUngroupedRecordCountKey(simpleMetaDataBuilder(), EmptyKeyExpression.EMPTY);
         } else {
             builder = simpleMetaDataBuilder();
         }
@@ -747,7 +761,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
 
     @Test
     void recordCountKeyWriteOnly() {
-        final RecordMetaData metaData = addUngroupedRecordCountKey(simpleMetaDataBuilder()).build();
+        final RecordMetaData metaData = addUngroupedRecordCountKey(simpleMetaDataBuilder(), EmptyKeyExpression.EMPTY).build();
         saveRecords(metaData, 0, 100,
                 () -> assertUngroupedCount(0),
                 () -> assertUngroupedCount(100));
@@ -778,7 +792,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
 
     @Test
     void fromDisabledShouldFail() {
-        final RecordMetaData metaData = addUngroupedRecordCountKey(simpleMetaDataBuilder()).build();
+        final RecordMetaData metaData = addUngroupedRecordCountKey(simpleMetaDataBuilder(), EmptyKeyExpression.EMPTY).build();
         saveRecords(metaData, 0, 100,
                 () -> assertUngroupedCount(0),
                 () -> assertUngroupedCount(100));
@@ -805,36 +819,57 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @Test
+    void updateStateShouldFailOnOldVersion() {
+        final RecordMetaData metaData = addUngroupedRecordCountKey(simpleMetaDataBuilder(), EmptyKeyExpression.EMPTY).build();
+        saveRecords(metaData, 0, 100,
+                () -> assertUngroupedCount(0),
+                () -> assertUngroupedCount(100));
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            assertUngroupedCount(100);
+        }
+
+        updateRecordCountState(metaData, RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED);
+
+        // Once disabled we cannot change it to not disabled
+        // We could implement something to rebuild the data, but it's deprecated, and that's a fair amount of work
+        try (FDBRecordContext context1 = openContext()) {
+            createOrOpenRecordStore(context1, metaData);
+            assertThrows(RecordCoreException.class, this::markRecordCountWriteOnly);
+            context1.commit();
+        }
+    }
+
     @ParameterizedTest
     @EnumSource(RecordMetaDataProto.DataStoreInfo.RecordCountState.class)
     @SuppressWarnings("deprecation")
     void deleteWhereWhenNotReadable(RecordMetaDataProto.DataStoreInfo.RecordCountState newState) {
         // If disabled or WriteOnly, deleteWhere should work
         final RecordMetaDataBuilder recordMetaDataBuilder = simpleMetaDataBuilder();
-        final String groupingField = "num_value_3_indexed";
-        final FieldKeyExpression keyExpression = field(groupingField);
-        recordMetaDataBuilder.setRecordCountKey(keyExpression);
+        recordMetaDataBuilder.setRecordCountKey(GROUP_EXPRESSION);
         recordMetaDataBuilder.getRecordType("MySimpleRecord")
-                .setPrimaryKey(Key.Expressions.concatenateFields(groupingField, "rec_no"));
+                .setPrimaryKey(Key.Expressions.concatenateFields(GROUPING_FIELD, "rec_no"));
         recordMetaDataBuilder.getRecordType("MyOtherRecord")
-                .setPrimaryKey(Key.Expressions.concatenateFields(groupingField, "rec_no"));
+                .setPrimaryKey(Key.Expressions.concatenateFields(GROUPING_FIELD, "rec_no"));
         recordMetaDataBuilder.removeIndex("MySimpleRecord$num_value_unique");
         recordMetaDataBuilder.removeIndex("MySimpleRecord$num_value_3_indexed");
         recordMetaDataBuilder.removeIndex("MySimpleRecord$str_value_indexed");
         final RecordMetaData metaData = recordMetaDataBuilder.build();
         saveRecords(metaData, 0, 100,
-                () -> assertGroupedCount(0, keyExpression, Key.Evaluated.concatenate(1)),
+                () -> assertGroupedCount(0, 1),
                 () -> {
-                    assertGroupedCount(20, keyExpression, Key.Evaluated.concatenate(1));
-                    assertGroupedCount(20, keyExpression, Key.Evaluated.concatenate(2));
-                    assertGroupedCount(20, keyExpression, Key.Evaluated.concatenate(3));
+                    assertGroupedCount(20, 1);
+                    assertGroupedCount(20, 2);
+                    assertGroupedCount(20, 3);
                 });
 
         updateRecordCountState(metaData, newState);
 
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData);
-            recordStore.deleteRecordsWhere(Query.field(groupingField).equalsValue(2));
+            recordStore.deleteRecordsWhere(Query.field(GROUPING_FIELD).equalsValue(2));
             commit(context);
         }
 
@@ -843,7 +878,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
                 createOrOpenRecordStore(context, metaData);
                 final Key.Evaluated value = Key.Evaluated.concatenate(1);
                 final RecordCoreException recordCoreException = assertThrows(RecordCoreException.class,
-                        () -> recordStore.getSnapshotRecordCount(keyExpression, value).join());
+                        () -> recordStore.getSnapshotRecordCount(GROUP_EXPRESSION, value).join());
                 assertThat(recordCoreException.getMessage(), containsString("requires appropriate index"));
             }
         }
@@ -854,9 +889,9 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
         if (newState != RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED) {
             try (FDBRecordContext context = openContext()) {
                 createOrOpenRecordStore(context, metaData);
-                assertGroupedCount(20, keyExpression, Key.Evaluated.concatenate(1));
-                assertGroupedCount(0, keyExpression, Key.Evaluated.concatenate(2));
-                assertGroupedCount(20, keyExpression, Key.Evaluated.concatenate(3));
+                assertGroupedCount(20, 1);
+                assertGroupedCount(0, 2);
+                assertGroupedCount(20, 3);
                 commit(context);
             }
         }
@@ -907,6 +942,10 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
         assertEquals(expected, recordStore.getSnapshotRecordCount().join().longValue());
     }
 
+    private void assertGroupedCount(final int expected, final int groupingValue) {
+        assertGroupedCount(expected, GROUP_EXPRESSION, Key.Evaluated.concatenate(groupingValue));
+    }
+
     private void assertGroupedCount(final int expected, final KeyExpression key, final Key.Evaluated value) {
         assertEquals(expected, recordStore.getSnapshotRecordCount(key, value).join().longValue());
     }
@@ -947,16 +986,14 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
         return recBuilder.build();
     }
 
-    @SuppressWarnings("deprecation")
-    private static RecordMetaDataBuilder addUngroupedCountIndex(@Nonnull final RecordMetaDataBuilder recordMetaDataBuilder) {
-        addCountIndex(EmptyKeyExpression.EMPTY, -1, recordMetaDataBuilder);
-        recordMetaDataBuilder.setRecordCountKey(EmptyKeyExpression.EMPTY);
-        return recordMetaDataBuilder;
+    private static void addCountIndex(@Nonnull final RecordMetaDataBuilder recordMetaDataBuilder,
+                                                       @Nonnull final KeyExpression keyExpression) {
+        addCountIndex(keyExpression, -1, recordMetaDataBuilder);
     }
 
     @SuppressWarnings("deprecation")
-    private static RecordMetaDataBuilder addUngroupedRecordCountKey(@Nonnull final RecordMetaDataBuilder recordMetaDataBuilder) {
-        recordMetaDataBuilder.setRecordCountKey(EmptyKeyExpression.EMPTY);
+    private static RecordMetaDataBuilder addUngroupedRecordCountKey(@Nonnull final RecordMetaDataBuilder recordMetaDataBuilder, final KeyExpression keyExpression) {
+        recordMetaDataBuilder.setRecordCountKey(keyExpression);
         return recordMetaDataBuilder;
     }
 
