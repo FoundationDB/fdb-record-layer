@@ -44,7 +44,6 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.test.BooleanArguments;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
@@ -651,9 +650,9 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
     }
 
     static Stream<Arguments> disableRecordCountKey() {
-        return BooleanArguments.of("fromWriteOnly", "fromReadable")
-                .flatMap(fromWriteOnly -> BooleanArguments.of("with fallback")
-                        .flatMap(hasFallBack -> BooleanArguments.of("grouped")
+        return Stream.of(true, false)
+                .flatMap(fromWriteOnly -> Stream.of(true, false)
+                        .flatMap(hasFallBack -> Stream.of(true, false)
                                 .map(grouped -> Arguments.of(fromWriteOnly, hasFallBack, grouped))));
     }
 
@@ -714,8 +713,8 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
     }
 
     static Stream<Arguments> shouldNotRebuildIndexesWhenNotReadable() {
-        return BooleanArguments.of("startsWithCountKey")
-                .flatMap(startsWithCountKey -> BooleanArguments.of("disabled", "WriteOnly")
+        return Stream.of(true, false)
+                .flatMap(startsWithCountKey -> Stream.of(true, false)
                         .map(disabled -> Arguments.of(startsWithCountKey, disabled)));
     }
 
