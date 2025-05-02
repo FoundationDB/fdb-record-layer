@@ -39,4 +39,9 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @ArgumentsSource(BooleanArgumentsProvider.class)
 public @interface BooleanSource {
+    /**
+     * A name to give the boolean values; if unspecified, {@code "true"} and {@code "false"} will be used.
+     * @return the name
+     */
+    String name() default "";
 }
