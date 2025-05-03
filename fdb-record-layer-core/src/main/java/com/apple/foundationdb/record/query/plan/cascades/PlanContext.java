@@ -33,7 +33,7 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public interface PlanContext {
-    static PlanContext EMPTY_CONTEXT = new PlanContext() {
+    PlanContext EMPTY_CONTEXT = new PlanContext() {
         @Nonnull
         @Override
         public RecordQueryPlannerConfiguration getPlannerConfiguration() {

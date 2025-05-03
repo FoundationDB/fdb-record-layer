@@ -266,6 +266,19 @@ public class ConstraintsMap {
         watermarkCommittedTick = currentTick;
     }
 
+    public void advancePlannerPhase() {
+        // remove all constraints previously pushed and already committed
+        for (final var iterator = this.attributeToConstraintMap.entrySet().iterator(); iterator.hasNext(); ) {
+            final var entry = iterator.next();
+            final var constraintEntry = entry.getValue();
+            if (constraintEntry.lastUpdatedTick < watermarkCommittedTick) {
+                iterator.remove();
+            }
+        }
+        this.watermarkGoalTick = -1L;
+        this.watermarkCommittedTick = -1L;
+    }
+
     @CanIgnoreReturnValue
     private long bumpTick() {
         return ++currentTick;

@@ -469,6 +469,9 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                                                       final boolean shouldSimplifyValues,
                                                       @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.isEmpty());
+        if (translationMap.definesOnlyIdentities()) {
+            return this;
+        }
         return withIndexScanParameters(scanParameters.translateCorrelations(translationMap, shouldSimplifyValues));
     }
 

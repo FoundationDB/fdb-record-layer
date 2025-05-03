@@ -799,6 +799,11 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     }
 
     @Nonnull
+    default RelationalExpression withQuantifiers(@Nonnull List<? extends Quantifier> newQuantifiers) {
+        return translateCorrelations(TranslationMap.empty(), false, newQuantifiers);
+    }
+
+    @Nonnull
     RelationalExpression translateCorrelations(@Nonnull TranslationMap translationMap,
                                                boolean shouldSimplifyValues,
                                                @Nonnull List<? extends Quantifier> translatedQuantifiers);

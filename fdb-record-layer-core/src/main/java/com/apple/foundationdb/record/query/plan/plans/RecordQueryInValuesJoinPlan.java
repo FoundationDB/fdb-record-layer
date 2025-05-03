@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.HeuristicPlanner;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -33,6 +34,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -61,13 +63,14 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
         super(serializationContext, Objects.requireNonNull(recordQueryInValuesJoinPlanProto.getSuper()));
     }
 
+    @HeuristicPlanner
     public RecordQueryInValuesJoinPlan(final RecordQueryPlan plan,
                                        @Nonnull final String bindingName,
                                        @Nonnull final Bindings.Internal internal,
                                        @Nonnull final List<Object> values,
                                        final boolean sortValues,
                                        final boolean sortReverse) {
-        this(Quantifier.physical(Reference.initial(plan)),
+        this(Quantifier.physical(Reference.planned(Debugger.verifyHeuristicPlanner(plan))),
                 bindingName,
                 internal,
                 values,

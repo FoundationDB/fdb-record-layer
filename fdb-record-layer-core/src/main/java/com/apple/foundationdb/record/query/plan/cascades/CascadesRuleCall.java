@@ -387,6 +387,13 @@ public class CascadesRuleCall implements PlannerRuleCall<RelationalExpression>, 
 
     @Nonnull
     @Override
+    public Reference memoizeMemberExpressions(@Nonnull final Reference reference,
+                                              @Nonnull final Collection<? extends RelationalExpression> expressions) {
+        return memoizeFinalExpressionsExactly(expressions, reference::newReferenceFromFinalMembers);
+    }
+
+    @Nonnull
+    @Override
     public Reference memoizeFinalExpression(@Nonnull final RelationalExpression expression) {
         return memoizeFinalExpressionsExactly(ImmutableList.of(expression),
                 expressions ->
@@ -431,7 +438,8 @@ public class CascadesRuleCall implements PlannerRuleCall<RelationalExpression>, 
             }
             return newRef;
         } finally {
-            Debugger.withDebugger(debugger -> debugger.onEvent(Debugger.InsertIntoMemoEvent.end()));
+            Debugger.withDebugger(debugger -> expressions.forEach(
+                    expression -> debugger.onEvent(Debugger.InsertIntoMemoEvent.end())));
         }
     }
 

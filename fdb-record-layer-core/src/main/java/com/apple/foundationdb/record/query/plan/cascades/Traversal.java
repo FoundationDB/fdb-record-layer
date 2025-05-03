@@ -162,9 +162,20 @@ public class Traversal {
     public void removeExpression(@Nonnull final Reference reference, @Nonnull final RelationalExpression expression) {
         final var referencePaths = ImmutableSet.copyOf(network.inEdges(reference));
 
+        final var childrenReferences = new LinkedIdentitySet<Reference>();
         for (final var referencePath : referencePaths) {
             if (referencePath.expression == expression) {
                 network.removeEdge(referencePath);
+            }
+            childrenReferences.add(referencePath.getQuantifier().getRangesOver());
+        }
+
+        for (final var childReference : childrenReferences) {
+            if (network.outDegree(childReference) == 0) {
+                for (final var memberExpression : childReference.getAllMemberExpressions()) {
+                    removeExpression(childReference, memberExpression);
+                }
+                network.removeNode(childReference);
             }
         }
 

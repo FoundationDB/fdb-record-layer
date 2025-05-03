@@ -48,6 +48,7 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PTran
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PTransformRuleCallEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PTranslateCorrelationsEvent;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.Message;
@@ -116,6 +117,24 @@ public interface Debugger {
         if (debugger != null) {
             action.accept(debugger);
         }
+    }
+
+    static void verifyHeuristicPlanner() {
+        Verify.verify(!isCascades());
+    }
+
+    @Nonnull
+    static <T> T verifyHeuristicPlanner(@Nonnull T in) {
+        Verify.verify(!isCascades());
+        return in;
+    }
+
+    /**
+     * Returns iff the cascades planner is currently planning a query.
+     */
+    static boolean isCascades() {
+        return mapDebugger(debugger -> debugger.getPlanContext() != null)
+                .orElse(false);
     }
 
     /**
@@ -187,6 +206,9 @@ public interface Debugger {
 
     @Nullable
     String nameForObject(@Nonnull Object object);
+
+    @Nullable
+    PlanContext getPlanContext();
 
     boolean isSane();
 

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.HeuristicPlanner;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -40,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -110,12 +112,14 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
      *
      * @return a new plan that will compare all results from child plans
      */
+    @HeuristicPlanner
     @Nonnull
     @VisibleForTesting
     public static RecordQueryComparatorPlan from(@Nonnull List<? extends RecordQueryPlan> children,
                                                  @Nonnull KeyExpression comparisonKey,
                                                  final int referencePlanIndex,
                                                  final boolean abortOnComparisonFailure) {
+        Debugger.verifyHeuristicPlanner();
         if (children.isEmpty()) {
             throw new RecordCoreArgumentException("Comparator plan should have at least one plan");
         }
@@ -125,7 +129,7 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
 
         final ImmutableList.Builder<Reference> childRefsBuilder = ImmutableList.builder();
         for (RecordQueryPlan child : children) {
-            childRefsBuilder.add(Reference.initial(child));
+            childRefsBuilder.add(Reference.planned(child));
         }
         return new RecordQueryComparatorPlan(Quantifiers.fromPlans(childRefsBuilder.build()), comparisonKey, referencePlanIndex, abortOnComparisonFailure);
     }

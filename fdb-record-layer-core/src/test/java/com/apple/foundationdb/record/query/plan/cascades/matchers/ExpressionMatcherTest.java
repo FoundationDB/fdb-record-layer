@@ -100,7 +100,7 @@ public class ExpressionMatcherTest {
     public void anyRefMatcher() {
         // create a matcher and expression to match
         BindingMatcher<? extends Reference> matcher = ReferenceMatchers.anyRef();
-        Quantifier.ForEach quantifier = Quantifier.forEach(Reference.initial(new RecordQueryScanPlan(ScanComparisons.EMPTY, false)));
+        Quantifier.ForEach quantifier = Quantifier.forEach(Reference.planned(new RecordQueryScanPlan(ScanComparisons.EMPTY, false)));
         Reference root = Reference.initial(
                 new LogicalFilterExpression(
                         ImmutableList.of(new ConstantPredicate(true)),
@@ -122,7 +122,7 @@ public class ExpressionMatcherTest {
         BindingMatcher<RecordQueryIndexPlan> matcher = RecordQueryPlanMatchers.indexPlan();
         final IndexScanParameters fullValueScan = IndexScanComparisons.byValue();
         final Reference root =
-                Reference.initial(new RecordQueryIndexPlan("an_index", fullValueScan, true));
+                Reference.planned(new RecordQueryIndexPlan("an_index", fullValueScan, true));
         Optional<PlannerBindings> newBindings = matcher.bindMatches(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(), PlannerBindings.empty(), root.get()).findFirst();
         // check the bindings are what we expect, and that none of the existing ones were clobbered
         assertTrue(newBindings.isPresent());
@@ -223,7 +223,7 @@ public class ExpressionMatcherTest {
         QueryComponent andBranch2 = Query.field("field2").equalsParameter("param");
         IndexScanParameters fullValueScan = IndexScanComparisons.byValue();
         final var baseRef =
-                Reference.initial(new RecordQueryIndexPlan("an_index",
+                Reference.planned(new RecordQueryIndexPlan("an_index",
                         null,
                         fullValueScan,
                         IndexFetchMethod.SCAN_AND_FETCH,
@@ -243,7 +243,7 @@ public class ExpressionMatcherTest {
         RelationalExpression root =
                 new LogicalUnionExpression(
                         Quantifiers.forEachQuantifiers(ImmutableList.of(Reference.initial(filterPlan),
-                                Reference.initial(scanPlan))));
+                                Reference.planned(scanPlan))));
 
         assertTrue(filterPlanMatcher.bindMatches(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(), PlannerBindings.empty(), filterPlan).findFirst().isPresent());
 

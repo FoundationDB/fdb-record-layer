@@ -55,6 +55,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -251,11 +252,18 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     public RecordQueryAggregateIndexPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                                final boolean shouldSimplifyValues,
                                                                @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        Verify.verify(translatedQuantifiers.isEmpty());
+        if (translationMap.definesOnlyIdentities()) {
+            // no new quantifiers and no translations
+            return this;
+        }
+
         final var translatedIndexPlan = indexPlan.translateCorrelations(translationMap,
                 shouldSimplifyValues, translatedQuantifiers);
         final var newResultValue = resultValue.translateCorrelations(translationMap, shouldSimplifyValues);
         final var newGroupByResultValue = groupByResultValue.translateCorrelations(translationMap, shouldSimplifyValues);
 
+        // this is ok as there are no new quantifiers
         if (translatedIndexPlan != indexPlan || newResultValue != resultValue || newGroupByResultValue != groupByResultValue) {
             return new RecordQueryAggregateIndexPlan(translatedIndexPlan, recordTypeName, toRecord, newResultValue,
                     newGroupByResultValue, constraint);

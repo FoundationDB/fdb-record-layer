@@ -200,17 +200,21 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                       final boolean shouldSimplifyValues,
                                                       @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        final AggregateValue translatedAggregateValue =
-                (AggregateValue)getAggregateValue().translateCorrelations(translationMap, shouldSimplifyValues);
-        final Value translatedGroupingValue = getGroupingValue() == null
-                ? null
-                : getGroupingValue().translateCorrelations(translationMap, shouldSimplifyValues);
-        Verify.verify(translatedGroupingValue instanceof FieldValue);
-        if (translatedAggregateValue != getAggregateValue() || translatedGroupingValue != getGroupingValue()) {
+        Verify.verify(translatedQuantifiers.size() == 1);
+        if (translationMap.definesOnlyIdentities()) {
+            return new GroupByExpression(getGroupingValue(), getAggregateValue(), resultValueFunction,
+                    Iterables.getOnlyElement(translatedQuantifiers));
+        } else {
+            final AggregateValue translatedAggregateValue =
+                    (AggregateValue)getAggregateValue().translateCorrelations(translationMap, shouldSimplifyValues);
+            final Value translatedGroupingValue = getGroupingValue() == null
+                                                  ? null
+                                                  : getGroupingValue().translateCorrelations(translationMap, shouldSimplifyValues);
+            // TODO not sure why this is necessary
+            Verify.verify(translatedGroupingValue instanceof FieldValue);
             return new GroupByExpression(translatedGroupingValue, translatedAggregateValue, resultValueFunction,
                     Iterables.getOnlyElement(translatedQuantifiers));
         }
-        return this;
     }
 
     @Override

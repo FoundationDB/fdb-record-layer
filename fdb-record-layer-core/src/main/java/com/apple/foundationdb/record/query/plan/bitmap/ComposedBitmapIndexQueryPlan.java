@@ -192,21 +192,18 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
     public ComposedBitmapIndexQueryPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                               final boolean shouldSimplifyValues,
                                                               @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        if (translationMap.definesOnlyIdentities()) {
+            return new ComposedBitmapIndexQueryPlan(indexPlans, composer);
+        }
+
         final var translatedIndexPlansBuilder = ImmutableList.<RecordQueryCoveringIndexPlan>builder();
-        boolean allAreSame = true;
         for (final var indexPlan : indexPlans) {
             final var translatedIndexPlan =
                     indexPlan.translateCorrelations(translationMap, shouldSimplifyValues, translatedQuantifiers);
-            if (translatedIndexPlan != indexPlan) {
-                allAreSame = false;
-            }
             translatedIndexPlansBuilder.add(translatedIndexPlan);
         }
 
-        if (!allAreSame) {
-            return new ComposedBitmapIndexQueryPlan(translatedIndexPlansBuilder.build(), composer);
-        }
-        return this;
+        return new ComposedBitmapIndexQueryPlan(translatedIndexPlansBuilder.build(), composer);
     }
 
     @Nonnull

@@ -50,6 +50,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -96,6 +97,10 @@ public class RecordQueryTableFunctionPlan implements RecordQueryPlanWithNoChildr
     public RecordQueryTableFunctionPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                               final boolean shouldSimplifyValues,
                                                               @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        Verify.verify(translatedQuantifiers.isEmpty());
+        if (translationMap.definesOnlyIdentities()) {
+            return this;
+        }
         final Value translatedValue = value.translateCorrelations(translationMap, shouldSimplifyValues);
         if (translatedValue != value) {
             return new RecordQueryTableFunctionPlan((StreamingValue)translatedValue);

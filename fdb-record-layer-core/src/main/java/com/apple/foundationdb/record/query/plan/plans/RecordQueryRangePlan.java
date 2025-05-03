@@ -161,7 +161,12 @@ public class RecordQueryRangePlan implements RecordQueryPlanWithNoChildren {
     public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                       final boolean shouldSimplifyValues,
                                                       @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        final var translatedExclusiveLimitValue = exclusiveLimitValue.translateCorrelations(translationMap, shouldSimplifyValues);
+        Verify.verify(translatedQuantifiers.isEmpty());
+        if (translationMap.definesOnlyIdentities()) {
+            return this;
+        }
+        final var translatedExclusiveLimitValue =
+                exclusiveLimitValue.translateCorrelations(translationMap, shouldSimplifyValues);
         if (translatedExclusiveLimitValue == exclusiveLimitValue) {
             return this;
         }

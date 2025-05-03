@@ -106,10 +106,8 @@ public class Reference implements Correlated<Reference>, Typed {
         this.finalMembers = new Members(finalExpressions);
         this.partialMatchMap = LinkedHashMultimap.create();
         this.constraintsMap = new ConstraintsMap();
-        // TODO create based on the (yet) non-existing planner stage
-        this.propertiesMap = new PlanPropertiesMap(finalExpressions.stream()
-                .filter(m -> m instanceof RecordQueryPlan)
-                .collect(Collectors.toList()));
+        this.propertiesMap = plannerStage.createPropertiesMap();
+        finalExpressions.forEach(finalExpression -> propertiesMap.add(finalExpression));
         allMembersSupplier = Suppliers.memoize(() -> exploratoryMembers.concatExpressions(finalMembers));
         // Call debugger hook for this new reference.
         Debugger.registerReference(this);
@@ -131,7 +129,9 @@ public class Reference implements Correlated<Reference>, Typed {
     }
 
     public void advancePlannerStage(@Nonnull final PlannerStage newStage) {
+        System.out.println(Debugger.mapDebugger(debugger -> debugger.nameForObject(this)));
         this.plannerStage = newStage;
+        constraintsMap.advancePlannerPhase();
         this.propertiesMap = plannerStage.createPropertiesMap();
         exploratoryMembers.clear();
         exploratoryMembers.add(finalMembers.getOnlyElement());
@@ -186,7 +186,7 @@ public class Reference implements Correlated<Reference>, Typed {
     public void pruneWith(@Nonnull final RelationalExpression expression) {
         Verify.verify(isFinal(expression));
         final var properties = propertiesMap.getCurrentProperties(expression);
-        clear();
+        clearFinalExpressions();
         insertUnchecked(expression, true, properties);
     }
 
@@ -392,9 +392,8 @@ public class Reference implements Correlated<Reference>, Typed {
                 .orElseThrow(() -> new RecordCoreException("unable to resolve result values"));
     }
 
-    public void clear() {
+    public void clearFinalExpressions() {
         propertiesMap.clear();
-        exploratoryMembers.clear();
         finalMembers.clear();
     }
 
@@ -426,6 +425,10 @@ public class Reference implements Correlated<Reference>, Typed {
         return constraintsMap.isExploredForAttributes(dependencies);
     }
 
+    public void setExplored() {
+        constraintsMap.setExplored();
+    }
+
     @Nonnull
     public Set<RelationalExpression> getExploratoryExpressions() {
         return exploratoryMembers.getExpressions();
@@ -454,7 +457,7 @@ public class Reference implements Correlated<Reference>, Typed {
         Verify.verify(getFinalExpressions().containsAll(expressions));
 
         final var newRef = Reference.of(getPlannerStage(), ImmutableList.of(), expressions);
-        newRef.getConstraintsMap().setExplored();
+        newRef.setExplored();
         return newRef;
     }
 
@@ -665,18 +668,23 @@ public class Reference implements Correlated<Reference>, Typed {
     }
 
     @Nonnull
-    public static Reference initial(@Nonnull RelationalExpression expression) {
+    public static Reference initial(@Nonnull final RelationalExpression expression) {
         return ofFinalExpression(PlannerStage.INITIAL, expression);
     }
 
     @Nonnull
-    public static Reference initials(@Nonnull RelationalExpression... expressions) {
+    public static Reference initials(@Nonnull final RelationalExpression... expressions) {
         return initials(Arrays.asList(expressions));
     }
 
     @Nonnull
-    public static Reference initials(@Nonnull Collection<? extends RelationalExpression> expressions) {
+    public static Reference initials(@Nonnull final Collection<? extends RelationalExpression> expressions) {
         return ofFinalExpressions(PlannerStage.INITIAL, expressions);
+    }
+
+    @Nonnull
+    public static Reference planned(@Nonnull final RecordQueryPlan plan) {
+        return ofFinalExpression(PlannerStage.PLANNED, plan);
     }
 
     @Nonnull

@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.rules.FinalizeExpressionsRule;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 
@@ -37,11 +38,12 @@ import java.util.Set;
 public class RewritingRuleSet extends CascadesRuleSet {
     private static final Set<CascadesRule<? extends RelationalExpression>> NORMALIZATION_RULES = ImmutableSet.of();
     private static final Set<CascadesRule<? extends RelationalExpression>> REWRITE_RULES = ImmutableSet.of(
-            // new PredicatePushDownRule()
     );
     private static final Set<CascadesRule<? extends RelationalExpression>> PREORDER_RULES = ImmutableSet.of();
 
-    private static final Set<CascadesRule<? extends RelationalExpression>> IMPLEMENTATION_RULES = ImmutableSet.of();
+    private static final Set<CascadesRule<? extends RelationalExpression>> IMPLEMENTATION_RULES = ImmutableSet.of(
+            new FinalizeExpressionsRule()
+    );
 
     private static final Set<CascadesRule<? extends RelationalExpression>> EXPLORATION_RULES =
             ImmutableSet.<CascadesRule<? extends RelationalExpression>>builder()

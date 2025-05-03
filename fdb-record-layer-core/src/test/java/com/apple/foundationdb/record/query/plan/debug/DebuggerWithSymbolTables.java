@@ -97,6 +97,7 @@ public class DebuggerWithSymbolTables implements Debugger {
     }
 
     @Nullable
+    @Override
     public PlanContext getPlanContext() {
         return planContext;
     }

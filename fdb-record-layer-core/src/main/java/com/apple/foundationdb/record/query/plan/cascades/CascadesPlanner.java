@@ -49,6 +49,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Refe
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
+import com.google.common.collect.Iterables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -372,19 +373,21 @@ public class CascadesPlanner implements QueryPlanner {
     }
 
     private RecordQueryPlan resultOrFail() {
-        final RelationalExpression singleRoot = currentRoot.get();
-        if (singleRoot instanceof RecordQueryPlan) {
-            if (logger.isDebugEnabled()) {
-                logger.debug(KeyValueLogMessage.of("GML explain of plan",
-                        "explain", PlannerGraphVisitor.explain(singleRoot)));
-                logger.debug(KeyValueLogMessage.of("string explain of plan",
-                        "explain", ExplainPlanVisitor.toStringForDebugging((RecordQueryPlan)singleRoot)));
-            }
-            return (RecordQueryPlan)singleRoot;
-        } else {
-            throw new UnableToPlanException("Cascades planner could not plan query")
-                    .addLogInfo("finalExpression", currentRoot.get());
+        final Set<RelationalExpression> finalExpressions = currentRoot.getFinalExpressions();
+        Verify.verify(finalExpressions.size() <= 1, "more than one variant present");
+        if (finalExpressions.isEmpty()) {
+            throw new UnableToPlanException("Cascades planner could not plan query");
         }
+
+        final RelationalExpression singleRoot = Iterables.getOnlyElement(finalExpressions);
+        Verify.verify(singleRoot instanceof RecordQueryPlan, "single remaining variant must be a plan");
+        if (logger.isDebugEnabled()) {
+            logger.debug(KeyValueLogMessage.of("GML explain of plan",
+                    "explain", PlannerGraphVisitor.explain(singleRoot)));
+            logger.debug(KeyValueLogMessage.of("string explain of plan",
+                    "explain", ExplainPlanVisitor.toStringForDebugging((RecordQueryPlan)singleRoot)));
+        }
+        return (RecordQueryPlan)singleRoot;
     }
 
     private void planPartial(@Nonnull final Supplier<Reference> referenceSupplier,
@@ -588,7 +591,7 @@ public class CascadesPlanner implements QueryPlanner {
                 }
             }
             if (bestFinalExpression == null) {
-                group.clear();
+                group.clearFinalExpressions();
             } else {
                 group.pruneWith(bestFinalExpression);
             }
@@ -640,6 +643,11 @@ public class CascadesPlanner implements QueryPlanner {
                 return;
             } else if (plannerPhase.getTargetStage().ordinal() > group.getPlannerStage().ordinal()) {
                 // group needs to be bumped to the current target stage
+
+                for (final var exploratoryExpression : group.getExploratoryExpressions()) {
+                    traversal.removeExpression(group, exploratoryExpression);
+                }
+
                 group.advancePlannerStage(plannerPhase.getTargetStage());
                 //
                 // All final expression properties are reset, all final members have been cleared.

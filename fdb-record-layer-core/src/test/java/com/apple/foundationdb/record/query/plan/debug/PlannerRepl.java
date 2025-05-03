@@ -140,6 +140,7 @@ public class PlannerRepl implements Debugger {
     }
 
     @Nullable
+    @Override
     public PlanContext getPlanContext() {
         return planContext;
     }

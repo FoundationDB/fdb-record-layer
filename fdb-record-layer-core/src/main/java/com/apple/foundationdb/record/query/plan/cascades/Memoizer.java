@@ -38,6 +38,10 @@ public interface Memoizer {
     Reference memoizeExploratoryExpression(@Nonnull RelationalExpression expression);
 
     @Nonnull
+    Reference memoizeMemberExpressions(@Nonnull Reference reference,
+                                       @Nonnull Collection<? extends RelationalExpression> expressions);
+
+    @Nonnull
     Reference memoizeFinalExpression(@Nonnull RelationalExpression expression);
 
     @Nonnull

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.HeuristicPlanner;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -42,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedOr
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -310,14 +312,16 @@ public abstract class RecordQueryIntersectionPlan implements RecordQueryPlanWith
      * @param comparisonKey a key expression by which the results of both plans are ordered
      * @return a new plan that will return the intersection of all results from both child plans
      */
+    @HeuristicPlanner
     @Nonnull
     public static RecordQueryIntersectionOnKeyExpressionPlan from(@Nonnull final RecordQueryPlan left,
                                                                   @Nonnull final RecordQueryPlan right,
                                                                   @Nonnull final KeyExpression comparisonKey) {
+        Debugger.verifyHeuristicPlanner();
         if (left.isReverse() != right.isReverse()) {
             throw new RecordCoreArgumentException("left plan and right plan for union do not have same value for reverse field");
         }
-        final List<Reference> childRefs = ImmutableList.of(Reference.initial(left), Reference.initial(right));
+        final List<Reference> childRefs = ImmutableList.of(Reference.planned(left), Reference.planned(right));
         return new RecordQueryIntersectionOnKeyExpressionPlan(Quantifiers.fromPlans(childRefs), comparisonKey, left.isReverse());
     }
 
@@ -332,9 +336,11 @@ public abstract class RecordQueryIntersectionPlan implements RecordQueryPlanWith
      * @param comparisonKey a key expression by which the results of both plans are ordered
      * @return a new plan that will return the intersection of all results from both child plans
      */
+    @HeuristicPlanner
     @Nonnull
     public static RecordQueryIntersectionOnKeyExpressionPlan from(@Nonnull final List<? extends RecordQueryPlan> children,
                                                                   @Nonnull final KeyExpression comparisonKey) {
+        Debugger.verifyHeuristicPlanner();
         if (children.size() < 2) {
             throw new RecordCoreArgumentException("fewer than two children given to union plan");
         }
@@ -344,7 +350,7 @@ public abstract class RecordQueryIntersectionPlan implements RecordQueryPlanWith
         }
         final ImmutableList.Builder<Reference> childRefsBuilder = ImmutableList.builder();
         for (RecordQueryPlan child : children) {
-            childRefsBuilder.add(Reference.initial(child));
+            childRefsBuilder.add(Reference.planned(child));
         }
         return new RecordQueryIntersectionOnKeyExpressionPlan(Quantifiers.fromPlans(childRefsBuilder.build()), comparisonKey, firstReverse);
     }

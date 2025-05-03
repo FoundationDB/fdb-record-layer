@@ -292,13 +292,24 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public RecordQueryScanPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                      final boolean shouldSimplifyValues,
                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        Verify.verify(translatedQuantifiers.isEmpty());
+        if (translationMap.definesOnlyIdentities()) {
+            return this;
+        }
+        final var translatedComparisons =
+                comparisons.translateCorrelations(translationMap, shouldSimplifyValues);
+        if (translatedComparisons == comparisons) {
+            return this;
+        }
+
         return new RecordQueryScanPlan(recordTypes,
                 flowedType,
                 commonPrimaryKey,
-                comparisons.translateCorrelations(translationMap, shouldSimplifyValues),
+                translatedComparisons,
                 reverse,
                 strictlySorted,
                 matchCandidateOptional);

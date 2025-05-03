@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.HeuristicPlanner;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
@@ -34,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -70,12 +72,14 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
     @Nonnull
     private final QueryComponent conjunctedFilter;
 
+    @HeuristicPlanner
     public RecordQueryFilterPlan(@Nonnull RecordQueryPlan inner, @Nonnull List<QueryComponent> filters) {
-        this(Quantifier.physical(Reference.initial(inner)), filters);
+        this(Quantifier.physical(Reference.planned(Debugger.verifyHeuristicPlanner(inner))), filters);
     }
 
+    @HeuristicPlanner
     public RecordQueryFilterPlan(@Nonnull RecordQueryPlan inner, @Nonnull QueryComponent filter) {
-        this(Quantifier.physical(Reference.initial(inner)), ImmutableList.of(filter));
+        this(Quantifier.physical(Reference.planned(Debugger.verifyHeuristicPlanner(inner))), ImmutableList.of(filter));
     }
 
     public RecordQueryFilterPlan(@Nonnull Quantifier.Physical inner,

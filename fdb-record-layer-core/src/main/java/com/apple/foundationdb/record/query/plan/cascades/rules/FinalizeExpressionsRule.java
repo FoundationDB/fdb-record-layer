@@ -36,7 +36,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
-
 import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
@@ -46,8 +45,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.anyExploratoryExpression;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.explodeExpression;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalUnionExpression;
 
 /**
  * A rule that implements an unordered union of its (already implemented) children. This will extract the
@@ -84,17 +81,21 @@ public class FinalizeExpressionsRule extends CascadesRule<RelationalExpression> 
     }
 
     @Override
+    @SuppressWarnings("UnstableApiUsage")
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var bindings = call.getBindings();
-        final var planPartitions = bindings.getAll(childPartitionsMatcher);
+        final var exploratoryExpression = bindings.get(root);
+        final var partitions = bindings.getAll(childPartitionsMatcher);
         final var allQuantifiers = bindings.get(allQuantifiersMatcher);
 
-        final ImmutableList<Quantifier.Physical> quantifiers =
-                Streams.zip(planPartitions.stream(), allQuantifiers.stream(),
-                                (planPartition, quantifier) -> call.memoizeMemberPlans(quantifier.getRangesOver(), planPartition.getPlans()))
-                        .map(Quantifier::physical)
+        final var newQuantifiers =
+                Streams.zip(partitions.stream(), allQuantifiers.stream(),
+                                (partition, quantifier) -> {
+                                    final var reference = call.memoizeMemberExpressions(quantifier.getRangesOver(), partition.getExpressions());
+                                    return quantifier.toBuilder().build(reference);
+                                })
                         .collect(ImmutableList.toImmutableList());
 
-        call.yieldPlan(RecordQueryUnorderedUnionPlan.fromQuantifiers(quantifiers));
+        call.yieldFinalExpression(exploratoryExpression.withQuantifiers(newQuantifiers));
     }
 }

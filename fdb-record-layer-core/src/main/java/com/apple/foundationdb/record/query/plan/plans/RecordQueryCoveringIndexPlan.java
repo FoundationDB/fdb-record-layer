@@ -53,6 +53,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.IndexedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Message;
@@ -227,6 +228,11 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
     public RecordQueryCoveringIndexPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                               final boolean shouldSimplifyValues,
                                                               @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        Verify.verify(translatedQuantifiers.isEmpty());
+        if (translationMap.definesOnlyIdentities()) {
+            return this;
+        }
+
         final var translatedIndexPlan =
                 indexPlan.translateCorrelations(translationMap, shouldSimplifyValues, translatedQuantifiers);
         if (translatedIndexPlan != indexPlan) {
