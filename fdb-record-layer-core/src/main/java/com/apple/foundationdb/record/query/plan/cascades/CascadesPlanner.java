@@ -660,8 +660,12 @@ public class CascadesPlanner implements QueryPlanner {
 
             if (group.needsExploration()) {
                 taskStack.push(this);
-                for (final RelationalExpression expression : group.getAllMemberExpressions()) {
+
+                for (final RelationalExpression expression : group.getFinalExpressions()) {
                     exploreExpressionAndOptimizeInputs(plannerPhase, group, expression, false);
+                }
+                for (final RelationalExpression expression : group.getExploratoryExpressions()) {
+                    exploreExpression(plannerPhase, group, expression, false);
                 }
                 group.startExploration();
             } else {

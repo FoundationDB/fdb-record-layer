@@ -86,6 +86,7 @@ public interface Memoizer {
      */
     interface ReferenceOfPlansBuilder extends ReferenceBuilder {
         @Nonnull
+        @Override
         Set<? extends RecordQueryPlan> members();
     }
 }

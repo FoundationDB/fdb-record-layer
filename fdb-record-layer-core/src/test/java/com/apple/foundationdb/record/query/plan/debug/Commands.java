@@ -310,7 +310,12 @@ public class Commands {
                                       @Nonnull final Event event,
                                       @Nonnull final ParsedLine parsedLine) {
             final State state = plannerRepl.getCurrentState();
-            final Event e = state.getEvents().get(state.getCurrentTick());
+            final List<Event> events = state.getEvents();
+            if (events == null) {
+                plannerRepl.printlnError("Configuration mandates to not record events. Please turn on event recording and restart.");
+                return false;
+            }
+            final Event e = events.get(state.getCurrentTick());
             plannerRepl.withProcessors(e, processor -> processor.onDetail(plannerRepl, e));
             return false;
         }
@@ -337,9 +342,13 @@ public class Commands {
                                       @Nonnull final Event event,
                                       @Nonnull final ParsedLine parsedLine) {
             final State state = plannerRepl.getCurrentState();
-            final List<Event> eventList = state.getEvents();
-            for (int tick = 0; tick < eventList.size(); tick++) {
-                final Event e = eventList.get(tick);
+            final List<Event> events = state.getEvents();
+            if (events == null) {
+                plannerRepl.printlnError("Configuration mandates to not record events. Please turn on event recording and restart.");
+                return false;
+            }
+            for (int tick = 0; tick < events.size(); tick++) {
+                final Event e = events.get(tick);
                 if (state.getCurrentTick() == tick) {
                     plannerRepl.printHighlighted("==> ");
                 } else {

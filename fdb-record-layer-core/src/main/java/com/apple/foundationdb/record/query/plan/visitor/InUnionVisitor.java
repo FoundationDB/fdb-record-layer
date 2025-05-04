@@ -59,7 +59,7 @@ public class InUnionVisitor extends RecordQueryPlannerSubstitutionVisitor {
             }
 
             recordQueryPlan = new RecordQueryFetchFromPartialRecordPlan(
-                    inUnionPlan.withChild(Reference.initial(removedFetchPlan)),
+                    inUnionPlan.withChild(Reference.planned(removedFetchPlan)),
                     TranslateValueFunction.unableToTranslate(),
                     new Type.Any(),
                     fetchIndexRecords);

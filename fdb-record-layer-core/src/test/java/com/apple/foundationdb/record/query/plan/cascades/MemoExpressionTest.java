@@ -152,7 +152,7 @@ public class MemoExpressionTest {
             // Generate a random expression and insert it at the root.
             SyntheticPlannerExpression expression = SyntheticPlannerExpression.generate(random, 5);
             trackingSet.add(expression);
-            reference.insert(expression, false);
+            reference.insert(expression, true);
             assertTrue(reference.containsInMemo(expression, true));
             if (i % 5 == 0) {
                 sample.insert(expression, true);

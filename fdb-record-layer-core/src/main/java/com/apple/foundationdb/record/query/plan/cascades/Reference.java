@@ -129,10 +129,9 @@ public class Reference implements Correlated<Reference>, Typed {
     }
 
     public void advancePlannerStage(@Nonnull final PlannerStage newStage) {
-        System.out.println(Debugger.mapDebugger(debugger -> debugger.nameForObject(this)));
         this.plannerStage = newStage;
         constraintsMap.advancePlannerPhase();
-        this.propertiesMap = plannerStage.createPropertiesMap();
+        this.propertiesMap = newStage.createPropertiesMap();
         exploratoryMembers.clear();
         exploratoryMembers.add(finalMembers.getOnlyElement());
         finalMembers.clear();
@@ -175,7 +174,7 @@ public class Reference implements Correlated<Reference>, Typed {
      * @param plan new expression to replace members of this reference.
      */
     public synchronized void replace(@Nonnull final RecordQueryPlan plan) {
-        pruneWith(plan);
+        pruneWithUnchecked(plan);
     }
 
     /**
@@ -185,6 +184,10 @@ public class Reference implements Correlated<Reference>, Typed {
      */
     public void pruneWith(@Nonnull final RelationalExpression expression) {
         Verify.verify(isFinal(expression));
+        pruneWithUnchecked(expression);
+    }
+
+    private void pruneWithUnchecked(@Nonnull final RelationalExpression expression) {
         final var properties = propertiesMap.getCurrentProperties(expression);
         clearFinalExpressions();
         insertUnchecked(expression, true, properties);
@@ -514,8 +517,8 @@ public class Reference implements Correlated<Reference>, Typed {
         }
 
         final var otherReference = (Reference)other;
-        return (exploratoryMembers.semanticEquals(otherReference.getExploratoryExpressions(), aliasMap) &&
-                        finalMembers.semanticEquals(otherReference.getExploratoryExpressions(), aliasMap));
+        return (exploratoryMembers.semanticEquals(otherReference.exploratoryMembers, aliasMap) &&
+                        finalMembers.semanticEquals(otherReference.finalMembers, aliasMap));
     }
 
     @Override
@@ -735,39 +738,39 @@ public class Reference implements Correlated<Reference>, Typed {
         @Nonnull
         private final Set<RelationalExpression> expressions;
 
-        private Members(@Nonnull final LinkedIdentitySet<RelationalExpression> expressions) {
+        public Members(@Nonnull final LinkedIdentitySet<RelationalExpression> expressions) {
             this.expressions = expressions;
         }
 
         @Nonnull
-        private Set<RelationalExpression> getExpressions() {
+        public Set<RelationalExpression> getExpressions() {
             return expressions;
         }
 
-        private boolean isEmpty() {
+        public boolean isEmpty() {
             return expressions.isEmpty();
         }
 
-        private int size() {
+        public int size() {
             return expressions.size();
         }
 
-        private boolean containsExactly(@Nonnull RelationalExpression expression) {
+        public boolean containsExactly(@Nonnull RelationalExpression expression) {
             return expressions.contains(expression);
         }
 
         @Nonnull
-        private RelationalExpression getOnlyElement() {
+        public RelationalExpression getOnlyElement() {
             return Iterables.getOnlyElement(expressions);
         }
 
         @Nonnull
-        private RecordQueryPlan getOnlyElementAsPlan() {
+        public RecordQueryPlan getOnlyElementAsPlan() {
             return (RecordQueryPlan)Iterables.getOnlyElement(expressions);
         }
 
         @Nonnull
-        private Collection<RelationalExpression> concatExpressions(@Nonnull final Members other) {
+        public Collection<RelationalExpression> concatExpressions(@Nonnull final Members other) {
             return concatSetsView(expressions, other.getExpressions());
         }
 
@@ -812,20 +815,20 @@ public class Reference implements Correlated<Reference>, Typed {
             for (final RelationalExpression otherExpression : otherMembers.getExpressions()) {
                 if (expressionsMap.get(otherExpression.semanticHashCode())
                         .stream()
-                        .anyMatch(member -> member.semanticEquals(otherExpression, aliasMap))) {
-                    return true;
+                        .noneMatch(member -> member.semanticEquals(otherExpression, aliasMap))) {
+                    return false;
                 }
             }
-            return false;
+            return true;
         }
 
         @CanIgnoreReturnValue
-        private boolean add(@Nonnull final RelationalExpression expression) {
+        public boolean add(@Nonnull final RelationalExpression expression) {
             return expressions.add(expression);
         }
 
-        private boolean containsInMemo(@Nonnull final RelationalExpression expression,
-                                       @Nonnull final AliasMap equivalenceMap) {
+        public boolean containsInMemo(@Nonnull final RelationalExpression expression,
+                                      @Nonnull final AliasMap equivalenceMap) {
             for (final RelationalExpression member : expressions) {
                 if (isMemoizedExpression(member, expression, equivalenceMap)) {
                     return true;
@@ -835,12 +838,12 @@ public class Reference implements Correlated<Reference>, Typed {
         }
 
         @Nonnull
-        private static Members copyOf(@Nonnull final Members members) {
+        public static Members copyOf(@Nonnull final Members members) {
             return copyOf(members.getExpressions());
         }
 
         @Nonnull
-        private static Members copyOf(@Nonnull final Set<RelationalExpression> expressions) {
+        public static Members copyOf(@Nonnull final Set<RelationalExpression> expressions) {
             return new Members(new LinkedIdentitySet<>(expressions));
         }
     }

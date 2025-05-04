@@ -211,12 +211,14 @@ public class PlanningRuleSet extends CascadesRuleSet {
     }
 
     @Nonnull
+    @Override
     public Stream<CascadesRule<? extends PartialMatch>> getPartialMatchRules(@Nonnull final Predicate<CascadesRule<? extends PartialMatch>> rulePredicate) {
         return PARTIAL_MATCH_RULES.stream()
                 .filter(rulePredicate);
     }
 
     @Nonnull
+    @Override
     public Stream<CascadesRule<? extends MatchPartition>> getMatchPartitionRules(@Nonnull final Predicate<CascadesRule<? extends MatchPartition>> rulePredicate) {
         return MATCH_PARTITION_RULES.stream()
                 .filter(rulePredicate);

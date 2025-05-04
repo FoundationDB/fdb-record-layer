@@ -336,7 +336,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      *
      * @param otherExpression other expression
      * @param aliasMap alias map with external bindings
-     * @param matchPredicate a predicate uses for matching a pair of {@link Quantifier}s
+     * @param matchPredicate a predicate used for matching a pair of {@link Quantifier}s
      * @param combinePredicate a predicate to accept or reject a match
      * @return an {@link Iterable} of {@link AliasMap}s where each alias map is a match.
      */

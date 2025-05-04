@@ -56,9 +56,6 @@ import java.util.Set;
  * @param <E> type parameter to capture the kind of expression property map
  */
 public class ExpressionPropertiesMap<E extends RelationalExpression> {
-    private static final ExpressionPropertiesMap<RelationalExpression> IMMUTABLE_EMPTY =
-            new ExpressionPropertiesMap<>(RelationalExpression.class, ImmutableSet.of(), ImmutableList.of());
-
     /**
      * Class object to do runtime type checks against as this is not Scala.
      */
@@ -234,7 +231,7 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
     }
 
     @Nonnull
-    public static ExpressionPropertiesMap<RelationalExpression> immutableEmpty() {
-        return IMMUTABLE_EMPTY;
+    public static ExpressionPropertiesMap<RelationalExpression> defaultForExpressions() {
+        return new ExpressionPropertiesMap<>(RelationalExpression.class, ImmutableSet.of(), ImmutableList.of());
     }
 }

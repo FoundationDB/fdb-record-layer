@@ -462,6 +462,7 @@ public class CascadesRuleCall implements PlannerRuleCall<RelationalExpression>, 
     }
 
     @Nonnull
+    @Override
     public ReferenceBuilder memoizeFinalExpressionsBuilder(@Nonnull final Collection<? extends RelationalExpression> expressions) {
         return memoizeFinalExpressionsBuilder(expressions,
                 e -> Reference.ofFinalExpressions(getPlannerPhase().getTargetStage(), e));

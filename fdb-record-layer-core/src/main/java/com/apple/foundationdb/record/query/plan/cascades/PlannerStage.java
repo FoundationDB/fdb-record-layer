@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.function.Supplier;
@@ -71,12 +70,12 @@ public enum PlannerStage {
      * The {@link Reference} is tagged with {@code INITIAL} iff it was created outside the Cascades planner by the
      * client and has not undergone any planner-originated transformations.
      */
-    INITIAL(ExpressionPropertiesMap::immutableEmpty),
+    INITIAL(ExpressionPropertiesMap::defaultForExpressions),
     /**
      * The {@link Reference} is tagged with {@code CANONICAL} iff it was created by the Cascades planner and is
      * the direct result of the rewrite phase of a query graph.
      */
-    CANONICAL(() -> new ExpressionPropertiesMap<>(RelationalExpression.class, ImmutableSet.of(), ImmutableSet.of())),
+    CANONICAL(ExpressionPropertiesMap::defaultForExpressions),
     /**
      * The {@link Reference} is tagged with {@code PLANNED} iff it was created by the Cascades planner and it
      * the direct result of the physical planning of a query. All final {@link RelationalExpression}s contained in

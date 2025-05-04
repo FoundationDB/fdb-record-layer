@@ -269,7 +269,7 @@ public class DebuggerWithSymbolTables implements Debugger {
             final var prerecordedEventProtoIterator = state.getPrerecordedEventProtoIterator();
             if (prerecordedEventProtoIterator != null) {
                 Verify.verify(!prerecordedEventProtoIterator.hasNext(),
-                        "There are more prerecorded events, there are only " + state.getEvents().size() + " actual events.");
+                        "There are more prerecorded events, there are only " + state.getCurrentTick() + " actual events.");
             }
         }
         reset();
@@ -342,7 +342,7 @@ public class DebuggerWithSymbolTables implements Debugger {
 
     private void reset() {
         this.stateStack.clear();
-        this.stateStack.push(State.initial(isRecordEvents, prerecordedEventProtoIterable));
+        this.stateStack.push(State.initial(isRecordEvents, isRecordEvents, prerecordedEventProtoIterable));
         this.planContext = null;
         this.queryAsString = null;
     }
