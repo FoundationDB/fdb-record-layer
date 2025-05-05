@@ -454,7 +454,7 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
     }
 
     @ParameterizedTest
-    @BooleanSource({"withViolations", "allowReadableUniquePenidng"})
+    @BooleanSource({"withViolations", "allowReadableUniquePending"})
     void removeUniquenessConstraintAfterBuild(boolean withViolations, boolean allowReadableUniquePending) throws Exception {
         final DropUniquenessConstraint dropUniquenessConstraint = new DropUniquenessConstraint(allowReadableUniquePending);
         dropUniquenessConstraint.setupStore();
