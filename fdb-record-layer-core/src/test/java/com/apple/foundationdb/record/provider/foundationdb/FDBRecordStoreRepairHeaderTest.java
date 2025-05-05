@@ -20,9 +20,11 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -51,9 +53,10 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.Assertions.fail;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 @Tag(Tags.RequiresFDB)
 public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
@@ -294,9 +297,54 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    void clearAllFormerIndexes() {
-        fail("All formerIndexes should be cleared");
+    @ParameterizedTest
+    @BooleanSource
+    void clearAllFormerIndexes(final boolean removeBefore) {
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        metaDataBuilder.addIndex("MySimpleRecord", "ToRemove1", "num_value_2");
+        metaDataBuilder.addIndex("MySimpleRecord", "ToRemove2", "num_value_unique");
+        RecordMetaData recordMetaData = metaDataBuilder.build();
+        final List<Object> subspaceKeys = List.of(
+                recordMetaData.getIndex("ToRemove1").getSubspaceTupleKey(),
+                recordMetaData.getIndex("ToRemove2").getSubspaceTupleKey());
+        if (removeBefore) {
+            metaDataBuilder.removeIndex("ToRemove1");
+            metaDataBuilder.removeIndex("ToRemove2");
+            recordMetaData = metaDataBuilder.build();
+        }
+
+        final List<Tuple> primaryKeys = createInitialStore(FormatVersion.getMaximumSupportedVersion(), recordMetaData);
+        final List<FDBStoredRecord<Message>> originalRecords = createOriginalRecords(recordMetaData, primaryKeys);
+        rawAssertHasIndexData(recordMetaData, !removeBefore, subspaceKeys);
+
+        clearStoreHeader(recordMetaData);
+        validateCannotOpen(recordMetaData);
+
+
+        if (!removeBefore) {
+            metaDataBuilder.removeIndex("ToRemove1");
+            metaDataBuilder.removeIndex("ToRemove2");
+            recordMetaData = metaDataBuilder.build();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore.Builder builder = getStoreBuilder(context, recordMetaData);
+            repairHeader(context, 1, builder);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            recordStore = getStoreBuilder(context, recordMetaData, path)
+                    .open();
+            final List<String> indexes = recordStore.getAllIndexStates().keySet().stream()
+                    .map(Index::getName).collect(Collectors.toList());
+            assertThat(indexes).doesNotContain("ToRemove1", "ToRemove2");
+            commit(context);
+        }
+
+        rawAssertHasIndexData(recordMetaData, false, subspaceKeys);
+
+        validateRepaired(FormatVersion.getMaximumSupportedVersion(), recordMetaData, originalRecords);
     }
 
     private List<FDBStoredRecord<Message>> createOriginalRecords(final RecordMetaData recordMetaData, final List<Tuple> primaryKeys) {
@@ -351,6 +399,41 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
     private void validateIndexesDisabled(final RecordMetaData recordMetaData) {
         for (final Index index : recordMetaData.getAllIndexes()) {
             assertEquals(IndexState.DISABLED, recordStore.getIndexState(index));
+        }
+    }
+
+    private void rawAssertHasIndexData(final RecordMetaData metaData, final boolean hasIndexData, final List<Object> subspaceKeys) {
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            final List<FDBRecordStoreKeyspace> subspaces = List.of(FDBRecordStoreKeyspace.INDEX,
+                    FDBRecordStoreKeyspace.INDEX_SECONDARY_SPACE,
+                    FDBRecordStoreKeyspace.INDEX_RANGE_SPACE,
+                    FDBRecordStoreKeyspace.INDEX_STATE_SPACE,
+                    FDBRecordStoreKeyspace.INDEX_UNIQUENESS_VIOLATIONS_SPACE);
+
+            final List<KeyValue> allData = context.ensureActive().getRange(recordStore.getSubspace().range()).asList().join();
+
+            final List<KeyValue> actual = subspaces.stream().flatMap(subspace ->
+                    subspaceKeys.stream().flatMap(indexSubspace -> {
+                        if (subspace == FDBRecordStoreKeyspace.INDEX_STATE_SPACE) {
+                            final byte[] key = recordStore.getSubspace().pack(Tuple.from(subspace.key(), indexSubspace));
+                            final byte[] value = context.ensureActive().get(key).join();
+                            if (value == null) {
+                                return Stream.of();
+                            } else {
+                                return Stream.of(new KeyValue(key, value));
+                            }
+                        } else {
+                            return context.ensureActive().getRange(recordStore.getSubspace().range(Tuple.from(subspace.key(), indexSubspace))).asList().join().stream();
+                        }
+                    })
+            ).collect(Collectors.toList());
+
+            if (hasIndexData) {
+                assertNotEquals(List.of(), actual);
+            } else {
+                assertEquals(List.of(), actual);
+            }
         }
     }
 
@@ -425,6 +508,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
                     .setRecNo(1)
                     .setStrValueIndexed("a_1")
                     .setNumValueUnique(1)
+                    .setNumValue2(7)
                     .build();
             final FDBStoredRecord<Message> storedRecord = recordStore.saveRecord(rec);
             commit(context);

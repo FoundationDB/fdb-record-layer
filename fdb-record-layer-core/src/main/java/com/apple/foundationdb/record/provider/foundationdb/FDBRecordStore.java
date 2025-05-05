@@ -5574,9 +5574,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             // It's possible that the old store header was cacheable, in which case, another store may
             // still have a cached version, even though we don't. We need to make sure that the other
             // instance refreshes it's cached version after we generate a new missing store header.
-            // Obviously, being able to recover from the cached version would be ideal, but that would
+            // Obviously, being able to recover from the cached version would be ideal, but that
             // is a limited use case, as you wouldn't notice it was missing until after caches started
             // expiring, and you would have to repair before they all expired.
+
+            // Since another instance may still have a cached version of the store header, we need to make
+            // sure that the cache is invalidated
             final CompletableFuture<Void> bumpMetaDataVersionStamp = context.getMetaDataVersionStampAsync(IsolationLevel.SNAPSHOT)
                     .thenAccept(metaDataVersionStamp -> {
                         // If the metaDataVersionStamp was null before than nothing was cached based on
@@ -5585,8 +5588,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                             context.setMetaDataVersionStamp();
                         }
                     });
-            // Since another instance may still have a cached version of the store header, we need to make
-            // sure that the cache is invalidated
+            // We want to make sure all former indexes have been cleared, since we have no way of knowing whether
+            // it has done a checkVersion since the index was removed, and there's something to clear up
+            recordMetaData.getFormerIndexes().forEach(store::removeFormerIndex);
             // This could be improved with:
             // 1. If the index was added in the same metadata version that added the type, and has not been
             //    modified, we could mark that as readable, because they either do not have any records of
@@ -5596,11 +5600,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             //    this would basically just allow WriteOnly indexes or ReadableUniquePending to stay, as we
             //    do not store anything for Readable indexes.
             // 3. We could give the users an option to leave them as-is and use IndexScrubbing to repair the
-            //    indexes, but at the time of writing scrubbing can only repair value indexes.
+            //    indexes, but (at least right now) scrubbing can only repair value indexes.
             // In the general case, we have no idea whether the index should be readable or not because:
             // 1. We don't store that the index should be readable, so it could be that the index was readable
-            //    or it could be that the store was on a metadata version that didn't have the index, or
-            //    had an older version of the index. If it wasn't readable on the current version, than
+            //    or that the store was on a metadata version that didn't have the index, or
+            //    had an older version of the index. If it wasn't readable on the current version, then
             //    leaving the index would leave it in a corrupted state.
             return bumpMetaDataVersionStamp.thenCompose(vignore -> AsyncUtil.whenAll(
                             recordMetaData.getAllIndexes().stream()
