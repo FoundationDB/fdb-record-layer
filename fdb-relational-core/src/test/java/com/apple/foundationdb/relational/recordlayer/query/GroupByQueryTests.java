@@ -79,7 +79,7 @@ public class GroupByQueryTests {
                         continuation = resultSet.getContinuation();
                     }
                     // scan pk = 5 and pk = 4 rows, hit SCAN_LIMIT_REACHED
-                    String postfix = " WITH CONTINUATION B64'" + Base64.getEncoder().encodeToString(continuation.serialize()) + "'";
+                    String postfix = "EXECUTE CONTINUATION " + Base64.getEncoder().encodeToString(continuation.serialize());
                     Assertions.assertTrue(statement.execute(query + postfix), "Did not return a result set from a select statement!");
                     try (final RelationalResultSet resultSet = statement.getResultSet()) {
                         ResultSetAssert.assertThat(resultSet)
