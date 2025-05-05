@@ -125,13 +125,13 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "[{displayName}-{index}] {0}")
     @MethodSource("provideArguments")
-    void noAggregateGroupByNone(final boolean useNestedResult, final int rowLimit) {
+    void noAggregateGroupByNone(final boolean useNestedResult, final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode, final int rowLimit) {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
             final var plan =
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
-                            .build(useNestedResult);
+                            .build(useNestedResult, serializationMode);
 
             final var result = executePlanWithRowLimit(plan, rowLimit);
             assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf());
@@ -140,7 +140,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "[{displayName}-{index}] {0}")
     @MethodSource("provideArguments")
-    void aggregateOneGroupByOne(final boolean useNestedResult, final int rowLimit) {
+    void aggregateOneGroupByOne(final boolean useNestedResult, final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode, final int rowLimit) {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
@@ -148,7 +148,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
                             .withGroupCriterion("num_value_3_indexed")
-                            .build(useNestedResult);
+                            .build(useNestedResult, serializationMode);
 
             final var result = executePlanWithRowLimit(plan, rowLimit);
             assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(0, 1), resultOf(1, 5), resultOf(2, 9));
@@ -157,14 +157,14 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "[{displayName}-{index}] {0}")
     @MethodSource("provideArguments")
-    void aggregateOneGroupByNone(final boolean useNestedResult, final int rowLimit) {
+    void aggregateOneGroupByNone(final boolean useNestedResult, final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode, final int rowLimit) {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
             final var plan =
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
-                            .build(useNestedResult);
+                            .build(useNestedResult, serializationMode);
 
             final var result = executePlanWithRowLimit(plan, rowLimit);
             assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(15));
@@ -173,14 +173,14 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "[{displayName}-{index}] {0}")
     @MethodSource("provideArguments")
-    void noAggregateGroupByOne(final boolean useNestedResult, final int rowLimit) {
+    void noAggregateGroupByOne(final boolean useNestedResult, final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode, final int rowLimit) {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
             final var plan =
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
                             .withGroupCriterion("num_value_3_indexed")
-                            .build(useNestedResult);
+                            .build(useNestedResult, serializationMode);
 
             final var result = executePlanWithRowLimit(plan, rowLimit);
             assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(0), resultOf(1), resultOf(2));
@@ -189,7 +189,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "[{displayName}-{index}] {0}")
     @MethodSource("provideArguments")
-    void aggregateOneGroupByTwo(final boolean useNestedResult, final int rowLimit) {
+    void aggregateOneGroupByTwo(final boolean useNestedResult, final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode, final int rowLimit) {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
@@ -198,7 +198,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
                             .withGroupCriterion("num_value_3_indexed")
                             .withGroupCriterion("str_value_indexed")
-                            .build(useNestedResult);
+                            .build(useNestedResult, serializationMode);
 
             final var result = executePlanWithRowLimit(plan, rowLimit);
             assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(0, "0", 1), resultOf(1, "0", 2), resultOf(1, "1", 3), resultOf(2, "1", 9));
@@ -207,7 +207,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "[{displayName}-{index}] {0}")
     @MethodSource("provideArguments")
-    void aggregateTwoGroupByTwo(final boolean useNestedResult, final int rowLimit) {
+    void aggregateTwoGroupByTwo(final boolean useNestedResult, final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode, final int rowLimit) {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
@@ -217,7 +217,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Min(NumericAggregationValue.PhysicalOperator.MIN_I, value))
                             .withGroupCriterion("num_value_3_indexed")
                             .withGroupCriterion("str_value_indexed")
-                            .build(useNestedResult);
+                            .build(useNestedResult, serializationMode);
 
             final var result = executePlanWithRowLimit(plan, rowLimit);
             assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(0, "0", 1, 0), resultOf(1, "0", 2, 2), resultOf(1, "1", 3, 3), resultOf(2, "1", 9, 4));
@@ -226,7 +226,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "[{displayName}-{index}] {0}")
     @MethodSource("provideArguments")
-    void aggregateThreeGroupByTwo(final boolean useNestedResult, final int rowLimit) {
+    void aggregateThreeGroupByTwo(final boolean useNestedResult, final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode, final int rowLimit) {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
@@ -237,7 +237,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Avg(NumericAggregationValue.PhysicalOperator.AVG_I, value))
                             .withGroupCriterion("num_value_3_indexed")
                             .withGroupCriterion("str_value_indexed")
-                            .build(useNestedResult);
+                            .build(useNestedResult, serializationMode);
 
             final var result = executePlanWithRowLimit(plan, rowLimit);
             assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(0, "0", 1, 0, 0.5), resultOf(1, "0", 2, 2, 2.0), resultOf(1, "1", 3, 3, 3.0), resultOf(2, "1", 9, 4, 4.5));
@@ -246,7 +246,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "[{displayName}-{index}] {0}")
     @MethodSource("provideArguments")
-    void aggregateOneGroupByThree(final boolean useNestedResult, final int rowLimit) {
+    void aggregateOneGroupByThree(final boolean useNestedResult, final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode, final int rowLimit) {
         // each group only has one row
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
@@ -257,7 +257,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                             .withGroupCriterion("num_value_3_indexed")
                             .withGroupCriterion("str_value_indexed")
                             .withGroupCriterion("num_value_unique")
-                            .build(useNestedResult);
+                            .build(useNestedResult, serializationMode);
 
             final var result = executePlanWithRowLimit(plan, rowLimit);
             assertResults(useNestedResult ? this::assertResultNested : this::assertResultFlattened, result, resultOf(0, "0", 0, 0), resultOf(0, "0", 1, 1), resultOf(1, "0", 2, 2), resultOf(1, "1", 3, 3), resultOf(2, "1", 4, 4), resultOf(2, "1", 5, 5));
@@ -266,7 +266,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "[{displayName}-{index}] {0}")
     @MethodSource("provideArguments")
-    void aggregateNoRecords(final boolean useNestedResult, final int rowLimit) {
+    void aggregateNoRecords(final boolean useNestedResult, final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode, final int rowLimit) {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
@@ -276,7 +276,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Min(NumericAggregationValue.PhysicalOperator.MIN_I, value))
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Avg(NumericAggregationValue.PhysicalOperator.AVG_I, value))
                             .withGroupCriterion("num_value_3_indexed")
-                            .build(useNestedResult);
+                            .build(useNestedResult, serializationMode);
 
             final var result = executePlanWithRowLimit(plan, rowLimit);
             Assertions.assertTrue(result.isEmpty());
@@ -285,7 +285,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "[{displayName}-{index}] {0}")
     @MethodSource("provideArguments")
-    void aggregateNoRecordsNoGroup(final boolean useNestedResult, final int rowLimit) {
+    void aggregateNoRecordsNoGroup(final boolean useNestedResult, final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode, final int rowLimit) {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
@@ -293,7 +293,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                     .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
                     .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Min(NumericAggregationValue.PhysicalOperator.MIN_I, value))
                     .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Avg(NumericAggregationValue.PhysicalOperator.AVG_I, value))
-                    .build(useNestedResult);
+                    .build(useNestedResult, serializationMode);
 
             final var result = executePlanWithRowLimit(plan, rowLimit);
             Assertions.assertTrue(result.isEmpty());
@@ -302,14 +302,14 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "[{displayName}-{index}] {0}")
     @MethodSource("provideArguments")
-    void aggregateNoRecordsNoAggregate(final boolean useNestedResult, final int rowLimit) {
+    void aggregateNoRecordsNoAggregate(final boolean useNestedResult, final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode, final int rowLimit) {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
             final var plan =
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MyOtherRecord")
                             .withGroupCriterion("num_value_3_indexed")
-                            .build(useNestedResult);
+                            .build(useNestedResult, serializationMode);
 
             final var result = executePlanWithRowLimit(plan, rowLimit);
             Assertions.assertTrue(result.isEmpty());
@@ -318,13 +318,13 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest(name = "[{displayName}-{index}] {0}")
     @MethodSource("provideArguments")
-    void aggregateNoRecordsNoGroupNoAggregate(final boolean useNestedResult, final int rowLimit) {
+    void aggregateNoRecordsNoGroupNoAggregate(final boolean useNestedResult, final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode, final int rowLimit) {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
             final var plan =
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MyOtherRecord")
-                            .build(useNestedResult);
+                            .build(useNestedResult, serializationMode);
 
             final var result = executePlanWithRowLimit(plan, rowLimit);
             Assertions.assertTrue(result.isEmpty());
@@ -341,7 +341,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
                             .withGroupCriterion("str_value_indexed")
                             .withQueryPredicate("num_value_3_indexed", new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 2))
-                            .build(false);
+                            .build(false, RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW);
             // result should be {"0":3, "1":3}
             RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null, null);
             // start the next scan from 4th row, and scans the 4th row (recordScanLimit = 1), return the aggregated result of the first group
@@ -383,7 +383,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
                             .withGroupCriterion("str_value_indexed");
-            final RecordQueryPlan plan = verifySerialization(builder.build(false));
+            final RecordQueryPlan plan = verifySerialization(builder.build(false, RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW));
             final var types = plan.getDynamicTypes();
             final var typeRepository = TypeRepository.newBuilder().addAllTypes(types).build();
 
@@ -419,7 +419,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Avg(NumericAggregationValue.PhysicalOperator.AVG_I, value))
                             .withGroupCriterion("num_value_3_indexed")
                             .withGroupCriterion("str_value_indexed")
-                            .build(false);
+                            .build(false, RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW);
 
             // In the testing data, there are 2 groups, each group has 3 rows.
             // recordScanLimit = 5: scans 3 rows, and the 4th scan hits SCAN_LIMIT_REACHED
@@ -447,7 +447,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
                             .withGroupCriterion("str_value_indexed")
-                            .build(false);
+                            .build(false, RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW);
 
             // In the testing data, there are 2 groups, each group has 3 rows.
             // recordScanLimit = 5: scans 3 rows, and the 4th scan hits SCAN_LIMIT_REACHED
@@ -475,7 +475,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
                             .withAggregateValue("num_value_2", value -> new CountValue(CountValue.PhysicalOperator.COUNT, value))
                             .withGroupCriterion("str_value_indexed")
-                            .build(false);
+                            .build(false, RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW);
 
             // In the testing data, there are 2 groups, each group has 3 rows.
             // scans 4 rows at a time
@@ -493,7 +493,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             final var plan =
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
-                            .build(false);
+                            .build(false, RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW);
 
             // In the testing data, there are 6 rows.
             // recordScanLimit = 5: scans 3 rows, and the 4th scan hits SCAN_LIMIT_REACHED
@@ -521,7 +521,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Avg(NumericAggregationValue.PhysicalOperator.AVG_I, value))
                             .withGroupCriterion("str_value_indexed")
-                            .build(false);
+                            .build(false, RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW);
 
             // In the testing data, there are 2 groups, each group has 3 rows.
             // recordScanLimit = 5: scans 3 rows, and the 4th scan hits SCAN_LIMIT_REACHED
@@ -549,7 +549,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                     new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
                             .withAggregateValue("num_value_2", value -> new NumericAggregationValue.BitmapConstructAgg(NumericAggregationValue.PhysicalOperator.BITMAP_CONSTRUCT_AGG_I, value))
                             .withGroupCriterion("str_value_indexed")
-                            .build(false);
+                            .build(false, RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW);
 
             // In the testing data, there are 2 groups, each group has 3 rows.
             // recordScanLimit = 5: scans 3 rows, and the 4th scan hits SCAN_LIMIT_REACHED
@@ -579,8 +579,10 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         // setting rowLimit = 0 is equivalent to no limit
         List<Arguments> arguments = new LinkedList<>();
         for (int i = 0; i <= 4; i++) {
-            arguments.add(Arguments.of(false, i));
-            arguments.add(Arguments.of(true, i));
+            arguments.add(Arguments.of(false, RecordQueryStreamingAggregationPlan.SerializationMode.TO_OLD, i));
+            arguments.add(Arguments.of(false, RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW, i));
+            arguments.add(Arguments.of(true, RecordQueryStreamingAggregationPlan.SerializationMode.TO_OLD, i));
+            arguments.add(Arguments.of(true, RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW, i));
         }
         return arguments.stream();
     }
@@ -752,7 +754,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             return this;
         }
 
-        public RecordQueryPlan build(final boolean useNestedResult) {
+        public RecordQueryPlan build(final boolean useNestedResult, final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode) {
             Quantifier.Physical q = quantifier;
             if (!queryPredicates.isEmpty()) {
                 q = createFilteredQuantifier();
@@ -760,9 +762,9 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             final var groupingKeyValue = RecordConstructorValue.ofUnnamed(groupValues);
             final var aggregateValue = RecordConstructorValue.ofUnnamed(aggregateValues);
             if (useNestedResult) {
-                return RecordQueryStreamingAggregationPlan.ofNested(q, groupingKeyValue, aggregateValue, RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW);
+                return RecordQueryStreamingAggregationPlan.ofNested(q, groupingKeyValue, aggregateValue, serializationMode);
             } else {
-                return RecordQueryStreamingAggregationPlan.ofFlattened(q, groupingKeyValue, aggregateValue, RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW);
+                return RecordQueryStreamingAggregationPlan.ofFlattened(q, groupingKeyValue, aggregateValue, serializationMode);
             }
         }
 

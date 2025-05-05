@@ -1354,7 +1354,7 @@ public class StandardQueryTests {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 RelationalAssertions.assertThrows(() ->
                         ((EmbeddedRelationalStatement) statement)
-                        .executeInternal("select * from t1 union select * from t1"))
+                                .executeInternal("select * from t1 union select * from t1"))
                         .hasErrorCode(ErrorCode.UNSUPPORTED_QUERY);
             }
         }
@@ -1426,7 +1426,7 @@ public class StandardQueryTests {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 RelationalAssertions.assertThrows(() ->
                         ((EmbeddedRelationalStatement) statement)
-                        .executeInternal("(select * from t1) union (select * from t1)"))
+                                .executeInternal("(select * from t1) union (select * from t1)"))
                         .hasErrorCode(ErrorCode.UNSUPPORTED_QUERY);
             }
         }

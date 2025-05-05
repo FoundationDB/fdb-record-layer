@@ -212,6 +212,9 @@ public class StreamGrouping<M extends Message> {
 
     @Nullable
     public RecordCursorProto.PartialAggregationResult getPartialAggregationResult() {
+        if (currentGroup == null) {
+            return null;
+        }
         List<RecordCursorProto.AccumulatorState> accumulatorStates = accumulator.getAccumulatorStates();
         if (accumulatorStates.isEmpty()) {
             return null;
