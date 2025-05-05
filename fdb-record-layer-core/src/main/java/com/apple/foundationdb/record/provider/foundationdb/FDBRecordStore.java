@@ -3306,9 +3306,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     .addLogInfo(LogMessageKeys.NEW, newState);
         }).thenRun(() -> {
             if (newState == RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED) {
-                final byte[] begin = Tuple.from(RECORD_COUNT_KEY).pack(getSubspace().getKey());
-                final byte[] end = ByteArrayUtil.strinc(begin);
-                ensureContextActive().clear(begin, end);
+                // Note: getSubspace().range(tuple) does not include getSubspace().pack(tuple), but this does
+                // ungrouped recordCountKey will be stored directly at getSubspace().pack(tuple).
+                ensureContextActive().clear(Range.startsWith(getSubspace().pack(Tuple.from(RECORD_COUNT_KEY))));
             }
         });
     }

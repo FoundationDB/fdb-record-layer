@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexState;
@@ -42,7 +43,6 @@ import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.Query;
-import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
@@ -956,10 +956,8 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData);
             final Tuple tuple = Tuple.from(FDBRecordStoreKeyspace.RECORD_COUNT.key());
-            final byte[] subspace = tuple.pack(recordStore.getSubspace().pack());
             final List<KeyValue> counts = context.ensureActive()
-                    .getRange(subspace,
-                            ByteArrayUtil.strinc(subspace))
+                    .getRange(Range.startsWith(recordStore.getSubspace().pack(tuple)))
                     .asList().join();
 
             assertEquals(counts.isEmpty(), !hasRecordCounts, counts.toString());
