@@ -26,6 +26,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.support.AnnotationConsumer;
 
+import java.util.Arrays;
 import java.util.stream.Stream;
 
 /**
@@ -33,18 +34,23 @@ import java.util.stream.Stream;
  * tests. Regardless of the source or context, this always returns {@code false} and {@code true} in that order.
  */
 class BooleanArgumentsProvider implements ArgumentsProvider, AnnotationConsumer<BooleanSource> {
-    private String name;
+    private String[] names;
 
     @Override
     public void accept(BooleanSource booleanSource) {
-        this.name = booleanSource.value();
+        this.names = booleanSource.value();
     }
 
     @Override
     public Stream<? extends Arguments> provideArguments(ExtensionContext extensionContext) throws Exception {
-        return Stream.of(
-                Arguments.of(Named.of(name.isBlank() ? "true" : name, true)),
-                Arguments.of(Named.of(name.isBlank() ? "false" : "not " + name, false))
-        );
+        if (names.length == 0) {
+            throw new IllegalStateException("@BooleanSource has an empty strings");
+        }
+        return ParameterizedTestUtils.cartesianProduct(
+                Arrays.stream(names).map(name ->
+                        Stream.of(
+                                Named.of(name.isBlank() ? "true" : name, true),
+                                Named.of(name.isBlank() ? "false" : "! " + name, false)
+                        )).toArray(Stream[]::new));
     }
 }

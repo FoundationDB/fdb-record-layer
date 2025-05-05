@@ -43,5 +43,5 @@ public @interface BooleanSource {
      * A name to give the boolean values; if unspecified, {@code "true"} and {@code "false"} will be used.
      * @return the name
      */
-    String value() default "";
+    String[] value() default "";
 }

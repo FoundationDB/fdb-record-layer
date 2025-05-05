@@ -62,8 +62,6 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -81,7 +79,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -231,12 +228,6 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
 
             commit(context);
         }
-    }
-
-    static Stream<Arguments> removeUniquenessConstraintArguments() {
-        return Stream.of(true, false)
-                .flatMap(withViolations -> Stream.of(true, false)
-                        .map(allowReadableUniquePending -> Arguments.of(withViolations, allowReadableUniquePending)));
     }
 
     @Test
@@ -462,8 +453,8 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         dropUniquenessConstraint.openWithNonUnique(false, true);
     }
 
-    @ParameterizedTest(name = "removeUniquenessConstraintAfterBuild(withViolations={0}, allowReadableUniquePending={1})")
-    @MethodSource("removeUniquenessConstraintArguments")
+    @ParameterizedTest
+    @BooleanSource({"withViolations", "allowReadableUniquePenidng"})
     void removeUniquenessConstraintAfterBuild(boolean withViolations, boolean allowReadableUniquePending) throws Exception {
         final DropUniquenessConstraint dropUniquenessConstraint = new DropUniquenessConstraint(allowReadableUniquePending);
         dropUniquenessConstraint.setupStore();
@@ -474,8 +465,8 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         dropUniquenessConstraint.openWithNonUnique(false, true);
     }
 
-    @ParameterizedTest(name = "removeUniquenessConstraintDuringTransaction(clearViolations={0}, allowReadableUniquePending={1})")
-    @MethodSource("removeUniquenessConstraintArguments")
+    @ParameterizedTest
+    @BooleanSource({"clearViolations", "allowReadableUniquePending"})
     void removeUniquenessConstraintDuringTransaction(boolean clearViolations, boolean allowReadableUniquePending) throws Exception {
         final DropUniquenessConstraint dropUniquenessConstraint = new DropUniquenessConstraint(allowReadableUniquePending);
         dropUniquenessConstraint.setupStore();
@@ -489,8 +480,8 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
      * @param allowReadableUniquePending whether to allow {@link IndexState#READABLE_UNIQUE_PENDING}
      * @throws Exception if there is an issue
      */
-    @ParameterizedTest(name = "removeUniquenessConstraintDuringTransactionWithNewDuplications(addViolations={0}, allowReadableUniquePending={1})")
-    @MethodSource("removeUniquenessConstraintArguments")
+    @ParameterizedTest
+    @BooleanSource("allowReadableUniquePending")
     void removeUniquenessConstraintDuringTransactionWithNewDuplications(boolean allowReadableUniquePending) throws Exception {
         final DropUniquenessConstraint dropUniquenessConstraint = new DropUniquenessConstraint(allowReadableUniquePending);
         dropUniquenessConstraint.setupStore();
@@ -509,8 +500,8 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
      * @param allowReadableUniquePending whether to allow {@link IndexState#READABLE_UNIQUE_PENDING}
      * @throws Exception if there is an issue
      */
-    @ParameterizedTest(name = "removeUniquenessConstraintDuringTransactionWithNewViolations(allowReadableUniquePending={0})")
-    @BooleanSource
+    @ParameterizedTest
+    @BooleanSource("allowReadableUniquePending")
     void removeUniquenessConstraintDuringTransactionWithNewViolations(boolean allowReadableUniquePending) throws Exception {
         final DropUniquenessConstraint dropUniquenessConstraint = new DropUniquenessConstraint(allowReadableUniquePending);
         dropUniquenessConstraint.setupStore();
@@ -524,8 +515,8 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
      * still works.
      * @param allowReadableUniquePending whether to allow {@link IndexState#READABLE_UNIQUE_PENDING}
      */
-    @ParameterizedTest(name = "bumpVersionWhenChangingToNonUnique(allowReadableUniquePending={0})")
-    @BooleanSource
+    @ParameterizedTest
+    @BooleanSource("allowReadableUniquePending")
     void bumpVersionWhenChangingToNonUnique(boolean allowReadableUniquePending) throws Exception {
         final DropUniquenessConstraint dropUniquenessConstraint = new DropUniquenessConstraint(
                 allowReadableUniquePending, NO_UNIQUE_CLEAR_INDEX_TYPE, true);
@@ -540,8 +531,8 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
      * instructions on {@link IndexOptions#UNIQUE_OPTION}.
      * @param allowReadableUniquePending whether to test with allowing {@link IndexState#READABLE_UNIQUE_PENDING}
      */
-    @ParameterizedTest(name = "unsupportedChangeToNonUniqueWithoutBumpingVersion(allowReadableUniquePending={0})")
-    @BooleanSource
+    @ParameterizedTest
+    @BooleanSource("allowReadableUniquePending")
     void unsupportedChangeToNonUniqueWithoutBumpingVersion(boolean allowReadableUniquePending) throws Exception {
         // this won't fail, it will just leave the violations sitting around, but as per the
         final DropUniquenessConstraint dropUniquenessConstraint = new DropUniquenessConstraint(
