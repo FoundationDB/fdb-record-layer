@@ -57,7 +57,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.TypeF
 import static com.apple.foundationdb.record.query.plan.cascades.properties.UnmatchedFieldsCountProperty.unmatchedFieldsCount;
 
 /**
- * A comparator implementing the current heuristic cost model for the {@link CascadesPlanner}.
+ * A comparator implementing the current heuristic cost model for the {@link CascadesPlanner} during the
+ * {@link PlannerPhase#PLANNING} phase.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")

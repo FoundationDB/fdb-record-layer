@@ -26,6 +26,9 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import javax.annotation.Nonnull;
 import java.util.Comparator;
 
+/**
+ * Basic cost model interface to be provided by each {@link PlannerPhase}.
+ */
 public interface CascadesCostModel extends Comparator<RelationalExpression> {
     @Nonnull
     RecordQueryPlannerConfiguration getConfiguration();

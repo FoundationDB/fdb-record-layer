@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -63,9 +64,25 @@ import java.util.stream.StreamSupport;
  * <br>
  * The reference abstraction is designed to make it difficult for authors of rules to mutate group expressions directly,
  * which is undefined behavior. Note that a {@link Reference} cannot be "de-referenced" using the {@link #get()}
- * method if it contains more than one member. Expressions with more than one member should not be used outside of the
+ * method if it contains more than one member. Expressions with more than one member should not be used outside the
  * query planner, and {@link #get()} should not be used inside the query planner.
- * </p>
+ * <br>
+ * A reference contains expressions. It further differentiates between contained exploratory expressions and final
+ * expressions. Utilized during planning, exploratory expressions are expressions that designated exploration rules
+ * explore and yield whereas final expressions are those expressions that are yielded by implementation rules and which
+ * take part a best-plan selection process called pruning that will eventually distill one remaining final expression
+ * in the reference that is then considered the <em>best</em> variant among the members of this reference. For the
+ * planning phase {@link PlannerPhase#PLANNING}, all exploratory expressions are expressions that are not
+ * {@link RecordQueryPlan}s while all final expressions are {@link RecordQueryPlan}s. Note that other planner phases do
+ * not make such a type-based distinction between exploratory and final expressions, for instance
+ * {@link PlannerPhase#REWRITING} uses {@link RelationalExpression} for both exploratory and final expressions.
+ * <br>
+ * All exploratory expressions form a set and all final expressions form a set as well. It is, however, possible, that
+ * an expression is part of both sets.
+ * <br>
+ * Both sets of exploratory and final expressions are mutated during the planning process by either rules yielding
+ * new expressions through {@link CascadesRuleCall}, rules memoizing expressions through the {@link Memoizer} interface
+ * directly or by the planner itself when the reference is pruned.
  */
 @API(API.Status.EXPERIMENTAL)
 public class Reference implements Correlated<Reference>, Typed {
@@ -299,10 +316,25 @@ public class Reference implements Correlated<Reference>, Typed {
         }
     }
 
+    /**
+     * Method to return if the given expression is contained in this reference (by Java object identity, that is not by
+     * equality, using {@link #containsInMemo(RelationalExpression, boolean)} or other methods). This method
+     * does not distinguish between exploratory and final expressions.
+     * @param expression expression to check
+     * @return {@code true} iff this reference contains the expression passed in.
+     */
     public boolean containsExactly(@Nonnull final RelationalExpression expression) {
         return exploratoryMembers.containsExactly(expression) || finalMembers.containsExactly(expression);
     }
 
+    /**
+     * Method to indicate if the given expression is an exploratory expression (by Java object identity) of this
+     * reference. This method is not sensitive to whether the expression is also a final expression of this reference.
+     * @param expression expression to check
+     * @return {@code true} if the expression passed in is an exploratory expression, {@code false} if the expression
+     *         passed in is not an exploratory expression. If the expression is not contained in the reference at all,
+     *         this method will throw a {@link RecordCoreException}.
+     */
     public boolean isExploratory(@Nonnull final RelationalExpression expression) {
         if (exploratoryMembers.containsExactly(expression)) {
             return true;
@@ -313,6 +345,14 @@ public class Reference implements Correlated<Reference>, Typed {
         throw new RecordCoreException("expression has to be a member of this reference");
     }
 
+    /**
+     * Method to indicate if the given expression is a final expression (by Java object identity) of this reference.
+     * This method is not sensitive to whether the expression is also an exploratory expression of this reference.
+     * @param expression expression to check
+     * @return {@code true} if the expression passed in is a final expression, {@code false} if the expression passed in
+     *         is not a final expression. If the expression is not contained in the reference at all, this method will
+     *         throw a {@link RecordCoreException}.
+     */
     public boolean isFinal(@Nonnull final RelationalExpression expression) {
         if (finalMembers.containsExactly(expression)) {
             return true;
@@ -324,6 +364,7 @@ public class Reference implements Correlated<Reference>, Typed {
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    @VisibleForTesting
     public boolean containsAllInMemo(@Nonnull final Reference otherRef,
                                      @Nonnull final AliasMap equivalenceMap) {
         if (this == otherRef) {
@@ -344,8 +385,18 @@ public class Reference implements Correlated<Reference>, Typed {
         return true;
     }
 
+    /**
+     * Method to determine is this reference already memoized the expression that is passed in. An expression is
+     * memoized if a semantically equal expression (that includes equality by java object id) is contained in this
+     * reference and if the expression's children expressions are all memoized compatibly as well.
+     * @param expression expression to check
+     * @param isFinal indicator iff the expression passed in should be considered a final expression (or an exploratory
+     *        expression
+     * @return {@code true} iff the expression is already memoized in this reference
+     */
     public boolean containsInMemo(@Nonnull final RelationalExpression expression,
                                   final boolean isFinal) {
+        // TODO This is correct for planning but it may be too strict for rewriting.
         if (!getCorrelatedTo().equals(expression.getCorrelatedTo())) {
             return false;
         }

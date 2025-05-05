@@ -29,14 +29,46 @@ import java.util.Collection;
 import java.util.Set;
 
 /**
- * A memoization interface.
- *
+ * An interface for memoizing {@link Reference}s and their member {@link RelationalExpression}s. The methods declared in
+ * this interface mostly have one thing in common. They expect among their parameters an expression or a collection of
+ * expressions which are to be memoized and return a {@link Reference} which may be a new reference that was just
+ * created or an already existing reference that was previously memoized by this {@code Memoizer} and that was deemed
+ * to be compatible to be reused.
+ * <br>
+ * There are numerous considerations that determine if a reference can be safely reused. Most of these considerations
+ * can be derived from the individual use case and the context the method is called from. Each individual method
+ * declaration in this interface will also indicate (via java doc) if the method can return a reused expression or
+ * if the caller can always expect a fresh reference to be returned. Note that the terminology used here is that
+ * a <em>memoized expression</em> indicates that the memoization structures of the planner are aware of this expression.
+ * A reference (not an expression) can be reused as an effect of memoization of the given expressions (depending on
+ * use case and context).
  */
 @API(API.Status.EXPERIMENTAL)
 public interface Memoizer {
+    /**
+     * Memoize the given {@link RelationalExpression}. If a previously memoized expression is found that is semantically
+     * equivalent to the expression that is passed in, the reference containing the previously memoized expression is
+     * returned allowing the planner to reuse that reference. If no such previously memoized expression is found, a new
+     * reference is created and returned to the caller.
+     * <br>
+     * The expression that is passed in must be an exploratory expression of the current planner phase. If this method
+     * is used in an incompatible context and a reused reference is returned, the effects of mutating such a reference
+     * through other planner logic are undefined and should be avoided.
+     * @param expression expression to memoize
+     * @return a new or a reused reference
+     */
     @Nonnull
     Reference memoizeExploratoryExpression(@Nonnull RelationalExpression expression);
 
+    /**
+     * Memoize a collection of final expressions that are also already members of the reference that is also passed in.
+     * That reference must already have been explored which can usually statically reasoned about in the caller. The
+     * reference that is returned is always newly created and never reused. The new reference's final members are
+     * all considered to be explored as well.
+     * @param reference the source reference containing all passed-in expressions
+     * @param expressions the expressions to memoize
+     * @return a new reference
+     */
     @Nonnull
     Reference memoizeMemberExpressions(@Nonnull Reference reference,
                                        @Nonnull Collection<? extends RelationalExpression> expressions);
