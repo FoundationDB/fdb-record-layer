@@ -5561,8 +5561,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             // you'd notice only after the cache expired
             // No need to set user_field here, users can set after repairing as they see fit,
             // transactionally before doing anything else
+
+            // We cannot tell whether the recordCountKey had changed since the last time we did checkVersion, so
+            // we can't guarantee that it is correct. Since we currently don't have a way to disable the RecordCountKey, or
+            // rebuild it across multiple transactions, we fail the repair if there is a recordCountKey on the metadata.
+            // With https://github.com/FoundationDB/fdb-record-layer/issues/3326 we should be able to set the RecordCountKey
+            // to disabled.
             if (recordMetaData.getRecordCountKey() != null) {
-                dataStoreInfo.setRecordCountKey(recordMetaData.getRecordCountKey().toKeyExpression());
+                throw new RecordCoreException("Repair is not currently supported if the metadata has a RecordCountKey");
             }
             store.saveStoreHeader(dataStoreInfo.build());
             // It's possible that the old store header was cacheable, in which case, another store may
