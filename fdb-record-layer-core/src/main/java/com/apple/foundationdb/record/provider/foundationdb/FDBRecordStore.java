@@ -5551,7 +5551,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
             final RecordMetaData recordMetaData = metaDataProvider.getRecordMetaData();
             final RecordMetaDataProto.DataStoreInfo.Builder dataStoreInfo = RecordMetaDataProto.DataStoreInfo.newBuilder()
-                    .setFormatVersion(formatVersion)
+                    .setFormatVersion(formatVersion.getValueForSerialization())
                     .setMetaDataversion(recordMetaData.getVersion())
                     .setUserVersion(userVersion)
                     // record count key is set below
