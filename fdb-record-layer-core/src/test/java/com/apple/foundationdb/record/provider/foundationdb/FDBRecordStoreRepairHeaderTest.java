@@ -84,7 +84,15 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore.Builder builder = getStoreBuilder(context, recordMetaData)
                     .setFormatVersion(newFormatVersion);
-            repairHeader(context, 1, builder);
+            if (oldFormatVersion.isAtLeast(FormatVersion.SAVE_VERSION_WITH_RECORD)) {
+                repairHeader(context, 1, builder, FormatVersion.SAVE_VERSION_WITH_RECORD);
+            } else if (!newFormatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX)) {
+                repairHeader(context, 1, builder, FormatVersion.INFO_ADDED);
+            } else {
+                assertThatThrownBy(() -> repairHeader(context, 1, builder, oldFormatVersion))
+                        .isInstanceOf(RecordCoreException.class);
+                return; // nothing left to test
+            }
             commit(context);
         }
 
@@ -458,9 +466,15 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private void repairHeader(final FDBRecordContext context, final int userVersion, final FDBRecordStore.Builder builder) {
+    private void repairHeader(final FDBRecordContext context, final int userVersion,
+                              final FDBRecordStore.Builder builder) {
+        repairHeader(context, userVersion, builder, FormatVersion.SAVE_VERSION_WITH_RECORD);
+    }
+
+    private void repairHeader(final FDBRecordContext context, final int userVersion,
+                              final FDBRecordStore.Builder builder, final FormatVersion minimumPossibleFormatVersion) {
         recordStore = context.asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION,
-                builder.repairMissingHeader(userVersion));
+                builder.repairMissingHeader(userVersion, minimumPossibleFormatVersion));
     }
 
     @Nonnull

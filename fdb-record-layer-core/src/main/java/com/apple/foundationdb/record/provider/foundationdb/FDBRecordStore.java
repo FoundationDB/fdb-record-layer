@@ -5528,15 +5528,32 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          * In the event that a store has been corrupted, and the header has been lost, this method can be used to open
          * the store, and fill in the missing header.
          * <p>
-         *     If it is possible that multiple different instances have a different idea of any of the versions
-         *     ({@link #setFormatVersion format version}, {@link RecordMetaData#getVersion() metaData version}, or
-         *     {@link #getUserVersion() user version}), that this builder is created with the maximal option for each.
+         * If it is possible that multiple different instances have a different idea of any of the versions
+         * ({@link #setFormatVersion format version}, {@link RecordMetaData#getVersion() metaData version}, or
+         * {@link #getUserVersion() user version}), that this builder is created with the maximal option for each.
          * </p>
+         *
          * @param userVersion the user version to set in the store header
+         * @param minimumPossibleFormatVersion the minimum {@link FormatVersion} that this store could have possibly
+         * had. Notably, upgrading to {@link FormatVersion#SAVE_VERSION_WITH_RECORD} requires moving data, and upgrading
+         * to {@link FormatVersion#SAVE_UNSPLIT_WITH_SUFFIX} requires storing whether the store should have the unsplit
+         * suffix or not. It's not impossible for {@code repairMissingHeader} to determine what to do based on the rest
+         * of the data in the store, but to keep this simple, upgrading across those versions is not supported.
+         *
          * @return a store
          */
         @API(API.Status.INTERNAL)
-        public CompletableFuture<FDBRecordStore> repairMissingHeader(final int userVersion) {
+        public CompletableFuture<FDBRecordStore> repairMissingHeader(final int userVersion, FormatVersion minimumPossibleFormatVersion) {
+            if (!formatVersion.isAtLeast(minimumPossibleFormatVersion)) {
+                throw new RecordCoreArgumentException("minimumPossibleFormatVersion is greater than the target formatVerson")
+                        .addLogInfo(LogMessageKeys.FORMAT_VERSION, minimumPossibleFormatVersion)
+                        .addLogInfo(LogMessageKeys.NEW_FORMAT_VERSION, formatVersion);
+            }
+            if (!minimumPossibleFormatVersion.isAtLeast(FormatVersion.SAVE_VERSION_WITH_RECORD)
+                    && formatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX)) {
+                throw new RecordCoreArgumentException("minimumPossibleFormatVersion is not supported")
+                        .addLogInfo(LogMessageKeys.FORMAT_VERSION, minimumPossibleFormatVersion);
+            }
             return uncheckedOpenAsync()
                     .thenCompose(store ->
                             store.getStoreStateCache().get(store, StoreExistenceCheck.NONE)
