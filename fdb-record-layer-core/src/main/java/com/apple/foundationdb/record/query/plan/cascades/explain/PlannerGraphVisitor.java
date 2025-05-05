@@ -1,9 +1,9 @@
 /*
- * PlannerGraphProperty.java
+ * PlannerGraphVisitor.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,11 +20,11 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.explain;
 
-import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.Traversal;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.Traversal;
 import com.apple.foundationdb.record.query.plan.cascades.debug.BrowserHelper;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.GraphExporter.Cluster;
@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph.Ed
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph.Node;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph.PartialMatchEdge;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -64,7 +63,7 @@ import java.util.stream.Collectors;
  * Class to hold a graph for explain, optimization, and rewrite purposes.
  */
 @SuppressWarnings({"UnstableApiUsage"})
-public class PlannerGraphProperty implements ExpressionProperty<PlannerGraph>, RelationalExpressionVisitorWithDefaults<PlannerGraph> {
+public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph> {
 
     public static final int EMPTY_FLAGS                = 0x0000;
 
@@ -140,7 +139,7 @@ public class PlannerGraphProperty implements ExpressionProperty<PlannerGraph>, R
     @Nonnull
     public static String show(final int flags, @Nonnull final RelationalExpression relationalExpression) {
         final PlannerGraph plannerGraph =
-                Objects.requireNonNull(relationalExpression.acceptPropertyVisitor(new PlannerGraphProperty(flags)));
+                Objects.requireNonNull(relationalExpression.acceptVisitor(new PlannerGraphVisitor(flags)));
         final String dotString = exportToDot(plannerGraph);
         return show(dotString);
     }
@@ -155,7 +154,7 @@ public class PlannerGraphProperty implements ExpressionProperty<PlannerGraph>, R
     @Nonnull
     public static String show(final int flags, @Nonnull final Reference rootReference) {
         final PlannerGraph plannerGraph =
-                Objects.requireNonNull(rootReference.acceptPropertyVisitor(new PlannerGraphProperty(flags)));
+                Objects.requireNonNull(rootReference.acceptVisitor(new PlannerGraphVisitor(flags)));
         final String dotString = exportToDot(plannerGraph);
         return show(dotString);
     }
@@ -173,13 +172,13 @@ public class PlannerGraphProperty implements ExpressionProperty<PlannerGraph>, R
                               @Nonnull final Reference queryPlanRootReference,
                               @Nonnull final Set<MatchCandidate> matchCandidates) {
         final PlannerGraph queryPlannerGraph =
-                Objects.requireNonNull(queryPlanRootReference.acceptPropertyVisitor(forInternalShow(renderSingleGroups, true)));
+                Objects.requireNonNull(queryPlanRootReference.acceptVisitor(forInternalShow(renderSingleGroups, true)));
 
         final PlannerGraph.InternalPlannerGraphBuilder graphBuilder = queryPlannerGraph.derived();
 
         final Map<MatchCandidate, PlannerGraph> matchCandidateMap = matchCandidates.stream()
                 .collect(ImmutableMap.toImmutableMap(Function.identity(), matchCandidate -> Objects.requireNonNull(
-                        matchCandidate.getTraversal().getRootReference().acceptPropertyVisitor(forInternalShow(renderSingleGroups)))));
+                        matchCandidate.getTraversal().getRootReference().acceptVisitor(forInternalShow(renderSingleGroups)))));
 
         matchCandidateMap.forEach((matchCandidate, matchCandidateGraph) -> graphBuilder.addGraph(matchCandidateGraph));
 
@@ -262,7 +261,7 @@ public class PlannerGraphProperty implements ExpressionProperty<PlannerGraph>, R
                 (network, nodes) -> {
                     final ImmutableList.Builder<Cluster<Node, Edge>> clusterBuilder = ImmutableList.builder();
                     clusterBuilder.addAll(clustersForGroups(plannerGraph.getNetwork(), queryPlannerNodes));
-                    clusterBuilder.addAll(clusteringFunction.apply(PlannerGraphProperty::clustersForGroups));
+                    clusterBuilder.addAll(clusteringFunction.apply(PlannerGraphVisitor::clustersForGroups));
                     return clusterBuilder.build();
                 });
         // export as string
@@ -354,7 +353,7 @@ public class PlannerGraphProperty implements ExpressionProperty<PlannerGraph>, R
                                  @Nonnull final Map<String, Attribute> additionalDescriptionMap) {
         try {
             final PlannerGraph plannerGraph =
-                    Objects.requireNonNull(relationalExpression.acceptPropertyVisitor(forExplain()));
+                    Objects.requireNonNull(relationalExpression.acceptVisitor(forExplain()));
             return exportToGml(plannerGraph, additionalDescriptionMap);
         } catch (final Exception ex) {
             Throwables.throwIfUnchecked(ex);
@@ -403,16 +402,16 @@ public class PlannerGraphProperty implements ExpressionProperty<PlannerGraph>, R
                 ImmutableMap.of("infos", Attribute.gml(infoMap)));
     }
 
-    public static PlannerGraphProperty forExplain() {
-        return new PlannerGraphProperty(FOR_EXPLAIN);
+    public static PlannerGraphVisitor forExplain() {
+        return new PlannerGraphVisitor(FOR_EXPLAIN);
     }
 
-    public static PlannerGraphProperty forInternalShow(final boolean renderSingleGroups) {
+    public static PlannerGraphVisitor forInternalShow(final boolean renderSingleGroups) {
         return forInternalShow(renderSingleGroups, false);
     }
 
-    public static PlannerGraphProperty forInternalShow(final boolean renderSingleGroups, final boolean removePlans) {
-        return new PlannerGraphProperty((renderSingleGroups ? RENDER_SINGLE_GROUPS : 0) |
+    public static PlannerGraphVisitor forInternalShow(final boolean renderSingleGroups, final boolean removePlans) {
+        return new PlannerGraphVisitor((renderSingleGroups ? RENDER_SINGLE_GROUPS : 0) |
                                         (removePlans ? REMOVE_PLANS : 0));
     }
 
@@ -424,7 +423,7 @@ public class PlannerGraphProperty implements ExpressionProperty<PlannerGraph>, R
      *
      * @param flags for options
      */
-    private PlannerGraphProperty(final int flags) {
+    private PlannerGraphVisitor(final int flags) {
         Preconditions.checkArgument(validateFlags(flags));
         this.flags = flags;
     }

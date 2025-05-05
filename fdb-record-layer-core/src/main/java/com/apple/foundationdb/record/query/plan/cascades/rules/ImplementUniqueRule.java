@@ -37,10 +37,10 @@ import javax.annotation.Nonnull;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyPlanPartition;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.planPartitions;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.rollUp;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.where;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.rollUpPartitions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.filterPartition;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalUniqueExpression;
 
 /**
@@ -54,9 +54,9 @@ public class ImplementUniqueRule extends CascadesRule<LogicalUniqueExpression> {
 
     @Nonnull
     private static final BindingMatcher<Reference> innerReferenceMatcher = planPartitions(
-            where(planPartition -> planPartition.getAttributesMap().containsKey(DistinctRecordsProperty.DISTINCT_RECORDS)
-                                   && planPartition.getAttributeValue(PrimaryKeyProperty.PRIMARY_KEY).isPresent(),
-                    rollUp(anyPlanPartitionMatcher)));
+            filterPartition(planPartition -> planPartition.getPropertyValuesMap().containsKey(DistinctRecordsProperty.distinctRecords())
+                                   && planPartition.getPropertyValue(PrimaryKeyProperty.primaryKey()).isPresent(),
+                    rollUpPartitions(anyPlanPartitionMatcher)));
 
     @Nonnull
     private static final BindingMatcher<LogicalUniqueExpression> root = logicalUniqueExpression(only(forEachQuantifierOverRef(innerReferenceMatcher)));

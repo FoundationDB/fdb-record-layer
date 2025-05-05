@@ -35,6 +35,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import java.net.URI;
 
 import static com.apple.foundationdb.relational.recordlayer.query.QueryTestUtils.insertT1Record;
+import static com.apple.foundationdb.relational.recordlayer.query.QueryTestUtils.insertT1RecordColAIsNull;
 
 public class GroupByQueryTests {
 
@@ -44,6 +45,38 @@ public class GroupByQueryTests {
 
     public GroupByQueryTests() {
         Utils.enableCascadesDebugger();
+    }
+
+    @Test
+    void isNullPredicateUsesGroupIndex() throws Exception {
+        final String schemaTemplate =
+                "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))\n" +
+                        "CREATE INDEX idx1 as select a, b, c from t1 order by a, b, c\n" +
+                        "CREATE INDEX sum_idx as select sum(c) from t1 group by a\n";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                insertT1Record(statement, 2, 1, 1, 20);
+                insertT1Record(statement, 3, 1, 2, 5);
+                insertT1Record(statement, 4, 1, 2, 15);
+                insertT1Record(statement, 5, 1, 2, 5);
+                insertT1Record(statement, 6, 2, 1, 10);
+                insertT1Record(statement, 7, 2, 1, 40);
+                insertT1Record(statement, 8, 2, 1, 20);
+                insertT1Record(statement, 9, 2, 1, 90);
+                insertT1RecordColAIsNull(statement, 10, 3, 10);
+                insertT1RecordColAIsNull(statement, 11, 4, 35);
+                Assertions.assertTrue(statement.execute("EXPLAIN SELECT sum(c) FROM T1 WHERE a is null"), "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .hasColumn("PLAN", "AISCAN(SUM_IDX [[null],[null]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)");
+                }
+                Assertions.assertTrue(statement.execute("EXPLAIN SELECT sum(c) FROM T1 WHERE a = 1"), "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .hasColumn("PLAN", "AISCAN(SUM_IDX [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)");
+                }
+            }
+        }
     }
 
     @Test

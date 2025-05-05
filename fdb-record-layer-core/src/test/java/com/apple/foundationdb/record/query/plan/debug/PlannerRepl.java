@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.RestartException;
 import com.apple.foundationdb.record.query.plan.cascades.debug.StatsMaps;
-import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.util.ServiceLoaderProvider;
 import com.google.common.cache.Cache;
@@ -197,7 +197,7 @@ public class PlannerRepl implements Debugger {
 
     @Override
     public void onShow(@Nonnull final Reference ref) {
-        PlannerGraphProperty.show(true, ref);
+        PlannerGraphVisitor.show(true, ref);
     }
 
     @Override

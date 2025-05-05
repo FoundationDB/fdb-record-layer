@@ -946,7 +946,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      *
      * <p>
      * Note that enabling splitting long records could result in data corruption if the record store was initially created with a format version older than
-     * {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore#SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION}.
+     * {@link FormatVersion#SAVE_UNSPLIT_WITH_SUFFIX}.
      * Hence the default evolution validator will fail if one enables it. To enable this, first build a custom evolution validator that {@link MetaDataEvolutionValidator#allowsUnsplitToSplit()}
      * and use {@link #setEvolutionValidator(MetaDataEvolutionValidator)} to set the evolution validator used by this store.
      * For more details, see {@link MetaDataEvolutionValidator#allowsUnsplitToSplit()}.
@@ -961,7 +961,7 @@ public class FDBMetaDataStore extends FDBStoreBase implements RecordMetaDataProv
      *
      * <p>
      * Note that enabling splitting long records could result in data corruption if the record store was initially created with a format version older than
-     * {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore#SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION}.
+     * {@link FormatVersion#SAVE_UNSPLIT_WITH_SUFFIX}.
      * Hence the default evolution validator will fail if one enables it. To enable this, first build a custom evolution validator that {@link MetaDataEvolutionValidator#allowsUnsplitToSplit()}
      * and use {@link #setEvolutionValidator(MetaDataEvolutionValidator)} to set the evolution validator used by this store.
      * For more details, see {@link MetaDataEvolutionValidator#allowsUnsplitToSplit()}.

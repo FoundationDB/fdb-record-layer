@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -52,14 +52,11 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 /**
- * <p>
  * The <em>memo</em> data structure can compactly represent a large set of similar {@link RelationalExpression}s through
  * careful memoization. The Cascades "group expression", represented by the {@code Reference}, is the key to
  * that memoization by sharing optimization work on a sub-expression with other parts of the expression that reference
  * the same sub-expression.
- * </p>
- *
- * <p>
+ * <br>
  * The reference abstraction is designed to make it difficult for authors of rules to mutate group expressions directly,
  * which is undefined behavior. Note that a {@link Reference} cannot be "de-referenced" using the {@link #get()}
  * method if it contains more than one member. Expressions with more than one member should not be used outside of the
@@ -77,17 +74,20 @@ public class Reference implements Correlated<Reference>, Typed {
     private final ConstraintsMap constraintsMap;
 
     @Nonnull
-    private final PropertiesMap propertiesMap;
+    private final ExpressionPropertiesMap<? extends RelationalExpression> propertiesMap;
 
     private Reference() {
         this(new LinkedIdentitySet<>());
     }
 
-    private Reference(@Nonnull LinkedIdentitySet<RelationalExpression> members) {
+    private Reference(@Nonnull final LinkedIdentitySet<RelationalExpression> members) {
         this.members = members;
         this.partialMatchMap = LinkedHashMultimap.create();
         this.constraintsMap = new ConstraintsMap();
-        this.propertiesMap = new PropertiesMap(members);
+        // TODO create based on the (yet) non-existing planner stage
+        this.propertiesMap = new PlanPropertiesMap(members.stream()
+                .filter(m -> m instanceof RecordQueryPlan)
+                .collect(Collectors.toList()));
         // Call debugger hook for this new reference.
         Debugger.registerReference(this);
     }
@@ -136,9 +136,9 @@ public class Reference implements Correlated<Reference>, Typed {
      * @param newValue new value to replace existing members
      */
     public void pruneWith(@Nonnull RelationalExpression newValue) {
-        final Map<PlanProperty<?>, ?> propertiesForPlan;
+        final Map<ExpressionProperty<?>, ?> propertiesForPlan;
         if (newValue instanceof RecordQueryPlan) {
-            propertiesForPlan = propertiesMap.getCurrentPropertiesForPlan((RecordQueryPlan)newValue);
+            propertiesForPlan = propertiesMap.getCurrentProperties(newValue);
         } else {
             propertiesForPlan = null;
         }
@@ -157,7 +157,7 @@ public class Reference implements Correlated<Reference>, Typed {
     public boolean insertFrom(@Nonnull final RelationalExpression newValue, @Nonnull final Reference otherRef) {
         if (newValue instanceof RecordQueryPlan) {
             final var propertiesForPlan =
-                    Objects.requireNonNull(otherRef.propertiesMap.getPropertiesForPlan((RecordQueryPlan)newValue));
+                    Objects.requireNonNull(otherRef.propertiesMap.getProperties(newValue));
 
             return insert(newValue, propertiesForPlan);
         }
@@ -184,7 +184,7 @@ public class Reference implements Correlated<Reference>, Typed {
      * @return {@code true} if and only if the new expression was successfully inserted into this reference, {@code false}
      *         otherwise.
      */
-    private boolean insert(@Nonnull final RelationalExpression newValue, @Nullable final Map<PlanProperty<?>, ?> precomputedPropertiesMap) {
+    private boolean insert(@Nonnull final RelationalExpression newValue, @Nullable final Map<ExpressionProperty<?>, ?> precomputedPropertiesMap) {
         Debugger.withDebugger(debugger -> debugger.onEvent(Debugger.InsertIntoMemoEvent.begin()));
         try {
             final boolean containsInMemo = containsInMemo(newValue);
@@ -225,7 +225,7 @@ public class Reference implements Correlated<Reference>, Typed {
      * @param precomputedPropertiesMap if not {@code null}, a map of precomputed properties for a {@link RecordQueryPlan}
      *        that will be inserted into this reference verbatim, otherwise it will be computed
      */
-    public void insertUnchecked(@Nonnull final RelationalExpression newValue, @Nullable final Map<PlanProperty<?>, ?> precomputedPropertiesMap) {
+    public void insertUnchecked(@Nonnull final RelationalExpression newValue, @Nullable final Map<ExpressionProperty<?>, ?> precomputedPropertiesMap) {
         // Call debugger hook to potentially register this new expression.
         Debugger.registerExpression(newValue);
 
@@ -385,27 +385,27 @@ public class Reference implements Correlated<Reference>, Typed {
     }
 
     @Nonnull
-    public <A> Map<RecordQueryPlan, A> getPlannerAttributeForMembers(@Nonnull final PlanProperty<A> planProperty) {
-        return propertiesMap.getPlannerAttributeForAllPlans(planProperty);
+    public <A> Map<RecordQueryPlan, A> getProperty(@Nonnull final ExpressionProperty<A> expressionProperty) {
+        return propertiesMap.propertyValueForPlans(expressionProperty);
     }
 
     @Nonnull
-    public List<PlanPartition> getPlanPartitions() {
-        return propertiesMap.getPlanPartitions();
+    public List<PlanPartition> toPlanPartitions() {
+        return propertiesMap.toPlanPartitions();
     }
 
     @Nullable
-    public <U> U acceptPropertyVisitor(@Nonnull ExpressionProperty<U> property) {
-        if (property.shouldVisit(this)) {
+    public <U> U acceptVisitor(@Nonnull SimpleExpressionVisitor<U> simpleExpressionVisitor) {
+        if (simpleExpressionVisitor.shouldVisit(this)) {
             final List<U> memberResults = new ArrayList<>(members.size());
             for (RelationalExpression member : members) {
-                final U result = property.shouldVisit(member) ? property.visit(member) : null;
+                final U result = simpleExpressionVisitor.shouldVisit(member) ? simpleExpressionVisitor.visit(member) : null;
                 if (result == null) {
                     return null;
                 }
                 memberResults.add(result);
             }
-            return property.evaluateAtRef(this, memberResults);
+            return simpleExpressionVisitor.evaluateAtRef(this, memberResults);
         }
         return null;
     }
@@ -522,7 +522,7 @@ public class Reference implements Correlated<Reference>, Typed {
      */
     @Nonnull
     public String show(final boolean renderSingleGroups) {
-        return PlannerGraphProperty.show(renderSingleGroups, this);
+        return PlannerGraphVisitor.show(renderSingleGroups, this);
     }
 
     public static boolean isMemoizedExpression(@Nonnull final RelationalExpression expression,

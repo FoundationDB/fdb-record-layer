@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.TempTable;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableScanExpression;
-import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -72,6 +71,7 @@ import java.util.function.Supplier;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.mapPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.tempTableScanPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty.usedTypes;
 
 /**
  * Contains utility methods around {@link TempTable}s to make testing temp table planning and execution easier.
@@ -290,7 +290,7 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     static EvaluationContext setUpPlanContextTypes(@Nonnull final RecordQueryPlan recordQueryPlan) {
-        final var usedTypes = UsedTypesProperty.evaluate(recordQueryPlan);
+        final var usedTypes = usedTypes().evaluate(recordQueryPlan);
         return EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(usedTypes).build());
     }
 

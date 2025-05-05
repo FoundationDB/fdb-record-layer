@@ -471,8 +471,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                         }
 
                         return comparisons.stream()
-                                .anyMatch(comparison -> comparison.getType().isEquality() &&
-                                        comparison.getType() == Comparisons.Type.EQUALS);
+                                .anyMatch(comparison -> comparison.getType().isEquality());
                     }
                     return false;
                 });

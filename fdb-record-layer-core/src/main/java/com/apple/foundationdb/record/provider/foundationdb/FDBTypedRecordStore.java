@@ -185,6 +185,12 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
 
     @Nonnull
     @Override
+    public RecordCursor<Tuple> scanRecordKeys(@Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
+        return untypedStore.scanRecordKeys(continuation, scanProperties);
+    }
+
+    @Nonnull
+    @Override
     public CompletableFuture<Integer> countRecords(@Nullable Tuple low, @Nullable Tuple high, @Nonnull EndpointType lowEndpoint, @Nonnull EndpointType highEndpoint, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
         return untypedStore.countRecords(low, high, lowEndpoint, highEndpoint, continuation, scanProperties);
     }
@@ -384,13 +390,28 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
         }
 
         @Override
+        @Deprecated(forRemoval = true)
+        @SuppressWarnings("removal") // this method is deprecated to be removed with parent
         public int getFormatVersion() {
             return untypedStoreBuilder.getFormatVersion();
         }
 
-        @Nonnull
         @Override
+        public FormatVersion getFormatVersionEnum() {
+            return untypedStoreBuilder.getFormatVersionEnum();
+        }
+
+        @Override
+        @Nonnull
+        @Deprecated(forRemoval = true)
+        @SuppressWarnings("removal") // this method is deprecated to be removed with parent
         public Builder<M> setFormatVersion(int formatVersion) {
+            untypedStoreBuilder.setFormatVersion(formatVersion);
+            return this;
+        }
+
+        @Override
+        public BaseBuilder<M, FDBTypedRecordStore<M>> setFormatVersion(final FormatVersion formatVersion) {
             untypedStoreBuilder.setFormatVersion(formatVersion);
             return this;
         }

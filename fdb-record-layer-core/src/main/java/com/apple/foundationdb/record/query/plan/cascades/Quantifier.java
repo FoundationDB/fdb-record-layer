@@ -615,14 +615,14 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     /**
      * Allow the computation of {@link ExpressionProperty}s across the quantifiers in the data flow graph.
-     * @param visitor the planner property that is being computed
-     * @param <U> the type of the property being computed
+     * @param visitor the visitor that is being accepted
+     * @param <U> the type the visitor computes
      * @return the property
      */
     @Nullable
-    public <U> U acceptPropertyVisitor(@Nonnull ExpressionProperty<U> visitor) {
+    public <U> U acceptVisitor(@Nonnull SimpleExpressionVisitor<U> visitor) {
         if (visitor.shouldVisit(this)) {
-            return visitor.evaluateAtQuantifier(this, getRangesOver().acceptPropertyVisitor(visitor));
+            return visitor.evaluateAtQuantifier(this, getRangesOver().acceptVisitor(visitor));
         }
         return null;
     }

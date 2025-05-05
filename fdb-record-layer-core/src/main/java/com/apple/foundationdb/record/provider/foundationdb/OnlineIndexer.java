@@ -28,11 +28,9 @@ import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -60,7 +58,6 @@ import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.metadata.Index.decodeSubspaceKey;
-import static com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore.READABLE_UNIQUE_PENDING_FORMAT_VERSION;
 
 /**
  * Builds an index online, i.e., concurrently with other database operations. In order to minimize
@@ -285,26 +282,6 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     @Nonnull
-    private IndexingByRecords getIndexerByRecords() {
-        if (! (indexer instanceof IndexingByRecords)) { // this covers null pointer
-            indexer = new IndexingByRecords(common, indexingPolicy);
-        }
-        return (IndexingByRecords)indexer;
-    }
-
-    @Nonnull
-    private IndexingByRecords getIndexerByRecordsOrThrow() {
-        if (fallbackToRecordsScan) {
-            return getIndexerByRecords();
-        }
-        if (indexingPolicy.isByIndex()) {
-            throw new RecordCoreException("Indexing by index makes no sense here");
-        }
-        // default
-        return getIndexerByRecords();
-    }
-
-    @Nonnull
     private IndexingMultiTargetByRecords getIndexerMultiTargetByRecords() {
         if (! (indexer instanceof IndexingMultiTargetByRecords)) {
             indexer = new IndexingMultiTargetByRecords(common, indexingPolicy);
@@ -410,100 +387,6 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     /**
-     * Builds (transactionally) the index by adding records with primary keys within the given range.
-     * This will look for gaps of keys within the given range that haven't yet been rebuilt and then
-     * rebuild only those ranges. As a result, if this method is called twice, the first time, it will
-     * build whatever needs to be built, and then the second time, it will notice that there are no ranges
-     * that need to be built, so it will do nothing. In this way, it is idempotent and thus safe to
-     * use in retry loops.
-     *
-     * This method will fail if there is too much work to be done in a single transaction. If one wants
-     * to handle building a range that does not fit in a single transaction, one should use the
-     * {@link #buildRange(Key.Evaluated, Key.Evaluated) buildRange()}
-     * function that takes an {@link FDBDatabase} as its first parameter.
-     *
-     * @param store the record store in which to rebuild the range
-     * @param start the (inclusive) beginning primary key of the range to build (or <code>null</code> to go to the end)
-     * @param end the (exclusive) end primary key of the range to build (or <code>null</code> to go to the end)
-     * @return a future that will be ready when the build has completed
-     */
-    @Nonnull
-    @Deprecated(since = "3.3.443.0", forRemoval = true)
-    public CompletableFuture<Void> buildRange(@Nonnull FDBRecordStore store, @Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
-        // This only makes sense at 'scan by records' mode.
-        return getIndexerByRecordsOrThrow().buildRange(store, start, end);
-    }
-
-    /**
-     * Builds (with a retry loop) the index by adding records with primary keys within the given range.
-     * This will look for gaps of keys within the given range that haven't yet been rebuilt and then rebuild
-     * only those ranges. It will also limit each transaction to the number of records specified by the
-     * <code>limit</code> parameter of this class's constructor. In the case that that limit is too high (i.e.,
-     * it can't make any progress or errors out on a non-retriable error like <code>transaction_too_large</code>,
-     * this method will actually decrease the limit so that less work is attempted each transaction. It will
-     * also rate limit itself as to not make too many requests per second.
-     * <p>
-     * Note that it does not have the protections (synchronized sessions and index state precondition) which are imposed
-     * on {@link #buildIndexAsync()} (or its variations), but it does use the created synchronized session if a
-     * {@link #buildIndexAsync()} is running on the {@link OnlineIndexer} simultaneously or this range build is used as
-     * part of {@link #buildIndexAsync()} internally.
-     * </p>
-     * @param start the (inclusive) beginning primary key of the range to build (or <code>null</code> to go from the beginning)
-     * @param end the (exclusive) end primary key of the range to build (or <code>null</code> to go to the end)
-     * @return a future that will be ready when the build has completed
-     */
-    @Nonnull
-    @Deprecated(since = "3.3.443.0", forRemoval = true)
-    public CompletableFuture<Void> buildRange(@Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
-        // This only makes sense at 'scan by records' mode.
-        return getIndexerByRecordsOrThrow().buildRange(start, end);
-    }
-
-    /**
-     * Builds (transactionally) the index by adding records with primary keys within the given range.
-     * This requires that the range is initially "unbuilt", i.e., no records within the given
-     * range have yet been processed by the index build job. It is acceptable if there
-     * are records within that range that have already been added to the index because they were
-     * added to the store after the index was added in write-only mode but have not yet been
-     * processed by the index build job.
-     *
-     * Note that this function is not idempotent in that if the first time this function runs, if it
-     * fails with <code>commit_unknown_result</code> but the transaction actually succeeds, running this
-     * function again will result in a {@link RecordBuiltRangeException} being thrown the second
-     * time. Retry loops used by the <code>OnlineIndexer</code> class that call this method
-     * handle this contingency. For the most part, this method should only be used by those who know
-     * what they are doing. It is included because it is less expensive to make this call if one
-     * already knows that the range will be unbuilt, but the caller must be ready to handle the
-     * circumstance that the range might be built the second time.
-     *
-     * Most users should use the
-     * {@link #buildRange(FDBRecordStore, Key.Evaluated, Key.Evaluated) buildRange()}
-     * method with the same parameters in the case that they want to build a range of keys into the index. That
-     * method <i>is</i> idempotent, but it is slightly more costly as it firsts determines what ranges are
-     * have not yet been built before building them.
-     *
-     * @param store the record store in which to rebuild the range
-     * @param start the (inclusive) beginning primary key of the range to build (or <code>null</code> to start from the beginning)
-     * @param end the (exclusive) end primary key of the range to build (or <code>null</code> to go to the end)
-     * @return a future with the key of the first record not processed by this range rebuild
-     * @throws RecordBuiltRangeException if the given range contains keys already processed by the index build
-     */
-    @Nonnull
-    @Deprecated(since = "3.3.443.0", forRemoval = true)
-    public CompletableFuture<Key.Evaluated> buildUnbuiltRange(@Nonnull FDBRecordStore store,
-                                                              @Nullable Key.Evaluated start,
-                                                              @Nullable Key.Evaluated end) {
-        return getIndexerByRecordsOrThrow().buildUnbuiltRange(store, start, end);
-    }
-
-    @VisibleForTesting
-    @Nonnull
-    @Deprecated(since = "3.3.443.0", forRemoval = true)
-    CompletableFuture<Key.Evaluated> buildUnbuiltRange(@Nullable Key.Evaluated start, @Nullable Key.Evaluated end) {
-        return getIndexerByRecordsOrThrow().buildUnbuiltRange(start, end);
-    }
-
-    /**
      * Transactionally rebuild an entire index. This will (1) delete any data in the index that is
      * already there and (2) rebuild the entire key range for the given index. It will attempt to
      * do this within a single transaction, and it may fail if there are too many records, so this
@@ -548,45 +431,6 @@ public class OnlineIndexer implements AutoCloseable {
     @API(API.Status.EXPERIMENTAL)
     public void mergeIndex() {
         asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_MERGE_INDEX, mergeIndexAsync());
-    }
-
-    /**
-     * Builds (transactionally) the endpoints of an index. What this means is that builds everything from the beginning of
-     * the key space to the first record and everything from the last record to the end of the key space.
-     * There won't be any records within these ranges (except for the last record of the record store), but
-     * it does mean that any records in the future that get added to these ranges will correctly update
-     * the index. This means, e.g., that if the workload primarily adds records to the record store
-     * after the current last record (because perhaps the primary key is based off of an atomic counter
-     * or the current time), running this method will be highly contentious, but once it completes,
-     * the rest of the index build should happen without any more conflicts.
-     *
-     * This will return a (possibly null) {@link TupleRange} that contains the primary keys of the
-     * first and last records within the record store. This can then be used to either build the
-     * range right away or to then divy-up the remaining ranges between multiple agents working
-     * in parallel if one desires.
-     *
-     * @param store the record store in which to rebuild the index
-     * @return a future that will contain the range of records in the interior of the record store
-     */
-    @Nonnull
-    @Deprecated(forRemoval = true)
-    public CompletableFuture<TupleRange> buildEndpoints(@Nonnull FDBRecordStore store) {
-        // endpoints only make sense in 'scan by records' mode.
-        return getIndexerByRecordsOrThrow().buildEndpoints(store, null);
-    }
-
-    /**
-     * Builds (with a retry loop) the endpoints of an index. See the
-     * {@link #buildEndpoints(FDBRecordStore) buildEndpoints()} method that takes
-     * an {@link FDBRecordStore} as its parameter for more details. This will retry on that function
-     * until it gets a non-exceptional result and return the results back.
-     *
-     * @return a future that will contain the range of records in the interior of the record store
-     */
-    @Nonnull
-    @Deprecated(since = "3.3.443.0", forRemoval = true)
-    public CompletableFuture<TupleRange> buildEndpoints() {
-        return getIndexerByRecordsOrThrow().buildEndpoints();
     }
 
     /**
@@ -693,35 +537,6 @@ public class OnlineIndexer implements AutoCloseable {
      */
     public void buildIndex() {
         asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, buildIndexAsync());
-    }
-
-    @VisibleForTesting
-    private CompletableFuture<Void> buildIndexAsyncSingleTarget() {
-        // Testing only - enforce the old by-records indexer
-        return indexingLauncher(() -> getIndexerByRecordsOrThrow().buildIndexAsync(true, common.config.shouldUseSynchronizedSession()));
-    }
-
-    @VisibleForTesting
-    @Deprecated(since = "3.3.443.0", forRemoval = true)
-    protected void buildIndexSingleTarget() {
-        asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, buildIndexAsyncSingleTarget());
-    }
-
-    /**
-     * Split the index build range to support building an index across multiple transactions in parallel if needed.
-     * <p>
-     * It is blocking and should not be called in asynchronous contexts.
-     *
-     * @param minSplit not split if it cannot be split into at least <code>minSplit</code> ranges
-     * @param maxSplit the maximum number of splits generated
-     * @return a list of split primary key ranges
-     * @deprecated for removal to be replaced by {@linkplain IndexingMutuallyByRecords mutual indexing}
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated(since = "3.3.443.0", forRemoval = true)
-    @Nonnull
-    public List<TupleRange> splitIndexBuildRange(int minSplit, int maxSplit) {
-        return getIndexerByRecordsOrThrow().splitIndexBuildRange(minSplit, maxSplit);
     }
 
     /**
@@ -1310,7 +1125,8 @@ public class OnlineIndexer implements AutoCloseable {
          * @return true if allowed
          */
         public boolean shouldAllowUniquePendingState(FDBRecordStore store) {
-            return allowUniquePendingState && store.formatVersion >= READABLE_UNIQUE_PENDING_FORMAT_VERSION;
+            return allowUniquePendingState
+                    && store.getFormatVersionEnum().isAtLeast(FormatVersion.READABLE_UNIQUE_PENDING);
         }
 
         /**
@@ -1438,7 +1254,7 @@ public class OnlineIndexer implements AutoCloseable {
              * source-index covers <em>all</em> the relevant records for the target-index. Also, note that
              * if the {@linkplain OnlineIndexer.Builder#setIndex(Index) target index} is not idempotent,
              * the index build will not be executed using the given source index unless the store's
-             * format version is at least {@link FDBRecordStore#CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION},
+             * format version is at least {@link FormatVersion#CHECK_INDEX_BUILD_TYPE_DURING_UPDATE},
              * as concurrent updates to the index during such a build on older format versions can
              * result in corrupting the index. On older format versions, the indexer will throw an
              * exception and the build may fall back to building the index by a records scan depending
