@@ -4801,6 +4801,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             LOGGER.debug(msg.toString());
         }
         final long startTime = System.nanoTime();
+        // This won't clear an ungrouped aggregate index: https://github.com/FoundationDB/fdb-record-layer/issues/3337
+        // It also won't clear some of the secondary state from TimeWindowLeaderboard indexes.
         context.clear(getSubspace().range(Tuple.from(INDEX_KEY, formerIndex.getSubspaceTupleKey())));
         context.clear(getSubspace().range(Tuple.from(INDEX_SECONDARY_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
         context.clear(getSubspace().range(Tuple.from(INDEX_RANGE_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
