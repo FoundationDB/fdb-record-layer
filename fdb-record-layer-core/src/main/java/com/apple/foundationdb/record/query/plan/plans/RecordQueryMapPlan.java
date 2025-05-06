@@ -35,7 +35,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
+import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
@@ -147,7 +147,7 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
     }
 
     @Override
-    public RecordQueryMapPlan strictlySorted(@Nonnull Memoizer memoizer) {
+    public RecordQueryMapPlan strictlySorted(@Nonnull FinalMemoizer memoizer) {
         return this;
     }
 

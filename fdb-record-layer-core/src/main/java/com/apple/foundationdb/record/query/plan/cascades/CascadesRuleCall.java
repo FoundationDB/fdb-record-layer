@@ -59,9 +59,19 @@ import java.util.function.Function;
  * Among other things, each object of this class maintains a reference to a {@link PlannerPhase} and a reference to the
  * rule we are executing. Note that the planner phase that the rule is implemented for is the same as this planner
  * stage.
+ * <br>
+ * Note that this class implements a number of interfaces that were carefully constructed to partition the set of
+ * methods by whether this rule call is targeted for an exploration rule or an implementation rule. Please take a look
+ * at {@link ExplorationCascadesRule} and {@link ImplementationCascadesRule} for the definition of these rules. There
+ * are two corresponding rule calls (i.e. {@link ExplorationCascadesRuleCall} and
+ * {@link ImplementationCascadesRuleCall}) that the aforementioned rules use for their respective {@code onMatch(...)}
+ * methods which hide away parts of the rule call API that should not ever be called by those rules. For instance,
+ * implementation rules should never memoize or yield exploratory expressions. In the past, <em>illegal</em> memoization
+ * and/or yielding methods were called from within cascades rules that then caused problems later that are incredibly
+ * hard to debug.
  */
 @API(API.Status.EXPERIMENTAL)
-public class CascadesRuleCall implements PlannerRuleCall<RelationalExpression>, Memoizer {
+public class CascadesRuleCall implements ExplorationCascadesRuleCall, ImplementationCascadesRuleCall, Memoizer, Yields {
     @Nonnull
     private final PlannerPhase plannerPhase;
     @Nonnull
@@ -83,7 +93,7 @@ public class CascadesRuleCall implements PlannerRuleCall<RelationalExpression>, 
     @Nonnull
     private final LinkedIdentitySet<PartialMatch> newPartialMatches;
     @Nonnull
-    private final Set<Reference> referencesWithPushedRequirements;
+    private final Set<Reference> referencesWithPushedConstraints;
     @Nonnull
     private final EvaluationContext evaluationContext;
 
@@ -105,7 +115,7 @@ public class CascadesRuleCall implements PlannerRuleCall<RelationalExpression>, 
         this.newExploratoryExpressions = new LinkedIdentitySet<>();
         this.newFinalExpressions = new LinkedIdentitySet<>();
         this.newPartialMatches = new LinkedIdentitySet<>();
-        this.referencesWithPushedRequirements = Sets.newLinkedHashSet();
+        this.referencesWithPushedConstraints = Sets.newLinkedHashSet();
         this.evaluationContext = evaluationContext;
     }
 
@@ -114,23 +124,27 @@ public class CascadesRuleCall implements PlannerRuleCall<RelationalExpression>, 
     }
 
     @Nonnull
+    @Override
     public PlannerPhase getPlannerPhase() {
         return plannerPhase;
     }
 
     @Nonnull
+    @Override
     public Reference getRoot() {
         return root;
     }
 
     @Nonnull
-    public Traversal getTraversal() {
-        return traversal;
+    @Override
+    public AliasResolver newAliasResolver() {
+        return new AliasResolver(traversal);
     }
 
     @Nonnull
-    public AliasResolver newAliasResolver() {
-        return new AliasResolver(traversal);
+    @Override
+    public PlanContext getContext() {
+        return context;
     }
 
     @Override
@@ -139,19 +153,9 @@ public class CascadesRuleCall implements PlannerRuleCall<RelationalExpression>, 
         return bindings;
     }
 
-    /**
-     * Get the planning context with metadata that might be relevant to the planner, such as the list of available
-     * match candidates.
-     *
-     * @return a {@link PlanContext} object with various metadata that could affect planning
-     */
     @Nonnull
-    public PlanContext getContext() {
-        return context;
-    }
-
-    @Nonnull
-    public <T> Optional<T> getPlannerConstraint(@Nonnull final PlannerConstraint<T> plannerConstraint) {
+    @Override
+    public <T> Optional<T> getPlannerConstraintMaybe(@Nonnull final PlannerConstraint<T> plannerConstraint) {
         if (rule.getConstraintDependencies().contains(plannerConstraint)) {
             return root.getConstraintsMap().getConstraintOptional(plannerConstraint);
         }
@@ -159,42 +163,44 @@ public class CascadesRuleCall implements PlannerRuleCall<RelationalExpression>, 
         throw new RecordCoreArgumentException("rule is not dependent on requested planner requirement");
     }
 
-    @Nonnull
-    public Set<Reference> getReferencesWithPushedRequirements() {
-        return referencesWithPushedRequirements;
-    }
-
-
-    public void yieldExploratoryExpressions(@Nonnull final Set<? extends RelationalExpression> expressions) {
-        for (final var expression : expressions) {
-            yieldExploratoryExpression(expression);
-        }
-    }
-
-    public void yieldPlans(@Nonnull final Set<? extends RecordQueryPlan> plans) {
-        for (final var plan : plans) {
-            yieldPlan(plan);
-        }
-    }
-
-    public void yieldFinalExpressions(@Nonnull final Set<? extends RelationalExpression> expressions) {
-        for (final var expression : expressions) {
-            yieldFinalExpression(expression);
-        }
-    }
-
-    public void yieldPlannedExpressions(@Nonnull final Set<? extends RelationalExpression> expressions) {
-        Verify.verify(getPlannerPhase() == PlannerPhase.PLANNING);
-        for (final var expression : expressions) {
-            yieldPlannedExpression(expression);
+    @Override
+    @SuppressWarnings({"PMD.CompareObjectsWithEquals"}) // deliberate use of id equality check for short-circuit condition
+    public <T> void pushConstraint(@Nonnull final Reference reference,
+                                   @Nonnull final PlannerConstraint<T> plannerConstraint,
+                                   @Nonnull final T constraintValue) {
+        Verify.verify(root != reference);
+        final ConstraintsMap requirementsMap = reference.getConstraintsMap();
+        if (requirementsMap.pushProperty(plannerConstraint, constraintValue).isPresent()) {
+            referencesWithPushedConstraints.add(reference);
         }
     }
 
     @Override
-    public void yieldResult(@Nonnull final RelationalExpression expression) {
-        yieldExploratoryExpression(expression);
+    public void emitEvent(@Nonnull final Debugger.Location location) {
+        Verify.verify(location != Debugger.Location.BEGIN && location != Debugger.Location.END);
+        Debugger.withDebugger(debugger ->
+                debugger.onEvent(
+                        new Debugger.TransformRuleCallEvent(plannerPhase, root, taskStack, location, root,
+                                bindings.get(rule.getMatcher()), rule, this)));
     }
 
+    @Override
+    public void yieldExploratoryExpression(@Nonnull final RelationalExpression expression) {
+        yieldExpression(expression, false);
+    }
+
+    @Override
+    public void yieldPlan(@Nonnull final RecordQueryPlan plan) {
+        Verify.verify(getPlannerPhase() == PlannerPhase.PLANNING);
+        yieldFinalExpression(plan);
+    }
+
+    @Override
+    public void yieldFinalExpression(@Nonnull final RelationalExpression expression) {
+        yieldExpression(expression, true);
+    }
+
+    @Override
     public void yieldPlannedExpression(@Nonnull final RelationalExpression expression) {
         Verify.verify(getPlannerPhase() == PlannerPhase.PLANNING);
         if (expression instanceof RecordQueryPlan) {
@@ -202,18 +208,6 @@ public class CascadesRuleCall implements PlannerRuleCall<RelationalExpression>, 
         } else {
             yieldExploratoryExpression(expression);
         }
-    }
-
-    public void yieldExploratoryExpression(@Nonnull final RelationalExpression expression) {
-        yieldExpression(expression, false);
-    }
-
-    public void yieldPlan(@Nonnull final RecordQueryPlan plan) {
-        yieldFinalExpression(plan);
-    }
-
-    public void yieldFinalExpression(@Nonnull final RelationalExpression expression) {
-        yieldExpression(expression, true);
     }
 
     private void yieldExpression(@Nonnull final RelationalExpression expression, final boolean isFinal) {
@@ -245,6 +239,7 @@ public class CascadesRuleCall implements PlannerRuleCall<RelationalExpression>, 
      * @param candidateRef the matching reference on the candidate side
      * @param matchInfo an auxiliary structure to keep additional information about the match
      */
+    @Override
     public void yieldPartialMatch(@Nonnull final AliasMap boundAliasMap,
                                   @Nonnull final MatchCandidate matchCandidate,
                                   @Nonnull final RelationalExpression queryExpression,
@@ -261,17 +256,6 @@ public class CascadesRuleCall implements PlannerRuleCall<RelationalExpression>, 
         newPartialMatches.add(newPartialMatch);
     }
 
-    @SuppressWarnings({"PMD.CompareObjectsWithEquals"}) // deliberate use of id equality check for short-circuit condition
-    public <T> void pushConstraint(@Nonnull final Reference reference,
-                                   @Nonnull final PlannerConstraint<T> plannerConstraint,
-                                   @Nonnull final T requirement) {
-        Verify.verify(root != reference);
-        final ConstraintsMap requirementsMap = reference.getConstraintsMap();
-        if (requirementsMap.pushProperty(plannerConstraint, requirement).isPresent()) {
-            referencesWithPushedRequirements.add(reference);
-        }
-    }
-
     @Nonnull
     public Collection<RelationalExpression> getNewExploratoryExpressions() {
         return Collections.unmodifiableCollection(newExploratoryExpressions);
@@ -285,6 +269,11 @@ public class CascadesRuleCall implements PlannerRuleCall<RelationalExpression>, 
     @Nonnull
     public Set<PartialMatch> getNewPartialMatches() {
         return newPartialMatches;
+    }
+
+    @Nonnull
+    public Set<Reference> getReferencesWithPushedConstraints() {
+        return referencesWithPushedConstraints;
     }
 
     @Nonnull
@@ -393,8 +382,8 @@ public class CascadesRuleCall implements PlannerRuleCall<RelationalExpression>, 
 
     @Nonnull
     @Override
-    public Reference memoizeMemberExpressions(@Nonnull final Reference reference,
-                                              @Nonnull final Collection<? extends RelationalExpression> expressions) {
+    public Reference memoizeFinalExpressionsFromOther(@Nonnull final Reference reference,
+                                                      @Nonnull final Collection<? extends RelationalExpression> expressions) {
         return memoizeFinalExpressionsExactly(expressions, reference::newReferenceFromFinalMembers);
     }
 
@@ -418,14 +407,16 @@ public class CascadesRuleCall implements PlannerRuleCall<RelationalExpression>, 
 
     @Nonnull
     @Override
-    public Reference memoizeMemberPlans(@Nonnull final Reference reference,
-                                        @Nonnull final Collection<? extends RecordQueryPlan> plans) {
+    public Reference memoizeMemberPlansFromOther(@Nonnull final Reference reference,
+                                                 @Nonnull final Collection<? extends RecordQueryPlan> plans) {
+        Verify.verify(getPlannerPhase() == PlannerPhase.PLANNING);
         return memoizeFinalExpressionsExactly(plans, reference::newReferenceFromFinalMembers);
     }
 
     @Nonnull
     @Override
     public Reference memoizePlan(@Nonnull final RecordQueryPlan plan) {
+        Verify.verify(getPlannerPhase() == PlannerPhase.PLANNING);
         return memoizeFinalExpression(plan);
     }
 
@@ -502,12 +493,6 @@ public class CascadesRuleCall implements PlannerRuleCall<RelationalExpression>, 
 
     @Nonnull
     @Override
-    public ReferenceOfPlansBuilder memoizePlanBuilder(@Nonnull final RecordQueryPlan plan) {
-        return memoizePlansBuilder(ImmutableList.of(plan));
-    }
-
-    @Nonnull
-    @Override
     public ReferenceOfPlansBuilder memoizePlansBuilder(@Nonnull final Collection<? extends RecordQueryPlan> plans) {
         return memoizePlansBuilder(plans,
                 expressions ->
@@ -517,6 +502,7 @@ public class CascadesRuleCall implements PlannerRuleCall<RelationalExpression>, 
     @Nonnull
     private ReferenceOfPlansBuilder memoizePlansBuilder(@Nonnull final Collection<? extends RecordQueryPlan> plans,
                                                         @Nonnull final Function<Set<? extends RelationalExpression>, Reference> refAction) {
+        Verify.verify(getPlannerPhase() == PlannerPhase.PLANNING);
         final var expressionSet = new LinkedIdentitySet<>(plans);
         return new ReferenceOfPlansBuilder() {
             @Nonnull
@@ -531,12 +517,5 @@ public class CascadesRuleCall implements PlannerRuleCall<RelationalExpression>, 
                 return expressionSet;
             }
         };
-    }
-
-    public void emitEvent(@Nonnull final Debugger.Location location) {
-        Debugger.withDebugger(debugger ->
-                debugger.onEvent(
-                        new Debugger.TransformRuleCallEvent(plannerPhase, root, taskStack, location, root,
-                                bindings.get(rule.getMatcher()), rule, this)));
     }
 }

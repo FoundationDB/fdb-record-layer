@@ -87,7 +87,7 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
         //
         // return if there is no pre-determined interesting ordering
         //
-        final var requestedOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
+        final var requestedOrderingsOptional = call.getPlannerConstraintMaybe(RequestedOrderingConstraint.REQUESTED_ORDERING);
         if (requestedOrderingsOptional.isEmpty()) {
             return;
         }

@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -51,7 +51,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * the predicates on top of its {@link Quantifier} with {@code null-on-empty} giving them a chance of acting on any {@code null}s
  * produced by this quantifier, which guarantees semantic equivalency.
  */
-public class PullUpNullOnEmptyRule extends CascadesRule<SelectExpression> {
+public class PullUpNullOnEmptyRule extends ExplorationCascadesRule<SelectExpression> {
 
     @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> defaultOnEmptyQuantifier = forEachQuantifierWithDefaultOnEmptyOverRef(anyRef());
@@ -64,7 +64,7 @@ public class PullUpNullOnEmptyRule extends CascadesRule<SelectExpression> {
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(@Nonnull final ExplorationCascadesRuleCall call) {
         final var bindings = call.getBindings();
         final var selectExpression = bindings.get(root);
         final var quantifier = bindings.get(defaultOnEmptyQuantifier);

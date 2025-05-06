@@ -28,7 +28,7 @@ import com.apple.foundationdb.record.planprotos.PRecordQueryIntersectionOnValues
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
+import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
@@ -143,7 +143,7 @@ public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersection
     }
 
     @Override
-    public RecordQueryIntersectionOnValuesPlan strictlySorted(@Nonnull final Memoizer memoizer) {
+    public RecordQueryIntersectionOnValuesPlan strictlySorted(@Nonnull final FinalMemoizer memoizer) {
         final var quantifiers =
                 Quantifiers.fromPlans(getChildren()
                         .stream()

@@ -23,10 +23,10 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
@@ -91,7 +91,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * </pre>
  *
  * <em>not</em> is one of the cases that can cause this.
- *
+ * <br>
  * In general for any possible record {@code  r} the following should hold:
  *
  * <pre>
@@ -118,7 +118,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class InComparisonToExplodeRule extends CascadesRule<SelectExpression> {
+public class InComparisonToExplodeRule extends ExplorationCascadesRule<SelectExpression> {
     private static final BindingMatcher<ValuePredicate> inPredicateMatcher =
             valuePredicate(ValueMatchers.anyValue(), anyComparisonOfType(Comparisons.Type.IN));
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifier();
@@ -131,7 +131,7 @@ public class InComparisonToExplodeRule extends CascadesRule<SelectExpression> {
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(@Nonnull final ExplorationCascadesRuleCall call) {
         final var bindings = call.getBindings();
 
         final var selectExpression = bindings.get(root);

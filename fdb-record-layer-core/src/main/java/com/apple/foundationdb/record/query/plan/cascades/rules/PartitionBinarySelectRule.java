@@ -21,8 +21,8 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
@@ -55,7 +55,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class PartitionBinarySelectRule extends CascadesRule<SelectExpression> {
+public class PartitionBinarySelectRule extends ExplorationCascadesRule<SelectExpression> {
     private static final BindingMatcher<Quantifier> leftQuantifierMatcher = anyQuantifier();
 
     private static final BindingMatcher<Quantifier> rightQuantifierMatcher = anyQuantifier();
@@ -69,7 +69,7 @@ public class PartitionBinarySelectRule extends CascadesRule<SelectExpression> {
 
     @SuppressWarnings("java:S135")
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(@Nonnull final ExplorationCascadesRuleCall call) {
         final var bindings = call.getBindings();
 
         final var selectExpression = bindings.get(root);

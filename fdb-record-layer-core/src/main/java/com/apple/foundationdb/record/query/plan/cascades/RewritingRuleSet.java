@@ -36,20 +36,13 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
 public class RewritingRuleSet extends CascadesRuleSet {
-    private static final Set<CascadesRule<? extends RelationalExpression>> NORMALIZATION_RULES = ImmutableSet.of();
-    private static final Set<CascadesRule<? extends RelationalExpression>> REWRITE_RULES = ImmutableSet.of(
+    private static final Set<CascadesRule<? extends RelationalExpression>> EXPLORATION_RULES = ImmutableSet.of(
     );
     private static final Set<CascadesRule<? extends RelationalExpression>> PREORDER_RULES = ImmutableSet.of();
 
     private static final Set<CascadesRule<? extends RelationalExpression>> IMPLEMENTATION_RULES = ImmutableSet.of(
             new FinalizeExpressionsRule()
     );
-
-    private static final Set<CascadesRule<? extends RelationalExpression>> EXPLORATION_RULES =
-            ImmutableSet.<CascadesRule<? extends RelationalExpression>>builder()
-                    .addAll(NORMALIZATION_RULES)
-                    .addAll(REWRITE_RULES)
-                    .build();
 
     private static final Set<CascadesRule<? extends RelationalExpression>> ALL_EXPRESSION_RULES =
             ImmutableSet.<CascadesRule<? extends RelationalExpression>>builder()

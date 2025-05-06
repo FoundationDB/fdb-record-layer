@@ -21,9 +21,9 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionPartition;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
@@ -53,7 +53,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class FinalizeExpressionsRule extends CascadesRule<RelationalExpression> {
+public class FinalizeExpressionsRule extends ImplementationCascadesRule<RelationalExpression> {
     @Nonnull
     private static final BindingMatcher<ExpressionPartition<RelationalExpression>> childPartitionsMatcher =
             anyExpressionPartition();
@@ -82,7 +82,7 @@ public class FinalizeExpressionsRule extends CascadesRule<RelationalExpression> 
 
     @Override
     @SuppressWarnings("UnstableApiUsage")
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
         final var bindings = call.getBindings();
         final var exploratoryExpression = bindings.get(root);
         final var partitions = bindings.getAll(childPartitionsMatcher);
@@ -91,7 +91,7 @@ public class FinalizeExpressionsRule extends CascadesRule<RelationalExpression> 
         final var newQuantifiers =
                 Streams.zip(partitions.stream(), allQuantifiers.stream(),
                                 (partition, quantifier) -> {
-                                    final var reference = call.memoizeMemberExpressions(quantifier.getRangesOver(), partition.getExpressions());
+                                    final var reference = call.memoizeFinalExpressionsFromOther(quantifier.getRangesOver(), partition.getExpressions());
                                     return quantifier.toBuilder().build(reference);
                                 })
                         .collect(ImmutableList.toImmutableList());

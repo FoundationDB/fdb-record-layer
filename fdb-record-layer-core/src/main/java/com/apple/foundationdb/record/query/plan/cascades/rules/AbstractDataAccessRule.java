@@ -49,7 +49,6 @@ import com.apple.foundationdb.record.query.plan.cascades.WithPrimaryKeyMatchCand
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalIntersectionExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.Cardinality;
@@ -90,8 +89,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.Cardi
  * possible outcomes of the application of this transformation rule. Based on the match info, we may create for a single match:
  *
  * <ul>
- *     <li>a {@link PrimaryScanExpression} for a single {@link PrimaryScanMatchCandidate},</li>
- *     <li>an index scan/index scan + fetch for a single {@link ValueIndexScanMatchCandidate}</li>
+ *     <li>a primary scan/index scan/index scan + fetch for a single {@link ValueIndexScanMatchCandidate}</li>
  *     <li>an intersection ({@link LogicalIntersectionExpression}) of data accesses </li>
  * </ul>
  *

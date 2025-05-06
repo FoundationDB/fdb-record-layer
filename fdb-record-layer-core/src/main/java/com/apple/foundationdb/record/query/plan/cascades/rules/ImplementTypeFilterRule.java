@@ -44,10 +44,10 @@ import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.filterPartition;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalTypeFilterExpression;
 
 /**
@@ -101,7 +101,7 @@ public class ImplementTypeFilterRule extends CascadesRule<LogicalTypeFilterExpre
         for (Map.Entry<Set<String>, Collection<RecordQueryPlan>> unsatisfiedEntry : unsatisfiedMap.asMap().entrySet()) {
             call.yieldPlan(
                     new RecordQueryTypeFilterPlan(
-                            Quantifier.physical(call.memoizeMemberPlans(innerReference, unsatisfiedEntry.getValue())),
+                            Quantifier.physical(call.memoizeMemberPlansFromOther(innerReference, unsatisfiedEntry.getValue())),
                             unsatisfiedEntry.getKey(),
                             Type.Relation.scalarOf(logicalTypeFilterExpression.getResultType())));
         }

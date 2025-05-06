@@ -63,7 +63,7 @@ public class PushRequestedOrderingThroughUnionRule extends CascadesRule<LogicalU
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final Optional<Set<RequestedOrdering>> requestedOrderingsOptional =
-                call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
+                call.getPlannerConstraintMaybe(RequestedOrderingConstraint.REQUESTED_ORDERING);
         if (requestedOrderingsOptional.isEmpty()) {
             return;
         }

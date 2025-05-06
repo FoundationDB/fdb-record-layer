@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInUnionR
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInsertRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementIntersectionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementNestedLoopJoinRule;
-import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementPhysicalScanRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementRecursiveUnionRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementSimpleSelectRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementStreamingAggregationRule;
@@ -104,14 +103,14 @@ import java.util.stream.Stream;
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
 public class PlanningRuleSet extends CascadesRuleSet {
-    private static final Set<CascadesRule<? extends RelationalExpression>> NORMALIZATION_RULES = ImmutableSet.of(
-            new NormalizePredicatesRule()
-    );
-    private static final Set<CascadesRule<? extends RelationalExpression>> REWRITE_RULES = ImmutableSet.of(
+    private static final Set<CascadesRule<? extends RelationalExpression>> EXPLORATION_RULES = ImmutableSet.of(
+            new NormalizePredicatesRule(),
             new InComparisonToExplodeRule(),
             new SplitSelectExtractIndependentQuantifiersRule(),
-            new PullUpNullOnEmptyRule()
-    );
+            new PullUpNullOnEmptyRule(),
+            new PartitionSelectRule(),
+            new PartitionBinarySelectRule()
+            );
     private static final Set<CascadesRule<? extends RelationalExpression>> MATCHING_RULES = ImmutableSet.of(
             new MatchLeafRule(),
             new MatchIntermediateRule()
@@ -141,7 +140,6 @@ public class PlanningRuleSet extends CascadesRuleSet {
             new ImplementTypeFilterRule(),
             new ImplementFilterRule(),
             new PushTypeFilterBelowFilterRule(),
-            new ImplementPhysicalScanRule(),
             new ImplementIntersectionRule(),
             new ImplementDistinctUnionRule(),
             new ImplementUnorderedUnionRule(),
@@ -166,8 +164,6 @@ public class PlanningRuleSet extends CascadesRuleSet {
             new ImplementSimpleSelectRule(),
             new ImplementExplodeRule(),
             new ImplementNestedLoopJoinRule(),
-            new PartitionSelectRule(),
-            new PartitionBinarySelectRule(),
             new ImplementStreamingAggregationRule(),
             new ImplementDeleteRule(),
             new ImplementInsertRule(),
@@ -177,11 +173,10 @@ public class PlanningRuleSet extends CascadesRuleSet {
             new ImplementTableFunctionRule()
     );
 
-    private static final Set<CascadesRule<? extends RelationalExpression>> EXPLORATION_RULES =
+    private static final Set<CascadesRule<? extends RelationalExpression>> ALL_EXPRESSION_RULES =
             ImmutableSet.<CascadesRule<? extends RelationalExpression>>builder()
-                    .addAll(NORMALIZATION_RULES)
                     .addAll(MATCHING_RULES)
-                    .addAll(REWRITE_RULES)
+                    .addAll(EXPLORATION_RULES)
                     .build();
     private static final Set<CascadesRule<? extends PartialMatch>> PARTIAL_MATCH_RULES = ImmutableSet.of(
             new AdjustMatchRule()
@@ -191,17 +186,17 @@ public class PlanningRuleSet extends CascadesRuleSet {
             new SelectDataAccessRule(),
             new PredicateToLogicalUnionRule()
     );
-    private static final Set<CascadesRule<? extends RelationalExpression>> ALL_EXPRESSION_RULES =
+    private static final Set<CascadesRule<? extends RelationalExpression>> ALL_RULES =
             ImmutableSet.<CascadesRule<? extends RelationalExpression>>builder()
                     .addAll(PREORDER_RULES)
-                    .addAll(EXPLORATION_RULES)
+                    .addAll(ALL_EXPRESSION_RULES)
                     .addAll(IMPLEMENTATION_RULES)
                     .build();
 
     public static final PlanningRuleSet DEFAULT = new PlanningRuleSet();
 
     PlanningRuleSet() {
-        this(ALL_EXPRESSION_RULES);
+        this(ALL_RULES);
     }
 
     @VisibleForTesting

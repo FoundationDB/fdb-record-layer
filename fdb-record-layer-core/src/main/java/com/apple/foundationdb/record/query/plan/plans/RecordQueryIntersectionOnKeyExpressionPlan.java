@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.planprotos.PRecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
+import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -97,7 +97,7 @@ public class RecordQueryIntersectionOnKeyExpressionPlan extends RecordQueryInter
     }
 
     @Override
-    public RecordQueryIntersectionOnKeyExpressionPlan strictlySorted(@Nonnull final Memoizer memoizer) {
+    public RecordQueryIntersectionOnKeyExpressionPlan strictlySorted(@Nonnull final FinalMemoizer memoizer) {
         final var quantifiers =
                 Quantifiers.fromPlans(getChildren()
                         .stream()

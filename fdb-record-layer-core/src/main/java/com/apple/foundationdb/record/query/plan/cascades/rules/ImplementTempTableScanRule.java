@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
@@ -33,7 +33,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 /**
  * A rule that implements a {@link TempTableScanExpression} producing a {@link TempTableScanPlan} operator.
  */
-public class ImplementTempTableScanRule extends CascadesRule<TempTableScanExpression> {
+public class ImplementTempTableScanRule extends ImplementationCascadesRule<TempTableScanExpression> {
 
     @Nonnull
     private static final BindingMatcher<TempTableScanExpression> root = tempTableScanExpression();
@@ -43,7 +43,7 @@ public class ImplementTempTableScanRule extends CascadesRule<TempTableScanExpres
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
         final var tempTableScanExpression = call.get(root);
         call.yieldPlan(new TempTableScanPlan(tempTableScanExpression.getTempTableReferenceValue()));
     }

@@ -21,8 +21,8 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalProjectionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -41,7 +41,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * if all fields needed by the projection are already available prior to the fetch.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RemoveProjectionRule extends CascadesRule<LogicalProjectionExpression> {
+public class RemoveProjectionRule extends ImplementationCascadesRule<LogicalProjectionExpression> {
     @Nonnull
     private static final BindingMatcher<RecordQueryPlan> innerPlanMatcher = anyPlan();
     @Nonnull
@@ -54,7 +54,7 @@ public class RemoveProjectionRule extends CascadesRule<LogicalProjectionExpressi
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
         final RecordQueryPlan innerPlan = call.get(innerPlanMatcher);
         // just remove the projection
         call.yieldPlan(innerPlan);

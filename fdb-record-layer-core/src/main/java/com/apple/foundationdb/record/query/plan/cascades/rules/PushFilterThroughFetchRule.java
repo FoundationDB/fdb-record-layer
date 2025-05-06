@@ -22,9 +22,9 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
@@ -43,6 +43,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.physicalQuantifier;
@@ -53,20 +54,20 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * A rule that pushes a set of predicates that can be evaluated on a partial record of keys and values that were
  * retrieved by an index scan underneath a {@link RecordQueryFetchFromPartialRecordPlan} in order to filter out records
  * not satisfying the pushed predicates prior to a potentially expensive fetch operation.
- *
+ * <br>
  * A predicate can be pushed if and only if the predicate's leaves which (in the prior of this rule refer to entities
  * in the fetched full record) can be translated to counterparts in the index record. The translation is specific to
  * the kind of index and therefore the kind of {@link com.apple.foundationdb.record.query.plan.cascades.MatchCandidate}.
- *
+ * <br>
  * This rule defers to a <em>push function</em> to translate values in an appropriate way. See
  * {@link TranslateValueFunction} for
  * details.
- *
+ * <br>
  * A filter can have a number of predicates which can be separately pushed or not pushed, e.g. if the filter uses
  * {@code x > 5 AND y < 10} we may be able to push {@code x > 5} since {@code x} is covered by the underlying index, but
  * we cannot push {@code y < 10} since {@code y} is not covered by the index. We therefore partition all conjuncts of
  * the filter and try the maximum set of predicates which can be pushed.
- *
+ * <br>
  * Once the classification of predicate conjuncts is done leading to a partitioning of all conjuncts into pushable and
  * not pushable (residual), we need to consider three distinct cases:
  * <ol>
@@ -75,7 +76,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *   <li>pushed predicates list is not empty, but residual predicates list is also not empty; yield
  *       {@code FILTER(FETCH(FILTER(inner, pushedPredicates)), residualPredicates)}</li>
  * </ol>
- *
  * <pre>
  * Case 1
  * {@code
@@ -103,7 +103,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *              +-------------+
  * }
  * </pre>
- *
  * <pre>
  * Case 2
  * {@code
@@ -139,10 +138,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *              +-------------+
  * }
  * </pre>
- *
  */
 @API(API.Status.EXPERIMENTAL)
-public class PushFilterThroughFetchRule extends CascadesRule<RecordQueryPredicatesFilterPlan> {
+public class PushFilterThroughFetchRule extends ImplementationCascadesRule<RecordQueryPredicatesFilterPlan> {
     @Nonnull
     private static final BindingMatcher<RecordQueryPlan> innerPlanMatcher = anyPlan();
     @Nonnull
@@ -160,7 +158,7 @@ public class PushFilterThroughFetchRule extends CascadesRule<RecordQueryPredicat
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
 
         final RecordQueryPredicatesFilterPlan filterPlan = bindings.get(root);
@@ -242,7 +240,7 @@ public class PushFilterThroughFetchRule extends CascadesRule<RecordQueryPredicat
         }
         final PredicateWithValue predicateWithValue = (PredicateWithValue)leafPredicate;
 
-        final Value value = predicateWithValue.getValue();
+        final Value value = Objects.requireNonNull(predicateWithValue.getValue());
         final Optional<Value> pushedValueOptional = fetchPlan.pushValue(value, oldInnerAlias, newInnerAlias);
         // Something went wrong when attempting to push this value through the fetch.
         // We must return null to prevent pushing of this conjunct.

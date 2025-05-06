@@ -37,7 +37,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.ComparatorCursor;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
+import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -246,7 +246,7 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
     }
 
     @Override
-    public RecordQueryComparatorPlan strictlySorted(@Nonnull final Memoizer memoizer) {
+    public RecordQueryComparatorPlan strictlySorted(@Nonnull final FinalMemoizer memoizer) {
         return new RecordQueryComparatorPlan(Quantifiers.fromPlans(getChildStream()
                     .map(p -> memoizer.memoizePlan((RecordQueryPlan)p.strictlySorted(memoizer))).collect(Collectors.toList())),
                 comparisonKey, referencePlanIndex, abortOnComparisonFailure);

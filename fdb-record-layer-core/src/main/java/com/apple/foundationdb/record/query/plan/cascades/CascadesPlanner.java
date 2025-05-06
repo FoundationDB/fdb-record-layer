@@ -990,7 +990,7 @@ public class CascadesPlanner implements QueryPlanner {
                 exploreExpression(plannerPhase, group, newExpression, true);
             }
 
-            final var referencesWithPushedRequirements = ruleCall.getReferencesWithPushedRequirements();
+            final var referencesWithPushedRequirements = ruleCall.getReferencesWithPushedConstraints();
             if (!referencesWithPushedRequirements.isEmpty()) {
                 //
                 // There are two distinct cases:

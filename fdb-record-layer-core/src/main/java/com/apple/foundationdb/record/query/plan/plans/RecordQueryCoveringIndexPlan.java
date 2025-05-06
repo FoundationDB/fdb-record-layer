@@ -41,8 +41,8 @@ import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
-import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.ScanWithFetchMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
@@ -174,7 +174,7 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
     }
 
     @Override
-    public RecordQueryCoveringIndexPlan strictlySorted(@Nonnull final Memoizer memoizer) {
+    public RecordQueryCoveringIndexPlan strictlySorted(@Nonnull final FinalMemoizer memoizer) {
         return new RecordQueryCoveringIndexPlan((RecordQueryPlanWithIndex)indexPlan.strictlySorted(memoizer), recordTypeName, getAvailableFields(), toRecord);
     }
 

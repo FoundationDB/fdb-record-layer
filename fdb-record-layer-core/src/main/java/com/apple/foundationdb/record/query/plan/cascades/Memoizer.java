@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 
 import javax.annotation.Nonnull;
-import java.util.Collection;
 import java.util.Set;
 
 /**
@@ -44,64 +43,7 @@ import java.util.Set;
  * use case and context).
  */
 @API(API.Status.EXPERIMENTAL)
-public interface Memoizer {
-    /**
-     * Memoize the given {@link RelationalExpression}. If a previously memoized expression is found that is semantically
-     * equivalent to the expression that is passed in, the reference containing the previously memoized expression is
-     * returned allowing the planner to reuse that reference. If no such previously memoized expression is found, a new
-     * reference is created and returned to the caller.
-     * <br>
-     * The expression that is passed in must be an exploratory expression of the current planner phase. If this method
-     * is used in an incompatible context and a reused reference is returned, the effects of mutating such a reference
-     * through other planner logic are undefined and should be avoided.
-     * @param expression expression to memoize
-     * @return a new or a reused reference
-     */
-    @Nonnull
-    Reference memoizeExploratoryExpression(@Nonnull RelationalExpression expression);
-
-    /**
-     * Memoize a collection of final expressions that are also already members of the reference that is also passed in.
-     * That reference must already have been explored which can usually statically reasoned about in the caller. The
-     * reference that is returned is always newly created and never reused. The new reference's final members are
-     * all considered to be explored as well.
-     * @param reference the source reference containing all passed-in expressions
-     * @param expressions the expressions to memoize
-     * @return a new reference
-     */
-    @Nonnull
-    Reference memoizeMemberExpressions(@Nonnull Reference reference,
-                                       @Nonnull Collection<? extends RelationalExpression> expressions);
-
-    @Nonnull
-    Reference memoizeFinalExpression(@Nonnull RelationalExpression expression);
-
-    @Nonnull
-    Reference memoizePlannedExpression(@Nonnull RelationalExpression expression);
-
-    @Nonnull
-    Reference memoizeMemberPlans(@Nonnull Reference reference,
-                                 @Nonnull Collection<? extends RecordQueryPlan> plans);
-
-    @Nonnull
-    Reference memoizePlan(@Nonnull RecordQueryPlan plan);
-
-    @Nonnull
-    ReferenceBuilder memoizeExploratoryExpressionBuilder(@Nonnull RelationalExpression expression);
-
-    @Nonnull
-    ReferenceBuilder memoizeFinalExpressionsBuilder(@Nonnull Collection<? extends RelationalExpression> expressions);
-
-    @Nonnull
-    ReferenceOfPlansBuilder memoizeMemberPlansBuilder(@Nonnull Reference reference,
-                                                      @Nonnull Collection<? extends RecordQueryPlan> plans);
-
-    @Nonnull
-    ReferenceOfPlansBuilder memoizePlanBuilder(@Nonnull RecordQueryPlan plan);
-
-    @Nonnull
-    ReferenceOfPlansBuilder memoizePlansBuilder(@Nonnull Collection<? extends RecordQueryPlan> recordQueryPlans);
-
+public interface Memoizer extends ExploratoryMemoizer, FinalMemoizer {
     /**
      * Builder for references.
      */
