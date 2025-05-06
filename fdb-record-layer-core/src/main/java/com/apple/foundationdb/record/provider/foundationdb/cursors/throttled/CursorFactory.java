@@ -24,7 +24,24 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+/**
+ * Create a cursor with the given store and last result.
+ * @param <T> the type of item the cursor iterates over.
+ * This factory method is used by the {@link ThrottledRetryingIterator} to create inner cursors when needed.
+ * The iterator creates transactions based off of the constraints given, and for each such transaction, a new inner
+ * cursor gets created.
+ */
 @FunctionalInterface
 public interface CursorFactory<T> {
-    RecordCursor<T> createCursor(FDBRecordStore store, RecordCursorResult<T> lastResult, int rowLimit);
+    /**
+     * Create a new inner cursor for the {@link ThrottledRetryingIterator}.
+     * @param store the record store to use
+     * @param lastResult the last result from the previous cursor (use for continuation). Null is none.
+     * @param rowLimit the adjusted row limit to use
+     * @return a newly created cursor with the given continuation and limit
+     */
+    RecordCursor<T> createCursor(@Nonnull FDBRecordStore store, @Nullable RecordCursorResult<T> lastResult, int rowLimit);
 }

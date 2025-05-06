@@ -45,18 +45,19 @@ import java.util.function.Consumer;
  * This class iterates over an inner cursor, applying resource controls (# of ops per transaction and per time), and
  * retrying failed operations. The iterator will build its own transactions and stores so that it can handle long-running
  * operations.
- *
- * The iterator is currently optimized for RO operations and Deletes. If any other use case is required, it can
- * easily be extended for writes (should add write limit per transaction/second).
+ * <p>
+ * The iterator currently controls Read and Delete operations . If any other use case is required, it can
+ * be extended by adding additional limits per transaction/second.
  *
  * @param <T> The iterated item type
  */
 public class ThrottledRetryingIterator<T> {
     private static final Logger logger = LoggerFactory.getLogger(ThrottledRetryingIterator.class);
 
+    public static final int NUMBER_OF_RETRIES = 100;
+    private static final int SUCCESS_INCREASE_THRESHOLD = 40;
+
     private final int transactionTimeQuotaMillis;
-    // If a write quota per transaction is ever needed, it can be added. So far it seems that the main usages is for
-    // RO iteration and cleanups (i.e. lazy deletes)
     private final int maxRecordScannedPerTransaction;
     private final int maxRecordDeletesPerTransaction;
     private final int maxRecordScannedPerSec;
@@ -64,8 +65,9 @@ public class ThrottledRetryingIterator<T> {
     private final FDBDatabaseRunner runner;
     private final CursorFactory<T> cursorCreator;
     private final ItemHandler<T> singleItemHandler;
-    private final Consumer<QuotaManager> rangeSuccessNotification;
-    private final Consumer<QuotaManager> rangeInitNotification;
+    private final Consumer<QuotaManager> transactionSuccessNotification;
+    private final Consumer<QuotaManager> transactionInitNotification;
+    private final int numOfRetries;
 
     // Starting time of the current/most-recent transaction
     private long rangeIterationStartTimeMilliseconds = 0;
@@ -85,9 +87,10 @@ public class ThrottledRetryingIterator<T> {
         this.maxRecordDeletesPerTransaction = builder.maxRecordDeletesPerTransaction;
         this.maxRecordScannedPerSec = builder.maxRecordScannedPerSec;
         this.maxRecordDeletesPerSec = builder.maxRecordDeletesPerSec;
-        this.rangeSuccessNotification = builder.rangeSuccessNotification;
-        this.rangeInitNotification = builder.rangeInitNotification;
-        this.cursorRowsLimit = Math.min(builder.initialRecordsScannedPerTransaction, maxRecordScannedPerTransaction);
+        this.transactionSuccessNotification = builder.transactionSuccessNotification;
+        this.transactionInitNotification = builder.transactionInitNotification;
+        this.cursorRowsLimit = cursorRowsLimit(builder.initialRecordsScannedPerTransaction, builder.maxRecordScannedPerTransaction);
+        this.numOfRetries = builder.numOfRetries;
     }
 
     public CompletableFuture<Void> iterateAll(FDBRecordStore userStore) {
@@ -116,7 +119,7 @@ public class ThrottledRetryingIterator<T> {
             // this layer returns last cursor result
             singleIterationQuotaManager.init();
 
-            runUnlessNull(rangeInitNotification, singleIterationQuotaManager); // let the user know about this range iteration attempt
+            runUnlessNull(transactionInitNotification, singleIterationQuotaManager); // let the user know about this range iteration attempt
             final FDBRecordStore store = userStoreBuilder.setContext(transaction).build();
             RecordCursor<T> cursor = cursorCreator.createCursor(store, cursorStartPoint, cursorRowsLimit);
 
@@ -127,13 +130,15 @@ public class ThrottledRetryingIterator<T> {
                                 cont.set(result);
                                 if (!result.hasNext()) {
                                     if (result.getNoNextReason().isSourceExhausted()) {
+                                        // terminate the iteration
                                         singleIterationQuotaManager.hasMore = false;
                                     }
-                                    return AsyncUtil.READY_FALSE; // end of this one range
+                                    // end of this one range
+                                    return AsyncUtil.READY_FALSE;
                                 }
                                 singleIterationQuotaManager.scannedCount++;
                                 CompletableFuture<Void> future = singleItemHandler.handleOneItem(store, result, singleIterationQuotaManager);
-                                return future.thenCompose(ignore -> AsyncUtil.READY_TRUE);
+                                return future.thenApply(ignore -> singleIterationQuotaManager.hasMore);
                             })
                             .thenApply(rangeHasMore -> {
                                 if (rangeHasMore && ((0 < transactionTimeQuotaMillis && elapsedTimeMillis() > transactionTimeQuotaMillis) ||
@@ -149,7 +154,7 @@ public class ThrottledRetryingIterator<T> {
     }
 
     CompletableFuture<Boolean> handleSuccess(QuotaManager quotaManager) {
-        runUnlessNull(rangeSuccessNotification, quotaManager); // let the user know about this successful range iteration
+        runUnlessNull(transactionSuccessNotification, quotaManager); // let the user know about this successful range iteration
 
         if (!quotaManager.hasMore) {
             // Here: all done, no need for throttling
@@ -157,9 +162,10 @@ public class ThrottledRetryingIterator<T> {
         }
 
         // Maybe increase cursor's row limit
-        if (((++successCounter) % 40) == 0 && cursorRowsLimit < (quotaManager.scannedCount + 3)) {
+        ++successCounter;
+        if (((successCounter) % SUCCESS_INCREASE_THRESHOLD) == 0 && cursorRowsLimit < (quotaManager.scannedCount + 3)) {
             final int oldLimit = cursorRowsLimit;
-            cursorRowsLimit = Math.min(maxRecordScannedPerTransaction, (cursorRowsLimit * 5) / 4);
+            cursorRowsLimit = cursorRowsLimit((cursorRowsLimit * 5) / 4, maxRecordScannedPerTransaction);
             if (logger.isInfoEnabled()) {
                 logger.info(KeyValueLogMessage.of("ThrottledIterator: iterate one range success: increase limit",
                         LogMessageKeys.LIMIT, cursorRowsLimit,
@@ -196,7 +202,8 @@ public class ThrottledRetryingIterator<T> {
     }
 
     CompletableFuture<Boolean> handleFailure(Throwable ex, QuotaManager quotaManager) {
-        if (++failureRetriesCounter > 100) {
+        ++failureRetriesCounter;
+        if (failureRetriesCounter > numOfRetries) {
             if (logger.isWarnEnabled()) {
                 logger.warn(KeyValueLogMessage.of("ThrottledIterator: iterate one range failure: will abort",
                         LogMessageKeys.LIMIT, cursorRowsLimit,
@@ -238,17 +245,28 @@ public class ThrottledRetryingIterator<T> {
         }
     }
 
+    private int cursorRowsLimit(int initialLimit, int maxLimit) {
+        if (maxLimit == 0) {
+            return initialLimit;
+        } else {
+            if (initialLimit == 0) {
+                return maxLimit;
+            } else {
+                return Math.min(initialLimit, maxLimit);
+            }
+        }
+    }
+
     /**
-     * A class that manages the resource constraints of the ioterator.
+     * A class that manages the resource constraints of the iterator.
      * This class is used by the iterator and is also given to the callbacks. It reflects the current state of the controlled
      * constraints and helps determine whether a transaction should be committed and another started.
+     * The quota manger lifecycle is attached to the transaction. Once a new transaction starts, these counts get reset.
      */
-    // TODO: Should this be made thread safe?
     public static class QuotaManager {
         int deletesCount;
         int scannedCount;
         boolean hasMore;
-        boolean stopIteration;
 
         public int getDeletesCount() {
             return deletesCount;
@@ -258,14 +276,24 @@ public class ThrottledRetryingIterator<T> {
             return scannedCount;
         }
 
+        /**
+         * Increment deleted item number by count.
+         * @param count the number of items to increment deleted count by
+         */
         public void deleteCountAdd(int count) {
             deletesCount += count;
         }
 
+        /**
+         * Increment deleted item number by 1.
+         */
         public void deleteCountInc() {
             deletesCount++;
         }
 
+        /**
+         * Mark this source as exhausted, This effectively stops the iteration after this item.
+         */
         public void markExhausted() {
             hasMore = false;
         }
@@ -274,7 +302,6 @@ public class ThrottledRetryingIterator<T> {
             deletesCount = 0;
             scannedCount = 0;
             hasMore = true;
-            stopIteration = false;
         }
     }
 
@@ -293,14 +320,15 @@ public class ThrottledRetryingIterator<T> {
         private final FDBDatabaseRunner runner;
         private final CursorFactory<T> cursorCreator;
         private final ItemHandler<T> singleItemHandler;
-        private Consumer<QuotaManager> rangeSuccessNotification;
-        private Consumer<QuotaManager> rangeInitNotification;
+        private Consumer<QuotaManager> transactionSuccessNotification;
+        private Consumer<QuotaManager> transactionInitNotification;
         private int transactionTimeQuotaMillis;
         private int maxRecordScannedPerTransaction;
         private int initialRecordsScannedPerTransaction;
         private int maxRecordDeletesPerTransaction;
-        private int maxRecordScannedPerSec = 0;
-        private int maxRecordDeletesPerSec = 0;
+        private int maxRecordScannedPerSec;
+        private int maxRecordDeletesPerSec;
+        private int numOfRetries;
 
         /**
          * Constructor.
@@ -318,6 +346,9 @@ public class ThrottledRetryingIterator<T> {
             this.transactionTimeQuotaMillis = (int)TimeUnit.SECONDS.toMillis(4);
             this.initialRecordsScannedPerTransaction = 0;
             this.maxRecordDeletesPerTransaction = 0;
+            this.maxRecordScannedPerSec = 0;
+            this.maxRecordDeletesPerSec = 0;
+            this.numOfRetries = NUMBER_OF_RETRIES;
         }
 
         /**
@@ -389,23 +420,23 @@ public class ThrottledRetryingIterator<T> {
 
         /**
          * Set the callback to invoke on transaction commit.
-         * @param rangeSuccessNotification the callback invoked every time a transaction is successfully committed
+         * @param transactionSuccessNotification the callback invoked every time a transaction is successfully committed
          * Defaults to null (no callback).
          * @return this builder
          */
-        public Builder<T> withRangeSuccessNotification(Consumer<QuotaManager> rangeSuccessNotification) {
-            this.rangeSuccessNotification = rangeSuccessNotification;
+        public Builder<T> withTransactionSuccessNotification(Consumer<QuotaManager> transactionSuccessNotification) {
+            this.transactionSuccessNotification = transactionSuccessNotification;
             return this;
         }
 
         /**
          * Set the callback to invoke on transaction start.
-         * @param rangeInitNotification the callback invoked every time a transaction is created
+         * @param transactionInitNotification the callback invoked every time a transaction is created
          * Defaults to null (no callback).
          * @return this builder
          */
-        public Builder<T> withRangeInitNotification(Consumer<QuotaManager> rangeInitNotification) {
-            this.rangeInitNotification = rangeInitNotification;
+        public Builder<T> withTransactionInitNotification(Consumer<QuotaManager> transactionInitNotification) {
+            this.transactionInitNotification = transactionInitNotification;
             return this;
         }
 
@@ -420,6 +451,20 @@ public class ThrottledRetryingIterator<T> {
          */
         public Builder<T> withMaxRecordsDeletesPerTransaction(int maxRecordsDeletesPerTransaction) {
             this.maxRecordDeletesPerTransaction = Math.max(0, maxRecordsDeletesPerTransaction);
+            return this;
+        }
+
+        /**
+         * Set the number of retries after a failure.
+         * The iterator will retry a failed transaction for this number of times (with potentially different limits)
+         * before failing the iteration.
+         * This counter gets reset upon the next successful commit.
+         * Defaults to 100.
+         * @param numOfRetries the maximum number of retries for transaction
+         * @return this builder
+         */
+        public Builder<T> withNumOfRetries(int numOfRetries) {
+            this.numOfRetries = Math.max(0, numOfRetries);
             return this;
         }
 
