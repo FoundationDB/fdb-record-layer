@@ -1,9 +1,9 @@
 /*
- * ImplementUnorderedUnionRule.java
+ * FinalizeExpressionsRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,12 +26,9 @@ import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesR
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 
@@ -47,9 +44,11 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.anyExploratoryExpression;
 
 /**
- * A rule that implements an unordered union of its (already implemented) children. This will extract the
- * {@link RecordQueryPlan} from each child of a {@link LogicalUnionExpression} and create a
- * {@link RecordQueryUnorderedUnionPlan} with those plans as children.
+ * A rule that implements any exploratory expression with itself over expression partitions for its children. This rule
+ * is used when there are no implementation rules in the rule set of a
+ * {@link com.apple.foundationdb.record.query.plan.cascades.PlannerPhase}. In order for the planner to progress to the
+ * next phase, all explored expressions need to be disentangled as described in {@link ImplementationCascadesRule}.
+ * This rule disentangles the children of the current expression and then finalizes the current expression.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
@@ -91,7 +90,9 @@ public class FinalizeExpressionsRule extends ImplementationCascadesRule<Relation
         final var newQuantifiers =
                 Streams.zip(partitions.stream(), allQuantifiers.stream(),
                                 (partition, quantifier) -> {
-                                    final var reference = call.memoizeFinalExpressionsFromOther(quantifier.getRangesOver(), partition.getExpressions());
+                                    final var reference =
+                                            call.memoizeFinalExpressionsFromOther(quantifier.getRangesOver(),
+                                                    partition.getExpressions());
                                     return quantifier.toBuilder().build(reference);
                                 })
                         .collect(ImmutableList.toImmutableList());

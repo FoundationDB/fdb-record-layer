@@ -30,7 +30,8 @@ import java.util.Objects;
 import java.util.function.Function;
 
 /**
- * TBD.
+ * Enum for the planner phase a task of the {@link CascadesPlanner} can be in. Members of the enum define which ruleset
+ * to apply, which cost model to apply, and if existent, the next phase following this phase.
  */
 public enum PlannerPhase {
     // note that the phase are declared in a counterintuitive inverse way since a phase has to specify the next phase

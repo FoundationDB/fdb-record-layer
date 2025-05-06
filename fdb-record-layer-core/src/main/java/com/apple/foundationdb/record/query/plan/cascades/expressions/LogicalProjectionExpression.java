@@ -44,6 +44,7 @@ import java.util.Set;
 
 /**
  * A relational planner expression that projects its input values.
+ * Note that this expression is only used when we plan {@link com.apple.foundationdb.record.query.RecordQuery}s.
  */
 @API(API.Status.EXPERIMENTAL)
 public class LogicalProjectionExpression implements RelationalExpressionWithChildren, PlannerGraphRewritable {

@@ -1,9 +1,9 @@
 /*
- * CanonicalizationRuleSet.java
+ * RewritingRuleSet.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,11 +36,11 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
 public class RewritingRuleSet extends CascadesRuleSet {
-    private static final Set<CascadesRule<? extends RelationalExpression>> EXPLORATION_RULES = ImmutableSet.of(
+    private static final Set<ExplorationCascadesRule<? extends RelationalExpression>> EXPLORATION_RULES = ImmutableSet.of(
     );
     private static final Set<CascadesRule<? extends RelationalExpression>> PREORDER_RULES = ImmutableSet.of();
 
-    private static final Set<CascadesRule<? extends RelationalExpression>> IMPLEMENTATION_RULES = ImmutableSet.of(
+    private static final Set<ImplementationCascadesRule<? extends RelationalExpression>> IMPLEMENTATION_RULES = ImmutableSet.of(
             new FinalizeExpressionsRule()
     );
 

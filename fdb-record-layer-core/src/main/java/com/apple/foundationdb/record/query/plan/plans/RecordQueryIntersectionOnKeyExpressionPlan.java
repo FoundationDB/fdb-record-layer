@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.annotation.HeuristicPlanner;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -43,6 +44,7 @@ import java.util.stream.Collectors;
 /**
  * Intersection plan that compares using a {@link KeyExpression}.
  */
+@HeuristicPlanner
 public class RecordQueryIntersectionOnKeyExpressionPlan extends RecordQueryIntersectionPlan {
 
     protected RecordQueryIntersectionOnKeyExpressionPlan(@Nonnull final PlanSerializationContext serializationContext,

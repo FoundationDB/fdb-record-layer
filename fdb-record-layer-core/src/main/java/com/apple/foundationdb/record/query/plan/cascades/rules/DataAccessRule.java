@@ -106,7 +106,7 @@ public class DataAccessRule extends AbstractDataAccessRule<RelationalExpression>
                         })
                         .collect(ImmutableList.toImmutableList());
 
-        call.yieldPlannedExpressions(dataAccessForMatchPartition(call,
+        call.yieldMixedUnknownExpressions(dataAccessForMatchPartition(call,
                 requestedOrderings,
                 matchPartition));
     }

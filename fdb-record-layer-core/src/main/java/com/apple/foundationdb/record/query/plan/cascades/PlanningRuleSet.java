@@ -103,7 +103,7 @@ import java.util.stream.Stream;
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
 public class PlanningRuleSet extends CascadesRuleSet {
-    private static final Set<CascadesRule<? extends RelationalExpression>> EXPLORATION_RULES = ImmutableSet.of(
+    private static final Set<ExplorationCascadesRule<? extends RelationalExpression>> EXPLORATION_RULES = ImmutableSet.of(
             new NormalizePredicatesRule(),
             new InComparisonToExplodeRule(),
             new SplitSelectExtractIndependentQuantifiersRule(),
@@ -135,7 +135,7 @@ public class PlanningRuleSet extends CascadesRuleSet {
             new PushRequestedOrderingThroughUniqueRule()
     );
 
-    private static final Set<CascadesRule<? extends RelationalExpression>> IMPLEMENTATION_RULES = ImmutableSet.of(
+    private static final Set<ImplementationCascadesRule<? extends RelationalExpression>> IMPLEMENTATION_RULES = ImmutableSet.of(
             new ImplementTempTableScanRule(),
             new ImplementTypeFilterRule(),
             new ImplementFilterRule(),

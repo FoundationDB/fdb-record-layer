@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.InsertIntoMemoEvent;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithChildren;
@@ -253,14 +254,14 @@ public class Reference implements Correlated<Reference>, Typed {
     private boolean insert(@Nonnull final RelationalExpression newExpression,
                            final boolean isFinal,
                            @Nullable final Map<ExpressionProperty<?>, ?> precomputedPropertiesMap) {
-        Debugger.withDebugger(debugger -> debugger.onEvent(Debugger.InsertIntoMemoEvent.begin()));
+        Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.begin()));
         try {
             final boolean containsInMemo = containsInMemo(newExpression, isFinal);
             Debugger.withDebugger(debugger -> {
                 if (containsInMemo) {
-                    debugger.onEvent(Debugger.InsertIntoMemoEvent.reusedExpWithReferences(newExpression, ImmutableList.of(this)));
+                    debugger.onEvent(InsertIntoMemoEvent.reusedExpWithReferences(newExpression, ImmutableList.of(this)));
                 } else {
-                    debugger.onEvent(Debugger.InsertIntoMemoEvent.newExp(newExpression));
+                    debugger.onEvent(InsertIntoMemoEvent.newExp(newExpression));
                 }
             });
             if (!containsInMemo) {
@@ -269,7 +270,7 @@ public class Reference implements Correlated<Reference>, Typed {
             }
             return false;
         } finally {
-            Debugger.withDebugger(debugger -> debugger.onEvent(Debugger.InsertIntoMemoEvent.end()));
+            Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.end()));
         }
     }
 

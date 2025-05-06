@@ -811,7 +811,7 @@ public interface Compensation {
             // At this point we definitely need a new SELECT expression.
             //
             final var newBaseQuantifier =
-                    Quantifier.forEach(memoizer.memoizePlannedExpression(relationalExpression),
+                    Quantifier.forEach(memoizer.memoizeUnknownExpression(relationalExpression),
                             matchedForEachAlias);
 
             //
@@ -871,7 +871,7 @@ public interface Compensation {
             // At this point we definitely need a new SELECT expression.
             //
             final var newBaseQuantifier =
-                    Quantifier.forEach(memoizer.memoizePlannedExpression(relationalExpression),
+                    Quantifier.forEach(memoizer.memoizeUnknownExpression(relationalExpression),
                             matchedForEachAlias);
 
             return GraphExpansion.builder()

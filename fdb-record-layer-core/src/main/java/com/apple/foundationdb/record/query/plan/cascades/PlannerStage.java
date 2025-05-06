@@ -27,10 +27,9 @@ import javax.annotation.Nonnull;
 import java.util.function.Supplier;
 
 /**
- * Enum to hold information about the stage of this reference. The stage implies who or what process
- * is responsible for the current state of the reference. The stage of a reference is set upon the creation of the
- * reference and cannot be freely changed. In fact, only the (re-)exploration of a reference can mutate the
- * stage.
+ * Enum to hold information about the stage of a reference. The stage implies who or what process is responsible for the
+ * current state of the reference. The stage of a reference is set upon the creation of the reference and cannot be
+ * freely changed. In fact, only the (re-)exploration of a reference can mutate the stage.
  *
  * <br>
  * The following rules apply:

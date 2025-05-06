@@ -70,7 +70,7 @@ public interface FinalMemoizer {
      * @return a new reference or a reused reference (only if the expression is considered to be exploartory)
      */
     @Nonnull
-    Reference memoizePlannedExpression(@Nonnull RelationalExpression expression);
+    Reference memoizeUnknownExpression(@Nonnull RelationalExpression expression);
 
     /**
      * Memoize a collection of plans that are also already members of the reference that is also passed in. That

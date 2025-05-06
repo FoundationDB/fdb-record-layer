@@ -167,7 +167,7 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
                         dataAccessForMatchPartition(call,
                                 pushedRequestedOrderings,
                                 matchPartition);
-                call.yieldPlannedExpressions(dataAccessExpressions);
+                call.yieldMixedUnknownExpressions(dataAccessExpressions);
             }
         }
     }

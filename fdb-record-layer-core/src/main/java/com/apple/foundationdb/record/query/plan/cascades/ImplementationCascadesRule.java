@@ -51,8 +51,10 @@ import java.util.Collection;
  * contain exactly one final expression each (which is the pruned expression). Those pruned expressions themselves where
  * yielded (before pruning) by some other execution of some implementation rule prior to the execution of this
  * implementation rule. Thus, it can inductively be shown that implementation rules construct a DAG bottom up that never
- * shares references among different variations. That property is extremely important as the planner prunes the children
- * of the yielded expression immediately which constitutes as a destructive modification of the pruned reference.
+ * shares references among different variations. We also say that we <em>disentangled</em> the expression DAG underneath
+ * the current group form the rest of the expression DAG. That property of the subgraph of being disentangled is
+ * extremely important as the planner prunes the children of the yielded expression immediately after the rule is called
+ * which constitutes as a destructive modification of the pruned reference.
  * @param <T> a parent planner expression type of all possible root planner expressions that this rule could match
  */
 @API(API.Status.EXPERIMENTAL)

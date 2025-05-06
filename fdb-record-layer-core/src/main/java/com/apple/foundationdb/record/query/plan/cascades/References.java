@@ -47,7 +47,8 @@ public class References {
 
     // TODO rebase() on quantifiers, expressions, and references should be deprecated as non of them take memoization
     //  into account. They can but they don't currently. These translateCorrelations() calls should be made explicit in
-    //  a way that the caller must explicitly pass a memoizer.
+    //  a way that the caller must explicitly pass a memoizer. Nobody calls this code path currently. Let's keep it this
+    //  way until we can do it properly.
     public static List<? extends Reference> translateCorrelations(@Nonnull final List<? extends Reference> refs,
                                                                   @Nonnull final TranslationMap translationMap,
                                                                   final boolean shouldSimplifyValues) {

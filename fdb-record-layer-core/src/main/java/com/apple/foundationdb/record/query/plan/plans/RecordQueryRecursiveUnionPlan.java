@@ -368,9 +368,9 @@ public class RecordQueryRecursiveUnionPlan implements RecordQueryPlanWithChildre
 
         /**
          * Creates a new instance of the {@link RecursiveStateManagerImpl}.
-         * @param initialCursorCreator a creator of the {@code initials} state cursor.
+         * @param initialCursorCreator a creator of the {@code initial} state cursor.
          * @param recursiveCursorCreator a creator of the {@code recursive} state cursor.
-         * @param baseContext the initials {@link EvaluationContext} used to execute the plan.
+         * @param baseContext the initial {@link EvaluationContext} used to execute the plan.
          * @param scanTempTableAlias a reference to the {@link TempTable} used in recursive scan.
          * @param insertTempTableAlias a reference to the {@link TempTable} used by insert operator(s).
          * @param tempTableDeserializer a deserializer of {@link TempTable} used by the recursive scan.

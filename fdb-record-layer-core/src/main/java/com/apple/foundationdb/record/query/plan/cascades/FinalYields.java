@@ -77,9 +77,9 @@ public interface FinalYields {
      * exploratory expressions or into the set of final expressions of the current reference.
      * @param expressions a set of {@link RelationalExpression}s
      */
-    default void yieldPlannedExpressions(@Nonnull Set<? extends RelationalExpression> expressions) {
+    default void yieldMixedUnknownExpressions(@Nonnull Set<? extends RelationalExpression> expressions) {
         for (final var expression : expressions) {
-            yieldPlannedExpression(expression);
+            yieldUnknownExpression(expression);
         }
     }
 
@@ -92,5 +92,5 @@ public interface FinalYields {
      * final expressions of the current reference.
      * @param expression a set of {@link RelationalExpression}s
      */
-    void yieldPlannedExpression(@Nonnull RelationalExpression expression);
+    void yieldUnknownExpression(@Nonnull RelationalExpression expression);
 }
