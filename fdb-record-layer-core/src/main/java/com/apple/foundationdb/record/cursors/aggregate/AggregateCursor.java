@@ -138,7 +138,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
                 previousContinuationInGroup = Verify.verifyNotNull(previousValidResult).getContinuation();
                 return RecordCursorResult.withNextValue(QueryResult.ofComputed(streamGrouping.getCompletedGroupResult()), c);
             } else {
-                // innerResult.hasNext() = false, might stop in the middle of a group
+                // innerResult.hasNext() = false
                 if (Verify.verifyNotNull(previousResult).getNoNextReason() == NoNextReason.SOURCE_EXHAUSTED) {
                     // exhausted
                     if (previousValidResult == null && partialAggregationResult == null) {
@@ -154,7 +154,12 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
                     RecordCursorContinuation currentContinuation = new AggregateCursorContinuation(Verify.verifyNotNull(previousResult).getContinuation(), partialAggregationResult, serializationMode);
                     previousValidResult = previousResult;
                     previousContinuationInGroup = Verify.verifyNotNull(previousValidResult).getContinuation();
-                    return RecordCursorResult.withoutNextValue(currentContinuation, Verify.verifyNotNull(previousResult).getNoNextReason());
+                    if (serializationMode == RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW) {
+                        return RecordCursorResult.withoutNextValue(currentContinuation, Verify.verifyNotNull(previousResult).getNoNextReason());
+                    } else {
+                        // for TO_OLD, return {groupKey: partialResult from row x to y}, next time will return {groupKey: partialResult from y+1 to next stop point}
+                        return RecordCursorResult.withNextValue(QueryResult.ofComputed(streamGrouping.getCompletedGroupResult()), currentContinuation);
+                    }
                 }
             }
         });

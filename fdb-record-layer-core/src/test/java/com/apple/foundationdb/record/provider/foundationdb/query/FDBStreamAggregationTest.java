@@ -336,7 +336,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             // start the next scan from 5th row, and scans the 5th row (recordScanLimit = 1), return nothing
             RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes(), resultOf(1, "1", 3, 3, 3.0));
             // start the next scan from 6th row, and scans the 6th row (recordScanLimit = 2), hit SCAN_LIMIT_REACHED, so return nothing
-            RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes(), null);
+            RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes());
             // return the aggregated result of the second group
             RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1, continuation4.toBytes(), resultOf(2, "1", 9, 4, 4.5));
 
@@ -345,7 +345,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Test
-    void partialAggregateSum() {
+    void partialAggregateSumToNew() {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
@@ -358,13 +358,13 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             // In the testing data, there are 2 groups, each group has 3 rows.
             // recordScanLimit = 5: scans 3 rows, and the 4th scan hits SCAN_LIMIT_REACHED
             // although the first group contains exactly 3 rows, we don't know we've finished the first group before we get to the 4th row, so nothing is returned
-            RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null, null);
+            RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null);
             // start the next scan from 4th row, and scans the 4th row (recordScanLimit = 1), return the aggregated result of the first group
             RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 1, continuation1.toBytes(), resultOf("0", 3));
             // start the next scan from 5th row, and scans the 5th row (recordScanLimit = 1), return nothing
-            RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes(), null);
+            RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes());
             // start the next scan from 6th row, and scans the 6th row (recordScanLimit = 2), hit SCAN_LIMIT_REACHED, so return nothing
-            RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes(), null);
+            RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes());
             // return the aggregated result of the second group
             RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1, continuation4.toBytes(), resultOf("1", 12));
 
@@ -373,7 +373,35 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Test
-    void partialAggregateCount() {
+    void partialAggregateSumToOld() {
+        try (final var context = openContext()) {
+            openSimpleRecordStore(context, NO_HOOK);
+
+            final var plan =
+                    new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
+                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
+                            .withGroupCriterion("str_value_indexed")
+                            .build(false, RecordQueryStreamingAggregationPlan.SerializationMode.TO_OLD);
+
+            // In the testing data, there are 2 groups, each group has 3 rows.
+            // recordScanLimit = 5: scans 3 rows, and the 4th scan hits SCAN_LIMIT_REACHED
+            // return the result of the 3 rows
+            RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null, resultOf("0", 3));
+            // start the next scan from 4th row, and scans the 4th row (recordScanLimit = 1), return partial result
+            RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 1, continuation1.toBytes(), resultOf("1", 3));
+            // start the next scan from 5th row, and scans the 5th row (recordScanLimit = 1), return partial result
+            RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes(), resultOf("1", 4));
+            // start the next scan from 6th row, and scans the 6th row (recordScanLimit = 2), hit SCAN_LIMIT_REACHED, return partial result
+            RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes(), resultOf("1", 5));
+            // return EXHAUSTED
+            RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1, continuation4.toBytes());
+
+            Assertions.assertEquals(RecordCursorEndContinuation.END, continuation5);
+        }
+    }
+
+    @Test
+    void partialAggregateCountToNew() {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
@@ -392,6 +420,25 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Test
+    void partialAggregateCountToOld() {
+        try (final var context = openContext()) {
+            openSimpleRecordStore(context, NO_HOOK);
+
+            final var plan =
+                    new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
+                            .withAggregateValue("num_value_2", value -> new CountValue(CountValue.PhysicalOperator.COUNT, value))
+                            .withGroupCriterion("str_value_indexed")
+                            .build(false, RecordQueryStreamingAggregationPlan.SerializationMode.TO_OLD);
+
+            // In the testing data, there are 2 groups, each group has 3 rows.
+            // scans 4 rows at a time
+            RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 6, null, resultOf("0", 3L), resultOf("1", 1L));
+            RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 6, continuation1.toBytes(), resultOf("1", 2L));
+            Assertions.assertEquals(RecordCursorEndContinuation.END, continuation2);
+        }
+    }
+
+    @Test
     void partialAggregateSumWithoutGroupingKey() {
         try (final var context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
@@ -404,13 +451,13 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             // In the testing data, there are 6 rows.
             // recordScanLimit = 5: scans 3 rows, and the 4th scan hits SCAN_LIMIT_REACHED
             // because source is not exhausted, nothing is returned
-            RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null, null);
+            RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null);
             // start the next scan from 4th row, and scans the 4th row (recordScanLimit = 1), nothing is returned
-            RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 1, continuation1.toBytes(), null);
+            RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 1, continuation1.toBytes());
             // start the next scan from 5th row, and scans the 5th row (recordScanLimit = 1), nothing is returned
-            RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes(), null);
+            RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes());
             // start the next scan from 6th row, and scans the 6th row (recordScanLimit = 2), hit SCAN_LIMIT_REACHED, so return nothing
-            RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes(), null);
+            RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes());
             // return the aggregated result of the second group
             RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1, continuation4.toBytes(), resultOf(15));
 
@@ -432,13 +479,13 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             // In the testing data, there are 2 groups, each group has 3 rows.
             // recordScanLimit = 5: scans 3 rows, and the 4th scan hits SCAN_LIMIT_REACHED
             // although the first group contains exactly 3 rows, we don't know we've finished the first group before we get to the 4th row, so nothing is returned, continuation is back to START
-            RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null, null);
+            RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null);
             // start the next scan from 4th row, and scans the 4th row (recordScanLimit = 1), return the aggregated result of the first group
             RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 1, continuation1.toBytes(), resultOf("0", 1.0));
             // start the next scan from 5th row, and scans the 5th row (recordScanLimit = 1), return nothing
-            RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes(), null);
+            RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes());
             // start the next scan from 6th row, and scans the 6th row (recordScanLimit = 2), hit SCAN_LIMIT_REACHED, so return nothing
-            RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes(), null);
+            RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes());
             // return the aggregated result of the second group
             RecordCursorContinuation continuation5 = executePlanWithRecordScanLimit(plan, 1, continuation4.toBytes(), resultOf("1", 4.0));
 
@@ -460,16 +507,16 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             // In the testing data, there are 2 groups, each group has 3 rows.
             // recordScanLimit = 5: scans 3 rows, and the 4th scan hits SCAN_LIMIT_REACHED
             // although the first group contains exactly 3 rows, we don't know we've finished the first group before we get to the 4th row, so nothing is returned, continuation is back to START
-            RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null, null);
+            RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 5, null);
             // start the next scan from 4th row, and scans the 4th row (recordScanLimit = 1), return the aggregated result of the first group
             byte[] first = new byte[1250];
             // first[0] = b'00000111
             first[0] = 7;
             RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 1, continuation1.toBytes(), resultOf("0", ByteString.copyFrom(first)));
             // start the next scan from 5th row, and scans the 5th row (recordScanLimit = 1), return nothing
-            RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes(), null);
+            RecordCursorContinuation continuation3 = executePlanWithRecordScanLimit(plan, 1, continuation2.toBytes());
             // start the next scan from 6th row, and scans the 6th row (recordScanLimit = 2), hit SCAN_LIMIT_REACHED, so return nothing
-            RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes(), null);
+            RecordCursorContinuation continuation4 = executePlanWithRecordScanLimit(plan, 1, continuation3.toBytes());
             // return the aggregated result of the second group
             byte[] second = new byte[1250];
             // second[0] = b'00111000
@@ -526,7 +573,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         return plan.executePlan(recordStore, EvaluationContext.forTypeRepository(typeRepository), continuation, executeProperties);
     }
 
-    private RecordCursorContinuation executePlanWithRecordScanLimit(final RecordQueryPlan plan, final int recordScanLimit, byte[] continuation, @Nullable List<?> expectedResult) {
+    private RecordCursorContinuation executePlanWithRecordScanLimit(final RecordQueryPlan plan, final int recordScanLimit, byte[] continuation, @Nullable List<?>... expectedResult) {
         List<QueryResult> queryResults = new LinkedList<>();
         try (RecordCursor<QueryResult> currentCursor = executePlan(plan, 0, recordScanLimit, continuation)) {
             RecordCursorResult<QueryResult> currentCursorResult;
