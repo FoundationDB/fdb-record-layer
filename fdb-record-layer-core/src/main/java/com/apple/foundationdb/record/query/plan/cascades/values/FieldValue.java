@@ -147,7 +147,6 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
 
     @Override
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
-        System.out.println("childValue:" + childValue);
         final var childResult = childValue.eval(store, context);
         if (!(childResult instanceof Message)) {
             return null;
