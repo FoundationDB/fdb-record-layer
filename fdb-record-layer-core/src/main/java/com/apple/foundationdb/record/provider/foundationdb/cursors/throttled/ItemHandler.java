@@ -23,9 +23,27 @@ package com.apple.foundationdb.record.provider.foundationdb.cursors.throttled;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 
+import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * A handler of an item during the iteration of a {@link ThrottledRetryingIterator}.
+ * @param <T> the type of element in the iteration
+ */
 @FunctionalInterface
 public interface ItemHandler<T> {
+    /**
+     * Process an item.
+     * Once done processing, return a future that controls whether to continue the iteration or stop.
+     * The quota manager holds the current state of the iteration (per the current transaction). The handler can
+     * change the state via {@link ThrottledRetryingIterator.QuotaManager#deleteCountAdd(int)},
+     * {@link ThrottledRetryingIterator.QuotaManager#deleteCountInc()} and
+     * {@link ThrottledRetryingIterator.QuotaManager#markExhausted()}.
+     * @param store the record store to use
+     * @param lastResult the result to process
+     * @param quotaManager the current quota manager state
+     * @return Future (Void) for when the operation is complete
+     */
+    @Nonnull
     CompletableFuture<Void> handleOneItem(FDBRecordStore store, RecordCursorResult<T> lastResult, ThrottledRetryingIterator.QuotaManager quotaManager);
 }
