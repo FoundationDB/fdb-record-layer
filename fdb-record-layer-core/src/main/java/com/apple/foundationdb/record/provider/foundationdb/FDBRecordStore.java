@@ -5530,7 +5530,33 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          * <p>
          * If it is possible that multiple different instances have a different idea of any of the versions
          * ({@link #setFormatVersion format version}, {@link RecordMetaData#getVersion() metaData version}, or
-         * {@link #getUserVersion() user version}), that this builder is created with the maximal option for each.
+         * {@link #getUserVersion() user version}), ensure that this builder is created with the maximal option for each.
+         * </p>
+         * <p>
+         *     In addition to setting the formatVersion, userVersion and metaDataVersion, this will:
+         *     <ul>
+         *         <li>
+         *             Disable all indexes, since we cannot universally determine whether they have been added or
+         *             changed since the store was last opened. In theory there are some situations where we could
+         *             determine that the index can be marked readable for free, but this is not supported.
+         *         </li>
+         *         <li>
+         *             Disable the {@link RecordMetaData#getRecordCountKey()} if there is one on the metadata, because
+         *             we cannot determine whether it's definition has changed since the last time this store was
+         *             opened. In theory, we could try rebuilding it, but the RecordCountKey has been deprecated for a
+         *             long time, so it does not seem prudent to build out infrastructure to do so.
+         *         </li>
+         *     </ul>
+         *     However, it will not set the following, but they can be set transactionally on the returned store.
+         *     <ul>
+         *         <li>
+         *             Any header {@link #setHeaderUserField user fields}.
+         *         </li>
+         *         <li>
+         *             The {@link #setStateCacheability stateCacheability} will be disabled, and the associated
+         *             MetaDataVersion will be bumped, ensuring that any other potential instances stop using the cache.
+         *         </li>
+         *     </ul>
          * </p>
          *
          * @param userVersion the user version to set in the store header
@@ -5575,11 +5601,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     .setUserVersion(userVersion)
                     // record count key is set below
                     .setLastUpdateTime(System.currentTimeMillis());
-            // todo minimumPossibleFormatVersion to mean we don't have to set unsplit suffix
-            // We could copy a cached version if it is cached, but that's probably not relevant, because
-            // you'd notice only after the cache expired
-            // No need to set user_field here, users can set after repairing as they see fit,
-            // transactionally before doing anything else
+            // No need to set user_field here, also we have no idea what it could be; users can set after repairing as
+            // they see fit, transactionally before doing anything else
 
             // We cannot tell whether the recordCountKey had changed since the last time we did checkVersion, so
             // we can't guarantee that it is correct. Since we currently don't have a way to disable the RecordCountKey, or
