@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
@@ -70,17 +69,6 @@ public class OnlineIndexScrubber implements AutoCloseable {
     }
 
     private IndexingBase getScrubber(IndexScrubbingTools.ScrubbingType type, AtomicLong count) {
-        if (scrubbingPolicy.isUseLegacy()) {
-            // TODO: eliminate old scrubbing class and always trust the maintainers (i.e remove the ignoreIndexTypeCheck option)
-            switch (type) {
-                case DANGLING:
-                    return new IndexingScrubDangling(common, OnlineIndexer.IndexingPolicy.DEFAULT, scrubbingPolicy, count);
-                case MISSING:
-                    return new IndexingScrubMissing(common, OnlineIndexer.IndexingPolicy.DEFAULT, scrubbingPolicy, count);
-                default:
-                    throw new RecordCoreArgumentException("unknown index scrubbing type");
-            }
-        }
         return new IndexScrubbing(common, OnlineIndexer.IndexingPolicy.DEFAULT, scrubbingPolicy, count, type);
     }
 
@@ -137,37 +125,25 @@ public class OnlineIndexScrubber implements AutoCloseable {
      * A builder for the scrubbing policy.
      */
     public static class ScrubbingPolicy {
-        public static final ScrubbingPolicy DEFAULT = new ScrubbingPolicy(1000, true, 0, false, false, 0, false);
+        public static final ScrubbingPolicy DEFAULT = new ScrubbingPolicy(1000, true, 0, 0, false);
         private final int logWarningsLimit;
         private final boolean allowRepair;
         private final long entriesScanLimit;
-        private final boolean ignoreIndexTypeCheck;
-        private final boolean useLegacy;
         private final int rangeId;
         private final boolean rangeReset;
 
         private ScrubbingPolicy(int logWarningsLimit, boolean allowRepair, long entriesScanLimit,
-                               boolean ignoreIndexTypeCheck, boolean useLegacy, int rangeId, boolean rangeReset) {
+                               int rangeId, boolean rangeReset) {
 
             this.logWarningsLimit = logWarningsLimit;
             this.allowRepair = allowRepair;
             this.entriesScanLimit = entriesScanLimit;
-            this.ignoreIndexTypeCheck = ignoreIndexTypeCheck;
-            this.useLegacy = useLegacy;
             this.rangeId = rangeId;
             this.rangeReset = rangeReset;
         }
 
         boolean allowRepair() {
             return allowRepair;
-        }
-
-        boolean ignoreIndexTypeCheck() {
-            return ignoreIndexTypeCheck;
-        }
-
-        public boolean isUseLegacy() {
-            return useLegacy;
         }
 
         long getEntriesScanLimit() {
@@ -208,8 +184,6 @@ public class OnlineIndexScrubber implements AutoCloseable {
             int logWarningsLimit = 1000;
             boolean allowRepair = true;
             long entriesScanLimit = 0;
-            boolean ignoreIndexTypeCheck = false;
-            boolean useLegacy = false;
             int rangeId = 0;
             boolean rangeReset = false;
 
@@ -256,39 +230,6 @@ public class OnlineIndexScrubber implements AutoCloseable {
             }
 
             /**
-             * Declare that the index to be scrubbed is valid for scrubbing, regardless of its type's name.
-             * Typically, this function is called to allow scrubbing of an index with a user-defined index type. If called,
-             * it is the caller's responsibility to verify that the scrubbed index matches the required criteria, which are:
-             * 1. For the dangling scrubber job, every index entry needs to contain the primary key of the record that
-             *    generated it so that we can detect if that record is present.
-             * 2. For the missing entry scrubber, the index key for the record needs to be present in the index.
-             * @return this builder
-             * @deprecated because this option is associated with legacy code only (see {@link #useLegacyScrubber(boolean)}).
-             */
-            @API(API.Status.DEPRECATED)
-            @Deprecated(since = "3.5.556.0", forRemoval = true)
-            public Builder ignoreIndexTypeCheck() {
-                this.ignoreIndexTypeCheck = true;
-                return this;
-            }
-
-            /**
-             * To allow safe transition to new index scrubbing mechanism, setting this option to true will
-             * use the older legacy scrubbing tools.
-             * Note: This temporary option will soon be deprecated.
-             * @param legacy true if legacy scrubbers should be used
-             * @return this builder
-             * @deprecated because allowing legacy code is temporary. After gaining confidence in the new code,
-             * the old code (and this function) will be deleted.
-             */
-            @API(API.Status.DEPRECATED)
-            @Deprecated(since = "3.5.556.0", forRemoval = true)
-            public Builder useLegacyScrubber(boolean legacy) {
-                this.useLegacy = legacy;
-                return this;
-            }
-
-            /**
              * Choose a specific id for this scrubbing operation. If the scrubbing stops, then it can be resumed
              * by constructing the same builder.
              * Work done with other ids will not affect work done with this id.
@@ -313,8 +254,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
             }
 
             public ScrubbingPolicy build() {
-                return new ScrubbingPolicy(logWarningsLimit, allowRepair, entriesScanLimit, ignoreIndexTypeCheck,
-                        useLegacy, rangeId, rangeReset);
+                return new ScrubbingPolicy(logWarningsLimit, allowRepair, entriesScanLimit, rangeId, rangeReset);
             }
         }
     }
