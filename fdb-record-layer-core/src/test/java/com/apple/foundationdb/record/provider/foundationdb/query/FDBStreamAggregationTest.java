@@ -72,8 +72,6 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 /**
  * Tests related to planning and executing queries with string collation.
  */
