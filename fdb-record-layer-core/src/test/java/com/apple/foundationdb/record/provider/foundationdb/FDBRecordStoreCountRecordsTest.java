@@ -667,8 +667,8 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
         }
         IntConsumer assertCount = expected -> {
             if (grouped) {
-                for (int groupingValue = 1; groupingValue < 6; groupingValue++) {
-                    assertGroupedCount(expected / 5, 1);
+                for (int groupingValue = 0; groupingValue < 5; groupingValue++) {
+                    assertGroupedCount(expected / 5, groupingValue);
                 }
             } else {
                 assertUngroupedCount(expected);
