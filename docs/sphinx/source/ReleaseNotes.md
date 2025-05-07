@@ -9,33 +9,6 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ### 4.2.8.0
 
-
-<details>
-<summary>
-
-<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
-
-</summary>
-
-* Remove jfrog from repository list - [PR #3339](https://github.com/FoundationDB/fdb-record-layer/pull/3339)
-
-</details>
-
-
-**[Full Changelog (4.2.7.0...4.2.8.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.2.7.0...4.2.8.0)**
-
-#### Mixed Mode Test Results
-
-Mixed mode testing run against the following previous versions:
-
-❌`4.1.6.0`, ❌`4.1.8.0`, ✅`4.1.9.0`, ✅`4.1.10.0`, ✅`4.2.2.0`, ✅`4.2.2.1`, ❌`4.2.3.0`, ❌`4.2.4.0`, ✅`4.2.5.0`, ✅`4.2.6.0`
-
-[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/14880158619)
-
-
-
-### 4.2.7.0
-
 <h4> Breaking Changes </h4>
 
 * Remove deprecated IndexingByRecords module - [PR #3312](https://github.com/FoundationDB/fdb-record-layer/pull/3312)
@@ -62,11 +35,13 @@ Mixed mode testing run against the following previous versions:
 * Remove jfrog from repository list - [PR #3339](https://github.com/FoundationDB/fdb-record-layer/pull/3339)
 * Fix broken gradle task: testShadowJar - [PR #3320](https://github.com/FoundationDB/fdb-record-layer/pull/3320)
 * Upgrade to gradle 8 - [PR #3316](https://github.com/FoundationDB/fdb-record-layer/pull/3316)
+* Remove jfrog from repository list - [PR #3339](https://github.com/FoundationDB/fdb-record-layer/pull/3339)
 
 </details>
 
 
-**[Full Changelog (4.2.6.0...4.2.7.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.2.6.0...4.2.7.0)**
+**[Full Changelog (4.2.6.0...4.2.8.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.2.6.0...4.2.8.0)**
+
 
 #### Mixed Mode Test Results
 
@@ -74,7 +49,7 @@ Mixed mode testing run against the following previous versions:
 
 ❌`4.1.6.0`, ❌`4.1.8.0`, ✅`4.1.9.0`, ✅`4.1.10.0`, ✅`4.2.2.0`, ✅`4.2.2.1`, ❌`4.2.3.0`, ❌`4.2.4.0`, ✅`4.2.5.0`, ✅`4.2.6.0`
 
-[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/14864688455)
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/14880158619)
 
 
 
