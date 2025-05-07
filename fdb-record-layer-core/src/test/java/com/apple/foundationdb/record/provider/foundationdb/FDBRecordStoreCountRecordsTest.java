@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
@@ -843,19 +844,11 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
     @ParameterizedTest
     @EnumSource(RecordMetaDataProto.DataStoreInfo.RecordCountState.class)
     @SuppressWarnings("deprecation")
-    void deleteWhereWhenRecordCountIsNotReadable(RecordMetaDataProto.DataStoreInfo.RecordCountState newState) {
-        // If disabled or WriteOnly, deleteWhere should work
+    void deleteWhereSuccessfully(RecordMetaDataProto.DataStoreInfo.RecordCountState newState) {
+        // deleteWhere should work regardless of the state
         final RecordMetaDataBuilder recordMetaDataBuilder = simpleMetaDataBuilder();
         recordMetaDataBuilder.setRecordCountKey(GROUP_EXPRESSION);
-        // update the primary keys to support deleteWhere
-        recordMetaDataBuilder.getRecordType("MySimpleRecord")
-                .setPrimaryKey(Key.Expressions.concatenateFields(GROUPING_FIELD, "rec_no"));
-        recordMetaDataBuilder.getRecordType("MyOtherRecord")
-                .setPrimaryKey(Key.Expressions.concatenateFields(GROUPING_FIELD, "rec_no"));
-        // these indexes have to be removed as they aren't grouped in a way that would allow deleteWhere
-        recordMetaDataBuilder.removeIndex("MySimpleRecord$num_value_unique");
-        recordMetaDataBuilder.removeIndex("MySimpleRecord$num_value_3_indexed");
-        recordMetaDataBuilder.removeIndex("MySimpleRecord$str_value_indexed");
+        allowDeleteWhereByGroupingField(recordMetaDataBuilder);
         final RecordMetaData metaData = recordMetaDataBuilder.build();
         saveRecords(metaData, 0, 100,
                 () -> assertGroupedCount(0, 1),
@@ -895,6 +888,60 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
                 commit(context);
             }
         }
+    }
+
+    @ParameterizedTest
+    @EnumSource(RecordMetaDataProto.DataStoreInfo.RecordCountState.class)
+    @SuppressWarnings("deprecation")
+    void deleteWhereNotCompatible(RecordMetaDataProto.DataStoreInfo.RecordCountState newState) {
+        // deleteWhere should fail if the count key is not grouped correctly, unless it is disabled
+        final RecordMetaDataBuilder recordMetaDataBuilder = simpleMetaDataBuilder();
+        recordMetaDataBuilder.setRecordCountKey(Key.Expressions.empty());
+        allowDeleteWhereByGroupingField(recordMetaDataBuilder);
+        final RecordMetaData metaData = recordMetaDataBuilder.build();
+        saveRecords(metaData, 0, 100,
+                () -> assertUngroupedCount(0),
+                () -> assertUngroupedCount(100));
+
+        updateRecordCountState(metaData, newState);
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            final QueryComponent deleteWhereQuery = Query.field(GROUPING_FIELD).equalsValue(2);
+            if (newState == RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED) {
+                recordStore.deleteRecordsWhere(deleteWhereQuery);
+                commit(context);
+            } else {
+                assertThrows(Query.InvalidExpressionException.class,
+                        () -> recordStore.deleteRecordsWhere(deleteWhereQuery));
+            }
+        }
+
+        if (newState == RecordMetaDataProto.DataStoreInfo.RecordCountState.WRITE_ONLY) {
+            updateRecordCountState(metaData, RecordMetaDataProto.DataStoreInfo.RecordCountState.READABLE);
+        }
+
+        if (newState != RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED) {
+            try (FDBRecordContext context = openContext()) {
+                createOrOpenRecordStore(context, metaData);
+                assertUngroupedCount(100);
+                commit(context);
+            }
+        } else {
+            rawAssertHasRecordCount(metaData,  false);
+        }
+    }
+
+    private static void allowDeleteWhereByGroupingField(final RecordMetaDataBuilder recordMetaDataBuilder) {
+        // update the primary keys to support deleteWhere
+        recordMetaDataBuilder.getRecordType("MySimpleRecord")
+                .setPrimaryKey(Key.Expressions.concatenateFields(GROUPING_FIELD, "rec_no"));
+        recordMetaDataBuilder.getRecordType("MyOtherRecord")
+                .setPrimaryKey(Key.Expressions.concatenateFields(GROUPING_FIELD, "rec_no"));
+        // these indexes have to be removed as they aren't grouped in a way that would allow deleteWhere
+        recordMetaDataBuilder.removeIndex("MySimpleRecord$num_value_unique");
+        recordMetaDataBuilder.removeIndex("MySimpleRecord$num_value_3_indexed");
+        recordMetaDataBuilder.removeIndex("MySimpleRecord$str_value_indexed");
     }
 
     @ParameterizedTest
