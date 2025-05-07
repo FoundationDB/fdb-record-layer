@@ -29,7 +29,7 @@ import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.runners.ExponentialDelay;
-import com.apple.foundationdb.record.provider.foundationdb.runners.TransactionalRunner;
+import com.apple.foundationdb.record.provider.foundationdb.runners.FutureManagerRunner;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
 import com.apple.foundationdb.record.util.Result;
 import com.apple.foundationdb.subspace.Subspace;
@@ -38,7 +38,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -56,7 +55,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
 
     @Nonnull
     private final FDBDatabase database;
-    private final TransactionalRunner transactionalRunner;
+    private final FutureManagerRunner innerRunner;
     @Nonnull
     private FDBRecordContextConfig.Builder contextConfigBuilder;
     @Nonnull
@@ -67,22 +66,18 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     private long initialDelayMillis;
 
     private boolean closed;
-    @Nonnull
-    private final List<CompletableFuture<?>> futuresToCompleteExceptionally;
 
     @API(API.Status.INTERNAL)
     FDBDatabaseRunnerImpl(@Nonnull FDBDatabase database, FDBRecordContextConfig.Builder contextConfigBuilder) {
         this.database = database;
         this.contextConfigBuilder = contextConfigBuilder;
         this.executor = database.newContextExecutor(contextConfigBuilder.getMdcContext());
-        this.transactionalRunner = new TransactionalRunner(database, contextConfigBuilder);
+        this.innerRunner = new FutureManagerRunner(database, contextConfigBuilder);
 
         final FDBDatabaseFactory factory = database.getFactory();
         this.maxAttempts = factory.getMaxAttempts();
         this.maxDelayMillis = factory.getMaxDelayMillis();
         this.initialDelayMillis = factory.getInitialDelayMillis();
-
-        futuresToCompleteExceptionally = new ArrayList<>();
     }
 
     @Override
@@ -164,7 +159,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     @Override
     @Nonnull
     public FDBRecordContext openContext() {
-        return transactionalRunner.openContext();
+        return innerRunner.openContext();
     }
 
     private class RunRetriable<T> {
@@ -225,7 +220,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
                     if (getTimer() != null) {
                         future = getTimer().instrument(FDBStoreTimer.Events.RETRY_DELAY, future, executor);
                     }
-                    addFutureToCompleteExceptionally(future);
+                    innerRunner.registerFuture(future);
                     return future.thenApply(vignore -> {
                         currAttempt++;
                         return true;
@@ -240,11 +235,10 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
         @SuppressWarnings("squid:S1181")
         public CompletableFuture<T> runAsync(@Nonnull final Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
                                              @Nonnull final BiFunction<? super T, Throwable, Result<? extends T, ? extends Throwable>> handlePostTransaction) {
-            CompletableFuture<T> future = new CompletableFuture<>();
-            addFutureToCompleteExceptionally(future);
+            CompletableFuture<T> future = innerRunner.newFuture();
             AsyncUtil.whileTrue(() -> {
                 try {
-                    return transactionalRunner.runAsync(currAttempt != 0, retriable)
+                    return innerRunner.runAsync(currAttempt != 0, retriable)
                             .handle((result, ex) -> {
                                 Result<? extends T, ? extends Throwable> newResult = handlePostTransaction.apply(result, ex);
                                 return handle(newResult.getValue(), newResult.getError());
@@ -272,7 +266,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
             boolean again = true;
             while (again) {
                 try {
-                    T ret = transactionalRunner.run(currAttempt != 0, retriable);
+                    T ret = innerRunner.run(currAttempt != 0, retriable);
                     again = asyncToSync(FDBStoreTimer.Waits.WAIT_RETRY_DELAY, handle(ret, null));
                 } catch (Exception e) {
                     again = asyncToSync(FDBStoreTimer.Waits.WAIT_RETRY_DELAY, handle(null, e));
@@ -314,13 +308,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
             return;
         }
         closed = true;
-        if (!futuresToCompleteExceptionally.stream().allMatch(CompletableFuture::isDone)) {
-            final Exception exception = new RunnerClosed();
-            for (CompletableFuture<?> future : futuresToCompleteExceptionally) {
-                future.completeExceptionally(exception);
-            }
-        }
-        transactionalRunner.close();
+        innerRunner.close();
     }
 
     @Override
@@ -337,15 +325,4 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     public SynchronizedSessionRunner joinSynchronizedSession(@Nonnull Subspace lockSubspace, @Nonnull UUID sessionId, long leaseLengthMillis) {
         return SynchronizedSessionRunner.joinSession(lockSubspace, sessionId, leaseLengthMillis, this);
     }
-
-    private synchronized void addFutureToCompleteExceptionally(@Nonnull CompletableFuture<?> future) {
-        if (closed) {
-            final RunnerClosed exception = new RunnerClosed();
-            future.completeExceptionally(exception);
-            throw exception;
-        }
-        futuresToCompleteExceptionally.removeIf(CompletableFuture::isDone);
-        futuresToCompleteExceptionally.add(future);
-    }
-
 }

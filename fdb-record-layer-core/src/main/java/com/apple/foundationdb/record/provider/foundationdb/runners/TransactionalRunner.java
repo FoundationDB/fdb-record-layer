@@ -176,4 +176,7 @@ public class TransactionalRunner implements AutoCloseable {
         this.closed = true;
     }
 
+    public boolean isClosed() {
+        return closed;
+    }
 }
