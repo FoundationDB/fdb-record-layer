@@ -3275,9 +3275,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     /**
      * Update the RecordCount to have a new state.
      * <p>
-     *     The state can go from {@code READABLE} to {@code WRITE_ONLY} and vice-versa, and it can always be set to
-     *     {@code DISABLED}, but it cannot transition out of {@code DISABLED}.
-     *     When the RecordCount is set to {@code DISABLED}, the data will be cleared.
+     *     The state can go from {@code READABLE} to {@code WRITE_ONLY}, which is mostly useful to validate that if you
+     *     drop the {@link RecordMetaData#getRecordCountKey() recordCountKey} from the metadata, it won't have adverse
+     *     affects.
+     *     The state can always be set to {@code DISABLED}, at which point there is no way to any other state. This is
+     *     limitation exists, in large part, because there is not a way to rebuild the count across indexes, and since
+     *     it is long deprecated, investing in that doesn't make sense.
      * </p>
      * @param newState the new state to update it to.
      * @return a future once that completes once the state is updated, and the data is cleared.
