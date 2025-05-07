@@ -121,35 +121,34 @@ public class ThrottledRetryingIterator<T> {
 
             runUnlessNull(transactionInitNotification, singleIterationQuotaManager); // let the user know about this range iteration attempt
             final FDBRecordStore store = userStoreBuilder.setContext(transaction).build();
-            RecordCursor<T> cursor = cursorCreator.createCursor(store, cursorStartPoint, cursorRowsLimit);
+            try (RecordCursor<T> cursor = cursorCreator.createCursor(store, cursorStartPoint, cursorRowsLimit)) {
+                rangeIterationStartTimeMilliseconds = nowMillis();
 
-            rangeIterationStartTimeMilliseconds = nowMillis();
-
-            return AsyncUtil.whileTrue(() -> cursor.onNext()
-                            .thenCompose(result -> {
-                                cont.set(result);
-                                if (!result.hasNext()) {
-                                    if (result.getNoNextReason().isSourceExhausted()) {
-                                        // terminate the iteration
-                                        singleIterationQuotaManager.hasMore = false;
+                return AsyncUtil.whileTrue(() -> cursor.onNext()
+                                .thenCompose(result -> {
+                                    cont.set(result);
+                                    if (!result.hasNext()) {
+                                        if (result.getNoNextReason().isSourceExhausted()) {
+                                            // terminate the iteration
+                                            singleIterationQuotaManager.hasMore = false;
+                                        }
+                                        // end of this one range
+                                        return AsyncUtil.READY_FALSE;
                                     }
-                                    // end of this one range
-                                    return AsyncUtil.READY_FALSE;
-                                }
-                                singleIterationQuotaManager.scannedCount++;
-                                CompletableFuture<Void> future = singleItemHandler.handleOneItem(store, result, singleIterationQuotaManager);
-                                return future.thenApply(ignore -> singleIterationQuotaManager.hasMore);
-                            })
-                            .thenApply(rangeHasMore -> {
-                                if (rangeHasMore && ((0 < transactionTimeQuotaMillis && elapsedTimeMillis() > transactionTimeQuotaMillis) ||
-                                                             (0 < maxRecordDeletesPerTransaction && singleIterationQuotaManager.deletesCount > maxRecordDeletesPerTransaction))) {
-                                    // Reached time/delete quota in this transaction. Continue in a new one (possibly after throttling)
-                                    return false;
-                                }
-                                return rangeHasMore;
-                            }),
-                    runner.getExecutor());
-            // TODO: cursor.close()?
+                                    singleIterationQuotaManager.scannedCount++;
+                                    CompletableFuture<Void> future = singleItemHandler.handleOneItem(store, result, singleIterationQuotaManager);
+                                    return future.thenApply(ignore -> singleIterationQuotaManager.hasMore);
+                                })
+                                .thenApply(rangeHasMore -> {
+                                    if (rangeHasMore && ((0 < transactionTimeQuotaMillis && elapsedTimeMillis() > transactionTimeQuotaMillis) ||
+                                                                 (0 < maxRecordDeletesPerTransaction && singleIterationQuotaManager.deletesCount > maxRecordDeletesPerTransaction))) {
+                                        // Reached time/delete quota in this transaction. Continue in a new one (possibly after throttling)
+                                        return false;
+                                    }
+                                    return rangeHasMore;
+                                }),
+                        runner.getExecutor());
+            }
         }).thenApply(ignore -> cont.get());
     }
 
