@@ -1858,11 +1858,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 return null;
             }
 
-            // Note: it's possible that the RecordCount is DISABLED, and we could do the deleteWhere, but in a world
-            // where some stores may have it disabled, and others may not, it's probably best to keep this code
-            // simple
             final KeyExpression recordCountKey = getRecordMetaData().getRecordCountKey();
-            if (recordCountKey != null) {
+            if (recordCountKey != null
+                    // we don't need to call beginRecordStoreStateRead(), that is checked in deleteRecordsWhereAsync
+                    && recordStoreStateRef.get().getStoreHeader().getRecordCountState() != RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED) {
                 final QueryToKeyMatcher.Match match = matcher.matchesSatisfyingQuery(recordCountKey);
                 if (match.getType() != QueryToKeyMatcher.MatchType.EQUALITY) {
                     throw new Query.InvalidExpressionException("Record count key not matching for deleteRecordsWhere");
@@ -2088,11 +2087,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 context.clear(versionRange);
             }
 
+
             final KeyExpression recordCountKey = getRecordMetaData().getRecordCountKey();
-            // Note: The RecordCountKey may be disabled. But if it is, then the data should be clear, and there is no
-            // harm in clearing it here. Otherwise, we want to clear it to maintain the correct count. Thus, we do not
-            // check the RecordCountKey's state.
-            if (recordCountKey != null) {
+            if (recordCountKey != null
+                    // we don't need to call beginRecordStoreStateRead(), that is checked in deleteRecordsWhereAsync
+                    && recordStoreStateRef.get().getStoreHeader().getRecordCountState() != RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED) {
                 if (prefix.size() == recordCountKey.getColumnSize()) {
                     // Delete a single record used for counting
                     context.clear(getSubspace().pack(Tuple.from(RECORD_COUNT_KEY).addAll(prefix)));
