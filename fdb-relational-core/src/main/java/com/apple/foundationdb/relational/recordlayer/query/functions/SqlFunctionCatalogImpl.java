@@ -46,7 +46,7 @@ import java.util.function.Supplier;
 final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
 
     @Nonnull
-    private static final ImmutableMap<String, Function<Integer, Optional<BuiltInFunction<? extends Typed>>>> builtInSynonums = createSynonyms();
+    private static final ImmutableMap<String, Function<Integer, Optional<BuiltInFunction<? extends Typed>>>> builtInSynonyms = createSynonyms();
 
     @Nonnull
     private final UserDefinedFunctionCatalog userDefinedFunctionCatalog;
@@ -57,7 +57,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
 
     @Nonnull
     @Override
-    public CatalogedFunction<? extends Typed> lookupFunction(@Nonnull final String name, @Nonnull final Expressions arguments) {
+    public CatalogedFunction lookupFunction(@Nonnull final String name, @Nonnull final Expressions arguments) {
         final var builtInFunctionMaybe = lookupBuiltInFunction(name, arguments);
         final var userDefinedFunctionMaybe = lookupUserDefinedFunction(name, arguments);
         if (builtInFunctionMaybe.isPresent() && userDefinedFunctionMaybe.isPresent()) {
@@ -74,9 +74,9 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
     }
 
     @Nonnull
-    private Optional<? extends CatalogedFunction<? extends Typed>> lookupBuiltInFunction(@Nonnull final String name,
+    private Optional<? extends CatalogedFunction> lookupBuiltInFunction(@Nonnull final String name,
                                                                                          @Nonnull final Expressions expressions) {
-        final var functionValidator = builtInSynonums.get(name.toLowerCase(Locale.ROOT));
+        final var functionValidator = builtInSynonyms.get(name.toLowerCase(Locale.ROOT));
         if (functionValidator == null) {
             return Optional.empty();
         }
@@ -85,14 +85,14 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
     }
 
     @Nonnull
-    private Optional<? extends CatalogedFunction<? extends Typed>> lookupUserDefinedFunction(@Nonnull final String name,
+    private Optional<? extends CatalogedFunction> lookupUserDefinedFunction(@Nonnull final String name,
                                                                                              @Nonnull final Expressions expressions) {
         return userDefinedFunctionCatalog.lookup(name, expressions);
     }
 
     @Override
     public boolean containsFunction(@Nonnull final String name) {
-        return builtInSynonums.containsKey(name.toLowerCase(Locale.ROOT))
+        return builtInSynonyms.containsKey(name.toLowerCase(Locale.ROOT))
                 || userDefinedFunctionCatalog.containsFunction(name);
     }
 
@@ -102,7 +102,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
     }
 
     public void registerUserDefinedFunction(@Nonnull final String functionName,
-                                            @Nonnull final Supplier<? extends UserDefinedFunction<? extends Typed>> functionSupplier) {
+                                            @Nonnull final Supplier<? extends UserDefinedFunction> functionSupplier) {
         userDefinedFunctionCatalog.registerFunction(functionName, functionSupplier);
     }
 

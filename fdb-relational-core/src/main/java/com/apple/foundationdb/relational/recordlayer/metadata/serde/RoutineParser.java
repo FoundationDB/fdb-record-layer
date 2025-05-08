@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer.metadata.serde;
 
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.relational.api.ddl.NoOpQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.generated.RelationalParser;
@@ -40,7 +39,7 @@ import java.net.URI;
 public interface RoutineParser {
 
     @Nonnull
-    UserDefinedFunction<? extends Typed> parse(@Nonnull String routineString);
+    UserDefinedFunction parse(@Nonnull String routineString);
 
     class DefaultSqlFunctionParser implements RoutineParser {
 

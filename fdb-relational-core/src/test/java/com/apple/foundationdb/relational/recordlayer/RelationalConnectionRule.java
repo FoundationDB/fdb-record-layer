@@ -170,7 +170,7 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
     }
 
     /**
-     * Returns the underlying {@link EmbeddedRelationalConnection}, which is what we currently the only connection
+     * Returns the underlying {@link EmbeddedRelationalConnection}, which is currently the only connection
      * type we run our JUnit tests against.
      * @return The underlying {@link EmbeddedRelationalConnection} connection.
      */

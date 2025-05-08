@@ -60,7 +60,7 @@ import java.util.Optional;
  * function plan as a leg of a binary join, where
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-public class CompiledSqlFunction extends UserDefinedFunction<Value> {
+public class CompiledSqlFunction extends UserDefinedFunction {
 
     @Nonnull
     private final RelationalExpression body;
@@ -70,7 +70,7 @@ public class CompiledSqlFunction extends UserDefinedFunction<Value> {
 
     protected CompiledSqlFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
                                   @Nonnull final List<Type> parameterTypes,
-                                  @Nonnull final List<Optional<Value>> parameterDefaults,
+                                  @Nonnull final List<Optional<? extends Typed>> parameterDefaults,
                                   @Nonnull final Optional<CorrelationIdentifier> parametersCorrelation,
                                   @Nonnull final RelationalExpression body) {
         super(functionName, parameterNames, parameterTypes, parameterDefaults);
@@ -104,7 +104,7 @@ public class CompiledSqlFunction extends UserDefinedFunction<Value> {
         for (var paramIdx = 0; paramIdx < parametersCount; paramIdx++) {
             Value argumentValue;
             if (paramIdx >= arguments.size()) {
-                argumentValue = Assert.optionalUnchecked(getDefaultValue(paramIdx));
+                argumentValue = Assert.castUnchecked(Assert.optionalUnchecked(getDefaultValue(paramIdx)), Value.class);
             } else {
                 final var providedArgValue = Assert.castUnchecked(arguments.get(paramIdx), Value.class);
                 final var isPromotionNeeded = PromoteValue.isPromotionNeeded(providedArgValue.getResultType(), getParameterType(paramIdx));
@@ -141,8 +141,8 @@ public class CompiledSqlFunction extends UserDefinedFunction<Value> {
             if (namedArguments.containsKey(name)) {
                 argumentValue = Assert.castUnchecked(namedArguments.get(name), Value.class);
             } else {
-                argumentValue = Assert.optionalUnchecked(getDefaultValue(name), ErrorCode.UNDEFINED_FUNCTION,
-                        () -> "could not find function matching the provided arguments");
+                argumentValue = Assert.castUnchecked(Assert.optionalUnchecked(getDefaultValue(name), ErrorCode.UNDEFINED_FUNCTION,
+                        () -> "could not find function matching the provided arguments"), Value.class);
             }
             final var isPromotionNeeded = PromoteValue.isPromotionNeeded(argumentValue.getResultType(), getParameterType(name));
             Assert.thatUnchecked(!isPromotionNeeded || PromoteValue.isPromotable(argumentValue.getResultType(), getParameterType(name)),
@@ -226,7 +226,7 @@ public class CompiledSqlFunction extends UserDefinedFunction<Value> {
 
             @Nonnull
             public CompiledSqlFunction build() {
-                final List<Optional<Value>> defaultsValuesList = Streams.stream(parameters.underlying())
+                final List<Optional<? extends Typed>> defaultsValuesList = Streams.stream(parameters.underlying())
                         .map(v -> v instanceof ThrowsValue ? Optional.<Value>empty() : Optional.of(v))
                         .collect(ImmutableList.toImmutableList());
                 return new CompiledSqlFunction(outerBuilder.name, parameters.argumentNames(), parameters.underlyingTypes(),

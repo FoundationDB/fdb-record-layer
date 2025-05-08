@@ -1454,8 +1454,6 @@ public class StandardQueryTests {
         }
     }
 
-
-
     // todo (yhatem) add more tests for queries w and w/o index definition.
 
     private RelationalStruct insertTypeConflictRecords(RelationalStatement s) throws SQLException {

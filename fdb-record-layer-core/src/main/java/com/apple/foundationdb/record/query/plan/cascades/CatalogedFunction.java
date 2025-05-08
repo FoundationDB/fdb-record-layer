@@ -36,7 +36,6 @@ import javax.annotation.Nullable;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -47,11 +46,9 @@ import java.util.stream.IntStream;
  * {@link BuiltInFunction} represents all functions that are built-in, and stored in code, while
  * {@link UserDefinedFunction} represents all functions defined by users, and stored in
  * {@link com.apple.foundationdb.record.RecordMetaDataProto.MetaData}
- *
- * @param <T> The type of the default parameters (if any).
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class CatalogedFunction<T extends Typed> {
+public abstract class CatalogedFunction {
     @Nonnull
     protected final String functionName;
 
@@ -62,7 +59,7 @@ public abstract class CatalogedFunction<T extends Typed> {
     protected final Map<String, Integer> parameterNamesMap;
 
     @Nonnull
-    protected final List<Optional<T>> parameterDefaults;
+    protected final List<Optional<? extends Typed>> parameterDefaults;
 
     /**
      * The type of the function's variadic parameters (if any).
@@ -81,7 +78,7 @@ public abstract class CatalogedFunction<T extends Typed> {
 
     protected CatalogedFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
                                 @Nonnull final List<Type> parameterTypes,
-                                @Nonnull final List<Optional<T>> parameterDefaults) {
+                                @Nonnull final List<Optional<? extends Typed>> parameterDefaults) {
         Verify.verify(parameterNames.size() == parameterTypes.size());
         this.functionName = functionName;
         this.parameterTypes = ImmutableList.copyOf(parameterTypes);
@@ -152,11 +149,11 @@ public abstract class CatalogedFunction<T extends Typed> {
         return parameterNamesMap.get(parameter);
     }
 
-    public Optional<T> getDefaultValue(@Nonnull final String paramName) {
+    public Optional<? extends Typed> getDefaultValue(@Nonnull final String paramName) {
         return parameterDefaults.get(getParamIndex(paramName));
     }
 
-    public Optional<T> getDefaultValue(int paramIndex) {
+    public Optional<? extends Typed> getDefaultValue(int paramIndex) {
         return parameterDefaults.get(paramIndex);
     }
 
@@ -169,48 +166,6 @@ public abstract class CatalogedFunction<T extends Typed> {
     }
 
     /**
-     * Checks whether the provided list of argument types matches the list of function's parameter types.
-     *
-     * @param argumentTypes The argument types list.
-     * @return if the arguments type match, an {@link Optional} containing <code>this</code> instance, otherwise
-     * and empty {@link Optional}.
-     *
-     * TODO: this does not work correctly with permissible implicit type promotion.
-     */
-    @SuppressWarnings("java:S3776")
-    @Nonnull
-    public Optional<? extends CatalogedFunction<T>> validateCall(@Nonnull final List<Type> argumentTypes) {
-        int numberOfArguments = argumentTypes.size();
-
-        final List<Type> functionParameterTypes = getParameterTypes();
-
-        if (numberOfArguments > functionParameterTypes.size() && !hasVariadicSuffix()) {
-            return Optional.empty();
-        }
-
-        // check the type codes of the fixed parameters
-        for (int i = 0; i < functionParameterTypes.size(); i ++) {
-            final Type typeI = functionParameterTypes.get(i);
-            if (typeI.getTypeCode() != Type.TypeCode.ANY && typeI.getTypeCode() != argumentTypes.get(i).getTypeCode()) {
-                return Optional.empty();
-            }
-        }
-
-        if (hasVariadicSuffix()) { // This is variadic function, match the rest of arguments, if any.
-            final Type functionVariadicSuffixType = Objects.requireNonNull(getVariadicSuffixType());
-            if (functionVariadicSuffixType.getTypeCode() != Type.TypeCode.ANY) {
-                for (int i = getParameterTypes().size(); i < numberOfArguments; i++) {
-                    if (argumentTypes.get(i).getTypeCode() != functionVariadicSuffixType.getTypeCode()) {
-                        return Optional.empty();
-                    }
-                }
-            }
-        }
-
-        return Optional.of(this);
-    }
-
-    /**
      * Validates the function invocation using named arguments. It checks whether the argument names match parameter
      * names, and that any missing parameter has a default value. It effectively leaves all the work related to handling
      * permisslbe implicit promotions to the actual function invocation.
@@ -219,7 +174,7 @@ public abstract class CatalogedFunction<T extends Typed> {
      * and empty {@link Optional}.
      */
     @Nonnull
-    public Optional<? extends CatalogedFunction<T>> validateCall(@Nonnull final Map<String, ? extends Typed> namedArgumentsTypeMap) {
+    public Optional<? extends CatalogedFunction> validateCall(@Nonnull final Map<String, ? extends Typed> namedArgumentsTypeMap) {
         if (parameterNamesMap.isEmpty()) {
             return Optional.empty();
         }

@@ -113,7 +113,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     @Nonnull
     private final Map<String, SyntheticRecordTypeBuilder<?>> syntheticRecordTypes;
     @Nonnull
-    private final Map<String, UserDefinedFunction<?>> userDefinedFunctionMap;
+    private final Map<String, UserDefinedFunction> userDefinedFunctionMap;
     @Nonnull
     private final Map<String, Index> indexes;
     @Nonnull
@@ -229,7 +229,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             }
         }
         for (RecordMetaDataProto.PUserDefinedFunction function: metaDataProto.getUserDefinedFunctionsList()) {
-            final UserDefinedFunction<?> func = (UserDefinedFunction<?>)PlanSerialization.dispatchFromProtoContainer(
+            final UserDefinedFunction func = (UserDefinedFunction)PlanSerialization.dispatchFromProtoContainer(
                     new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
                             PlanHashable.CURRENT_FOR_CONTINUATION), function);
             userDefinedFunctionMap.put(func.getFunctionName(), func);
@@ -1191,11 +1191,11 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         formerIndexes.add(formerIndex);
     }
 
-    public void addUserDefinedFunction(@Nonnull UserDefinedFunction<?> userDefinedFunction) {
+    public void addUserDefinedFunction(@Nonnull UserDefinedFunction userDefinedFunction) {
         userDefinedFunctionMap.put(userDefinedFunction.getFunctionName(), userDefinedFunction);
     }
 
-    public void addUserDefinedFunctions(@Nonnull Iterable<? extends UserDefinedFunction<?>> functions) {
+    public void addUserDefinedFunctions(@Nonnull Iterable<? extends UserDefinedFunction> functions) {
         functions.forEach(this::addUserDefinedFunction);
     }
 

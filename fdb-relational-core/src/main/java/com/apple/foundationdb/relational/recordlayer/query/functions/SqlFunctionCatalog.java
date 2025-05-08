@@ -46,7 +46,7 @@ public interface SqlFunctionCatalog {
      * @return the function instance.
      */
     @Nonnull
-    CatalogedFunction<? extends Typed> lookupFunction(@Nonnull String name, @Nonnull Expressions arguments);
+    CatalogedFunction lookupFunction(@Nonnull String name, @Nonnull Expressions arguments);
 
     /**
      * Checks whether a function exists in the catalog. Note that invoking this method shall not trigger compiling

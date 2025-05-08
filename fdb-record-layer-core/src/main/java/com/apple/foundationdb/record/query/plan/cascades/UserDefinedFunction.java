@@ -33,12 +33,10 @@ import java.util.Optional;
 /**
  * Functions that are defined by customers and serialized to {@link com.apple.foundationdb.record.RecordMetaDataProto.MetaData}.
  *
- * @param <T> The type of the default parameters if any.
- *
  * note: user defined functions do not currently support variadic parameters.
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class UserDefinedFunction<T extends Typed> extends CatalogedFunction<T> {
+public abstract class UserDefinedFunction extends CatalogedFunction {
 
     /**
      * Creates a new instance of {@link UserDefinedFunction}.
@@ -59,7 +57,7 @@ public abstract class UserDefinedFunction<T extends Typed> extends CatalogedFunc
      */
     public UserDefinedFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
                                 @Nonnull final List<Type> parameterTypes,
-                                @Nonnull final List<Optional<T>> parameterDefaults) {
+                                @Nonnull final List<Optional<? extends Typed>> parameterDefaults) {
         super(functionName, parameterNames, parameterTypes, parameterDefaults);
     }
 

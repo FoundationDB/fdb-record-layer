@@ -39,7 +39,7 @@ import java.util.stream.Collectors;
 /**
  * MacroFunction that expands a body (referring to parameters) into a {@link Value} (through encapsulation) call site.
  */
-public class MacroFunction extends UserDefinedFunction<Value> {
+public class MacroFunction extends UserDefinedFunction {
     @Nonnull
     private final Value bodyValue;
     @Nonnull

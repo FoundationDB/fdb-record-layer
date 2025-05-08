@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 
@@ -33,7 +32,7 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 
-public class RawSqlFunction extends UserDefinedFunction<Value> {
+public class RawSqlFunction extends UserDefinedFunction {
 
     @Nonnull
     private final String description;
@@ -46,7 +45,7 @@ public class RawSqlFunction extends UserDefinedFunction<Value> {
     @Nonnull
     @Override
     public RecordMetaDataProto.PUserDefinedFunction toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        final var builder = RecordMetaDataProto.PSqlFunction.newBuilder();
+        final var builder = RecordMetaDataProto.PRawSqlFunction.newBuilder();
         builder.setName(functionName).setDefinition(description);
         return RecordMetaDataProto.PUserDefinedFunction.newBuilder()
                 .setSqlFunction(builder.build())
@@ -71,17 +70,17 @@ public class RawSqlFunction extends UserDefinedFunction<Value> {
     }
 
     @AutoService(PlanDeserializer.class)
-    public static class Deserializer implements PlanDeserializer<RecordMetaDataProto.PSqlFunction, RawSqlFunction> {
+    public static class Deserializer implements PlanDeserializer<RecordMetaDataProto.PRawSqlFunction, RawSqlFunction> {
         @Nonnull
         @Override
-        public Class<RecordMetaDataProto.PSqlFunction> getProtoMessageClass() {
-            return RecordMetaDataProto.PSqlFunction.class;
+        public Class<RecordMetaDataProto.PRawSqlFunction> getProtoMessageClass() {
+            return RecordMetaDataProto.PRawSqlFunction.class;
         }
 
         @Nonnull
         @Override
         public RawSqlFunction fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                        @Nonnull final RecordMetaDataProto.PSqlFunction sqlFunction) {
+                                        @Nonnull final RecordMetaDataProto.PRawSqlFunction sqlFunction) {
             return new RawSqlFunction(sqlFunction.getName(), sqlFunction.getDefinition());
         }
     }

@@ -139,7 +139,7 @@ message FormerIndex {
   extensions 1000 to 2000;
 }
 
-message PSqlFunction {
+message PRawSqlFunction {
   optional string name = 1;
   optional string definition = 2;
 }
@@ -165,7 +165,7 @@ message MetaData {
 message PUserDefinedFunction {
   oneof specific_function {
     com.apple.foundationdb.record.planprotos.PMacroFunctionValue macro_function = 1;
-    PSqlFunction sql_function = 2;
+    PRawSqlFunction sql_function = 2;
   }
 }
 

@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer.query.functions;
 
 import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
@@ -39,14 +38,14 @@ import java.util.function.Supplier;
 final class UserDefinedFunctionCatalog {
 
     @Nonnull
-    private final Map<String, Supplier<? extends UserDefinedFunction<? extends Typed>>> functionsMap;
+    private final Map<String, Supplier<? extends UserDefinedFunction>> functionsMap;
 
     UserDefinedFunctionCatalog() {
         this.functionsMap = new LinkedHashMap<>();
     }
 
     void registerFunction(@Nonnull final String functionName,
-                          @Nonnull final Supplier<? extends UserDefinedFunction<? extends Typed>> function) {
+                          @Nonnull final Supplier<? extends UserDefinedFunction> function) {
         functionsMap.put(functionName, function);
     }
 
@@ -55,7 +54,7 @@ final class UserDefinedFunctionCatalog {
     }
 
     @Nonnull
-    public Optional<? extends CatalogedFunction<? extends Typed>> lookup(@Nonnull final String functionName, Expressions arguments) {
+    public Optional<? extends CatalogedFunction> lookup(@Nonnull final String functionName, Expressions arguments) {
         final var functionSupplier = functionsMap.get(functionName);
         if (functionSupplier == null) {
             return Optional.empty();
