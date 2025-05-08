@@ -20,7 +20,6 @@
 
 package com.apple.test;
 
-import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
@@ -31,7 +30,8 @@ import java.util.stream.Stream;
 
 /**
  * Argument provider for the {@link BooleanSource} annotation for providing booleans to parameterized
- * tests. Regardless of the source or context, this always returns {@code false} and {@code true} in that order.
+ * tests. Regardless of the source or context, this always returns {@code false} and {@code true} in that order for each
+ * argument.
  */
 class BooleanArgumentsProvider implements ArgumentsProvider, AnnotationConsumer<BooleanSource> {
     private String[] names;
@@ -44,13 +44,10 @@ class BooleanArgumentsProvider implements ArgumentsProvider, AnnotationConsumer<
     @Override
     public Stream<? extends Arguments> provideArguments(ExtensionContext extensionContext) throws Exception {
         if (names.length == 0) {
-            throw new IllegalStateException("@BooleanSource has an empty strings");
+            throw new IllegalStateException("@BooleanSource has an empty list of names");
         }
-        return ParameterizedTestUtils.cartesianProduct(
-                Arrays.stream(names).map(name ->
-                        Stream.of(
-                                Named.of(name.isBlank() ? "true" : name, true),
-                                Named.of(name.isBlank() ? "false" : "! " + name, false)
-                        )).toArray(Stream[]::new));
+        return ParameterizedTestUtils.cartesianProduct(Arrays.stream(names)
+                .map(ParameterizedTestUtils::booleans)
+                .toArray(Stream[]::new));
     }
 }

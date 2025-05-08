@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * Helper class for generating boolean arguments for {@link org.junit.jupiter.params.ParameterizedTest}s.
+ * Helper utility class for interacting with {@link org.junit.jupiter.params.ParameterizedTest}s.
  */
 public class ParameterizedTestUtils {
 
@@ -39,16 +39,21 @@ public class ParameterizedTestUtils {
      * @return a stream to be used as a return value for a {@link org.junit.jupiter.params.provider.MethodSource}
      */
     public static Stream<Named<Boolean>> booleans(String trueName, String falseName) {
-        return Stream.of(Named.of(trueName, true), Named.of(falseName, false));
+        return Stream.of(Named.of(falseName, false), Named.of(trueName, true));
     }
 
     /**
      * Provides a stream of boolean, named arguments.
-     * @param name the name to provide for {@code true}, {@code false} will prefix with {@code "not "}
+     * @param name the name to provide for {@code true}, {@code false} will prefix with {@code "!"}. If blank,
+     * {@code "true"} and {@code "false"} will be used respectively.
      * @return a stream to be used as a return value for a {@link org.junit.jupiter.params.provider.MethodSource}
      */
     public static Stream<Named<Boolean>> booleans(String name) {
-        return Stream.of(Named.of(name, true), Named.of("not " + name, false));
+        if (name.isBlank()) {
+            return booleans("true", "false");
+        } else {
+            return booleans(name, "!" + name);
+        }
     }
 
     /**
