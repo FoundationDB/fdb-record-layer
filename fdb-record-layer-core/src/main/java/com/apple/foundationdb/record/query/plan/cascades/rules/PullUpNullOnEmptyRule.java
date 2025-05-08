@@ -24,12 +24,9 @@ import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
@@ -71,21 +68,26 @@ public class PullUpNullOnEmptyRule extends CascadesRule<SelectExpression> {
         final var bindings = call.getBindings();
         final var selectExpression = bindings.get(root);
         final var quantifier = bindings.get(defaultOnEmptyQuantifier);
-        final var childExpressions = quantifier.getRangesOver().getMembers().stream()
-                .filter(expression -> isPermittedToPullFrom(selectExpression, quantifier, expression))
-                .collect(ImmutableList.toImmutableList());
-        if (childExpressions.isEmpty()) {
-            // it is impossible to pull the expression up, or it might introduce infinite recursion, bailout.
+        final var childrenExpressions = quantifier.getRangesOver().getMembers();
+        boolean pullUpDesired = false;
+        for (final var childExpression : childrenExpressions) {
+            final var childClassification =
+                    classifyExpression(selectExpression, quantifier, childExpression);
+            if (childClassification == ExpressionClassification.DO_NOT_PULL_UP) {
+                return;
+            }
+            if (childClassification == ExpressionClassification.PULL_UP) {
+                pullUpDesired = true;
+            }
+        }
+        if (!pullUpDesired) {
             return;
         }
-
-        final Quantifier.ForEach newChildrenQuantifier;
-        if (childExpressions.size() < quantifier.getRangesOver().getMembers().size()) {
-            newChildrenQuantifier = Quantifier.forEach(Reference.from(childExpressions), quantifier.getAlias());
-        } else {
-            newChildrenQuantifier = Quantifier.forEachBuilder().withAlias(quantifier.getAlias()).build(quantifier.getRangesOver());
-        }
-        call.memoizeReference(newChildrenQuantifier.getRangesOver());
+       
+        final var newChildrenQuantifier =
+                Quantifier.forEachBuilder()
+                        .withAlias(quantifier.getAlias())
+                        .build(quantifier.getRangesOver());
 
         // Create the lower select expression.
         final var newSelectExpression = call.memoizeExpression(GraphExpansion.builder()
@@ -102,27 +104,32 @@ public class PullUpNullOnEmptyRule extends CascadesRule<SelectExpression> {
         call.yieldExpression(topLevelSelectExpression);
     }
 
-    public boolean isPermittedToPullFrom(@Nonnull final SelectExpression selectOnTopExpression,
-                                         @Nonnull final Quantifier.ForEach quantifier,
-                                         @Nonnull final RelationalExpression expression) {
-        if (expression instanceof RecordQueryPlan) {
-            return false;
-        }
+    private ExpressionClassification classifyExpression(@Nonnull final SelectExpression selectOnTopExpression,
+                                                        @Nonnull final Quantifier.ForEach quantifier,
+                                                        @Nonnull final RelationalExpression expression) {
         if (!(expression instanceof SelectExpression)) {
-            return true;
+            return ExpressionClassification.DO_NOT_CARE;
         }
 
         final var selectExpression = (SelectExpression)expression;
         if (selectExpression.getQuantifiers().size() > 1) {
-            return true;
+            return ExpressionClassification.PULL_UP;
         }
         if (!Iterables.getOnlyElement(selectExpression.getQuantifiers()).getAlias().equals(quantifier.getAlias())) {
-            return true;
+            return ExpressionClassification.PULL_UP;
         }
 
         // if all predicates are not the same, bail out, otherwise, we can pull up.
         final var predicates = selectOnTopExpression.getPredicates();
         final var otherPredicates = selectExpression.getPredicates();
-        return !predicates.equals(otherPredicates);
+        return !predicates.equals(otherPredicates)
+               ? ExpressionClassification.PULL_UP
+               : ExpressionClassification.DO_NOT_PULL_UP;
+    }
+
+    private enum ExpressionClassification {
+        DO_NOT_CARE,
+        DO_NOT_PULL_UP,
+        PULL_UP
     }
 }

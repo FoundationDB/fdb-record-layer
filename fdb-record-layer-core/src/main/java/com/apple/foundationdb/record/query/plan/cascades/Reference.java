@@ -52,14 +52,11 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 /**
- * <p>
  * The <em>memo</em> data structure can compactly represent a large set of similar {@link RelationalExpression}s through
  * careful memoization. The Cascades "group expression", represented by the {@code Reference}, is the key to
  * that memoization by sharing optimization work on a sub-expression with other parts of the expression that reference
  * the same sub-expression.
- * </p>
- *
- * <p>
+ * <br>
  * The reference abstraction is designed to make it difficult for authors of rules to mutate group expressions directly,
  * which is undefined behavior. Note that a {@link Reference} cannot be "de-referenced" using the {@link #get()}
  * method if it contains more than one member. Expressions with more than one member should not be used outside of the
