@@ -21,9 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.runners;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -31,23 +29,29 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * A simple runner that extends {@link TransactionalRunner} by completing futures once the runner closes.
- * Futures created externally can be registered with this runner. This runner can also create new futures (and register them).
- * Once registered, the incomplete futures will be completed exceptionally (with a
- * {@link com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner.RunnerClosed} exception) once the runner closes.
- * It is the responsbility of the users of the runner to ensure futures that it creates are registered.
+ * A helper that completes futures once closed.
+ * <p>
+ * This is meant to be used together with other {@link FDBDatabaseRunner}s and help manage any {@link CompletableFuture} instances
+ * once the runner closes. This helper should be lifecycle coupled to the runners it accompanies.
+ * <p>
+ * Futures created externally can be registered with this class. This class can also create new futures (and register them).
+ * When {@link #close()} is called, any registered {@link CompletableFuture} which is still incomplete will be completed exceptionally
+ * with a {@link FDBDatabaseRunner.RunnerClosed} exception.
+ * <p>
+ * It is the responsibility of the users of the runner to ensure futures that it creates are registered.
  * <p>
  * Normally, only the top level (root) of the future chain needs registration. Completing this future
  * will cause the completion to trickle down to the dependent futures.
  */
 @API(API.Status.INTERNAL)
-public class FutureManagerRunner extends TransactionalRunner {
+public class FutureAutoClose implements AutoCloseable {
     @Nonnull
     private final List<CompletableFuture<?>> futuresToClose;
+    private boolean closed;
 
-    public FutureManagerRunner(@Nonnull final FDBDatabase database, @Nonnull final FDBRecordContextConfig.Builder contextConfigBuilder) {
-        super(database, contextConfigBuilder);
+    public FutureAutoClose() {
         futuresToClose = new ArrayList<>();
+        closed = false;
     }
 
     public <T> CompletableFuture<T> newFuture() {
@@ -68,8 +72,7 @@ public class FutureManagerRunner extends TransactionalRunner {
     @Override
     public synchronized void close() {
         if (!isClosed()) {
-            // Close super first, to prevent same-thread nested calls from proceeding
-            super.close();
+            closed = true;
 
             if (!futuresToClose.stream().allMatch(CompletableFuture::isDone)) {
                 final Exception exception = new FDBDatabaseRunner.RunnerClosed();
@@ -79,5 +82,9 @@ public class FutureManagerRunner extends TransactionalRunner {
             }
             futuresToClose.clear();
         }
+    }
+
+    public boolean isClosed() {
+        return closed;
     }
 }

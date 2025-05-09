@@ -29,7 +29,8 @@ import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.runners.ExponentialDelay;
-import com.apple.foundationdb.record.provider.foundationdb.runners.FutureManagerRunner;
+import com.apple.foundationdb.record.provider.foundationdb.runners.FutureAutoClose;
+import com.apple.foundationdb.record.provider.foundationdb.runners.TransactionalRunner;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
 import com.apple.foundationdb.record.util.Result;
 import com.apple.foundationdb.subspace.Subspace;
@@ -55,7 +56,8 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
 
     @Nonnull
     private final FDBDatabase database;
-    private final FutureManagerRunner innerRunner;
+    private final TransactionalRunner transactionalRunner;
+    private final FutureAutoClose futureManager;
     @Nonnull
     private FDBRecordContextConfig.Builder contextConfigBuilder;
     @Nonnull
@@ -72,7 +74,8 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
         this.database = database;
         this.contextConfigBuilder = contextConfigBuilder;
         this.executor = database.newContextExecutor(contextConfigBuilder.getMdcContext());
-        this.innerRunner = new FutureManagerRunner(database, contextConfigBuilder);
+        this.transactionalRunner = new TransactionalRunner(database, contextConfigBuilder);
+        this.futureManager = new FutureAutoClose();
 
         final FDBDatabaseFactory factory = database.getFactory();
         this.maxAttempts = factory.getMaxAttempts();
@@ -159,7 +162,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     @Override
     @Nonnull
     public FDBRecordContext openContext() {
-        return innerRunner.openContext();
+        return transactionalRunner.openContext();
     }
 
     private class RunRetriable<T> {
@@ -220,7 +223,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
                     if (getTimer() != null) {
                         future = getTimer().instrument(FDBStoreTimer.Events.RETRY_DELAY, future, executor);
                     }
-                    innerRunner.registerFuture(future);
+                    futureManager.registerFuture(future);
                     return future.thenApply(vignore -> {
                         currAttempt++;
                         return true;
@@ -235,10 +238,10 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
         @SuppressWarnings("squid:S1181")
         public CompletableFuture<T> runAsync(@Nonnull final Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
                                              @Nonnull final BiFunction<? super T, Throwable, Result<? extends T, ? extends Throwable>> handlePostTransaction) {
-            CompletableFuture<T> future = innerRunner.newFuture();
+            CompletableFuture<T> future = futureManager.newFuture();
             AsyncUtil.whileTrue(() -> {
                 try {
-                    return innerRunner.runAsync(currAttempt != 0, retriable)
+                    return transactionalRunner.runAsync(currAttempt != 0, retriable)
                             .handle((result, ex) -> {
                                 Result<? extends T, ? extends Throwable> newResult = handlePostTransaction.apply(result, ex);
                                 return handle(newResult.getValue(), newResult.getError());
@@ -266,7 +269,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
             boolean again = true;
             while (again) {
                 try {
-                    T ret = innerRunner.run(currAttempt != 0, retriable);
+                    T ret = transactionalRunner.run(currAttempt != 0, retriable);
                     again = asyncToSync(FDBStoreTimer.Waits.WAIT_RETRY_DELAY, handle(ret, null));
                 } catch (Exception e) {
                     again = asyncToSync(FDBStoreTimer.Waits.WAIT_RETRY_DELAY, handle(null, e));
@@ -308,7 +311,12 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
             return;
         }
         closed = true;
-        innerRunner.close();
+        try {
+            futureManager.close();
+        } catch (Exception e) {
+            LOGGER.warn("Caught exception while closing", e);
+        }
+        transactionalRunner.close();
     }
 
     @Override
