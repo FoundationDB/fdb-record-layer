@@ -454,8 +454,8 @@ class TransactionalRunnerTest {
         }
     }
 
-    @ParameterizedTest(name = "closesAfterCompletion({argumentsWithNames})")
-    @BooleanSource
+    @ParameterizedTest
+    @BooleanSource("successful")
     void closesAfterCompletion(boolean success) {
         AtomicReference<FDBRecordContext> contextRef = new AtomicReference<>();
         try (TransactionalRunner runner = defaultTransactionalRunner()) {
@@ -489,8 +489,8 @@ class TransactionalRunnerTest {
         }
     }
 
-    @ParameterizedTest(name = "closesAfterCompletionSynchronous({argumentsWithNames})")
-    @BooleanSource
+    @ParameterizedTest
+    @BooleanSource("successful")
     void closesAfterCompletionSynchronous(boolean success) throws Exception {
         AtomicReference<FDBRecordContext> contextRef = new AtomicReference<>();
         try (TransactionalRunner runner = defaultTransactionalRunner()) {

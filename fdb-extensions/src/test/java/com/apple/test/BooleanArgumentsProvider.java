@@ -25,25 +25,29 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.support.AnnotationConsumer;
 
-import javax.annotation.Nonnull;
 import java.util.Arrays;
-import java.util.List;
 import java.util.stream.Stream;
 
 /**
  * Argument provider for the {@link BooleanSource} annotation for providing booleans to parameterized
- * tests. Regardless of the source or context, this always returns {@code false} and {@code true} in that order.
+ * tests. Regardless of the source or context, this always returns {@code false} and {@code true} in that order for each
+ * argument.
  */
 class BooleanArgumentsProvider implements ArgumentsProvider, AnnotationConsumer<BooleanSource> {
-    @Nonnull
-    private static final List<Arguments> BOOLEANS = Arrays.asList(Arguments.of(false), Arguments.of(true));
+    private String[] names;
 
     @Override
     public void accept(BooleanSource booleanSource) {
+        this.names = booleanSource.value();
     }
 
     @Override
     public Stream<? extends Arguments> provideArguments(ExtensionContext extensionContext) throws Exception {
-        return BOOLEANS.stream();
+        if (names.length == 0) {
+            throw new IllegalStateException("@BooleanSource has an empty list of names");
+        }
+        return ParameterizedTestUtils.cartesianProduct(Arrays.stream(names)
+                .map(ParameterizedTestUtils::booleans)
+                .toArray(Stream[]::new));
     }
 }
