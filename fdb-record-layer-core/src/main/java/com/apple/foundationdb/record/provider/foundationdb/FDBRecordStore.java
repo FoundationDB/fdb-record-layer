@@ -3278,7 +3278,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      *     The state can go from {@code READABLE} to {@code WRITE_ONLY}, which is mostly useful to validate that if you
      *     drop the {@link RecordMetaData#getRecordCountKey() recordCountKey} from the metadata, it won't have adverse
      *     affects.
-     *     The state can always be set to {@code DISABLED}, at which point there is no way to any other state. This is
+     *     The state can always be set to {@code DISABLED}, at which point there is no way to any other state. This
      *     limitation exists, in large part, because there is not a way to rebuild the count across indexes, and since
      *     it is long deprecated, investing in that doesn't make sense.
      * </p>
