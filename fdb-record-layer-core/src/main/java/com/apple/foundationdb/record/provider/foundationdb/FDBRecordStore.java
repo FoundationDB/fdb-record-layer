@@ -3301,17 +3301,16 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     newState == RecordMetaDataProto.DataStoreInfo.RecordCountState.READABLE;
             if (toWriteOnly || toReadable || newState == RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED) {
                 builder.setRecordCountState(newState);
+                if (newState == RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED) {
+                    // Note: getSubspace().range(tuple) does not include getSubspace().pack(tuple), but this does.
+                    // Ungrouped recordCountKey will be stored directly at getSubspace().pack(tuple).
+                    ensureContextActive().clear(Range.startsWith(getSubspace().pack(Tuple.from(RECORD_COUNT_KEY))));
+                }
                 return builder;
             }
             throw new RecordCoreException("Invalid state transition for RecordCountState")
                     .addLogInfo(LogMessageKeys.OLD, existing)
                     .addLogInfo(LogMessageKeys.NEW, newState);
-        }).thenRun(() -> {
-            if (newState == RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED) {
-                // Note: getSubspace().range(tuple) does not include getSubspace().pack(tuple), but this does
-                // ungrouped recordCountKey will be stored directly at getSubspace().pack(tuple).
-                ensureContextActive().clear(Range.startsWith(getSubspace().pack(Tuple.from(RECORD_COUNT_KEY))));
-            }
         });
     }
 
