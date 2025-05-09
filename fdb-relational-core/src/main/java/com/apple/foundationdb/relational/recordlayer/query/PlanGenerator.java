@@ -233,8 +233,8 @@ public final class PlanGenerator {
         // literal and parameter values without LIMIT and CONTINUATION)
         final var parameterHash = ast.getQueryExecutionParameters().getParameterHash();
         final var planGenerationContext = new MutablePlanGenerationContext(planContext.getPreparedStatementParameters(),
-                currentPlanHashMode, parameterHash);
-        final var metadata = RecordLayerSchemaTemplate.fromRecordMetadataWithFakeTemplateNameAndVersion(planContext.getMetaData());
+                currentPlanHashMode, ast.getQuery(), parameterHash);
+        final var metadata = Assert.castUnchecked(planContext.getSchemaTemplate(), RecordLayerSchemaTemplate.class);
         try {
             final var maybePlan = planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.GENERATE_LOGICAL_PLAN, () ->
                     new BaseVisitor(planGenerationContext, metadata, planContext.getDdlQueryFactory(),
@@ -319,6 +319,7 @@ public final class PlanGenerator {
 
         final var planGenerationContext = new MutablePlanGenerationContext(preparedStatementParameters,
                 currentPlanHashMode,
+                ast.getQuery(),
                 Objects.requireNonNull(continuation.getBindingHash()));
         planGenerationContext.setForExplain(ast.getQueryExecutionParameters().isForExplain());
         Arrays.stream(orderedLiterals).forEach(planGenerationContext::addStrippedLiteralOrParameter);

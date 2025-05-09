@@ -36,9 +36,8 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
+import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.Supplier;
-
-import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -58,11 +57,12 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
     }
 
     @Override
-    PlanContext buildPlanContext(FDBRecordStoreBase<Message> store) throws RelationalException {
-        return PlanContext.Builder.create()
+    @Nonnull
+    PlanContext buildPlanContext(final @Nonnull FDBRecordStoreBase<?> store) throws RelationalException {
+        return PlanContext.builder()
                 .fromRecordStore(store)
                 .fromDatabase(conn.getRecordLayerDatabase())
-                .withMetricsCollector(conn.getMetricCollector())
+                .withMetricsCollector(Assert.notNullUnchecked(conn.getMetricCollector()))
                 .withSchemaTemplate(conn.getSchemaTemplate())
                 .build();
     }

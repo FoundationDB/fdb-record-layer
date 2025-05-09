@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalExcep
 
 import javax.annotation.Nonnull;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 /**
@@ -219,6 +220,23 @@ public final class Assert {
             return clazz.cast(object);
         }
         failUnchecked(errorCodeIfCastFailed, messageSupplier.get());
+        return null;
+    }
+
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+    @Nonnull
+    public static <V> V optionalUnchecked(@Nonnull final Optional<V> optional) {
+        return optionalUnchecked(optional, ErrorCode.INTERNAL_ERROR,  () -> "expected non-empty Optional");
+    }
+
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+    @Nonnull
+    public static <T> T optionalUnchecked(@Nonnull final Optional<T> optional, @Nonnull final ErrorCode errorCodeIfOptionalEmpty,
+                                          @Nonnull final Supplier<String> messageSupplier) {
+        if (optional.isPresent()) {
+            return optional.get();
+        }
+        failUnchecked(errorCodeIfOptionalEmpty, messageSupplier.get());
         return null;
     }
 

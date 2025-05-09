@@ -125,6 +125,37 @@ public class QueryParser {
         return ParseTreeInfoImpl.from(rootContext);
     }
 
+    @Nonnull
+    public static RelationalParser.SqlInvokedFunctionContext parseFunction(@Nonnull final String functionString) throws RelationalException {
+        final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(functionString));
+        // the routine here is assumed to start with CREATE,
+        // however due to how the parser rules are structured,
+        // parsing invoked function starts immediately after CREATE
+        // therefore, to trigger it correctly, we'll remove the first (CREATE) token.
+        final var tokensStream = new CommonTokenStream(tokenSource);
+        tokensStream.consume();
+        final var parser = new RelationalParser(tokensStream);
+        setInterpreterMode(parser);
+        parser.removeErrorListeners();
+        final var listener = new QueryParser.ErrorStringifier();
+        parser.addErrorListener(listener);
+        var result = parser.sqlInvokedFunction();
+
+        if (Environment.isDebug() && !listener.getAmbiguityErrors().isEmpty()) {
+            var errorMessage = String.join(", ", listener.getAmbiguityErrors());
+            if (!listener.getSyntaxErrors().isEmpty()) {
+                errorMessage = errorMessage.concat(listener.getAmbiguityErrors().get(0));
+            }
+            throw new RelationalException(errorMessage, ErrorCode.INTERNAL_ERROR);
+        }
+
+        if (!listener.getSyntaxErrors().isEmpty()) {
+            throw new RelationalException("syntax error:\n" + listener.getSyntaxErrors().get(0), ErrorCode.SYNTAX_ERROR);
+        }
+
+        return result;
+    }
+
     private static void setInterpreterMode(@Nonnull final RelationalParser parser) {
         if (Environment.isDebug()) {
             parser.getInterpreter().setPredictionMode(PredictionMode.LL_EXACT_AMBIG_DETECTION);

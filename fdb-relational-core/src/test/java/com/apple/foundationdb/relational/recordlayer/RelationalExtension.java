@@ -21,8 +21,9 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
+import org.junit.jupiter.api.extension.Extension;
 
-public interface RelationalExtension {
+public interface RelationalExtension extends Extension {
 
     EmbeddedRelationalEngine getEngine();
 

@@ -60,7 +60,7 @@ public interface Schema extends Metadata {
     }
 
     /**
-     * Returns a list of all table-scoped {@link Index}es in the schema template.
+     * Returns a list of all table-scoped {@link Index}es in this schema.
      *
      * @return a multi-map whose key is the {@link Table} name, and value(s) is the {@link Index}.
      * @throws RelationalException if something goes wrong.
@@ -68,6 +68,17 @@ public interface Schema extends Metadata {
     @Nonnull
     default Multimap<String, String> getIndexes() throws RelationalException {
         return getSchemaTemplate().getTableIndexMapping();
+    }
+
+    /**
+     * Returns all {@link InvokedRoutine}s defined in this schema.
+     *
+     * @return A set of all {@link InvokedRoutine}s defined in this schema.
+     * @throws RelationalException If there was an error retrieving the invoked routines from the catalog.
+     */
+    @Nonnull
+    default Set<? extends InvokedRoutine> getInvokedRoutines() throws RelationalException {
+        return getSchemaTemplate().getInvokedRoutines();
     }
 
     @Override

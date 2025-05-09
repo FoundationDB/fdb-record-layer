@@ -226,7 +226,7 @@ public class RelationalPlanCacheTests {
                                                          int userVersion,
                                                          @Nonnull final Set<String> readableIndexes) throws Exception {
         final var schemaName = connection.getSchema();
-        final var embeddedConnection = connection.getUnderlying().unwrap(EmbeddedRelationalConnection.class);
+        final var embeddedConnection = connection.getUnderlyingEmbeddedConnection().unwrap(EmbeddedRelationalConnection.class);
         final var schemaTemplate = embeddedConnection.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toBuilder().setVersion(schemaTemplateVersion).setName(schemaTemplateName).build();
         final AbstractDatabase database = embeddedConnection.getRecordLayerDatabase();
         final var storeState = new RecordStoreState(null, readableIndexes.stream().map(index -> Pair.of(index, IndexState.READABLE)).collect(Collectors.toMap(Pair::getKey, Pair::getValue)));
@@ -321,7 +321,7 @@ public class RelationalPlanCacheTests {
                              @Nonnull final Set<String> readableIndexes,
                              @Nonnull final String expectedPhysicalPlan) throws Exception {
         connection.setAutoCommit(false);
-        ((EmbeddedRelationalConnection) connection.getUnderlying()).createNewTransaction();
+        connection.getUnderlyingEmbeddedConnection().createNewTransaction();
         final var input = getPlanGenerator(cache, schemaTemplateName, schemaTemplateVerison, userVersion, readableIndexes);
         final var planGenerator = input.getLeft();
         final var readableIndexesBitset = input.getRight();

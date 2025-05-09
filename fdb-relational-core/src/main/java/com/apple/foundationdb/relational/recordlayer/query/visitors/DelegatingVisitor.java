@@ -21,12 +21,12 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
@@ -36,6 +36,7 @@ import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
+import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import org.antlr.v4.runtime.tree.ErrorNode;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.RuleNode;
@@ -189,6 +190,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
+    public DataType visitFunctionColumnType(@Nonnull final RelationalParser.FunctionColumnTypeContext ctx) {
+        return getDelegate().visitFunctionColumnType(ctx);
+    }
+
+    @Nonnull
+    @Override
     public DataType visitColumnType(@Nonnull RelationalParser.ColumnTypeContext ctx) {
         return getDelegate().visitColumnType(ctx);
     }
@@ -239,6 +246,121 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public Object visitIndexAttribute(@Nonnull RelationalParser.IndexAttributeContext ctx) {
         return getDelegate().visitIndexAttribute(ctx);
+    }
+
+    @Override
+    public CompiledSqlFunction visitCreateFunction(final RelationalParser.CreateFunctionContext ctx) {
+        return getDelegate().visitCreateFunction(ctx);
+    }
+
+    @Override
+    public CompiledSqlFunction visitSqlInvokedFunction(@Nonnull RelationalParser.SqlInvokedFunctionContext ctx) {
+        return getDelegate().visitSqlInvokedFunction(ctx);
+    }
+
+    @Override
+    public Expressions visitSqlParameterDeclarationList(final RelationalParser.SqlParameterDeclarationListContext ctx) {
+        return getDelegate().visitSqlParameterDeclarationList(ctx);
+    }
+
+    @Override
+    public Expressions visitSqlParameterDeclarations(final RelationalParser.SqlParameterDeclarationsContext ctx) {
+        return getDelegate().visitSqlParameterDeclarations(ctx);
+    }
+
+    @Override
+    public Expression visitSqlParameterDeclaration(final RelationalParser.SqlParameterDeclarationContext ctx) {
+        return getDelegate().visitSqlParameterDeclaration(ctx);
+    }
+
+    @Override
+    public Object visitParameterMode(final RelationalParser.ParameterModeContext ctx) {
+        return getDelegate().visitParameterMode(ctx);
+    }
+
+    @Override
+    public Object visitReturnsClause(final RelationalParser.ReturnsClauseContext ctx) {
+        return getDelegate().visitReturnsClause(ctx);
+    }
+
+    @Override
+    public DataType visitReturnsType(final RelationalParser.ReturnsTypeContext ctx) {
+        return getDelegate().visitReturnsType(ctx);
+    }
+
+    @Override
+    public Object visitReturnsTableType(final RelationalParser.ReturnsTableTypeContext ctx) {
+        return getDelegate().visitReturnsTableType(ctx);
+    }
+
+    @Override
+    public Object visitTableFunctionColumnList(final RelationalParser.TableFunctionColumnListContext ctx) {
+        return getDelegate().visitTableFunctionColumnList(ctx);
+    }
+
+    @Override
+    public Object visitTableFunctionColumnListElement(final RelationalParser.TableFunctionColumnListElementContext ctx) {
+        return getDelegate().visitTableFunctionColumnListElement(ctx);
+    }
+
+    @Override
+    public Object visitRoutineCharacteristics(final RelationalParser.RoutineCharacteristicsContext ctx) {
+        return getDelegate().visitRoutineCharacteristics(ctx);
+    }
+
+    @Override
+    public Object visitLanguageClause(final RelationalParser.LanguageClauseContext ctx) {
+        return getDelegate().visitLanguageClause(ctx);
+    }
+
+    @Override
+    public Object visitLanguageName(final RelationalParser.LanguageNameContext ctx) {
+        return getDelegate().visitLanguageName(ctx);
+    }
+
+    @Override
+    public Object visitParameterStyle(final RelationalParser.ParameterStyleContext ctx) {
+        return getDelegate().visitParameterStyle(ctx);
+    }
+
+    @Override
+    public Object visitDeterministicCharacteristic(final RelationalParser.DeterministicCharacteristicContext ctx) {
+        return getDelegate().visitDeterministicCharacteristic(ctx);
+    }
+
+    @Override
+    public Object visitNullCallClause(final RelationalParser.NullCallClauseContext ctx) {
+        return getDelegate().visitNullCallClause(ctx);
+    }
+
+    @Override
+    public Object visitDispatchClause(final RelationalParser.DispatchClauseContext ctx) {
+        return getDelegate().visitDispatchClause(ctx);
+    }
+
+    @Override
+    public LogicalOperator visitStatementBody(final RelationalParser.StatementBodyContext ctx) {
+        return getDelegate().visitStatementBody(ctx);
+    }
+
+    @Override
+    public Object visitExpressionBody(final RelationalParser.ExpressionBodyContext ctx) {
+        return getDelegate().visitExpressionBody(ctx);
+    }
+
+    @Override
+    public RecordLayerInvokedRoutine visitFunctionSpecification(final RelationalParser.FunctionSpecificationContext ctx) {
+        return getDelegate().visitFunctionSpecification(ctx);
+    }
+
+    @Override
+    public LogicalOperator visitSqlReturnStatement(final RelationalParser.SqlReturnStatementContext ctx) {
+        return getDelegate().visitSqlReturnStatement(ctx);
+    }
+
+    @Override
+    public LogicalOperator visitReturnValue(final RelationalParser.ReturnValueContext ctx) {
+        return getDelegate().visitReturnValue(ctx);
     }
 
     @Nonnull
@@ -308,12 +430,17 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     }
 
     @Override
-    public Expression visitTableFunction(final RelationalParser.TableFunctionContext ctx) {
+    public LogicalOperator visitTableFunction(@Nonnull RelationalParser.TableFunctionContext ctx) {
         return getDelegate().visitTableFunction(ctx);
     }
 
     @Override
-    public Identifier visitTableFunctionName(final RelationalParser.TableFunctionNameContext ctx) {
+    public Expressions visitTableFunctionArgs(@Nonnull RelationalParser.TableFunctionArgsContext ctx) {
+        return getDelegate().visitTableFunctionArgs(ctx);
+    }
+
+    @Override
+    public Identifier visitTableFunctionName(@Nonnull RelationalParser.TableFunctionNameContext ctx) {
         return getDelegate().visitTableFunctionName(ctx);
     }
 
@@ -1215,6 +1342,11 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public Object visitFunctionArg(@Nonnull RelationalParser.FunctionArgContext ctx) {
         return getDelegate().visitFunctionArg(ctx);
+    }
+
+    @Override
+    public Expression visitNamedFunctionArg(final RelationalParser.NamedFunctionArgContext ctx) {
+        return getDelegate().visitNamedFunctionArg(ctx);
     }
 
     @Nonnull

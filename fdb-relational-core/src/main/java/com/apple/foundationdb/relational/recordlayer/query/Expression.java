@@ -167,6 +167,20 @@ public class Expression {
     }
 
     @Nonnull
+    public NamedArgumentExpression toNamedArgument(@Nonnull final Identifier name) {
+        return new NamedArgumentExpression(name, dataType, getUnderlying());
+    }
+
+    @Nonnull
+    public NamedArgumentExpression toNamedArgument() {
+        return toNamedArgument(Assert.optionalUnchecked(getName()));
+    }
+
+    public boolean isNamedArgument() {
+        return false;
+    }
+
+    @Nonnull
     public Expression pullUp(@Nonnull Value value, @Nonnull CorrelationIdentifier correlationIdentifier,
                              @Nonnull Set<CorrelationIdentifier> constantAliases) {
         final var aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
@@ -262,17 +276,17 @@ public class Expression {
         }
 
         @Nonnull
-        public static Iterable<Value> filterUnderlyingAggregates(@Nonnull Expression expression) {
+        public static Iterable<Value> filterUnderlyingAggregates(@Nonnull final Expression expression) {
             return filterUnderlying(expression, true);
         }
 
         @Nonnull
-        public static Iterable<Value> filterUnderlyingNonAggregates(@Nonnull Expression expression) {
+        public static Iterable<Value> filterUnderlyingNonAggregates(@Nonnull final Expression expression) {
             return filterUnderlying(expression, false);
         }
 
         @Nonnull
-        private static Iterable<Value> filterUnderlying(@Nonnull Expression expression, boolean onlyAggregates) {
+        private static Iterable<Value> filterUnderlying(@Nonnull final Expression expression, boolean onlyAggregates) {
             return Streams.stream(expression.getUnderlying().preOrderIterator(value ->
                     value instanceof ArithmeticValue ||
                             value instanceof AndOrValue ||
@@ -284,8 +298,8 @@ public class Expression {
         }
 
         @Nonnull
-        public static QueryPredicate toUnderlyingPredicate(@Nonnull Expression expression,
-                                                           @Nonnull CorrelationIdentifier innermostAlias,
+        public static QueryPredicate toUnderlyingPredicate(@Nonnull final Expression expression,
+                                                           @Nonnull final CorrelationIdentifier innermostAlias,
                                                            boolean forDdl) {
             final var value = Assert.castUnchecked(expression.getUnderlying(), BooleanValue.class);
             if (forDdl) {
@@ -297,6 +311,32 @@ public class Expression {
                 Assert.thatUnchecked(result.isPresent());
                 return result.get();
             }
+        }
+    }
+
+    public static final class NamedArgumentExpression extends Expression {
+        private NamedArgumentExpression(@Nonnull final Identifier name, @Nonnull final DataType dataType,
+                                       @Nonnull final Value expression) {
+            super(Optional.of(name), dataType, expression);
+        }
+
+        @Nonnull
+        public Identifier getArgumentName() {
+            return Assert.optionalUnchecked(getName());
+        }
+
+        @Override
+        public boolean isNamedArgument() {
+            return true;
+        }
+
+        @Nonnull
+        @Override
+        public NamedArgumentExpression toNamedArgument(@Nonnull final Identifier name) {
+            if (name.equals(getArgumentName())) {
+                return this;
+            }
+            return new NamedArgumentExpression(name, getDataType(), getUnderlying());
         }
     }
 }

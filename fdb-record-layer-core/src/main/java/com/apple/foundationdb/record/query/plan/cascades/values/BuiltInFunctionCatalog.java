@@ -37,16 +37,16 @@ import java.util.function.Supplier;
 /**
  * A catalog of functions that provides {@link BuiltInFunction}s.
  */
-public class FunctionCatalog {
-    private static final Logger logger = LoggerFactory.getLogger(FunctionCatalog.class);
+public class BuiltInFunctionCatalog {
+    private static final Logger logger = LoggerFactory.getLogger(BuiltInFunctionCatalog.class);
 
     private static final Supplier<Map<FunctionKey, BuiltInFunction<? extends Typed>>> catalogSupplier =
-            Suppliers.memoize(FunctionCatalog::loadFunctions);
+            Suppliers.memoize(BuiltInFunctionCatalog::loadFunctions);
 
     private static final Supplier<Map<Class<BuiltInFunction<? extends Typed>>, BuiltInFunction<? extends Typed>>> functionsByClassSupplier =
-            Suppliers.memoize(FunctionCatalog::computeFunctionsByClass);
+            Suppliers.memoize(BuiltInFunctionCatalog::computeFunctionsByClass);
     
-    private FunctionCatalog() {
+    private BuiltInFunctionCatalog() {
         // prevent instantiation
     }
 
@@ -62,8 +62,8 @@ public class FunctionCatalog {
 
         loader.forEach(builtInFunction -> {
             catalogBuilder.put(new FunctionKey(builtInFunction.getFunctionName(), builtInFunction.getParameterTypes().size(), builtInFunction.hasVariadicSuffix()), builtInFunction);
-            if (logger.isDebugEnabled()) {
-                logger.debug("loaded function " + builtInFunction);
+            if (logger.isTraceEnabled()) {
+                logger.trace("loaded function " + builtInFunction);
             }
         });
         

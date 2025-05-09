@@ -113,4 +113,16 @@ public class LogAppenderRule implements BeforeEachCallback, AfterEachCallback, A
     public List<LogEvent> getLogEvents() {
         return logAppender.getLogs();
     }
+
+    public boolean lastMessageIsCacheHit() {
+        return getLastLogEventMessage().contains("planCache=\"hit\"");
+    }
+
+    public boolean lastMessageIsCacheMiss() {
+        return getLastLogEventMessage().contains("planCache=\"miss\"");
+    }
+
+    public boolean lastMessageIsCacheSkip() {
+        return getLastLogEventMessage().contains("planCache=\"skip\"");
+    }
 }

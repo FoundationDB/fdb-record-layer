@@ -78,6 +78,9 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     private final PlanHashable.PlanHashMode planHashMode;
 
     @Nonnull
+    private final String query;
+
+    @Nonnull
     private final List<ConstantObjectValue> constantObjectValues;
 
     private boolean shouldProcessLiteral;
@@ -92,9 +95,11 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
 
     public MutablePlanGenerationContext(@Nonnull PreparedParams preparedParams,
                                         @Nonnull PlanHashable.PlanHashMode planHashMode,
+                                        @Nonnull String query,
                                         int parameterHash) {
         this.preparedParams = preparedParams;
         this.planHashMode = planHashMode;
+        this.query = query;
         this.parameterHash = parameterHash;
         literalsBuilder = LiteralsBuilder.newBuilder();
         constantObjectValues = new LinkedList<>();
@@ -114,11 +119,11 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         literalsBuilder.finishArrayLiteral(unnamedParameterIndex, parameterName, shouldProcessLiteral, tokenIndex);
     }
 
-    public void startStructLiteral() {
+    private void startStructLiteral() {
         literalsBuilder.startStructLiteral();
     }
 
-    public void finishStructLiteral(@Nonnull Type.Record type,
+    private void finishStructLiteral(@Nonnull Type.Record type,
                                     @Nullable Integer unnamedParameterIndex,
                                     @Nullable String parameterName,
                                     int tokenIndex) {
@@ -129,14 +134,14 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         literalsBuilder.addLiteral(orderedLiteral);
     }
 
-    public void addLiteralReference(@Nonnull ConstantObjectValue constantObjectValue) {
+    private void addLiteralReference(@Nonnull ConstantObjectValue constantObjectValue) {
         if (!literalsBuilder.isAddingComplexLiteral()) {
             constantObjectValues.add(constantObjectValue);
         }
     }
 
     @Nonnull
-    public Optional<OrderedLiteral> getFirstCovReference(@Nullable Object literal, int requestedTokenIndex, @Nonnull Type type) {
+    private Optional<OrderedLiteral> getFirstCovReference(@Nullable Object literal, int requestedTokenIndex, @Nonnull Type type) {
         final var orderedLiteralMaybe = literalsBuilder.getFirstValueDuplicateMaybe(literal);
         if (orderedLiteralMaybe.isEmpty()) {
             return Optional.empty();
@@ -146,7 +151,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     }
 
     @Nonnull
-    public Optional<OrderedLiteral> getFirstDuplicate(@Nonnull String tokenId) {
+    private Optional<OrderedLiteral> getFirstDuplicate(@Nonnull String tokenId) {
         final var firstDuplicateMaybe = literalsBuilder.getFirstDuplicateOfTokenIdMaybe(tokenId);
         if (firstDuplicateMaybe.isEmpty()) {
             return firstDuplicateMaybe;
@@ -180,6 +185,11 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     @Override
     public PlanHashable.PlanHashMode getPlanHashMode() {
         return planHashMode;
+    }
+
+    @Nonnull
+    public String getQuery() {
+        return query;
     }
 
     // this is temporary until we have a proper clean up.
@@ -270,7 +280,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     }
 
     @Nonnull
-    public Value processQueryLiteralOrParameter(@Nonnull Type type,
+    private Value processQueryLiteralOrParameter(@Nonnull Type type,
                                                 @Nullable Object literal,
                                                 @Nullable Integer unnamedParameterIndex,
                                                 @Nullable String parameterName,
@@ -299,7 +309,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     }
 
     @Nonnull
-    public ConstantObjectValue processPreparedStatementArrayParameter(@Nonnull Array param,
+    private ConstantObjectValue processPreparedStatementArrayParameter(@Nonnull Array param,
                                                                       @Nullable Type.Array type,
                                                                       @Nullable Integer unnamedParameterIndex,
                                                                       @Nullable String parameterName,

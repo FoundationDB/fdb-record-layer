@@ -229,7 +229,7 @@ public class AstNormalizerTests {
             final var query = queries.get(i);
             final var expectedParameters = expectedParametersList.get(i);
             final var hashResults = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query).getRootContext(),
-                    PreparedParams.copyOf(preparedParameters), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
+                    PreparedParams.copyOf(preparedParameters), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0, query);
             Assertions.assertThat(hashResults.getQueryCacheKey().getCanonicalQueryString()).isEqualTo(expectedCanonicalRepresentation);
             final var execParams = hashResults.getQueryExecutionParameters();
             final var evaluationContext = execParams.getEvaluationContext();
@@ -278,7 +278,7 @@ public class AstNormalizerTests {
     private static void shouldFail(@Nonnull final String query, @Nonnull final String errorMessage) {
         try {
             AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query).getRootContext(),
-                    PreparedParams.empty(), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
+                    PreparedParams.empty(), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0, query);
             Assertions.fail(String.format(Locale.ROOT, "expected %s to fail with %s, but it succeeded!", query, errorMessage));
         } catch (RelationalException | UncheckedRelationalException e) {
             Assertions.assertThat(e.getMessage()).contains(errorMessage);
@@ -302,9 +302,9 @@ public class AstNormalizerTests {
                                             @Nonnull PreparedParams preparedParams2) throws RelationalException {
 
         final var result1 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query1).getRootContext(),
-                PreparedParams.copyOf(preparedParams1), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
+                PreparedParams.copyOf(preparedParams1), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0, query1);
         final var result2 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query2).getRootContext(),
-                PreparedParams.copyOf(preparedParams2), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
+                PreparedParams.copyOf(preparedParams2), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0, query2);
         Assertions.assertThat(result1.getQueryCacheKey().getHash()).isNotEqualTo(result2.getQueryCacheKey().getHash());
     }
 
@@ -317,9 +317,9 @@ public class AstNormalizerTests {
                                          @Nonnull final String query2,
                                          @Nonnull PreparedParams preparedParams) throws RelationalException {
         final var result1 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query1).getRootContext(),
-                PreparedParams.copyOf(preparedParams), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
+                PreparedParams.copyOf(preparedParams), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0, query1);
         final var result2 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query2).getRootContext(),
-                PreparedParams.copyOf(preparedParams), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0);
+                PreparedParams.copyOf(preparedParams), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0, query2);
         Assertions.assertThat(result1.getQueryCacheKey()).isNotEqualTo(result2.getQueryCacheKey());
     }
 

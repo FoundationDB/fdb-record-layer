@@ -21,133 +21,143 @@
 package com.apple.foundationdb.relational.recordlayer.query.functions;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
-import com.apple.foundationdb.record.query.plan.cascades.values.FunctionCatalog;
-import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.relational.recordlayer.query.Expression;
+import com.apple.foundationdb.record.query.plan.cascades.values.BuiltInFunctionCatalog;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.query.Expressions;
+import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import java.util.Locale;
-import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
-import java.util.stream.StreamSupport;
-
-import static java.util.stream.Collectors.toList;
+import java.util.function.Supplier;
 
 /**
- * A catalog of built-in SQL functions.
+ * A catalog of built-in and user-defined SQL functions.
  */
 @API(API.Status.EXPERIMENTAL)
-public final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
+final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
 
     @Nonnull
-    private static final SqlFunctionCatalogImpl INSTANCE = new SqlFunctionCatalogImpl();
+    private static final ImmutableMap<String, Function<Integer, Optional<BuiltInFunction<? extends Typed>>>> builtInSynonyms = createSynonyms();
 
     @Nonnull
-    private final ImmutableMap<String, Function<Integer, BuiltInFunction<? extends Typed>>> synonyms;
+    private final UserDefinedFunctionCatalog userDefinedFunctionCatalog;
 
     private SqlFunctionCatalogImpl() {
-        this.synonyms = createSynonyms();
+        this.userDefinedFunctionCatalog = new UserDefinedFunctionCatalog();
     }
 
     @Nonnull
     @Override
-    public BuiltInFunction<? extends Typed> lookUpFunction(@Nonnull final String name, @Nonnull final Expression... expressions) {
-        return Assert.notNullUnchecked(Objects.requireNonNull(synonyms.get(name.toLowerCase(Locale.ROOT))).apply(expressions.length));
+    public CatalogedFunction lookupFunction(@Nonnull final String name, @Nonnull final Expressions arguments) {
+        final var builtInFunctionMaybe = lookupBuiltInFunction(name, arguments);
+        final var userDefinedFunctionMaybe = lookupUserDefinedFunction(name, arguments);
+        if (builtInFunctionMaybe.isPresent() && userDefinedFunctionMaybe.isPresent()) {
+            // this should never happen.
+            Assert.failUnchecked(ErrorCode.INTERNAL_ERROR, "multiple definition of '" + name + "' found in the catalog");
+        }
+        if (builtInFunctionMaybe.isEmpty() && userDefinedFunctionMaybe.isEmpty()) {
+            Assert.failUnchecked(ErrorCode.UNDEFINED_FUNCTION, "could not find function '" + name + "'");
+        }
+        if (builtInFunctionMaybe.isPresent()) {
+            return builtInFunctionMaybe.get();
+        }
+        return userDefinedFunctionMaybe.get();
+    }
+
+    @Nonnull
+    private Optional<? extends CatalogedFunction> lookupBuiltInFunction(@Nonnull final String name,
+                                                                                         @Nonnull final Expressions expressions) {
+        final var functionValidator = builtInSynonyms.get(name.toLowerCase(Locale.ROOT));
+        if (functionValidator == null) {
+            return Optional.empty();
+        }
+        // TODO we should streamline the validation logic.
+        return functionValidator.apply(expressions.size());
+    }
+
+    @Nonnull
+    private Optional<? extends CatalogedFunction> lookupUserDefinedFunction(@Nonnull final String name,
+                                                                                             @Nonnull final Expressions expressions) {
+        return userDefinedFunctionCatalog.lookup(name, expressions);
     }
 
     @Override
-    public boolean containsFunction(@Nonnull String name) {
-        return synonyms.containsKey(name.toLowerCase(Locale.ROOT));
+    public boolean containsFunction(@Nonnull final String name) {
+        return builtInSynonyms.containsKey(name.toLowerCase(Locale.ROOT))
+                || userDefinedFunctionCatalog.containsFunction(name);
     }
 
     @Override
-    public boolean isUdfFunction(@Nonnull final String name) {
+    public boolean isJavaCallFunction(@Nonnull final String name) {
         return "java_call".equals(name.trim().toLowerCase(Locale.ROOT));
     }
 
+    public void registerUserDefinedFunction(@Nonnull final String functionName,
+                                            @Nonnull final Supplier<? extends UserDefinedFunction> functionSupplier) {
+        userDefinedFunctionCatalog.registerFunction(functionName, functionSupplier);
+    }
+
     @Nonnull
-    private static ImmutableMap<String, Function<Integer, BuiltInFunction<? extends Typed>>> createSynonyms() {
-        return ImmutableMap.<String, Function<Integer, BuiltInFunction<? extends Typed>>>builder()
-                .put("+", argumentsCount -> FunctionCatalog.resolve("add", argumentsCount).orElseThrow())
-                .put("-", argumentsCount -> FunctionCatalog.resolve("sub", argumentsCount).orElseThrow())
-                .put("*", argumentsCount -> FunctionCatalog.resolve("mul", argumentsCount).orElseThrow())
-                .put("/", argumentsCount -> FunctionCatalog.resolve("div", argumentsCount).orElseThrow())
-                .put("%", argumentsCount -> FunctionCatalog.resolve("mod", argumentsCount).orElseThrow())
-                .put(">", argumentsCount -> FunctionCatalog.resolve("gt", argumentsCount).orElseThrow())
-                .put(">=", argumentsCount -> FunctionCatalog.resolve("gte", argumentsCount).orElseThrow())
-                .put("<", argumentsCount -> FunctionCatalog.resolve("lt", argumentsCount).orElseThrow())
-                .put("<=", argumentsCount -> FunctionCatalog.resolve("lte", argumentsCount).orElseThrow())
-                .put("=", argumentsCount -> FunctionCatalog.resolve("equals", argumentsCount).orElseThrow())
-                .put("<>", argumentsCount -> FunctionCatalog.resolve("notEquals", argumentsCount).orElseThrow())
-                .put("!=", argumentsCount -> FunctionCatalog.resolve("notEquals", argumentsCount).orElseThrow())
-                .put("&", argumentsCount -> FunctionCatalog.resolve("bitand", argumentsCount).orElseThrow())
-                .put("|", argumentsCount -> FunctionCatalog.resolve("bitor", argumentsCount).orElseThrow())
-                .put("^", argumentsCount -> FunctionCatalog.resolve("bitxor", argumentsCount).orElseThrow())
-                .put("bitmap_bit_position", argumentsCount -> FunctionCatalog.resolve("bitmap_bit_position", 1 + argumentsCount).orElseThrow())
-                .put("bitmap_bucket_offset", argumentsCount -> FunctionCatalog.resolve("bitmap_bucket_offset", 1 + argumentsCount).orElseThrow())
-                .put("bitmap_construct_agg", argumentsCount -> FunctionCatalog.resolve("BITMAP_CONSTRUCT_AGG", argumentsCount).orElseThrow())
-                .put("not", argumentsCount -> FunctionCatalog.resolve("not", argumentsCount).orElseThrow())
-                .put("and", argumentsCount -> FunctionCatalog.resolve("and", argumentsCount).orElseThrow())
-                .put("or", argumentsCount -> FunctionCatalog.resolve("or", argumentsCount).orElseThrow())
-                .put("count", argumentsCount -> FunctionCatalog.resolve("COUNT", argumentsCount).orElseThrow())
-                .put("max", argumentsCount -> FunctionCatalog.resolve("MAX", argumentsCount).orElseThrow())
-                .put("min", argumentsCount -> FunctionCatalog.resolve("MIN", argumentsCount).orElseThrow())
-                .put("avg", argumentsCount -> FunctionCatalog.resolve("AVG", argumentsCount).orElseThrow())
-                .put("sum", argumentsCount -> FunctionCatalog.resolve("SUM", argumentsCount).orElseThrow())
-                .put("max_ever", argumentsCount -> FunctionCatalog.resolve("MAX_EVER", argumentsCount).orElseThrow())
-                .put("min_ever", argumentsCount -> FunctionCatalog.resolve("MIN_EVER", argumentsCount).orElseThrow())
-                .put("java_call", argumentsCount -> FunctionCatalog.resolve("java_call", argumentsCount).orElseThrow())
-                .put("greatest", argumentsCount -> FunctionCatalog.resolve("greatest", argumentsCount).orElseThrow())
-                .put("least", argumentsCount -> FunctionCatalog.resolve("least", argumentsCount).orElseThrow())
-                .put("like", argumentsCount -> FunctionCatalog.resolve("like", argumentsCount).orElseThrow())
-                .put("in", argumentsCount -> FunctionCatalog.resolve("in", argumentsCount).orElseThrow())
-                .put("coalesce", argumentsCount -> FunctionCatalog.resolve("coalesce", argumentsCount).orElseThrow())
-                .put("is null", argumentsCount -> FunctionCatalog.resolve("isNull", argumentsCount).orElseThrow())
-                .put("is not null", argumentsCount -> FunctionCatalog.resolve("notNull", argumentsCount).orElseThrow())
-                .put("range", argumentsCount -> FunctionCatalog.resolve("range", argumentsCount).orElseThrow())
-                .put("__pattern_for_like", argumentsCount -> FunctionCatalog.resolve("patternForLike", argumentsCount).orElseThrow())
-                .put("__internal_array", argumentsCount -> FunctionCatalog.resolve("array", argumentsCount).orElseThrow())
+    private static ImmutableMap<String, Function<Integer, Optional<BuiltInFunction<? extends Typed>>>> createSynonyms() {
+        return ImmutableMap.<String, Function<Integer, Optional<BuiltInFunction<? extends Typed>>>>builder()
+                .put("+", argumentsCount -> BuiltInFunctionCatalog.resolve("add", argumentsCount))
+                .put("-", argumentsCount -> BuiltInFunctionCatalog.resolve("sub", argumentsCount))
+                .put("*", argumentsCount -> BuiltInFunctionCatalog.resolve("mul", argumentsCount))
+                .put("/", argumentsCount -> BuiltInFunctionCatalog.resolve("div", argumentsCount))
+                .put("%", argumentsCount -> BuiltInFunctionCatalog.resolve("mod", argumentsCount))
+                .put(">", argumentsCount -> BuiltInFunctionCatalog.resolve("gt", argumentsCount))
+                .put(">=", argumentsCount -> BuiltInFunctionCatalog.resolve("gte", argumentsCount))
+                .put("<", argumentsCount -> BuiltInFunctionCatalog.resolve("lt", argumentsCount))
+                .put("<=", argumentsCount -> BuiltInFunctionCatalog.resolve("lte", argumentsCount))
+                .put("=", argumentsCount -> BuiltInFunctionCatalog.resolve("equals", argumentsCount))
+                .put("<>", argumentsCount -> BuiltInFunctionCatalog.resolve("notEquals", argumentsCount))
+                .put("!=", argumentsCount -> BuiltInFunctionCatalog.resolve("notEquals", argumentsCount))
+                .put("&", argumentsCount -> BuiltInFunctionCatalog.resolve("bitand", argumentsCount))
+                .put("|", argumentsCount -> BuiltInFunctionCatalog.resolve("bitor", argumentsCount))
+                .put("^", argumentsCount -> BuiltInFunctionCatalog.resolve("bitxor", argumentsCount))
+                .put("bitmap_bit_position", argumentsCount -> BuiltInFunctionCatalog.resolve("bitmap_bit_position", 1 + argumentsCount))
+                .put("bitmap_bucket_offset", argumentsCount -> BuiltInFunctionCatalog.resolve("bitmap_bucket_offset", 1 + argumentsCount))
+                .put("bitmap_construct_agg", argumentsCount -> BuiltInFunctionCatalog.resolve("BITMAP_CONSTRUCT_AGG", argumentsCount))
+                .put("not", argumentsCount -> BuiltInFunctionCatalog.resolve("not", argumentsCount))
+                .put("and", argumentsCount -> BuiltInFunctionCatalog.resolve("and", argumentsCount))
+                .put("or", argumentsCount -> BuiltInFunctionCatalog.resolve("or", argumentsCount))
+                .put("count", argumentsCount -> BuiltInFunctionCatalog.resolve("COUNT", argumentsCount))
+                .put("max", argumentsCount -> BuiltInFunctionCatalog.resolve("MAX", argumentsCount))
+                .put("min", argumentsCount -> BuiltInFunctionCatalog.resolve("MIN", argumentsCount))
+                .put("avg", argumentsCount -> BuiltInFunctionCatalog.resolve("AVG", argumentsCount))
+                .put("sum", argumentsCount -> BuiltInFunctionCatalog.resolve("SUM", argumentsCount))
+                .put("max_ever", argumentsCount -> BuiltInFunctionCatalog.resolve("MAX_EVER", argumentsCount))
+                .put("min_ever", argumentsCount -> BuiltInFunctionCatalog.resolve("MIN_EVER", argumentsCount))
+                .put("java_call", argumentsCount -> BuiltInFunctionCatalog.resolve("java_call", argumentsCount))
+                .put("greatest", argumentsCount -> BuiltInFunctionCatalog.resolve("greatest", argumentsCount))
+                .put("least", argumentsCount -> BuiltInFunctionCatalog.resolve("least", argumentsCount))
+                .put("like", argumentsCount -> BuiltInFunctionCatalog.resolve("like", argumentsCount))
+                .put("in", argumentsCount -> BuiltInFunctionCatalog.resolve("in", argumentsCount))
+                .put("coalesce", argumentsCount -> BuiltInFunctionCatalog.resolve("coalesce", argumentsCount))
+                .put("is null", argumentsCount -> BuiltInFunctionCatalog.resolve("isNull", argumentsCount))
+                .put("is not null", argumentsCount -> BuiltInFunctionCatalog.resolve("notNull", argumentsCount))
+                .put("range", argumentsCount -> BuiltInFunctionCatalog.resolve("range", argumentsCount))
+                .put("__pattern_for_like", argumentsCount -> BuiltInFunctionCatalog.resolve("patternForLike", argumentsCount))
+                .put("__internal_array", argumentsCount -> BuiltInFunctionCatalog.resolve("array", argumentsCount))
                 .build();
     }
 
     @Nonnull
-    public static SqlFunctionCatalogImpl instance() {
-        return INSTANCE;
-    }
-
-    /**
-     * A utility method that transforms a single-item {@link RecordConstructorValue} value into its inner {@link Value}.
-     * This is mainly used for deterministically distinguishing between:
-     * <ul>
-     *     <li>Single item record constructor</li>
-     *     <li>Order of operations</li>
-     * </ul>
-     * Currently, all of our SQL functions are assumed to be working with primitives, therefore, when there is a scenario
-     * where the arguments can be interpreted as either single-item records or to indicate order of operations,
-     * the precedence is <i>always</i> given to the latter.
-     * For example, the argument {@code (3+4)} in this expression {@code (3+4)*5} is considered to correspond to a
-     * single integer which is the result of {@code 3+4} as opposed to a single-item record whose element is {@code 3+4}.
-     *
-     * @param value The value to potentially simplify
-     * @return if the {@code value} is a single-item record, then the content of the {@code value} is recursively checked
-     * and returned, otherwise, the {@code value} itself is returned without modification.
-     */
-    @Nonnull
-    public static Typed flattenRecordWithOneField(@Nonnull final Typed value) {
-        if (value instanceof RecordConstructorValue && ((RecordConstructorValue) value).getColumns().size() == 1) {
-            return flattenRecordWithOneField(((Value) value).getChildren().iterator().next());
-        }
-        if (value instanceof Value) {
-            return ((Value) value).withChildren(StreamSupport.stream(((Value) value).getChildren().spliterator(), false)
-                    .map(SqlFunctionCatalogImpl::flattenRecordWithOneField).map(v -> (Value) v).collect(toList()));
-        }
-        return value;
+    public static SqlFunctionCatalogImpl newInstance(@Nonnull RecordLayerSchemaTemplate metadata, boolean isCaseSensitive) {
+        final var functionCatalog = new SqlFunctionCatalogImpl();
+        metadata.getInvokedRoutines().forEach(func ->
+                functionCatalog.registerUserDefinedFunction(
+                        Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(func.getName(), isCaseSensitive)),
+                        func.getCompilableSqlFunctionSupplier()));
+        return functionCatalog;
     }
 }
