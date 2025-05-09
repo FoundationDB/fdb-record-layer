@@ -33,11 +33,11 @@ import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -132,6 +132,18 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
         builder.addAll(value.getCorrelatedTo());
         builder.addAll(comparison.getCorrelatedTo());
         return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public QueryPredicate translateValues(@Nonnull final TranslationMap translationMap) {
+        Value newValue = value.translateCorrelations(translationMap, true);
+        Comparison newComparison = comparison.translateCorrelations(translationMap, true);
+        if (newValue == value && newComparison == comparison) {
+            return this;
+        }
+        return new ValuePredicate(newValue, newComparison);
     }
 
     @Nonnull
