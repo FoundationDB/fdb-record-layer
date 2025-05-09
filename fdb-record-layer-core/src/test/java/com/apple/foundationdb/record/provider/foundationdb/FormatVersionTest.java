@@ -59,7 +59,7 @@ class FormatVersionTest {
 
         assertEquals(IntStream.rangeClosed(1, 10).boxed().collect(Collectors.toList()),
                 versions);
-        assertEquals(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION, versions.get(versions.size() - 1));
+        assertEquals(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION, FormatVersion.getMaximumSupportedVersion().getValueForSerialization());
     }
 
     @Test

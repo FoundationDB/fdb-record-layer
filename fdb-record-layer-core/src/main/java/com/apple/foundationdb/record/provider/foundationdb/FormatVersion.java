@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
@@ -53,7 +54,7 @@ public enum FormatVersion implements Comparable<FormatVersion> {
      */
     INFO_ADDED(1),
     /**
-     * This FormatVersion introduces support for tracking record conuts as defined by:
+     * This FormatVersion introduces support for tracking record counts as defined by:
      * {@link com.apple.foundationdb.record.RecordMetaData#getRecordCountKey()}.
      */
     RECORD_COUNT_ADDED(2),
@@ -145,7 +146,12 @@ public enum FormatVersion implements Comparable<FormatVersion> {
     /**
      * This FormatVersion allows building non-idempotent indexes (e.g. COUNT) from a source index.
      */
-    CHECK_INDEX_BUILD_TYPE_DURING_UPDATE(10);
+    CHECK_INDEX_BUILD_TYPE_DURING_UPDATE(10),
+    /**
+     * This FormatVersion allows setting a state for the RecordCountKey on an individual store.
+     * @see RecordMetaDataProto.DataStoreInfo#getRecordCountState()
+     */
+    RECORD_COUNT_STATE(11);
 
     private final int value;
 
