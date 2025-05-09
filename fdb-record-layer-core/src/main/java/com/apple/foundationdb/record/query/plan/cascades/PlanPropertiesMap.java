@@ -55,7 +55,7 @@ public class PlanPropertiesMap extends ExpressionPropertiesMap<RecordQueryPlan> 
                     .build();
 
     public PlanPropertiesMap() {
-        super(RecordQueryPlan.class, expressionProperties, ImmutableSet.of());
+        this(ImmutableSet.of());
     }
 
     public PlanPropertiesMap(@Nonnull Collection<? extends RelationalExpression> plans) {

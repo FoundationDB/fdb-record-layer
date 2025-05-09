@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
 import java.util.function.Supplier;
@@ -92,5 +93,25 @@ public enum PlannerStage {
     @Nonnull
     public ExpressionPropertiesMap<? extends RelationalExpression> createPropertiesMap() {
         return propertiesMapCreator.get();
+    }
+
+    /**
+     * Returns iff the {@link PlannerStage} passed in precedes this stage.
+     * @param other another stage that is not this stage
+     * @return {@code true} iff the {@link PlannerStage} passed in precedes this stage.
+     */
+    public boolean precedes(@Nonnull final PlannerStage other) {
+        Verify.verify(this != other);
+        return ordinal() < other.ordinal();
+    }
+
+    /**
+     * Returns iff the {@link PlannerStage} passed in succeeds this stage.
+     * @param other another stage that is not this stage
+     * @return {@code true} iff the {@link PlannerStage} passed in succeeds this stage.
+     */
+    public boolean succeeds(@Nonnull final PlannerStage other) {
+        Verify.verify(this != other);
+        return ordinal() > other.ordinal();
     }
 }

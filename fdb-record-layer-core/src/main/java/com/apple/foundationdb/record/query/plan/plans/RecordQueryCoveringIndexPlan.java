@@ -175,7 +175,7 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
 
     @Override
     public RecordQueryCoveringIndexPlan strictlySorted(@Nonnull final FinalMemoizer memoizer) {
-        return new RecordQueryCoveringIndexPlan((RecordQueryPlanWithIndex)indexPlan.strictlySorted(memoizer), recordTypeName, getAvailableFields(), toRecord);
+        return new RecordQueryCoveringIndexPlan(indexPlan.strictlySorted(memoizer), recordTypeName, getAvailableFields(), toRecord);
     }
 
     @Nonnull

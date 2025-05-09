@@ -127,6 +127,13 @@ import java.util.function.Supplier;
  * </p>
  *
  * <pre>
+ * {@link InitiatePlannerPhase}
+ *     if (there is a next phase)
+ *         push
+ *             {@link InitiatePlannerPhase} for the next phase
+ *     push {@link OptimizeGroup} for the root of the expression DAG
+ *     push {@link ExploreGroup} for the root of the expression DAG
+ *
  * {@link OptimizeGroup}
  *     if (not explored)
  *         pushes
@@ -163,7 +170,7 @@ import java.util.function.Supplier;
  * </pre>
  *
  * Note: Pushed tasks are executed in typical stack machine order, that is LIFO.
- * <br>
+ * <p>
  * There are three different kinds of transformations:
  * <ul>
  *     <li>
@@ -185,6 +192,7 @@ import java.util.function.Supplier;
  *         to all synthesized matches for an expression at once.
  *     </li>
  * </ul>
+ * </p>
  *
  * @see Reference
  * @see RelationalExpression
@@ -496,15 +504,15 @@ public class CascadesPlanner implements QueryPlanner {
 
     /**
      * Globally initiate a new planner phase.
-     * <br>
      * Simplified push/execute overview:
-     * <br>
+     * <pre>
      * {@link InitiatePlannerPhase}
      *     if (there is a next phase)
      *         push
      *             {@link InitiatePlannerPhase} for the next phase
      *     push {@link OptimizeGroup} for the root of the expression DAG
      *     push {@link ExploreGroup} for the root of the expression DAG
+     * </pre>
      */
     private class InitiatePlannerPhase implements Task {
         @Nonnull
@@ -544,9 +552,8 @@ public class CascadesPlanner implements QueryPlanner {
 
     /**
      * Optimize Group task.
-     * <br>
      * Simplified push/execute overview:
-     * <br>
+     * <pre>
      * {@link OptimizeGroup}
      *     if (not explored)
      *         pushes
@@ -555,6 +562,7 @@ public class CascadesPlanner implements QueryPlanner {
      *         sets explored to {@code true}
      *     else
      *         prune to find best plan; done
+     * </pre>
      */
     private class OptimizeGroup implements Task {
         @Nonnull
@@ -577,9 +585,9 @@ public class CascadesPlanner implements QueryPlanner {
         @Override
         public void execute() {
             RelationalExpression bestFinalExpression = null;
+            final var costModel = plannerPhase.createCostModel(configuration);
             for (final var finalExpression : group.getFinalExpressions()) {
-                if (bestFinalExpression == null ||
-                        plannerPhase.createCostModel(configuration).compare(finalExpression, bestFinalExpression) < 0) {
+                if (bestFinalExpression == null || costModel.compare(finalExpression, bestFinalExpression) < 0) {
                     if (bestFinalExpression != null) {
                         // best member is being pruned
                         traversal.removeExpression(group, bestFinalExpression);
@@ -610,13 +618,13 @@ public class CascadesPlanner implements QueryPlanner {
 
     /**
      * Explore Group Task.
-     * <br>
      * Simplified push/execute overview:
-     * <br>
+     * <pre>
      * {@link ExploreGroup}
      *     pushes
      *         {@link ExploreExpression} for each group member
      *     sets explored to {@code true}
+     * </pre>
      */
     private class ExploreGroup implements Task {
         @Nonnull
@@ -638,20 +646,25 @@ public class CascadesPlanner implements QueryPlanner {
 
         @Override
         public void execute() {
-            if (plannerPhase.getTargetStage().ordinal() < group.getPlannerStage().ordinal()) {
-                // group is further along in the planning process, do not re-explore
-                return;
-            } else if (plannerPhase.getTargetStage().ordinal() > group.getPlannerStage().ordinal()) {
-                // group needs to be bumped to the current target stage
+            final var targetPlannerStage = plannerPhase.getTargetPlannerStage();
+            final var groupPlannerStage = group.getPlannerStage();
+            if (targetPlannerStage != groupPlannerStage) {
+                if (targetPlannerStage.precedes(groupPlannerStage)) {
+                    // group is further along in the planning process, do not re-explore
+                    return;
+                } else {
+                    Verify.verify(targetPlannerStage.succeeds(groupPlannerStage));
+                    // group needs to be bumped to the current target stage
 
-                for (final var exploratoryExpression : group.getExploratoryExpressions()) {
-                    traversal.removeExpression(group, exploratoryExpression);
+                    for (final var exploratoryExpression : group.getExploratoryExpressions()) {
+                        traversal.removeExpression(group, exploratoryExpression);
+                    }
+
+                    group.advancePlannerStage(targetPlannerStage);
+                    //
+                    // All final expression properties are reset, all final members have been cleared.
+                    //
                 }
-
-                group.advancePlannerStage(plannerPhase.getTargetStage());
-                //
-                // All final expression properties are reset, all final members have been cleared.
-                //
             }
 
             //
@@ -722,14 +735,14 @@ public class CascadesPlanner implements QueryPlanner {
 
     /**
      * Explore Expression Task.
-     * <br>
      * Simplified push/execute overview:
-     * <br>
+     * <pre>
      * {@link ExploreExpression}
      *     pushes
      *         all transformations ({@link TransformMatchPartition}) for match partitions of current (group, expression)
      *         all transformations ({@link TransformExpression} for current (group, expression)
      *         {@link ExploreGroup} for all ranged over groups
+     * </pre>
      */
     private abstract class AbstractExploreExpression extends ExploreTask {
         public AbstractExploreExpression(@Nonnull final PlannerPhase plannerPhase,
@@ -797,14 +810,14 @@ public class CascadesPlanner implements QueryPlanner {
 
     /**
      * Explore Expression Task.
-     * <br>
      * Simplified push/execute overview:
-     * <br>
+     * <pre>
      * {@link ExploreExpression}
      *     pushes
      *         all transformations ({@link TransformMatchPartition}) for match partitions of current (group, expression)
      *         all transformations ({@link TransformExpression} for current (group, expression)
      *         {@link ExploreGroup} for all ranged over groups
+     * </pre>
      */
     private class ReExploreExpression extends AbstractExploreExpression {
         public ReExploreExpression(@Nonnull final PlannerPhase plannerPhase,
@@ -828,14 +841,14 @@ public class CascadesPlanner implements QueryPlanner {
 
     /**
      * Explore Expression Task.
-     * <br>
      * Simplified push/execute overview:
-     * <br>
+     * <pre>
      * {@link ExploreExpression}
      *     pushes
      *         all transformations ({@link TransformMatchPartition}) for match partitions of current (group, expression)
      *         all transformations ({@link TransformExpression} for current (group, expression)
      *         {@link ExploreGroup} for all ranged over groups
+     * </pre>
      */
     private class ExploreExpression extends AbstractExploreExpression {
         public ExploreExpression(@Nonnull final PlannerPhase plannerPhase,
@@ -914,14 +927,14 @@ public class CascadesPlanner implements QueryPlanner {
 
         /**
          * Method that calls the actual rule and reacts to new constructs the rule yielded.
-         * <br>
          * Simplified push/execute overview:
-         * <br>
+         * <pre>
          * executes rule
          * pushes
          *     {@link AdjustMatch} for each yielded {@link PartialMatch}
          *     {@link OptimizeInputs} followed by {@link ExploreExpression} for each yielded {@link RecordQueryPlan}
          *     {@link ExploreExpression} for each yielded {@link RelationalExpression} that is not a {@link RecordQueryPlan}
+         * </pre>
          */
         @Override
         @SuppressWarnings("java:S1117")
@@ -1102,12 +1115,12 @@ public class CascadesPlanner implements QueryPlanner {
     /**
      * Adjust Match Task. Attempts to improve an existing partial match on a (group, expression) pair
      * to a better one by enqueuing rules defined on {@link PartialMatch}.
-     * <br>
      * Simplified push/execute overview:
-     * <br>
+     * <pre>
      * {@link AdjustMatch}
      *     pushes
      *         all transformations ({@link TransformPartialMatch}) for current (group, expression, partial match)
+     * </pre>
      */
     private class AdjustMatch extends ExploreTask {
         @Nonnull
@@ -1146,13 +1159,13 @@ public class CascadesPlanner implements QueryPlanner {
      * Optimize Inputs Task. This task is only used for expressions that are {@link RecordQueryPlan} which are
      * physical operators. If the current expression is a {@link RecordQueryPlan} all expressions that are considered
      * children and/or descendants must also be of type {@link RecordQueryPlan}. At that moment we know that exploration
-     * is done we can optimize the children (that is we can now prune the plan space of the children).
-     * <br>
+     * is done, and we can optimize the children (that is we can now prune the plan space of the children).
      * Simplified push/execute overview:
-     * <br>
+     * <pre>
      * {@link OptimizeInputs}
      *     pushes
      *         {@link OptimizeGroup} for all ranged over groups
+     * </pre>
      */
     private class OptimizeInputs implements Task {
         @Nonnull

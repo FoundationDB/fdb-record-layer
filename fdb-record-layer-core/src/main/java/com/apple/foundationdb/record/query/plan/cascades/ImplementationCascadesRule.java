@@ -41,8 +41,8 @@ import java.util.Collection;
  * from the subject which always terminates at a collection of expression partitions. An expression partition consists
  * of a subset of a reference's final expression members. When the implementation rule is executed, it creates new
  * variants by a combination of memoizing and yielding final expressions that are solely based on those expression
- * partitions (unlike during the execution of exploration rules where entire references reused). In order to utilize the
- * plans or (final) expressions of a plan partition, an implementation rule usually calls
+ * partitions (unlike during the execution of exploration rules where entire references are reused). In order to utilize
+ * the plans or (final) expressions of a plan partition, an implementation rule usually calls
  * {@link FinalMemoizer#memoizeFinalExpressionsFromOther(Reference, Collection)} or
  * {@link FinalMemoizer#memoizeMemberPlansFromOther(Reference, Collection)} to create a new reference (the memoizer
  * guarantees to create a new reference) of a reference only containing the plans of the expression partition.
@@ -51,8 +51,8 @@ import java.util.Collection;
  * contain exactly one final expression each (which is the pruned expression). Those pruned expressions themselves where
  * yielded (before pruning) by some other execution of some implementation rule prior to the execution of this
  * implementation rule. Thus, it can inductively be shown that implementation rules construct a DAG bottom up that never
- * shares references among different variations. We also say that we <em>disentangled</em> the expression DAG underneath
- * the current group form the rest of the expression DAG. That property of the subgraph of being disentangled is
+ * shares references among different variations. We also say that we <em>disentangle</em> the expression DAG underneath
+ * the current group from the rest of the expression DAG. That property of the subgraph of being disentangled is
  * extremely important as the planner prunes the children of the yielded expression immediately after the rule is called
  * which constitutes as a destructive modification of the pruned reference.
  * @param <T> a parent planner expression type of all possible root planner expressions that this rule could match

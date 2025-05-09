@@ -118,7 +118,7 @@ public class RemoveSortRule extends ImplementationCascadesRule<LogicalSortExpres
                 final var strictlySortedInnerPlans =
                         innerPlanPartition.getPlans()
                                 .stream()
-                                .map(plan -> (RecordQueryPlan)plan.strictlySorted(call))
+                                .map(plan -> plan.strictlySorted(call))
                                 .collect(LinkedIdentitySet.toLinkedIdentitySet());
                 call.yieldPlans(strictlySortedInnerPlans);
             }
@@ -132,7 +132,7 @@ public class RemoveSortRule extends ImplementationCascadesRule<LogicalSortExpres
                     strictlyOrderedIfUnique(innerPlan, requestedOrderingParts.size() + equalityBoundUnsorted);
 
             if (strictOrdered) {
-                resultExpressions.add((RecordQueryPlan)innerPlan.strictlySorted(call));
+                resultExpressions.add(innerPlan.strictlySorted(call));
             } else {
                 resultExpressions.add(innerPlan);
             }

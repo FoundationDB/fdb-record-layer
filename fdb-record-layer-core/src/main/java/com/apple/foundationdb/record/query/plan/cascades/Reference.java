@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
@@ -53,7 +52,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -71,11 +69,11 @@ import java.util.stream.StreamSupport;
  * A reference contains expressions. It further differentiates between contained exploratory expressions and final
  * expressions. Utilized during planning, exploratory expressions are expressions that designated exploration rules
  * explore and yield whereas final expressions are those expressions that are yielded by implementation rules and which
- * take part a best-plan selection process called pruning that will eventually distill one remaining final expression
+ * take part in a best-plan selection process called pruning that will eventually distill one remaining final expression
  * in the reference that is then considered the <em>best</em> variant among the members of this reference. For the
  * planning phase {@link PlannerPhase#PLANNING}, all exploratory expressions are expressions that are not
  * {@link RecordQueryPlan}s while all final expressions are {@link RecordQueryPlan}s. Note that other planner phases do
- * not make such a type-based distinction between exploratory and final expressions, for instance
+ * not make such a type-based distinction between exploratory and final expressions. For instance
  * {@link PlannerPhase#REWRITING} uses {@link RelationalExpression} for both exploratory and final expressions.
  * <br>
  * All exploratory expressions form a set and all final expressions form a set as well. It is, however, possible, that
@@ -87,23 +85,66 @@ import java.util.stream.StreamSupport;
  */
 @API(API.Status.EXPERIMENTAL)
 public class Reference implements Correlated<Reference>, Typed {
+    /**
+     * The current planner stage. This is initially set through the constructor but is mutable through
+     * {@link #advancePlannerStage(PlannerStage)}.
+     */
     @Nonnull
     private PlannerStage plannerStage;
+
+    /**
+     * The exploratory members of this reference. Exploratory members are members that are actively being explored
+     * and are not considered for costing and pruning. That distinction allows for more flexible exploration rules
+     * and more flexible reference sharing in the memoization structures.
+     */
     @Nonnull
     private final Members exploratoryMembers;
+
+    /**
+     * The final members of this reference. Final members are members that are the result of implementation rules.
+     * Final members can only have descendant references that on consist oof final members themselves. During the
+     * {@link PlannerPhase#PLANNING}, the invariant {@code member instanceof RecordQueryPlanner <=> member is final}
+     * holds.
+     */
     @Nonnull
     private final Members finalMembers;
 
+    /**
+     * A map linking this reference to {@link MatchCandidate}s via corresponding {@link PartialMatch}es. We use this
+     * map during matching.
+     */
     @Nonnull
     private final SetMultimap<MatchCandidate, PartialMatch> partialMatchMap;
+
+    /**
+     * A map that captures constraints to the reference that are imposed to it by quantifiers (and therefore consumers).
+     * A constraint can be e.g. an ordering constraint. The ordering constraint's value is the actual ordering we would
+     * like the planner to find plans for. Constraints can be amended and combined during planning. A constraints map
+     * combines the different constraints that have been pushed to this reference by treating them all orthogonally,
+     * i.e. the plans we eventually would like to create should satisfy the cross products of all constraint values.
+     * If we look for orderings of {@code _.a.b} and {@code _.c}, as well as for distinct and non-distinct plans, we
+     * actually look for plans satisfying: {@code _.a.b} and distinct, {@code _.a.b} and non-distinct, {@code _.c}
+     * and distinct, {@code _.c} and non-distinct.
+     */
     @Nonnull
     private final ConstraintsMap constraintsMap;
 
+    /**
+     * Properties map capturing properties for all final members of this reference. {@link ExpressionPropertiesMap},
+     * together with the more specialized {@link PlanPropertiesMap}, are the basis for creating partitions of
+     * expressions that satisfy certain properties and powerful matchers for implementation rules.
+     * @see ExpressionPartition
+     * @see PlanPartition
+     */
     @Nonnull
     private ExpressionPropertiesMap<? extends RelationalExpression> propertiesMap;
 
+    /**
+     * View of both exploratory and final members. Note that the collection is a multiset as an expression can be part
+     * of both exploratory and final expressions.
+     */
     @Nonnull
-    private final Supplier<Collection<RelationalExpression>> allMembersSupplier;
+    private final Collection<RelationalExpression> allMembersView;
 
     private Reference() {
         this(PlannerStage.INITIAL, new LinkedIdentitySet<>(), new LinkedIdentitySet<>());
@@ -112,13 +153,12 @@ public class Reference implements Correlated<Reference>, Typed {
     private Reference(@Nonnull final PlannerStage plannerStage,
                       @Nonnull final LinkedIdentitySet<RelationalExpression> exploratoryExpressions,
                       @Nonnull final LinkedIdentitySet<RelationalExpression> finalExpressions) {
-        Debugger.sanityCheck(() -> {
-            Verify.verify(plannerStage == PlannerStage.PLANNED ||
-                    (exploratoryExpressions.stream()
-                             .noneMatch(member -> member instanceof RecordQueryPlan) &&
-                             finalExpressions.stream()
-                                     .noneMatch(member -> member instanceof RecordQueryPlan)));
-        });
+        Debugger.sanityCheck(() ->
+                Verify.verify(plannerStage == PlannerStage.PLANNED ||
+                        (exploratoryExpressions.stream()
+                                 .noneMatch(member -> member instanceof RecordQueryPlan) &&
+                                 finalExpressions.stream()
+                                         .noneMatch(member -> member instanceof RecordQueryPlan))));
         this.plannerStage = plannerStage;
         this.exploratoryMembers = new Members(exploratoryExpressions);
         this.finalMembers = new Members(finalExpressions);
@@ -126,7 +166,7 @@ public class Reference implements Correlated<Reference>, Typed {
         this.constraintsMap = new ConstraintsMap();
         this.propertiesMap = plannerStage.createPropertiesMap();
         finalExpressions.forEach(finalExpression -> propertiesMap.add(finalExpression));
-        allMembersSupplier = Suppliers.memoize(() -> exploratoryMembers.concatExpressions(finalMembers));
+        this.allMembersView = exploratoryMembers.concatExpressions(finalMembers);
         // Call debugger hook for this new reference.
         Debugger.registerReference(this);
     }
@@ -147,8 +187,9 @@ public class Reference implements Correlated<Reference>, Typed {
     }
 
     public void advancePlannerStage(@Nonnull final PlannerStage newStage) {
+        Verify.verify(finalMembers.size() == 1);
         this.plannerStage = newStage;
-        constraintsMap.advancePlannerPhase();
+        constraintsMap.advancePlannerStage();
         this.propertiesMap = newStage.createPropertiesMap();
         exploratoryMembers.clear();
         exploratoryMembers.add(finalMembers.getOnlyElement());
@@ -196,7 +237,7 @@ public class Reference implements Correlated<Reference>, Typed {
     }
 
     /**
-     * Method that replaces the current members of this reference with a new value. This is called by the planner
+     * Method that replaces the current final members of this reference with a new value. This is called by the planner
      * to prune the variations of a reference down to exactly one new member.
      * @param expression expression to replace existing members with
      */
@@ -205,6 +246,11 @@ public class Reference implements Correlated<Reference>, Typed {
         pruneWithUnchecked(expression);
     }
 
+    /**
+     * Method to prune the final expressions in this reference. The given expression must be one of the final
+     * expressions. This operation does not touch the exploratory expressions.
+     * @param expression an expression that is assumed to be among the final expressions
+     */
     private void pruneWithUnchecked(@Nonnull final RelationalExpression expression) {
         final var properties = propertiesMap.getCurrentProperties(expression);
         clearFinalExpressions();
@@ -212,33 +258,27 @@ public class Reference implements Correlated<Reference>, Typed {
     }
 
     /**
-     * Inserts a new expression into this reference. This particular overload utilized the precomputed properties of
-     * a final {@link RelationalExpression} that already is thought to reside in another {@link Reference}.
-     * @param expression new expression to be inserted
-     * @param otherRef a reference that already contains {@code expression}
-     * @return {@code true} if and only if the new expression was successfully inserted into this reference, {@code false}
-     *         otherwise.
+     * Inserts a new exploratory expression into this reference. This method checks for prior memoization of the
+     * expression passed in within the reference. If the expression is already contained in this reference, the
+     * reference is not modified.
+     * @param newValue new expression to be inserted
+     * @return {@code true} if and only if the new expression was successfully inserted into this reference,
+     *         {@code false} otherwise.
      */
-    public boolean insertFrom(@Nonnull final RelationalExpression expression, @Nonnull final Reference otherRef) {
-        if (otherRef.isFinal(expression)) {
-            final var propertiesForPlan =
-                    Objects.requireNonNull(otherRef.getPropertiesMap().getProperties(expression));
-            return insert(expression, true, propertiesForPlan);
-        }
-
-        return insert(expression, false, null);
+    public boolean insertExploratoryExpression(@Nonnull final RelationalExpression newValue) {
+        return insert(newValue, false, null);
     }
 
     /**
-     * Inserts a new expression into this reference. This method checks for prior memoization of the expression passed
-     * in within the reference. If the expression is already contained in this reference, the reference is not modified.
+     * Inserts a new final expression into this reference. This method checks for prior memoization of the expression
+     * passed in within the reference. If the expression is already contained in this reference, the reference is not
+     * modified.
      * @param newValue new expression to be inserted
-     * @param isFinal indicator whether the new expression is final or not
-     * @return {@code true} if and only if the new expression was successfully inserted into this reference, {@code false}
-     *         otherwise.
+     * @return {@code true} if and only if the new expression was successfully inserted into this reference,
+     *         {@code false} otherwise.
      */
-    public boolean insert(@Nonnull final RelationalExpression newValue, final boolean isFinal) {
-        return insert(newValue, isFinal, null);
+    public boolean insertFinalExpression(@Nonnull final RelationalExpression newValue) {
+        return insert(newValue, true, null);
     }
 
     /**
@@ -281,24 +321,12 @@ public class Reference implements Correlated<Reference>, Typed {
      * already have the expression memoized.
      * @param newExpression new expression to be inserted (without check)
      * @param isFinal indicator whether the new expression is final or not
-     */
-    public void insertUnchecked(@Nonnull final RelationalExpression newExpression, final boolean isFinal) {
-        insertUnchecked(newExpression, isFinal, null);
-    }
-
-    /**
-     * Inserts a new expression into this reference. Unlike {{@link #insert(RelationalExpression, boolean, Map)}}, this
-     * method does not check for prior memoization of the expression passed in within the reference. The caller needs to
-     * exercise caution to only call this method on a reference if it is known that the reference cannot possibly
-     * already have the expression memoized.
-     * @param newExpression new expression to be inserted (without check)
-     * @param isFinal indicator whether the new expression is final or not
      * @param precomputedPropertiesMap if not {@code null}, a map of precomputed properties for a final expression
      *        that will be inserted into this reference verbatim, otherwise it will be computed
      */
-    public void insertUnchecked(@Nonnull final RelationalExpression newExpression,
-                                final boolean isFinal,
-                                @Nullable final Map<ExpressionProperty<?>, ?> precomputedPropertiesMap) {
+    private void insertUnchecked(@Nonnull final RelationalExpression newExpression,
+                                 final boolean isFinal,
+                                 @Nullable final Map<ExpressionProperty<?>, ?> precomputedPropertiesMap) {
         // Call debugger hook to potentially register this new expression.
         Debugger.registerExpression(newExpression);
 
@@ -333,8 +361,8 @@ public class Reference implements Correlated<Reference>, Typed {
      * reference. This method is not sensitive to whether the expression is also a final expression of this reference.
      * @param expression expression to check
      * @return {@code true} if the expression passed in is an exploratory expression, {@code false} if the expression
-     *         passed in is not an exploratory expression. If the expression is not contained in the reference at all,
-     *         this method will throw a {@link RecordCoreException}.
+     *         passed in is not an exploratory expression.
+     * @throws RecordCoreException if the expression is not contained in the reference at all.
      */
     public boolean isExploratory(@Nonnull final RelationalExpression expression) {
         if (exploratoryMembers.containsExactly(expression)) {
@@ -351,8 +379,8 @@ public class Reference implements Correlated<Reference>, Typed {
      * This method is not sensitive to whether the expression is also an exploratory expression of this reference.
      * @param expression expression to check
      * @return {@code true} if the expression passed in is a final expression, {@code false} if the expression passed in
-     *         is not a final expression. If the expression is not contained in the reference at all, this method will
-     *         throw a {@link RecordCoreException}.
+     *         is not a final expression.
+     * @throws RecordCoreException if the expression is not contained in the reference at all.
      */
     public boolean isFinal(@Nonnull final RelationalExpression expression) {
         if (finalMembers.containsExactly(expression)) {
@@ -366,8 +394,8 @@ public class Reference implements Correlated<Reference>, Typed {
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     @VisibleForTesting
-    public boolean containsAllInMemo(@Nonnull final Reference otherRef,
-                                     @Nonnull final AliasMap equivalenceMap) {
+    boolean containsAllInMemo(@Nonnull final Reference otherRef,
+                              @Nonnull final AliasMap equivalenceMap) {
         if (this == otherRef) {
             return true;
         }
@@ -395,8 +423,9 @@ public class Reference implements Correlated<Reference>, Typed {
      *        expression
      * @return {@code true} iff the expression is already memoized in this reference
      */
-    public boolean containsInMemo(@Nonnull final RelationalExpression expression,
-                                  final boolean isFinal) {
+    @VisibleForTesting
+    boolean containsInMemo(@Nonnull final RelationalExpression expression,
+                           final boolean isFinal) {
         // TODO This is correct for planning but it may be too strict for rewriting.
         if (!getCorrelatedTo().equals(expression.getCorrelatedTo())) {
             return false;
@@ -496,7 +525,7 @@ public class Reference implements Correlated<Reference>, Typed {
 
     @Nonnull
     public Collection<RelationalExpression> getAllMemberExpressions() {
-        return allMembersSupplier.get();
+        return allMembersView;
     }
 
     /**
@@ -745,21 +774,13 @@ public class Reference implements Correlated<Reference>, Typed {
     @Nonnull
     public static Reference ofExploratoryExpression(@Nonnull final PlannerStage plannerStage,
                                                     @Nonnull final RelationalExpression expression) {
-        LinkedIdentitySet<RelationalExpression> members = new LinkedIdentitySet<>();
-        // Call debugger hook to potentially register this new expression.
-        Debugger.registerExpression(expression);
-        members.add(expression);
-        return new Reference(plannerStage, members, new LinkedIdentitySet<>());
+        return of(plannerStage, ImmutableList.of(expression), ImmutableList.of());
     }
 
     @Nonnull
     public static Reference ofFinalExpression(@Nonnull final PlannerStage plannerStage,
                                               @Nonnull final RelationalExpression expression) {
-        LinkedIdentitySet<RelationalExpression> members = new LinkedIdentitySet<>();
-        // Call debugger hook to potentially register this new expression.
-        Debugger.registerExpression(expression);
-        members.add(expression);
-        return new Reference(plannerStage, new LinkedIdentitySet<>(), members);
+        return of(plannerStage, ImmutableList.of(), ImmutableList.of(expression));
     }
 
     @Nonnull
@@ -888,21 +909,12 @@ public class Reference implements Correlated<Reference>, Typed {
             }
             return false;
         }
-
-        @Nonnull
-        public static Members copyOf(@Nonnull final Members members) {
-            return copyOf(members.getExpressions());
-        }
-
-        @Nonnull
-        public static Members copyOf(@Nonnull final Set<RelationalExpression> expressions) {
-            return new Members(new LinkedIdentitySet<>(expressions));
-        }
     }
 
     private static <T> Collection<T> concatSetsView(@Nonnull final Set<T> first,
                                                     @Nonnull final Set<T> second) {
         return new AbstractCollection<>() {
+            @Nonnull
             @Override
             public Iterator<T> iterator() {
                 return new Iterator<>() {

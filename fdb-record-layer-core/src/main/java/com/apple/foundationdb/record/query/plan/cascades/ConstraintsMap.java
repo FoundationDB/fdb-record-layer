@@ -32,6 +32,7 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 /**
+ * <p>
  * A map to keep track of constraining attributes for an expression reference. References ({@link Reference})
  * are a central part of the memoization effort within the {@link CascadesPlanner}. Member expressions contained in
  * a reference all yield the same final result not taking into account physical properties such as sorted-ness,
@@ -42,19 +43,23 @@ import java.util.function.Supplier;
  * incompatible physical attribute. In any case, the planner must explore plan variations once created even though
  * the resulting structures may not get used at all. In essence, we would like to avoid the creation of useless plans
  * if at all possible.
- *
+ * </p>
+ * <p>
  * A map of interesting constraints is used by a reference to "push down" such a constraint through the data
  * flow graph. The "pushing down" is facilitated by rules that are executed by the {@link CascadesPlanner} much like
  * other rules yielding new {@link RelationalExpression}s or {@link PartialMatch}es. The only, and very important,
  * difference in concept is that the information is passed downwards instead of bubbling up like all the other structures.
- *
+ * </p>
+ * <p>
  * The planner needs to make sure that expression references are explored, and if necessary, re-explored if new
  * interesting properties are declared through the execution of other planner tasks.
  * Planner rules ({@link CascadesRuleCall}) can declare to interest in the change of a constraint which then signals to
  * the planner to trigger a re-exploration using that rule if an constraint changes on that reference.
- *
+ * </p>
+ * <p>
  * The map implementation uses a logical clock and a watermark system to understand if a re-exploration becomes
  * necessary.
+ * </p>
  */
 public class ConstraintsMap {
     /**
@@ -266,7 +271,18 @@ public class ConstraintsMap {
         watermarkCommittedTick = currentTick;
     }
 
-    public void advancePlannerPhase() {
+    /**
+     * Advance the current planner stage to a new one that succeeds the current one. Note that this method is
+     * destructive. Much like the owning reference of this map (when advanced to a new stage) removes earlier
+     * exploratory members and cleans out its {@link ExpressionPropertiesMap}, the constraints map also has to be
+     * cleaned up before we can explore the group again. For the constraints map, specifically, we need to remove all
+     * constraints that were pushed during an earlier {@link PlannerStage} but preserve all constraints that were pushed
+     * during the one we are advancing to. This is necessary because constraints can be pushed into the owning
+     * {@link Reference} of this constraints map before that reference itself is advanced when it starts exploration
+     * again. We know that those earlier pushes came from a tick smaller than {@link #watermarkCommittedTick} while all
+     * pushes that happened after {@link #watermarkCommittedTick} come from the current stage (and should be preserved).
+     */
+    public void advancePlannerStage() {
         // remove all constraints previously pushed and already committed
         for (final var iterator = this.attributeToConstraintMap.entrySet().iterator(); iterator.hasNext(); ) {
             final var entry = iterator.next();
@@ -275,6 +291,7 @@ public class ConstraintsMap {
                 iterator.remove();
             }
         }
+        // we want to go back to -1L for both to indicate that we have never been explored before (in this new stage).
         this.watermarkGoalTick = -1L;
         this.watermarkCommittedTick = -1L;
     }

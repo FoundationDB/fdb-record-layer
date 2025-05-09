@@ -112,28 +112,27 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
     public RecordQueryUpdatePlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                        final boolean shouldSimplifyValues,
                                                        @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        if (translationMap.definesOnlyIdentities()) {
-            new RecordQueryUpdatePlan(
-                    Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
-                    getTargetRecordType(),
-                    getTargetType(),
-                    getTransformationsTrie(),
-                    getCoercionTrie(),
-                    getComputationValue());
-        }
+        final var computationValue = getComputationValue();
+        final var tranlatedComputationValue =
+                translationMap.definesOnlyIdentities()
+                ? computationValue
+                : computationValue.translateCorrelations(translationMap, shouldSimplifyValues);
         return new RecordQueryUpdatePlan(
                 Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 getTargetRecordType(),
                 getTargetType(),
                 translateTransformationsTrie(translationMap, shouldSimplifyValues),
                 getCoercionTrie(),
-                getComputationValue().translateCorrelations(translationMap, shouldSimplifyValues));
+                tranlatedComputationValue);
     }
 
     @Nullable
     private MessageHelpers.TransformationTrieNode translateTransformationsTrie(@Nonnull final TranslationMap translationMap,
                                                                                final boolean shouldSimplifyValues) {
         final var transformationsTrie = getTransformationsTrie();
+        if (translationMap.definesOnlyIdentities()) {
+            return transformationsTrie;
+        }
         if (transformationsTrie == null) {
             return null;
         }

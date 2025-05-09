@@ -193,7 +193,7 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
                                                               final boolean shouldSimplifyValues,
                                                               @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         if (translationMap.definesOnlyIdentities()) {
-            return new ComposedBitmapIndexQueryPlan(indexPlans, composer);
+            return this;
         }
 
         final var translatedIndexPlansBuilder = ImmutableList.<RecordQueryCoveringIndexPlan>builder();

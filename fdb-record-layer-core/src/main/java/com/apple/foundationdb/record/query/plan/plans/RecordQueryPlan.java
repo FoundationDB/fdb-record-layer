@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.GenerateVisitor;
+import com.apple.foundationdb.record.query.plan.HeuristicPlanner;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanSerializable;
@@ -34,6 +35,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -156,7 +158,13 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
     @Nonnull
     AvailableFields getAvailableFields();
 
+    @Override
+    default RecordQueryPlan strictlySorted(@Nonnull FinalMemoizer memoizer) {
+        return this;
+    }
+
     // we know the type of the group, even though the compiler doesn't, intentional use of reference equality
+    @HeuristicPlanner
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     default RecordQueryPlan accept(@Nonnull RecordQueryPlannerSubstitutionVisitor visitor) {

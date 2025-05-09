@@ -20,11 +20,16 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 
 import javax.annotation.Nonnull;
 
+/**
+ * Cost model for {@link PlannerPhase#REWRITING}. TODO To be fleshed out whe we have actual rules.
+ */
+@API(API.Status.EXPERIMENTAL)
 public class RewritingCostModel implements CascadesCostModel {
     @Nonnull
     private final RecordQueryPlannerConfiguration configuration;

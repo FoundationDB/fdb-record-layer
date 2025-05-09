@@ -146,14 +146,10 @@ public class PrimitiveMatchers {
             @Nonnull
             @Override
             public Stream<PlannerBindings> bindMatchesSafely(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final T in) {
-                return Stream.of(PlannerBindings.from(this, in))
-                        .flatMap(bindings -> {
-                            if (predicate.test(in)) {
-                                return Stream.of(bindings);
-                            } else {
-                                return Stream.empty();
-                            }
-                        });
+                if (predicate.test(in)) {
+                    return Stream.of(PlannerBindings.from(this, in));
+                }
+                return Stream.empty();
             }
 
             @Override
@@ -192,14 +188,10 @@ public class PrimitiveMatchers {
                                                              @Nonnull final PlannerBindings outerBindings,
                                                              @Nonnull final T in) {
                 final T1 outerBinding = outerBindings.get(outerBindingMatcher);
-                return Stream.of(PlannerBindings.from(this, in))
-                        .flatMap(bindings -> {
-                            if (predicate.test(in, outerBinding)) {
-                                return Stream.of(bindings);
-                            } else {
-                                return Stream.empty();
-                            }
-                        });
+                if (predicate.test(in, outerBinding)) {
+                    return Stream.of(PlannerBindings.from(this, in));
+                }
+                return Stream.empty();
             }
 
             @Override

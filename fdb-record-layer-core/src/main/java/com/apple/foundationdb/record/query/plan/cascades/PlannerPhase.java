@@ -69,7 +69,7 @@ public enum PlannerPhase {
     }
 
     @Nonnull
-    public PlannerStage getTargetStage() {
+    public PlannerStage getTargetPlannerStage() {
         return targetStage;
     }
 

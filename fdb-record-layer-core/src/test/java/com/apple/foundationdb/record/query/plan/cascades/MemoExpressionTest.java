@@ -64,7 +64,7 @@ public class MemoExpressionTest {
         for (int childMemberCount = 1; childMemberCount <= 4; childMemberCount++) {
             Reference middleChildGroup = Reference.empty();
             for (int i = 1; i <= childMemberCount; i++) {
-                middleChildGroup.insert(leafExpressions.get("leaf" + i), true);
+                middleChildGroup.insertFinalExpression(leafExpressions.get("leaf" + i));
             }
             final String name = "middle" + childMemberCount;
             middleExpressions.put(name, new SyntheticPlannerExpression(name, Collections.singletonList(middleChildGroup)));
@@ -74,10 +74,10 @@ public class MemoExpressionTest {
             Reference leftGroup = Reference.empty();
             Reference rightGroup = Reference.empty();
             for (int i = 1; i <= childSplitPosition; i++) {
-                leftGroup.insert(leafExpressions.get("leaf" + i), true);
+                leftGroup.insertFinalExpression(leafExpressions.get("leaf" + i));
             }
             for (int i = childSplitPosition + 1; i <= 4; i++) {
-                rightGroup.insert(leafExpressions.get("leaf" + i), true);
+                rightGroup.insertFinalExpression(leafExpressions.get("leaf" + i));
             }
             assertEquals(4, leftGroup.getAllMemberExpressions().size() + rightGroup.getAllMemberExpressions().size());
             final String name = "middle" + childSplitPosition + "-" + (4 - childSplitPosition);
@@ -152,10 +152,10 @@ public class MemoExpressionTest {
             // Generate a random expression and insert it at the root.
             SyntheticPlannerExpression expression = SyntheticPlannerExpression.generate(random, 5);
             trackingSet.add(expression);
-            reference.insert(expression, true);
+            reference.insertFinalExpression(expression);
             assertTrue(reference.containsInMemo(expression, true));
             if (i % 5 == 0) {
-                sample.insert(expression, true);
+                sample.insertFinalExpression(expression);
                 assertTrue(sample.containsInMemo(expression, true));
             }
         }

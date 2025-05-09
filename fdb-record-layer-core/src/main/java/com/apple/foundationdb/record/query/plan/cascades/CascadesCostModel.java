@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 
@@ -29,6 +30,7 @@ import java.util.Comparator;
 /**
  * Basic cost model interface to be provided by each {@link PlannerPhase}.
  */
+@API(API.Status.EXPERIMENTAL)
 public interface CascadesCostModel extends Comparator<RelationalExpression> {
     @Nonnull
     RecordQueryPlannerConfiguration getConfiguration();

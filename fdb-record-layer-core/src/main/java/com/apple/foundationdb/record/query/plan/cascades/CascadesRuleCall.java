@@ -47,8 +47,8 @@ import java.util.function.Function;
 
 /**
  * A rule call implementation for the {@link CascadesPlanner}. The life cycle of a rule call object starts with the
- * planner's decision to call a rule and ends after yielded objects have been processed. The planner instantiates new
- * instance of this class and passes it to the {@link CascadesRule#onMatch(CascadesRuleCall)} when the rule is executed.
+ * planner's decision to call a rule and ends after yielded objects have been processed. The planner instantiates a new
+ * instance of this class and passes it to {@link CascadesRule#onMatch(CascadesRuleCall)} when the rule is executed.
  * During the execution of a rule, the rule implementation can invoke various yielding methods (most prominently
  * {@link #yieldResult(RelationalExpression)}, and {@link #yieldPartialMatch}) which modify the query graph if needed,
  * and (if necessary) queue up those newly yielded objects for further exploration by the planner.
@@ -213,13 +213,16 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
 
     private void yieldExpression(@Nonnull final RelationalExpression expression, final boolean isFinal) {
         verifyChildrenMemoized(expression);
-        if (root.insert(expression, isFinal)) {
-            if (isFinal) {
+        if (isFinal) {
+            if (root.insertFinalExpression(expression)) {
                 newFinalExpressions.add(expression);
-            } else {
-                newExploratoryExpressions.add(expression);
+                traversal.addExpression(root, expression);
             }
-            traversal.addExpression(root, expression);
+        } else {
+            if (root.insertExploratoryExpression(expression)) {
+                newExploratoryExpressions.add(expression);
+                traversal.addExpression(root, expression);
+            }
         }
     }
 
@@ -347,7 +350,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
 
             Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.newExp(expression)));
 
-            final var newRef = Reference.ofExploratoryExpression(plannerPhase.getTargetStage(), expression);
+            final var newRef = Reference.ofExploratoryExpression(plannerPhase.getTargetPlannerStage(), expression);
             traversal.addExpression(newRef, expression);
             return newRef;
         } finally {
@@ -373,7 +376,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
                 }
             }
             Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.newExp(expression)));
-            final var newRef = Reference.ofExploratoryExpression(plannerPhase.getTargetStage(), expression);
+            final var newRef = Reference.ofExploratoryExpression(plannerPhase.getTargetPlannerStage(), expression);
             traversal.addExpression(newRef, expression);
             return newRef;
         } finally {
@@ -393,7 +396,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
     public Reference memoizeFinalExpression(@Nonnull final RelationalExpression expression) {
         return memoizeFinalExpressionsExactly(ImmutableList.of(expression),
                 expressions ->
-                        Reference.ofFinalExpressions(getPlannerPhase().getTargetStage(), expressions));
+                        Reference.ofFinalExpressions(getPlannerPhase().getTargetPlannerStage(), expressions));
     }
 
     @Nonnull
@@ -463,7 +466,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
     @Override
     public ReferenceBuilder memoizeFinalExpressionsBuilder(@Nonnull final Collection<? extends RelationalExpression> expressions) {
         return memoizeFinalExpressionsBuilder(expressions,
-                e -> Reference.ofFinalExpressions(getPlannerPhase().getTargetStage(), e));
+                e -> Reference.ofFinalExpressions(getPlannerPhase().getTargetPlannerStage(), e));
     }
 
     @Nonnull
@@ -497,7 +500,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
     public ReferenceOfPlansBuilder memoizePlansBuilder(@Nonnull final Collection<? extends RecordQueryPlan> plans) {
         return memoizePlansBuilder(plans,
                 expressions ->
-                        Reference.ofFinalExpressions(getPlannerPhase().getTargetStage(), expressions));
+                        Reference.ofFinalExpressions(getPlannerPhase().getTargetPlannerStage(), expressions));
     }
 
     @Nonnull

@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.annotation;
+package com.apple.foundationdb.record.query.plan;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;

@@ -64,22 +64,25 @@ import java.util.function.Function;
 import java.util.function.IntUnaryOperator;
 
 /**
+ * <p>
  * This interface functions as a stub providing hooks which can be called from the planner logic during planning.
  * As the planner is currently single-threaded as per planning of a query, we keep an instance of an implementor of
  * this class in the thread-local. (per-thread singleton).
  * The main mean of communication with the debugger is the set of statics defined within this interface.
- * <br>
+ * </p>
  * <b>Debugging functionality should only be enabled in test cases, never in deployments</b>.
- * <br>
+ * <p>
  * In order to enable debugging capabilities, clients should use {@link #setDebugger} which sets a debugger to be used
  * for the current thread. Once set, the planner starts interacting with the debugger in order to communicate important
  * state changes, like <em>begin of planning</em>, <em>end of planner</em>, etc.
- * <br>
+ * </p>
+ * <p>
  * Clients using the debugger should never hold on/manage/use an instance of a debugger directly. Instead, clients
  * should use {@link #withDebugger} and {@link #mapDebugger} to invoke methods on the currently installed debugger.
  * There is a guarantee that {@link #withDebugger} does not invoke any given action if there is no debugger currently
  * set for this thread. In this way, the planner implementation can freely call debug hooks which never will incur any
  * penalties (performance or otherwise) for a production deployment.
+ * </p>
  */
 @SuppressWarnings("java:S1214")
 public interface Debugger {
