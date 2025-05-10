@@ -90,9 +90,7 @@ public class LogicalProjectionExpression implements RelationalExpressionWithChil
                                                              final boolean shouldSimplifyValues,
                                                              @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         final List<? extends Value> rebasedValue =
-                translationMap.definesOnlyIdentities()
-                ? getProjectedValues()
-                : getProjectedValues().stream()
+                getProjectedValues().stream()
                         .map(projectedValue -> projectedValue.translateCorrelations(translationMap,
                                 shouldSimplifyValues))
                         .collect(ImmutableList.toImmutableList());

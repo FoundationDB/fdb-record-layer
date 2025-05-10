@@ -106,7 +106,7 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
                                                  @Nonnull final TranslateValueFunction translateValueFunction,
                                                  @Nonnull final Type resultType,
                                                  @Nonnull final FetchIndexRecords fetchIndexRecords) {
-        this(Quantifier.physical(Reference.planned(Debugger.verifyHeuristicPlanner(inner))),
+        this(Quantifier.physical(Reference.plannedOf(Debugger.verifyHeuristicPlanner(inner))),
                 translateValueFunction, resultType, fetchIndexRecords);
     }
 
@@ -191,7 +191,8 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
                                                                        final boolean shouldSimplifyValues,
                                                                        @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 1);
-        return new RecordQueryFetchFromPartialRecordPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
+        return new RecordQueryFetchFromPartialRecordPlan(
+                Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 Objects.requireNonNull(translateValueFunction), resultType, fetchIndexRecords);
     }
 

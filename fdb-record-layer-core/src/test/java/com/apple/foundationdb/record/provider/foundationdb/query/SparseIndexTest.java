@@ -164,12 +164,12 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
     private static Reference constructQueryWithPredicate(boolean addPredicate) {
         final var allRecordTypes = ImmutableSet.of("MySimpleRecord", "MyOtherRecord");
         var qun =
-                Quantifier.forEach(Reference.initial(
+                Quantifier.forEach(Reference.initialOf(
                         new FullUnorderedScanExpression(allRecordTypes,
                                 new Type.AnyRecord(false),
                                 new AccessHints())));
 
-        qun = Quantifier.forEach(Reference.initial(
+        qun = Quantifier.forEach(Reference.initialOf(
                 new LogicalTypeFilterExpression(ImmutableSet.of("MySimpleRecord"),
                         qun,
                         Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor()))));
@@ -183,8 +183,8 @@ public class SparseIndexTest extends FDBRecordStoreQueryTestBase {
         queryBuilder.addResultColumn(Column.unnamedOf(num2Value));
         final var query = queryBuilder.build().buildSelect();
 
-        qun = Quantifier.forEach(Reference.initial(query));
-        return Reference.initial(LogicalSortExpression.unsorted(qun));
+        qun = Quantifier.forEach(Reference.initialOf(query));
+        return Reference.initialOf(LogicalSortExpression.unsorted(qun));
     }
 
     /**

@@ -123,8 +123,7 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
                                                    @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.isEmpty());
         final Value translatedCollectionValue =
-                translationMap.definesOnlyIdentities()
-                ? collectionValue : collectionValue.translateCorrelations(translationMap, shouldSimplifyValues);
+                collectionValue.translateCorrelations(translationMap, shouldSimplifyValues);
         // this is ok since there are no new quantifiers
         if (translatedCollectionValue != collectionValue) {
             return new ExplodeExpression(translatedCollectionValue);

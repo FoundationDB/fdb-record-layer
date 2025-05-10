@@ -130,8 +130,7 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
                                                     @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 1);
         final Value translatedResultValue =
-                translationMap.definesOnlyIdentities()
-                ? resultValue : resultValue.translateCorrelations(translationMap, shouldSimplifyValues);
+                resultValue.translateCorrelations(translationMap, shouldSimplifyValues);
         return new RecordQueryMapPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 translatedResultValue);
     }

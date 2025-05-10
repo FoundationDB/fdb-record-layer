@@ -145,9 +145,7 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
                                                                  final boolean shouldSimplifyValues,
                                                                  @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         final var translatedPredicates =
-                translationMap.definesOnlyIdentities()
-                ? predicates
-                : predicates.stream()
+                predicates.stream()
                         .map(queryPredicate -> queryPredicate.translateCorrelations(translationMap,
                                 shouldSimplifyValues))
                         .collect(ImmutableList.toImmutableList());

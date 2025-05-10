@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.plan.HeuristicPlanner;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.QueryPlanInfo;
 import com.apple.foundationdb.record.query.plan.QueryPlanInfoKeys;
@@ -318,6 +319,7 @@ public class CascadesPlanner implements QueryPlanner {
         return ((configuration.getMaxNumMatchesPerRuleCall() > 0) && (numMatches > configuration.getMaxNumMatchesPerRuleCall()));
     }
 
+    @HeuristicPlanner
     @Nonnull
     @Override
     public QueryPlanResult planQuery(@Nonnull final RecordQuery query,
@@ -335,12 +337,13 @@ public class CascadesPlanner implements QueryPlanner {
         return new QueryPlanResult(plan, info);
     }
 
+    @HeuristicPlanner
     @Nonnull
     @Override
     public RecordQueryPlan plan(@Nonnull final RecordQuery query,
                                 @Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
         try {
-            planPartial(() -> Reference.initial(RelationalExpression.fromRecordQuery(metaData, query)),
+            planPartial(() -> Reference.initialOf(RelationalExpression.fromRecordQuery(metaData, query)),
                     rootReference -> MetaDataPlanContext.forRecordQuery(configuration, metaData, recordStoreState, query),
                     EvaluationContext.empty());
             return resultOrFail();
@@ -598,6 +601,27 @@ public class CascadesPlanner implements QueryPlanner {
                     traversal.removeExpression(group, finalExpression);
                 }
             }
+
+            //
+            // In the past we would iterate through ALL members to find the cheapest plan.
+            //
+            // 1. all non-plans get (implicitly) assigned infinite cost, losing immediately even against the worst plan,
+            // 2. if there were no plans, the first non-plan expression wins
+            //
+            // Because of 2. we observed a weird behavior that would have the potential to change the behavior of the
+            // planner if the rules in the ruleset were reordered. Also, why does one arbitrary expression survive?
+            // That was pretty detrimental for observability reasons as the sole surviving expression was not kept for
+            // a reason, other than being the stand-in for not having to deal with empty references.
+            //
+            // We now leave the exploratory members alone during pruning. That makes all exploratory expressions survive
+            // that that were available when pruning occurred. There is no threat of empty references nor the need to
+            // pick an expression from the exploratory set arbitrarily. I think this is a cleaner way of doing things.
+            //
+            // Note that all of this is only really relevant for the top-most reference and recursively for one subtree
+            // of that reference as only that subtree actually harbors non-plan expressions at the time of pruning.
+            // Thus, leaving the exploratory expressions around in the reference is not a problem for garbage
+            // collection.
+            //
             if (bestFinalExpression == null) {
                 group.clearFinalExpressions();
             } else {
@@ -653,9 +677,10 @@ public class CascadesPlanner implements QueryPlanner {
                     // group is further along in the planning process, do not re-explore
                     return;
                 } else {
-                    Verify.verify(targetPlannerStage.succeeds(groupPlannerStage));
-                    // group needs to be bumped to the current target stage
-
+                    //
+                    // targetPlannerStage succeeds groupPlannerStage
+                    // Group needs to be bumped to the current target stage
+                    //
                     for (final var exploratoryExpression : group.getExploratoryExpressions()) {
                         traversal.removeExpression(group, exploratoryExpression);
                     }

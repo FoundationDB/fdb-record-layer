@@ -99,9 +99,7 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
                                                          final boolean shouldSimplifyValues,
                                                          @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         final List<QueryPredicate> rebasedQueryPredicates =
-                translationMap.definesOnlyIdentities()
-                ? queryPredicates
-                : queryPredicates.stream()
+                queryPredicates.stream()
                         .map(queryPredicate -> queryPredicate.translateCorrelations(translationMap,
                                 shouldSimplifyValues))
                         .collect(ImmutableList.toImmutableList());

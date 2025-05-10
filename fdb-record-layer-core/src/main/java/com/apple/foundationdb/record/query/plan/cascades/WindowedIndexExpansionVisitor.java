@@ -125,7 +125,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         final var rankGroupingsAndArgumentsExpansion =
                 expandGroupingsAndArguments(innerBaseQuantifier, groupingKeyExpression, groupingAndArgumentValues);
         final var rankSelectExpression = rankGroupingsAndArgumentsExpansion.buildSelect();
-        final var rankQuantifier = Quantifier.forEach(Reference.initial(rankSelectExpression));
+        final var rankQuantifier = Quantifier.forEach(Reference.initialOf(rankSelectExpression));
 
         //
         // Construct another select expression that applies the predicate on the rank value as well as adds a join
@@ -138,7 +138,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         final var rankAlias = Iterables.getOnlyElement(rankAndJoiningPredicateExpansion.getPlaceholderAliases());
         final var rankAndJoiningPredicateSelectExpression = rankAndJoiningPredicateExpansion.buildSelect();
         final var rankComparisonQuantifier =
-                Quantifier.forEach(Reference.initial(rankAndJoiningPredicateSelectExpression));
+                Quantifier.forEach(Reference.initialOf(rankAndJoiningPredicateSelectExpression));
 
         allExpansionsBuilder.add(GraphExpansion.ofQuantifier(rankComparisonQuantifier));
 
@@ -186,7 +186,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         return new WindowedIndexScanMatchCandidate(
                 index,
                 recordTypes,
-                Traversal.withRoot(Reference.initial(matchableSortExpression)),
+                Traversal.withRoot(Reference.initialOf(matchableSortExpression)),
                 baseQuantifier.getFlowedObjectType(),
                 baseAlias,
                 groupingAliases,

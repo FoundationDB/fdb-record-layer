@@ -103,9 +103,7 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
                                                        final boolean shouldSimplifyValues,
                                                        @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 1);
-        final var translatedComputationValue =
-                translationMap.definesOnlyIdentities()
-                ? getComputationValue() : getComputationValue().translateCorrelations(translationMap);
+        final var translatedComputationValue = getComputationValue().translateCorrelations(translationMap);
         return new RecordQueryInsertPlan(
                 Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 getTargetRecordType(),

@@ -502,10 +502,10 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                 graphExpansionBuilder.addResultColumn(resultColumn(versionValue, "version"));
                 graphExpansionBuilder.addResultColumn(resultColumn(recNoValue, "number"));
 
-                var select = Quantifier.forEach(Reference.initial(graphExpansionBuilder.build().buildSelect()));
+                var select = Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelect()));
 
                 AliasMap aliasMap = AliasMap.ofAliases(select.getAlias(), Quantifier.current());
-                return Reference.initial(sortExpression(List.of(FieldValue.ofFieldName(select.getFlowedObjectValue(), "version").rebase(aliasMap)), false, select));
+                return Reference.initialOf(sortExpression(List.of(FieldValue.ofFieldName(select.getFlowedObjectValue(), "version").rebase(aliasMap)), false, select));
             }, Optional.empty(), IndexQueryabilityFilter.DEFAULT, EvaluationContext.empty()).getPlan();
 
             assertMatchesExactly(plan, mapPlan(
@@ -566,7 +566,7 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                 innerGraphBuilder.addResultColumn(resultColumn(versionValue, "version"));
                 innerGraphBuilder.addResultColumn(resultColumn(recNoValue, "number"));
 
-                var innerSelect = Quantifier.forEach(Reference.initial(innerGraphBuilder.build().buildSelect()));
+                var innerSelect = Quantifier.forEach(Reference.initialOf(innerGraphBuilder.build().buildSelect()));
 
                 final var outerGraphBuilder = GraphExpansion.builder();
                 outerGraphBuilder.addQuantifier(innerSelect);
@@ -575,9 +575,9 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
 
                 outerGraphBuilder.addResultValue(FieldValue.ofFieldName(innerSelect.getFlowedObjectValue(), "version"));
                 outerGraphBuilder.addResultValue(FieldValue.ofFieldName(innerSelect.getFlowedObjectValue(), "number"));
-                var select = Quantifier.forEach(Reference.initial(outerGraphBuilder.build().buildSelect()));
+                var select = Quantifier.forEach(Reference.initialOf(outerGraphBuilder.build().buildSelect()));
 
-                return Reference.initial(LogicalSortExpression.unsorted(select));
+                return Reference.initialOf(LogicalSortExpression.unsorted(select));
             }, Optional.empty(), IndexQueryabilityFilter.DEFAULT, EvaluationContext.empty()).getPlan();
 
             assertMatchesExactly(plan, mapPlan(

@@ -70,7 +70,7 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
                                        @Nonnull final List<Object> values,
                                        final boolean sortValues,
                                        final boolean sortReverse) {
-        this(Quantifier.physical(Reference.planned(Debugger.verifyHeuristicPlanner(plan))),
+        this(Quantifier.physical(Reference.plannedOf(Debugger.verifyHeuristicPlanner(plan))),
                 bindingName,
                 internal,
                 values,
@@ -123,9 +123,9 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
     public RecordQueryInValuesJoinPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                              final boolean shouldSimplifyValues,
                                                              @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new RecordQueryInValuesJoinPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
-                inValuesSource(),
-                internal);
+        return new RecordQueryInValuesJoinPlan(
+                Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
+                inValuesSource(), internal);
     }
 
     @Nonnull

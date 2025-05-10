@@ -276,12 +276,12 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
 
         final var allRecordTypes = ImmutableSet.of("MySimpleRecord", "MyOtherRecord");
         var qun =
-                Quantifier.forEach(Reference.initial(
+                Quantifier.forEach(Reference.initialOf(
                         new FullUnorderedScanExpression(allRecordTypes,
                                 new Type.AnyRecord(false),
                                 new AccessHints())));
 
-        qun = Quantifier.forEach(Reference.initial(
+        qun = Quantifier.forEach(Reference.initialOf(
                 new LogicalTypeFilterExpression(ImmutableSet.of("MySimpleRecord"),
                         qun,
                         Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor()))));
@@ -320,7 +320,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 default:
             }
 
-            qun = Quantifier.forEach(Reference.initial(selectBuilder.build().buildSelect()));
+            qun = Quantifier.forEach(Reference.initialOf(selectBuilder.build().buildSelect()));
         }
 
         // 2. build the group by expression, for that we need the aggregation expression and the grouping expression.
@@ -363,7 +363,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
 
             // 2.3. construct the group by expression
             final var groupByExpression = new GroupByExpression(groupingExpr, aggregationExpr, GroupByExpression::nestedResults, qun);
-            qun = Quantifier.forEach(Reference.initial(groupByExpression));
+            qun = Quantifier.forEach(Reference.initialOf(groupByExpression));
         }
 
         // 3. construct the select expression on top containing the final result set
@@ -428,8 +428,8 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
             }
 
             final var result = graphBuilder.build().buildSelect();
-            qun = Quantifier.forEach(Reference.initial(result));
-            return Reference.initial(LogicalSortExpression.unsorted(qun));
+            qun = Quantifier.forEach(Reference.initialOf(result));
+            return Reference.initialOf(LogicalSortExpression.unsorted(qun));
         }
     }
 
@@ -548,12 +548,12 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
     private Reference constructBitmapGroupByPlan(int bucketSize, boolean zeroGroup) {
         final var allRecordTypes = ImmutableSet.of("MySimpleRecord", "MyOtherRecord");
         var qun =
-                Quantifier.forEach(Reference.initial(
+                Quantifier.forEach(Reference.initialOf(
                         new FullUnorderedScanExpression(allRecordTypes,
                                 new Type.AnyRecord(false),
                                 new AccessHints())));
 
-        qun = Quantifier.forEach(Reference.initial(
+        qun = Quantifier.forEach(Reference.initialOf(
                 new LogicalTypeFilterExpression(ImmutableSet.of("MySimpleRecord"),
                         qun,
                         Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor()))));
@@ -566,7 +566,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
             final var selectBuilder = GraphExpansion.builder();
             final var quantifiedValue = QuantifiedObjectValue.of(qun.getAlias(), qun.getFlowedObjectType());
             selectBuilder.addQuantifier(qun).addAllResultColumns(List.of(Column.of(Optional.of(qun.getAlias().getId()), quantifiedValue)));
-            qun = Quantifier.forEach(Reference.initial(selectBuilder.build().buildSelect()));
+            qun = Quantifier.forEach(Reference.initialOf(selectBuilder.build().buildSelect()));
         }
 
         // 2. build the group by expression, for that we need the aggregation expression and the grouping expression.
@@ -594,7 +594,7 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
 
             // 2.3. construct the group by expression
             final var groupByExpression = new GroupByExpression(groupingExpr, aggregationExpr, GroupByExpression::nestedResults, qun);
-            qun = Quantifier.forEach(Reference.initial(groupByExpression));
+            qun = Quantifier.forEach(Reference.initialOf(groupByExpression));
         }
 
         // 3. construct the select expression on top containing the final result set
@@ -618,8 +618,8 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
             GraphExpansion.Builder graphBuilder = GraphExpansion.builder().addQuantifier(qun).addAllResultColumns(projectionColumnsBuilder.build());
 
             final var result = graphBuilder.build().buildSelect();
-            qun = Quantifier.forEach(Reference.initial(result));
-            return Reference.initial(LogicalSortExpression.unsorted(qun));
+            qun = Quantifier.forEach(Reference.initialOf(result));
+            return Reference.initialOf(LogicalSortExpression.unsorted(qun));
         }
     }
 

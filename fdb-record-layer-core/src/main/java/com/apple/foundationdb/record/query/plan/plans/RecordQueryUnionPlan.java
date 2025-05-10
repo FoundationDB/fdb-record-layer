@@ -212,7 +212,7 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
         if (left.isReverse() != right.isReverse()) {
             throw new RecordCoreArgumentException("left plan and right plan for union do not have same value for reverse field");
         }
-        final List<Reference> childRefs = ImmutableList.of(Reference.planned(left), Reference.planned(right));
+        final List<Reference> childRefs = ImmutableList.of(Reference.plannedOf(left), Reference.plannedOf(right));
         return new RecordQueryUnionOnKeyExpressionPlan(Quantifiers.fromPlans(childRefs),
                 comparisonKey,
                 left.isReverse(),
@@ -246,7 +246,7 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
         }
         final ImmutableList.Builder<Reference> childRefsBuilder = ImmutableList.builder();
         for (RecordQueryPlan child : children) {
-            childRefsBuilder.add(Reference.planned(child));
+            childRefsBuilder.add(Reference.plannedOf(child));
         }
         return new RecordQueryUnionOnKeyExpressionPlan(Quantifiers.fromPlans(childRefsBuilder.build()),
                 comparisonKey,

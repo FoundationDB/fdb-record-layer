@@ -99,10 +99,9 @@ public class TempTableInsertExpression implements RelationalExpressionWithChildr
                                                            final boolean shouldSimplifyValues,
                                                            @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         final var translatedTableReferenceValue =
-                translationMap.definesOnlyIdentities()
-                ? tempTableReferenceValue
-                : tempTableReferenceValue.translateCorrelations(translationMap, shouldSimplifyValues);
-        return new TempTableInsertExpression(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.ForEach.class),
+                tempTableReferenceValue.translateCorrelations(translationMap, shouldSimplifyValues);
+        return new TempTableInsertExpression(
+                Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.ForEach.class),
                 translatedTableReferenceValue, isOwningTempTable);
     }
 

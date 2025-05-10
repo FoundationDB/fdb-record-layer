@@ -85,7 +85,7 @@ public class PrimaryAccessExpansionVisitor extends KeyExpressionExpansionVisitor
                 new MatchableSortExpression(parameters, isReverse, allExpansions.buildSelectWithResultValue(baseQuantifier.getFlowedObjectValue()));
 
         return new PrimaryScanMatchCandidate(
-                Traversal.withRoot(Reference.initial(expression)),
+                Traversal.withRoot(Reference.initialOf(expression)),
                 parameters,
                 availableRecordTypes,
                 recordTypes,

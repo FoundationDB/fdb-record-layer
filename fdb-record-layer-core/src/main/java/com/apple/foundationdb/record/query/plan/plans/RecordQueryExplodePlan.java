@@ -105,7 +105,8 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
                                                         final boolean shouldSimplifyValues,
                                                         @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.isEmpty());
-        final Value translatedCollectionValue = collectionValue.translateCorrelations(translationMap, shouldSimplifyValues);
+        final Value translatedCollectionValue =
+                collectionValue.translateCorrelations(translationMap, shouldSimplifyValues);
         if (translatedCollectionValue != collectionValue) {
             return new RecordQueryExplodePlan(translatedCollectionValue);
         }

@@ -83,7 +83,7 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
 
     @HeuristicPlanner
     public RecordQueryUnorderedPrimaryKeyDistinctPlan(@Nonnull RecordQueryPlan innerPlan) {
-        this(Quantifier.physical(Reference.planned(Debugger.verifyHeuristicPlanner(innerPlan))));
+        this(Quantifier.physical(Reference.plannedOf(Debugger.verifyHeuristicPlanner(innerPlan))));
     }
 
     public RecordQueryUnorderedPrimaryKeyDistinctPlan(@Nonnull Quantifier.Physical inner) {
@@ -141,7 +141,8 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
     public RecordQueryUnorderedPrimaryKeyDistinctPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                                             final boolean shouldSimplifyValues,
                                                                             @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new RecordQueryUnorderedPrimaryKeyDistinctPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class));
+        return new RecordQueryUnorderedPrimaryKeyDistinctPlan(
+                Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class));
     }
 
     @Nonnull

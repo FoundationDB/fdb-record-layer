@@ -67,13 +67,22 @@ import java.util.function.Supplier;
  */
 public enum PlannerStage {
     /**
-     * The {@link Reference} is tagged with {@code INITIAL} iff it was created outside the Cascades planner by the
-     * client and has not undergone any planner-originated transformations.
+     * Initial stage. The {@link Reference} is tagged with {@code INITIAL} iff
+     * <ul>
+     *     <li>
+     *         it was created outside the Cascades planner by the client and has not undergone any planner-originated
+     *         transformations OR
+     *     </li>
+     *     <li>
+     *         it was explicitly created by a planner rule to signal the planner to start exploring the reference using
+     *        the rewrite phase rather than a later {@link PlannerPhase}.
+     *     </li>
+     * </ul>
      */
     INITIAL(ExpressionPropertiesMap::defaultForExpressions),
     /**
-     * The {@link Reference} is tagged with {@code CANONICAL} iff it was created by the Cascades planner and is
-     * the direct result of the rewrite phase of a query graph.
+     * Canonical stage. The {@link Reference} is tagged with {@code CANONICAL} iff it was created by the Cascades
+     * planner and is the direct result of the rewrite phase of a query graph.
      */
     CANONICAL(ExpressionPropertiesMap::defaultForExpressions),
     /**
@@ -96,6 +105,15 @@ public enum PlannerStage {
     }
 
     /**
+     * Returns iff the {@link PlannerStage} passed in directly precedes this stage.
+     * @param other another stage that is not this stage
+     * @return {@code true} iff the {@link PlannerStage} passed in directly precedes this stage.
+     */
+    public boolean directlyPrecedes(@Nonnull final PlannerStage other) {
+        return precedes(other) && ordinal() == other.ordinal() - 1;
+    }
+
+    /**
      * Returns iff the {@link PlannerStage} passed in precedes this stage.
      * @param other another stage that is not this stage
      * @return {@code true} iff the {@link PlannerStage} passed in precedes this stage.
@@ -106,9 +124,18 @@ public enum PlannerStage {
     }
 
     /**
-     * Returns iff the {@link PlannerStage} passed in succeeds this stage.
+     * Returns iff the {@link PlannerStage} passed in directly succeeds this stage.
      * @param other another stage that is not this stage
      * @return {@code true} iff the {@link PlannerStage} passed in succeeds this stage.
+     */
+    public boolean directlySucceeds(@Nonnull final PlannerStage other) {
+        return succeeds(other) && ordinal() == other.ordinal() + 1;
+    }
+
+    /**
+     * Returns iff the {@link PlannerStage} passed in succeeds this stage.
+     * @param other another stage that is not this stage
+     * @return {@code true} iff the {@link PlannerStage} passed in directly succeeds this stage.
      */
     public boolean succeeds(@Nonnull final PlannerStage other) {
         Verify.verify(this != other);

@@ -130,7 +130,7 @@ public final class IndexGenerator {
 
     private IndexGenerator(@Nonnull RelationalExpression relationalExpression, boolean useLegacyBasedExtremumEver) {
         collectQuantifiers(relationalExpression);
-        final var partialOrder = referencesAndDependencies().evaluate(Reference.initial(relationalExpression));
+        final var partialOrder = referencesAndDependencies().evaluate(Reference.initialOf(relationalExpression));
         relationalExpressions =
                 TopologicalSort.anyTopologicalOrderPermutation(partialOrder)
                         .orElseThrow(() -> new RelationalException("graph has cycles", ErrorCode.UNSUPPORTED_OPERATION).toUncheckedWrappedException())
@@ -150,7 +150,7 @@ public final class IndexGenerator {
 
         collectQuantifiers(relationalExpression);
 
-        final var partialOrder = referencesAndDependencies().evaluate(Reference.initial(relationalExpression));
+        final var partialOrder = referencesAndDependencies().evaluate(Reference.initialOf(relationalExpression));
         final var expressionRefs =
                 TopologicalSort.anyTopologicalOrderPermutation(partialOrder)
                         .orElseThrow(() -> new RecordCoreException("graph has cycles")).stream().map(Reference::get).collect(toList());

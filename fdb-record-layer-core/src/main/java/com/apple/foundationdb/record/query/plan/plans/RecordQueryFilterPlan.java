@@ -74,12 +74,12 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
 
     @HeuristicPlanner
     public RecordQueryFilterPlan(@Nonnull RecordQueryPlan inner, @Nonnull List<QueryComponent> filters) {
-        this(Quantifier.physical(Reference.planned(Debugger.verifyHeuristicPlanner(inner))), filters);
+        this(Quantifier.physical(Reference.plannedOf(Debugger.verifyHeuristicPlanner(inner))), filters);
     }
 
     @HeuristicPlanner
     public RecordQueryFilterPlan(@Nonnull RecordQueryPlan inner, @Nonnull QueryComponent filter) {
-        this(Quantifier.physical(Reference.planned(Debugger.verifyHeuristicPlanner(inner))), ImmutableList.of(filter));
+        this(Quantifier.physical(Reference.plannedOf(Debugger.verifyHeuristicPlanner(inner))), ImmutableList.of(filter));
     }
 
     public RecordQueryFilterPlan(@Nonnull Quantifier.Physical inner,
@@ -127,8 +127,8 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
     public RecordQueryFilterPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                        final boolean shouldSimplifyValues,
                                                        @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new RecordQueryFilterPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
-                getFilters());
+        return new RecordQueryFilterPlan(
+                Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class), getFilters());
     }
 
     @Nonnull

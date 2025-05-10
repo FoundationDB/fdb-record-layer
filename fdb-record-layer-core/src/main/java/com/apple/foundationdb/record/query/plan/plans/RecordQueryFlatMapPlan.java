@@ -176,8 +176,7 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
                                                         @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 2);
         final Value translatedResultValue =
-                translationMap.definesOnlyIdentities()
-                ? resultValue : resultValue.translateCorrelations(translationMap, shouldSimplifyValues);
+                resultValue.translateCorrelations(translationMap, shouldSimplifyValues);
         return new RecordQueryFlatMapPlan(translatedQuantifiers.get(0).narrow(Quantifier.Physical.class),
                 translatedQuantifiers.get(1).narrow(Quantifier.Physical.class),
                 translatedResultValue,

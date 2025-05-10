@@ -1552,7 +1552,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
 
                 // Create select where, group by other_id and key
 
-                final Quantifier selectWhereGroupBy = Quantifier.forEach(Reference.initial(GraphExpansion.builder()
+                final Quantifier selectWhereGroupBy = Quantifier.forEach(Reference.initialOf(GraphExpansion.builder()
                         .addQuantifier(outerQun)
                         .addQuantifier(explodeEntryQun)
                         .addResultColumn(Column.of(Optional.of(outerQun.getAlias().getId()), outerQun.getFlowedObjectValue()))
@@ -1569,10 +1569,10 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                 ));
                 final GroupByExpression groupByExpression = new GroupByExpression(groupingValue, RecordConstructorValue.ofUnnamed(List.of(aggregateValue)),
                         GroupByExpression::nestedResults, selectWhereGroupBy);
-                final Quantifier groupBy = Quantifier.forEach(Reference.initial(groupByExpression));
+                final Quantifier groupBy = Quantifier.forEach(Reference.initialOf(groupByExpression));
 
                 // Select both grouping keys plus the aggregate value
-                final Quantifier selectHaving = Quantifier.forEach(Reference.initial(GraphExpansion.builder()
+                final Quantifier selectHaving = Quantifier.forEach(Reference.initialOf(GraphExpansion.builder()
                         .addQuantifier(groupBy)
                         .addResultColumn(Column.of(Optional.of("other_id"), FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(groupBy.getFlowedObjectValue(), 0), 0)))
                         .addResultColumn(Column.of(Optional.of("key"), FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(groupBy.getFlowedObjectValue(), 0), 1)))
@@ -1990,7 +1990,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
 
     private Quantifier explodeEntryQun(@Nonnull Quantifier outerQun, @Nonnull String... fields) {
         ExplodeExpression explodeExpression = ExplodeExpression.explodeField((Quantifier.ForEach)outerQun, List.of("map", "entry"));
-        Quantifier explodeQun = Quantifier.forEach(Reference.initial(explodeExpression));
+        Quantifier explodeQun = Quantifier.forEach(Reference.initialOf(explodeExpression));
         var selectBuilder = GraphExpansion.builder();
         List<Column<? extends Value>> resultFields = Arrays.stream(fields)
                 .map(fieldName -> {
@@ -2002,7 +2002,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                 .addAllResultColumns(resultFields)
                 .build()
                 .buildSelect();
-        return Quantifier.forEach(Reference.initial(select));
+        return Quantifier.forEach(Reference.initialOf(select));
     }
 
     private void assertFailsToPlan(@Nonnull Supplier<Reference> querySupplier, String... allowedIndexes) {
@@ -2025,7 +2025,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
         for (Quantifier entryQun : entryQuns) {
             selectWhereBuilder.addResultColumn(Column.of(Optional.of(entryQun.getAlias().getId()), entryQun.getFlowedObjectValue()));
         }
-        return Quantifier.forEach(Reference.initial(selectWhereBuilder.build().buildSelect()));
+        return Quantifier.forEach(Reference.initialOf(selectWhereBuilder.build().buildSelect()));
     }
 
     @Nonnull
@@ -2036,7 +2036,7 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
         ));
         final GroupByExpression groupBy = new GroupByExpression(groupingValue, RecordConstructorValue.ofUnnamed(List.of(aggregateValue)),
                 GroupByExpression::nestedResults, selectWhere);
-        return Quantifier.forEach(Reference.initial(groupBy));
+        return Quantifier.forEach(Reference.initialOf(groupBy));
     }
 
     @Nonnull
@@ -2049,11 +2049,11 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
                 .addResultColumn(Column.of(Optional.of("aggregate"), aggregate))
                 .build()
                 .buildSelect();
-        return Quantifier.forEach(Reference.initial(selectHaving));
+        return Quantifier.forEach(Reference.initialOf(selectHaving));
     }
 
     @Nonnull
     public Reference unsorted(@Nonnull Quantifier qun) {
-        return Reference.initial(LogicalSortExpression.unsorted(qun));
+        return Reference.initialOf(LogicalSortExpression.unsorted(qun));
     }
 }

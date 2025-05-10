@@ -151,7 +151,7 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
     public MatchableSortExpression(@Nonnull final List<CorrelationIdentifier> sortParameterIds,
                                    final boolean isReverse,
                                    @Nonnull final RelationalExpression innerExpression) {
-        this(sortParameterIds, isReverse, Quantifier.forEach(Reference.initial(innerExpression)));
+        this(sortParameterIds, isReverse, Quantifier.forEach(Reference.initialOf(innerExpression)));
     }
 
     /**

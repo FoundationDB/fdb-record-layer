@@ -431,7 +431,7 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
                                                              final boolean isReverse,
                                                              final int maxNumberOfValuesAllowed,
                                                              @Nonnull final Bindings.Internal internal) {
-        return new RecordQueryInUnionOnKeyExpressionPlan(Quantifier.physical(Reference.planned(Debugger.verifyHeuristicPlanner(inner))),
+        return new RecordQueryInUnionOnKeyExpressionPlan(Quantifier.physical(Reference.plannedOf(Debugger.verifyHeuristicPlanner(inner))),
                 inSources,
                 comparisonKey,
                 isReverse,

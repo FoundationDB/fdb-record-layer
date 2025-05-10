@@ -74,7 +74,7 @@ public class RecordQueryInComparandJoinPlan extends RecordQueryInJoinPlan {
                                           @Nonnull final Comparisons.Comparison comparison,
                                           final boolean sortValues,
                                           final boolean sortReverse) {
-        this(Quantifier.physical(Reference.planned(Debugger.verifyHeuristicPlanner(plan))),
+        this(Quantifier.physical(Reference.plannedOf(Debugger.verifyHeuristicPlanner(plan))),
                 bindingName,
                 internal,
                 comparison,
@@ -104,7 +104,8 @@ public class RecordQueryInComparandJoinPlan extends RecordQueryInJoinPlan {
     public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                       final boolean shouldSimplifyValues,
                                                       @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new RecordQueryInComparandJoinPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
+        return new RecordQueryInComparandJoinPlan(
+                Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 inComparandSource(),
                 internal);
     }

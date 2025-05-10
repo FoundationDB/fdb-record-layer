@@ -89,7 +89,7 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
     @HeuristicPlanner
     public RecordQueryUnorderedDistinctPlan(@Nonnull final RecordQueryPlan plan,
                                             @Nonnull final KeyExpression comparisonKey) {
-        this(Quantifier.physical(Reference.planned(Debugger.verifyHeuristicPlanner(plan))), comparisonKey);
+        this(Quantifier.physical(Reference.plannedOf(Debugger.verifyHeuristicPlanner(plan))), comparisonKey);
     }
 
     private RecordQueryUnorderedDistinctPlan(@Nonnull final Quantifier.Physical inner,
@@ -154,8 +154,8 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
     public RecordQueryUnorderedDistinctPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                                   final boolean shouldSimplifyValues,
                                                                   @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new RecordQueryUnorderedDistinctPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
-                getComparisonKey());
+        return new RecordQueryUnorderedDistinctPlan(
+                Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class), getComparisonKey());
     }
 
     @Nonnull

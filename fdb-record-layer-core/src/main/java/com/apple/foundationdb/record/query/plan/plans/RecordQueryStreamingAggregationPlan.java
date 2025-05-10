@@ -191,15 +191,12 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                                                                      final boolean shouldSimplifyValues,
                                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 1);
-        if (translationMap.definesOnlyIdentities()) {
-            return new RecordQueryStreamingAggregationPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
-                    groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias,
-                    completeResultValue);
-        }
-
         final var translatedGroupingKeyValue =
-                groupingKeyValue == null ? null : groupingKeyValue.translateCorrelations(translationMap, shouldSimplifyValues);
-        final var translatedAggregateValue = (AggregateValue)aggregateValue.translateCorrelations(translationMap, shouldSimplifyValues);
+                groupingKeyValue == null
+                ? null
+                : groupingKeyValue.translateCorrelations(translationMap, shouldSimplifyValues);
+        final var translatedAggregateValue =
+                (AggregateValue)aggregateValue.translateCorrelations(translationMap, shouldSimplifyValues);
 
         return new RecordQueryStreamingAggregationPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 translatedGroupingKeyValue,

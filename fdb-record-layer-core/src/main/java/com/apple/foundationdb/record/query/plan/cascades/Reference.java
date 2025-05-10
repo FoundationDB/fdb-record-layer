@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.plan.HeuristicPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.InsertIntoMemoEvent;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
@@ -79,9 +80,19 @@ import java.util.stream.StreamSupport;
  * All exploratory expressions form a set and all final expressions form a set as well. It is, however, possible, that
  * an expression is part of both sets.
  * <br>
- * Both sets of exploratory and final expressions are mutated during the planning process by either rules yielding
- * new expressions through {@link CascadesRuleCall}, rules memoizing expressions through the {@link Memoizer} interface
- * directly or by the planner itself when the reference is pruned.
+ * Both sets of exploratory and final expressions are mutated during in the following contexts during the planning
+ * process:
+ * <ul>
+ *     <li>
+ *         rules yielding new expressions through {@link CascadesRuleCall},
+ *     </li>
+ *     <li>
+ *         rules memoizing expressions through the {@link Memoizer} interface directly, or
+ *     </li>
+ *     <li>
+ *         by the planner itself when the reference is pruned.
+ *     </li>
+ * </ul>
  */
 @API(API.Status.EXPERIMENTAL)
 public class Reference implements Correlated<Reference>, Typed {
@@ -186,7 +197,13 @@ public class Reference implements Correlated<Reference>, Typed {
         return propertiesMap;
     }
 
+    /**
+     * Advance the planner stage of this reference to the given one. This method cleans up internal state of this
+     * reference such that exploration in a new phase can start again.
+     * @param newStage the new stage we should advance to
+     */
     public void advancePlannerStage(@Nonnull final PlannerStage newStage) {
+        Verify.verify(plannerStage.directlyPrecedes(newStage));
         Verify.verify(finalMembers.size() == 1);
         this.plannerStage = newStage;
         constraintsMap.advancePlannerStage();
@@ -230,9 +247,13 @@ public class Reference implements Correlated<Reference>, Typed {
 
     /**
      * Legacy method that calls {@link #pruneWith(RelationalExpression)} while being synchronized on {@code this}.
-     * @param plan new expression to replace members of this reference.
+     * Note that unlike for {@link #pruneWith(RelationalExpression)}, the given expression does not have to be part of
+     * this reference already. This method is only used by the heuristic planner.
+     * @param plan new plan to replace members of this reference.
      */
+    @HeuristicPlanner
     public synchronized void replace(@Nonnull final RecordQueryPlan plan) {
+        Debugger.verifyHeuristicPlanner();
         pruneWithUnchecked(plan);
     }
 
@@ -752,22 +773,22 @@ public class Reference implements Correlated<Reference>, Typed {
     }
 
     @Nonnull
-    public static Reference initial(@Nonnull final RelationalExpression expression) {
+    public static Reference initialOf(@Nonnull final RelationalExpression expression) {
         return ofFinalExpression(PlannerStage.INITIAL, expression);
     }
 
     @Nonnull
-    public static Reference initials(@Nonnull final RelationalExpression... expressions) {
-        return initials(Arrays.asList(expressions));
+    public static Reference initialOf(@Nonnull final RelationalExpression... expressions) {
+        return initialOf(Arrays.asList(expressions));
     }
 
     @Nonnull
-    public static Reference initials(@Nonnull final Collection<? extends RelationalExpression> expressions) {
+    public static Reference initialOf(@Nonnull final Collection<? extends RelationalExpression> expressions) {
         return ofFinalExpressions(PlannerStage.INITIAL, expressions);
     }
 
     @Nonnull
-    public static Reference planned(@Nonnull final RecordQueryPlan plan) {
+    public static Reference plannedOf(@Nonnull final RecordQueryPlan plan) {
         return ofFinalExpression(PlannerStage.PLANNED, plan);
     }
 

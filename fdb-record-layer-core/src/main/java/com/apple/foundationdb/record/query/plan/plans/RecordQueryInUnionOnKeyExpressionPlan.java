@@ -91,12 +91,9 @@ public class RecordQueryInUnionOnKeyExpressionPlan extends RecordQueryInUnionPla
     public RecordQueryInUnionOnKeyExpressionPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                                        final boolean shouldSimplifyValues,
                                                                        @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new RecordQueryInUnionOnKeyExpressionPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
-                getInSources(),
-                getComparisonKeyExpression(),
-                reverse,
-                maxNumberOfValuesAllowed,
-                internal);
+        return new RecordQueryInUnionOnKeyExpressionPlan(
+                Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class), getInSources(),
+                getComparisonKeyExpression(), reverse, maxNumberOfValuesAllowed, internal);
     }
 
     @Nonnull

@@ -89,7 +89,7 @@ public class RecordQueryDamPlan implements RecordQueryPlanWithChild {
 
     @HeuristicPlanner
     public RecordQueryDamPlan(@Nonnull RecordQueryPlan plan, @Nonnull RecordQuerySortKey key) {
-        this(Quantifier.physical(Reference.planned(Debugger.verifyHeuristicPlanner(plan))), key);
+        this(Quantifier.physical(Reference.plannedOf(Debugger.verifyHeuristicPlanner(plan))), key);
     }
 
     private RecordQueryDamPlan(@Nonnull Quantifier.Physical inner, @Nonnull RecordQuerySortKey key) {

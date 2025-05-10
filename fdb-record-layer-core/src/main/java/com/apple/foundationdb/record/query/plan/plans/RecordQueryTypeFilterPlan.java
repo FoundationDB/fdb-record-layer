@@ -92,7 +92,7 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
 
     @HeuristicPlanner
     public RecordQueryTypeFilterPlan(@Nonnull RecordQueryPlan inner, @Nonnull Collection<String> recordTypes) {
-        this(Quantifier.physical(Reference.planned(Debugger.verifyHeuristicPlanner(inner))), recordTypes, new Type.Any());
+        this(Quantifier.physical(Reference.plannedOf(Debugger.verifyHeuristicPlanner(inner))), recordTypes, new Type.Any());
     }
 
     public RecordQueryTypeFilterPlan(@Nonnull Quantifier.Physical inner, @Nonnull Collection<String> recordTypes, @Nonnull Type resultType) {

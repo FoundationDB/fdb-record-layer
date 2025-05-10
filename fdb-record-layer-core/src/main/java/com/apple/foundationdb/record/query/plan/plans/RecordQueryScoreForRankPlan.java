@@ -89,7 +89,7 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
 
     @HeuristicPlanner
     public RecordQueryScoreForRankPlan(@Nonnull RecordQueryPlan plan, @Nonnull List<ScoreForRank> ranks) {
-        this(Quantifier.physical(Reference.planned(Debugger.verifyHeuristicPlanner(plan))), ranks);
+        this(Quantifier.physical(Reference.plannedOf(Debugger.verifyHeuristicPlanner(plan))), ranks);
     }
 
     private RecordQueryScoreForRankPlan(@Nonnull final Quantifier.Physical inner,

@@ -199,7 +199,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
                 sealedExpansion.buildSelectWithResultValue(baseQuantifier.getFlowedObjectValue()));
         return new ValueIndexScanMatchCandidate(index,
                 queriedRecordTypes,
-                Traversal.withRoot(Reference.initial(matchableSortExpression)),
+                Traversal.withRoot(Reference.initialOf(matchableSortExpression)),
                 parameters,
                 baseQuantifier.getFlowedObjectType(),
                 baseQuantifier.getAlias(),

@@ -108,7 +108,7 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
         final boolean reverse = children.get(0).isReverse();
         ImmutableList.Builder<Reference> builder = ImmutableList.builder();
         for (RecordQueryPlan child : children) {
-            builder.add(Reference.planned(child));
+            builder.add(Reference.plannedOf(child));
         }
         return new RecordQueryUnorderedUnionPlan(Quantifiers.fromPlans(builder.build()), reverse);
     }
@@ -118,7 +118,7 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
     public static RecordQueryUnorderedUnionPlan from(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right) {
         Debugger.verifyHeuristicPlanner();
         return new RecordQueryUnorderedUnionPlan(
-                Quantifiers.fromPlans(ImmutableList.of(Reference.planned(left), Reference.planned(right))),
+                Quantifiers.fromPlans(ImmutableList.of(Reference.plannedOf(left), Reference.plannedOf(right))),
                 left.isReverse());
     }
 
@@ -133,8 +133,8 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
     public RecordQueryUnorderedUnionPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                                final boolean shouldSimplifyValues,
                                                                @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new RecordQueryUnorderedUnionPlan(Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers),
-                isReverse());
+        return new RecordQueryUnorderedUnionPlan(
+                Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers), isReverse());
     }
 
     @Nonnull

@@ -142,13 +142,10 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
                                                       final boolean shouldSimplifyValues,
                                                       @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         final var translatedTableReferenceValue =
-                translationMap.definesOnlyIdentities()
-                ? getTempTableReferenceValue()
-                : getTempTableReferenceValue().translateCorrelations(translationMap);
+                getTempTableReferenceValue().translateCorrelations(translationMap);
         return new TempTableInsertPlan(
                 Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
-                translatedTableReferenceValue,
-                isOwningTempTable);
+                translatedTableReferenceValue, isOwningTempTable);
     }
 
     @Override

@@ -221,7 +221,7 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
                 .build();
         switch (fanType) {
             case FanOut:
-                return Quantifier.forEach(Reference.initial(
+                return Quantifier.forEach(Reference.initialOf(
                         ExplodeExpression.explodeField(baseQuantifier, fieldNames)));
             default:
                 throw new RecordCoreException("unrecognized fan type");

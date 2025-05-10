@@ -112,11 +112,8 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
     public RecordQueryUpdatePlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                        final boolean shouldSimplifyValues,
                                                        @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        final var computationValue = getComputationValue();
         final var tranlatedComputationValue =
-                translationMap.definesOnlyIdentities()
-                ? computationValue
-                : computationValue.translateCorrelations(translationMap, shouldSimplifyValues);
+                getComputationValue().translateCorrelations(translationMap, shouldSimplifyValues);
         return new RecordQueryUpdatePlan(
                 Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 getTargetRecordType(),

@@ -173,16 +173,12 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
     public SelectExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                   final boolean shouldSimplifyValues,
                                                   @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        final var definesOnlyIdentities = translationMap.definesOnlyIdentities();
         final var translatedPredicates =
-                definesOnlyIdentities
-                ? predicates
-                : predicates.stream()
+                predicates.stream()
                         .map(p -> p.translateCorrelations(translationMap, shouldSimplifyValues))
                         .collect(Collectors.toList());
         final Value translatedResultValue =
-                definesOnlyIdentities
-                ? resultValue : resultValue.translateCorrelations(translationMap, shouldSimplifyValues);
+                resultValue.translateCorrelations(translationMap, shouldSimplifyValues);
         return new SelectExpression(translatedResultValue, translatedQuantifiers, translatedPredicates);
     }
 

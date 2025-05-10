@@ -124,10 +124,9 @@ public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersection
     public RecordQueryIntersectionOnValuesPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                                      final boolean shouldSimplifyValues,
                                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new RecordQueryIntersectionOnValuesPlan(Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers),
-                comparisonKeyOrderingParts,
-                getComparisonKeyValues(),
-                isReverse());
+        return new RecordQueryIntersectionOnValuesPlan(
+                Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers), comparisonKeyOrderingParts,
+                getComparisonKeyValues(), isReverse());
     }
 
     @Nonnull

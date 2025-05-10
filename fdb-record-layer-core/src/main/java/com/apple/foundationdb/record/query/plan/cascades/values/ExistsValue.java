@@ -157,7 +157,7 @@ public class ExistsValue extends AbstractValue implements BooleanValue, Quantifi
             Verify.verify(in instanceof RelationalExpression);
 
             // create an existential quantifier
-            final Quantifier.Existential existsQuantifier = Quantifier.existential(Reference.initial((RelationalExpression)in));
+            final Quantifier.Existential existsQuantifier = Quantifier.existential(Reference.initialOf((RelationalExpression)in));
 
             return new ExistsValue(existsQuantifier.getAlias());
         }
