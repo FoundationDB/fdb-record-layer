@@ -133,7 +133,7 @@ public class UpdateStatementImpl implements UpdateStatement {
 
     @Nonnull
     @Override
-    public Map<Field<?>, Expression<?>> getSetClauses() {
+    public final Map<Field<?>, Expression<?>> getSetClauses() {
         return ImmutableMap.copyOf(setClauses);
     }
 
@@ -503,6 +503,7 @@ public class UpdateStatementImpl implements UpdateStatement {
 
         public static class CustomSimpleId extends RelationalParser.UidContext {
 
+            @SuppressWarnings("this-escape")
             public CustomSimpleId(ParserRuleContext parent, int invokingState, @Nonnull final String name) {
                 super(parent, invokingState);
                 addChild(new TerminalNodeImpl(new CustomCommonToken(name)));

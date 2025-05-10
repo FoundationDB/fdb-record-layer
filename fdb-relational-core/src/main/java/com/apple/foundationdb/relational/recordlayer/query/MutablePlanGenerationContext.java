@@ -235,7 +235,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     }
 
     @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP2", justification = "Intentional")
-    public void setContinuation(@Nullable byte[] continuation) {
+    public final void setContinuation(@Nullable byte[] continuation) {
         this.continuation = continuation;
     }
 

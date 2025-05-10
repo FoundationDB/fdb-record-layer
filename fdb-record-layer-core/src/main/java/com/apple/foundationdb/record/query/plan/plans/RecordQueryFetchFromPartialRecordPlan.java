@@ -204,7 +204,7 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
     }
 
     @Nonnull
-    public Value computeResultValue() {
+    public final Value computeResultValue() {
         return new DerivedValue(ImmutableList.of(QuantifiedObjectValue.of(inner.getAlias(), resultType)), resultType);
     }
 

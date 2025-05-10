@@ -150,7 +150,7 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
 
     @Nonnull
     @Override
-    public Value getResultValue() {
+    public final Value getResultValue() {
         return resultValue;
     }
 

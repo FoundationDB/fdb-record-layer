@@ -5202,7 +5202,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          * Copy state from another store builder.
          * @param other the record store builder whose state to take
          */
-        public void copyFrom(@Nonnull Builder other) {
+        public final void copyFrom(@Nonnull Builder other) {
             this.serializer = other.serializer;
             this.formatVersion = other.formatVersion;
             this.metaDataProvider = other.metaDataProvider;
@@ -5222,7 +5222,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          * Copy state from a record store.
          * @param store the record store whose state to take
          */
-        public void copyFrom(@Nonnull FDBRecordStore store) {
+        public final void copyFrom(@Nonnull FDBRecordStore store) {
             this.serializer = store.serializer;
             this.formatVersion = store.formatVersion;
             this.metaDataProvider = store.metaDataProvider;
