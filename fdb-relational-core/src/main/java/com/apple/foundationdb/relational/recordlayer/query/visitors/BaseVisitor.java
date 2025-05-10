@@ -104,6 +104,7 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     @Nonnull
     private final LogicalOperatorCatalog logicalOperatorCatalog;
 
+    @SuppressWarnings("this-escape")
     public BaseVisitor(@Nonnull MutablePlanGenerationContext mutablePlanGenerationContext,
                        @Nonnull RecordLayerSchemaTemplate metadata,
                        @Nonnull DdlQueryFactory ddlQueryFactory,

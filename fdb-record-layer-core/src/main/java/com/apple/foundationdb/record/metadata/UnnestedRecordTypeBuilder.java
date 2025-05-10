@@ -130,6 +130,7 @@ public class UnnestedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Unnest
     }
 
     @API(API.Status.INTERNAL)
+    @SuppressWarnings("this-escape")
     public UnnestedRecordTypeBuilder(@Nonnull RecordMetaDataProto.UnnestedRecordType typeProto, @Nonnull final RecordMetaDataBuilder metaDataBuilder) {
         super(typeProto.getName(), LiteralKeyExpression.fromProtoValue(typeProto.getRecordTypeKey()), metaDataBuilder);
 

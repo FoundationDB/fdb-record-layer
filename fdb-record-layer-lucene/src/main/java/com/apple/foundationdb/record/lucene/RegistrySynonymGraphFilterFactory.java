@@ -38,6 +38,7 @@ public class RegistrySynonymGraphFilterFactory extends TokenFilterFactory {
 
     private final boolean ignoreCase;
 
+    @SuppressWarnings("this-escape")
     public RegistrySynonymGraphFilterFactory(final Map<String, String> args) {
         super(args);
         String synonymName = get(args, "synonyms");

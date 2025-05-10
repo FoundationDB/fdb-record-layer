@@ -124,6 +124,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     @Nonnull
     private final LucenePartitioner partitioner;
 
+    @SuppressWarnings("this-escape")
     public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor) {
         super(state);
         this.executor = executor;
@@ -720,8 +721,9 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         return directoryManager.getDirectory(groupingKey, partitionId);
     }
 
+    @Nonnull
     @VisibleForTesting
-    public FDBDirectoryManager getDirectoryManager() {
+    public final FDBDirectoryManager getDirectoryManager() {
         return directoryManager;
     }
 

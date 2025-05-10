@@ -60,12 +60,12 @@ public abstract class RecordTypeIndexesBuilder {
     }
 
     @Nonnull
-    public String getName() {
+    public final String getName() {
         return name;
     }
 
     @Nonnull
-    public List<Index> getIndexes() {
+    public final List<Index> getIndexes() {
         return indexes;
     }
 
@@ -74,12 +74,12 @@ public abstract class RecordTypeIndexesBuilder {
      * @return a list of all indexes that include this record type along with other types.
      */
     @Nonnull
-    public List<Index> getMultiTypeIndexes() {
+    public final List<Index> getMultiTypeIndexes() {
         return multiTypeIndexes;
     }
 
     @Nullable
-    public Object getRecordTypeKey() {
+    public final Object getRecordTypeKey() {
         return recordTypeKey;
     }
 

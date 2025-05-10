@@ -80,7 +80,7 @@ public class InValuesSource extends InSource {
 
     @Nonnull
     @Override
-    public List<Object> getValues() {
+    public final List<Object> getValues() {
         return values;
     }
 

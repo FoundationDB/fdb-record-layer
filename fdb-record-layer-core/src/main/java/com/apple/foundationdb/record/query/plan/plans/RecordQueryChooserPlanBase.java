@@ -88,7 +88,7 @@ public abstract class RecordQueryChooserPlanBase implements RecordQueryPlanWithC
     }
 
     @Nonnull
-    protected Stream<RecordQueryPlan> getChildStream() {
+    protected final Stream<RecordQueryPlan> getChildStream() {
         return quantifiers.stream().map(Quantifier.Physical::getRangesOverPlan);
     }
 

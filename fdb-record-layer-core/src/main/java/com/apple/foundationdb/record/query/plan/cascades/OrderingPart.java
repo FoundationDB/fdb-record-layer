@@ -60,12 +60,12 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
     }
 
     @Nonnull
-    public Value getValue() {
+    public final Value getValue() {
         return value;
     }
 
     @Nonnull
-    public S getSortOrder() {
+    public final S getSortOrder() {
         return sortOrder;
     }
 
@@ -95,7 +95,7 @@ public class OrderingPart<S extends OrderingPart.SortOrder> {
         return hashCodeSupplier.get();
     }
 
-    public int computeHashCode() {
+    public final int computeHashCode() {
         return Objects.hash(getValue(), getSortOrder().name());
     }
 

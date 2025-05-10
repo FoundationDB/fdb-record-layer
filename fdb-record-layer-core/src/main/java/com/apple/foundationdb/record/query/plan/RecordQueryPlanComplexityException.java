@@ -39,6 +39,7 @@ public class RecordQueryPlanComplexityException extends RecordCoreException {
         super(msg);
     }
 
+    @SuppressWarnings("this-escape")
     public RecordQueryPlanComplexityException(RecordQueryPlan plan) {
         this("Plan exceeds complexity threshold");
         addLogInfo(LogMessageKeys.PLAN, ExplainPlanVisitor.toStringForExternalExplain(plan, ExplainLevel.ALL_DETAILS, 1_000));

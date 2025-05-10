@@ -154,7 +154,7 @@ public class OrElseCursor<T> implements RecordCursor<T> {
 
     @Nonnull
     @Override
-    public Executor getExecutor() {
+    public final Executor getExecutor() {
         return inner.getExecutor();
     }
 

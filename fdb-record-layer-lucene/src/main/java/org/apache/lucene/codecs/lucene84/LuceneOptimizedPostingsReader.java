@@ -198,7 +198,7 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
             } else {
                 assert absolute == false;
                 assert termState.singletonDocID != -1;
-                termState.singletonDocID += BitUtil.zigZagDecode(l >>> 1);
+                termState.singletonDocID += (int)BitUtil.zigZagDecode(l >>> 1);
             }
         } else {
             termState.docStartFP += in.readVLong();
@@ -900,7 +900,7 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
                 int end = posBufferUpto + toSkip;
                 while (posBufferUpto < end) {
                     if (indexHasPayloads) {
-                        payloadByteUpto += payloadLengthBuffer[posBufferUpto];
+                        payloadByteUpto += (int)payloadLengthBuffer[posBufferUpto];
                     }
                     posBufferUpto++;
                 }
@@ -930,7 +930,7 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
                 posBufferUpto = 0;
                 while (posBufferUpto < toSkip) {
                     if (indexHasPayloads) {
-                        payloadByteUpto += payloadLengthBuffer[posBufferUpto];
+                        payloadByteUpto += (int)payloadLengthBuffer[posBufferUpto];
                     }
                     posBufferUpto++;
                 }
@@ -966,7 +966,7 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
                 refillPositions();
                 posBufferUpto = 0;
             }
-            position += posDeltaBuffer[posBufferUpto];
+            position += (int)posDeltaBuffer[posBufferUpto];
 
             if (indexHasPayloads) {
                 payloadLength = (int) payloadLengthBuffer[posBufferUpto];
@@ -1401,7 +1401,7 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
             this.doc = (int) docBuffer[next];
             this.freq = (int) freqBuffer[next];
             for (int i = docBufferUpto; i <= next; ++i) {
-                posPendingCount += freqBuffer[i];
+                posPendingCount += (int)freqBuffer[i];
             }
             docUpto += next - docBufferUpto + 1;
             docBufferUpto = next + 1;
@@ -1455,7 +1455,7 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
                 refillPositions();
                 posBufferUpto = 0;
             }
-            position += posDeltaBuffer[posBufferUpto++];
+            position += (int)posDeltaBuffer[posBufferUpto++];
 
             posPendingCount--;
             return position;
@@ -1674,7 +1674,7 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
                 }
                 if (indexHasPos && needsPositions) {
                     while (posDocUpTo < docUpto) { // catch on positions, bring posPendingCount upto the current doc
-                        posPendingCount += freqBuffer[docBufferUpto - (docUpto - posDocUpTo)];
+                        posPendingCount += (int)freqBuffer[docBufferUpto - (docUpto - posDocUpTo)];
                         posDocUpTo++;
                     }
                 }
@@ -1858,7 +1858,7 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
                 int end = posBufferUpto + toSkip;
                 while (posBufferUpto < end) {
                     if (indexHasPayloads) {
-                        payloadByteUpto += payloadLengthBuffer[posBufferUpto];
+                        payloadByteUpto += (int)payloadLengthBuffer[posBufferUpto];
                     }
                     posBufferUpto++;
                 }
@@ -1888,7 +1888,7 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
                 posBufferUpto = 0;
                 while (posBufferUpto < toSkip) {
                     if (indexHasPayloads) {
-                        payloadByteUpto += payloadLengthBuffer[posBufferUpto];
+                        payloadByteUpto += (int)payloadLengthBuffer[posBufferUpto];
                     }
                     posBufferUpto++;
                 }
@@ -1909,7 +1909,7 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
                 isFreqsRead = true;
             }
             while (posDocUpTo < docUpto) { // bring posPendingCount upto the current doc
-                posPendingCount += freqBuffer[docBufferUpto - (docUpto - posDocUpTo)];
+                posPendingCount += (int)freqBuffer[docBufferUpto - (docUpto - posDocUpTo)];
                 posDocUpTo++;
             }
 
@@ -1937,7 +1937,7 @@ public final class LuceneOptimizedPostingsReader extends PostingsReaderBase {
                 refillPositions();
                 posBufferUpto = 0;
             }
-            position += posDeltaBuffer[posBufferUpto];
+            position += (int)posDeltaBuffer[posBufferUpto];
 
             if (indexHasPayloads) {
                 payloadLength = (int) payloadLengthBuffer[posBufferUpto];

@@ -90,6 +90,7 @@ public class FDBIndexInput extends IndexInput {
      * @param currentData future with CurrentData Fetch
      * @throws IOException exception
      */
+    @SuppressWarnings("this-escape")
     public FDBIndexInput(@Nonnull final String resourceDescription, @Nonnull final String fileName, @Nonnull final FDBDirectory fdbDirectory,
                          @Nonnull CompletableFuture<FDBLuceneFileReference> reference, long initialOffset, long position,
                          int currentBlock, @Nullable CompletableFuture<byte[]> currentData) throws IOException {

@@ -149,6 +149,7 @@ public abstract class BaseKeyExpression implements KeyExpression {
     public static class IllegalSubKeyException extends RecordCoreException {
         public static final long serialVersionUID = 1L;
 
+        @SuppressWarnings("this-escape")
         public IllegalSubKeyException(int start, int end, int columnSize) {
             super("requested subkey is invalid");
             addLogInfo(LogMessageKeys.REQUESTED_START, start);

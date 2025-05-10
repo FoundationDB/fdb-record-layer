@@ -75,7 +75,7 @@ public class LoggableKeysAndValuesImpl implements LoggableKeysAndValues<Loggable
      */
     @Nonnull
     @Override
-    public LoggableKeysAndValuesImpl addLogInfo(@Nonnull String description, Object object) {
+    public final LoggableKeysAndValuesImpl addLogInfo(@Nonnull String description, Object object) {
         if (logInfo == null) {
             logInfo = new HashMap<>();
         }
@@ -98,7 +98,7 @@ public class LoggableKeysAndValuesImpl implements LoggableKeysAndValues<Loggable
      */
     @Nonnull
     @Override
-    public LoggableKeysAndValuesImpl addLogInfo(@Nonnull Object ... keyValue) {
+    public final LoggableKeysAndValuesImpl addLogInfo(@Nonnull Object ... keyValue) {
         if ((keyValue.length % 2) != 0) {
             throw new IllegalArgumentException("Unbalanced key/value logging info");
         }

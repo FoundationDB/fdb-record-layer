@@ -385,7 +385,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
 
     @Nonnull
     @Override
-    public IndexScanType getScanType() {
+    public final IndexScanType getScanType() {
         return scanParameters.getScanType();
     }
 
@@ -535,7 +535,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
     }
 
     @Override
-    public int planHash(@Nonnull final PlanHashMode mode) {
+    public final int planHash(@Nonnull final PlanHashMode mode) {
         switch (mode.getKind()) {
             case LEGACY:
                 return indexName.hashCode() + scanParameters.planHash(mode) + (reverse ? 1 : 0);
@@ -572,7 +572,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
 
     @Nonnull
     @Override
-    public ScanComparisons getScanComparisons() {
+    public final ScanComparisons getScanComparisons() {
         if (scanParameters instanceof IndexScanComparisons) {
             return ((IndexScanComparisons)scanParameters).getComparisons();
         } else {

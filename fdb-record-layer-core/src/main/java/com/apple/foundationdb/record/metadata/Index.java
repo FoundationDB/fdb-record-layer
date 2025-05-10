@@ -409,7 +409,7 @@ public class Index {
      * @param subspaceKey the key used to determine this index's subspace prefix
      * @see #getSubspaceKey()
      */
-    public void setSubspaceKey(@Nonnull Object subspaceKey) {
+    public final void setSubspaceKey(@Nonnull Object subspaceKey) {
         useExplicitSubspaceKey = true;
         this.subspaceKey = normalizeSubspaceKey(name, subspaceKey);
     }

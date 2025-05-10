@@ -71,7 +71,7 @@ public abstract class AndOrPredicate extends AbstractQueryPredicate {
 
     @Nonnull
     @Override
-    public List<? extends QueryPredicate> getChildren() {
+    public final List<? extends QueryPredicate> getChildren() {
         return children;
     }
 

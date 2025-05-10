@@ -1345,7 +1345,7 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public String getParameter() {
+        public final String getParameter() {
             return parameter;
         }
 
@@ -1369,7 +1369,7 @@ public class Comparisons {
             return hashCodeSupplier.get();
         }
 
-        public int computeHashCode() {
+        public final int computeHashCode() {
             return Objects.hash(type, relatedByEquality());
         }
 
@@ -1678,7 +1678,7 @@ public class Comparisons {
             return hashCodeSupplier.get();
         }
 
-        public int computeHashCode() {
+        public final int computeHashCode() {
             return Objects.hash(type.name(), relatedByEquality());
         }
 
