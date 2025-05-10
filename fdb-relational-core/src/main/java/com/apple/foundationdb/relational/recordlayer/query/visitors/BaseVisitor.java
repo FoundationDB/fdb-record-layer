@@ -1419,6 +1419,12 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     @Override
+    public Expression visitBetweenComparisonPredicate(@Nonnull RelationalParser.BetweenComparisonPredicateContext ctx) {
+        return expressionVisitor.visitBetweenComparisonPredicate(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Expression visitInPredicate(@Nonnull RelationalParser.InPredicateContext ctx) {
         return expressionVisitor.visitInPredicate(ctx);
     }
