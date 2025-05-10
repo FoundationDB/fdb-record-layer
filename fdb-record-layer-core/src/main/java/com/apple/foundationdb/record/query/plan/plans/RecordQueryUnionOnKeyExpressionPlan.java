@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.record.query.plan.HeuristicPlanner;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -41,6 +42,7 @@ import java.util.Set;
 /**
  * Union plan that compares using a {@link KeyExpression}.
  */
+@HeuristicPlanner
 public class RecordQueryUnionOnKeyExpressionPlan extends RecordQueryUnionPlan {
 
     protected RecordQueryUnionOnKeyExpressionPlan(@Nonnull final PlanSerializationContext serializationContext,

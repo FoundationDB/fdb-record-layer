@@ -21,11 +21,11 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
@@ -84,7 +84,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class PushTypeFilterBelowFilterRule extends CascadesRule<RecordQueryTypeFilterPlan> {
+public class PushTypeFilterBelowFilterRule extends ImplementationCascadesRule<RecordQueryTypeFilterPlan> {
     private static final BindingMatcher<? extends Reference> innerMatcher = anyRefOverOnlyPlans();
     private static final BindingMatcher<Quantifier.Physical> qunMatcher = physicalQuantifierOverRef(innerMatcher);
     private static final BindingMatcher<QueryPredicate> predMatcher = anyPredicate();
@@ -96,7 +96,7 @@ public class PushTypeFilterBelowFilterRule extends CascadesRule<RecordQueryTypeF
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
         final Reference inner = bindings.get(innerMatcher);
         final Quantifier.Physical qun = bindings.get(qunMatcher);
@@ -104,13 +104,13 @@ public class PushTypeFilterBelowFilterRule extends CascadesRule<RecordQueryTypeF
         final Collection<String> recordTypes = bindings.get(root).getRecordTypes();
 
         final RecordQueryTypeFilterPlan newTypeFilterPlan = new RecordQueryTypeFilterPlan(Quantifier.physical(inner), recordTypes, new Type.Any());
-        final Quantifier.Physical newQun = Quantifier.physical(call.memoizePlans(newTypeFilterPlan));
+        final Quantifier.Physical newQun = Quantifier.physical(call.memoizePlan(newTypeFilterPlan));
         final List<QueryPredicate> rebasedPredicates =
                 predicates.stream()
                         .map(queryPredicate -> queryPredicate.rebase(Quantifiers.translate(qun, newQun)))
                         .collect(ImmutableList.toImmutableList());
 
-        call.yieldExpression(new RecordQueryPredicatesFilterPlan(
+        call.yieldPlan(new RecordQueryPredicatesFilterPlan(
                         newQun,
                         rebasedPredicates));
     }

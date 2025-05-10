@@ -44,8 +44,8 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRanges;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
-import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -55,6 +55,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -196,7 +197,7 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     }
 
     @Override
-    public RecordQueryAggregateIndexPlan strictlySorted(@Nonnull final Memoizer memoizer) {
+    public RecordQueryAggregateIndexPlan strictlySorted(@Nonnull final FinalMemoizer memoizer) {
         return new RecordQueryAggregateIndexPlan(indexPlan.strictlySorted(memoizer), recordTypeName, toRecord,
                 resultValue, groupByResultValue, constraint);
     }
@@ -251,11 +252,18 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     public RecordQueryAggregateIndexPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                                final boolean shouldSimplifyValues,
                                                                @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        Verify.verify(translatedQuantifiers.isEmpty());
+        if (translationMap.definesOnlyIdentities()) {
+            // no new quantifiers and no translations
+            return this;
+        }
+
         final var translatedIndexPlan = indexPlan.translateCorrelations(translationMap,
                 shouldSimplifyValues, translatedQuantifiers);
         final var newResultValue = resultValue.translateCorrelations(translationMap, shouldSimplifyValues);
         final var newGroupByResultValue = groupByResultValue.translateCorrelations(translationMap, shouldSimplifyValues);
 
+        // this is ok as there are no new quantifiers
         if (translatedIndexPlan != indexPlan || newResultValue != resultValue || newGroupByResultValue != groupByResultValue) {
             return new RecordQueryAggregateIndexPlan(translatedIndexPlan, recordTypeName, toRecord, newResultValue,
                     newGroupByResultValue, constraint);

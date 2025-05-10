@@ -118,7 +118,7 @@ public class BitmapAggregateIndexExpansionVisitor extends AggregateIndexExpansio
 
         final var pulledUpGroupingValues = ImmutableList.<Value>builder().addAll(explicitPulledUpGroupingValues).add(implicitGroupingValue).build();
         final var groupingColsValue = RecordConstructorValue.ofUnnamed(pulledUpGroupingValues);
-        return NonnullPair.of(Quantifier.forEach(Reference.of(
+        return NonnullPair.of(Quantifier.forEach(Reference.initialOf(
                 new GroupByExpression(groupingColsValue, RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
                         GroupByExpression::nestedResults, selectWhereQun))), ImmutableList.of(placeHolder));
     }

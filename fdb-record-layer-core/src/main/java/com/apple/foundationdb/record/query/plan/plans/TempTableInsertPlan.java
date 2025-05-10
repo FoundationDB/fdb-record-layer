@@ -141,10 +141,11 @@ public class TempTableInsertPlan implements RecordQueryPlanWithChild, PlannerGra
     public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                       final boolean shouldSimplifyValues,
                                                       @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        final var translatedTableReferenceValue =
+                getTempTableReferenceValue().translateCorrelations(translationMap);
         return new TempTableInsertPlan(
                 Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
-                getTempTableReferenceValue().translateCorrelations(translationMap),
-                isOwningTempTable);
+                translatedTableReferenceValue, isOwningTempTable);
     }
 
     @Override

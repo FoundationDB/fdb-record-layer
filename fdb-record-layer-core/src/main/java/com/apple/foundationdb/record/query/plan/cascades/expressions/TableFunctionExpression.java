@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -118,6 +119,10 @@ public class TableFunctionExpression implements RelationalExpression, InternalPl
     public TableFunctionExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                    final boolean shouldSimplifyValues,
                                                    @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        Verify.verify(translatedQuantifiers.isEmpty());
+        if (translationMap.definesOnlyIdentities()) {
+            return this;
+        }
         final Value translatedCollectionValue = value.translateCorrelations(translationMap, shouldSimplifyValues);
         if (translatedCollectionValue != value) {
             return new TableFunctionExpression((StreamingValue)translatedCollectionValue);

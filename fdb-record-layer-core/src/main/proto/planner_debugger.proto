@@ -40,12 +40,19 @@ message PEvent {
     PExecutingTaskEvent executing_task_event = 10;
     PInsertIntoMemoEvent insert_into_memo_event = 11;
     PTranslateCorrelationsEvent translate_correlations_event = 12;
+    PInitiatePlannerPhaseEvent initiate_planner_phase_event = 13;
   }
+}
+
+enum PPlannerPhase {
+  REWRITING = 1;
+  PLANNING = 2;
 }
 
 message PAbstractEventWithState {
   optional PRegisteredReference root_reference = 1;
   optional string location = 2;
+  optional PPlannerPhase planner_phase = 3;
 }
 
 message POptimizeInputsEvent {
@@ -91,6 +98,10 @@ message PTransformRuleCallEvent {
 }
 
 message PExecutingTaskEvent {
+  optional PAbstractEventWithState super = 1;
+}
+
+message PInitiatePlannerPhaseEvent {
   optional PAbstractEventWithState super = 1;
 }
 

@@ -22,8 +22,8 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -43,10 +43,10 @@ import javax.annotation.Nonnull;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyQuantifierOverRef;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyPredicate;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyPredicate;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
@@ -55,7 +55,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class ImplementSimpleSelectRule extends CascadesRule<SelectExpression> {
+public class ImplementSimpleSelectRule extends ImplementationCascadesRule<SelectExpression> {
     @Nonnull
     private static final BindingMatcher<PlanPartition> innerPlanPartitionMatcher = anyPlanPartition();
 
@@ -78,7 +78,7 @@ public class ImplementSimpleSelectRule extends CascadesRule<SelectExpression> {
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
         final var bindings = call.getBindings();
         final var selectExpression = bindings.get(root);
         final var planPartition = bindings.get(innerPlanPartitionMatcher);
@@ -94,14 +94,14 @@ public class ImplementSimpleSelectRule extends CascadesRule<SelectExpression> {
                 ((QuantifiedObjectValue)resultValue).getAlias().equals(quantifier.getAlias());
 
         if (quantifier instanceof Quantifier.Existential) {
-            referenceBuilder = call.memoizePlansBuilder(
+            referenceBuilder = call.memoizePlanBuilder(
                     new RecordQueryFirstOrDefaultPlan(
                             Quantifier.physicalBuilder()
                                     .withAlias(quantifier.getAlias())
                                     .build(referenceBuilder.reference()),
                             new NullValue(quantifier.getFlowedObjectType())));
         } else if (quantifier instanceof Quantifier.ForEach && ((Quantifier.ForEach)quantifier).isNullOnEmpty()) {
-            referenceBuilder = call.memoizePlansBuilder(
+            referenceBuilder = call.memoizePlanBuilder(
                     new RecordQueryDefaultOnEmptyPlan(
                             Quantifier.physicalBuilder()
                                     .withAlias(quantifier.getAlias())
@@ -115,12 +115,12 @@ public class ImplementSimpleSelectRule extends CascadesRule<SelectExpression> {
                         .collect(ImmutableList.toImmutableList());
         if (nonTautologyPredicates.isEmpty() &&
                 isSimpleResultValue) {
-            call.yieldExpression(referenceBuilder.members());
+            call.yieldPlans(referenceBuilder.members());
             return;
         }
 
         if (!nonTautologyPredicates.isEmpty()) {
-            referenceBuilder = call.memoizePlansBuilder(
+            referenceBuilder = call.memoizePlanBuilder(
                     new RecordQueryPredicatesFilterPlan(
                             Quantifier.physicalBuilder()
                                     .withAlias(quantifier.getAlias())
@@ -142,9 +142,9 @@ public class ImplementSimpleSelectRule extends CascadesRule<SelectExpression> {
                         .build(referenceBuilder.reference());
             }
 
-            referenceBuilder = call.memoizePlansBuilder(new RecordQueryMapPlan(beforeMapQuantifier, resultValue));
+            referenceBuilder = call.memoizePlanBuilder(new RecordQueryMapPlan(beforeMapQuantifier, resultValue));
         }
 
-        call.yieldExpression(referenceBuilder.members());
+        call.yieldPlans(referenceBuilder.members());
     }
 }

@@ -340,7 +340,7 @@ public abstract class FDBDatabaseFactory {
      */
     public void setInitialDelayMillis(long initialDelayMillis) {
         if (initialDelayMillis < 0) {
-            throw new RecordCoreException("Cannot set initial delay milleseconds to less than zero");
+            throw new RecordCoreException("Cannot set initial delay milliseconds to less than zero");
         } else if (initialDelayMillis > maxDelayMillis) {
             throw new RecordCoreException("Cannot set initial delay to greater than maximum delay");
         }

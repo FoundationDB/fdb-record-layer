@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.record.query.plan.HeuristicPlanner;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -40,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -105,13 +107,15 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
      * @param planSelector the plan selector to use
      * @return newly created plan
      */
+    @HeuristicPlanner
     public static RecordQuerySelectorPlan from(@Nonnull List<? extends RecordQueryPlan> children, @Nonnull final PlanSelector planSelector) {
+        Debugger.verifyHeuristicPlanner();
         if (children.isEmpty()) {
             throw new RecordCoreArgumentException("Selector plan should have at least one plan");
         }
         final ImmutableList.Builder<Reference> childRefsBuilder = ImmutableList.builder();
         for (RecordQueryPlan child : children) {
-            childRefsBuilder.add(Reference.of(child));
+            childRefsBuilder.add(Reference.plannedOf(child));
         }
         return new RecordQuerySelectorPlan(Quantifiers.fromPlans(childRefsBuilder.build()), planSelector);
     }

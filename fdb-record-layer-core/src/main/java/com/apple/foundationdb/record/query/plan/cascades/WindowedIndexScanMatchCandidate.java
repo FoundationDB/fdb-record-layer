@@ -436,7 +436,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                 AvailableFields.NO_FIELDS, // not used except for old planner properties
                 indexEntryToLogicalRecord.getIndexKeyValueToPartialRecord());
 
-        return Optional.of(new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(memoizer.memoizePlans(coveringIndexPlan)),
+        return Optional.of(new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(memoizer.memoizePlan(coveringIndexPlan)),
                 coveringIndexPlan::pushValueThroughFetch, baseRecordType, RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY));
     }
 

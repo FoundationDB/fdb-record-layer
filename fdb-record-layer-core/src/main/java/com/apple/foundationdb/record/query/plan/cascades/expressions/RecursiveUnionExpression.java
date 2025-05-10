@@ -141,10 +141,6 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
                 && !translationMap.containsSourceAlias(tempTableInsertAlias));
         final var translatedInitialStateQun = translatedQuantifiers.get(0);
         final var translatedRecursiveStateQun = translatedQuantifiers.get(1);
-        if (translatedInitialStateQun == initialStateQuantifier &&
-                translatedRecursiveStateQun == recursiveStateQuantifier) {
-            return this;
-        }
         return new RecursiveUnionExpression(translatedInitialStateQun, translatedRecursiveStateQun,
                 tempTableScanAlias, tempTableInsertAlias);
     }

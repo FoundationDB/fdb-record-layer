@@ -57,7 +57,7 @@ public class PushRequestedOrderingThroughInsertRule extends CascadesRule<InsertE
 
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
-        final var requestedOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
+        final var requestedOrderingsOptional = call.getPlannerConstraintMaybe(RequestedOrderingConstraint.REQUESTED_ORDERING);
         if (requestedOrderingsOptional.isEmpty()) {
             return;
         }

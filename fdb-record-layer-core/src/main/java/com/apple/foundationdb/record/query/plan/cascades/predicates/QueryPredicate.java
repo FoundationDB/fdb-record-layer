@@ -456,6 +456,9 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
 
     @Nonnull
     default QueryPredicate translateCorrelations(@Nonnull final TranslationMap translationMap, final boolean shouldSimplify) {
+        if (translationMap.definesOnlyIdentities()) {
+            return this;
+        }
         return replaceLeavesMaybe(predicate -> predicate.translateLeafPredicate(translationMap, shouldSimplify))
                 .orElseThrow(() -> new RecordCoreException("unable to map tree"));
     }

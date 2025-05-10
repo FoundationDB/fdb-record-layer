@@ -21,8 +21,8 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
@@ -32,10 +32,10 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionP
 import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.rollUpPartitions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.recursiveUnionExpression;
 
 /**
@@ -46,7 +46,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class ImplementRecursiveUnionRule extends CascadesRule<RecursiveUnionExpression> {
+public class ImplementRecursiveUnionRule extends ImplementationCascadesRule<RecursiveUnionExpression> {
 
     @Nonnull
     private static final BindingMatcher<PlanPartition> initialPlanPartitionsMatcher = anyPlanPartition();
@@ -70,22 +70,22 @@ public class ImplementRecursiveUnionRule extends CascadesRule<RecursiveUnionExpr
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
         final var bindings = call.getBindings();
         final var recursiveUnionExpression = bindings.get(root);
 
         final var initialPlanPartitions = bindings.get(initialPlanPartitionsMatcher);
         final var initialQun = bindings.get(initialQunMatcher);
-        final var initialPhysicalQun = Quantifier.physical(call.memoizeMemberPlans(initialQun.getRangesOver(), initialPlanPartitions.getPlans()));
+        final var initialPhysicalQun = Quantifier.physical(call.memoizeMemberPlansFromOther(initialQun.getRangesOver(), initialPlanPartitions.getPlans()));
 
         final var recursivePlanPartitions = bindings.get(recursivePlanPartitionsMatcher);
         final var recursiveQun = bindings.get(recursiveQunMatcher);
-        final var recursivePhysicalQun = Quantifier.physical(call.memoizeMemberPlans(recursiveQun.getRangesOver(), recursivePlanPartitions.getPlans()));
+        final var recursivePhysicalQun = Quantifier.physical(call.memoizeMemberPlansFromOther(recursiveQun.getRangesOver(), recursivePlanPartitions.getPlans()));
 
         final var tempTableScanValueReference = recursiveUnionExpression.getTempTableScanAlias();
         final var tempTableInsertValueReference = recursiveUnionExpression.getTempTableInsertAlias();
         final var recursiveUnionPlan = new RecordQueryRecursiveUnionPlan(initialPhysicalQun, recursivePhysicalQun, tempTableScanValueReference, tempTableInsertValueReference);
 
-        call.yieldExpression(recursiveUnionPlan);
+        call.yieldPlan(recursiveUnionPlan);
     }
 }

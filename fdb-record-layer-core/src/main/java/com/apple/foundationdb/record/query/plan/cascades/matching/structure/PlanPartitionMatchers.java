@@ -41,7 +41,7 @@ public class PlanPartitionMatchers {
 
     @Nonnull
     @SuppressWarnings("unchecked")
-    public static <R extends Reference> BindingMatcher<R> planPartitions(@Nonnull final BindingMatcher<? extends Iterable<? extends PlanPartition>> downstream) {
+    public static <R extends Reference> BindingMatcher<R> planPartitions(@Nonnull final BindingMatcher<? extends Iterable<PlanPartition>> downstream) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<R>)(Class<?>)Reference.class,
                 Extractor.of(Reference::toPlanPartitions, name -> "planPartitions(" + name + ")"),
                 downstream);
@@ -50,7 +50,7 @@ public class PlanPartitionMatchers {
     @Nonnull
     @SuppressWarnings("unchecked")
     public static BindingMatcher<Collection<PlanPartition>> filterPartition(@Nonnull final Predicate<PlanPartition> predicate,
-                                                                            @Nonnull final BindingMatcher<? extends Iterable<? extends PlanPartition>> downstream) {
+                                                                            @Nonnull final BindingMatcher<? extends Iterable<PlanPartition>> downstream) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<Collection<PlanPartition>>)(Class<?>)Collection.class,
                 Extractor.of(planPartitions ->
                         planPartitions.stream()
@@ -61,19 +61,19 @@ public class PlanPartitionMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<Collection<PlanPartition>> rollUpPartitions(@Nonnull final BindingMatcher<? extends Iterable<? extends PlanPartition>> downstream) {
+    public static BindingMatcher<Collection<PlanPartition>> rollUpPartitions(@Nonnull final BindingMatcher<? extends Iterable<PlanPartition>> downstream) {
         return rollUpPartitionsTo(downstream, ImmutableSet.of());
     }
 
     @Nonnull
-    public static BindingMatcher<Collection<PlanPartition>> rollUpPartitionsTo(@Nonnull final BindingMatcher<? extends Iterable<? extends PlanPartition>> downstream,
+    public static BindingMatcher<Collection<PlanPartition>> rollUpPartitionsTo(@Nonnull final BindingMatcher<? extends Iterable<PlanPartition>> downstream,
                                                                                @Nonnull final ExpressionProperty<?> interestingProperty) {
         return rollUpPartitionsTo(downstream, ImmutableSet.of(interestingProperty));
     }
 
     @Nonnull
     @SuppressWarnings("unchecked")
-    public static BindingMatcher<Collection<PlanPartition>> rollUpPartitionsTo(@Nonnull final BindingMatcher<? extends Iterable<? extends PlanPartition>> downstream,
+    public static BindingMatcher<Collection<PlanPartition>> rollUpPartitionsTo(@Nonnull final BindingMatcher<? extends Iterable<PlanPartition>> downstream,
                                                                                @Nonnull final Set<ExpressionProperty<?>> interestingProperties) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<Collection<PlanPartition>>)(Class<?>)Collection.class,
                 Extractor.of(partitions -> PlanPartitions.rollUpTo(partitions, interestingProperties),

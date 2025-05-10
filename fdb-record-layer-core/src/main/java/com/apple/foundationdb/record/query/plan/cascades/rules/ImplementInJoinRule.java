@@ -24,9 +24,9 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
@@ -86,7 +86,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.rules.PushReques
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings({"PMD.TooManyStaticImports", "java:S4738", "java:S3776"})
-public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
+public class ImplementInJoinRule extends ImplementationCascadesRule<SelectExpression> {
     private static final BindingMatcher<ExplodeExpression> explodeExpressionMatcher = explodeExpression();
     private static final CollectionMatcher<Quantifier.ForEach> explodeQuantifiersMatcher = some(forEachQuantifier(explodeExpressionMatcher));
 
@@ -99,10 +99,10 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
 
     @SuppressWarnings("java:S135")
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
         final var bindings = call.getBindings();
 
-        final var requestedOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
+        final var requestedOrderingsOptional = call.getPlannerConstraintMaybe(RequestedOrderingConstraint.REQUESTED_ORDERING);
         if (requestedOrderingsOptional.isEmpty()) {
             return;
         }
@@ -156,10 +156,10 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
                     var newInnerPlanReference = call.memoizeMemberPlansBuilder(innerReference, planPartition.getPlans());
                     for (final InSource inSource : reverseSources) {
                         final var inJoinPlan = inSource.toInJoinPlan(Quantifier.physical(newInnerPlanReference.reference()));
-                        newInnerPlanReference = call.memoizePlansBuilder(inJoinPlan);
+                        newInnerPlanReference = call.memoizePlanBuilder(inJoinPlan);
                     }
 
-                    call.yieldExpression(newInnerPlanReference.members());
+                    call.yieldPlans(newInnerPlanReference.members());
                 });
             }
         }
@@ -435,7 +435,7 @@ public class ImplementInJoinRule extends CascadesRule<SelectExpression> {
         for (final var quantifier : quantifiers) {
             final var rangesOver = quantifier.getRangesOver();
             for (final var explodeExpression : explodeExpressions) {
-                if (rangesOver.getMembers().contains(explodeExpression)) {
+                if (rangesOver.containsExactly(explodeExpression)) {
                     resultMap.put(quantifier, explodeExpression);
                     break; // only ever one match possible
                 }

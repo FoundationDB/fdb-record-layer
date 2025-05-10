@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
@@ -100,6 +101,11 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan, RecordQueryPl
 
     @Nonnull
     RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords getFetchIndexRecords();
+
+    @Override
+    default RecordQueryPlanWithIndex strictlySorted(@Nonnull FinalMemoizer memoizer) {
+        return this;
+    }
 
     /**
      * Rewrite the planner graph for better visualization of a query index plan.

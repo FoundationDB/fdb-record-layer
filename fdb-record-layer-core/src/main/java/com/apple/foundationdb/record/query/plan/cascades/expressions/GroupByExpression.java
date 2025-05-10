@@ -200,17 +200,16 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                       final boolean shouldSimplifyValues,
                                                       @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        Verify.verify(translatedQuantifiers.size() == 1);
+
         final AggregateValue translatedAggregateValue =
                 (AggregateValue)getAggregateValue().translateCorrelations(translationMap, shouldSimplifyValues);
-        final Value translatedGroupingValue = getGroupingValue() == null
+        final Value translatedGroupingValue =
+                getGroupingValue() == null
                 ? null
                 : getGroupingValue().translateCorrelations(translationMap, shouldSimplifyValues);
-        Verify.verify(translatedGroupingValue instanceof FieldValue);
-        if (translatedAggregateValue != getAggregateValue() || translatedGroupingValue != getGroupingValue()) {
-            return new GroupByExpression(translatedGroupingValue, translatedAggregateValue, resultValueFunction,
-                    Iterables.getOnlyElement(translatedQuantifiers));
-        }
-        return this;
+        return new GroupByExpression(translatedGroupingValue, translatedAggregateValue, resultValueFunction,
+                Iterables.getOnlyElement(translatedQuantifiers));
     }
 
     @Override

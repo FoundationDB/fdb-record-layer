@@ -36,7 +36,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
+import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
@@ -175,7 +175,8 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
                                                         final boolean shouldSimplifyValues,
                                                         @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 2);
-        final Value translatedResultValue = resultValue.translateCorrelations(translationMap, shouldSimplifyValues);
+        final Value translatedResultValue =
+                resultValue.translateCorrelations(translationMap, shouldSimplifyValues);
         return new RecordQueryFlatMapPlan(translatedQuantifiers.get(0).narrow(Quantifier.Physical.class),
                 translatedQuantifiers.get(1).narrow(Quantifier.Physical.class),
                 translatedResultValue,
@@ -188,7 +189,7 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
     }
 
     @Override
-    public RecordQueryFlatMapPlan strictlySorted(@Nonnull Memoizer memoizer) {
+    public RecordQueryFlatMapPlan strictlySorted(@Nonnull FinalMemoizer memoizer) {
         return this;
     }
 

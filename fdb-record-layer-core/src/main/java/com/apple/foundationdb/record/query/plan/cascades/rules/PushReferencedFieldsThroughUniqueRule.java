@@ -60,7 +60,7 @@ public class PushReferencedFieldsThroughUniqueRule extends CascadesRule<LogicalU
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
         final Reference lowerRef = bindings.get(lowerRefMatcher);
-        final Optional<ReferencedFields> referencedFieldsOptional = call.getPlannerConstraint(ReferencedFieldsConstraint.REFERENCED_FIELDS);
+        final Optional<ReferencedFields> referencedFieldsOptional = call.getPlannerConstraintMaybe(ReferencedFieldsConstraint.REFERENCED_FIELDS);
 
         if (referencedFieldsOptional.isEmpty()) {
             return;

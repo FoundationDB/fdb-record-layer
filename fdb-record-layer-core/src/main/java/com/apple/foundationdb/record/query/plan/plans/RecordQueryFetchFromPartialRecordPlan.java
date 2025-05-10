@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.HeuristicPlanner;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
@@ -44,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -55,6 +57,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -98,8 +101,13 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
         this.resultValueSupplier = Suppliers.memoize(this::computeResultValue);
     }
 
-    public RecordQueryFetchFromPartialRecordPlan(@Nonnull RecordQueryPlan inner, @Nonnull final TranslateValueFunction translateValueFunction, @Nonnull final Type resultType, @Nonnull final FetchIndexRecords fetchIndexRecords) {
-        this(Quantifier.physical(Reference.of(inner)), translateValueFunction, resultType, fetchIndexRecords);
+    @HeuristicPlanner
+    public RecordQueryFetchFromPartialRecordPlan(@Nonnull RecordQueryPlan inner,
+                                                 @Nonnull final TranslateValueFunction translateValueFunction,
+                                                 @Nonnull final Type resultType,
+                                                 @Nonnull final FetchIndexRecords fetchIndexRecords) {
+        this(Quantifier.physical(Reference.plannedOf(Debugger.verifyHeuristicPlanner(inner))),
+                translateValueFunction, resultType, fetchIndexRecords);
     }
 
     public RecordQueryFetchFromPartialRecordPlan(@Nonnull final Quantifier.Physical inner, @Nonnull final TranslateValueFunction translateValueFunction, @Nonnull final Type resultType, @Nonnull final FetchIndexRecords fetchIndexRecords) {
@@ -182,7 +190,9 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
     public RecordQueryFetchFromPartialRecordPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                                        final boolean shouldSimplifyValues,
                                                                        @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new RecordQueryFetchFromPartialRecordPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
+        Verify.verify(translatedQuantifiers.size() == 1);
+        return new RecordQueryFetchFromPartialRecordPlan(
+                Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 Objects.requireNonNull(translateValueFunction), resultType, fetchIndexRecords);
     }
 

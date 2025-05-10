@@ -114,8 +114,7 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
     public LogicalTypeFilterExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                              final boolean shouldSimplifyValues,
                                                              @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new LogicalTypeFilterExpression(getRecordTypes(),
-                Iterables.getOnlyElement(translatedQuantifiers),
+        return new LogicalTypeFilterExpression(getRecordTypes(), Iterables.getOnlyElement(translatedQuantifiers),
                 resultType);
     }
 

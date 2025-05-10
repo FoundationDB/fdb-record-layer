@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.RecordPlannerConfigurationProto;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlanningRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PredicateToLogicalUnionRule;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
@@ -274,7 +275,7 @@ public class RecordQueryPlannerConfiguration {
      * @param rule in question
      * @return {@code true} is enabled, {@code false} otherwise
      */
-    public boolean isRuleEnabled(@Nonnull CascadesRule<?> rule) {
+    public boolean isRuleEnabled(@Nonnull PlannerRule<?, ?, ?> rule) {
         return !disabledTransformationRules.contains(rule.getClass().getSimpleName());
     }
 

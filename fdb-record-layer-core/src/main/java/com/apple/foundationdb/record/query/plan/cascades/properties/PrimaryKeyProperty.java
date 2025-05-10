@@ -110,7 +110,7 @@ public class PrimaryKeyProperty implements ExpressionProperty<Optional<List<Valu
 
     @Nonnull
     public Optional<List<Value>> evaluate(@Nonnull final Reference reference) {
-        return evaluate(reference.getAsPlan());
+        return evaluate(reference.getOnlyElementAsPlan());
     }
 
     @Nonnull

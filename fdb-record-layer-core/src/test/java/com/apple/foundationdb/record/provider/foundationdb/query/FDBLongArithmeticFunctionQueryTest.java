@@ -347,8 +347,8 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
                         .addResultColumn(Column.of(Optional.of("id"), FieldValue.ofFieldName(typeQun.getFlowedObjectValue(), "rec_no")))
                         .build()
                         .buildSelect();
-                Quantifier selectQun = Quantifier.forEach(Reference.of(select));
-                return Reference.of(sortExpression(ImmutableList.of(FieldValue.ofFieldName(selectQun.getFlowedObjectValue(), "sum").rebase(AliasMap.ofAliases(selectQun.getAlias(), Quantifier.current()))), false, selectQun));
+                Quantifier selectQun = Quantifier.forEach(Reference.initialOf(select));
+                return Reference.initialOf(sortExpression(ImmutableList.of(FieldValue.ofFieldName(selectQun.getFlowedObjectValue(), "sum").rebase(AliasMap.ofAliases(selectQun.getAlias(), Quantifier.current()))), false, selectQun));
             });
             // Note: This should be a covering index scan, as the mask value can be extracted from the index entries, though the matching isn't quite there
             assertMatchesExactly(plan, mapPlan(
@@ -427,13 +427,13 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
                             FieldValue.ofFieldName(typeQun.getFlowedObjectValue(), "num_value_unique"),
                             maskConstantValue
                     ));
-                    final Quantifier selectQun = Quantifier.forEach(Reference.of(GraphExpansion.builder()
+                    final Quantifier selectQun = Quantifier.forEach(Reference.initialOf(GraphExpansion.builder()
                             .addQuantifier(typeQun)
                             .addPredicate(new ValuePredicate(maskValue, new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, maskResultParam)))
                             .addResultColumn(projectColumn(typeQun.getFlowedObjectValue(), "rec_no"))
                             .build()
                             .buildSelect()));
-                    return Reference.of(new LogicalSortExpression(RequestedOrdering.preserve(), selectQun));
+                    return Reference.initialOf(new LogicalSortExpression(RequestedOrdering.preserve(), selectQun));
                 }, bindings);
 
                 if (mask == 4) {
@@ -508,8 +508,8 @@ public class FDBLongArithmeticFunctionQueryTest extends FDBRecordStoreQueryTestB
                         .addResultColumn(Column.of(Optional.of("rec_no"), FieldValue.ofFieldName(typeQun.getFlowedObjectValue(), "rec_no")))
                         .build()
                         .buildSelect();
-                Quantifier selectQun = Quantifier.forEach(Reference.of(select));
-                return Reference.of(new LogicalSortExpression(RequestedOrdering.preserve(), selectQun));
+                Quantifier selectQun = Quantifier.forEach(Reference.initialOf(select));
+                return Reference.initialOf(new LogicalSortExpression(RequestedOrdering.preserve(), selectQun));
             });
             // This should be planned as a covering index scan of the index because the functions can be calculated from the values
             // in the index. Until matching improves, we can get by with this plan

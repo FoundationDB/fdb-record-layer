@@ -149,9 +149,9 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
     @Nonnull
     private static Quantifier explodeRepeated(@Nonnull Quantifier baseQun, @Nonnull String repeatedField) {
         final ExplodeExpression explode = new ExplodeExpression(FieldValue.ofFieldNameAndFuseIfPossible(baseQun.getFlowedObjectValue(), repeatedField));
-        final Quantifier explodeQun = Quantifier.forEach(Reference.of(explode));
+        final Quantifier explodeQun = Quantifier.forEach(Reference.initialOf(explode));
 
-        return Quantifier.forEach(Reference.of(GraphExpansion.builder()
+        return Quantifier.forEach(Reference.initialOf(GraphExpansion.builder()
                 .addQuantifier(explodeQun)
                 .addResultValue(explodeQun.getFlowedObjectValue())
                 .build()
@@ -170,7 +170,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                 .addAllQuantifiers(baseQuns)
                 .addAllPredicates(predicates);
         baseQuns.stream().map(Quantifier::getFlowedObjectValue).forEach(selectWhereBuilder::addResultValue);
-        return Quantifier.forEach(Reference.of(selectWhereBuilder.build().buildSelect()));
+        return Quantifier.forEach(Reference.initialOf(selectWhereBuilder.build().buildSelect()));
     }
 
     @Nonnull
@@ -195,7 +195,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
         final RecordConstructorValue groupingValue = RecordConstructorValue.ofColumns(groupingColumns);
         final GroupByExpression groupByExpression = new GroupByExpression(groupingValue, RecordConstructorValue.ofUnnamed(List.of(maxUniqueValue)),
                 GroupByExpression::nestedResults, selectWhere);
-        return Quantifier.forEach(Reference.of(groupByExpression));
+        return Quantifier.forEach(Reference.initialOf(groupByExpression));
     }
 
     @Nonnull
@@ -213,7 +213,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                 selectHavingBuilder.addResultColumn(projectColumn(groupingValueReference, resultColumn));
             }
         }
-        return Quantifier.forEach(Reference.of(selectHavingBuilder.build().buildSelect()));
+        return Quantifier.forEach(Reference.initialOf(selectHavingBuilder.build().buildSelect()));
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
@@ -237,7 +237,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
 
                 final var qun = selectHaving(groupedByQun, null, List.of("num_value_2", "num_value_3_indexed", "m"));
                 final AliasMap aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
-                return Reference.of(sortExpression(List.of(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 0).rebase(aliasMap)), reverse, qun));
+                return Reference.initialOf(sortExpression(List.of(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 0).rebase(aliasMap)), reverse, qun));
             }, MAX_UNIQUE_BY_2_3);
 
             assertMatchesExactly(plan, RecordQueryPlanMatchers.mapPlan(
@@ -291,7 +291,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                 final var groupedByQun = maxUniqueByGroupQun(selectWhere);
 
                 final var qun = selectHaving(groupedByQun, null, List.of("num_value_3_indexed", "m"));
-                return Reference.of(LogicalSortExpression.unsorted(qun));
+                return Reference.initialOf(LogicalSortExpression.unsorted(qun));
             }, MAX_UNIQUE_BY_2_3);
 
             assertMatchesExactly(plan, RecordQueryPlanMatchers.mapPlan(
@@ -339,7 +339,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
 
                 final var qun = selectHaving(groupedByQun, null, List.of("m", "num_value_3_indexed"));
                 final AliasMap aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
-                return Reference.of(sortExpression(List.of(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 0).rebase(aliasMap)), reverse, qun));
+                return Reference.initialOf(sortExpression(List.of(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 0).rebase(aliasMap)), reverse, qun));
             }, MAX_UNIQUE_BY_2_3);
 
             assertMatchesExactly(plan, RecordQueryPlanMatchers.mapPlan(
@@ -447,7 +447,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                         FieldValue.ofOrdinalNumberAndFuseIfPossible(groupingValue, 0).withComparison(inComparisonCase.getComparison()),
                         List.of("num_value_2", "num_value_3_indexed", "m"));
                 final AliasMap aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
-                return Reference.of(sortExpression(List.of(FieldValue.ofFieldName(qun.getFlowedObjectValue(), "m").rebase(aliasMap)), true, qun));
+                return Reference.initialOf(sortExpression(List.of(FieldValue.ofFieldName(qun.getFlowedObjectValue(), "m").rebase(aliasMap)), true, qun));
             });
 
             assertMatchesExactly(plan, RecordQueryPlanMatchers.inUnionOnValuesPlan(
@@ -528,7 +528,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                         FieldValue.ofFieldNameAndFuseIfPossible(groupingValue, "str_value_indexed").withComparison(inComparisonCase.getComparison()),
                         List.of("str_value_indexed", "num_value_3_indexed", "m"));
                 final AliasMap aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
-                return Reference.of(sortExpression(List.of(FieldValue.ofFieldName(qun.getFlowedObjectValue(), "m").rebase(aliasMap)), true, qun));
+                return Reference.initialOf(sortExpression(List.of(FieldValue.ofFieldName(qun.getFlowedObjectValue(), "m").rebase(aliasMap)), true, qun));
             });
 
             assertMatchesExactly(plan, RecordQueryPlanMatchers.inUnionOnValuesPlan(
@@ -597,7 +597,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                         FieldValue.ofFieldNameAndFuseIfPossible(groupingValue, "x").withComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, xValueParam)),
                         List.of("num_value_2", "m"));
                 final AliasMap aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
-                return Reference.of(sortExpression(List.of(FieldValue.ofFieldName(qun.getFlowedObjectValue(), "m").rebase(aliasMap)), true, qun));
+                return Reference.initialOf(sortExpression(List.of(FieldValue.ofFieldName(qun.getFlowedObjectValue(), "m").rebase(aliasMap)), true, qun));
             });
 
             assertMatchesExactly(plan, RecordQueryPlanMatchers.mapPlan(
@@ -682,7 +682,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                         FieldValue.ofFieldNameAndFuseIfPossible(groupingValue, "x").withComparison(inComparisonCase.getComparison()),
                         List.of("x", "num_value_2", "m"));
                 final AliasMap aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
-                return Reference.of(sortExpression(List.of(FieldValue.ofFieldName(qun.getFlowedObjectValue(), "m").rebase(aliasMap)), true, qun));
+                return Reference.initialOf(sortExpression(List.of(FieldValue.ofFieldName(qun.getFlowedObjectValue(), "m").rebase(aliasMap)), true, qun));
             });
 
             assertMatchesExactly(plan, RecordQueryPlanMatchers.inUnionOnValuesPlan(
@@ -755,7 +755,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
 
                 final var aggregateValueReference = FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(groupedByQun.getFlowedObjectValue(), 1), 0);
                 final var qun = selectHaving(groupedByQun, aggregateValueReference.withComparison(new Comparisons.ParameterComparison(Comparisons.Type.LESS_THAN, maxValueParam)), List.of("num_value_3_indexed", "m"));
-                return Reference.of(LogicalSortExpression.unsorted(qun));
+                return Reference.initialOf(LogicalSortExpression.unsorted(qun));
             }, MAX_UNIQUE_BY_2_3);
 
             assertMatchesExactly(plan, RecordQueryPlanMatchers.mapPlan(
@@ -810,7 +810,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                 final var aggregateValueReference = FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(groupedByQun.getFlowedObjectValue(), 1), 0);
                 final var qun = selectHaving(groupedByQun, aggregateValueReference.withComparison(new Comparisons.ParameterComparison(Comparisons.Type.GREATER_THAN, maxValueParam)), List.of("num_value_3_indexed", "m"));
                 final AliasMap aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
-                return Reference.of(sortExpression(List.of(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 1).rebase(aliasMap)), reverse, qun));
+                return Reference.initialOf(sortExpression(List.of(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 1).rebase(aliasMap)), reverse, qun));
             }, MAX_UNIQUE_BY_2_3);
 
             assertMatchesExactly(plan, RecordQueryPlanMatchers.mapPlan(
@@ -858,7 +858,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = planGraph(() -> {
                 final var base = fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
 
-                final var selectWhereQun = Quantifier.forEach(Reference.of(GraphExpansion.builder()
+                final var selectWhereQun = Quantifier.forEach(Reference.initialOf(GraphExpansion.builder()
                                 .addQuantifier(base)
                                 .addResultColumn(Column.unnamedOf(base.getFlowedObjectValue()))
                         .build()
@@ -877,11 +877,11 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                         Column.of(Optional.of("num_value_3_indexed"), num3ValueIndexed)));
                 final GroupByExpression groupByExpression = new GroupByExpression(groupingValue, RecordConstructorValue.ofUnnamed(List.of(maxUniqueValue)),
                         GroupByExpression::nestedResults, selectWhereQun);
-                final var groupedByQun  = Quantifier.forEach(Reference.of(groupByExpression));
+                final var groupedByQun  = Quantifier.forEach(Reference.initialOf(groupByExpression));
 
                 final var groupingValueRef = FieldValue.ofOrdinalNumber(groupedByQun.getFlowedObjectValue(), 0);
                 final var aggregateValueReference = FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(groupedByQun.getFlowedObjectValue(), 1), 0);
-                final var selectHavingQun = Quantifier.forEach(Reference.of(GraphExpansion.builder()
+                final var selectHavingQun = Quantifier.forEach(Reference.initialOf(GraphExpansion.builder()
                         .addQuantifier(groupedByQun)
                         .addPredicate(FieldValue.ofFieldNameAndFuseIfPossible(groupingValueRef, "str_value_indexed").withComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, strValueParam)))
                         .addPredicate(FieldValue.ofFieldNameAndFuseIfPossible(groupingValueRef, "num_value_2").withComparison(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, numValue2Param)))
@@ -890,7 +890,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                         .build()
                         .buildSelect()));
                 final AliasMap aliasMap = AliasMap.ofAliases(selectHavingQun.getAlias(), Quantifier.current());
-                return Reference.of(sortExpression(List.of(FieldValue.ofOrdinalNumber(selectHavingQun.getFlowedObjectValue(), 1).rebase(aliasMap)), reverse, selectHavingQun));
+                return Reference.initialOf(sortExpression(List.of(FieldValue.ofOrdinalNumber(selectHavingQun.getFlowedObjectValue(), 1).rebase(aliasMap)), reverse, selectHavingQun));
             });
 
             assertMatchesExactly(plan, RecordQueryPlanMatchers.mapPlan(

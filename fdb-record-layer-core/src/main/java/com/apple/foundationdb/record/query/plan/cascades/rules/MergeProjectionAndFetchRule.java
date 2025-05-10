@@ -21,9 +21,9 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalProjectionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -46,7 +46,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class MergeProjectionAndFetchRule extends CascadesRule<LogicalProjectionExpression> {
+public class MergeProjectionAndFetchRule extends ImplementationCascadesRule<LogicalProjectionExpression> {
     @Nonnull
     private static final BindingMatcher<RecordQueryFetchFromPartialRecordPlan> innerPlanMatcher = fetchFromPartialRecordPlan(anyPlan());
     @Nonnull
@@ -59,7 +59,7 @@ public class MergeProjectionAndFetchRule extends CascadesRule<LogicalProjectionE
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
         final LogicalProjectionExpression projectionExpression = call.get(root);
 
         // if the fetch is able to push all values we can eliminate the fetch as well
@@ -73,7 +73,7 @@ public class MergeProjectionAndFetchRule extends CascadesRule<LogicalProjectionE
         if (allPushable) {
             // all fields in the projection are already available underneath the fetch
             // we don't need the projection nor the fetch
-            call.yieldExpression(fetchPlan.getChild());
+            call.yieldPlan(fetchPlan.getChild());
         }
     }
 }

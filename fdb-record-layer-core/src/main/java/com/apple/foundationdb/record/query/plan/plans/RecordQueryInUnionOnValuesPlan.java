@@ -135,12 +135,9 @@ public class RecordQueryInUnionOnValuesPlan extends RecordQueryInUnionPlan imple
     public RecordQueryInUnionOnValuesPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                                 final boolean shouldSimplifyValues,
                                                                 @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new RecordQueryInUnionOnValuesPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
-                getInSources(),
-                comparisonKeyOrderingParts,
-                getComparisonKeyValues(),
-                reverse,
-                maxNumberOfValuesAllowed,
+        return new RecordQueryInUnionOnValuesPlan(
+                Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class), getInSources(),
+                comparisonKeyOrderingParts, getComparisonKeyValues(), reverse, maxNumberOfValuesAllowed,
                 internal);
     }
 

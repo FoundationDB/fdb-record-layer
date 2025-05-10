@@ -287,6 +287,9 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     default Value translateCorrelations(@Nonnull final TranslationMap translationMap) {
+        if (translationMap.definesOnlyIdentities()) {
+            return this;
+        }
         return replaceLeavesMaybe(value -> {
             if (value instanceof LeafValue) {
                 final var leafValue = (LeafValue)value;

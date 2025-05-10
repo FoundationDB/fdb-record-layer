@@ -21,8 +21,8 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -44,10 +44,10 @@ import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.filterPartition;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalTypeFilterExpression;
 
 /**
@@ -56,7 +56,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class ImplementTypeFilterRule extends CascadesRule<LogicalTypeFilterExpression> {
+public class ImplementTypeFilterRule extends ImplementationCascadesRule<LogicalTypeFilterExpression> {
     @Nonnull
     private static final BindingMatcher<PlanPartition> innerPlanPartitionMatcher = anyPlanPartition();
 
@@ -74,7 +74,7 @@ public class ImplementTypeFilterRule extends CascadesRule<LogicalTypeFilterExpre
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
         final var logicalTypeFilterExpression = call.get(root);
         final var innerReference = call.get(innerReferenceMatcher);
         final var planPartition = call.get(innerPlanPartitionMatcher);
@@ -95,13 +95,13 @@ public class ImplementTypeFilterRule extends CascadesRule<LogicalTypeFilterExpre
         final var unsatisfiedMap = unsatisfiedMapBuilder.build();
 
         if (!noTypeFilterNeeded.isEmpty()) {
-            call.yieldExpression(noTypeFilterNeeded);
+            call.yieldPlans(noTypeFilterNeeded);
         }
 
         for (Map.Entry<Set<String>, Collection<RecordQueryPlan>> unsatisfiedEntry : unsatisfiedMap.asMap().entrySet()) {
-            call.yieldExpression(
+            call.yieldPlan(
                     new RecordQueryTypeFilterPlan(
-                            Quantifier.physical(call.memoizeMemberPlans(innerReference, unsatisfiedEntry.getValue())),
+                            Quantifier.physical(call.memoizeMemberPlansFromOther(innerReference, unsatisfiedEntry.getValue())),
                             unsatisfiedEntry.getKey(),
                             Type.Relation.scalarOf(logicalTypeFilterExpression.getResultType())));
         }

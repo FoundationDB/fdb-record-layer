@@ -113,6 +113,8 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
     public FullUnorderedScanExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                              final boolean shouldSimplifyValues,
                                                              @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        Verify.verify(translatedQuantifiers.isEmpty());
+        // this is ok as there are no new quantifiers
         return this;
     }
 

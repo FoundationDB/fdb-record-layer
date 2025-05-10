@@ -20,11 +20,11 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
@@ -75,7 +75,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *
  * where pred' is rebased along the translation from qun to newQun.
  */
-public class PushDistinctBelowFilterRule extends CascadesRule<RecordQueryUnorderedPrimaryKeyDistinctPlan> {
+public class PushDistinctBelowFilterRule extends ImplementationCascadesRule<RecordQueryUnorderedPrimaryKeyDistinctPlan> {
     @Nonnull
     private static final BindingMatcher<? extends Reference> innerRefMatcher = anyRefOverOnlyPlans();
     @Nonnull
@@ -91,20 +91,19 @@ public class PushDistinctBelowFilterRule extends CascadesRule<RecordQueryUnorder
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
         final Reference inner = call.get(innerRefMatcher);
         final Quantifier.Physical qun = call.get(innerQuantifierMatcher);
         final RecordQueryPredicatesFilterPlan filterPlan = call.get(filterPlanMatcher);
 
         final RecordQueryUnorderedPrimaryKeyDistinctPlan newDistinctPlan =
                 new RecordQueryUnorderedPrimaryKeyDistinctPlan(Quantifier.physical(inner));
-        final Quantifier.Physical newQun = Quantifier.physical(call.memoizePlans(newDistinctPlan));
+        final Quantifier.Physical newQun = Quantifier.physical(call.memoizePlan(newDistinctPlan));
         final List<QueryPredicate> rebasedPredicates =
                 filterPlan.getPredicates()
                         .stream()
                         .map(queryPredicate -> queryPredicate.rebase(Quantifiers.translate(qun, newQun)))
                         .collect(ImmutableList.toImmutableList());
-        call.yieldExpression(new RecordQueryPredicatesFilterPlan(newQun,
-                        rebasedPredicates));
+        call.yieldPlan(new RecordQueryPredicatesFilterPlan(newQun, rebasedPredicates));
     }
 }

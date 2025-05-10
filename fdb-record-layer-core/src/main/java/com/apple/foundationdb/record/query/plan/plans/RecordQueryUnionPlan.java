@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.HeuristicPlanner;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanSerializationContext;
@@ -38,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedOr
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -202,13 +204,15 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
      * @param showComparisonKey whether the comparison key should be included in string representations of the plan
      * @return a new plan that will return the union of all results from both child plans
      */
+    @HeuristicPlanner
     @Nonnull
     public static RecordQueryUnionOnKeyExpressionPlan from(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right,
                                                            @Nonnull KeyExpression comparisonKey, boolean showComparisonKey) {
+        Debugger.verifyHeuristicPlanner();
         if (left.isReverse() != right.isReverse()) {
             throw new RecordCoreArgumentException("left plan and right plan for union do not have same value for reverse field");
         }
-        final List<Reference> childRefs = ImmutableList.of(Reference.of(left), Reference.of(right));
+        final List<Reference> childRefs = ImmutableList.of(Reference.plannedOf(left), Reference.plannedOf(right));
         return new RecordQueryUnionOnKeyExpressionPlan(Quantifiers.fromPlans(childRefs),
                 comparisonKey,
                 left.isReverse(),
@@ -227,10 +231,12 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
      * @param showComparisonKey whether the comparison key should be included in string representations of the plan
      * @return a new plan that will return the union of all results from all child plans
      */
+    @HeuristicPlanner
     @Nonnull
     public static RecordQueryUnionOnKeyExpressionPlan from(@Nonnull List<? extends RecordQueryPlan> children,
                                                            @Nonnull KeyExpression comparisonKey,
                                                            boolean showComparisonKey) {
+        Debugger.verifyHeuristicPlanner();
         if (children.size() < 2) {
             throw new RecordCoreArgumentException("fewer than two children given to union plan");
         }
@@ -240,7 +246,7 @@ public abstract class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
         }
         final ImmutableList.Builder<Reference> childRefsBuilder = ImmutableList.builder();
         for (RecordQueryPlan child : children) {
-            childRefsBuilder.add(Reference.of(child));
+            childRefsBuilder.add(Reference.plannedOf(child));
         }
         return new RecordQueryUnionOnKeyExpressionPlan(Quantifiers.fromPlans(childRefsBuilder.build()),
                 comparisonKey,

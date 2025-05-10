@@ -102,7 +102,7 @@ public class StoredRecordProperty implements ExpressionProperty<Boolean> {
     }
 
     public boolean evaluate(@Nonnull final Reference reference) {
-        return evaluate(reference.getAsPlan());
+        return evaluate(reference.getOnlyElementAsPlan());
     }
 
     public boolean evaluate(@Nonnull final RecordQueryPlan recordQueryPlan) {

@@ -23,8 +23,8 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
+import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
@@ -81,8 +81,8 @@ public interface RecordQueryPlanWithChild extends RecordQueryPlanWithChildren {
     }
 
     @Override
-    default RecordQueryPlanWithChild strictlySorted(@Nonnull final Memoizer memoizer) {
-        return withChild(memoizer.memoizePlans((RecordQueryPlan)getChild().strictlySorted(memoizer)));
+    default RecordQueryPlanWithChild strictlySorted(@Nonnull final FinalMemoizer memoizer) {
+        return withChild(memoizer.memoizePlan(getChild().strictlySorted(memoizer)));
     }
 
     @Override

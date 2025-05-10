@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.HeuristicPlanner;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -36,10 +37,11 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.ComparatorCursor;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
+import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
@@ -110,12 +112,14 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
      *
      * @return a new plan that will compare all results from child plans
      */
+    @HeuristicPlanner
     @Nonnull
     @VisibleForTesting
     public static RecordQueryComparatorPlan from(@Nonnull List<? extends RecordQueryPlan> children,
                                                  @Nonnull KeyExpression comparisonKey,
                                                  final int referencePlanIndex,
                                                  final boolean abortOnComparisonFailure) {
+        Debugger.verifyHeuristicPlanner();
         if (children.isEmpty()) {
             throw new RecordCoreArgumentException("Comparator plan should have at least one plan");
         }
@@ -125,7 +129,7 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
 
         final ImmutableList.Builder<Reference> childRefsBuilder = ImmutableList.builder();
         for (RecordQueryPlan child : children) {
-            childRefsBuilder.add(Reference.of(child));
+            childRefsBuilder.add(Reference.plannedOf(child));
         }
         return new RecordQueryComparatorPlan(Quantifiers.fromPlans(childRefsBuilder.build()), comparisonKey, referencePlanIndex, abortOnComparisonFailure);
     }
@@ -242,9 +246,9 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
     }
 
     @Override
-    public RecordQueryComparatorPlan strictlySorted(@Nonnull final Memoizer memoizer) {
+    public RecordQueryComparatorPlan strictlySorted(@Nonnull final FinalMemoizer memoizer) {
         return new RecordQueryComparatorPlan(Quantifiers.fromPlans(getChildStream()
-                    .map(p -> memoizer.memoizePlans((RecordQueryPlan)p.strictlySorted(memoizer))).collect(Collectors.toList())),
+                    .map(p -> memoizer.memoizePlan(p.strictlySorted(memoizer))).collect(Collectors.toList())),
                 comparisonKey, referencePlanIndex, abortOnComparisonFailure);
     }
 

@@ -69,7 +69,7 @@ class State {
     @Nonnull private final Cache<Integer, Quantifier> quantifierCache;
     @Nonnull private final Cache<Quantifier, Integer> invertedQuantifierCache;
 
-    @Nonnull private final List<Debugger.Event> events;
+    @Nullable private final List<Debugger.Event> events;
     @Nullable private final List<PEvent> eventProtos;
     @Nullable private final Iterable<PEvent> prerecordedEventProtoIterable;
     @Nullable private Iterator<PEvent> prerecordedEventProtoIterator;
@@ -81,10 +81,11 @@ class State {
     @Nonnull private final Deque<Pair<Class<? extends Debugger.Event>, EventDurations>> eventProfilingStack;
 
     private int currentTick;
-    private long startTs;
+    private final long startTs;
 
-    public static State initial(final boolean isRecordEvents, @Nullable Iterable<PEvent> prerecordedEventProtoIterable) {
-        return new State(isRecordEvents, prerecordedEventProtoIterable);
+    public static State initial(final boolean isRecordEvents, final boolean isRecordEventProtos,
+                                @Nullable Iterable<PEvent> prerecordedEventProtoIterable) {
+        return new State(isRecordEvents, isRecordEventProtos, prerecordedEventProtoIterable);
     }
 
     public static State copyOf(final State source) {
@@ -108,7 +109,7 @@ class State {
                 copyInvertedReferenceCache,
                 copyQuantifierCache,
                 copyInvertedQuantifierCache,
-                Lists.newArrayList(source.getEvents()),
+                source.events == null ? null : Lists.newArrayList(source.events),
                 source.eventProtos == null ? null : Lists.newArrayList(source.eventProtos),
                 source.prerecordedEventProtoIterable,
                 Maps.newLinkedHashMap(source.eventClassStatsMap),
@@ -118,7 +119,8 @@ class State {
                 source.getStartTs());
     }
 
-    private State(final boolean isRecordEvents, @Nullable final Iterable<PEvent> prerecordedEventProtoIterable) {
+    private State(final boolean isRecordEvents, final boolean isRecordEventProtos,
+                  @Nullable final Iterable<PEvent> prerecordedEventProtoIterable) {
         this(Maps.newHashMap(),
                 CacheBuilder.newBuilder().weakValues().build(),
                 CacheBuilder.newBuilder().weakKeys().build(),
@@ -126,7 +128,7 @@ class State {
                 CacheBuilder.newBuilder().weakKeys().build(),
                 CacheBuilder.newBuilder().weakValues().build(),
                 CacheBuilder.newBuilder().weakKeys().build(),
-                Lists.newArrayList(),
+                isRecordEventProtos ? Lists.newArrayList() : null,
                 isRecordEvents ? Lists.newArrayList() : null,
                 prerecordedEventProtoIterable,
                 Maps.newLinkedHashMap(),
@@ -143,7 +145,7 @@ class State {
                   @Nonnull final Cache<Reference, Integer> invertedReferenceCache,
                   @Nonnull final Cache<Integer, Quantifier> quantifierCache,
                   @Nonnull final Cache<Quantifier, Integer> invertedQuantifierCache,
-                  @Nonnull final List<Debugger.Event> events,
+                  @Nullable final List<Debugger.Event> events,
                   @Nullable final List<PEvent> eventProtos,
                   @Nullable final Iterable<PEvent> prerecordedEventProtoIterable,
                   @Nonnull final LinkedHashMap<Class<? extends Debugger.Event>, MutableStats> eventClassStatsMap,
@@ -205,7 +207,7 @@ class State {
         return invertedQuantifierCache;
     }
 
-    @Nonnull
+    @Nullable
     public List<Debugger.Event> getEvents() {
         return events;
     }
@@ -266,7 +268,9 @@ class State {
 
     @SuppressWarnings("unchecked")
     public void addCurrentEvent(@Nonnull final Debugger.Event event) {
-        events.add(event);
+        if (events != null) {
+            events.add(event);
+        }
         if (eventProtos != null || prerecordedEventProtoIterator != null) {
             final var currentEventProto = event.toEventProto();
             if (prerecordedEventProtoIterator != null) {
@@ -277,7 +281,7 @@ class State {
             }
         }
 
-        currentTick = events.size() - 1;
+        currentTick++;
         final long currentTsInNs = System.nanoTime();
 
         final Class<? extends Debugger.Event> currentEventClass = event.getClass();

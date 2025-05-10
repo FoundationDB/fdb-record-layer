@@ -304,7 +304,8 @@ public class RecordQueryRecursiveUnionPlan implements RecordQueryPlanWithChildre
         Verify.verify(!translationMap.containsSourceAlias(tempTableInsertAlias));
         final var translatedInitialQuantifier = translatedQuantifiers.get(0).narrow(Quantifier.Physical.class);
         final var translatedRecursiveQuantifier = translatedQuantifiers.get(1).narrow(Quantifier.Physical.class);
-        return new RecordQueryRecursiveUnionPlan(translatedInitialQuantifier, translatedRecursiveQuantifier, tempTableScanAlias, tempTableInsertAlias);
+        return new RecordQueryRecursiveUnionPlan(translatedInitialQuantifier, translatedRecursiveQuantifier,
+                tempTableScanAlias, tempTableInsertAlias);
     }
 
     @Nonnull

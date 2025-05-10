@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.Transfor
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.Iterables;
 import org.jline.reader.ParsedLine;
 
 import java.util.Collection;
@@ -266,7 +267,8 @@ public class Processors {
 
             if (event.getLocation() == Debugger.Location.END) {
                 plannerRepl.printlnKeyValue("yield", "");
-                for (final RelationalExpression newExpression : ruleCall.getNewExpressions()) {
+                for (final RelationalExpression newExpression :
+                        Iterables.concat(ruleCall.getNewFinalExpressions(), ruleCall.getNewExploratoryExpressions())) {
                     plannerRepl.printlnExpression(newExpression, "    ");
                     plannerRepl.println();
                 }

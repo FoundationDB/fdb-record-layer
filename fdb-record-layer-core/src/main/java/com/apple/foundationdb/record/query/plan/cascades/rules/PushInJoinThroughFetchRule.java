@@ -21,8 +21,8 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
@@ -45,11 +45,10 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 
 /**
  * A rule that pushes a {@link RecordQueryInJoinPlan} through a {@link RecordQueryFetchFromPartialRecordPlan}.
- *
+ * <br>
  * This rule defers to a <em>push function</em> to translate values in an appropriate way. See
  * {@link TranslateValueFunction} for
  * details.
- *
  * <pre>
  * Case 1
  * {@code
@@ -77,12 +76,11 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *              +-------------+
  * }
  * </pre>
- *
- * @param <P> the type parameter of the actual in-join plan to match. Currently this rule is used for both
+ * @param <P> the type parameter of the actual in-join plan to match. Currently, this rule is used for both
  *        {@link RecordQueryInValuesJoinPlan} and {@link RecordQueryInParameterJoinPlan}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class PushInJoinThroughFetchRule<P extends RecordQueryInJoinPlan> extends CascadesRule<P> {
+public class PushInJoinThroughFetchRule<P extends RecordQueryInJoinPlan> extends ImplementationCascadesRule<P> {
     @Nonnull
     private static final BindingMatcher<RecordQueryPlan> innerPlanMatcher = anyPlan();
     @Nonnull
@@ -102,20 +100,20 @@ public class PushInJoinThroughFetchRule<P extends RecordQueryInJoinPlan> extends
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
 
         final RecordQueryInJoinPlan inJoinPlan = bindings.get(getMatcher());
         final RecordQueryFetchFromPartialRecordPlan fetchPlan = bindings.get(fetchPlanMatcher);
         final RecordQueryPlan innerPlan = bindings.get(innerPlanMatcher);
 
-        final RecordQueryPlanWithChild pushedInJoinPlan = inJoinPlan.withChild(call.memoizePlans(innerPlan));
+        final RecordQueryPlanWithChild pushedInJoinPlan = inJoinPlan.withChild(call.memoizePlan(innerPlan));
 
         final var newFetchPlan =
-                new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(call.memoizePlans(pushedInJoinPlan)),
+                new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(call.memoizePlan(pushedInJoinPlan)),
                         fetchPlan.getPushValueFunction(),
                         Type.Relation.scalarOf(fetchPlan.getResultType()), fetchPlan.getFetchIndexRecords());
 
-        call.yieldExpression(newFetchPlan);
+        call.yieldPlan(newFetchPlan);
     }
 }

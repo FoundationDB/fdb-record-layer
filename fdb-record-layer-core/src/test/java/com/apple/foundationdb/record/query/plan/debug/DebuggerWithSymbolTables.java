@@ -34,7 +34,9 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.google.common.base.Verify;
 import com.google.common.cache.Cache;
 import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Streams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -95,6 +97,7 @@ public class DebuggerWithSymbolTables implements Debugger {
     }
 
     @Nullable
+    @Override
     public PlanContext getPlanContext() {
         return planContext;
     }
@@ -178,16 +181,19 @@ public class DebuggerWithSymbolTables implements Debugger {
             if (event.getLocation() == Location.END && event instanceof TransformRuleCallEvent) {
                 final TransformRuleCallEvent transformRuleCallEvent = (TransformRuleCallEvent)event;
                 final CascadesRuleCall ruleCall = transformRuleCallEvent.getRuleCall();
-                final var newExpressions = ruleCall.getNewExpressions();
-                if (!newExpressions.isEmpty()) {
-                    final var logMessage = KeyValueLogMessage.build("rule yielded new expression(s)",
+                final var newExpressions =
+                        Iterables.concat(ruleCall.getNewFinalExpressions(), ruleCall.getNewExploratoryExpressions());
+                if (!Iterables.isEmpty(newExpressions)) {
+                    final var logMessage =
+                            KeyValueLogMessage.build("rule yielded new expression(s)",
                             "rule", transformRuleCallEvent.getRule().getClass().getSimpleName());
                     final var name  = nameForObject(transformRuleCallEvent.getBindable());
                     if (name != null) {
                         logMessage.addKeyAndValue("name", name);
                     }
 
-                    logMessage.addKeyAndValue("expressions", newExpressions.stream().map(this::nameForObject).collect(Collectors.joining(", ")));
+                    logMessage.addKeyAndValue("expressions", Streams.stream(newExpressions)
+                            .map(this::nameForObject).collect(Collectors.joining(", ")));
                     logger.debug(logMessage.toString());
                 }
             }
@@ -263,7 +269,7 @@ public class DebuggerWithSymbolTables implements Debugger {
             final var prerecordedEventProtoIterator = state.getPrerecordedEventProtoIterator();
             if (prerecordedEventProtoIterator != null) {
                 Verify.verify(!prerecordedEventProtoIterator.hasNext(),
-                        "There are more prerecorded events, there are only " + state.getEvents().size() + " actual events.");
+                        "There are more prerecorded events, there are only " + state.getCurrentTick() + " actual events.");
             }
         }
         reset();
@@ -336,7 +342,7 @@ public class DebuggerWithSymbolTables implements Debugger {
 
     private void reset() {
         this.stateStack.clear();
-        this.stateStack.push(State.initial(isRecordEvents, prerecordedEventProtoIterable));
+        this.stateStack.push(State.initial(isRecordEvents, isRecordEvents, prerecordedEventProtoIterable));
         this.planContext = null;
         this.queryAsString = null;
     }
@@ -395,7 +401,7 @@ public class DebuggerWithSymbolTables implements Debugger {
         final var references = referencesAndDependencies().evaluate(root);
         final var referenceList = TopologicalSort.anyTopologicalOrderPermutation(references).orElseThrow();
         for (final var reference : referenceList) {
-            for (final var member : reference.getMembers()) {
+            for (final var member : reference.getAllMemberExpressions()) {
                 consumer.accept(member);
             }
         }

@@ -20,7 +20,10 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
@@ -31,13 +34,28 @@ import java.util.Set;
  * A plan partition used for matching.
  */
 public class PlanPartition extends ExpressionPartition<RecordQueryPlan> {
-    public PlanPartition(@Nonnull final Map<ExpressionProperty<?>, ?> propertyValuesMap,
-                         @Nonnull final Collection<RecordQueryPlan> plans) {
+    private PlanPartition(@Nonnull final Map<ExpressionProperty<?>, ?> propertyValuesMap,
+                          @Nonnull final Collection<RecordQueryPlan> plans) {
         super(propertyValuesMap, plans);
     }
 
     @Nonnull
     public Set<RecordQueryPlan> getPlans() {
         return getExpressions();
+    }
+
+    @Nonnull
+    public static PlanPartition ofPlans(@Nonnull final Map<ExpressionProperty<?>, ?> propertyValuesMap,
+                                        @Nonnull final Collection<RecordQueryPlan> plans) {
+        return new PlanPartition(propertyValuesMap, plans);
+    }
+
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    public static PlanPartition ofExpressions(@Nonnull final Map<ExpressionProperty<?>, ?> propertyValuesMap,
+                                              @Nonnull final Collection<? extends RelationalExpression> expressions) {
+        Debugger.sanityCheck(() ->
+                Verify.verify(expressions.stream().allMatch(plan -> plan instanceof RecordQueryPlan)));
+        return new PlanPartition(propertyValuesMap, (Collection<RecordQueryPlan>)expressions);
     }
 }
