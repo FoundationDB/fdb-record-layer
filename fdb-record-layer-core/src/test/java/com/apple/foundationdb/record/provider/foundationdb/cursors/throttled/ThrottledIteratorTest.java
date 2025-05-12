@@ -363,6 +363,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         final AtomicInteger fullCount = new AtomicInteger(0);
         final ItemHandler<Integer> itemHandler = (store, item, quotaManager) -> {
             int limit = limitRef.get();
+            int scannedCount = quotaManager.getScannedCount();
             int count = fullCount.incrementAndGet();
             if (count <= 400) {         // 10 * 40 (limit * successes) before change
                 assertThat(limit).isEqualTo(10);
