@@ -105,7 +105,7 @@ public class RecordMetadataDeserializer {
             for (final var function : recordMetaData.getUserDefinedFunctionMap().entrySet()) {
                 if (function.getValue() instanceof RawSqlFunction) {
                     schemaTemplateBuilder.addInvokedRoutine(generateInvokedRoutineBuilder(metadataProvider, function.getKey(),
-                            Assert.castUnchecked(function.getValue(), RawSqlFunction.class).getDescription()).build());
+                            Assert.castUnchecked(function.getValue(), RawSqlFunction.class).getDefinition()).build());
                 }
             }
         }

@@ -107,12 +107,12 @@ public class CompiledSqlFunction extends UserDefinedFunction {
                 argumentValue = Assert.castUnchecked(Assert.optionalUnchecked(getDefaultValue(paramIdx)), Value.class);
             } else {
                 final var providedArgValue = Assert.castUnchecked(arguments.get(paramIdx), Value.class);
-                final var isPromotionNeeded = PromoteValue.isPromotionNeeded(providedArgValue.getResultType(), getParameterType(paramIdx));
-                Assert.thatUnchecked(!isPromotionNeeded || PromoteValue.isPromotable(providedArgValue.getResultType(), getParameterType(paramIdx)),
+                final var isPromotionNeeded = PromoteValue.isPromotionNeeded(providedArgValue.getResultType(), conputeParameterType(paramIdx));
+                Assert.thatUnchecked(!isPromotionNeeded || PromoteValue.isPromotable(providedArgValue.getResultType(), conputeParameterType(paramIdx)),
                         ErrorCode.UNDEFINED_FUNCTION, () -> "could not find function matching the provided arguments");
-                argumentValue = PromoteValue.inject(providedArgValue, getParameterType(paramIdx));
+                argumentValue = PromoteValue.inject(providedArgValue, conputeParameterType(paramIdx));
             }
-            resultBuilder.addResultColumn(Column.of(Optional.of(getParameterNames().get(paramIdx)), argumentValue));
+            resultBuilder.addResultColumn(Column.of(Optional.of(getParameterName(paramIdx)), argumentValue));
         }
         final var qun = Quantifier.forEach(Reference.of(resultBuilder.addQuantifier(rangeOfOnePlan()).build().buildSelect()),
                 parametersCorrelation.get());
@@ -144,10 +144,10 @@ public class CompiledSqlFunction extends UserDefinedFunction {
                 argumentValue = Assert.castUnchecked(Assert.optionalUnchecked(getDefaultValue(name), ErrorCode.UNDEFINED_FUNCTION,
                         () -> "could not find function matching the provided arguments"), Value.class);
             }
-            final var isPromotionNeeded = PromoteValue.isPromotionNeeded(argumentValue.getResultType(), getParameterType(name));
-            Assert.thatUnchecked(!isPromotionNeeded || PromoteValue.isPromotable(argumentValue.getResultType(), getParameterType(name)),
+            final var isPromotionNeeded = PromoteValue.isPromotionNeeded(argumentValue.getResultType(), conputeParameterType(name));
+            Assert.thatUnchecked(!isPromotionNeeded || PromoteValue.isPromotable(argumentValue.getResultType(), conputeParameterType(name)),
                     ErrorCode.UNDEFINED_FUNCTION, () -> "could not find function matching the provided arguments");
-            final var maybePromotedArgument = PromoteValue.inject(argumentValue, getParameterType(name));
+            final var maybePromotedArgument = PromoteValue.inject(argumentValue, conputeParameterType(name));
             resultBuilder.addResultColumn(Column.of(Optional.of(name), maybePromotedArgument));
         }
         final var qun = Quantifier.forEach(Reference.of(resultBuilder.addQuantifier(rangeOfOnePlan()).build().buildSelect()),

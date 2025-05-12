@@ -465,7 +465,7 @@ public class SchemaTemplateSerDeTests {
         final var invokedRoutines = recordMetadata.getUserDefinedFunctionMap();
         final var actualFunctionMap = invokedRoutines.entrySet().stream().collect(Collectors.toMap(
                 Map.Entry::getKey,
-                   e -> ((RawSqlFunction)e.getValue()).getDescription()));
+                   e -> ((RawSqlFunction)e.getValue()).getDefinition()));
 
         // Verify that the provided functions match the ones we just deserialized
         Assertions.assertEquals(expectedFunctionMap, actualFunctionMap);
@@ -476,7 +476,7 @@ public class SchemaTemplateSerDeTests {
         final var rawSqlFunction = (RawSqlFunction)function;
         Assertions.assertEquals("SqlFunction1", rawSqlFunction.getFunctionName());
         Assertions.assertEquals("CREATE FUNCTION SqlFunction1(IN Q BIGINT) AS SELECT * FROM T1 WHERE col1 < Q",
-                rawSqlFunction.getDescription());
+                rawSqlFunction.getDefinition());
 
         // let's verify now that _no_ compilation is invoked when deserializing the record metadata.
         // for that, we use a deserializer with peeking supplier to the function compilation logic.

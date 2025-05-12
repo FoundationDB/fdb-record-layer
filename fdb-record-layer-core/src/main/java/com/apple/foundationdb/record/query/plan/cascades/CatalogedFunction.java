@@ -21,19 +21,19 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.common.base.Functions;
 import com.google.common.base.Verify;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.LinkedHashMap;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -56,7 +56,7 @@ public abstract class CatalogedFunction {
     protected final List<Type> parameterTypes;
 
     @Nonnull
-    protected final Map<String, Integer> parameterNamesMap;
+    protected final BiMap<String, Integer> parameterNamesMap;
 
     @Nonnull
     protected final List<Optional<? extends Typed>> parameterDefaults;
@@ -72,7 +72,7 @@ public abstract class CatalogedFunction {
         this.functionName = functionName;
         this.parameterTypes = ImmutableList.copyOf(parameterTypes);
         this.parameterDefaults = ImmutableList.of();
-        this.parameterNamesMap = ImmutableMap.of();
+        this.parameterNamesMap = ImmutableBiMap.of();
         this.variadicSuffixType = variadicSuffixType;
     }
 
@@ -82,9 +82,8 @@ public abstract class CatalogedFunction {
         Verify.verify(parameterNames.size() == parameterTypes.size());
         this.functionName = functionName;
         this.parameterTypes = ImmutableList.copyOf(parameterTypes);
-        this.parameterNamesMap = IntStream.range(0, parameterNames.size()).boxed().collect(Collectors.toMap(parameterNames::get,
-                Functions.identity(), (v1, v2) -> { throw new RecordCoreException("illegal duplicate parameter names"); },
-                LinkedHashMap::new));
+        this.parameterNamesMap = IntStream.range(0, parameterNames.size()).boxed().collect(ImmutableBiMap.toImmutableBiMap(parameterNames::get,
+                Functions.identity()));
         this.parameterDefaults = ImmutableList.copyOf(parameterDefaults);
         this.variadicSuffixType = null; // no support yet with named parameters.
     }
@@ -104,8 +103,13 @@ public abstract class CatalogedFunction {
     }
 
     @Nonnull
-    public List<String> getParameterNames() {
-        return ImmutableList.copyOf(parameterNamesMap.keySet()); // todo: amortize
+    public String getParameterName(int index) {
+        return parameterNamesMap.inverse().get(index);
+    }
+
+    @Nonnull
+    public Collection<String> getParameterNames() {
+        return parameterNamesMap.keySet();
     }
 
     @Nullable
@@ -118,7 +122,7 @@ public abstract class CatalogedFunction {
     }
 
     @Nonnull
-    public Type getParameterType(int index) {
+    public Type conputeParameterType(int index) {
         Verify.verify(index >= 0, "unexpected negative parameter index");
         if (index < parameterTypes.size()) {
             return parameterTypes.get(index);
@@ -131,8 +135,8 @@ public abstract class CatalogedFunction {
     }
 
     @Nonnull
-    public Type getParameterType(@Nonnull final String parameterName) {
-        return getParameterType(getParamIndex(parameterName));
+    public Type conputeParameterType(@Nonnull final String parameterName) {
+        return conputeParameterType(getParamIndex(parameterName));
     }
 
     @Nonnull
@@ -140,7 +144,7 @@ public abstract class CatalogedFunction {
         Verify.verify(numberOfArguments > 0, "unexpected number of arguments");
         final ImmutableList.Builder<Type> resultBuilder = ImmutableList.builder();
         for (int i = 0; i < numberOfArguments; i ++) {
-            resultBuilder.add(getParameterType(i));
+            resultBuilder.add(conputeParameterType(i));
         }
         return resultBuilder.build();
     }

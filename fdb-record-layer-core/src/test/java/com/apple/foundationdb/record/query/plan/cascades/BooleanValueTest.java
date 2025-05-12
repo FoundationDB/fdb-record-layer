@@ -729,7 +729,7 @@ class BooleanValueTest {
     @Test
     void passingIncorrectIndexToBuiltInFunctionThrows() {
         try {
-            new RelOpValue.EqualsFn().getParameterType(-1);
+            new RelOpValue.EqualsFn().conputeParameterType(-1);
             Assertions.fail("expected an exception to be thrown");
         } catch (Exception e) {
             Assertions.assertTrue(e instanceof VerifyException);

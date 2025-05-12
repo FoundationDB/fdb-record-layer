@@ -35,18 +35,18 @@ import java.util.Map;
 public class RawSqlFunction extends UserDefinedFunction {
 
     @Nonnull
-    private final String description;
+    private final String definition;
 
     public RawSqlFunction(@Nonnull final String functionName, @Nonnull final String description) {
         super(functionName, ImmutableList.of());
-        this.description = description;
+        this.definition = description;
     }
 
     @Nonnull
     @Override
     public RecordMetaDataProto.PUserDefinedFunction toProto(@Nonnull final PlanSerializationContext serializationContext) {
         final var builder = RecordMetaDataProto.PRawSqlFunction.newBuilder();
-        builder.setName(functionName).setDefinition(description);
+        builder.setName(functionName).setDefinition(definition);
         return RecordMetaDataProto.PUserDefinedFunction.newBuilder()
                 .setSqlFunction(builder.build())
                 .build();
@@ -65,8 +65,8 @@ public class RawSqlFunction extends UserDefinedFunction {
     }
 
     @Nonnull
-    public String getDescription() {
-        return description;
+    public String getDefinition() {
+        return definition;
     }
 
     @AutoService(PlanDeserializer.class)
