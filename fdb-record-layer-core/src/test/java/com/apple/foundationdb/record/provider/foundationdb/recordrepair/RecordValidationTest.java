@@ -73,7 +73,7 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
      */
     @Test
     void monitorFormatVersion() {
-        assertEquals(FormatVersion.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE, FormatVersion.getMaximumSupportedVersion(),
+        assertEquals(FormatVersion.RECORD_COUNT_STATE, FormatVersion.getMaximumSupportedVersion(),
                 "New format version found. Please review the validators to ensure they still catch corruptions");
     }
 
