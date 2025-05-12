@@ -21,11 +21,10 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 
 /**
  * Tag-interface to capture all methods that only implementation rules are allowed to call.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface ImplementationCascadesRuleCall extends PlannerRuleCall<RelationalExpression>, CommonCascadesRuleCall, FinalYields, FinalMemoizer {
+public interface ImplementationCascadesRuleCall extends PlannerRuleCall, CommonCascadesRuleCall, FinalYields, FinalMemoizer {
 }

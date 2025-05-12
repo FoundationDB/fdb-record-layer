@@ -38,7 +38,7 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
-public class AbstractQueryPredicateRuleSet<R, C extends AbstractQueryPredicateRuleCall<R, C>> extends AbstractRuleSet<R, C, QueryPredicate> {
+public class AbstractQueryPredicateRuleSet<R, C extends AbstractQueryPredicateRuleCall<R, C>> extends AbstractRuleSet<C, QueryPredicate> {
     @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     protected AbstractQueryPredicateRuleSet(@Nonnull final Set<? extends AbstractQueryPredicateRule<R, C, ? extends QueryPredicate>> rules,
                                             @Nonnull final SetMultimap<? extends AbstractQueryPredicateRule<R, C, ? extends QueryPredicate>, ? extends AbstractQueryPredicateRule<R, C, ? extends QueryPredicate>> dependencies) {

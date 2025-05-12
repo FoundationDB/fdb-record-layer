@@ -41,7 +41,7 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public class AbstractQueryPredicateRuleCall<RESULT, CALL extends AbstractQueryPredicateRuleCall<RESULT, CALL>> extends AbstractRuleCall<RESULT, CALL, QueryPredicate> {
-    public AbstractQueryPredicateRuleCall(@Nonnull final PlannerRule<RESULT, CALL, ? extends QueryPredicate> rule,
+    public AbstractQueryPredicateRuleCall(@Nonnull final PlannerRule<CALL, ? extends QueryPredicate> rule,
                                           @Nonnull final QueryPredicate root,
                                           @Nonnull final QueryPredicate current,
                                           @Nonnull final PlannerBindings bindings,

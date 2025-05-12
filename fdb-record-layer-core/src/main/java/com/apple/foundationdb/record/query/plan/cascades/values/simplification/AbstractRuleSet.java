@@ -47,29 +47,28 @@ import java.util.stream.Stream;
 
 /**
  * A set of rules for use by a planner that supports quickly finding rules that could match a given planner expression.
- * @param <RESULT> the type that {@link PlannerRule}s in this set yield
  * @param <CALL> the type of the call rules in this set will receive
  *        when {@link com.apple.foundationdb.record.query.plan.cascades.PlannerRule#onMatch(PlannerRuleCall)} is invoked.
  * @param <BASE> the type of entity all rules in the set must match
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
-public class AbstractRuleSet<RESULT, CALL extends PlannerRuleCall<RESULT>, BASE> {
+public class AbstractRuleSet<CALL extends PlannerRuleCall, BASE> {
     @Nonnull
     @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE") // false positive
-    private final Multimap<Class<?>, PlannerRule<RESULT, CALL, ? extends BASE>> ruleIndex;
+    private final Multimap<Class<?>, PlannerRule<CALL, ? extends BASE>> ruleIndex;
     @Nonnull
-    private final List<PlannerRule<RESULT, CALL, ? extends BASE>> alwaysRules;
+    private final List<PlannerRule<CALL, ? extends BASE>> alwaysRules;
 
     @Nonnull
-    private final SetMultimap<PlannerRule<RESULT, CALL, ? extends BASE>, PlannerRule<RESULT, CALL, ? extends BASE>> dependsOn;
+    private final SetMultimap<PlannerRule<CALL, ? extends BASE>, PlannerRule<CALL, ? extends BASE>> dependsOn;
 
     @Nonnull
-    private final LoadingCache<Class<? extends BASE>, List<PlannerRule<RESULT, CALL, ? extends BASE>>> rulesCache;
+    private final LoadingCache<Class<? extends BASE>, List<PlannerRule<CALL, ? extends BASE>>> rulesCache;
 
     @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
-    protected AbstractRuleSet(@Nonnull final Set<? extends PlannerRule<RESULT, CALL, ? extends BASE>> rules,
-                              @Nonnull final SetMultimap<? extends PlannerRule<RESULT, CALL, ? extends BASE>, ? extends PlannerRule<RESULT, CALL, ? extends BASE>> dependencies) {
+    protected AbstractRuleSet(@Nonnull final Set<? extends PlannerRule<CALL, ? extends BASE>> rules,
+                              @Nonnull final SetMultimap<? extends PlannerRule<CALL, ? extends BASE>, ? extends PlannerRule<CALL, ? extends BASE>> dependencies) {
         this.ruleIndex = MultimapBuilder.hashKeys().arrayListValues().build();
         this.alwaysRules = new ArrayList<>();
         this.dependsOn = MultimapBuilder.hashKeys().hashSetValues().build();
@@ -89,9 +88,9 @@ public class AbstractRuleSet<RESULT, CALL extends PlannerRuleCall<RESULT>, BASE>
                 .build(new CacheLoader<>() {
                     @Nonnull
                     @Override
-                    public List<PlannerRule<RESULT, CALL, ? extends BASE>> load(@Nonnull final Class<? extends BASE> key) {
+                    public List<PlannerRule<CALL, ? extends BASE>> load(@Nonnull final Class<? extends BASE> key) {
                         final var applicableRules =
-                                ImmutableSet.<PlannerRule<RESULT, CALL, ? extends BASE>>builderWithExpectedSize(ruleIndex.size() + alwaysRules.size())
+                                ImmutableSet.<PlannerRule<CALL, ? extends BASE>>builderWithExpectedSize(ruleIndex.size() + alwaysRules.size())
                                         .addAll(ruleIndex.get(key))
                                         .addAll(alwaysRules)
                                         .build();
@@ -104,14 +103,14 @@ public class AbstractRuleSet<RESULT, CALL extends PlannerRuleCall<RESULT>, BASE>
     }
 
     @Nonnull
-    public Stream<? extends PlannerRule<RESULT, CALL, ? extends BASE>> getRules(@Nonnull BASE value) {
+    public Stream<? extends PlannerRule<CALL, ? extends BASE>> getRules(@Nonnull BASE value) {
         return getRules(value, r -> true);
     }
 
     @Nonnull
     @SuppressWarnings({"PMD.PreserveStackTrace", "unchecked"})
-    public Stream<? extends PlannerRule<RESULT, CALL, ? extends BASE>> getRules(@Nonnull BASE value,
-                                                                                @Nonnull final Predicate<PlannerRule<RESULT, CALL, ? extends BASE>> rulePredicate) {
+    public Stream<? extends PlannerRule<CALL, ? extends BASE>> getRules(@Nonnull BASE value,
+                                                                        @Nonnull final Predicate<PlannerRule<CALL, ? extends BASE>> rulePredicate) {
         try {
             return rulesCache.get((Class<? extends BASE>)value.getClass()).stream().filter(rulePredicate);
         } catch (final ExecutionException ee) {

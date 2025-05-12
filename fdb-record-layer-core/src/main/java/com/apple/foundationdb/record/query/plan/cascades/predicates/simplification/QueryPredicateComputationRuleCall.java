@@ -48,7 +48,7 @@ public class QueryPredicateComputationRuleCall<ARGUMENT, RESULT> extends Abstrac
     @Nonnull
     private final Function<QueryPredicate, NonnullPair<QueryPredicate, RESULT>> retrieveResultFunction;
 
-    public QueryPredicateComputationRuleCall(@Nonnull final PlannerRule<NonnullPair<QueryPredicate, RESULT>, QueryPredicateComputationRuleCall<ARGUMENT, RESULT>, ? extends QueryPredicate> rule,
+    public QueryPredicateComputationRuleCall(@Nonnull final PlannerRule<QueryPredicateComputationRuleCall<ARGUMENT, RESULT>, ? extends QueryPredicate> rule,
                                              @Nonnull final QueryPredicate root,
                                              @Nonnull final QueryPredicate current,
                                              @Nullable final ARGUMENT argument,

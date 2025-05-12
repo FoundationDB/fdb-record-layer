@@ -39,7 +39,7 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 public class ValueSimplificationRuleCall extends AbstractValueRuleCall<Value, ValueSimplificationRuleCall> {
 
-    public ValueSimplificationRuleCall(@Nonnull final PlannerRule<Value, ValueSimplificationRuleCall, ? extends Value> rule,
+    public ValueSimplificationRuleCall(@Nonnull final PlannerRule<ValueSimplificationRuleCall, ? extends Value> rule,
                                        @Nonnull final Value root,
                                        @Nonnull final Value current,
                                        @Nonnull final PlannerBindings bindings,

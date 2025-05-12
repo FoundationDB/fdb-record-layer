@@ -275,7 +275,7 @@ public class RecordQueryPlannerConfiguration {
      * @param rule in question
      * @return {@code true} is enabled, {@code false} otherwise
      */
-    public boolean isRuleEnabled(@Nonnull PlannerRule<?, ?, ?> rule) {
+    public boolean isRuleEnabled(@Nonnull PlannerRule<?, ?> rule) {
         return !disabledTransformationRules.contains(rule.getClass().getSimpleName());
     }
 

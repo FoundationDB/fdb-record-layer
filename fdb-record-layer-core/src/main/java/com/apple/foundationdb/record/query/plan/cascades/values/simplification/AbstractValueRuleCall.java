@@ -41,7 +41,7 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public class AbstractValueRuleCall<RESULT, CALL extends AbstractValueRuleCall<RESULT, CALL>> extends AbstractRuleCall<RESULT, CALL, Value> {
-    public AbstractValueRuleCall(@Nonnull final PlannerRule<RESULT, CALL, ? extends Value> rule,
+    public AbstractValueRuleCall(@Nonnull final PlannerRule<CALL, ? extends Value> rule,
                                  @Nonnull final Value root,
                                  @Nonnull final Value current,
                                  @Nonnull final PlannerBindings bindings,

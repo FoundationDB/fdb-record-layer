@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
@@ -158,7 +157,7 @@ public class Simplification {
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private static <RESULT, CALL extends AbstractRuleCall<RESULT, CALL, BASE>, BASE> List<ExecutionResult<BASE>> executeRuleSet(@Nonnull final BASE root,
                                                                                                                                 @Nonnull BASE current,
-                                                                                                                                @Nonnull final AbstractRuleSet<RESULT, CALL, BASE> ruleSet,
+                                                                                                                                @Nonnull final AbstractRuleSet<CALL, BASE> ruleSet,
                                                                                                                                 @Nonnull final RuleCallCreator<RESULT, CALL, BASE> ruleCallCreator,
                                                                                                                                 @Nonnull final Function<Collection<RESULT>, BASE> onResultsFunction) {
         final boolean isRoot = current == root;
@@ -342,7 +341,7 @@ public class Simplification {
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private static <RESULT, CALL extends AbstractRuleCall<RESULT, CALL, BASE>, BASE> ExecutionResult<BASE> executeRuleSetIteratively(@Nonnull final BASE root,
                                                                                                                                      @Nonnull BASE current,
-                                                                                                                                     @Nonnull final AbstractRuleSet<RESULT, CALL, BASE> ruleSet,
+                                                                                                                                     @Nonnull final AbstractRuleSet<CALL, BASE> ruleSet,
                                                                                                                                      @Nonnull final RuleCallCreator<RESULT, CALL, BASE> ruleCallCreator,
                                                                                                                                      @Nonnull final Function<Collection<RESULT>, BASE> onResultsFunction) {
         final boolean isRoot = current == root;
@@ -448,7 +447,7 @@ public class Simplification {
     private static <ELEMENT, CALL extends AbstractRuleCall<NonnullPair<BASE, List<ELEMENT>>, CALL, BASE>, BASE extends TreeLike<BASE>> BASE simplifyWithReExploration(@Nonnull final BASE root,
                                                                                                                                                                       @Nonnull BASE current,
                                                                                                                                                                       @Nonnull final Map<BASE, NonnullPair<BASE, List<ELEMENT>>> resultsMap,
-                                                                                                                                                                      @Nonnull final AbstractRuleSet<NonnullPair<BASE, List<ELEMENT>>, CALL, BASE> ruleSet,
+                                                                                                                                                                      @Nonnull final AbstractRuleSet<CALL, BASE> ruleSet,
                                                                                                                                                                       @Nonnull final RuleCallCreator<NonnullPair<BASE, List<ELEMENT>>, CALL, BASE> ruleCallCreator) {
         final var isRoot = root == current;
         ExecutionResult<BASE> executionResult;
@@ -525,13 +524,13 @@ public class Simplification {
 
     /**
      * Functional interface to create a specific rule call object.
-     * @param <RESULT> the type parameter representing the type of result that is handed to {@link PlannerRuleCall#yieldResult(Object)}
+     * @param <RESULT> the type parameter representing the type of result that yielded
      * @param <CALL> the type parameter extending {@link AbstractValueRuleCall}
      * @param <BASE> the type of entity the rule matches
      */
     @FunctionalInterface
     public interface RuleCallCreator<RESULT, CALL extends AbstractRuleCall<RESULT, CALL, BASE>, BASE> {
-        CALL create(@Nonnull PlannerRule<RESULT, CALL, ? extends BASE> rule,
+        CALL create(@Nonnull PlannerRule<CALL, ? extends BASE> rule,
                     @Nonnull BASE root,
                     @Nonnull BASE current,
                     @Nonnull PlannerBindings plannerBindings);

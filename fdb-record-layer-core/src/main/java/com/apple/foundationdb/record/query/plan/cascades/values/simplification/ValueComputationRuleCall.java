@@ -47,7 +47,7 @@ public class ValueComputationRuleCall<ARGUMENT, RESULT> extends AbstractValueRul
     @Nonnull
     private final Function<Value, NonnullPair<Value, RESULT>> retrieveResultFunction;
 
-    public ValueComputationRuleCall(@Nonnull final PlannerRule<NonnullPair<Value, RESULT>, ValueComputationRuleCall<ARGUMENT, RESULT>, ? extends Value> rule,
+    public ValueComputationRuleCall(@Nonnull final PlannerRule<ValueComputationRuleCall<ARGUMENT, RESULT>, ? extends Value> rule,
                                     @Nonnull final Value root,
                                     @Nonnull final Value current,
                                     @Nullable final ARGUMENT argument,

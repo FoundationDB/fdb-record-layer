@@ -21,24 +21,10 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-
-import javax.annotation.Nonnull;
 
 /**
  * Interface to capture all methods that only exploration rules are allowed to call.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface ExplorationCascadesRuleCall extends PlannerRuleCall<RelationalExpression>, CommonCascadesRuleCall, ExploratoryYields, ExploratoryMemoizer {
-    /**
-     * Yield an exploratory expression. This method is the default yield method as define in {@link PlannerRuleCall}.
-     * As overriding this method cannot be prevented, all implementors should call
-     * {@link #yieldExploratoryExpression(RelationalExpression)} to ensure proper semantics.
-     * @param expression the expression to be yielded.
-     */
-    @Override
-    default void yieldResult(@Nonnull final RelationalExpression expression) {
-        yieldExploratoryExpression(expression);
-    }
-
+public interface ExplorationCascadesRuleCall extends PlannerRuleCall, CommonCascadesRuleCall, ExploratoryYields, ExploratoryMemoizer {
 }
