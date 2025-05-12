@@ -37,6 +37,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 public class ReferenceMatchers {
     @Nonnull
     private static final BindingMatcher<Reference> topReferenceMatcher = BindingMatcher.instance();
+    @Nonnull
+    private static final BindingMatcher<Reference> currentReferenceMatcher = BindingMatcher.instance();
+
 
     private ReferenceMatchers() {
         // do not instantiate
@@ -46,6 +49,11 @@ public class ReferenceMatchers {
     @Nonnull
     public static BindingMatcher<Reference> getTopReferenceMatcher() {
         return topReferenceMatcher;
+    }
+
+    @Nonnull
+    public static BindingMatcher<Reference> getCurrentReferenceMatcher() {
+        return currentReferenceMatcher;
     }
 
     @Nonnull
@@ -63,7 +71,7 @@ public class ReferenceMatchers {
     @SuppressWarnings("unchecked")
     public static <R extends Reference, E extends RelationalExpression> BindingMatcher<R> members(@Nonnull final CollectionMatcher<E> downstream) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<R>)(Class<?>)Reference.class,
-                Extractor.of(Reference::getMembers, name -> "members(" + name + ")"),
+                Extractor.of(Reference::getAllMemberExpressions, name -> "allMembers(" + name + ")"),
                 downstream);
     }
 }

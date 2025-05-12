@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.HeuristicPlanner;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -37,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -79,8 +81,9 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
     private static final Set<StoreTimer.Count> duplicateCounts =
             ImmutableSet.of(FDBStoreTimer.Counts.QUERY_PK_DISTINCT_PLAN_DUPLICATES, FDBStoreTimer.Counts.QUERY_DISCARDED);
 
+    @HeuristicPlanner
     public RecordQueryUnorderedPrimaryKeyDistinctPlan(@Nonnull RecordQueryPlan innerPlan) {
-        this(Quantifier.physical(Reference.of(innerPlan)));
+        this(Quantifier.physical(Reference.plannedOf(Debugger.verifyHeuristicPlanner(innerPlan))));
     }
 
     public RecordQueryUnorderedPrimaryKeyDistinctPlan(@Nonnull Quantifier.Physical inner) {
@@ -138,7 +141,8 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
     public RecordQueryUnorderedPrimaryKeyDistinctPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                                             final boolean shouldSimplifyValues,
                                                                             @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new RecordQueryUnorderedPrimaryKeyDistinctPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class));
+        return new RecordQueryUnorderedPrimaryKeyDistinctPlan(
+                Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class));
     }
 
     @Nonnull

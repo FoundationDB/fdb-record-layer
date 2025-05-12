@@ -33,10 +33,28 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public interface PlanContext {
+    PlanContext EMPTY_CONTEXT = new PlanContext() {
+        @Nonnull
+        @Override
+        public RecordQueryPlannerConfiguration getPlannerConfiguration() {
+            return RecordQueryPlannerConfiguration.defaultPlannerConfiguration();
+        }
+
+        @Nonnull
+        @Override
+        public Set<MatchCandidate> getMatchCandidates() {
+            return Set.of();
+        }
+    };
 
     @Nonnull
     RecordQueryPlannerConfiguration getPlannerConfiguration();
 
     @Nonnull
     Set<MatchCandidate> getMatchCandidates();
+
+    @Nonnull
+    static PlanContext emptyContext() {
+        return EMPTY_CONTEXT;
+    }
 }

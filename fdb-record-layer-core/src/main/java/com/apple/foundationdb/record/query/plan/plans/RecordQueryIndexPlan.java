@@ -66,8 +66,8 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRanges;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
-import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
@@ -448,7 +448,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
     }
 
     @Override
-    public RecordQueryIndexPlan strictlySorted(@Nonnull final Memoizer memoizer) {
+    public RecordQueryIndexPlan strictlySorted(@Nonnull final FinalMemoizer memoizer) {
         return new RecordQueryIndexPlan(indexName, getCommonPrimaryKey(), scanParameters, getIndexFetchMethod(), fetchIndexRecords, reverse, true, matchCandidateOptional, resultType, constraint);
     }
 
@@ -469,6 +469,9 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                                                       final boolean shouldSimplifyValues,
                                                       @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.isEmpty());
+        if (translationMap.definesOnlyIdentities()) {
+            return this;
+        }
         return withIndexScanParameters(scanParameters.translateCorrelations(translationMap, shouldSimplifyValues));
     }
 

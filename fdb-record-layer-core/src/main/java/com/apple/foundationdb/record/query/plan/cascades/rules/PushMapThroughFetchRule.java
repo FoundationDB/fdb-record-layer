@@ -21,9 +21,9 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
@@ -113,7 +113,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *
  */
 @API(API.Status.EXPERIMENTAL)
-public class PushMapThroughFetchRule extends CascadesRule<RecordQueryMapPlan> {
+public class PushMapThroughFetchRule extends ImplementationCascadesRule<RecordQueryMapPlan> {
     @Nonnull
     private static final BindingMatcher<RecordQueryPlan> innerPlanMatcher = anyPlan();
     @Nonnull
@@ -131,7 +131,7 @@ public class PushMapThroughFetchRule extends CascadesRule<RecordQueryMapPlan> {
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
 
         final RecordQueryMapPlan mapPlan = bindings.get(root);
@@ -149,13 +149,13 @@ public class PushMapThroughFetchRule extends CascadesRule<RecordQueryMapPlan> {
         if (pushedResultValueOptional.isEmpty()) {
             return;
         }
-        final Quantifier.Physical newInnerQuantifier = Quantifier.physical(call.memoizePlans(innerPlan), newInnerAlias);
+        final Quantifier.Physical newInnerQuantifier = Quantifier.physical(call.memoizePlan(innerPlan), newInnerAlias);
 
         // construct a new map plan that ranges over the plan the fetch ranges over
         final var pushedMapPlan =
                 new RecordQueryMapPlan(newInnerQuantifier, pushedResultValueOptional.get());
 
         // effectively throw away the fetch
-        call.yieldExpression(pushedMapPlan);
+        call.yieldPlan(pushedMapPlan);
     }
 }

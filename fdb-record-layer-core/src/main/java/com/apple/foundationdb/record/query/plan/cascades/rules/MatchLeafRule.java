@@ -82,13 +82,14 @@ public class MatchLeafRule extends CascadesRule<RelationalExpression> {
             final Set<Reference> leafRefs = traversal.getLeafReferences();
             // iterate through all leaf references in all
             for (final Reference leafRef : leafRefs) {
-                for (final RelationalExpression leafMember : leafRef.getMembers()) {
+                for (final RelationalExpression leafExpression : leafRef.getFinalExpressions()) {
                     // A leaf reference strictly is a reference that contains at least one member expression that does
                     // not have any quantifiers it ranges over. We need to make sure that we actually filter out all
                     // member expressions that do have quantifiers they range over as we are interested in only the leaf
                     // expressions.
-                    if (leafMember.getQuantifiers().isEmpty()) {
-                        final Iterable<BoundMatch<MatchInfo>> boundMatchInfos = matchWithCandidate(expression, leafMember, call.getEvaluationContext());
+                    if (leafExpression.getQuantifiers().isEmpty()) {
+                        final Iterable<BoundMatch<MatchInfo>> boundMatchInfos =
+                                matchWithCandidate(expression, leafExpression, call.getEvaluationContext());
                         // yield any match to the planner
                         boundMatchInfos.forEach(boundMatchInfo ->
                                 call.yieldPartialMatch(boundMatchInfo.getAliasMap(),

@@ -592,7 +592,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                 final QueryPlanResult planResult;
                 try {
                     planResult = planner.planGraph(() ->
-                                    Reference.of(relationalExpression),
+                                    Reference.initialOf(relationalExpression),
                             planContext.getPlannerConfiguration().getReadableIndexes().map(s -> s),
                             IndexQueryabilityFilter.TRUE,
                             typedEvaluationContext);

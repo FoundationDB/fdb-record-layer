@@ -23,9 +23,9 @@ package com.apple.foundationdb.record.query.plan.cascades.predicates.simplificat
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.values.simplification.AbstractRule;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.record.util.pair.Pair;
 
@@ -48,7 +48,7 @@ public class QueryPredicateComputationRuleCall<ARGUMENT, RESULT> extends Abstrac
     @Nonnull
     private final Function<QueryPredicate, NonnullPair<QueryPredicate, RESULT>> retrieveResultFunction;
 
-    public QueryPredicateComputationRuleCall(@Nonnull final AbstractRule<NonnullPair<QueryPredicate, RESULT>, QueryPredicateComputationRuleCall<ARGUMENT, RESULT>, QueryPredicate, ? extends QueryPredicate> rule,
+    public QueryPredicateComputationRuleCall(@Nonnull final PlannerRule<QueryPredicateComputationRuleCall<ARGUMENT, RESULT>, ? extends QueryPredicate> rule,
                                              @Nonnull final QueryPredicate root,
                                              @Nonnull final QueryPredicate current,
                                              @Nullable final ARGUMENT argument,
@@ -72,7 +72,7 @@ public class QueryPredicateComputationRuleCall<ARGUMENT, RESULT> extends Abstrac
     }
 
     public void yieldPredicate(@Nonnull final QueryPredicate predicate, @Nonnull final RESULT result) {
-        super.yieldExpression(NonnullPair.of(predicate, result));
+        super.yieldResult(NonnullPair.of(predicate, result));
     }
 
     public void yieldPredicateAndReExplore(@Nonnull final QueryPredicate predicate, @Nonnull final RESULT result) {
