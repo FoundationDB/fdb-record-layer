@@ -413,6 +413,11 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     }
 
     @Override
+    public CompiledSqlFunction visitCreateTempFunction(final RelationalParser.CreateTempFunctionContext ctx) {
+        return ddlVisitor.visitCreateTempFunction(ctx);
+    }
+
+    @Override
     public CompiledSqlFunction visitCreateFunction(final RelationalParser.CreateFunctionContext ctx) {
         return ddlVisitor.visitCreateFunction(ctx);
     }

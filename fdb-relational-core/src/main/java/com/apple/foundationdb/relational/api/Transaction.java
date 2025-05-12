@@ -22,14 +22,20 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 
 import javax.annotation.Nonnull;
+import java.util.Optional;
 
 public interface Transaction extends AutoCloseable {
 
     void commit() throws RelationalException;
 
     void abort() throws RelationalException;
+
+    Optional<SchemaTemplate> getBoundSchemaMaybe();
+
+    void setBoundSchema(@Nonnull SchemaTemplate schemaTemplate);
 
     @Override
     void close() throws RelationalException;

@@ -57,6 +57,7 @@ dmlStatement
 ddlStatement
     : createStatement
     | dropStatement
+    | createTempFunction
     ;
 
 transactionStatement
@@ -165,6 +166,10 @@ indexAttributes
 
 indexAttribute
     : LEGACY_EXTREMUM_EVER
+    ;
+
+createTempFunction
+    : CREATE (OR REPLACE)? TEMPORARY sqlInvokedFunction
     ;
 
 createFunction

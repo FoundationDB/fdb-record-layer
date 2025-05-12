@@ -337,7 +337,12 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Override
-    public CompiledSqlFunction visitCreateFunction(final RelationalParser.CreateFunctionContext ctx) {
+    public CompiledSqlFunction visitCreateTempFunction(@Nonnull RelationalParser.CreateTempFunctionContext ctx) {
+        return visitSqlInvokedFunction(ctx.sqlInvokedFunction());
+    }
+
+    @Override
+    public CompiledSqlFunction visitCreateFunction(@Nonnull RelationalParser.CreateFunctionContext ctx) {
         return visitSqlInvokedFunction(ctx.sqlInvokedFunction());
     }
 
