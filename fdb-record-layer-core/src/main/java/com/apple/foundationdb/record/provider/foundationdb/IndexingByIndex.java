@@ -260,7 +260,7 @@ public class IndexingByIndex extends IndexingBase {
         // had been built already by looking for its primary key in the range set, which is incorrect for most source
         // indexes. After this format version, we are assured that all updates will check the index type first and
         // respond appropriately
-        if (store.getFormatVersion() < FDBRecordStore.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE_FORMAT_VERSION) {
+        if (!store.getFormatVersionEnum().isAtLeast(FormatVersion.CHECK_INDEX_BUILD_TYPE_DURING_UPDATE)) {
             validateOrThrowEx(maintainer.isIdempotent(), "target index is not idempotent");
         }
     }

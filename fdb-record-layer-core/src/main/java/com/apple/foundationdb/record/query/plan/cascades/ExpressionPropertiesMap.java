@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -227,5 +228,10 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
     @Nonnull
     public List<PlanPartition> toPlanPartitions() {
         throw new UnsupportedOperationException("method cannot provide plan partitions");
+    }
+
+    @Nonnull
+    public static ExpressionPropertiesMap<RelationalExpression> defaultForExpressions() {
+        return new ExpressionPropertiesMap<>(RelationalExpression.class, ImmutableSet.of(), ImmutableList.of());
     }
 }

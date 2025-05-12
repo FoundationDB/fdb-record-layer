@@ -258,7 +258,7 @@ public class PredicatePushDownRuleTest {
                 baseQun, List.of("a", "b", "c"),
                 new ConstantPredicate(true)
         );
-        Reference lowerRef = Reference.from(lower1, lower2);
+        Reference lowerRef = Reference.initialOf(lower1, lower2);
         Quantifier lowerQun = Quantifier.forEach(lowerRef);
 
         SelectExpression higher = selectWithPredicates(
@@ -275,7 +275,7 @@ public class PredicatePushDownRuleTest {
                 new ConstantPredicate(true),
                 fieldPredicate(baseQun, "a", EQUALS_42)
         );
-        Reference newLowerRef = Reference.from(newLower1, newLower2);
+        Reference newLowerRef = Reference.initialOf(newLower1, newLower2);
         Quantifier newLowerQun = Quantifier.forEach(newLowerRef);
 
         SelectExpression newHigher = selectWithPredicates(
@@ -299,7 +299,7 @@ public class PredicatePushDownRuleTest {
         // select (which does no filtering or projection).
         Quantifier baseQun2 = baseT();
         SelectExpression selectAllT = selectWithPredicates(baseQun2);
-        baseQun.getRangesOver().insert(selectAllT);
+        baseQun.getRangesOver().insertFinalExpression(selectAllT);
 
         SelectExpression higher = selectWithPredicates(
                 baseQun, List.of("a", "c"),
@@ -634,7 +634,7 @@ public class PredicatePushDownRuleTest {
                 ImmutableList.of("a", "b", "c"),
                 fieldPredicate(baseQun, "d", new Comparisons.SimpleComparison(Comparisons.Type.STARTS_WITH, "blah"))
         );
-        Quantifier lowerQun = Quantifier.forEachWithNullOnEmpty(Reference.of(lowerSelect));
+        Quantifier lowerQun = Quantifier.forEachWithNullOnEmpty(Reference.initialOf(lowerSelect));
 
         SelectExpression higher = selectWithPredicates(lowerQun,
                 ImmutableList.of("a", "c"),
@@ -668,7 +668,7 @@ public class PredicatePushDownRuleTest {
                 ImmutableList.of("a", "b", "c", "d"),
                 fieldPredicate(baseQun, "d", new Comparisons.SimpleComparison(Comparisons.Type.STARTS_WITH, "blah"))
         );
-        Quantifier lowerQun = Quantifier.forEachWithNullOnEmpty(Reference.of(lowerSelect));
+        Quantifier lowerQun = Quantifier.forEachWithNullOnEmpty(Reference.initialOf(lowerSelect));
 
         SelectExpression higher = selectWithPredicates(lowerQun,
                 ImmutableList.of("a", "c"),

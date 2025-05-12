@@ -146,8 +146,9 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
             return;
         }
 
-        final var newRangesOverReference =
-                call.memoizeReference(Reference.from(newBelowExpressions));
+        // TODO: fix memoization
+        final Reference newRangesOverReference = Reference.ofExploratoryExpressions(call.getPlannerPhase().getTargetPlannerStage(),
+                newBelowExpressions);
 
         final var newPushQuantifier = Quantifier.forEachBuilder()
                 .withAlias(pushQuantifier.getAlias())
@@ -162,7 +163,7 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
                 newOwnedQuantifiers,
                 ImmutableList.copyOf(fixedPredicates));
 
-        call.yieldExpression(newSelectExpression);
+        call.yieldExploratoryExpression(newSelectExpression);
     }
 
     private static class PushToVisitor implements RelationalExpressionVisitorWithDefaults<Optional<? extends RelationalExpression>> {
@@ -208,7 +209,7 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
                     TranslationMap.rebaseWithAliasMap(AliasMap.ofAliases(getPushQuantifier().getAlias(),
                             child.getAlias()));
             final var newPredicates = updatedPredicates(translationMap);
-            return Quantifier.forEach(Reference.of(
+            return Quantifier.forEach(Reference.initialOf(
                     new SelectExpression(
                             child.getFlowedObjectValue(),
                             ImmutableList.of(child),

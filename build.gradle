@@ -176,9 +176,6 @@ allprojects {
             logger.warn 'Warning: you have enabled maven local repository. This should only be used on local workstations to test undeployed library dependencies.'
         }
         mavenCentral()
-        maven {
-            url "https://ossartifacts.jfrog.io/artifactory/fdb-record-layer/"
-        }
     }
 }
 

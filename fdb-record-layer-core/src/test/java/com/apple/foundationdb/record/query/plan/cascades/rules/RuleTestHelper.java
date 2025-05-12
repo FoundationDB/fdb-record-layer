@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
@@ -108,7 +109,7 @@ public class RuleTestHelper {
 
     @Nonnull
     private TestRuleExecution run(RelationalExpression original) {
-        Reference ref = Reference.of(original);
+        Reference ref = Reference.ofExploratoryExpression(PlannerStage.CANONICAL, original);
         PlanContext planContext = new FakePlanContext();
         return TestRuleExecution.applyRule(planContext, rule, ref, EvaluationContext.EMPTY);
     }
@@ -117,7 +118,7 @@ public class RuleTestHelper {
     public TestRuleExecution assertYields(RelationalExpression original, RelationalExpression... expected) {
         TestRuleExecution execution = run(original);
         try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
-            softly.assertThat(execution.getResult().getMembers())
+            softly.assertThat(execution.getResult().getAllMemberExpressions())
                     .hasSize(1 + expected.length)
                     .containsAll(List.of(expected));
         }
@@ -128,7 +129,7 @@ public class RuleTestHelper {
     public TestRuleExecution assertYieldsNothing(RelationalExpression original, boolean matched) {
         TestRuleExecution execution = run(original);
         try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
-            softly.assertThat(execution.getResult().getMembers())
+            softly.assertThat(execution.getResult().getAllMemberExpressions())
                     .containsExactly(original);
             softly.assertThat(execution.isRuleMatched())
                     .as("rule should %shave been matched", matched ? "" : "not ")

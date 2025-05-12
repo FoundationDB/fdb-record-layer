@@ -6,14 +6,14 @@ catalog-tests:
         -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._2 AS CNT, _._0 AS
         TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) | MAP (_ AS _0) | AGG (sum_l(_._0.CNT)
         AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)'
-    task_count: 479
-    task_total_time_ms: 45
-    transform_count: 164
-    transform_time_ms: 23
-    transform_yield_count: 39
+    task_count: 584
+    task_total_time_ms: 28
+    transform_count: 152
+    transform_time_ms: 12
+    transform_yield_count: 45
     insert_time_ms: 1
-    insert_new_count: 48
-    insert_reused_count: 3
+    insert_new_count: 61
+    insert_reused_count: 5
 -   query: EXPLAIN select sum(cnt) from (select count(*) as cnt, template_name, template_version
         from schemas group by template_name, template_version having template_name
         = 'TEST_TEMPLATE_1' and template_version = 1) as t;
@@ -22,11 +22,11 @@ catalog-tests:
         | MAP (_._2 AS CNT, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) | MAP
         (_ AS _0) | AGG (sum_l(_._0.CNT) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS
         _0)'
-    task_count: 479
-    task_total_time_ms: 52
-    transform_count: 164
-    transform_time_ms: 24
-    transform_yield_count: 39
+    task_count: 584
+    task_total_time_ms: 31
+    transform_count: 152
+    transform_time_ms: 12
+    transform_yield_count: 45
     insert_time_ms: 1
-    insert_new_count: 48
-    insert_reused_count: 3
+    insert_new_count: 61
+    insert_reused_count: 5

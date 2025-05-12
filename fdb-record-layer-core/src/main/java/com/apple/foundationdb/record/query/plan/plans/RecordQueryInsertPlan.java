@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -101,12 +102,14 @@ public class RecordQueryInsertPlan extends RecordQueryAbstractDataModificationPl
     public RecordQueryInsertPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                        final boolean shouldSimplifyValues,
                                                        @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        Verify.verify(translatedQuantifiers.size() == 1);
+        final var translatedComputationValue = getComputationValue().translateCorrelations(translationMap);
         return new RecordQueryInsertPlan(
                 Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 getTargetRecordType(),
                 getTargetType(),
                 getCoercionTrie(),
-                getComputationValue().translateCorrelations(translationMap));
+                translatedComputationValue);
     }
 
     @Nonnull

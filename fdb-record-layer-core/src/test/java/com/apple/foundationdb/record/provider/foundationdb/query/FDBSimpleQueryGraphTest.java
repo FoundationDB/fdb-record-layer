@@ -148,8 +148,8 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     graphExpansionBuilder.addPredicate(new ValuePredicate(restNoValue, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1L)));
                     graphExpansionBuilder.addResultColumn(resultColumn(nameValue, "nameNew"));
                     graphExpansionBuilder.addResultColumn(resultColumn(restNoValue, "restNoNew"));
-                    qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
-                    return Reference.of(LogicalSortExpression.unsorted(qun));
+                    qun = Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelect()));
+                    return Reference.initialOf(LogicalSortExpression.unsorted(qun));
                 });
 
         assertMatchesExactly(plan,
@@ -179,10 +179,10 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     graphExpansionBuilder.addPredicate(new ValuePredicate(restNoValue, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1L)));
                     graphExpansionBuilder.addResultColumn(resultColumn(nameValue, "nameNew"));
                     graphExpansionBuilder.addResultColumn(resultColumn(restNoValue, "restNoNew"));
-                    qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
+                    qun = Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelect()));
                     final var aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
                     final var orderByValues = List.of(FieldValue.ofOrdinalNumber(qun.getFlowedObjectValue(), 1).rebase(aliasMap));
-                    return Reference.of(sortExpression(orderByValues, true, qun));
+                    return Reference.initialOf(sortExpression(orderByValues, true, qun));
                 });
 
         assertMatchesExactly(plan,
@@ -206,7 +206,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                             ImmutableMap.of("name", "nameNew", "rest_no", "restNoNew"),
                             fieldPredicate(qun, "rest_no", new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1L))
                     ));
-                    return Reference.of(LogicalSortExpression.unsorted(qun));
+                    return Reference.initialOf(LogicalSortExpression.unsorted(qun));
                 });
         assertMatchesExactly(plan,
                 mapPlan(
@@ -227,7 +227,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                             ImmutableList.of("rest_no", "name"),
                             fieldPredicate(qun, "rest_no", new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1_000_000L))
                     ));
-                    return Reference.of(LogicalSortExpression.unsorted(qun));
+                    return Reference.initialOf(LogicalSortExpression.unsorted(qun));
                 });
 
         // Note: this is a bug as the "null on empty" part of the quantifier is dropped
@@ -260,7 +260,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                             ImmutableList.of("rest_no", "name"),
                             fieldPredicate(qun, "name", new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "not_in_db"))
                     ));
-                    return Reference.of(LogicalSortExpression.unsorted(qun));
+                    return Reference.initialOf(LogicalSortExpression.unsorted(qun));
                 });
 
         // Note: this is a bug as the "null on empty" part of the quantifier is dropped
@@ -300,7 +300,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     ));
                     qun = forEach(selectWithPredicates(qun,
                             fieldPredicate(qun, "rest_no", new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1_000L))));
-                    return Reference.of(LogicalSortExpression.unsorted(qun));
+                    return Reference.initialOf(LogicalSortExpression.unsorted(qun));
                 });
 
         // Note: this is a bug as the "null on empty" part is executed at the wrong level. We should be inserting
@@ -352,7 +352,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     ));
                     qun = forEach(selectWithPredicates(qun,
                             fieldPredicate(qun, "rest_no", new Comparisons.NullComparison(Comparisons.Type.IS_NULL))));
-                    return Reference.of(LogicalSortExpression.unsorted(qun));
+                    return Reference.initialOf(LogicalSortExpression.unsorted(qun));
                 });
 
         // Note: this is a bug as the "null on empty" part is executed at the wrong level. We should be inserting
@@ -420,21 +420,20 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     //   SELECT R.name FROM RestaurantRecord AS R WHERE EXISTS (SELECT t.value FROM R.tags AS t WHERE t.value IN $t)
 
                     var qun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
-
                     final var explodeTagsQun = forEach(new ExplodeExpression(fieldValue(qun, "tags")));
                     final var existentialQun = exists(selectWithPredicates(
                             explodeTagsQun, ImmutableList.of("value"),
                             fieldPredicate(explodeTagsQun, "value", new Comparisons.ParameterComparison(inComparison ? Comparisons.Type.IN : Comparisons.Type.EQUALS, tagValueParam))
                     ));
 
-                    qun = Quantifier.forEach(Reference.of(GraphExpansion.builder()
+                    qun = Quantifier.forEach(Reference.initialOf(GraphExpansion.builder()
                             .addQuantifier(qun)
                             .addQuantifier(existentialQun)
                             .addPredicate(new ExistsPredicate(existentialQun.getAlias()))
                             .addResultColumn(projectColumn(qun.getFlowedObjectValue(), "name"))
                             .build()
                             .buildSelect()));
-                    return Reference.of(LogicalSortExpression.unsorted(qun));
+                    return Reference.initialOf(LogicalSortExpression.unsorted(qun));
                 });
 
         if (inComparison) {
@@ -485,8 +484,8 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
                     var qun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
 
-                    final var explodeTagsQun = Quantifier.forEach(Reference.of(new ExplodeExpression(FieldValue.ofFieldName(qun.getFlowedObjectValue(), "tags"))));
-                    final var existentialQun = Quantifier.existential(Reference.of(GraphExpansion.builder()
+                    final var explodeTagsQun = Quantifier.forEach(Reference.initialOf(new ExplodeExpression(FieldValue.ofFieldName(qun.getFlowedObjectValue(), "tags"))));
+                    final var existentialQun = Quantifier.existential(Reference.initialOf(GraphExpansion.builder()
                             .addQuantifier(explodeTagsQun)
                             .addResultColumn(projectColumn(explodeTagsQun.getFlowedObjectValue(), "value"))
                             .addPredicate(new ValuePredicate(FieldValue.ofFieldName(explodeTagsQun.getFlowedObjectValue(), "value"),
@@ -494,7 +493,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                             .build()
                             .buildSelect()));
 
-                    qun = Quantifier.forEach(Reference.of(GraphExpansion.builder()
+                    qun = Quantifier.forEach(Reference.initialOf(GraphExpansion.builder()
                             .addQuantifier(qun)
                             .addQuantifier(existentialQun)
                             .addPredicate(new ValuePredicate(FieldValue.ofFieldName(qun.getFlowedObjectValue(), "name"), new Comparisons.ParameterComparison(Comparisons.Type.IN, nameValueParam)))
@@ -502,7 +501,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                             .addResultColumn(projectColumn(qun.getFlowedObjectValue(), "rest_no"))
                             .build()
                             .buildSelect()));
-                    return Reference.of(LogicalSortExpression.unsorted(qun));
+                    return Reference.initialOf(LogicalSortExpression.unsorted(qun));
                 });
 
         // IN-comparison is done via a complete scan followed by executing a full scan and then compensating
@@ -549,8 +548,8 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     graphExpansionBuilder.addPredicate(new ValuePredicate(restNoValue, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1L)));
                     graphExpansionBuilder.addResultColumn(resultColumn(nameValue, "nameNew"));
                     graphExpansionBuilder.addResultColumn(resultColumn(restNoValue, "restNoNew"));
-                    qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
-                    return Reference.of(LogicalSortExpression.unsorted(qun));
+                    qun = Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelect()));
+                    return Reference.initialOf(LogicalSortExpression.unsorted(qun));
                 },
                 allowedIndexesOptional,
                 IndexQueryabilityFilter.TRUE,
@@ -578,8 +577,8 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     graphExpansionBuilder.addPredicate(new ValuePredicate(restNoValue, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1L)));
                     graphExpansionBuilder.addResultColumn(resultColumn(nameValue, "nameNew"));
                     graphExpansionBuilder.addResultColumn(resultColumn(restNoValue, "restNoNew"));
-                    qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
-                    return Reference.of(LogicalSortExpression.unsorted(qun));
+                    qun = Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelect()));
+                    return Reference.initialOf(LogicalSortExpression.unsorted(qun));
                 });
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
@@ -600,7 +599,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 () -> {
                     var outerQun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
                     final var explodeQun =
-                            Quantifier.forEach(Reference.of(
+                            Quantifier.forEach(Reference.initialOf(
                                     new ExplodeExpression(FieldValue.ofFieldName(QuantifiedObjectValue.of(outerQun.getAlias(), outerQun.getFlowedObjectType()), "reviews"))));
 
                     var graphExpansionBuilder = GraphExpansion.builder();
@@ -611,7 +610,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
                     final var explodeResultValue = QuantifiedObjectValue.of(explodeQun.getAlias(), explodeQun.getFlowedObjectType());
                     graphExpansionBuilder.addResultColumn(resultColumn(explodeResultValue, "review"));
-                    outerQun = Quantifier.forEach(Reference.of(
+                    outerQun = Quantifier.forEach(Reference.initialOf(
                             graphExpansionBuilder.build().buildSelect()));
 
                     graphExpansionBuilder = GraphExpansion.builder();
@@ -628,8 +627,8 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     final var reviewRatingValue = FieldValue.ofFieldNames(outerQuantifiedValue, ImmutableList.of("review", "rating"));
                     graphExpansionBuilder.addResultColumn(resultColumn(reviewRatingValue, "reviewRating"));
 
-                    final var qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
-                    return Reference.of(LogicalSortExpression.unsorted(qun));
+                    final var qun = Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelect()));
+                    return Reference.initialOf(LogicalSortExpression.unsorted(qun));
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
@@ -698,7 +697,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                 () -> {
                     var outerQun = fullTypeScan(cascadesPlanner.getRecordMetaData(), "RestaurantRecord");
                     final var explodeQun =
-                            Quantifier.forEach(Reference.of(
+                            Quantifier.forEach(Reference.initialOf(
                                     new ExplodeExpression(FieldValue.ofFieldName(QuantifiedObjectValue.of(outerQun.getAlias(), outerQun.getFlowedObjectType()), "reviews"))));
 
                     var graphExpansionBuilder = GraphExpansion.builder();
@@ -709,7 +708,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
                     final var explodeResultValue = QuantifiedObjectValue.of(explodeQun.getAlias(), explodeQun.getFlowedObjectType());
                     graphExpansionBuilder.addResultColumn(resultColumn(explodeResultValue, "review"));
-                    outerQun = Quantifier.forEach(Reference.of(
+                    outerQun = Quantifier.forEach(Reference.initialOf(
                             graphExpansionBuilder.build().buildSelect()));
 
                     graphExpansionBuilder = GraphExpansion.builder();
@@ -731,8 +730,8 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     final var reviewRatingValue = FieldValue.ofFieldNames(outerQuantifiedValue, ImmutableList.of("review", "rating"));
                     graphExpansionBuilder.addResultColumn(resultColumn(reviewRatingValue, "reviewRating"));
 
-                    final var qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
-                    return Reference.of(LogicalSortExpression.unsorted(qun));
+                    final var qun = Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelect()));
+                    return Reference.initialOf(LogicalSortExpression.unsorted(qun));
                 });
     }
 
@@ -1150,7 +1149,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     var reviewsGraphExpansionBuilder = GraphExpansion.builder();
 
                     var explodeReviewsQun =
-                            Quantifier.forEach(Reference.of(
+                            Quantifier.forEach(Reference.initialOf(
                                     new ExplodeExpression(FieldValue.ofFieldName(QuantifiedObjectValue.of(restaurantQun.getAlias(), restaurantQun.getFlowedObjectType()), "reviews"))));
 
                     reviewsGraphExpansionBuilder.addQuantifier(explodeReviewsQun);
@@ -1159,7 +1158,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
                     var explodeResultValue = QuantifiedObjectValue.of(explodeReviewsQun.getAlias(), explodeReviewsQun.getFlowedObjectType());
                     reviewsGraphExpansionBuilder.addResultColumn(resultColumn(explodeResultValue, "review"));
-                    final var existential1Quantifier = Quantifier.existential(Reference.of(reviewsGraphExpansionBuilder.build().buildSelect()));
+                    final var existential1Quantifier = Quantifier.existential(Reference.initialOf(reviewsGraphExpansionBuilder.build().buildSelect()));
 
                     graphExpansionBuilder.addQuantifier(existential1Quantifier);
                     graphExpansionBuilder.addPredicate(new ExistsPredicate(existential1Quantifier.getAlias()));
@@ -1167,7 +1166,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     reviewsGraphExpansionBuilder = GraphExpansion.builder();
 
                     explodeReviewsQun =
-                            Quantifier.forEach(Reference.of(
+                            Quantifier.forEach(Reference.initialOf(
                                     new ExplodeExpression(FieldValue.ofFieldName(QuantifiedObjectValue.of(restaurantQun.getAlias(), restaurantQun.getFlowedObjectType()), "reviews"))));
 
                     reviewsGraphExpansionBuilder.addQuantifier(explodeReviewsQun);
@@ -1176,7 +1175,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
                     explodeResultValue = QuantifiedObjectValue.of(explodeReviewsQun.getAlias(), explodeReviewsQun.getFlowedObjectType());
                     reviewsGraphExpansionBuilder.addResultColumn(resultColumn(explodeResultValue, "review"));
-                    var existential2Quantifier = Quantifier.existential(Reference.of(reviewsGraphExpansionBuilder.build().buildSelect()));
+                    var existential2Quantifier = Quantifier.existential(Reference.initialOf(reviewsGraphExpansionBuilder.build().buildSelect()));
 
                     graphExpansionBuilder.addQuantifier(existential2Quantifier);
                     graphExpansionBuilder.addPredicate(new ExistsPredicate(existential2Quantifier.getAlias()));
@@ -1195,8 +1194,8 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     graphExpansionBuilder.addResultColumn(resultColumn(restaurantNameValue, "restaurantName"));
                     graphExpansionBuilder.addResultColumn(resultColumn(restaurantNoValue, "restaurantNo"));
 
-                    final var qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
-                    return Reference.of(LogicalSortExpression.unsorted(qun));
+                    final var qun = Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelect()));
+                    return Reference.initialOf(LogicalSortExpression.unsorted(qun));
                 },
                 Optional.empty(),
                 IndexQueryabilityFilter.DEFAULT,
@@ -1225,7 +1224,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     var reviewsGraphExpansionBuilder = GraphExpansion.builder();
 
                     var explodeReviewsQun =
-                            Quantifier.forEach(Reference.of(
+                            Quantifier.forEach(Reference.initialOf(
                                     new ExplodeExpression(FieldValue.ofFieldName(QuantifiedObjectValue.of(restaurantQun.getAlias(), restaurantQun.getFlowedObjectType()), "reviews"))));
 
                     reviewsGraphExpansionBuilder.addQuantifier(explodeReviewsQun);
@@ -1234,7 +1233,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
                     var explodeResultValue = QuantifiedObjectValue.of(explodeReviewsQun.getAlias(), explodeReviewsQun.getFlowedObjectType());
                     reviewsGraphExpansionBuilder.addResultColumn(resultColumn(explodeResultValue, "review"));
-                    final var existential1Quantifier = Quantifier.existential(Reference.of(reviewsGraphExpansionBuilder.build().buildSelect()));
+                    final var existential1Quantifier = Quantifier.existential(Reference.initialOf(reviewsGraphExpansionBuilder.build().buildSelect()));
 
                     graphExpansionBuilder.addQuantifier(existential1Quantifier);
                     graphExpansionBuilder.addPredicate(new ExistsPredicate(existential1Quantifier.getAlias()));
@@ -1242,7 +1241,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     reviewsGraphExpansionBuilder = GraphExpansion.builder();
 
                     explodeReviewsQun =
-                            Quantifier.forEach(Reference.of(
+                            Quantifier.forEach(Reference.initialOf(
                                     new ExplodeExpression(FieldValue.ofFieldName(QuantifiedObjectValue.of(restaurantQun.getAlias(), restaurantQun.getFlowedObjectType()), "reviews"))));
 
                     reviewsGraphExpansionBuilder.addQuantifier(explodeReviewsQun);
@@ -1251,7 +1250,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
                     explodeResultValue = QuantifiedObjectValue.of(explodeReviewsQun.getAlias(), explodeReviewsQun.getFlowedObjectType());
                     reviewsGraphExpansionBuilder.addResultColumn(resultColumn(explodeResultValue, "review"));
-                    var existential2Quantifier = Quantifier.existential(Reference.of(reviewsGraphExpansionBuilder.build().buildSelect()));
+                    var existential2Quantifier = Quantifier.existential(Reference.initialOf(reviewsGraphExpansionBuilder.build().buildSelect()));
 
                     graphExpansionBuilder.addQuantifier(existential2Quantifier);
                     graphExpansionBuilder.addPredicate(new ExistsPredicate(existential2Quantifier.getAlias()));
@@ -1270,8 +1269,8 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     graphExpansionBuilder.addResultColumn(resultColumn(restaurantNameValue, "restaurantName"));
                     graphExpansionBuilder.addResultColumn(resultColumn(restaurantNoValue, "restaurantNo"));
 
-                    final var qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
-                    return Reference.of(LogicalSortExpression.unsorted(qun));
+                    final var qun = Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelect()));
+                    return Reference.initialOf(LogicalSortExpression.unsorted(qun));
                 });
 
         // TODO write a matcher when this plan becomes more stable
@@ -1298,8 +1297,8 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
                     graphExpansionBuilder.addPredicate(new ConstantPredicate(true));
                     graphExpansionBuilder.addResultColumn(resultColumn(nameValue, "nameNew"));
                     graphExpansionBuilder.addResultColumn(resultColumn(restNoValue, "restNoNew"));
-                    qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
-                    return Reference.of(LogicalSortExpression.unsorted(qun));
+                    qun = Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelect()));
+                    return Reference.initialOf(LogicalSortExpression.unsorted(qun));
                 });
 
         assertMatchesExactly(plan,

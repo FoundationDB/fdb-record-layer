@@ -72,17 +72,17 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 public class FDBQueryGraphTestHelpers extends FDBRecordStoreQueryTestBase {
     @Nonnull
     public static Quantifier forEach(RelationalExpression relationalExpression) {
-        return Quantifier.forEach(Reference.of(relationalExpression));
+        return Quantifier.forEach(Reference.initialOf(relationalExpression));
     }
 
     @Nonnull
     public static Quantifier forEachWithNullOnEmpty(RelationalExpression relationalExpression) {
-        return Quantifier.forEachWithNullOnEmpty(Reference.of(relationalExpression));
+        return Quantifier.forEachWithNullOnEmpty(Reference.initialOf(relationalExpression));
     }
 
     @Nonnull
     public static Quantifier exists(RelationalExpression relationalExpression) {
-        return Quantifier.existential(Reference.of(relationalExpression));
+        return Quantifier.existential(Reference.initialOf(relationalExpression));
     }
 
     @Nonnull

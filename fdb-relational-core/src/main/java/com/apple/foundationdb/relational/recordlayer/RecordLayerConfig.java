@@ -25,9 +25,9 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.TransformedRecordSerializer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 
+import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
 import com.google.protobuf.Message;
 
 import java.util.Map;
@@ -41,7 +41,7 @@ import java.util.zip.Deflater;
 public final class RecordLayerConfig {
     private final FDBRecordStoreBase.UserVersionChecker userVersionChecker;
     private final RecordSerializer<Message> serializer;
-    private final int formatVersion;
+    private final FormatVersion formatVersion;
     private final Map<String, IndexState> indexStateMap;
 
     private static final RecordSerializer<Message> DEFAULT_RELATIONAL_SERIALIZER = TransformedRecordSerializer.newDefaultBuilder()
@@ -66,7 +66,7 @@ public final class RecordLayerConfig {
         return serializer;
     }
 
-    public int getFormatVersion() {
+    public FormatVersion getFormatVersion() {
         return formatVersion;
     }
 
@@ -81,13 +81,13 @@ public final class RecordLayerConfig {
     public static class RecordLayerConfigBuilder {
         private FDBRecordStoreBase.UserVersionChecker userVersionChecker;
         private final RecordSerializer<Message> serializer;
-        private int formatVersion;
+        private FormatVersion formatVersion;
         private Map<String, IndexState> indexStateMap;
 
         public RecordLayerConfigBuilder() {
             this.userVersionChecker = (oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldUserVersion);
             this.serializer = DEFAULT_RELATIONAL_SERIALIZER;
-            this.formatVersion = FDBRecordStore.DEFAULT_FORMAT_VERSION;
+            this.formatVersion = FormatVersion.getDefaultFormatVersion();
             this.indexStateMap = Map.of();
         }
 
@@ -96,7 +96,13 @@ public final class RecordLayerConfig {
             return this;
         }
 
+        @Deprecated(forRemoval = true)
         public RecordLayerConfigBuilder setFormatVersion(int formatVersion) {
+            this.formatVersion = FormatVersion.getFormatVersion(formatVersion);
+            return this;
+        }
+
+        public RecordLayerConfigBuilder setFormatVersion(FormatVersion formatVersion) {
             this.formatVersion = formatVersion;
             return this;
         }

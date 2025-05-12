@@ -239,7 +239,7 @@ public class FDBIndexInput extends IndexInput {
      *
      * The relative position plus any initial offsets provided (slice).
      *
-     * @return postion+initialOffset
+     * @return position+initialOffset
      */
     private long absolutePosition() {
         return position + initialOffset;

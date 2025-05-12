@@ -2,46 +2,46 @@ unnamed-2:
 -   query: EXPLAIN select * from (select * from (select * from T1) as x where ID =
         5) as y;
     explain: SCAN(<,>) | FILTER _.ID EQUALS promote(@c19 AS LONG)
-    task_count: 178
-    task_total_time_ms: 108
-    transform_count: 66
-    transform_time_ms: 77
-    transform_yield_count: 12
-    insert_time_ms: 4
-    insert_new_count: 9
-    insert_reused_count: 1
+    task_count: 298
+    task_total_time_ms: 7
+    transform_count: 79
+    transform_time_ms: 1
+    transform_yield_count: 18
+    insert_time_ms: 0
+    insert_new_count: 23
+    insert_reused_count: 4
 -   query: EXPLAIN select * from (select * from (select * from T1) as x) as y where
         ID = 5;
     explain: SCAN(<,>) | FILTER _.ID EQUALS promote(@c22 AS LONG)
-    task_count: 175
-    task_total_time_ms: 102
-    transform_count: 67
-    transform_time_ms: 78
-    transform_yield_count: 12
-    insert_time_ms: 3
-    insert_new_count: 9
-    insert_reused_count: 1
+    task_count: 304
+    task_total_time_ms: 8
+    transform_count: 82
+    transform_time_ms: 2
+    transform_yield_count: 18
+    insert_time_ms: 0
+    insert_new_count: 24
+    insert_reused_count: 5
 -   query: EXPLAIN select count(*) from (select * from (select * from (select * from
         T1  where ID = 5) as x) as y) as z;
     explain: SCAN([EQUALS promote(@c23 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*)
         AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)
-    task_count: 395
-    task_total_time_ms: 106
-    transform_count: 142
-    transform_time_ms: 65
-    transform_yield_count: 22
-    insert_time_ms: 3
-    insert_new_count: 31
-    insert_reused_count: 1
+    task_count: 503
+    task_total_time_ms: 10
+    transform_count: 130
+    transform_time_ms: 1
+    transform_yield_count: 28
+    insert_time_ms: 0
+    insert_new_count: 42
+    insert_reused_count: 2
 -   query: EXPLAIN select * from (select * from (select * from (select * from T1  where
         ID > 10) as x) as y) as z;
     explain: SCAN([[GREATER_THAN promote(@c20 AS LONG)]])
-    task_count: 277
-    task_total_time_ms: 119
-    transform_count: 100
-    transform_time_ms: 86
-    transform_yield_count: 19
-    insert_time_ms: 2
-    insert_new_count: 16
-    insert_reused_count: 0
+    task_count: 424
+    task_total_time_ms: 5
+    transform_count: 114
+    transform_time_ms: 1
+    transform_yield_count: 26
+    insert_time_ms: 0
+    insert_new_count: 31
+    insert_reused_count: 2

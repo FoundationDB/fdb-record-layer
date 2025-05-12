@@ -76,8 +76,13 @@ public abstract class FDBRecordStoreTestBase extends FDBRecordStoreConcurrentTes
 
     @Nonnull
     public static Stream<Arguments> formatVersionAndSplitArgs() {
-        return Stream.of(FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION - 1, FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION, FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
-                .flatMap(formatVersion -> Stream.of(Arguments.of(formatVersion, false), Arguments.of(formatVersion, true)));
+        return Stream.of(
+                        FormatVersionTestUtils.previous(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX),
+                        FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX,
+                        FormatVersion.getMaximumSupportedVersion())
+                .flatMap(formatVersion -> Stream.of(
+                        Arguments.of(formatVersion, false),
+                        Arguments.of(formatVersion, true)));
     }
 
     /**
@@ -111,6 +116,10 @@ public abstract class FDBRecordStoreTestBase extends FDBRecordStoreConcurrentTes
         recordStore = recordStoreQueryPlannerPair.getLeft();
         planner = recordStoreQueryPlannerPair.getRight();
         return recordStoreQueryPlannerPair;
+    }
+
+    public FDBRecordStore openSimpleRecordStore(FDBRecordContext context, @Nullable RecordMetaDataHook hook, @Nonnull FormatVersion formatVersion) {
+        return createOrOpenRecordStore(context, simpleMetaData(hook), path, formatVersion);
     }
 
     @Nonnull
