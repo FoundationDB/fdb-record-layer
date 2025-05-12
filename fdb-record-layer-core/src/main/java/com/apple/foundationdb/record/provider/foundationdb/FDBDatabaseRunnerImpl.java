@@ -311,12 +311,25 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
             return;
         }
         closed = true;
+        // Ensure we call both close() methods, give preference to the transactionalRunner's exception if both throw one
+        RuntimeException caught = null;
         try {
             futureManager.close();
-        } catch (Exception e) {
-            LOGGER.warn("Caught exception while closing", e);
+        } catch (RuntimeException e) {
+            caught = e;
         }
-        transactionalRunner.close();
+        try {
+            transactionalRunner.close();
+        } catch (RuntimeException e) {
+            if (caught != null) {
+                LOGGER.warn("Caught exception while closing", caught);
+            }
+            // replace
+            caught = e;
+        }
+        if (caught != null) {
+            throw caught;
+        }
     }
 
     @Override
