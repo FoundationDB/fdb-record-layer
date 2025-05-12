@@ -114,9 +114,9 @@ public class CompiledSqlFunction extends UserDefinedFunction {
             }
             resultBuilder.addResultColumn(Column.of(Optional.of(getParameterName(paramIdx)), argumentValue));
         }
-        final var qun = Quantifier.forEach(Reference.of(resultBuilder.addQuantifier(rangeOfOnePlan()).build().buildSelect()),
+        final var qun = Quantifier.forEach(Reference.initialOf(resultBuilder.addQuantifier(rangeOfOnePlan()).build().buildSelect()),
                 parametersCorrelation.get());
-        final var bodyQun = Quantifier.forEach(Reference.of(body));
+        final var bodyQun = Quantifier.forEach(Reference.initialOf(body));
         final var selectBuilder = GraphExpansion.builder()
                 .addQuantifier(bodyQun)
                 .addQuantifier(qun);
@@ -150,9 +150,9 @@ public class CompiledSqlFunction extends UserDefinedFunction {
             final var maybePromotedArgument = PromoteValue.inject(argumentValue, conputeParameterType(name));
             resultBuilder.addResultColumn(Column.of(Optional.of(name), maybePromotedArgument));
         }
-        final var qun = Quantifier.forEach(Reference.of(resultBuilder.addQuantifier(rangeOfOnePlan()).build().buildSelect()),
+        final var qun = Quantifier.forEach(Reference.initialOf(resultBuilder.addQuantifier(rangeOfOnePlan()).build().buildSelect()),
                 parametersCorrelation.get());
-        final var bodyQun = Quantifier.forEach(Reference.of(body));
+        final var bodyQun = Quantifier.forEach(Reference.initialOf(body));
         final var selectBuilder = GraphExpansion.builder()
                 .addQuantifier(bodyQun)
                 .addQuantifier(qun);
@@ -171,7 +171,7 @@ public class CompiledSqlFunction extends UserDefinedFunction {
         final var rangeValue = Assert.castUnchecked(rangeFunction.encapsulate(ImmutableList.of(LiteralValue.ofScalar(1L))),
                 StreamingValue.class);
         final var tableFunctionExpression = new TableFunctionExpression(rangeValue);
-        return Quantifier.forEach(Reference.of(tableFunctionExpression));
+        return Quantifier.forEach(Reference.initialOf(tableFunctionExpression));
     }
 
     /**
@@ -213,7 +213,7 @@ public class CompiledSqlFunction extends UserDefinedFunction {
                     final var select = GraphExpansion.builder()
                             .addAllResultColumns(parameters.underlyingAsColumns())
                             .build().buildSelect();
-                    qun = Quantifier.forEach(Reference.of(select));
+                    qun = Quantifier.forEach(Reference.initialOf(select));
                 }
                 return Optional.of(qun);
             }

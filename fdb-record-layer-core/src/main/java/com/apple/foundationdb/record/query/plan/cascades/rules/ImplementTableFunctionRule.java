@@ -21,8 +21,8 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableFunctionPlan;
@@ -35,7 +35,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * A rule that implements a table function expression into a {@link RecordQueryTableFunctionPlan}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ImplementTableFunctionRule extends CascadesRule<TableFunctionExpression> {
+public class ImplementTableFunctionRule extends ImplementationCascadesRule<TableFunctionExpression> {
     private static final BindingMatcher<TableFunctionExpression> root =
             tableFunctionExpression();
 
@@ -44,8 +44,8 @@ public class ImplementTableFunctionRule extends CascadesRule<TableFunctionExpres
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
         final var tableFunctionExpression = call.get(root);
-        call.yieldExpression(new RecordQueryTableFunctionPlan(tableFunctionExpression.getValue()));
+        call.yieldPlan(new RecordQueryTableFunctionPlan(tableFunctionExpression.getValue()));
     }
 }

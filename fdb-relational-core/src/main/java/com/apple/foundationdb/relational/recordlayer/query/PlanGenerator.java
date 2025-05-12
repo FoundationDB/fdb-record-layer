@@ -31,7 +31,7 @@ import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesCostModel;
+import com.apple.foundationdb.record.query.plan.cascades.PlanningCostModel;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -190,7 +190,7 @@ public final class PlanGenerator {
                                     final var result = (QueryPlan.PhysicalQueryPlan) candidate;
                                     final var candidateQueryPlan = result.getRecordQueryPlan();
                                     var bestQueryPlan = acc == null ? null : ((QueryPlan.PhysicalQueryPlan) acc).getRecordQueryPlan();
-                                    if (bestQueryPlan == null || new CascadesCostModel(planner.getConfiguration()).compare(candidateQueryPlan, bestQueryPlan) < 0) {
+                                    if (bestQueryPlan == null || new PlanningCostModel(planner.getConfiguration()).compare(candidateQueryPlan, bestQueryPlan) < 0) {
                                         return candidate;
                                     } else {
                                         return acc;

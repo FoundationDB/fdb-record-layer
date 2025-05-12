@@ -65,7 +65,7 @@ public class FDBQueryGraphTestHelpers extends FDBRecordStoreQueryTestBase {
     @Nonnull
     static Quantifier fullScan(@Nonnull RecordMetaData metaData, AccessHints hints) {
         Set<String> allRecordTypes = ImmutableSet.copyOf(metaData.getRecordTypes().keySet());
-        return Quantifier.forEach(Reference.of(
+        return Quantifier.forEach(Reference.initialOf(
                 new FullUnorderedScanExpression(allRecordTypes,
                         new Type.AnyRecord(false),
                         hints)));
@@ -78,7 +78,7 @@ public class FDBQueryGraphTestHelpers extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     static Quantifier fullTypeScan(@Nonnull RecordMetaData metaData, @Nonnull String typeName, @Nonnull Quantifier fullScanQun) {
-        return Quantifier.forEach(Reference.of(
+        return Quantifier.forEach(Reference.initialOf(
                 new LogicalTypeFilterExpression(ImmutableSet.of(typeName),
                         fullScanQun,
                         Record.fromDescriptor(metaData.getRecordType(typeName).getDescriptor()))));

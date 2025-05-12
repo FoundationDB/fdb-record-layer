@@ -3,79 +3,79 @@ subquery-tests:
     explain: SCAN(<,>) | TFILTER A | FILTER _.IDA EQUALS promote(@c15 AS INT) | MAP
         (_.IDA AS IDA) | DEFAULT NULL | FLATMAP q0 -> { SCAN(<,>) | TFILTER A | FILTER
         q0 NOT_NULL AS q1 RETURN (q1.IDA AS IDA) }
-    task_count: 576
-    task_total_time_ms: 23
-    transform_count: 168
-    transform_time_ms: 5
-    transform_yield_count: 31
-    insert_time_ms: 1
-    insert_new_count: 56
-    insert_reused_count: 2
+    task_count: 735
+    task_total_time_ms: 33
+    transform_count: 196
+    transform_time_ms: 7
+    transform_yield_count: 41
+    insert_time_ms: 2
+    insert_new_count: 74
+    insert_reused_count: 4
 -   query: EXPLAIN select idx from x where exists (select x from a where ida = 1);
     explain: SCAN(<,>) | TFILTER A | FILTER _.IDA EQUALS promote(@c15 AS INT) | MAP
         (_.X AS X) | DEFAULT NULL | FLATMAP q0 -> { SCAN(<,>) | TFILTER X | FILTER
         q0 NOT_NULL AS q1 RETURN (q1.IDX AS IDX) }
-    task_count: 671
-    task_total_time_ms: 135
-    transform_count: 195
-    transform_time_ms: 82
-    transform_yield_count: 39
-    insert_time_ms: 7
-    insert_new_count: 62
-    insert_reused_count: 3
+    task_count: 763
+    task_total_time_ms: 27
+    transform_count: 204
+    transform_time_ms: 5
+    transform_yield_count: 46
+    insert_time_ms: 1
+    insert_new_count: 77
+    insert_reused_count: 4
 -   query: EXPLAIN select x from a where exists (select a.x, max(idb) from b where
         q > a.x group by q)
     explain: SCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]])
         | MAP (_ AS _0) | AGG (max_i(_._0.IDB) AS _0) GROUP BY (_._0.Q AS _0) | MAP
         (q0.X AS X, _._1._0 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN
         (q0.X AS X) }
-    task_count: 542
-    task_total_time_ms: 104
-    transform_count: 170
-    transform_time_ms: 55
-    transform_yield_count: 40
-    insert_time_ms: 2
-    insert_new_count: 52
-    insert_reused_count: 3
+    task_count: 676
+    task_total_time_ms: 25
+    transform_count: 181
+    transform_time_ms: 7
+    transform_yield_count: 49
+    insert_time_ms: 1
+    insert_new_count: 71
+    insert_reused_count: 4
 -   query: EXPLAIN select x from a where exists (select x, max(idb) from b where q
         > x group by q)
     explain: SCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]])
         | MAP (_ AS _0) | AGG (max_i(_._0.IDB) AS _0) GROUP BY (_._0.Q AS _0) | MAP
         (q0.X AS X, _._1._0 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN
         (q0.X AS X) }
-    task_count: 542
-    task_total_time_ms: 106
-    transform_count: 170
-    transform_time_ms: 56
-    transform_yield_count: 40
-    insert_time_ms: 3
-    insert_new_count: 52
-    insert_reused_count: 3
+    task_count: 676
+    task_total_time_ms: 30
+    transform_count: 181
+    transform_time_ms: 8
+    transform_yield_count: 49
+    insert_time_ms: 1
+    insert_new_count: 71
+    insert_reused_count: 4
 -   query: EXPLAIN select x from a where exists (select max(x), max(idb) from b where
         q > x group by q)
     explain: SCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]])
         | MAP (_ AS _0) | AGG (max_i(q0.X) AS _0, max_i(_._0.IDB) AS _1) GROUP BY
         (_._0.Q AS _0) | MAP (_._1._0 AS _0, _._1._1 AS _1) | DEFAULT NULL | FILTER
         _ NOT_NULL AS q0 RETURN (q0.X AS X) }
-    task_count: 542
-    task_total_time_ms: 102
-    transform_count: 170
-    transform_time_ms: 52
-    transform_yield_count: 40
-    insert_time_ms: 3
-    insert_new_count: 52
-    insert_reused_count: 3
+    task_count: 676
+    task_total_time_ms: 31
+    transform_count: 181
+    transform_time_ms: 9
+    transform_yield_count: 49
+    insert_time_ms: 1
+    insert_new_count: 71
+    insert_reused_count: 4
 -   query: EXPLAIN select x from a where exists (select max(a.x), max(idb) from b
         where q > x group by q)
     explain: SCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]])
         | MAP (_ AS _0) | AGG (max_i(q0.X) AS _0, max_i(_._0.IDB) AS _1) GROUP BY
         (_._0.Q AS _0) | MAP (_._1._0 AS _0, _._1._1 AS _1) | DEFAULT NULL | FILTER
         _ NOT_NULL AS q0 RETURN (q0.X AS X) }
-    task_count: 542
-    task_total_time_ms: 33
-    transform_count: 170
-    transform_time_ms: 13
-    transform_yield_count: 40
-    insert_time_ms: 2
-    insert_new_count: 52
-    insert_reused_count: 3
+    task_count: 676
+    task_total_time_ms: 31
+    transform_count: 181
+    transform_time_ms: 9
+    transform_yield_count: 49
+    insert_time_ms: 1
+    insert_new_count: 71
+    insert_reused_count: 4

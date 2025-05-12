@@ -22,8 +22,8 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
@@ -55,12 +55,12 @@ import java.util.List;
 import static com.apple.foundationdb.record.query.plan.cascades.PlanPropertiesMap.allAttributesExcept;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifier;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.filterPartition;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.rollUpPartitionsTo;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.filterPartition;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifier;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalDistinctExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalUnionExpression;
 
@@ -71,7 +71,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpression> {
+public class ImplementDistinctUnionRule extends ImplementationCascadesRule<LogicalDistinctExpression> {
 
     @Nonnull
     private static final CollectionMatcher<PlanPartition> unionLegPlanPartitionsMatcher = all(anyPlanPartition());
@@ -101,8 +101,8 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
 
     @Override
     @SuppressWarnings({"java:S135", "UnstableApiUsage"})
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
-        final var requestedOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
+    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+        final var requestedOrderingsOptional = call.getPlannerConstraintMaybe(RequestedOrderingConstraint.REQUESTED_ORDERING);
         if (requestedOrderingsOptional.isEmpty()) {
             return;
         }
@@ -203,7 +203,7 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                     final var newQuantifiers =
                             Streams.zip(partitions.stream(),
                                             allForEachQuantifiers.stream(),
-                                            (partition, quantifier) -> call.memoizeMemberPlans(quantifier.getRangesOver(), partition.getPlans()))
+                                            (partition, quantifier) -> call.memoizeMemberPlansFromOther(quantifier.getRangesOver(), partition.getPlans()))
                                     .map(Quantifier::physical)
                                     .collect(ImmutableList.toImmutableList());
 
@@ -223,14 +223,14 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                                 RecordQueryUnionPlan.fromQuantifiers(newQuantifiers,
                                         comparisonOrderingParts, comparisonIsReverse,
                                         true);
-                        call.yieldExpression(unionPlan);
+                        call.yieldPlan(unionPlan);
                     }
                 }
             }
         }
     }
 
-    private void pushInterestingOrders(@Nonnull final CascadesRuleCall call,
+    private void pushInterestingOrders(@Nonnull final ImplementationCascadesRuleCall call,
                                        @Nonnull final Quantifier unionForEachQuantifier,
                                        @Nonnull final ImmutableList<Ordering> providedOrderings,
                                        @Nonnull final RequestedOrdering requestedOrdering) {

@@ -347,7 +347,7 @@ public class ExplainPlanVisitorTest {
     private static NonnullPair<RecordQueryPlan, String> randomMapPlan(@Nonnull Random r, double decay) {
         NonnullPair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
         Value resultValue = LiteralValue.ofScalar("a_value");
-        return NonnullPair.of(new RecordQueryMapPlan(Quantifier.physical(Reference.of(childPlan.getLeft())), resultValue),
+        return NonnullPair.of(new RecordQueryMapPlan(Quantifier.physical(Reference.plannedOf(childPlan.getLeft())), resultValue),
                 String.format("%s | MAP %s", childPlan.getRight(), resultValue));
     }
 

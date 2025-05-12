@@ -101,7 +101,7 @@ public class PlanSerializationTest {
                 QueryPlanConstraint.tautology());
         final var plan = new RecordQueryDefaultOnEmptyPlan(Quantifier
                 .Physical.physicalBuilder().withAlias(CorrelationIdentifier.of("q42")).build(
-                        Reference.of(indexPlan)
+                        Reference.plannedOf(indexPlan)
                 ), new NullValue(Type.primitiveType(Type.TypeCode.INT, true)));
 
         PlanSerializationContext planSerializationContext = PlanSerializationContext.newForCurrentMode();

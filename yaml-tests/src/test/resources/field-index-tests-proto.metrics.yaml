@@ -4,33 +4,33 @@ field-index-tests-proto:
     explain: SCAN([EQUALS promote(@c23 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*)
         AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)
-    task_count: 324
-    task_total_time_ms: 3
-    transform_count: 114
-    transform_time_ms: 0
-    transform_yield_count: 19
+    task_count: 503
+    task_total_time_ms: 10
+    transform_count: 130
+    transform_time_ms: 2
+    transform_yield_count: 28
     insert_time_ms: 0
-    insert_new_count: 23
-    insert_reused_count: 0
+    insert_new_count: 42
+    insert_reused_count: 2
 -   query: EXPLAIN select sum(COL1) from "MyTable";
     explain: SCAN(<,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL
         | MAP (_._0._0 AS _0)
-    task_count: 178
-    task_total_time_ms: 5
-    transform_count: 59
-    transform_time_ms: 1
-    transform_yield_count: 12
+    task_count: 265
+    task_total_time_ms: 7
+    transform_count: 67
+    transform_time_ms: 2
+    transform_yield_count: 18
     insert_time_ms: 0
-    insert_new_count: 12
-    insert_reused_count: 1
+    insert_new_count: 24
+    insert_reused_count: 2
 -   query: EXPLAIN select count(COL1) from "MyTable";
     explain: SCAN(<,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY NULL
         | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
-    task_count: 178
-    task_total_time_ms: 4
-    transform_count: 59
+    task_count: 265
+    task_total_time_ms: 7
+    transform_count: 67
     transform_time_ms: 1
-    transform_yield_count: 12
+    transform_yield_count: 18
     insert_time_ms: 0
-    insert_new_count: 12
-    insert_reused_count: 1
+    insert_new_count: 24
+    insert_reused_count: 2
