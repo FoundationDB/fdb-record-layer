@@ -121,10 +121,10 @@ public class ThrottledRetryingIterator<T> {
 
             runUnlessNull(transactionInitNotification, singleIterationQuotaManager); // let the user know about this range iteration attempt
             final FDBRecordStore store = userStoreBuilder.setContext(transaction).build();
-            try (RecordCursor<T> cursor = cursorCreator.createCursor(store, cursorStartPoint, cursorRowsLimit)) {
-                rangeIterationStartTimeMilliseconds = nowMillis();
+            RecordCursor<T> cursor = cursorCreator.createCursor(store, cursorStartPoint, cursorRowsLimit);
+            rangeIterationStartTimeMilliseconds = nowMillis();
 
-                return AsyncUtil.whileTrue(() -> cursor.onNext()
+            return AsyncUtil.whileTrue(() -> cursor.onNext()
                                 .thenCompose(result -> {
                                     cont.set(result);
                                     if (!result.hasNext()) {
@@ -141,14 +141,14 @@ public class ThrottledRetryingIterator<T> {
                                 })
                                 .thenApply(rangeHasMore -> {
                                     if (rangeHasMore && ((0 < transactionTimeQuotaMillis && elapsedTimeMillis() > transactionTimeQuotaMillis) ||
-                                                                 (0 < maxRecordDeletesPerTransaction && singleIterationQuotaManager.deletesCount > maxRecordDeletesPerTransaction))) {
+                                                         (0 < maxRecordDeletesPerTransaction && singleIterationQuotaManager.deletesCount > maxRecordDeletesPerTransaction))) {
                                         // Reached time/delete quota in this transaction. Continue in a new one (possibly after throttling)
                                         return false;
                                     }
                                     return rangeHasMore;
                                 }),
-                        runner.getExecutor());
-            }
+                            runner.getExecutor())
+                    .thenAccept(ignore -> cursor.close());
         }).thenApply(ignore -> cont.get());
     }
 

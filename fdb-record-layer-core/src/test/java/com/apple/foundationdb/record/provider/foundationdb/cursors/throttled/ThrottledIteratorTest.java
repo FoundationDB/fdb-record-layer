@@ -23,13 +23,17 @@ package com.apple.foundationdb.record.provider.foundationdb.cursors.throttled;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.tuple.Tuple;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -359,7 +363,6 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         final AtomicInteger fullCount = new AtomicInteger(0);
         final ItemHandler<Integer> itemHandler = (store, item, quotaManager) -> {
             int limit = limitRef.get();
-            int scannedCount = quotaManager.getScannedCount();
             int count = fullCount.incrementAndGet();
             if (count <= 400) {         // 10 * 40 (limit * successes) before change
                 assertThat(limit).isEqualTo(10);
@@ -406,6 +409,52 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
             throttledIterator.build().iterateAll(recordStore).join();
         }
         assertThat(totalScanned.get()).isEqualTo(Math.min(50, lastItemToScan + 1));
+    }
+
+    @CsvSource({"-1", "0", "1", "10", "100"})
+    @ParameterizedTest
+    void testWithRealRecords(int maxRowLimit) throws Exception {
+        final int numRecords = 50;
+        List<Integer> itemsScanned = new ArrayList<>(numRecords);
+
+        final CursorFactory<Tuple> cursorFactory = (store, lastResult, rowLimit) -> {
+            final byte[] continuation = lastResult == null ? null : lastResult.getContinuation().toBytes();
+            final ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(executeProperties -> executeProperties.setReturnedRowLimit(rowLimit));
+            return store.scanRecordKeys(continuation, scanProperties);
+        };
+
+        final ItemHandler<Tuple> itemHandler = (store, item, quotaManager) -> {
+            return store.loadRecordAsync(item.get()).thenApply(rec -> {
+                TestRecords1Proto.MySimpleRecord.Builder simpleRec = TestRecords1Proto.MySimpleRecord.newBuilder();
+                simpleRec.mergeFrom(rec.getRecord());
+                itemsScanned.add((int)simpleRec.getRecNo());
+                return null;
+            });
+        };
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            for (int i = 0; i < numRecords; i++) {
+                final TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(i)
+                        .setStrValueIndexed("Some text")
+                        .setNumValue3Indexed(1415 + i * 7)
+                        .build();
+                recordStore.saveRecord(record);
+            }
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            ThrottledRetryingIterator.Builder<Tuple> throttledIterator = ThrottledRetryingIterator
+                    .builder(fdb.newRunner(), cursorFactory, itemHandler)
+                    .withNumOfRetries(2)
+                    .withMaxRecordsScannedPerTransaction(maxRowLimit);
+            throttledIterator.build().iterateAll(recordStore).join();
+        }
+
+        assertThat(itemsScanned).isEqualTo(IntStream.range(0, numRecords).boxed().collect(Collectors.toList()));
     }
 
     private ThrottledRetryingIterator.Builder<Integer> iteratorBuilder(final int numRecords,
