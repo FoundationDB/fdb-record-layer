@@ -551,6 +551,23 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
+    public Expression visitBetweenComparisonPredicate(@Nonnull RelationalParser.BetweenComparisonPredicateContext ctx) {
+        final var operand = Assert.castUnchecked(ctx.operand.accept(this), Expression.class);
+        final var left = Assert.castUnchecked(ctx.left.accept(this), Expression.class);
+        final var right = Assert.castUnchecked(ctx.right.accept(this), Expression.class);
+        if (ctx.NOT() == null) {
+            return getDelegate().resolveFunction("and",
+                    getDelegate().resolveFunction("<=", left, operand),
+                    getDelegate().resolveFunction("<=", operand, right));
+        } else {
+            return getDelegate().resolveFunction("or",
+                    getDelegate().resolveFunction("<", operand, left),
+                    getDelegate().resolveFunction(">", operand, right));
+        }
+    }
+
+    @Nonnull
+    @Override
     public Expression visitMathExpressionAtom(@Nonnull RelationalParser.MathExpressionAtomContext ctx) {
         final var left = Assert.castUnchecked(ctx.left.accept(this), Expression.class);
         final var right = Assert.castUnchecked(ctx.right.accept(this), Expression.class);
