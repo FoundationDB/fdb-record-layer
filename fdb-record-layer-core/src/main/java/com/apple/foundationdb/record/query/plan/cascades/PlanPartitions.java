@@ -45,11 +45,11 @@ public class PlanPartitions {
 
     @Nonnull
     public static List<PlanPartition> rollUpTo(@Nonnull Collection<PlanPartition> planPartitions, @Nonnull final Set<ExpressionProperty<?>> rollupAttributes) {
-        return ExpressionPartitions.rollUpTo(planPartitions, rollupAttributes, PlanPartition::new);
+        return ExpressionPartitions.rollUpTo(planPartitions, rollupAttributes, PlanPartition::ofPlans);
     }
 
     @Nonnull
     public static List<PlanPartition> toPartitions(@Nonnull Map<Map<ExpressionProperty<?>, ?>, ? extends Set<RecordQueryPlan>> attributesToPlansMap) {
-        return ExpressionPartitions.toPartitions(attributesToPlansMap, PlanPartition::new);
+        return ExpressionPartitions.toPartitions(attributesToPlansMap, PlanPartition::ofPlans);
     }
 }

@@ -21,12 +21,12 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -126,7 +126,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> extends CascadesRule<P> {
+public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> extends ImplementationCascadesRule<P> {
     @Nonnull
     private static final BindingMatcher<RecordQueryFetchFromPartialRecordPlan> fetchPlanMatcher =
             fetchFromPartialRecordPlan(anyPlan());
@@ -146,7 +146,7 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
 
     @Override
     @SuppressWarnings("java:S1905")
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
 
         final RecordQuerySetPlan setOperationPlan = bindings.get(getMatcher());
@@ -228,7 +228,7 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
                 pushableFetchPlans
                         .stream()
                         .map(RecordQueryFetchFromPartialRecordPlan::getChild)
-                        .map(call::memoizePlans)
+                        .map(call::memoizePlan)
                         .collect(ImmutableList.toImmutableList());
 
         Verify.verify(pushableQuantifiers.size() + nonPushableQuantifiers.size() == setOperationPlan.getQuantifiers().size());
@@ -237,21 +237,21 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
 
         final RecordQuerySetPlan newSetOperationPlan = setOperationPlan.withChildrenReferences(newPushedInnerPlans);
         final RecordQueryFetchFromPartialRecordPlan newFetchPlan =
-                new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(call.memoizePlans(newSetOperationPlan)),
+                new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(call.memoizePlan(newSetOperationPlan)),
                         combinedTranslateValueFunction,
                         Type.Relation.scalarOf(setOperationPlan.getResultType()),
                         Verify.verifyNotNull(fetchIndexRecords));
 
         if (nonPushableQuantifiers.isEmpty()) {
-            call.yieldExpression(newFetchPlan);
+            call.yieldPlan(newFetchPlan);
         } else {
             final List<Reference> newFetchPlanAndResidualInners =
-                    Streams.concat(Stream.of(call.memoizePlans(newFetchPlan)),
+                    Streams.concat(Stream.of(call.memoizePlan(newFetchPlan)),
                             nonPushableQuantifiers
                                     .stream()
                                     .map(Quantifier.Physical::getRangesOver))
                             .collect(ImmutableList.toImmutableList());
-            call.yieldExpression(setOperationPlan.withChildrenReferences(newFetchPlanAndResidualInners));
+            call.yieldPlan(setOperationPlan.withChildrenReferences(newFetchPlanAndResidualInners));
         }
     }
 }

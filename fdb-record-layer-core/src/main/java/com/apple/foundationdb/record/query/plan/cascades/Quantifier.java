@@ -540,10 +540,10 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         public PPhysicalQuantifier toProto(@Nonnull final PlanSerializationContext serializationContext) {
             final PPhysicalQuantifier.Builder builder = PPhysicalQuantifier.newBuilder()
                     .setAlias(getAlias().getId());
-            final LinkedIdentitySet<RelationalExpression> members = getRangesOver().getMembers();
-            for (final RelationalExpression member : members) {
-                Verify.verify(member instanceof RecordQueryPlan);
-                builder.addPlanReferences(serializationContext.toPlanReferenceProto((RecordQueryPlan)member));
+            final var finalExpressions = getRangesOver().getFinalExpressions();
+            for (final RelationalExpression finalExpression : finalExpressions) {
+                Verify.verify(finalExpression instanceof RecordQueryPlan);
+                builder.addPlanReferences(serializationContext.toPlanReferenceProto((RecordQueryPlan)finalExpression));
             }
             return builder.build();
         }
@@ -551,11 +551,11 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         @Nonnull
         public static Physical fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                          @Nonnull final PPhysicalQuantifier physicalQuantifierProto) {
-            final ImmutableList.Builder<RelationalExpression> membersBuilder = ImmutableList.builder();
+            final ImmutableList.Builder<RecordQueryPlan> membersBuilder = ImmutableList.builder();
             for (int i = 0; i < physicalQuantifierProto.getPlanReferencesCount(); i ++) {
                 membersBuilder.add(serializationContext.fromPlanReferenceProto(physicalQuantifierProto.getPlanReferences(i)));
             }
-            final Reference reference = Reference.from(membersBuilder.build());
+            final Reference reference = Reference.ofFinalExpressions(PlannerStage.PLANNED, membersBuilder.build());
             return physicalBuilder().withAlias(CorrelationIdentifier.of(Objects.requireNonNull(physicalQuantifierProto.getAlias())))
                     .build(reference);
         }
@@ -775,7 +775,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     @Override
     @Nonnull
     public Quantifier rebase(@Nonnull final AliasMap translationMap) {
-        return translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap), false);
+        throw new UnsupportedOperationException("rebase not supported on quantifier");
     }
 
     @Nonnull

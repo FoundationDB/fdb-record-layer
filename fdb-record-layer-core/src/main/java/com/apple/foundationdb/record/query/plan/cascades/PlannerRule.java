@@ -29,14 +29,13 @@ import java.util.Optional;
 /**
  * Basic rule interface.
  *
- * @param <R> the kind of result the rule yields
  * @param <C> the kind of subclass of {@link PlannerRuleCall} that {@link #onMatch(PlannerRuleCall)} is called on
  * @param <T> a parent planner expression type of all possible root planner expressions that this rule could match
  * @see com.apple.foundationdb.record.query.plan.cascades
  * @see PlannerRuleCall
  */
 @API(API.Status.EXPERIMENTAL)
-public interface PlannerRule<R, C extends PlannerRuleCall<R>, T> {
+public interface PlannerRule<C extends PlannerRuleCall, T> {
     /**
      * Returns the class of the operator at the root of the binding expression, if this rule uses a non-trivial binding.
      * Used primarily for indexing rules for more efficient rule search.

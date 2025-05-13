@@ -126,7 +126,7 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
 
     @Nonnull
     public Ordering evaluate(@Nonnull final Reference reference) {
-        return evaluate(reference.getAsPlan());
+        return evaluate(reference.getOnlyElementAsPlan());
     }
 
     @Nonnull
