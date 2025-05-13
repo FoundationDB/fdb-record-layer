@@ -160,6 +160,11 @@ message FormerIndex {
   extensions 1000 to 2000;
 }
 
+message PRawSqlFunction {
+  optional string name = 1;
+  optional string definition = 2;
+}
+
 message MetaData {
   optional google.protobuf.FileDescriptorProto records = 1;
   repeated Index indexes = 2;
@@ -181,6 +186,7 @@ message MetaData {
 message PUserDefinedFunction {
   oneof specific_function {
     com.apple.foundationdb.record.planprotos.PMacroFunctionValue macro_function = 1;
+    PRawSqlFunction sql_function = 2;
   }
 }
 
