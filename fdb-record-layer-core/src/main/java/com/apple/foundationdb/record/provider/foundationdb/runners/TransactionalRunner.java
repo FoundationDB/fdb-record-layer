@@ -175,5 +175,4 @@ public class TransactionalRunner implements AutoCloseable {
         contextsToClose.forEach(FDBRecordContext::close);
         this.closed = true;
     }
-
 }
