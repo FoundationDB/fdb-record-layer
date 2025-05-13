@@ -56,7 +56,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Supplier;
 
 /**
@@ -326,28 +325,6 @@ public class CollateValue extends AbstractValue {
             super(functionName,
                     ImmutableList.of(Type.primitiveType(Type.TypeCode.STRING)), Type.any(),
                     (builtInFunction, arguments) -> CollateValue.encapsulate(collatorRegistry, arguments));
-        }
-
-        @Nonnull
-        @Override
-        public Optional<BuiltInFunction<Value>> validateCall(@Nonnull final List<Type> argumentTypes) {
-            // We claimed to be string + variadic any.
-            return super.validateCall(argumentTypes).filter(ignoreThis -> {
-                final int nargs = argumentTypes.size();
-                if (nargs < 2) {
-                    return true;
-                }
-                if (nargs > 3) {
-                    return false;
-                }
-                if (argumentTypes.get(1).getTypeCode() != TypeCode.STRING) {
-                    return false;
-                }
-                if (nargs < 3) {
-                    return true;
-                }
-                return argumentTypes.get(2).getTypeCode() == TypeCode.INT;
-            });
         }
     }
 

@@ -50,7 +50,7 @@ public class QuantifierMatchers {
     public static <Q extends Quantifier> BindingMatcher<Q> ofTypeRangingOver(@Nonnull final Class<Q> bindableClass,
                                                                              @Nonnull final BindingMatcher<? extends Collection<? extends RelationalExpression>> downstream) {
         return typedWithDownstream(bindableClass,
-                Extractor.of(q -> q.getRangesOver().getMembers(), name -> "rangesOver(getMembers(" + name + "))"),
+                Extractor.of(q -> q.getRangesOver().getAllMemberExpressions(), name -> "rangesOver(getAllMemberExpressions(" + name + "))"),
                 downstream);
     }
 

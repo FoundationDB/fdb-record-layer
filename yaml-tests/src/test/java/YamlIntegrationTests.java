@@ -268,4 +268,9 @@ public class YamlIntegrationTests {
     public void betweenTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("between.yamsql");
     }
+
+    @TestTemplate
+    public void sqlFunctionsTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("sql-functions.yamsql");
+    }
 }

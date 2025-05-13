@@ -201,12 +201,14 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
      * Instantiate an instance of {@link SchemaTemplate} using content of the passed {@link Message}.
      */
     @Nonnull
-    private static SchemaTemplate toSchemaTemplate(@Nonnull Message m) throws InvalidProtocolBufferException {
-        Descriptors.Descriptor d = m.getDescriptorForType();
-        ByteString bs = (ByteString) m.getField(d.findFieldByName(SchemaTemplateSystemTable.METADATA));
-        RecordMetaData metaData = RecordMetaData.build(RecordMetaDataProto.MetaData.parseFrom(bs.toByteArray()));
-        String name = m.getField(d.findFieldByName(SchemaTemplateSystemTable.TEMPLATE_NAME)).toString();
-        int templateVersion = (int) m.getField(d.findFieldByName(SchemaTemplateSystemTable.TEMPLATE_VERSION));
+    private static SchemaTemplate toSchemaTemplate(@Nonnull final Message message) throws InvalidProtocolBufferException {
+        // we should probably memoize a Message -> RecordLayerSchemaTemplate relation to avoid repetitive
+        // deserialization of the same message over and over again.
+        final Descriptors.Descriptor descriptor = message.getDescriptorForType();
+        final ByteString bs = Assert.castUnchecked(message.getField(descriptor.findFieldByName(SchemaTemplateSystemTable.METADATA)), ByteString.class);
+        final RecordMetaData metaData = RecordMetaData.build(RecordMetaDataProto.MetaData.parseFrom(bs.toByteArray()));
+        final String name = message.getField(descriptor.findFieldByName(SchemaTemplateSystemTable.TEMPLATE_NAME)).toString();
+        int templateVersion = (int) message.getField(descriptor.findFieldByName(SchemaTemplateSystemTable.TEMPLATE_VERSION));
         return RecordLayerSchemaTemplate.fromRecordMetadata(metaData, name, templateVersion);
     }
 

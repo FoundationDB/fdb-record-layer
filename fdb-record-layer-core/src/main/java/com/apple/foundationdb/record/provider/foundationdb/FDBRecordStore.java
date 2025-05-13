@@ -62,6 +62,7 @@ import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
+import com.apple.foundationdb.record.cursors.DedupCursor;
 import com.apple.foundationdb.record.cursors.ListCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -558,13 +559,21 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @SuppressWarnings("PMD.CloseResource")
     private <M extends Message> void addRecordCount(@Nonnull RecordMetaData metaData, @Nonnull FDBStoredRecord<M> rec, @Nonnull byte[] increment) {
-        if (metaData.getRecordCountKey() == null) {
-            return;
+        if (metaData.getRecordCountKey() != null) {
+            beginRecordStoreStateRead();
+            try {
+                RecordMetaDataProto.DataStoreInfo header = recordStoreStateRef.get().getStoreHeader();
+                // We do not need to check the format version here. In order for it to be DISABLED we would have to be
+                // on a format version that supports such a state.
+                if (header.getRecordCountState() != RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED) {
+                    Key.Evaluated subkey = metaData.getRecordCountKey().evaluateSingleton(rec);
+                    final byte[] keyBytes = getSubspace().pack(Tuple.from(RECORD_COUNT_KEY).addAll(subkey.toTupleAppropriateList()));
+                    ensureContextActive().mutate(MutationType.ADD, keyBytes, increment);
+                }
+            } finally {
+                endRecordStoreStateRead();
+            }
         }
-        final Transaction tr = ensureContextActive();
-        Key.Evaluated subkey = metaData.getRecordCountKey().evaluateSingleton(rec);
-        final byte[] keyBytes = getSubspace().pack(Tuple.from(RECORD_COUNT_KEY).addAll(subkey.toTupleAppropriateList()));
-        tr.mutate(MutationType.ADD, keyBytes, increment);
     }
 
     @Nullable
@@ -1100,7 +1109,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 return CompletableFuture.completedFuture(recordBuilder.build());
             }
         } catch (Exception ex) {
-            final LoggableException ex2 = new RecordCoreException("Failed to deserialize record", ex);
+            final LoggableException ex2 = new RecordDeserializationException("Failed to deserialize record", ex);
             ex2.addLogInfo(
                     subspaceProvider.logKey(), subspaceProvider.toString(context),
                     LogMessageKeys.PRIMARY_KEY, primaryKey,
@@ -1216,6 +1225,53 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                               @Nullable byte[] continuation,
                                                               @Nonnull ScanProperties scanProperties) {
         return scanTypedRecords(serializer, low, high, lowEndpoint, highEndpoint, continuation, scanProperties);
+    }
+
+    @Nonnull
+    @Override
+    @SuppressWarnings("PMD.CloseResource")
+    public RecordCursor<Tuple> scanRecordKeys(@Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
+        if ( ! getFormatVersionEnum().isAtLeast(FormatVersion.RECORD_COUNT_KEY_ADDED)) {
+            // This is only tested for version >= 3
+            throw new UnsupportedFormatVersionException("scanRecordKeys does not support this format version");
+        }
+        final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
+        final Subspace recordsSubspace = recordsSubspace();
+        if (!metaData.isSplitLongRecords() && omitUnsplitRecordSuffix) {
+            // In this case there are only "simple" records (single split with no version). Return then directly.
+            KeyValueCursor keyValuesCursor = KeyValueCursor.Builder
+                    .withSubspace(recordsSubspace)
+                    .setContext(context)
+                    .setContinuation(continuation)
+                    .setRange(TupleRange.ALL)
+                    .setScanProperties(scanProperties)
+                    .build();
+            return keyValuesCursor
+                    .map(kv -> SplitHelper.unpackKey(recordsSubspace, kv));
+        } else {
+            Function<byte[], RecordCursor<Tuple>> innerFunction = cont -> {
+                // Create the inner cursor
+                final KeyValueCursor cursor = KeyValueCursor.Builder
+                        .withSubspace(recordsSubspace)
+                        .setContext(context)
+                        .setContinuation(cont)
+                        .setRange(TupleRange.ALL)
+                        // inner cursor should not have return row limit
+                        .setScanProperties(scanProperties.with(ExecuteProperties::clearReturnedRowLimit))
+                        .build();
+                // map the KV to the primary key
+                return cursor.map(kv -> {
+                    final Tuple keyTuple = recordsSubspace.unpack(kv.getKey());
+                    Tuple nextKey = keyTuple.popBack(); // Remove index item
+                    SplitHelper.validatePrimaryKeySuffixNumber(keyTuple);
+                    return nextKey;
+                });
+            };
+
+            return new DedupCursor<>(innerFunction, Tuple::fromBytes, Tuple::pack, continuation)
+                    // Apply row limit to the outer cursor
+                    .limitRowsTo(scanProperties.getExecuteProperties().getReturnedRowLimit());
+        }
     }
 
     @Nonnull
@@ -1803,7 +1859,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
 
             final KeyExpression recordCountKey = getRecordMetaData().getRecordCountKey();
-            if (recordCountKey != null) {
+            if (recordCountKey != null
+                    // we don't need to call beginRecordStoreStateRead(), that is checked in deleteRecordsWhereAsync
+                    && recordStoreStateRef.get().getStoreHeader().getRecordCountState() != RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED) {
                 final QueryToKeyMatcher.Match match = matcher.matchesSatisfyingQuery(recordCountKey);
                 if (match.getType() != QueryToKeyMatcher.MatchType.EQUALITY) {
                     throw new Query.InvalidExpressionException("Record count key not matching for deleteRecordsWhere");
@@ -2029,8 +2087,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 context.clear(versionRange);
             }
 
+
             final KeyExpression recordCountKey = getRecordMetaData().getRecordCountKey();
-            if (recordCountKey != null) {
+            if (recordCountKey != null
+                    // we don't need to call beginRecordStoreStateRead(), that is checked in deleteRecordsWhereAsync
+                    && recordStoreStateRef.get().getStoreHeader().getRecordCountState() != RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED) {
                 if (prefix.size() == recordCountKey.getColumnSize()) {
                     // Delete a single record used for counting
                     context.clear(getSubspace().pack(Tuple.from(RECORD_COUNT_KEY).addAll(prefix)));
@@ -2105,17 +2166,39 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Override
     public CompletableFuture<Long> getSnapshotRecordCount(@Nonnull KeyExpression key, @Nonnull Key.Evaluated value,
                                                           @Nonnull IndexQueryabilityFilter indexQueryabilityFilter) {
-        if (getRecordMetaData().getRecordCountKey() != null) {
-            if (key.getColumnSize() != value.size()) {
-                throw recordCoreException("key and value are not the same size");
-            }
-            final ReadTransaction tr = context.readTransaction(true);
-            final Tuple subkey = Tuple.from(RECORD_COUNT_KEY).addAll(value.toTupleAppropriateList());
-            if (getRecordMetaData().getRecordCountKey().equals(key)) {
-                return tr.get(getSubspace().pack(subkey)).thenApply(FDBRecordStore::decodeRecordCount);
-            } else if (key.isPrefixKey(getRecordMetaData().getRecordCountKey())) {
-                AsyncIterable<KeyValue> kvs = tr.getRange(getSubspace().range(Tuple.from(RECORD_COUNT_KEY)));
-                return MoreAsyncUtil.reduce(getExecutor(), kvs.iterator(), 0L, (count, kv) -> count + decodeRecordCount(kv.getValue()));
+        final RecordMetaData recordMetaData = getRecordMetaData();
+        if (recordMetaData.getRecordCountKey() != null) {
+            beginRecordStoreStateRead();
+            boolean futureCreated = false;
+            try {
+                RecordMetaDataProto.DataStoreInfo header = recordStoreStateRef.get().getStoreHeader();
+                // We can always check the state, even if the formatVersion is older, because older versions will always
+                // have the default of READABLE
+                if (header.getRecordCountState() == RecordMetaDataProto.DataStoreInfo.RecordCountState.READABLE) {
+                    if (key.getColumnSize() != value.size()) {
+                        throw recordCoreException("key and value are not the same size");
+                    }
+                    final ReadTransaction tr = context.readTransaction(true);
+                    final Tuple subkey = Tuple.from(RECORD_COUNT_KEY).addAll(value.toTupleAppropriateList());
+                    if (recordMetaData.getRecordCountKey().equals(key)) {
+                        final CompletableFuture<Long> result = tr.get(getSubspace().pack(subkey))
+                                .thenApply(FDBRecordStore::decodeRecordCount)
+                                .whenComplete((ignored, error) -> endRecordStoreStateRead());
+                        futureCreated = true;
+                        return result;
+                    } else if (key.isPrefixKey(recordMetaData.getRecordCountKey())) {
+                        AsyncIterable<KeyValue> kvs = tr.getRange(getSubspace().range(Tuple.from(RECORD_COUNT_KEY)));
+                        final CompletableFuture<Long> result = MoreAsyncUtil.reduce(getExecutor(), kvs.iterator(), 0L,
+                                (count, kv) -> count + decodeRecordCount(kv.getValue()))
+                                .whenComplete((ignored, error) -> endRecordStoreStateRead());
+                        futureCreated = true;
+                        return result;
+                    }
+                }
+            } finally {
+                if (!futureCreated) {
+                    endRecordStoreStateRead();
+                }
             }
         }
         return evaluateAggregateFunction(Collections.emptyList(), IndexFunctionHelper.count(key),
@@ -3187,6 +3270,48 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     public void clearHeaderUserField(@Nonnull String userField) {
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_EDIT_HEADER_USER_FIELD, clearHeaderUserFieldAsync(userField));
+    }
+
+    /**
+     * Update the RecordCount to have a new state.
+     * <p>
+     *     The state can go from {@code READABLE} to {@code WRITE_ONLY}, which is mostly useful to validate that if you
+     *     drop the {@link RecordMetaData#getRecordCountKey() recordCountKey} from the metadata, it won't have adverse
+     *     affects.
+     *     The state can always be set to {@code DISABLED}, at which point there is no way to any other state. This
+     *     limitation exists, in large part, because there is not a way to rebuild the count across indexes, and since
+     *     it is long deprecated, investing in that doesn't make sense.
+     * </p>
+     * @param newState the new state to update it to.
+     * @return a future once that completes once the state is updated, and the data is cleared.
+     */
+    public CompletableFuture<Void> updateRecordCountStateAsync(@Nonnull RecordMetaDataProto.DataStoreInfo.RecordCountState newState) {
+        return updateStoreHeaderAsync(builder -> {
+            if (!getFormatVersionEnum().isAtLeast(FormatVersion.RECORD_COUNT_STATE)) {
+                throw new RecordCoreException("Store does not support updating record count state")
+                        .addLogInfo(LogMessageKeys.FORMAT_VERSION, getFormatVersionEnum());
+            }
+            final RecordMetaDataProto.DataStoreInfo.RecordCountState existing = getRecordStoreState().getStoreHeader().getRecordCountState();
+            if (existing == newState) {
+                return builder;
+            }
+            boolean toWriteOnly = existing == RecordMetaDataProto.DataStoreInfo.RecordCountState.READABLE &&
+                    newState == RecordMetaDataProto.DataStoreInfo.RecordCountState.WRITE_ONLY;
+            boolean toReadable = existing == RecordMetaDataProto.DataStoreInfo.RecordCountState.WRITE_ONLY &&
+                    newState == RecordMetaDataProto.DataStoreInfo.RecordCountState.READABLE;
+            if (toWriteOnly || toReadable || newState == RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED) {
+                builder.setRecordCountState(newState);
+                if (newState == RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED) {
+                    // Note: getSubspace().range(tuple) does not include getSubspace().pack(tuple), but this does.
+                    // Ungrouped recordCountKey will be stored directly at getSubspace().pack(tuple).
+                    ensureContextActive().clear(Range.startsWith(getSubspace().pack(Tuple.from(RECORD_COUNT_KEY))));
+                }
+                return builder;
+            }
+            throw new RecordCoreException("Invalid state transition for RecordCountState")
+                    .addLogInfo(LogMessageKeys.OLD, existing)
+                    .addLogInfo(LogMessageKeys.NEW, newState);
+        });
     }
 
     // Actually (1) writes the index state to the database and (2) updates the cached state with the new state
@@ -4793,6 +4918,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
         if (rebuildRecordCounts) {
             // We want to clear all record counts.
+            // This code will leave data behind if the previous RecordCountKey was not grouped
+            // https://github.com/FoundationDB/fdb-record-layer/issues/3335
             if (existingStore) {
                 context.clear(getSubspace().range(Tuple.from(RECORD_COUNT_KEY)));
             }
@@ -4817,7 +4944,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @SuppressWarnings("PMD.CloseResource")
     public void addRebuildRecordCountsJob(List<CompletableFuture<Void>> work) {
         final KeyExpression recordCountKey = getRecordMetaData().getRecordCountKey();
-        if (recordCountKey == null) {
+        if (recordCountKey == null ||
+                getRecordStoreState().getStoreHeader().getRecordCountState() == RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED) {
             return;
         }
         if (LOGGER.isDebugEnabled()) {
@@ -5474,4 +5602,5 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
         }
     }
+
 }

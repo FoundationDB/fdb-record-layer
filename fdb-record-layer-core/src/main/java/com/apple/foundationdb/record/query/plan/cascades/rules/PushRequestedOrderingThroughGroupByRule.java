@@ -69,7 +69,7 @@ public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupB
         final var lowerRef = bindings.get(lowerRefMatcher);
 
         final var requestedOrderings =
-                call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING)
+                call.getPlannerConstraintMaybe(RequestedOrderingConstraint.REQUESTED_ORDERING)
                         .orElse(ImmutableSet.of());
 
         final var refinedRequestedOrderings = collectCompatibleOrderings(groupByExpression, innerQuantifier, requestedOrderings);
