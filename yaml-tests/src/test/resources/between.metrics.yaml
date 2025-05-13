@@ -1,0 +1,12 @@
+between-pk-tests:
+-   query: EXPLAIN select * from t1 WHERE col1 BETWEEN 10 AND 10
+    explain: ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c8 AS INT) && LESS_THAN_OR_EQUALS
+        promote(@c8 AS INT)]])
+    task_count: 470
+    task_total_time_ms: 46
+    transform_count: 125
+    transform_time_ms: 14
+    transform_yield_count: 36
+    insert_time_ms: 3
+    insert_new_count: 45
+    insert_reused_count: 6
