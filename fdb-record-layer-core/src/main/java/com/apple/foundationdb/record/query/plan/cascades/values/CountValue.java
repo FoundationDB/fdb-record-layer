@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.planprotos.PCountValue;
 import com.apple.foundationdb.record.planprotos.PCountValue.PPhysicalOperator;
@@ -113,8 +114,13 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
 
     @Nonnull
     @Override
-    public Accumulator createAccumulator(final @Nonnull TypeRepository typeRepository) {
-        return new SumAccumulator(operator);
+    public Accumulator createAccumulatorWithInitialState(final @Nonnull TypeRepository typeRepository, @Nullable List<RecordCursorProto.AccumulatorState> initialState) {
+        if (initialState == null) {
+            return new SumAccumulator(operator);
+        } else {
+            Verify.verify(initialState.size() == 1);
+            return new SumAccumulator(operator, initialState.get(0));
+        }
     }
 
     @Nonnull
@@ -335,6 +341,13 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
             this.physicalOperator = physicalOperator;
         }
 
+        public SumAccumulator(@Nonnull final PhysicalOperator physicalOperator, @Nonnull RecordCursorProto.AccumulatorState initialState) {
+            this.physicalOperator = physicalOperator;
+            Verify.verify(initialState.getStateList().size() == 1);
+            Verify.verify(initialState.getState(0).hasInt64State());
+            this.state = initialState.getState(0).getInt64State();
+        }
+
         @Override
         public void accumulate(@Nullable final Object currentObject) {
             this.state = physicalOperator.evalPartialToPartial(state, currentObject);
@@ -344,6 +357,17 @@ public class CountValue extends AbstractValue implements AggregateValue, Streama
         @Override
         public Object finish() {
             return physicalOperator.evalPartialToFinal(state);
+        }
+
+        @Nonnull
+        @Override
+        public List<RecordCursorProto.AccumulatorState> getAccumulatorStates() {
+            if (state ==  null) {
+                return List.of();
+            }
+            return List.of(RecordCursorProto.AccumulatorState.newBuilder()
+                    .addState(RecordCursorProto.OneOfTypedState.newBuilder().setInt64State((long)state))
+                    .build());
         }
     }
 
