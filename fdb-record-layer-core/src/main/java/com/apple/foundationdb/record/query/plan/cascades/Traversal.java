@@ -92,7 +92,11 @@ public class Traversal {
      */
     public Set<Reference> getRefsContaining(final RelationalExpression expression) {
         final var result = containedInMultiMap.get(expression);
-        Debugger.sanityCheck(() -> Verify.verify(result.stream().allMatch(ref -> ref.getMembers().stream().anyMatch(e -> e == expression))));
+        Debugger.sanityCheck(() ->
+                Verify.verify(result.stream()
+                        .allMatch(ref -> ref.getAllMemberExpressions()
+                                .stream()
+                                .anyMatch(e -> e == expression))));
         return result;
     }
 
@@ -148,7 +152,7 @@ public class Traversal {
                 leafReferences,
                 reference,
                 expression);
-        Debugger.sanityCheck(() -> Verify.verify(reference.getMembers().contains(expression)));
+        Debugger.sanityCheck(() -> Verify.verify(reference.containsExactly(expression)));
         containedInMultiMap.put(expression, reference);
         if (expression.getQuantifiers().isEmpty()) {
             leafReferences.add(reference);
@@ -158,9 +162,20 @@ public class Traversal {
     public void removeExpression(@Nonnull final Reference reference, @Nonnull final RelationalExpression expression) {
         final var referencePaths = ImmutableSet.copyOf(network.inEdges(reference));
 
+        final var childrenReferences = new LinkedIdentitySet<Reference>();
         for (final var referencePath : referencePaths) {
             if (referencePath.expression == expression) {
                 network.removeEdge(referencePath);
+            }
+            childrenReferences.add(referencePath.getQuantifier().getRangesOver());
+        }
+
+        for (final var childReference : childrenReferences) {
+            if (network.outDegree(childReference) == 0) {
+                for (final var memberExpression : childReference.getAllMemberExpressions()) {
+                    removeExpression(childReference, memberExpression);
+                }
+                network.removeNode(childReference);
             }
         }
 
@@ -197,7 +212,7 @@ public class Traversal {
                                        @Nonnull final Reference reference) {
         if (network.addNode(reference)) {
             boolean anyLeafExpressions = false;
-            for (final RelationalExpression expression : reference.getMembers()) {
+            for (final RelationalExpression expression : reference.getAllMemberExpressions()) {
                 if (expression.getQuantifiers().isEmpty()) {
                     anyLeafExpressions = true;
                 } else {

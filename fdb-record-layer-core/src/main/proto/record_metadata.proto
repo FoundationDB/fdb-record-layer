@@ -95,6 +95,27 @@ message DataStoreInfo {
   // When considering using this, one should also consider introducing a new record type to store the data.
   // This was introduced with FormatVersion.HEADER_USER_FIELDS.
   repeated UserFieldEntry user_field = 8;
+
+  // The state of the RecordCount as defined by record_count_key. This is similar to IndexState, but since there is no
+  // mechanism for building the RecordCount across multiple transactions, the state transitions are slightly different.
+  enum RecordCountState {
+    // The RecordCountKey is maintained and usable for FDBRecordStore.getSnapshotRecordCount
+    READABLE = 1;
+    // The RecordCount as defined by record_count_key is maintained, but not queryable
+    // This can be freely updated back to READABLE
+    WRITE_ONLY = 2;
+    // The RecordCount as defined by record_count_key is not maintained.
+    // Once disabled, there is no way to go back to WriteOnly
+    DISABLED = 3;
+  }
+
+  // Whether the RecordCount as defined by record_count_key is usable by FDBRecordStore.getSnapshotRecordCount and
+  // whether it is maintained at all.
+  // This helps as a mechanism to de-risk removing the deprecated RecordCountKey from metadata by disabling it for
+  // queries first, and then disabling entirely, but only for specific stores. Once validated that the necessary COUNT
+  // indexes are working sufficiently, the RecordCountKey can be removed from the metadata more safely.
+  // This was introduced with FormatVersion.RECORD_COUNT_STATE
+  optional RecordCountState record_count_state = 9;
 }
 
 message Index {
@@ -139,6 +160,11 @@ message FormerIndex {
   extensions 1000 to 2000;
 }
 
+message PRawSqlFunction {
+  optional string name = 1;
+  optional string definition = 2;
+}
+
 message MetaData {
   optional google.protobuf.FileDescriptorProto records = 1;
   repeated Index indexes = 2;
@@ -160,6 +186,7 @@ message MetaData {
 message PUserDefinedFunction {
   oneof specific_function {
     com.apple.foundationdb.record.planprotos.PMacroFunctionValue macro_function = 1;
+    PRawSqlFunction sql_function = 2;
   }
 }
 

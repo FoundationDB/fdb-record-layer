@@ -147,6 +147,11 @@ public final class PlanContext {
         return userVersion;
     }
 
+    @Nonnull
+    public static Builder builder() {
+        return new Builder();
+    }
+
     public static final class Builder {
 
         private RecordMetaData metaData;

@@ -128,15 +128,15 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
         final Reference baseRef;
         Quantifier.ForEach quantifier;
         if (queriedRecordTypes.isEmpty()) {
-            baseRef = Reference.of(new FullUnorderedScanExpression(allRecordTypes,
+            baseRef = Reference.initialOf(new FullUnorderedScanExpression(allRecordTypes,
                     new Type.AnyRecord(false),
                     new AccessHints()));
             quantifier = Quantifier.forEach(baseRef);
         } else {
-            final var fuseRef = Reference.of(new FullUnorderedScanExpression(allRecordTypes,
+            final var fuseRef = Reference.initialOf(new FullUnorderedScanExpression(allRecordTypes,
                     new Type.AnyRecord(false),
                     new AccessHints()));
-            baseRef = Reference.of(
+            baseRef = Reference.initialOf(
                     new LogicalTypeFilterExpression(
                             new HashSet<>(queriedRecordTypes),
                             Quantifier.forEach(fuseRef),
@@ -156,22 +156,22 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
                     GraphExpansion.builder().addQuantifier(quantifier).build()
                             .buildSimpleSelectOverQuantifier(quantifier);
         }
-        quantifier = Quantifier.forEach(Reference.of(selectExpression));
+        quantifier = Quantifier.forEach(Reference.initialOf(selectExpression));
 
         if (query.removesDuplicates()) {
-            quantifier = Quantifier.forEach(Reference.of(new LogicalDistinctExpression(quantifier)));
+            quantifier = Quantifier.forEach(Reference.initialOf(new LogicalDistinctExpression(quantifier)));
         }
 
         if (query.getSort() != null) {
             final var sortValues =
                     ScalarTranslationVisitor.translateKeyExpression(query.getSort(), quantifier.getFlowedObjectType());
-            quantifier = Quantifier.forEach(Reference.of(
+            quantifier = Quantifier.forEach(Reference.initialOf(
                     new LogicalSortExpression(
                             LogicalSortExpression.buildRequestedOrdering(sortValues,
                                     query.isSortReverse(), quantifier),
                             quantifier)));
         } else {
-            quantifier = Quantifier.forEach(Reference.of(LogicalSortExpression.unsorted(quantifier)));
+            quantifier = Quantifier.forEach(Reference.initialOf(LogicalSortExpression.unsorted(quantifier)));
         }
 
         if (query.getRequiredResults() != null) {
@@ -182,7 +182,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
                                     .flatMap(keyExpression -> keyExpression.normalizeKeyForPositions().stream())
                                     .collect(ImmutableList.toImmutableList()),
                             quantifier);
-            quantifier = Quantifier.forEach(Reference.of(new LogicalProjectionExpression(projectedValues, quantifier)));
+            quantifier = Quantifier.forEach(Reference.initialOf(new LogicalProjectionExpression(projectedValues, quantifier)));
         }
 
         return quantifier.getRangesOver().get();
@@ -336,7 +336,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      *
      * @param otherExpression other expression
      * @param aliasMap alias map with external bindings
-     * @param matchPredicate a predicate uses for matching a pair of {@link Quantifier}s
+     * @param matchPredicate a predicate used for matching a pair of {@link Quantifier}s
      * @param combinePredicate a predicate to accept or reject a match
      * @return an {@link Iterable} of {@link AliasMap}s where each alias map is a match.
      */
@@ -795,14 +795,12 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     @Nonnull
     @Override
     default RelationalExpression rebase(@Nonnull AliasMap aliasMap) {
-        if (getCorrelatedTo().stream().anyMatch(aliasMap::containsSource)) {
-            final var translationMap = TranslationMap.rebaseWithAliasMap(aliasMap);
-            final var newQuantifiers =
-                    Quantifiers.translateCorrelations(getQuantifiers(), translationMap, false);
-            return translateCorrelations(translationMap, false, newQuantifiers);
-        } else {
-            return this;
-        }
+        throw new UnsupportedOperationException("rebase unsupported on relational expression");
+    }
+
+    @Nonnull
+    default RelationalExpression withQuantifiers(@Nonnull List<? extends Quantifier> newQuantifiers) {
+        return translateCorrelations(TranslationMap.empty(), false, newQuantifiers);
     }
 
     @Nonnull

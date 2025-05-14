@@ -58,6 +58,11 @@ public class TranslationMap {
         return Optional.empty();
     }
 
+    public boolean definesOnlyIdentities() {
+        return getAliasMapMaybe().map(AliasMap::definesOnlyIdentities)
+                .orElseGet(aliasToTargetMap::isEmpty);
+    }
+
     public boolean containsSourceAlias(@Nullable CorrelationIdentifier sourceAlias) {
         return aliasToTargetMap.containsKey(sourceAlias);
     }

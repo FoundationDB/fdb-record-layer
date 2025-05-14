@@ -211,7 +211,7 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
                     Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(getQueriedRecordTypes()));
 
             return new RecordQueryTypeFilterPlan(
-                    Quantifier.physical(memoizer.memoizePlans(scanPlan)),
+                    Quantifier.physical(memoizer.memoizePlan(scanPlan)),
                     queriedRecordTypeNames,
                     queriedType);
         }
