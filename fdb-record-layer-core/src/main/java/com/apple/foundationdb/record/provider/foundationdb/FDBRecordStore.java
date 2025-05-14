@@ -4878,6 +4878,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             LOGGER.debug(msg.toString());
         }
         final long startTime = System.nanoTime();
+        // This won't clear an ungrouped aggregate index: https://github.com/FoundationDB/fdb-record-layer/issues/3337
+        // It also won't clear some of the secondary state from TimeWindowLeaderboard indexes.
         context.clear(getSubspace().range(Tuple.from(INDEX_KEY, formerIndex.getSubspaceTupleKey())));
         context.clear(getSubspace().range(Tuple.from(INDEX_SECONDARY_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
         context.clear(getSubspace().range(Tuple.from(INDEX_RANGE_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
@@ -5600,6 +5602,137 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             } else {
                 return AsyncUtil.DONE;
             }
+        }
+
+        /**
+         * In the event that a store has been corrupted, and the header has been lost, this method can be used to open
+         * the store, and fill in the missing header.
+         * <p>
+         * If it is possible that multiple different instances have a different idea of any of the versions
+         * ({@link #setFormatVersion format version}, {@link RecordMetaData#getVersion() metaData version}, or
+         * {@link #getUserVersion() user version}), ensure that this builder is created with the maximal option for each.
+         * </p>
+         * <p>
+         *     In addition to setting the formatVersion, userVersion and metaDataVersion, this will:
+         *     <ul>
+         *         <li>
+         *             Disable all indexes, since we cannot universally determine whether they have been added or
+         *             changed since the store was last opened. In theory there are some situations where we could
+         *             determine that the index can be marked readable for free, but this is not supported.
+         *         </li>
+         *         <li>
+         *             Disable the {@link RecordMetaData#getRecordCountKey()} if there is one on the metadata, because
+         *             we cannot determine whether it's definition has changed since the last time this store was
+         *             opened. In theory, we could try rebuilding it, but the RecordCountKey has been deprecated for a
+         *             long time, so it does not seem prudent to build out infrastructure to do so.
+         *         </li>
+         *     </ul>
+         *     However, it will not set the following, but they can be set transactionally on the returned store.
+         *     <ul>
+         *         <li>
+         *             Any header {@link #setHeaderUserField user fields}.
+         *         </li>
+         *         <li>
+         *             The {@link #setStateCacheability stateCacheability} will be disabled, and the associated
+         *             MetaDataVersion will be bumped, ensuring that any other potential instances stop using the cache.
+         *         </li>
+         *     </ul>
+         * </p>
+         *
+         * @param userVersion the user version to set in the store header
+         * @param minimumPossibleFormatVersion the minimum {@link FormatVersion} that this store could have possibly
+         * had. Notably, upgrading to {@link FormatVersion#SAVE_VERSION_WITH_RECORD} requires moving data, and upgrading
+         * to {@link FormatVersion#SAVE_UNSPLIT_WITH_SUFFIX} requires storing whether the store should have the unsplit
+         * suffix or not. It's not impossible for {@code repairMissingHeader} to determine what to do based on the rest
+         * of the data in the store, but to keep this simple, upgrading across those versions is not supported.
+         *
+         * @return a store
+         */
+        @API(API.Status.INTERNAL)
+        public CompletableFuture<FDBRecordStore> repairMissingHeader(final int userVersion, FormatVersion minimumPossibleFormatVersion) {
+            if (!formatVersion.isAtLeast(minimumPossibleFormatVersion)) {
+                throw new RecordCoreArgumentException("minimumPossibleFormatVersion is greater than the target formatVerson")
+                        .addLogInfo(LogMessageKeys.FORMAT_VERSION, minimumPossibleFormatVersion)
+                        .addLogInfo(LogMessageKeys.NEW_FORMAT_VERSION, formatVersion);
+            }
+            if (!minimumPossibleFormatVersion.isAtLeast(FormatVersion.SAVE_VERSION_WITH_RECORD)
+                    && formatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX)) {
+                throw new RecordCoreArgumentException("minimumPossibleFormatVersion is not supported")
+                        .addLogInfo(LogMessageKeys.FORMAT_VERSION, minimumPossibleFormatVersion);
+            }
+            return uncheckedOpenAsync()
+                    .thenCompose(store ->
+                            store.getStoreStateCache().get(store, StoreExistenceCheck.NONE)
+                                    .thenCompose(storeStateCacheEntry ->
+                                            repairMissingHeader(userVersion, store,
+                                                    storeStateCacheEntry.getRecordStoreState().getStoreHeader())));
+        }
+
+        private CompletableFuture<FDBRecordStore> repairMissingHeader(final int userVersion,
+                                                                      @Nonnull final FDBRecordStore store,
+                                                                      @Nonnull final RecordMetaDataProto.DataStoreInfo existing) {
+            if (!existing.equals(RecordMetaDataProto.DataStoreInfo.getDefaultInstance())) {
+                throw new RecordCoreException("Store header is not missing");
+            }
+            final RecordMetaData recordMetaData = metaDataProvider.getRecordMetaData();
+            final RecordMetaDataProto.DataStoreInfo.Builder dataStoreInfo = RecordMetaDataProto.DataStoreInfo.newBuilder()
+                    .setFormatVersion(formatVersion.getValueForSerialization())
+                    .setMetaDataversion(recordMetaData.getVersion())
+                    .setUserVersion(userVersion)
+                    // record count key is set below
+                    .setLastUpdateTime(System.currentTimeMillis());
+            // No need to set user_field here, also we have no idea what it could be; users can set after repairing as
+            // they see fit, transactionally before doing anything else
+
+            // We cannot tell whether the recordCountKey had changed since the last time we did checkVersion, so
+            // we can't guarantee that it is correct. Since we currently don't have a way to disable the RecordCountKey, or
+            // rebuild it across multiple transactions, we fail the repair if there is a recordCountKey on the metadata.
+            // With https://github.com/FoundationDB/fdb-record-layer/issues/3326 we should be able to set the RecordCountKey
+            // to disabled.
+            if (recordMetaData.getRecordCountKey() != null) {
+                throw new RecordCoreException("Repair is not currently supported if the metadata has a RecordCountKey");
+            }
+            store.saveStoreHeader(dataStoreInfo.build());
+            // It's possible that the old store header was cacheable, in which case, another store may
+            // still have a cached version, even though we don't. We need to make sure that the other
+            // instance refreshes it's cached version after we generate a new missing store header.
+            // Obviously, being able to recover from the cached version would be ideal, but that
+            // is a limited use case, as you wouldn't notice it was missing until after caches started
+            // expiring, and you would have to repair before they all expired.
+
+            // Since another instance may still have a cached version of the store header, we need to make
+            // sure that the cache is invalidated
+            final CompletableFuture<Void> bumpMetaDataVersionStamp = context.getMetaDataVersionStampAsync(IsolationLevel.SNAPSHOT)
+                    .thenAccept(metaDataVersionStamp -> {
+                        // If the metaDataVersionStamp was null before than nothing was cached based on
+                        // the metaDataVersionStamp, so we don't need to set the stamp.
+                        if (metaDataVersionStamp != null) {
+                            context.setMetaDataVersionStamp();
+                        }
+                    });
+            // We want to make sure all former indexes have been cleared, since we have no way of knowing whether
+            // it has done a checkVersion since the index was removed, and there's something to clear up
+            recordMetaData.getFormerIndexes().forEach(store::removeFormerIndex);
+            // This could be improved with:
+            // 1. If the index was added in the same metadata version that added the type, and has not been
+            //    modified, we could mark that as readable, because they either do not have any records of
+            //    that type, or the index was built when the type was originally added, and maintained since
+            //    then.
+            // 2. If the index has never been modified, and it has an index state, we could leave it. But
+            //    this would basically just allow WriteOnly indexes or ReadableUniquePending to stay, as we
+            //    do not store anything for Readable indexes.
+            // 3. We could give the users an option to leave them as-is and use IndexScrubbing to repair the
+            //    indexes, but (at least right now) scrubbing can only repair value indexes.
+            // In the general case, we have no idea whether the index should be readable or not because:
+            // 1. We don't store that the index should be readable, so it could be that the index was readable
+            //    or that the store was on a metadata version that didn't have the index, or
+            //    had an older version of the index. If it wasn't readable on the current version, then
+            //    leaving the index would leave it in a corrupted state.
+            return bumpMetaDataVersionStamp.thenCompose(vignore -> AsyncUtil.whenAll(
+                            recordMetaData.getAllIndexes().stream()
+                                    .map(store::markIndexDisabled)
+                                    .collect(Collectors.toList()))
+                    .thenApply(ignored -> store));
         }
     }
 
