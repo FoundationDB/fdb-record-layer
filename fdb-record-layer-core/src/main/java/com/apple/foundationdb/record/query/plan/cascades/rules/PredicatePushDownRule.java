@@ -60,7 +60,116 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
- * TBD.
+ * Planner rule for pushing predicates down in an expression tree. This rule is intended to run during the
+ * {@link com.apple.foundationdb.record.query.plan.cascades.PlannerPhase#REWRITING REWRITING} phase, and it
+ * is designed to ensure that predicates are as far down in the query tree as possible.
+ * It works by identifying a {@link SelectExpression} and looking for predicates that only reference a single
+ * one of that expression's child quantifiers. For example, an expression like:
+ *
+ * <pre>{@code
+ *        +-----------------------+
+ *        | SELECT q1.b AS b,     |
+ *        |   q2.d AS d           |
+ *        +-----------------------+
+ *        | WHERE q1.a = 'x'      |
+ *        |   AND q1.b = q2.c     |
+ *        +-----------------------+
+ *             / q1        \ q2
+ *   +--------------+    +---------------+
+ *   | SELECT a, b  |    | SELECT c, d   |
+ *   +------------- +    +---------------+
+ *     /   |   \             /   |   \
+ *        ...                   ...
+ * }</pre>
+ * 
+ * <p>
+ * In the top most select box, there are two predicates, one on just the {@code q1} quantifier and another on the
+ * both {@code q1} and {@code q2}. It will attempt to push down the {@code q1} predicate while leaving the other
+ * (multi-quantifier) predicate as is. This will produce a new expression like:
+ * </p>
+ *
+ * <pre>{@code
+ *        +-----------------------+
+ *        | SELECT q1.b AS b,     |
+ *        |   q2.d AS d           |
+ *        +-----------------------+
+ *        | WHERE q1.b = q2.c     |
+ *        +-----------------------+
+ *             / q1        \ q2
+ *   +--------------+    +---------------+
+ *   | SELECT a, b  |    | SELECT c, d   |
+ *   +------------- +    +---------------+
+ *   | WHERE a = 'x'|        /   |   \
+ *   +------------- +           ...
+ *     /   |   \
+ *        ...
+ * }</pre>
+ *
+ * <p>
+ * Retaining the join-predicate in the top-most box is important for join enumeration, as we may want to push
+ * the predicate to either the left-hand side or the right-hand side when constructing the physical
+ * plan.
+ * </p>
+ * 
+ * <p>
+ * The predicate may be pushed down in one or more different ways. If the child expression is a type that
+ * can directly absorb predicates (like a {@link LogicalFilterExpression} another {@link SelectExpression}),
+ * then the immediate child will be rewritten with the additional predicates added. If the child expression
+ * does not admit predicates but allows for the predicate to be pushed through (like a {@link LogicalUnionExpression}
+ * or a {@link LogicalSortExpression}), then a new select box will be introduced below the child expression.
+ * For example, something like:
+ * </p>
+ *
+ * <pre>{@code
+ *    +-----------------------+
+ *    | SELECT q1.b AS b,     |
+ *    |   q1.c AS c           |
+ *    +-----------------------+
+ *    | WHERE q1.a = 'x'      |
+ *    +-----------------------+
+ *              | q1
+ *    +-----------------------+
+ *    | ORDER BY _.d ASC      |
+ *    +-----------------------+
+ *              | q2
+ *    +-----------------------+
+ *    | SELECT a, b, c, d     |
+ *    +-----------------------+
+ *              |
+ *             ...
+ * }</pre>
+ *
+ * <p>
+ * Will be rewritten as:
+ * </p>
+ *
+ * <pre>{@code
+ *    +-----------------------+
+ *    | SELECT q1.b AS b,     |
+ *    |   q1.c AS c           |
+ *    +-----------------------+
+ *              | q1
+ *    +-----------------------+
+ *    | ORDER BY _.d ASC      |
+ *    +-----------------------+
+ *              | q3
+ *    +-----------------------+
+ *    | SELECT q2.*           |
+ *    +-----------------------+
+ *    | WHERE q2.a = 'x'      |
+ *    +-----------------------+
+ *              | q2
+ *    +-----------------------+
+ *    | SELECT a, b, c, d     |
+ *    +-----------------------+
+ *              |
+ *             ...
+ * }</pre>
+ *
+ * <p>
+ * In this case, the predicate on {@code a} (which has been rewritten from referencing {@code q1} to referencing
+ * {@code q2}) can be further pushed down into {@code q2}, but that is done by further invocations of this rule.
+ * </p>
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
