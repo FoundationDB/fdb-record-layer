@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTe
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
@@ -258,7 +259,7 @@ public class PredicatePushDownRuleTest {
                 baseQun, List.of("a", "b", "c"),
                 new ConstantPredicate(true)
         );
-        Reference lowerRef = Reference.initialOf(lower1, lower2);
+        Reference lowerRef = Reference.ofExploratoryExpressions(PlannerStage.CANONICAL, ImmutableSet.of(lower1, lower2));
         Quantifier lowerQun = Quantifier.forEach(lowerRef);
 
         SelectExpression higher = selectWithPredicates(
@@ -275,7 +276,7 @@ public class PredicatePushDownRuleTest {
                 new ConstantPredicate(true),
                 fieldPredicate(baseQun, "a", EQUALS_42)
         );
-        Reference newLowerRef = Reference.initialOf(newLower1, newLower2);
+        Reference newLowerRef = Reference.ofExploratoryExpressions(PlannerStage.CANONICAL, ImmutableSet.of(newLower1, newLower2));
         Quantifier newLowerQun = Quantifier.forEach(newLowerRef);
 
         SelectExpression newHigher = selectWithPredicates(
@@ -293,13 +294,14 @@ public class PredicatePushDownRuleTest {
     @Test
     void canPushDownToSomeChildren() {
         Quantifier baseQun = baseT();
+        baseQun.getRangesOver().advancePlannerStage(PlannerStage.CANONICAL);
 
         // Add a second expression to the baseQun quantifier. It is identical
         // to the original quantifier contents, except it inserts an additional
         // select (which does no filtering or projection).
         Quantifier baseQun2 = baseT();
         SelectExpression selectAllT = selectWithPredicates(baseQun2);
-        baseQun.getRangesOver().insertFinalExpression(selectAllT);
+        baseQun.getRangesOver().insertExploratoryExpression(selectAllT);
 
         SelectExpression higher = selectWithPredicates(
                 baseQun, List.of("a", "c"),

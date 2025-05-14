@@ -76,7 +76,7 @@ public class TestRuleExecution {
         boolean ruleMatched = false;
         for (RelationalExpression expression : group.getAllMemberExpressions()) {
             final Iterator<CascadesRuleCall> ruleCalls = rule.getMatcher().bindMatches(context.getPlannerConfiguration(), PlannerBindings.empty(), expression)
-                    .map(bindings -> new CascadesRuleCall(PlannerPhase.PLANNING, context, rule, group,
+                    .map(bindings -> new CascadesRuleCall(PlannerPhase.REWRITING, context, rule, group,
                             Traversal.withRoot(group), new ArrayDeque<>(), bindings, evaluationContext))
                     .iterator();
             while (ruleCalls.hasNext()) {

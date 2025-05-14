@@ -421,14 +421,17 @@ public class Reference implements Correlated<Reference>, Typed {
             return true;
         }
 
-        for (final RelationalExpression otherExpression : otherRef.getExploratoryExpressions()) {
-            if (!exploratoryMembers.containsInMemo(otherExpression, equivalenceMap)) {
-                return false;
-            }
-        }
+        return containsAllInMemo(otherRef.getExploratoryExpressions(), equivalenceMap, false)
+                && containsAllInMemo(otherRef.getFinalExpressions(), equivalenceMap, true);
+    }
 
-        for (final RelationalExpression otherExpression : otherRef.getFinalExpressions()) {
-            if (!finalMembers.containsInMemo(otherExpression, equivalenceMap)) {
+    @API(API.Status.INTERNAL)
+    boolean containsAllInMemo(@Nonnull final Collection<? extends RelationalExpression> expressions,
+                              @Nonnull final AliasMap equivalenceMap,
+                              boolean isFinal) {
+        Members members = isFinal ? finalMembers : exploratoryMembers;
+        for (final RelationalExpression otherExpression : expressions) {
+            if (!members.containsInMemo(otherExpression, equivalenceMap)) {
                 return false;
             }
         }

@@ -22,8 +22,9 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.ExploratoryMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
@@ -63,7 +64,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
+public class PredicatePushDownRule extends ExplorationCascadesRule<SelectExpression> {
     @Nonnull
     private static final CollectionMatcher<RelationalExpression> belowExpressionsMatcher = all(anyExpression());
     @Nonnull
@@ -80,7 +81,7 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
 
     @SuppressWarnings("java:S135")
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(@Nonnull final ExplorationCascadesRuleCall call) {
         final var bindings = call.getBindings();
 
         final var selectExpression = bindings.get(root);
@@ -125,7 +126,7 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
         // shape of the predicate should not matter considering the expression we push into/through.
         //
 
-        final var pushToVisitor = new PushToVisitor(pushablePredicates, pushQuantifier);
+        final var pushToVisitor = new PushToVisitor(call, pushablePredicates, pushQuantifier);
         final var newBelowExpressions = new LinkedIdentitySet<RelationalExpression>();
 
         //
@@ -146,9 +147,7 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
             return;
         }
 
-        // TODO: fix memoization
-        final Reference newRangesOverReference = Reference.ofExploratoryExpressions(call.getPlannerPhase().getTargetPlannerStage(),
-                newBelowExpressions);
+        final Reference newRangesOverReference = call.memoizeExploratoryExpressions(newBelowExpressions);
 
         final var newPushQuantifier = Quantifier.forEachBuilder()
                 .withAlias(pushQuantifier.getAlias())
@@ -168,12 +167,16 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
 
     private static class PushToVisitor implements RelationalExpressionVisitorWithDefaults<Optional<? extends RelationalExpression>> {
         @Nonnull
+        private final ExploratoryMemoizer memoizer;
+        @Nonnull
         private final Set<? extends QueryPredicate> originalPredicates;
         @Nonnull
         private final Quantifier.ForEach pushQuantifier;
 
-        public PushToVisitor(@Nonnull final Set<? extends QueryPredicate> originalPredicates,
+        public PushToVisitor(@Nonnull ExploratoryMemoizer memoizer,
+                             @Nonnull final Set<? extends QueryPredicate> originalPredicates,
                              @Nonnull final Quantifier.ForEach pushQuantifier) {
+            this.memoizer = memoizer;
             this.originalPredicates = originalPredicates;
             this.pushQuantifier = pushQuantifier;
         }
@@ -209,13 +212,8 @@ public class PredicatePushDownRule extends CascadesRule<SelectExpression> {
                     TranslationMap.rebaseWithAliasMap(AliasMap.ofAliases(getPushQuantifier().getAlias(),
                             child.getAlias()));
             final var newPredicates = updatedPredicates(translationMap);
-            return Quantifier.forEach(Reference.initialOf(
-                    new SelectExpression(
-                            child.getFlowedObjectValue(),
-                            ImmutableList.of(child),
-                            newPredicates
-                    )
-            ));
+            final SelectExpression newSelect = new SelectExpression(child.getFlowedObjectValue(), ImmutableList.of(child), newPredicates);
+            return Quantifier.forEach(memoizer.memoizeExploratoryExpression(newSelect));
         }
 
         @Nonnull

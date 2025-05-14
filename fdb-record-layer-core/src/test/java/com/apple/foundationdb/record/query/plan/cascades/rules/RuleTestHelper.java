@@ -109,13 +109,29 @@ public class RuleTestHelper {
 
     @Nonnull
     private TestRuleExecution run(RelationalExpression original) {
+        ensureStage(PlannerStage.CANONICAL, original);
         Reference ref = Reference.ofExploratoryExpression(PlannerStage.CANONICAL, original);
         PlanContext planContext = new FakePlanContext();
         return TestRuleExecution.applyRule(planContext, rule, ref, EvaluationContext.EMPTY);
     }
 
+    public void ensureStage(@Nonnull PlannerStage plannerStage, @Nonnull RelationalExpression expression) {
+        for (Quantifier qun : expression.getQuantifiers()) {
+            Reference ref = qun.getRangesOver();
+            if (ref.getPlannerStage() != plannerStage) {
+                ref.advancePlannerStage(plannerStage);
+            }
+            for (RelationalExpression refMember : ref.getAllMemberExpressions()) {
+                ensureStage(plannerStage, refMember);
+            }
+        }
+    }
+
     @Nonnull
     public TestRuleExecution assertYields(RelationalExpression original, RelationalExpression... expected) {
+        for (RelationalExpression expression : expected) {
+            ensureStage(PlannerStage.CANONICAL, expression);
+        }
         TestRuleExecution execution = run(original);
         try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
             softly.assertThat(execution.getResult().getAllMemberExpressions())
