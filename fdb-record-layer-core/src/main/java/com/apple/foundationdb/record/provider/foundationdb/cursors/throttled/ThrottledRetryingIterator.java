@@ -26,17 +26,24 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.runners.FutureAutoClose;
+import com.apple.foundationdb.record.provider.foundationdb.runners.TransactionalRunner;
 import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -51,35 +58,50 @@ import java.util.function.Consumer;
  *
  * @param <T> The iterated item type
  */
-public class ThrottledRetryingIterator<T> {
+public class ThrottledRetryingIterator<T> implements AutoCloseable {
     private static final Logger logger = LoggerFactory.getLogger(ThrottledRetryingIterator.class);
 
     public static final int NUMBER_OF_RETRIES = 100;
     private static final int SUCCESS_INCREASE_THRESHOLD = 40;
+
+    @Nonnull
+    private final TransactionalRunner transactionalRunner;
+    @Nonnull
+    private final Executor executor;
+    @Nonnull
+    private final ScheduledExecutorService scheduledExecutor;
+    @Nonnull
+    private final FutureAutoClose futureManager;
 
     private final int transactionTimeQuotaMillis;
     private final int maxRecordScannedPerTransaction;
     private final int maxRecordDeletesPerTransaction;
     private final int maxRecordScannedPerSec;
     private final int maxRecordDeletesPerSec;
-    private final FDBDatabaseRunner runner;
+    @Nonnull
     private final CursorFactory<T> cursorCreator;
+    @Nonnull
     private final ItemHandler<T> singleItemHandler;
+    @Nullable
     private final Consumer<QuotaManager> transactionSuccessNotification;
+    @Nullable
     private final Consumer<QuotaManager> transactionInitNotification;
     private final int numOfRetries;
 
-    // Starting time of the current/most-recent transaction
+    private boolean closed = false;
+    /** Starting time of the current/most-recent transaction. */
     private long rangeIterationStartTimeMilliseconds = 0;
-
-    // Cursor limit in a single transaction (throttled)
+    /**  Cursor limit in a single transaction (throttled). */
     private int cursorRowsLimit;
-
-    private int failureRetriesCounter = 0; // reset at each success
-    private int successCounter = 0; // reset on each failure
+    /** reset at each success. */
+    private int failureRetriesCounter = 0;
+    /** reset on each failure. */
+    private int successCounter = 0;
 
     public ThrottledRetryingIterator(Builder<T> builder) {
-        this.runner = builder.runner;
+        this.transactionalRunner = builder.transactionalRunner;
+        this.executor = builder.executor;
+        this.scheduledExecutor = builder.scheduledExecutor;
         this.cursorCreator = builder.cursorCreator;
         this.singleItemHandler = builder.singleItemHandler;
         this.transactionTimeQuotaMillis = builder.transactionTimeQuotaMillis;
@@ -91,31 +113,81 @@ public class ThrottledRetryingIterator<T> {
         this.transactionInitNotification = builder.transactionInitNotification;
         this.cursorRowsLimit = cursorRowsLimit(builder.initialRecordsScannedPerTransaction, builder.maxRecordScannedPerTransaction);
         this.numOfRetries = builder.numOfRetries;
+        futureManager = new FutureAutoClose();
     }
 
-    public CompletableFuture<Void> iterateAll(FDBRecordStore userStore) {
+    /**
+     * Iterate over the inner cursor.
+     * <p>
+     * This is the main entry point for the class: This method would return a future that, when complete normally, signifies the
+     * completion of the iteration over the inner cursor. The iteration will create its own transactions for the actual
+     * data access, and so this can be done outside the scope of a transaction.
+     * @param storeBuilder the store builder to use for the iteration
+     * @return a future that, when complete normally, means the iteration is complete
+     */
+    public CompletableFuture<Void> iterateAll(final FDBRecordStore.Builder storeBuilder) {
         final AtomicReference<RecordCursorResult<T>> lastSuccessCont = new AtomicReference<>(null);
         final QuotaManager singleIterationQuotaManager = new QuotaManager();
-        FDBRecordStore.Builder userStoreBuilder = userStore.asBuilder();
+        AtomicBoolean isRetry = new AtomicBoolean(false);
         return AsyncUtil.whileTrue(() ->
                 // iterate ranges
-                iterateOneRange(userStoreBuilder, lastSuccessCont.get(), singleIterationQuotaManager)
+                iterateOneRange(storeBuilder, lastSuccessCont.get(), singleIterationQuotaManager, isRetry.get())
                         .handle((continuation, ex) -> {
                             if (ex == null) {
                                 lastSuccessCont.set(continuation);
+                                isRetry.set(false);
                                 return handleSuccess(singleIterationQuotaManager);
                             }
+                            isRetry.set(true);
                             return handleFailure(ex, singleIterationQuotaManager);
                         })
                         .thenCompose(ret -> ret)
         );
     }
 
+    @Override
+    public void close() {
+        if (closed) {
+            return;
+        }
+        closed = true;
+        // Ensure we call both close() methods, capturing all exceptions
+        RuntimeException caught = null;
+        try {
+            futureManager.close();
+        } catch (RuntimeException e) {
+            caught = e;
+        }
+        try {
+            transactionalRunner.close();
+        } catch (RuntimeException e) {
+            if (caught != null) {
+                caught.addSuppressed(e);
+            } else {
+                caught = e;
+            }
+        }
+        if (caught != null) {
+            throw caught;
+        }
+    }
+
+    /**
+     * Run a single transaction.
+     * Start a transaction and iterate until done: Either source exhausted, error occurred or constraint reached.
+     * @param userStoreBuilder store builder to create new stores
+     * @param cursorStartPoint the last result (from which continuation can be extracted)
+     * @param singleIterationQuotaManager instance of quote manager to use
+     * @param isRetry whether this is part of a retry after a failure (used for runAsync)
+     * @return a future of the last cursor result obtained
+     */
     private CompletableFuture<RecordCursorResult<T>> iterateOneRange(FDBRecordStore.Builder userStoreBuilder,
                                                                      RecordCursorResult<T> cursorStartPoint,
-                                                                     QuotaManager singleIterationQuotaManager) {
+                                                                     QuotaManager singleIterationQuotaManager,
+                                                                     boolean isRetry) {
         AtomicReference<RecordCursorResult<T>> cont = new AtomicReference<>();
-        return runner.runAsync(transaction -> {
+
+        return transactionalRunner.runAsync(isRetry, transaction -> {
             // this layer returns last cursor result
             singleIterationQuotaManager.init();
 
@@ -137,22 +209,24 @@ public class ThrottledRetryingIterator<T> {
                             }
                             singleIterationQuotaManager.scannedCount++;
                             CompletableFuture<Void> future = singleItemHandler.handleOneItem(store, result, singleIterationQuotaManager);
-                            return future.thenApply(ignore -> singleIterationQuotaManager.hasMore);
+                            // Register the externally-provided future so that it is closed if the runner is closed before it completes
+                            return futureManager.registerFuture(future)
+                                    .thenApply(ignore -> singleIterationQuotaManager.hasMore);
                         })
-                            .thenApply(rangeHasMore -> {
-                                if (rangeHasMore && ((0 < transactionTimeQuotaMillis && elapsedTimeMillis() > transactionTimeQuotaMillis) ||
-                                                     (0 < maxRecordDeletesPerTransaction && singleIterationQuotaManager.deletesCount > maxRecordDeletesPerTransaction))) {
-                                    // Reached time/delete quota in this transaction. Continue in a new one (possibly after throttling)
-                                    return false;
-                                }
-                                return rangeHasMore;
-                            }),
-                    runner.getExecutor())
-                .thenAccept(ignore -> cursor.close());
+                        .thenApply(rangeHasMore -> {
+                            if (rangeHasMore && ((0 < transactionTimeQuotaMillis && elapsedTimeMillis() > transactionTimeQuotaMillis) ||
+                                                 (0 < maxRecordDeletesPerTransaction && singleIterationQuotaManager.deletesCount > maxRecordDeletesPerTransaction))) {
+                                // Reached time/delete quota in this transaction. Continue in a new one (possibly after throttling)
+                                return false;
+                            }
+                            return rangeHasMore;
+                        }),
+                        executor)
+                  .thenAccept(ignore -> cursor.close());
         }).thenApply(ignore -> cont.get());
     }
 
-    CompletableFuture<Boolean> handleSuccess(QuotaManager quotaManager) {
+    private CompletableFuture<Boolean> handleSuccess(QuotaManager quotaManager) {
         runUnlessNull(transactionSuccessNotification, quotaManager); // let the user know about this successful range iteration
 
         if (!quotaManager.hasMore) {
@@ -183,24 +257,18 @@ public class ThrottledRetryingIterator<T> {
                 throttlePerSecGetDelayMillis(rangeProcessingTimeMillis, maxRecordScannedPerSec, quotaManager.scannedCount)
         ));
 
-        return toWaitMillis > 0 ?
-               MoreAsyncUtil.delayedFuture(toWaitMillis, TimeUnit.MILLISECONDS, runner.getScheduledExecutor()).thenApply(ignore -> true) :
-               AsyncUtil.READY_TRUE;
-    }
-
-    @VisibleForTesting
-    public static long throttlePerSecGetDelayMillis(long rangeProcessingTimeMillis, int maxPerSec, int eventsCount) {
-        if (maxPerSec <= 0) {
-            return 0; // do not throttle
+        if (toWaitMillis > 0) {
+            // Schedule another transaction according to max number per seconds
+            final CompletableFuture<Boolean> result = MoreAsyncUtil.delayedFuture(toWaitMillis, TimeUnit.MILLISECONDS, scheduledExecutor).thenApply(ignore -> true);
+            // Register the externally-provided future with the manager so that it is closed once the runner is closed
+            return futureManager.registerFuture(result);
+        } else {
+            return AsyncUtil.READY_TRUE;
         }
-        // get the number of events, get the min time they should have taken,
-        // and return a padding time (if positive)
-        // MS(count / perSec) - ptimeMillis ==>  MS(count) / perSec - ptimeMillis (avoid floating point, the floor effect is a neglectable 0.005%)
-        long waitMillis = (TimeUnit.SECONDS.toMillis(eventsCount) / maxPerSec) - rangeProcessingTimeMillis;
-        return waitMillis > 0 ? waitMillis : 0;
     }
 
-    CompletableFuture<Boolean> handleFailure(Throwable ex, QuotaManager quotaManager) {
+    private CompletableFuture<Boolean> handleFailure(Throwable ex, QuotaManager quotaManager) {
+        // Note: the transactional runner does not retry internally
         ++failureRetriesCounter;
         if (failureRetriesCounter > numOfRetries) {
             if (logger.isWarnEnabled()) {
@@ -214,7 +282,6 @@ public class ThrottledRetryingIterator<T> {
             return CompletableFuture.failedFuture(ex);
         }
         // Here: after a failure, try setting a scan quota that is smaller than the number of scanned items during the failure
-        // Note: the runner does not retry
         successCounter = 0;
         final int oldLimit = cursorRowsLimit;
         cursorRowsLimit = Math.max(1, (quotaManager.scannedCount * 9) / 10);
@@ -227,6 +294,18 @@ public class ThrottledRetryingIterator<T> {
         }
 
         return AsyncUtil.READY_TRUE; // retry
+    }
+
+    @VisibleForTesting
+    static long throttlePerSecGetDelayMillis(long rangeProcessingTimeMillis, int maxPerSec, int eventsCount) {
+        if (maxPerSec <= 0) {
+            return 0; // do not throttle
+        }
+        // get the number of events, get the min time they should have taken,
+        // and return a padding time (if positive)
+        // MS(count / perSec) - ptimeMillis ==>  MS(count) / perSec - ptimeMillis (avoid floating point, the floor effect is a neglectable 0.005%)
+        long waitMillis = (TimeUnit.SECONDS.toMillis(eventsCount) / maxPerSec) - rangeProcessingTimeMillis;
+        return waitMillis > 0 ? waitMillis : 0;
     }
 
     private long nowMillis() {
@@ -304,10 +383,18 @@ public class ThrottledRetryingIterator<T> {
         }
     }
 
-    public static <T> Builder<T> builder(FDBDatabaseRunner runner,
+    public static <T> Builder<T> builder(TransactionalRunner runner,
+                                         Executor executor,
+                                         ScheduledExecutorService scheduledExecutor,
                                          CursorFactory<T> cursorCreator,
                                          ItemHandler<T> singleItemHandler) {
-        return new Builder<>(runner, cursorCreator, singleItemHandler);
+        return new Builder<>(runner, executor, scheduledExecutor, cursorCreator, singleItemHandler);
+    }
+
+    public static <T> Builder<T> builder(FDBDatabase database,
+                                         CursorFactory<T> cursorCreator,
+                                         ItemHandler<T> singleItemHandler) {
+        return new Builder<>(database, FDBRecordContextConfig.newBuilder(), cursorCreator, singleItemHandler);
     }
 
     /**
@@ -316,7 +403,9 @@ public class ThrottledRetryingIterator<T> {
      * @param <T> the item type being iterated on.
      */
     public static class Builder<T> {
-        private final FDBDatabaseRunner runner;
+        public TransactionalRunner transactionalRunner;
+        public Executor executor;
+        public ScheduledExecutorService scheduledExecutor;
         private final CursorFactory<T> cursorCreator;
         private final ItemHandler<T> singleItemHandler;
         private Consumer<QuotaManager> transactionSuccessNotification;
@@ -335,9 +424,11 @@ public class ThrottledRetryingIterator<T> {
          * @param cursorCreator the factory to use when creating the inner cursor
          * @param singleItemHandler the handler of a single item while iterating
          */
-        Builder(FDBDatabaseRunner runner, CursorFactory<T> cursorCreator, ItemHandler<T> singleItemHandler) {
+        public Builder(TransactionalRunner runner, Executor executor, ScheduledExecutorService scheduledExecutor, CursorFactory<T> cursorCreator, ItemHandler<T> singleItemHandler) {
             // Mandatory fields are set in the constructor. Everything else is optional.
-            this.runner = runner;
+            this.transactionalRunner = runner;
+            this.executor = executor;
+            this.scheduledExecutor = scheduledExecutor;
             this.cursorCreator = cursorCreator;
             this.singleItemHandler = singleItemHandler;
             // set defaults
@@ -348,6 +439,14 @@ public class ThrottledRetryingIterator<T> {
             this.maxRecordScannedPerSec = 0;
             this.maxRecordDeletesPerSec = 0;
             this.numOfRetries = NUMBER_OF_RETRIES;
+        }
+
+        public Builder(FDBDatabase database, FDBRecordContextConfig.Builder contextConfigBuilder, CursorFactory<T> cursorCreator, ItemHandler<T> singleItemHandler) {
+            this(new TransactionalRunner(database, contextConfigBuilder),
+                    database.newContextExecutor(contextConfigBuilder.getMdcContext()),
+                    database.getScheduledExecutor(),
+                    cursorCreator,
+                    singleItemHandler);
         }
 
         /**

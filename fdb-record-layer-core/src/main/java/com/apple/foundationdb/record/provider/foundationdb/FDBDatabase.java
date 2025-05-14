@@ -740,7 +740,7 @@ public class FDBDatabase {
         return factory.getExecutor();
     }
 
-    protected Executor newContextExecutor(@Nullable Map<String, String> mdcContext) {
+    public Executor newContextExecutor(@Nullable Map<String, String> mdcContext) {
         return factory.newContextExecutor(mdcContext);
     }
 

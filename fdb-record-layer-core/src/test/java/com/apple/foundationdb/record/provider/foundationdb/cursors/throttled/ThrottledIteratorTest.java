@@ -25,6 +25,7 @@ import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.tuple.Tuple;
@@ -44,11 +45,9 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ThrottledIteratorTest extends FDBRecordStoreTestBase {
-
-    // TODO: Test stop iteration
-
     @ParameterizedTest
     @CsvSource({
             "1000,100,0,0",     // less than max
@@ -101,7 +100,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context);
             ThrottledRetryingIterator.Builder<Integer> throttledIterator =
                     iteratorBuilder(numRecords, itemHandler, null, successNotification, initialRowLimit, maxRowsLimit, -1, -1, -1, limitRef);
-            throttledIterator.build().iterateAll(recordStore).join();
+            throttledIterator.build().iterateAll(recordStore.asBuilder()).join();
         }
 
         assertThat(iteratedCount.get()).isEqualTo(numRecords);
@@ -148,7 +147,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context);
             ThrottledRetryingIterator.Builder<Integer> throttledIterator =
                     iteratorBuilder(numRecords, itemHandler, null, successNotification, -1, 10, maxPerSecLimit, -1, -1, limitRef);
-            throttledIterator.build().iterateAll(recordStore).join();
+            throttledIterator.build().iterateAll(recordStore.asBuilder()).join();
         }
 
         long totalTimeMillis = System.currentTimeMillis() - startTimeMillis;
@@ -178,7 +177,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context);
             ThrottledRetryingIterator.Builder<Integer> throttledIterator =
                     iteratorBuilder(numRecords, itemHandler, initNotification, null, -1, -1, -1, -1, transactionTimeMillis, null);
-            throttledIterator.build().iterateAll(recordStore).join();
+            throttledIterator.build().iterateAll(recordStore.asBuilder()).join();
         }
 
         long totalTimeMillis = System.currentTimeMillis() - startTimeMillis;
@@ -222,7 +221,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context);
             ThrottledRetryingIterator.Builder<Integer> throttledIterator =
                     iteratorBuilder(numRecords, itemHandler, initNotification, successNotification, initialRowLimit, maxRowsLimit, -1, -1, -1, limitRef);
-            throttledIterator.build().iterateAll(recordStore).join();
+            throttledIterator.build().iterateAll(recordStore.asBuilder()).join();
         }
         assertThat(totalScanned.get()).isEqualTo(numRecords);
         assertThat(failCount.get()).isEqualTo(5);
@@ -266,7 +265,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context);
             ThrottledRetryingIterator.Builder<Integer> throttledIterator =
                     iteratorBuilder(numRecords, itemHandler, initNotification, successNotification, -1, 10, maxPerSecLimit, -1, -1, null);
-            throttledIterator.build().iterateAll(recordStore).join();
+            throttledIterator.build().iterateAll(recordStore.asBuilder()).join();
         }
         long totalTimeMillis = System.currentTimeMillis() - startTime;
         if (maxPerSecLimit > 0) {
@@ -297,7 +296,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context);
             ThrottledRetryingIterator.Builder<Integer> throttledIterator =
                     iteratorBuilder(500, itemHandler, initNotification, successNotification, -1, 10, -1, numRetries, -1, null);
-            Throwable ex = Assertions.catchThrowableOfType(RuntimeException.class, () -> throttledIterator.build().iterateAll(recordStore).join());
+            Throwable ex = Assertions.catchThrowableOfType(RuntimeException.class, () -> throttledIterator.build().iterateAll(recordStore.asBuilder()).join());
 
             assertThat(ex.getMessage()).contains(failureMessage);
         }
@@ -350,7 +349,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context);
             ThrottledRetryingIterator.Builder<Integer> throttledIterator =
                     iteratorBuilder(999, itemHandler, null, null, 200, -1, -1, -1, -1, limitRef);
-            Throwable ex = Assertions.catchThrowableOfType(RuntimeException.class, () -> throttledIterator.build().iterateAll(recordStore).join());
+            Throwable ex = Assertions.catchThrowableOfType(RuntimeException.class, () -> throttledIterator.build().iterateAll(recordStore.asBuilder()).join());
             assertThat(ex.getMessage()).contains(failureMessage);
         }
 
@@ -382,7 +381,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context);
             ThrottledRetryingIterator.Builder<Integer> throttledIterator =
                     iteratorBuilder(2000, itemHandler, null, null, 10, 100, -1, -1, -1, limitRef);
-            throttledIterator.build().iterateAll(recordStore).join();
+            throttledIterator.build().iterateAll(recordStore.asBuilder()).join();
         }
     }
 
@@ -407,7 +406,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context);
             ThrottledRetryingIterator.Builder<Integer> throttledIterator =
                     iteratorBuilder(numRecords, itemHandler, null, successNotification, -1, 10, -1, -1, -1, null);
-            throttledIterator.build().iterateAll(recordStore).join();
+            throttledIterator.build().iterateAll(recordStore.asBuilder()).join();
         }
         assertThat(totalScanned.get()).isEqualTo(Math.min(50, lastItemToScan + 1));
     }
@@ -446,16 +445,92 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
+        // For this test, start and finalize the iteration within the transaction
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            ThrottledRetryingIterator.Builder<Tuple> throttledIterator = ThrottledRetryingIterator
-                    .builder(fdb.newRunner(), cursorFactory, itemHandler)
+            ThrottledRetryingIterator.Builder<Tuple> builder = ThrottledRetryingIterator
+                    .builder(fdb, cursorFactory, itemHandler)
                     .withNumOfRetries(2)
                     .withMaxRecordsScannedPerTransaction(maxRowLimit);
-            throttledIterator.build().iterateAll(recordStore).join();
+            try (ThrottledRetryingIterator<Tuple> iterator = builder.build()) {
+                iterator.iterateAll(recordStore.asBuilder()).join();
+            }
         }
-
         assertThat(itemsScanned).isEqualTo(IntStream.range(0, numRecords).boxed().collect(Collectors.toList()));
+
+        // For this test, start iteration within the transaction but allow it to run (and create more transactions) outside
+        // of the original transaction
+        itemsScanned.clear();
+        ThrottledRetryingIterator<Tuple> iterator = ThrottledRetryingIterator
+                .builder(fdb, cursorFactory, itemHandler)
+                .withNumOfRetries(2)
+                .withMaxRecordsScannedPerTransaction(maxRowLimit)
+                .build();
+        CompletableFuture<Void> iterateAll;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            iterateAll = iterator.iterateAll(recordStore.asBuilder());
+        }
+        iterateAll.join();
+        iterator.close();
+        assertThat(itemsScanned).isEqualTo(IntStream.range(0, numRecords).boxed().collect(Collectors.toList()));
+    }
+
+    @Test
+    void testLateCompleteFutures() throws Exception {
+        int numRecords = 50;
+        List<CompletableFuture<Void>> futures = new ArrayList<>(numRecords);
+
+        final ItemHandler<Integer> itemHandler = (store, item, quotaManager) -> {
+            // First future hangs on, all others are immediately completed
+            CompletableFuture<Void> future = (item.get() == 0) ? new CompletableFuture<>() : CompletableFuture.completedFuture(null);
+            futures.add(future);
+            return future;
+        };
+
+        ThrottledRetryingIterator<Integer> throttledIterator =
+                iteratorBuilder(numRecords, itemHandler, null, null, -1, 10, -1, -1, -1, null).build();
+        final CompletableFuture<Void> iterateAll;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            iterateAll = throttledIterator.iterateAll(recordStore.asBuilder());
+        }
+        // Only first future in the list - waiting for it to complete
+        assertThat(futures).hasSize(1);
+        // complete the first future, release all of them
+        futures.get(0).complete(null);
+        iterateAll.join();
+        throttledIterator.close();
+        assertThat(futures).hasSize(50);
+    }
+
+    @Test
+    void testIteratorClosesIncompleteFutures() throws Exception {
+        int numRecords = 50;
+        List<CompletableFuture<Void>> futures = new ArrayList<>(numRecords);
+
+        final ItemHandler<Integer> itemHandler = (store, item, quotaManager) -> {
+            // First future hangs on, all others are immediately completed
+            CompletableFuture<Void> future = (item.get() == 0) ? new CompletableFuture<>() : CompletableFuture.completedFuture(null);
+            futures.add(future);
+            return future;
+        };
+
+        ThrottledRetryingIterator<Integer> throttledIterator =
+                iteratorBuilder(numRecords, itemHandler, null, null, -1, 10, -1, -1, -1, null).build();
+        final CompletableFuture<Void> iterateAll;
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            iterateAll = throttledIterator.iterateAll(recordStore.asBuilder());
+        }
+        // Closing the iterator before the first future completes
+        throttledIterator.close();
+        // Only first future in the list, none other was created since the first one didn't complete
+        assertThat(futures).hasSize(1);
+        assertThat(futures.get(0).isCompletedExceptionally()).isTrue();
+        assertThatThrownBy(() -> futures.get(0).get()).hasCauseInstanceOf(FDBDatabaseRunner.RunnerClosed.class);
+        // Overall status is failed because we can't runAsync() anymore
+        assertThatThrownBy(iterateAll::join).hasCauseInstanceOf(FDBDatabaseRunner.RunnerClosed.class);
     }
 
     private ThrottledRetryingIterator.Builder<Integer> iteratorBuilder(final int numRecords,
@@ -466,10 +541,9 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
                                                                        final int maxPerSecLimit,
                                                                        final int numRetries,
                                                                        final int transactionTimeMillis, final AtomicInteger limitRef) {
-        ThrottledRetryingIterator.Builder<Integer> throttledIterator = ThrottledRetryingIterator
-                .builder(fdb.newRunner(),
-                        intCursor(numRecords, limitRef),
-                        itemHandler);
+
+        ThrottledRetryingIterator.Builder<Integer> throttledIterator = ThrottledRetryingIterator.builder(fdb, intCursor(numRecords, limitRef), itemHandler);
+
         if (successNotification != null) {
             throttledIterator.withTransactionSuccessNotification(successNotification);
         }
