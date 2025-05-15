@@ -111,7 +111,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
         this.maxRecordDeletesPerSec = builder.maxRecordDeletesPerSec;
         this.transactionSuccessNotification = builder.transactionSuccessNotification;
         this.transactionInitNotification = builder.transactionInitNotification;
-        this.cursorRowsLimit = cursorRowsLimit(builder.initialRecordsScannedPerTransaction, builder.maxRecordScannedPerTransaction);
+        this.cursorRowsLimit = constrainRowLimit(builder.initialRecordsScannedPerTransaction, builder.maxRecordScannedPerTransaction);
         this.numOfRetries = builder.numOfRetries;
         futureManager = new FutureAutoClose();
     }
@@ -238,8 +238,8 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
         ++successCounter;
         if (((successCounter) % SUCCESS_INCREASE_THRESHOLD) == 0 && cursorRowsLimit < (quotaManager.scannedCount + 3)) {
             final int oldLimit = cursorRowsLimit;
-            cursorRowsLimit = cursorRowsLimit((cursorRowsLimit * 5) / 4, maxRecordScannedPerTransaction);
-            if (logger.isInfoEnabled()) {
+            cursorRowsLimit = increaseLimit(oldLimit, maxRecordScannedPerTransaction);
+            if (logger.isInfoEnabled() && (oldLimit != cursorRowsLimit)) {
                 logger.info(KeyValueLogMessage.of("ThrottledIterator: iterate one range success: increase limit",
                         LogMessageKeys.LIMIT, cursorRowsLimit,
                         LogMessageKeys.OLD_LIMIT, oldLimit,
@@ -284,8 +284,8 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
         // Here: after a failure, try setting a scan quota that is smaller than the number of scanned items during the failure
         successCounter = 0;
         final int oldLimit = cursorRowsLimit;
-        cursorRowsLimit = Math.max(1, (quotaManager.scannedCount * 9) / 10);
-        if (logger.isInfoEnabled()) {
+        cursorRowsLimit = decreaseLimit(quotaManager.scannedCount);
+        if (logger.isInfoEnabled() && (oldLimit != cursorRowsLimit)) {
             logger.info(KeyValueLogMessage.of("ThrottledIterator: iterate one range failure: will retry",
                             LogMessageKeys.LIMIT, cursorRowsLimit,
                             LogMessageKeys.OLD_LIMIT, oldLimit,
@@ -323,15 +323,33 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
         }
     }
 
-    private int cursorRowsLimit(int initialLimit, int maxLimit) {
-        if (maxLimit == 0) {
-            return initialLimit;
+    @VisibleForTesting
+    static int increaseLimit(final int current, final int max) {
+        if (current == 0) {
+            return 0;
+        }
+        int newLimit = Math.max((current * 5) / 4, current + 1);
+        return constrainRowLimit(newLimit, max);
+    }
+
+    @VisibleForTesting
+    static int decreaseLimit(final int lastScanned) {
+        return Math.max(1, (lastScanned * 9) / 10);
+    }
+
+    /**
+     * Calculate the row limit based on the initial (desired) number and the maximum allowed.
+     * Since 0 is "unlimited", use special case to allow for that.
+     * @param initialLimit the current limit
+     * @param maxLimit the maximum allowed
+     * @return the calculated new limit
+     */
+    private static int constrainRowLimit(int initialLimit, int maxLimit) {
+        if ((maxLimit == 0) || (initialLimit == 0)) {
+            // if any is 0, return the other one
+            return Math.max(maxLimit, initialLimit);
         } else {
-            if (initialLimit == 0) {
-                return maxLimit;
-            } else {
-                return Math.min(initialLimit, maxLimit);
-            }
+            return Math.min(initialLimit, maxLimit);
         }
     }
 
@@ -451,7 +469,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
 
         /**
          * Set the amount of time for each transaction before committing and starting another.
-         * Defaults to 0 (no limit).
+         * Defaults to 4000.
          * @param transactionTimeQuotaMillis the maximum duration of a transaction.
          * @return this builder
          */

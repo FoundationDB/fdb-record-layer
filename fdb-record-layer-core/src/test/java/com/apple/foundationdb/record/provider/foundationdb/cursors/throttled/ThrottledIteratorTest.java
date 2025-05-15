@@ -76,10 +76,31 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         assertThat(ret).isEqualTo(expectedResult);
     }
 
+    @Test
+    void testIncreaseLimit() {
+        assertThat(ThrottledRetryingIterator.increaseLimit(0, 0)).isEqualTo(0);
+        assertThat(ThrottledRetryingIterator.increaseLimit(0, 100)).isEqualTo(0);
+        assertThat(ThrottledRetryingIterator.increaseLimit(100, 0)).isEqualTo(125);
+        assertThat(ThrottledRetryingIterator.increaseLimit(1, 0)).isEqualTo(2);
+        assertThat(ThrottledRetryingIterator.increaseLimit(3, 0)).isEqualTo(4);
+        assertThat(ThrottledRetryingIterator.increaseLimit(10, 10)).isEqualTo(10);
+        assertThat(ThrottledRetryingIterator.increaseLimit(10, 5)).isEqualTo(5);
+    }
+
+    @Test
+    void testDecreaseLimit() {
+        assertThat(ThrottledRetryingIterator.decreaseLimit(0)).isEqualTo(1);
+        assertThat(ThrottledRetryingIterator.decreaseLimit(1)).isEqualTo(1);
+        assertThat(ThrottledRetryingIterator.decreaseLimit(2)).isEqualTo(1);
+        assertThat(ThrottledRetryingIterator.decreaseLimit(3)).isEqualTo(2);
+        assertThat(ThrottledRetryingIterator.decreaseLimit(100)).isEqualTo(90);
+    }
+
     @CsvSource({"-1, -1", "0, 0", "-1, 0", "0,-1", "-1, 100", "0, 100", "1, 100", "1, -1", "1, 0", "3, 100", "100, 100"})
     @ParameterizedTest
     void testThrottleIteratorSuccessRowLimit(int initialRowLimit, int maxRowsLimit) throws Exception {
         // Iterate range, verify that the number of items scanned matches the number of records
+        //Ensure multiple transactions are playing nicely with the scanned range
         final int numRecords = 42; // mostly harmless
         AtomicInteger iteratedCount = new AtomicInteger(0); // total number of scanned items
         AtomicInteger deletedCount = new AtomicInteger(0); // total number of "deleted" items
@@ -126,6 +147,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
     @ParameterizedTest
     void testThrottleIteratorSuccessSecondsLimit(int maxPerSecLimit) throws Exception {
         // Iterate range, verify that the number of items scanned matches the number of records
+        // Assert that the total test takes longer because of the max per sec limit
         final int numRecords = 50;
         AtomicInteger iteratedCount = new AtomicInteger(0); // total number of scanned items
         AtomicInteger deletedCount = new AtomicInteger(0); // total number of "deleted" items
@@ -160,6 +182,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
 
     @Test
     void testThrottleIteratorTransactionTimeLimit() throws Exception {
+        // Set time limit for the transaction, add delay to each item handler
         final int numRecords = 50;
         final int delay = 10;
         final int transactionTimeMillis = 50;
@@ -188,6 +211,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
     @CsvSource({"-1, -1", "0, 0", "-1, 0", "0,-1", "-1, 100", "0, 100", "1, 100", "1, -1", "1, 0", "3, 100", "100, 100"})
     @ParameterizedTest
     void testThrottleIteratorFailuresRowLimit(int initialRowLimit, int maxRowsLimit) throws Exception {
+        // Fail some handlings, ensure transaction restarts, items scanned
         final int numRecords = 43;
         AtomicInteger totalScanned = new AtomicInteger(0); // number of items scanned
         AtomicInteger failCount = new AtomicInteger(0); // number of exception thrown
@@ -229,9 +253,10 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         assertThat(limitRef.get()).isLessThanOrEqualTo(3); // Scan failure after 3 will cause the limit to become 3
     }
 
-    @CsvSource({"-1", "0", "50", "100"})
+    @CsvSource({"-1", "0", "25", "50", "100"})
     @ParameterizedTest
     void testThrottleIteratorWithFailuresSecondsLimit(int maxPerSecLimit) throws Exception {
+        // Assert correct handling of max per sec items with failures
         final int numRecords = 43;
         AtomicInteger totalScanned = new AtomicInteger(0); // number of items scanned
         AtomicInteger failCount = new AtomicInteger(0); // number of exception thrown
@@ -280,6 +305,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
     @CsvSource({"-1", "0", "1", "10"})
     @ParameterizedTest
     void testConstantFailures(int numRetries) throws Exception {
+        // All item handlers will fail, ensure iteration fails with correct number of retries
         final String failureMessage = "intentionally failed while testing";
         AtomicInteger transactionStart = new AtomicInteger(0);
         AtomicBoolean success = new AtomicBoolean(false);
@@ -311,6 +337,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
 
     @Test
     void testLimitHandlingOnFailure() throws Exception {
+        // Actually compare set limit when transactions fail
         final String failureMessage = "intentionally failed while testing";
         final AtomicInteger limitRef = new AtomicInteger(0);
         final AtomicInteger failCount = new AtomicInteger(0);
@@ -358,6 +385,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
 
     @Test
     void testLimitHandlingOnSuccess() throws Exception {
+        // Actually compare rows limit when transactions succeed
         final AtomicInteger limitRef = new AtomicInteger(0);
         final AtomicInteger fullCount = new AtomicInteger(0);
         final ItemHandler<Integer> itemHandler = (store, item, quotaManager) -> {
@@ -388,6 +416,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
     @CsvSource({"0", "1", "20", "50"})
     @ParameterizedTest
     void testEarlyReturn(int lastItemToScan) throws Exception {
+        // Early termination of iteration via setting markExhausted
         final int numRecords = 50;
         AtomicInteger totalScanned = new AtomicInteger(0); // number of items scanned
 
@@ -414,6 +443,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
     @CsvSource({"-1", "0", "1", "10", "100"})
     @ParameterizedTest
     void testWithRealRecords(int maxRowLimit) throws Exception {
+        // A test with saved records, to see that future handling works
         final int numRecords = 50;
         List<Integer> itemsScanned = new ArrayList<>(numRecords);
 
@@ -478,6 +508,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
 
     @Test
     void testLateCompleteFutures() throws Exception {
+        // A test that completes the first future outside the transaction
         int numRecords = 50;
         List<CompletableFuture<Void>> futures = new ArrayList<>(numRecords);
 
@@ -506,6 +537,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
 
     @Test
     void testIteratorClosesIncompleteFutures() throws Exception {
+        // close the runner before the future completes (the futures should be closed)
         int numRecords = 50;
         List<CompletableFuture<Void>> futures = new ArrayList<>(numRecords);
 

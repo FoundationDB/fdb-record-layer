@@ -39,7 +39,7 @@ public interface CursorFactory<T> {
     /**
      * Create a new inner cursor for the {@link ThrottledRetryingIterator}.
      * @param store the record store to use
-     * @param lastResult the last result from the previous cursor (use for continuation). Null is none.
+     * @param lastResult the last result processed by the previous cursor (use for continuation). Null is none.
      * @param rowLimit the adjusted row limit to use
      * @return a newly created cursor with the given continuation and limit
      */
