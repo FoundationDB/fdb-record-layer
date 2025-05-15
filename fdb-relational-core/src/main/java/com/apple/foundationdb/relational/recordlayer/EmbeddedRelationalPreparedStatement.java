@@ -30,7 +30,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 
-import com.google.protobuf.Message;
+import com.apple.foundationdb.relational.util.Assert;
 
 import javax.annotation.Nonnull;
 import java.sql.Array;
@@ -215,11 +215,12 @@ public class EmbeddedRelationalPreparedStatement extends AbstractEmbeddedStateme
     }
 
     @Override
-    PlanContext buildPlanContext(FDBRecordStoreBase<Message> store) throws RelationalException, SQLException {
-        return PlanContext.Builder.create()
+    @Nonnull
+    PlanContext buildPlanContext(final @Nonnull FDBRecordStoreBase<?> store) throws RelationalException {
+        return PlanContext.builder()
                 .fromRecordStore(store)
                 .fromDatabase(conn.getRecordLayerDatabase())
-                .withMetricsCollector(conn.getMetricCollector())
+                .withMetricsCollector(Assert.notNullUnchecked(conn.getMetricCollector()))
                 .withPreparedParameters(PreparedParams.of(parameters, namedParameters))
                 .withSchemaTemplate(conn.getSchemaTemplate())
                 .build();

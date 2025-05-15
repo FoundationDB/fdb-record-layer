@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -46,6 +45,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
+import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalPlanFragment;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
@@ -69,6 +69,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -88,11 +89,39 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Override
-    public Expression visitTableFunction(@Nonnull RelationalParser.TableFunctionContext ctx) {
+    public LogicalOperator visitTableFunction(@Nonnull RelationalParser.TableFunctionContext ctx) {
         final var functionName = visitTableFunctionName(ctx.tableFunctionName()).toString();
-        return ctx.functionArgs() == null
-                ? getDelegate().resolveTableValuedFunction(functionName)
-                : getDelegate().resolveTableValuedFunction(functionName, visitFunctionArgs(ctx.functionArgs()).asList().toArray(new Expression[0]));
+        return ctx.tableFunctionArgs() == null
+                ? getDelegate().resolveTableValuedFunction(functionName, Expressions.empty())
+                : getDelegate().resolveTableValuedFunction(functionName, visitTableFunctionArgs(ctx.tableFunctionArgs()));
+    }
+
+    @Override
+    public Expressions visitTableFunctionArgs(@Nonnull final RelationalParser.TableFunctionArgsContext ctx) {
+        if (!ctx.namedFunctionArg().isEmpty()) {
+            final var namedArguments = Expressions.of(ctx.namedFunctionArg().stream()
+                    .map(this::visitNamedFunctionArg).collect(ImmutableList.toImmutableList()));
+            final var duplicateArguments = namedArguments.asList().stream().flatMap(p -> p.getName().stream())
+                    .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()))
+                    .entrySet()
+                    .stream()
+                    .filter(p -> p.getValue() > 1)
+                    .collect(ImmutableList.toImmutableList());
+            Assert.thatUnchecked(duplicateArguments.isEmpty(), ErrorCode.SYNTAX_ERROR, () ->
+                    "argument name(s) used more than once" + duplicateArguments.stream()
+                            .map(Object::toString).collect(Collectors.joining(",")));
+            return namedArguments;
+        } else {
+            return Expressions.of(ctx.functionArg().stream().map(this::visitFunctionArg)
+                    .collect(ImmutableList.toImmutableList()));
+        }
+    }
+
+    @Override
+    public Expression visitNamedFunctionArg(@Nonnull final RelationalParser.NamedFunctionArgContext ctx) {
+        final var name = visitUid(ctx.key);
+        final var expression = Assert.castUnchecked(visit(ctx.value), Expression.class);
+        return expression.toNamedArgument(name);
     }
 
     @Nonnull
@@ -256,7 +285,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         // special case for user-defined functions where we want to exclude the first argument from
         // being literal-stripped.
         @Nonnull Expressions arguments;
-        boolean isUdf = getDelegate().getSemanticAnalyzer().isUdfFunction(functionName);
+        boolean isUdf = getDelegate().getSemanticAnalyzer().isJavaCallFunction(functionName);
         if (isUdf) {
             final var argumentNodes = ctx.functionArgs().children.stream()
                     .filter(arg -> arg instanceof RelationalParser.FunctionArgContext)

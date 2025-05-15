@@ -44,6 +44,7 @@ import java.util.Set;
 
 /**
  * A relational planner expression that projects its input values.
+ * Note that this expression is only used when we plan {@link com.apple.foundationdb.record.query.RecordQuery}s.
  */
 @API(API.Status.EXPERIMENTAL)
 public class LogicalProjectionExpression implements RelationalExpressionWithChildren, PlannerGraphRewritable {
@@ -90,7 +91,8 @@ public class LogicalProjectionExpression implements RelationalExpressionWithChil
                                                              @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         final List<? extends Value> rebasedValue =
                 getProjectedValues().stream()
-                        .map(projectedValue -> projectedValue.translateCorrelations(translationMap, shouldSimplifyValues))
+                        .map(projectedValue -> projectedValue.translateCorrelations(translationMap,
+                                shouldSimplifyValues))
                         .collect(ImmutableList.toImmutableList());
 
         return new LogicalProjectionExpression(rebasedValue,

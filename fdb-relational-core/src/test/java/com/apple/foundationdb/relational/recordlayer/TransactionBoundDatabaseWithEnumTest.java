@@ -34,20 +34,20 @@ import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
-import com.apple.foundationdb.relational.api.exceptions.ContextualSQLException;
+import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.transactionbound.TransactionBoundEmbeddedRelationalEngine;
+import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
-
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -56,7 +56,6 @@ import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.sql.Types;
 
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.fail;
 
 public class TransactionBoundDatabaseWithEnumTest {
@@ -82,16 +81,16 @@ public class TransactionBoundDatabaseWithEnumTest {
             try (RelationalConnection conn = driver.connect(dbRule.getConnectionUri(), transaction, Options.NONE)) {
                 conn.setSchema("TEST_SCHEMA");
                 try (RelationalStatement statement = conn.createStatement()) {
-                    statement.executeInsert("Card", EmbeddedRelationalStruct.newBuilder()
+                    statement.executeInsert("CARD", EmbeddedRelationalStruct.newBuilder()
                             .addLong("id", 1L)
                             .addObject("suit", "DIAMONDS", Types.OTHER)
-                            .addInt("rank", 1)
+                            .addLong("rank", 1L)
                             .build()
                     );
                 }
 
                 try (RelationalStatement statement = conn.createStatement()) {
-                    try (RelationalResultSet resultSet = statement.executeScan("Card", KeySet.EMPTY, Options.NONE)) {
+                    try (RelationalResultSet resultSet = statement.executeScan("CARD", KeySet.EMPTY, Options.NONE)) {
                         Assertions.assertThat(resultSet.next()).isTrue();
                         Assertions.assertThat(resultSet.getString("suit")).isEqualTo("DIAMONDS");
                         Assertions.assertThat(resultSet.getLong("rank")).isEqualTo(1L);
@@ -101,21 +100,38 @@ public class TransactionBoundDatabaseWithEnumTest {
         }
     }
 
-    @Test
+    @Disabled // enable this test once we generate enum values in the DDL with correct numbers, see below for more information.
     void filterBySuit() throws RelationalException, SQLException {
         try (Transaction transaction = createTransaction(connRule)) {
             EmbeddedRelationalEngine engine = new TransactionBoundEmbeddedRelationalEngine();
             EmbeddedRelationalDriver driver = new EmbeddedRelationalDriver(engine);
             try (RelationalConnection conn = driver.connect(dbRule.getConnectionUri(), transaction, Options.NONE)) {
                 conn.setSchema("TEST_SCHEMA");
-
+                // enum values are created in the descriptor with the following numbers (see createRecordsDescriptor()):
+                // SPADES => 1, HEARTS => 2, DIAMONDS => 3, CLUBS => 4
+                // however when created from DDL, the plan generator creates the values with these numbers instead:
+                // SPADES => 0, HEARTS => 1, DIAMONDS => 2, CLUBS => 3
+                // which is apparently illegal according to proto3 rules:
+                // The default value for the SearchRequest.corpus field is CORPUS_UNSPECIFIED because that is the first
+                // value defined in the enum.
+                // In proto3, the first value defined in an enum definition must have the value zero and should have
+                // the name ENUM_TYPE_NAME_UNSPECIFIED or ENUM_TYPE_NAME_UNKNOWN. This is because:
+                //  * There must be a zero value, so that we can use 0 as a numeric default value.
+                //  * The zero value needs to be the first element, for compatibility with the proto2 semantics where the
+                //  first enum value is the default unless a different value is explicitly specified.
+                // It is also recommended that this first, default value have no semantic meaning other than “this value
+                // was unspecified”.
+                // this difference in numbers is causing inserted data to become corrupt, as well as returning incorrect
+                // data upon querying, when the DDL and explicit descriptor definition and usage through transaction bound
+                // connection have intermixed usage as done in this test case.
                 try (RelationalStatement statement = conn.createStatement()) {
-                    // Queries appear to have trouble with transaction bound databases as they can't look
-                    // up the table. Once this is fixed, this test can be cleaned up to either (1) assert
-                    // about a more enum-related error or (2) validate the query filter works
-                    assertThatThrownBy(() -> statement.execute("SELECT * FROM Card WHERE Card.suit = 'CLUBS'"))
-                            .isInstanceOf(ContextualSQLException.class)
-                            .hasMessageContaining("Unknown table");
+                    statement.execute("INSERT INTO Card VALUES (1, 'DIAMONDS', 42), (2, 'CLUBS', 44), (3, 'SPADES', 45)");
+                    Assertions.assertThat(statement.execute("SELECT * FROM Card WHERE Card.suit = 'CLUBS'")).isTrue();
+                    try (var resultSet = statement.getResultSet()) {
+                        ResultSetAssert.assertThat(resultSet).hasNextRow()
+                                .isRowExactly(2L, "CLUBS", 44L)
+                                .hasNoNextRow();
+                    }
                 }
             }
         }
@@ -127,7 +143,7 @@ public class TransactionBoundDatabaseWithEnumTest {
      * <pre>
      *     syntax = "proto2";
      *
-     *     message Card {
+     *     message CARD {
      *         // Note that the enum definition is nested in the type, and also note that it doesn't
      *         // have a value at position 0. This is legal in proto2 enums, though not in proto3.
      *         enum Suit {
@@ -153,7 +169,7 @@ public class TransactionBoundDatabaseWithEnumTest {
                 .setName("metadata_with_enum.proto")
                 .setSyntax("proto2")
                 .addMessageType(DescriptorProtos.DescriptorProto.newBuilder()
-                        .setName("Card")
+                        .setName("CARD")
                         .addEnumType(DescriptorProtos.EnumDescriptorProto.newBuilder()
                                 .setName("Suit")
                                 .addValue(DescriptorProtos.EnumValueDescriptorProto.newBuilder()
@@ -188,7 +204,7 @@ public class TransactionBoundDatabaseWithEnumTest {
                         )
                         .addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
                                 .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
-                                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT32)
+                                .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64)
                                 .setName("rank")
                                 .setNumber(3)
                         )
@@ -198,8 +214,8 @@ public class TransactionBoundDatabaseWithEnumTest {
                         .addField(DescriptorProtos.FieldDescriptorProto.newBuilder()
                                 .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
                                 .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
-                                .setTypeName("Card")
-                                .setName("Card")
+                                .setTypeName("CARD")
+                                .setName("CARD")
                                 .setNumber(1)
                         )
                 )
@@ -216,7 +232,7 @@ public class TransactionBoundDatabaseWithEnumTest {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder();
 
         metaDataBuilder.setRecords(createRecordsDescriptor());
-        RecordTypeBuilder cardTypeBuilder = metaDataBuilder.getRecordType("Card");
+        RecordTypeBuilder cardTypeBuilder = metaDataBuilder.getRecordType("CARD");
         cardTypeBuilder.setPrimaryKey(Key.Expressions.concat(Key.Expressions.recordType(), Key.Expressions.field("id")));
         cardTypeBuilder.setRecordTypeKey(1L);
         cardTypeBuilder.setSinceVersion(2);
@@ -242,7 +258,7 @@ public class TransactionBoundDatabaseWithEnumTest {
     }
 
     private Transaction createTransaction(RelationalConnectionRule connRule) throws RelationalException, SQLException {
-        EmbeddedRelationalConnection connection = (EmbeddedRelationalConnection) connRule.getUnderlying();
+        EmbeddedRelationalConnection connection = connRule.getUnderlyingEmbeddedConnection();
         FDBRecordContext context = TransactionBoundDatabaseTest.createNewContext(connection);
         FDBRecordStoreBase<Message> recordStore = getStore(connection, context);
         final var schemaTemplate = TransactionBoundDatabaseTest.getSchemaTemplate(connection);

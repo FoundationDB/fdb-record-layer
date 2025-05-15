@@ -21,9 +21,9 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
@@ -71,7 +71,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *
  */
 @API(API.Status.EXPERIMENTAL)
-public class PushDistinctThroughFetchRule extends CascadesRule<RecordQueryUnorderedPrimaryKeyDistinctPlan> {
+public class PushDistinctThroughFetchRule extends ImplementationCascadesRule<RecordQueryUnorderedPrimaryKeyDistinctPlan> {
     @Nonnull
     private static final BindingMatcher<RecordQueryPlan> innerPlanMatcher = anyPlan();
     @Nonnull
@@ -86,7 +86,7 @@ public class PushDistinctThroughFetchRule extends CascadesRule<RecordQueryUnorde
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
 
         final RecordQueryFetchFromPartialRecordPlan fetchPlan = bindings.get(fetchPlanMatcher);
@@ -94,15 +94,15 @@ public class PushDistinctThroughFetchRule extends CascadesRule<RecordQueryUnorde
 
         final CorrelationIdentifier newInnerAlias = Quantifier.uniqueID();
         
-        final Quantifier.Physical newInnerQuantifier = Quantifier.physical(call.memoizePlans(innerPlan), newInnerAlias);
+        final Quantifier.Physical newInnerQuantifier = Quantifier.physical(call.memoizePlan(innerPlan), newInnerAlias);
 
         final RecordQueryUnorderedPrimaryKeyDistinctPlan pushedDistinctPlan =
                 new RecordQueryUnorderedPrimaryKeyDistinctPlan(newInnerQuantifier);
 
         final RecordQueryFetchFromPartialRecordPlan newFetchPlan =
-                new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(call.memoizePlans(pushedDistinctPlan)),
+                new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(call.memoizePlan(pushedDistinctPlan)),
                         fetchPlan.getPushValueFunction(),
                         Type.Relation.scalarOf(fetchPlan.getResultType()), fetchPlan.getFetchIndexRecords());
-        call.yieldExpression(newFetchPlan);
+        call.yieldPlan(newFetchPlan);
     }
 }

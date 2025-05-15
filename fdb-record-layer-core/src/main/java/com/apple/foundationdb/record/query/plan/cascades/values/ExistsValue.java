@@ -149,6 +149,7 @@ public class ExistsValue extends AbstractValue implements BooleanValue, Quantifi
                     ImmutableList.of(new Type.Relation()), (builtInFunction, arguments) -> encapsulateInternal(arguments));
         }
 
+        // TODO this is sus
         private static Value encapsulateInternal(@Nonnull final List<? extends Typed> arguments) {
             // the call is already validated against the resolved function
             Verify.verify(arguments.size() == 1);
@@ -156,7 +157,7 @@ public class ExistsValue extends AbstractValue implements BooleanValue, Quantifi
             Verify.verify(in instanceof RelationalExpression);
 
             // create an existential quantifier
-            final Quantifier.Existential existsQuantifier = Quantifier.existential(Reference.of((RelationalExpression)in));
+            final Quantifier.Existential existsQuantifier = Quantifier.existential(Reference.initialOf((RelationalExpression)in));
 
             return new ExistsValue(existsQuantifier.getAlias());
         }
