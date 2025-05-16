@@ -241,6 +241,19 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
         return this;
     }
 
+    @Override
+    public boolean canBeMinimized() {
+        return indexPlan.canBeMinimized();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryCoveringIndexPlan minimize(@Nonnull final List<Quantifier.Physical> newQuantifiers) {
+        Verify.verify(newQuantifiers.isEmpty());
+        return new RecordQueryCoveringIndexPlan((RecordQueryPlanWithIndex)indexPlan.minimize(newQuantifiers),
+                recordTypeName, getAvailableFields(), toRecord);
+    }
+
     @Nonnull
     public Optional<Value> pushValueThroughFetch(@Nonnull Value value,
                                                  @Nonnull CorrelationIdentifier sourceAlias,
