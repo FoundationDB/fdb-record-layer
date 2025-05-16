@@ -90,9 +90,11 @@ public class RecordLayerMetadataOperationsFactory implements MetadataOperationsF
     }
 
     @Nonnull
+    @Override
     public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull SchemaTemplate template,
+                                                                   boolean throwIfNotExists,
                                                                    @Nonnull RecordLayerInvokedRoutine invokedRoutine) {
-        return new CreateTemporaryFunctionConstantAction(template, invokedRoutine);
+        return new CreateTemporaryFunctionConstantAction(template, throwIfNotExists, invokedRoutine);
     }
 
     public static class Builder {

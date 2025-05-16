@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.ddl;
 
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
@@ -35,22 +36,28 @@ public class CreateTemporaryFunctionConstantAction implements ConstantAction  {
     @Nonnull
     private final RecordLayerInvokedRoutine invokedRoutine;
 
+    private final boolean throwIfNotExists;
+
     @Nonnull
     private final SchemaTemplate template;
 
     public CreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template,
+                                                 boolean throwIfNotExists,
                                                  @Nonnull final RecordLayerInvokedRoutine invokedRoutine) {
         this.template = template;
+        this.throwIfNotExists = throwIfNotExists;
         this.invokedRoutine = invokedRoutine;
     }
 
     @Override
     public void execute(final Transaction txn) throws RelationalException {
-        var transactionBoundSchemaTemplate = Assert.castUnchecked(txn.getBoundSchemaMaybe().orElse(template),
-                        RecordLayerSchemaTemplate.class)
-                .toBuilder()
-                .addInvokedRoutine(invokedRoutine)
-                .build();
+        var transactionBoundSchemaTemplate = Assert.castUnchecked(txn.getBoundSchemaMaybe().orElse(template), RecordLayerSchemaTemplate.class);
+        if (throwIfNotExists) {
+            Assert.thatUnchecked(transactionBoundSchemaTemplate.getInvokedRoutines().stream()
+                                    .noneMatch(r -> r.getName().equals(invokedRoutine.getName())),
+                    ErrorCode.DUPLICATE_FUNCTION, () -> "function '" + invokedRoutine.getName() + "' already exists");
+        }
+        transactionBoundSchemaTemplate = transactionBoundSchemaTemplate.toBuilder().replaceInvokedRoutine(invokedRoutine).build();
         txn.setBoundSchema(transactionBoundSchemaTemplate);
     }
 }

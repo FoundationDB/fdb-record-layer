@@ -51,5 +51,5 @@ public interface MetadataOperationsFactory {
     ConstantAction getDropSchemaConstantAction(@Nonnull URI dbPath, @Nonnull String schemaName, @Nonnull Options options);
 
     @Nonnull
-    ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull SchemaTemplate template, @Nonnull RecordLayerInvokedRoutine invokedRoutine);
+    ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull SchemaTemplate template, boolean throwIfNotExist, @Nonnull RecordLayerInvokedRoutine invokedRoutine);
 }

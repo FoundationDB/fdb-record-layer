@@ -121,7 +121,7 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
         this.queryVisitor = QueryVisitor.of(this);
         this.metadataPlanVisitor = MetadataPlanVisitor.of(this);
         this.ddlVisitor = DdlVisitor.of(this, metadataOperationsFactory, dbUri);
-        this.semanticAnalyzer = new SemanticAnalyzer(getCatalog(), createFunctionCatalog(getCatalog()));
+        this.semanticAnalyzer = new SemanticAnalyzer(getSchemaTemplate(), createFunctionCatalog(getSchemaTemplate()));
         this.logicalOperatorCatalog = LogicalOperatorCatalog.newInstance();
     }
 
@@ -137,12 +137,12 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     }
 
     @Nonnull
-    public RecordLayerSchemaTemplate getCatalog() {
+    public RecordLayerSchemaTemplate getSchemaTemplate() {
         return metadata;
     }
 
     @Nonnull
-    public RecordLayerSchemaTemplate replaceCatalog(@Nonnull RecordLayerSchemaTemplate newCatalog) {
+    public RecordLayerSchemaTemplate replaceSchemaTemplate(@Nonnull RecordLayerSchemaTemplate newCatalog) {
         final var oldMetadata = metadata;
         metadata = newCatalog;
         semanticAnalyzer = new SemanticAnalyzer(metadata, createFunctionCatalog(metadata));

@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
@@ -185,7 +186,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
         final var ddlCatalog = metadataBuilder.build();
         // parse the index SQL query using the newly constructed metadata.
-        getDelegate().replaceCatalog(ddlCatalog);
+        getDelegate().replaceSchemaTemplate(ddlCatalog);
         final var viewPlan = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
                 Assert.castUnchecked(ctx.queryTerm().accept(this), LogicalOperator.class).getQuantifier().getRangesOver().get());
 
@@ -254,7 +255,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         // TODO: this is currently relying on the lexical order of the function to resolve function dependencies which
         //       is limited.
         functionClauses.build().forEach(functionClause -> {
-            final var invokedRoutine = getInvokedRoutineMetadata(functionClause);
+            final var invokedRoutine = getInvokedRoutineMetadata(functionClause, metadataBuilder.build(), false);
             metadataBuilder.addInvokedRoutine(invokedRoutine);
         });
         for (final var index : indexes) {
@@ -311,10 +312,11 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Nonnull
-    private RecordLayerInvokedRoutine getInvokedRoutineMetadata(@Nonnull final RelationalParser.SqlInvokedFunctionContext ctx) {
-        final var ddlCatalog = metadataBuilder.build();
+    private RecordLayerInvokedRoutine getInvokedRoutineMetadata(@Nonnull final RelationalParser.SqlInvokedFunctionContext ctx,
+                                                                @Nonnull final RecordLayerSchemaTemplate ddlCatalog,
+                                                                boolean isTemporary) {
         // parse the index SQL query using the newly constructed metadata.
-        getDelegate().replaceCatalog(ddlCatalog);
+        getDelegate().replaceSchemaTemplate(ddlCatalog);
 
         // 1. get the function name.
         final var functionName = visitFullId(ctx.functionSpecification().schemaQualifiedRoutineName).toString();
@@ -323,7 +325,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var queryString = getDelegate().getPlanGenerationContext().getQuery();
         final var start = ctx.start.getStartIndex();
         final var stop = ctx.stop.getStopIndex() + 1; // inclusive.
-        final var functionDefinition = "CREATE " + queryString.substring(start, stop);
+        final var functionDefinition = "CREATE " + (isTemporary ? "TEMPORARY " : "") + queryString.substring(start, stop);
 
         // 3. visit the SQL string to generate (compile) the corresponding SQL plan.
         final var function = visitSqlInvokedFunction(ctx);
@@ -338,8 +340,10 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Override
     public ProceduralPlan visitCreateTempFunction(@Nonnull RelationalParser.CreateTempFunctionContext ctx) {
-        final var tempFunction = visitSqlInvokedFunction(ctx.sqlInvokedFunction());
-        return ProceduralPlan.of(metadataOperationsFactory.getCreateTemporaryFunctionConstantAction(metadataBuilder.build()));
+        final var invokedRoutine = getInvokedRoutineMetadata(ctx.sqlInvokedFunction(), getDelegate().getSchemaTemplate(), true);
+        var throwIfNotExists = ctx.REPLACE() != null;
+        return ProceduralPlan.of(metadataOperationsFactory.getCreateTemporaryFunctionConstantAction(getDelegate().getSchemaTemplate(),
+                throwIfNotExists, invokedRoutine));
     }
 
     @Override
