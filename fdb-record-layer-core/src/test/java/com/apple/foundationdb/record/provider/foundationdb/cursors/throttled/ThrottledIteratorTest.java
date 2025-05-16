@@ -81,8 +81,8 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         assertThat(ThrottledRetryingIterator.increaseLimit(0, 0)).isEqualTo(0);
         assertThat(ThrottledRetryingIterator.increaseLimit(0, 100)).isEqualTo(0);
         assertThat(ThrottledRetryingIterator.increaseLimit(100, 0)).isEqualTo(125);
-        assertThat(ThrottledRetryingIterator.increaseLimit(1, 0)).isEqualTo(2);
-        assertThat(ThrottledRetryingIterator.increaseLimit(3, 0)).isEqualTo(4);
+        assertThat(ThrottledRetryingIterator.increaseLimit(1, 0)).isEqualTo(5);
+        assertThat(ThrottledRetryingIterator.increaseLimit(3, 0)).isEqualTo(7);
         assertThat(ThrottledRetryingIterator.increaseLimit(10, 10)).isEqualTo(10);
         assertThat(ThrottledRetryingIterator.increaseLimit(10, 5)).isEqualTo(5);
     }
@@ -394,10 +394,10 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
             int count = fullCount.incrementAndGet();
             if (count <= 400) {         // 10 * 40 (limit * successes) before change
                 assertThat(limit).isEqualTo(10);
-            } else if (count <= 880) {  // 400 + (12 * 40)
-                assertThat(limit).isEqualTo(12);
-            } else if (count <= 1480) { // 880 + (15 * 40)
-                assertThat(limit).isEqualTo(15);
+            } else if (count <= 960) {  // 400 + (14 * 40)
+                assertThat(limit).isEqualTo(14);
+            } else if (count <= 1480) { // 960 + (18 * 40)
+                assertThat(limit).isEqualTo(18);
             } else {
                 // end all iterations
                 quotaManager.markExhausted();

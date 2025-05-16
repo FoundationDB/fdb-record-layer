@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.cursors.throttled;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
@@ -58,6 +59,7 @@ import java.util.function.Consumer;
  *
  * @param <T> The iterated item type
  */
+@API(API.Status.EXPERIMENTAL)
 public class ThrottledRetryingIterator<T> implements AutoCloseable {
     private static final Logger logger = LoggerFactory.getLogger(ThrottledRetryingIterator.class);
 
@@ -328,7 +330,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
         if (current == 0) {
             return 0;
         }
-        int newLimit = Math.max((current * 5) / 4, current + 1);
+        int newLimit = Math.max((current * 5) / 4, current + 4);
         return constrainRowLimit(newLimit, max);
     }
 
