@@ -55,7 +55,7 @@ import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierWithoutDefaultOnEmptyOverRef;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.members;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.exploratoryMembers;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.anyExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
@@ -177,7 +177,7 @@ public class PredicatePushDownRule extends ExplorationCascadesRule<SelectExpress
     @Nonnull
     private static final CollectionMatcher<RelationalExpression> belowExpressionsMatcher = all(anyExpression());
     @Nonnull
-    private static final BindingMatcher<Reference> belowReferenceMatcher = members(belowExpressionsMatcher);
+    private static final BindingMatcher<Reference> belowReferenceMatcher = exploratoryMembers(belowExpressionsMatcher);
     @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> forEachQuantifierMatcher =
             forEachQuantifierWithoutDefaultOnEmptyOverRef(belowReferenceMatcher);
@@ -188,7 +188,6 @@ public class PredicatePushDownRule extends ExplorationCascadesRule<SelectExpress
         super(root);
     }
 
-    @SuppressWarnings("java:S135")
     @Override
     public void onMatch(@Nonnull final ExplorationCascadesRuleCall call) {
         final var bindings = call.getBindings();
