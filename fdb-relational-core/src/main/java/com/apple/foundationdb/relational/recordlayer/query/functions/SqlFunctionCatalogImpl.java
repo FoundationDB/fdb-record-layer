@@ -77,8 +77,6 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
     private Optional<? extends CatalogedFunction> lookupBuiltInFunction(@Nonnull final String name,
                                                                                          @Nonnull final Expressions expressions) {
         final var functionValidator = builtInSynonyms.get(name.toLowerCase(Locale.ROOT));
-        System.out.println("builtInSynonyms:" + builtInSynonyms.keySet());
-        System.out.println("name lowercase:" + name.toLowerCase(Locale.ROOT) + "name in builtInSynonyms keyset:" + builtInSynonyms.keySet().contains(name.toLowerCase(Locale.ROOT)));
         if (functionValidator == null) {
             return Optional.empty();
         }
@@ -147,6 +145,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
                 .put("coalesce", argumentsCount -> BuiltInFunctionCatalog.resolve("coalesce", argumentsCount))
                 .put("is null", argumentsCount -> BuiltInFunctionCatalog.resolve("isNull", argumentsCount))
                 .put("is not null", argumentsCount -> BuiltInFunctionCatalog.resolve("notNull", argumentsCount))
+                .put("is distinct from", argumentsCount -> BuiltInFunctionCatalog.resolve("isDistinctFrom", argumentsCount))
                 .put("is not distinct from", argumentsCount -> BuiltInFunctionCatalog.resolve("notDistinctFrom", argumentsCount))
                 .put("range", argumentsCount -> BuiltInFunctionCatalog.resolve("range", argumentsCount))
                 .put("__pattern_for_like", argumentsCount -> BuiltInFunctionCatalog.resolve("patternForLike", argumentsCount))

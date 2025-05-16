@@ -234,30 +234,15 @@ public class Comparisons {
 
     @SuppressWarnings("unchecked")
     public static int compare(@Nullable Object fieldValue, @Nullable Object comparand) {
-        if (fieldValue == null) {
-            if (comparand == null) {
-                return 0;
-            } else {
-                return -1;
-            }
-        } else if (comparand == null) {
-            return 1;
-        } else {
-            return toComparable(fieldValue).compareTo(toComparable(comparand));
-        }
+        return toComparable(fieldValue).compareTo(toComparable(comparand));
     }
 
-    @Nullable
     @SpotBugsSuppressWarnings("NP_BOOLEAN_RETURN_NULL")
-    private static Boolean compareEquals(Object value, Object comparand) {
-        if (value == null || comparand == null) {
-            return null;
+    private static boolean compareEquals(@Nonnull Object value, @Nonnull Object comparand) {
+        if (value instanceof Message) {
+            return MessageHelpers.compareMessageEquals(value, comparand);
         } else {
-            if (value instanceof Message) {
-                return MessageHelpers.compareMessageEquals(value, comparand);
-            } else {
-                return toClassWithRealEquals(value).equals(toClassWithRealEquals(comparand));
-            }
+            return toClassWithRealEquals(value).equals(toClassWithRealEquals(comparand));
         }
     }
 
@@ -301,6 +286,9 @@ public class Comparisons {
     @Nullable
     @SpotBugsSuppressWarnings("NP_BOOLEAN_RETURN_NULL")
     private static Boolean compareLike(@Nullable Object value, @Nullable Object pattern) {
+        if (value == null) {
+            return null;
+        }
         if (!(value instanceof String)) {
             throw new RecordCoreException("Illegal comparand value type: " + value);
         }
@@ -639,7 +627,6 @@ public class Comparisons {
         STARTS_WITH,
         NOT_NULL(false, true),
         IS_NULL(true, true),
-        NOT_DISTINCT_FROM(false),
         IN,
         TEXT_CONTAINS_ALL(true),
         TEXT_CONTAINS_ALL_WITHIN(true),
@@ -651,7 +638,9 @@ public class Comparisons {
         @API(API.Status.EXPERIMENTAL)
         SORT(false),
         @API(API.Status.EXPERIMENTAL)
-        LIKE;
+        LIKE,
+        IS_DISTINCT_FROM(true),
+        NOT_DISTINCT_FROM(false);
 
         @Nonnull
         private static final Supplier<BiMap<Type, PComparisonType>> protoEnumBiMapSupplier =
@@ -724,30 +713,44 @@ public class Comparisons {
     @Nullable
     @SpotBugsSuppressWarnings("NP_BOOLEAN_RETURN_NULL")
     public static Boolean evalComparison(@Nonnull Type type, @Nullable Object value, @Nullable Object comparand) {
-        if (value == null) {
-            return null;
-        }
         switch (type) {
             case STARTS_WITH:
                 return compareStartsWith(value, comparand);
             case IN:
                 return compareIn(value, comparand);
             case EQUALS:
+                if (value == null || comparand == null) {
+                    return null;
+                }
                 return compareEquals(value, comparand);
             case NOT_EQUALS:
-                if (comparand == null) {
+                if (value == null || comparand == null) {
                     return null;
                 }
                 return !compareEquals(value, comparand);
+            case IS_DISTINCT_FROM:
+                return !compareNotDistinctFrom(value, comparand);
             case NOT_DISTINCT_FROM:
                 return compareNotDistinctFrom(value, comparand);
             case LESS_THAN:
+                if (value == null || comparand == null) {
+                    return null;
+                }
                 return compare(value, comparand) < 0;
             case LESS_THAN_OR_EQUALS:
+                if (value == null || comparand == null) {
+                    return null;
+                }
                 return compare(value, comparand) <= 0;
             case GREATER_THAN:
+                if (value == null || comparand == null) {
+                    return null;
+                }
                 return compare(value, comparand) > 0;
             case GREATER_THAN_OR_EQUALS:
+                if (value == null || comparand == null) {
+                    return null;
+                }
                 return compare(value, comparand) >= 0;
             case LIKE:
                 return compareLike(value, comparand);
