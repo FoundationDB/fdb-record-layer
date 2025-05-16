@@ -390,6 +390,7 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
         RecordValidationResult actualResult = null;
         actualResult = validator.validateRecordAsync(primaryKey).join();
 
+        assertEquals(primaryKey, actualResult.getPrimaryKey());
         if (expectedValueValidationCode.equals(RecordValidationResult.CODE_VALID)) {
             assertTrue(actualResult.isValid());
         } else {

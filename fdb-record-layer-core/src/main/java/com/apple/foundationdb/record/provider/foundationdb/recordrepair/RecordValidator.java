@@ -49,7 +49,7 @@ import java.util.concurrent.CompletableFuture;
  * Do not store validations results across transactions.
  *
  */
-@API(API.Status.EXPERIMENTAL)
+@API(API.Status.INTERNAL)
 public interface RecordValidator {
     /**
      * Validate a record with the given primary key.
