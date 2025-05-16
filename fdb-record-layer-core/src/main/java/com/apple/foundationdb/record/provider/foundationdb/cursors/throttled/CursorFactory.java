@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.cursors.throttled;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
@@ -34,6 +35,7 @@ import javax.annotation.Nullable;
  * The iterator creates transactions based off of the constraints given, and for each such transaction, a new inner
  * cursor gets created.
  */
+@API(API.Status.EXPERIMENTAL)
 @FunctionalInterface
 public interface CursorFactory<T> {
     /**

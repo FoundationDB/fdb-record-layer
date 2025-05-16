@@ -539,6 +539,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
     void testIteratorClosesIncompleteFutures() throws Exception {
         // close the runner before the future completes (the futures should be closed)
         int numRecords = 50;
+        AtomicInteger transactionStart = new AtomicInteger(0);
         List<CompletableFuture<Void>> futures = new ArrayList<>(numRecords);
 
         final ItemHandler<Integer> itemHandler = (store, item, quotaManager) -> {
@@ -547,9 +548,12 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
             futures.add(future);
             return future;
         };
+        final Consumer<ThrottledRetryingIterator.QuotaManager> initNotification = quotaManager -> {
+            transactionStart.incrementAndGet();
+        };
 
         ThrottledRetryingIterator<Integer> throttledIterator =
-                iteratorBuilder(numRecords, itemHandler, null, null, -1, 10, -1, -1, -1, null).build();
+                iteratorBuilder(numRecords, itemHandler, initNotification, null, -1, 10, -1, -1, -1, null).build();
         final CompletableFuture<Void> iterateAll;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
@@ -563,6 +567,8 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         assertThatThrownBy(() -> futures.get(0).get()).hasCauseInstanceOf(FDBDatabaseRunner.RunnerClosed.class);
         // Overall status is failed because we can't runAsync() anymore
         assertThatThrownBy(iterateAll::join).hasCauseInstanceOf(FDBDatabaseRunner.RunnerClosed.class);
+        // Only one transaction started (no retry), since the runner was closed
+        assertThat(transactionStart.get()).isOne();
     }
 
     private ThrottledRetryingIterator.Builder<Integer> iteratorBuilder(final int numRecords,

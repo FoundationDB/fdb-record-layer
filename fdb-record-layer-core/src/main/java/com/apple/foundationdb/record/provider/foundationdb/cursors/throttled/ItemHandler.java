@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.cursors.throttled;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 
@@ -30,6 +31,7 @@ import java.util.concurrent.CompletableFuture;
  * A handler of an item during the iteration of a {@link ThrottledRetryingIterator}.
  * @param <T> the type of element in the iteration
  */
+@API(API.Status.EXPERIMENTAL)
 @FunctionalInterface
 public interface ItemHandler<T> {
     /**

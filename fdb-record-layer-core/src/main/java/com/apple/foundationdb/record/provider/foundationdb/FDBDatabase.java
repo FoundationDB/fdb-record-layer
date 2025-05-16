@@ -740,6 +740,12 @@ public class FDBDatabase {
         return factory.getExecutor();
     }
 
+    /**
+     * Create a new executor for the database. This is used internally when creating a transaction or a new runner.
+     * @param mdcContext if present, the MDC context to be made available within the executors threads
+     * @return the new executor
+     */
+    @API(API.Status.INTERNAL)
     public Executor newContextExecutor(@Nullable Map<String, String> mdcContext) {
         return factory.newContextExecutor(mdcContext);
     }
