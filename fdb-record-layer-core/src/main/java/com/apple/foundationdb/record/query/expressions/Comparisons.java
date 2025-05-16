@@ -263,6 +263,22 @@ public class Comparisons {
 
     @Nullable
     @SpotBugsSuppressWarnings("NP_BOOLEAN_RETURN_NULL")
+    private static Boolean compareNotDistinctFrom(Object value, Object comparand) {
+        if (value == null && comparand == null) {
+            return true;
+        } else if (value == null || comparand == null) {
+            return false;
+        } else {
+            if (value instanceof Message) {
+                return MessageHelpers.compareMessageEquals(value, comparand);
+            } else {
+                return toClassWithRealEquals(value).equals(toClassWithRealEquals(comparand));
+            }
+        }
+    }
+
+    @Nullable
+    @SpotBugsSuppressWarnings("NP_BOOLEAN_RETURN_NULL")
     private static Boolean compareStartsWith(@Nullable Object value, @Nullable Object comparand) {
         if (value == null || comparand == null) {
             return null;
@@ -623,6 +639,7 @@ public class Comparisons {
         STARTS_WITH,
         NOT_NULL(false, true),
         IS_NULL(true, true),
+        NOT_DISTINCT_FROM(false),
         IN,
         TEXT_CONTAINS_ALL(true),
         TEXT_CONTAINS_ALL_WITHIN(true),
@@ -722,6 +739,8 @@ public class Comparisons {
                     return null;
                 }
                 return !compareEquals(value, comparand);
+            case NOT_DISTINCT_FROM:
+                return compareNotDistinctFrom(value, comparand);
             case LESS_THAN:
                 return compare(value, comparand) < 0;
             case LESS_THAN_OR_EQUALS:

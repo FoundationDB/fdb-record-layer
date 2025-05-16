@@ -882,6 +882,79 @@ public class StandardQueryTests {
     }
 
     @Test
+    void testNotDistinctFrom() throws Exception {
+        final String schema = "CREATE TYPE AS STRUCT contact_detail(phone_number string, address string) " +
+                "CREATE TABLE student(id bigint, name string, contact contact_detail, score bigint, primary key(id))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schema).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                final var row1 = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("ID", 1L)
+                        .addString("NAME", "Alice")
+                        .addLong("SCORE", 100)
+                        .build();
+                final var row2 = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("ID", 2L)
+                        .addString("NAME", "Bob")
+                        .build();
+                Assertions.assertEquals(1, statement.executeInsert("STUDENT", row1), "Incorrect insertion count");
+                Assertions.assertEquals(1, statement.executeInsert("STUDENT", row2), "Incorrect insertion count");
+
+                Assertions.assertTrue(statement.execute("SELECT * from STUDENT f WHERE score is not distinct from null"), "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow()
+                            .hasColumn("NAME", "Bob")
+                            .hasNoNextRow();
+                }
+
+                Assertions.assertTrue(statement.execute("SELECT * from STUDENT f WHERE score is not distinct from 100"), "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow()
+                            .hasColumn("NAME", "Alice")
+                            .hasNoNextRow();
+                }
+
+                Assertions.assertTrue(statement.execute("SELECT * from STUDENT f WHERE null is not distinct from score"), "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow()
+                            .hasColumn("NAME", "Bob")
+                            .hasNoNextRow();
+                }
+
+                Assertions.assertTrue(statement.execute("SELECT * from STUDENT f WHERE 100 is not distinct from score"), "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow()
+                            .hasColumn("NAME", "Alice")
+                            .hasNoNextRow();
+                }
+
+                Assertions.assertTrue(statement.execute("SELECT * from STUDENT f WHERE 100 is not distinct from 100"), "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow()
+                            .hasColumn("NAME", "Alice")
+                            .hasNextRow()
+                            .hasColumn("NAME", "Bob")
+                            .hasNoNextRow();
+                }
+
+                Assertions.assertTrue(statement.execute("SELECT * from STUDENT f WHERE null is not distinct from null"), "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow()
+                            .hasColumn("NAME", "Alice")
+                            .hasNextRow()
+                            .hasColumn("NAME", "Bob")
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
     void testBitmap() throws Exception {
         final String query = "SELECT BITMAP_CONSTRUCT_AGG(BITMAP_BIT_POSITION(uid)) as bitmap, category, BITMAP_BUCKET_OFFSET(uid) as offset FROM T1\n" +
                 "GROUP BY category, BITMAP_BUCKET_OFFSET(uid)\n";
