@@ -603,7 +603,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                 final var statsMaps = planResult.getPlanInfo().get(QueryPlanInfoKeys.STATS_MAPS);
 
                 // The plan itself can introduce new types. Collect those and include them in the type repository stored with the PhysicalQueryPlan
-                final RecordQueryPlan recordQueryPlan = planResult.getPlan();
+                final RecordQueryPlan recordQueryPlan = planResult.getPlan().minimize();
 
                 Set<Type> planTypes = usedTypes().evaluate(recordQueryPlan);
                 planTypes.forEach(builder::addTypeIfNeeded);
