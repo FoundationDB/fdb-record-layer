@@ -263,25 +263,6 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
         return new PredicateWithValueAndRanges(value, ranges);
     }
 
-    @Nonnull
-    @Override
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public QueryPredicate translateValues(@Nonnull TranslationMap translationMap) {
-        Value newValue = value.translateCorrelations(translationMap, true);
-        ImmutableSet.Builder<RangeConstraints> newRangeBuilder = ImmutableSet.builder();
-        boolean rangeChanged = false;
-        for (RangeConstraints range : ranges) {
-            RangeConstraints newRange = range.translateCorrelations(translationMap, true);
-            newRangeBuilder.add(newRange);
-            rangeChanged |= range != newRange;
-        }
-        if (value == newValue && !rangeChanged) {
-            return this;
-        }
-        Set<RangeConstraints> newRanges = rangeChanged ? newRangeBuilder.build() : ranges;
-        return ofRanges(newValue, newRanges);
-    }
-
     /**
      * Checks whether this predicate implies a {@code candidatePredicate}, if so, we return a {@link PredicateMapping}
      * reflecting the implication itself in addition to a context needed to effectively implement the mapping (i.e. the

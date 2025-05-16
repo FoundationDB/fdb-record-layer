@@ -304,7 +304,7 @@ public class PredicatePushDownRule extends ExplorationCascadesRule<SelectExpress
             var predicatesBuilder = ImmutableList.<QueryPredicate>builderWithExpectedSize(getOriginalPredicates().size() + preExistingPredicates.size())
                     .addAll(preExistingPredicates);
             for (QueryPredicate originalPredicate : getOriginalPredicates()) {
-                predicatesBuilder.add(originalPredicate.translateValues(translationMap));
+                predicatesBuilder.add(originalPredicate.translateCorrelations(translationMap, true));
             }
             return predicatesBuilder.build();
         }

@@ -470,17 +470,6 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     }
 
     @Nonnull
-    default QueryPredicate translateValues(@Nonnull TranslationMap translationMap) {
-        return replaceLeavesMaybe(t -> {
-            if (!(t instanceof PredicateWithValue)) {
-                return t;
-            }
-            final PredicateWithValue predicateWithValue = (PredicateWithValue)t;
-            return predicateWithValue.translateValues(translationMap);
-        }).orElseThrow(() -> new RecordCoreException("should not throw"));
-    }
-
-    @Nonnull
     default Optional<PredicateWithValueAndRanges> toValueWithRangesMaybe(@Nonnull final EvaluationContext evaluationContext) {
         return Optional.empty();
     }
