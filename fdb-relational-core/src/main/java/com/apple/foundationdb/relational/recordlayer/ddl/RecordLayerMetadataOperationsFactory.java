@@ -29,7 +29,7 @@ import com.apple.foundationdb.relational.api.ddl.CreateSchemaTemplateConstantAct
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
-import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -91,8 +91,8 @@ public class RecordLayerMetadataOperationsFactory implements MetadataOperationsF
 
     @Nonnull
     public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull SchemaTemplate template,
-                                                                   @Nonnull CompiledSqlFunction sqlFunction) {
-
+                                                                   @Nonnull RecordLayerInvokedRoutine invokedRoutine) {
+        return new CreateTemporaryFunctionConstantAction(template, invokedRoutine);
     }
 
     public static class Builder {

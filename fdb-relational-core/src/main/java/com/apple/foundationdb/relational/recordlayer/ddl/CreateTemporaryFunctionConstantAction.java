@@ -23,9 +23,34 @@ package com.apple.foundationdb.relational.recordlayer.ddl;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.util.Assert;
+
+import javax.annotation.Nonnull;
 
 public class CreateTemporaryFunctionConstantAction implements ConstantAction  {
+
+    @Nonnull
+    private final RecordLayerInvokedRoutine invokedRoutine;
+
+    @Nonnull
+    private final SchemaTemplate template;
+
+    public CreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template,
+                                                 @Nonnull final RecordLayerInvokedRoutine invokedRoutine) {
+        this.template = template;
+        this.invokedRoutine = invokedRoutine;
+    }
+
     @Override
     public void execute(final Transaction txn) throws RelationalException {
+        var transactionBoundSchemaTemplate = Assert.castUnchecked(txn.getBoundSchemaMaybe().orElse(template),
+                        RecordLayerSchemaTemplate.class)
+                .toBuilder()
+                .addInvokedRoutine(invokedRoutine)
+                .build();
+        txn.setBoundSchema(transactionBoundSchemaTemplate);
     }
 }

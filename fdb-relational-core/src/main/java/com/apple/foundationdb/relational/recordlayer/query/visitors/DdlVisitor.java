@@ -337,8 +337,9 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Override
-    public CompiledSqlFunction visitCreateTempFunction(@Nonnull RelationalParser.CreateTempFunctionContext ctx) {
-        return visitSqlInvokedFunction(ctx.sqlInvokedFunction());
+    public ProceduralPlan visitCreateTempFunction(@Nonnull RelationalParser.CreateTempFunctionContext ctx) {
+        final var tempFunction = visitSqlInvokedFunction(ctx.sqlInvokedFunction());
+        return ProceduralPlan.of(metadataOperationsFactory.getCreateTemporaryFunctionConstantAction(metadataBuilder.build()));
     }
 
     @Override

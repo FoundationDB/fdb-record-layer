@@ -38,14 +38,18 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     @Nonnull
     private final String name;
 
+    private final boolean isTemporary;
+
     @Nonnull
     private final Supplier<CompiledSqlFunction> compilableSqlFunctionSupplier;
 
     public RecordLayerInvokedRoutine(@Nonnull final String description,
                                      @Nonnull final String name,
+                                     boolean isTemporary,
                                      @Nonnull final Supplier<CompiledSqlFunction> compilableSqlFunctionSupplier) {
         this.description = description;
         this.name = name;
+        this.isTemporary = isTemporary;
         this.compilableSqlFunctionSupplier = Suppliers.memoize(compilableSqlFunctionSupplier);
     }
 
@@ -77,6 +81,11 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     }
 
     @Override
+    public boolean isTemporary() {
+        return isTemporary;
+    }
+
+    @Override
     public boolean equals(final Object o) {
         if (o == null) {
             return false;
@@ -102,6 +111,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         private String description;
         private String name;
         private Supplier<CompiledSqlFunction> compilableSqlFunctionSupplier;
+        private boolean isTemporary;
 
         @Nonnull
         public Builder setDescription(@Nonnull final String description) {
@@ -122,11 +132,17 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         }
 
         @Nonnull
+        public Builder setTemporary(boolean isTemporary) {
+            this.isTemporary = isTemporary;
+            return this;
+        }
+
+        @Nonnull
         public RecordLayerInvokedRoutine build() {
             Assert.notNullUnchecked(name);
             Assert.notNullUnchecked(description);
             Assert.notNullUnchecked(compilableSqlFunctionSupplier);
-            return new RecordLayerInvokedRoutine(description, name, compilableSqlFunctionSupplier);
+            return new RecordLayerInvokedRoutine(description, name, isTemporary, compilableSqlFunctionSupplier);
         }
     }
 }
