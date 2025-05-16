@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithNoChildren;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
@@ -204,6 +205,28 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
         }
 
         return new ComposedBitmapIndexQueryPlan(translatedIndexPlansBuilder.build(), composer);
+    }
+
+    @Override
+    public boolean canBeMinimized() {
+        return indexPlans.stream().anyMatch(RecordQueryCoveringIndexPlan::canBeMinimized);
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlan minimize(@Nonnull final List<Quantifier.Physical> newQuantifiers) {
+        Verify.verify(newQuantifiers.isEmpty());
+
+        final var minimizedIndexPlansBuilder = ImmutableList.<RecordQueryCoveringIndexPlan>builder();
+        for (final var indexPlan : indexPlans) {
+            if (indexPlan.canBeMinimized()) {
+                minimizedIndexPlansBuilder.add(indexPlan.minimize(newQuantifiers));
+            } else {
+                minimizedIndexPlansBuilder.add(indexPlan);
+            }
+        }
+
+        return new ComposedBitmapIndexQueryPlan(minimizedIndexPlansBuilder.build(), composer);
     }
 
     @Nonnull

@@ -475,18 +475,24 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
         return withIndexScanParameters(scanParameters.translateCorrelations(translationMap, shouldSimplifyValues));
     }
 
+    @Override
+    public boolean canBeMinimized() {
+        return matchCandidateOptional.isPresent();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryIndexPlan minimize(@Nonnull final List<Quantifier.Physical> newQuantifiers) {
+        Verify.verify(newQuantifiers.isEmpty());
+        return new RecordQueryIndexPlan(indexName, commonPrimaryKey, scanParameters, indexFetchMethod,
+                fetchIndexRecords, reverse, strictlySorted, Optional.empty(), resultType,
+                constraint);
+    }
+
     @Nonnull
     protected RecordQueryIndexPlan withIndexScanParameters(@Nonnull final IndexScanParameters newIndexScanParameters) {
-        return new RecordQueryIndexPlan(indexName,
-                commonPrimaryKey,
-                newIndexScanParameters,
-                indexFetchMethod,
-                fetchIndexRecords,
-                reverse,
-                strictlySorted,
-                matchCandidateOptional,
-                resultType,
-                constraint);
+        return new RecordQueryIndexPlan(indexName, commonPrimaryKey, newIndexScanParameters, indexFetchMethod,
+                fetchIndexRecords, reverse, strictlySorted, matchCandidateOptional, resultType, constraint);
     }
 
     @Nonnull

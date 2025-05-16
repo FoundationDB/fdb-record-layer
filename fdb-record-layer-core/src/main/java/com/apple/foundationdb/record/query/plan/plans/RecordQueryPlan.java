@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.GenerateVisitor;
-import com.apple.foundationdb.record.query.plan.HeuristicPlanner;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanSerializable;
@@ -33,7 +32,9 @@ import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
+import com.apple.foundationdb.record.query.plan.HeuristicPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -44,12 +45,17 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.record.query.plan.visitor.RecordQueryPlannerSubstitutionVisitor;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+
+import static com.apple.foundationdb.record.query.plan.cascades.properties.ReferencesAndDependenciesProperty.referencesAndDependencies;
 
 /**
  * An executable query plan for producing records.
@@ -161,6 +167,72 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
     @Override
     default RecordQueryPlan strictlySorted(@Nonnull FinalMemoizer memoizer) {
         return this;
+    }
+
+    default boolean canBeMinimized() {
+        return false;
+    }
+
+    @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    default RecordQueryPlan minimize() {
+        final var partialOrder = referencesAndDependencies().evaluate(this);
+
+        final var references =
+                TopologicalSort.anyTopologicalOrderPermutation(partialOrder)
+                        .orElseThrow(() -> new RecordCoreException("graph has cycles"));
+
+        final var translationCache =
+                Maps.<Reference, Reference>newIdentityHashMap();
+
+        for (final var reference : references) {
+            final var plan = reference.getOnlyElementAsPlan();
+
+            final var minimizedPlan =
+                    minimizePlanOverTranslatedReferences(translationCache, reference.getOnlyElementAsPlan());
+
+            if (minimizedPlan == plan) {
+                translationCache.put(reference, reference);
+            } else {
+                translationCache.put(reference, Reference.plannedOf(minimizedPlan));
+            }
+        }
+
+        return minimizePlanOverTranslatedReferences(translationCache, this);
+    }
+
+    @Nonnull
+    default RecordQueryPlan minimize(@Nonnull final List<Quantifier.Physical> newQuantifiers) {
+        throw new UnsupportedOperationException("RecordQueryPlan by default cannot be minimized");
+    }
+
+    @Nonnull
+    private static RecordQueryPlan minimizePlanOverTranslatedReferences(@Nonnull final Map<Reference, Reference> translationCache,
+                                                                        @Nonnull final RecordQueryPlan plan) {
+        var allMinimizedChildrenSame = true;
+        final var translatedQuantifiersBuilder = ImmutableList.<Quantifier.Physical>builder();
+        for (final var quantifier : plan.getQuantifiers()) {
+            final var physicalQuantifier = quantifier.narrow(Quantifier.Physical.class);
+            final var childReference = physicalQuantifier.getRangesOver();
+
+            // the child must exist
+            Verify.verify(translationCache.containsKey(childReference));
+            final Reference translatedChildReference = translationCache.get(childReference);
+            if (translatedChildReference != childReference) {
+                translatedQuantifiersBuilder.add(physicalQuantifier.overNewReference(translatedChildReference));
+                allMinimizedChildrenSame = false;
+            } else {
+                translatedQuantifiersBuilder.add(physicalQuantifier);
+            }
+        }
+
+        if (plan.canBeMinimized()) {
+            return plan.minimize(translatedQuantifiersBuilder.build());
+        }
+        if (allMinimizedChildrenSame) {
+            return plan;
+        }
+        return (RecordQueryPlan)plan.withQuantifiers(translatedQuantifiersBuilder.build());
     }
 
     // we know the type of the group, even though the compiler doesn't, intentional use of reference equality
