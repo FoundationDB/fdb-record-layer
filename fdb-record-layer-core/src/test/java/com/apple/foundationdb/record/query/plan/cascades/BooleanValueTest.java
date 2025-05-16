@@ -718,7 +718,7 @@ class BooleanValueTest {
     @Test
     void passingIncorrectNumberOfResolutionParameterToBuiltInFunctionThrows() {
         try {
-            new RelOpValue.EqualsFn().resolveParameterTypes(-1);
+            new RelOpValue.EqualsFn().getParameterTypes(-1);
             Assertions.fail("expected an exception to be thrown");
         } catch (Exception e) {
             Assertions.assertTrue(e instanceof VerifyException);
@@ -729,7 +729,7 @@ class BooleanValueTest {
     @Test
     void passingIncorrectIndexToBuiltInFunctionThrows() {
         try {
-            new RelOpValue.EqualsFn().resolveParameterType(-1);
+            new RelOpValue.EqualsFn().conputeParameterType(-1);
             Assertions.fail("expected an exception to be thrown");
         } catch (Exception e) {
             Assertions.assertTrue(e instanceof VerifyException);

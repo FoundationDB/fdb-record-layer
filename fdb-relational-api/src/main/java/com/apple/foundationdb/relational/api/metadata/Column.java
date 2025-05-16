@@ -32,7 +32,7 @@ public interface Column extends Metadata {
      *
      * @return The {@link DataType} of the column.
      */
-    DataType getDatatype();
+    DataType getDataType();
 
     @Override
     default void accept(@Nonnull final Visitor visitor) {

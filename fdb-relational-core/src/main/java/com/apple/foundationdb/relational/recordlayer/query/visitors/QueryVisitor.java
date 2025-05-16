@@ -21,20 +21,17 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.DeleteExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -56,7 +53,6 @@ import com.apple.foundationdb.relational.recordlayer.query.StringTrieNode;
 import com.apple.foundationdb.relational.recordlayer.util.MemoizedFunction;
 import com.apple.foundationdb.relational.recordlayer.util.TypeUtils;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -367,14 +363,10 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Override
     public LogicalOperator visitTableValuedFunction(@Nonnull RelationalParser.TableValuedFunctionContext tableValuedFunctionContext) {
-        final var expression = visitTableFunction(tableValuedFunctionContext.tableFunction());
-        final var underlyingValue = expression.getUnderlying();
-        final var explodeExpression = new TableFunctionExpression(Assert.castUnchecked(underlyingValue, StreamingValue.class));
-        final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(explodeExpression));
-        final var output = Expressions.of(LogicalOperator.convertToExpressions(resultingQuantifier));
-        final var aliasMaybe = Optional.ofNullable(tableValuedFunctionContext.uid() == null ? null : visitUid(tableValuedFunctionContext.uid()));
-        return aliasMaybe.map(alias -> LogicalOperator.newNamedOperator(alias, output, resultingQuantifier))
-                .orElse(LogicalOperator.newUnnamedOperator(output, resultingQuantifier));
+        final var logicalOperator = visitTableFunction(tableValuedFunctionContext.tableFunction());
+        final var aliasMaybe = Optional.ofNullable(tableValuedFunctionContext.uid() == null ? null :
+                                                   visitUid(tableValuedFunctionContext.uid()));
+        return aliasMaybe.map(logicalOperator::withName).orElse(logicalOperator);
     }
 
     @Nonnull

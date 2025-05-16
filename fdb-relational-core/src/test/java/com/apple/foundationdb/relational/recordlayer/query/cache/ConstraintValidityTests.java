@@ -103,7 +103,7 @@ public class ConstraintValidityTests {
     @Nonnull
     private PlanGenerator getPlanGenerator(@Nonnull final RelationalPlanCache cache) throws Exception {
         final var schemaName = connection.getSchema();
-        final var embeddedConnection = connection.getUnderlying().unwrap(EmbeddedRelationalConnection.class);
+        final var embeddedConnection = connection.getUnderlyingEmbeddedConnection().unwrap(EmbeddedRelationalConnection.class);
         final var readableIndexes = ImmutableSet.of(MaxScoreByGame10, MaxScoreByGame20, BitAndScore2, BitAndScore4);
         final var schemaTemplate = embeddedConnection.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toBuilder().setVersion(42).setName("SCHEMA_TEMPLATE").build();
         final AbstractDatabase database = embeddedConnection.getRecordLayerDatabase();
@@ -125,7 +125,7 @@ public class ConstraintValidityTests {
                            @Nonnull final String query,
                            @Nonnull final String expectedPhysicalPlan) throws Exception {
         connection.setAutoCommit(false);
-        ((EmbeddedRelationalConnection) connection.getUnderlying()).createNewTransaction();
+        connection.getUnderlyingEmbeddedConnection().createNewTransaction();
         final var planGenerator = getPlanGenerator(cache);
         final var plan = planGenerator.getPlan(query);
         connection.rollback();

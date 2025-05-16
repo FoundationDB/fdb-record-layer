@@ -722,6 +722,11 @@ public class RecordMetaData implements RecordMetaDataProvider {
     }
 
     @Nonnull
+    public Map<String, UserDefinedFunction> getUserDefinedFunctionMap() {
+        return userDefinedFunctionMap;
+    }
+
+    @Nonnull
     public static Map<String, Descriptors.FieldDescriptor> getFieldDescriptorMapFromTypes(@Nonnull final Collection<RecordType> recordTypes) {
         if (recordTypes.size() == 1) {
             final var recordType = Iterables.getOnlyElement(recordTypes);
