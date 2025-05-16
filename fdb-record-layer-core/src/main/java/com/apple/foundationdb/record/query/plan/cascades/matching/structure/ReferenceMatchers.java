@@ -74,4 +74,12 @@ public class ReferenceMatchers {
                 Extractor.of(Reference::getAllMemberExpressions, name -> "allMembers(" + name + ")"),
                 downstream);
     }
+
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    public static <R extends Reference, E extends RelationalExpression> BindingMatcher<R> exploratoryMembers(@Nonnull final CollectionMatcher<E> downstream) {
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<R>)Reference.class,
+                Extractor.of(Reference::getExploratoryExpressions, name -> "allMembers(" + name + ")"),
+                downstream);
+    }
 }
