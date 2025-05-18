@@ -77,7 +77,6 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
     private final FutureAutoClose futureManager;
 
     private final int transactionTimeQuotaMillis;
-    private final int maxRecordScannedPerTransaction;
     private final int maxRecordDeletesPerTransaction;
     private final int maxRecordScannedPerSec;
     private final int maxRecordDeletesPerSec;
@@ -108,13 +107,12 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
         this.cursorCreator = builder.cursorCreator;
         this.singleItemHandler = builder.singleItemHandler;
         this.transactionTimeQuotaMillis = builder.transactionTimeQuotaMillis;
-        this.maxRecordScannedPerTransaction = builder.maxRecordScannedPerTransaction;
         this.maxRecordDeletesPerTransaction = builder.maxRecordDeletesPerTransaction;
         this.maxRecordScannedPerSec = builder.maxRecordScannedPerSec;
         this.maxRecordDeletesPerSec = builder.maxRecordDeletesPerSec;
         this.transactionSuccessNotification = builder.transactionSuccessNotification;
         this.transactionInitNotification = builder.transactionInitNotification;
-        this.cursorRowsLimit = constrainRowLimit(builder.initialRecordsScannedPerTransaction, builder.maxRecordScannedPerTransaction);
+        this.cursorRowsLimit = 0;
         this.numOfRetries = builder.numOfRetries;
         futureManager = new FutureAutoClose();
     }
@@ -214,7 +212,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
                         })
                         .thenApply(rangeHasMore -> {
                             if (rangeHasMore && ((0 < transactionTimeQuotaMillis && elapsedTimeMillis() > transactionTimeQuotaMillis) ||
-                                                 (0 < maxRecordDeletesPerTransaction && singleIterationQuotaManager.deletesCount > maxRecordDeletesPerTransaction))) {
+                                                 (0 < maxRecordDeletesPerTransaction && singleIterationQuotaManager.deletesCount >= maxRecordDeletesPerTransaction))) {
                                 // Reached time/delete quota in this transaction. Continue in a new one (possibly after throttling)
                                 return false;
                             }
@@ -237,7 +235,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
         ++successCounter;
         if (((successCounter) % SUCCESS_INCREASE_THRESHOLD) == 0 && cursorRowsLimit < (quotaManager.scannedCount + 3)) {
             final int oldLimit = cursorRowsLimit;
-            cursorRowsLimit = increaseLimit(oldLimit, maxRecordScannedPerTransaction);
+            cursorRowsLimit = increaseLimit(oldLimit);
             if (logger.isInfoEnabled() && (oldLimit != cursorRowsLimit)) {
                 logger.info(KeyValueLogMessage.of("ThrottledIterator: iterate one range success: increase limit",
                         LogMessageKeys.LIMIT, cursorRowsLimit,
@@ -333,33 +331,16 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
     }
 
     @VisibleForTesting
-    static int increaseLimit(final int current, final int max) {
+    static int increaseLimit(final int current) {
         if (current == 0) {
             return 0;
         }
-        int newLimit = Math.max((current * 5) / 4, current + 4);
-        return constrainRowLimit(newLimit, max);
+        return (Math.max((current * 5) / 4, current + 4));
     }
 
     @VisibleForTesting
     static int decreaseLimit(final int lastScanned) {
         return Math.max(1, (lastScanned * 9) / 10);
-    }
-
-    /**
-     * Calculate the row limit based on the initial (desired) number and the maximum allowed.
-     * Since 0 is "unlimited", use special case to allow for that.
-     * @param newLimit the current limit
-     * @param maxLimit the maximum allowed
-     * @return the calculated new limit
-     */
-    private static int constrainRowLimit(int newLimit, int maxLimit) {
-        if ((maxLimit == 0) || (newLimit == 0)) {
-            // if any is 0, return the other one
-            return Math.max(maxLimit, newLimit);
-        } else {
-            return Math.min(newLimit, maxLimit);
-        }
     }
 
     /**
@@ -438,8 +419,6 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
         private Consumer<QuotaManager> transactionSuccessNotification;
         private Consumer<QuotaManager> transactionInitNotification;
         private int transactionTimeQuotaMillis;
-        private int maxRecordScannedPerTransaction;
-        private int initialRecordsScannedPerTransaction;
         private int maxRecordDeletesPerTransaction;
         private int maxRecordScannedPerSec;
         private int maxRecordDeletesPerSec;
@@ -459,9 +438,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
             this.cursorCreator = cursorCreator;
             this.singleItemHandler = singleItemHandler;
             // set defaults
-            this.maxRecordScannedPerTransaction = 0;
             this.transactionTimeQuotaMillis = (int)TimeUnit.SECONDS.toMillis(4);
-            this.initialRecordsScannedPerTransaction = 0;
             this.maxRecordDeletesPerTransaction = 0;
             this.maxRecordScannedPerSec = 0;
             this.maxRecordDeletesPerSec = 0;
@@ -484,36 +461,6 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
          */
         public Builder<T> withTransactionTimeQuotaMillis(int transactionTimeQuotaMillis) {
             this.transactionTimeQuotaMillis = Math.max(0, transactionTimeQuotaMillis);
-            return this;
-        }
-
-        /**
-         * Set the maximum number of items scanned within a transaction.
-         * The actual row limit for the inner cursor is dynamic and changes based on the success and failure rate. The
-         * maximum value, though, will never exceed this parameter.
-         * Defaults to 0 (no limit).
-         * @param maxRecordsScannedPerTransaction the maximum number of items scanned in a transaction
-         * @return this builder
-         */
-        public Builder<T> withMaxRecordsScannedPerTransaction(int maxRecordsScannedPerTransaction) {
-            this.maxRecordScannedPerTransaction = Math.max(0, maxRecordsScannedPerTransaction);
-            if (initialRecordsScannedPerTransaction == 0) {
-                // set a reasonable default if not otherwise set
-                initialRecordsScannedPerTransaction = maxRecordScannedPerTransaction / 4;
-            }
-            return this;
-        }
-
-        /**
-         * Set the initial number of records scanned per transaction.
-         * The actual row limit for the inner cursor is dynamic and changes based on the success and failure rate. The
-         * value is set to the parameter at the beginning of each transaction.
-         * Defaults to maxRecordsScannedPerTransaction / 4. 0 means no limit.
-         * @param initialRecordsScannedPerTransaction the initial row limit for the inner iterator
-         * @return this builder
-         */
-        public Builder<T> withInitialRecordsScannedPerTransaction(int initialRecordsScannedPerTransaction) {
-            this.initialRecordsScannedPerTransaction = Math.max(0, initialRecordsScannedPerTransaction);
             return this;
         }
 
