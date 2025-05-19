@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.throttled.CursorFactory;
@@ -94,45 +95,45 @@ public class RecordRepairRunner {
 
     /**
      * Create a builder for the runner.
-     * @param databaseRunner
+     * @param database
      * @return the builder instance
      */
-    static Builder builder(FDBDatabaseRunner databaseRunner) {
-        return new Builder(databaseRunner);
+    static Builder builder(FDBDatabase database) {
+        return new Builder(database);
     }
 
     /**
      * Run a validation of the store and return an aggregated summary of the results.
-     * @param recordStore the store to use
+     * @param recordStoreBuilder the store builder to use
      * @param validationKind which validation to run
      * @return an aggregated result set of all the found issues
      */
-    public RecordValidationStatsResult runValidationStats(FDBRecordStore recordStore, ValidationKind validationKind) {
+    public RecordValidationStatsResult runValidationStats(FDBRecordStore.Builder recordStoreBuilder, ValidationKind validationKind) {
         RecordValidationStatsResult statsResult = new RecordValidationStatsResult();
         final ThrottledRetryingIterator.Builder<Tuple> iteratorBuilder =
-                ThrottledRetryingIterator.builder(config.getDatabaseRunner(), cursorFactory(), countResultsHandler(statsResult, validationKind));
+                ThrottledRetryingIterator.builder(config.getDatabase(), cursorFactory(), countResultsHandler(statsResult, validationKind));
         final ThrottledRetryingIterator<Tuple> iterator = configureThrottlingIterator(iteratorBuilder, config).build();
-        iterator.iterateAll(recordStore).join();
+        iterator.iterateAll(recordStoreBuilder).join();
         return statsResult;
     }
 
     /**
      * Run a validation of the store and return a list of specific issues found.
-     * @param recordStore the store to use
+     * @param recordStoreBuilder the store builder to use
      * @param validationKind which validation to run
      * @param allowRepair whether to allow repair on the issues found
      * @return a list of issues found
      */
-    public List<RecordValidationResult> runValidationAndRepair(FDBRecordStore recordStore, ValidationKind validationKind, boolean allowRepair) {
+    public List<RecordValidationResult> runValidationAndRepair(FDBRecordStore.Builder recordStoreBuilder, ValidationKind validationKind, boolean allowRepair) {
         if (allowRepair) {
             throw new UnsupportedOperationException("Repair is not yet supported");
         }
 
         List<RecordValidationResult> validationResults = new ArrayList<>();
         final ThrottledRetryingIterator.Builder<Tuple> iteratorBuilder =
-                ThrottledRetryingIterator.builder(config.getDatabaseRunner(), cursorFactory(), validateAndRepairHandler(validationResults, validationKind));
+                ThrottledRetryingIterator.builder(config.getDatabase(), cursorFactory(), validateAndRepairHandler(validationResults, validationKind));
         final ThrottledRetryingIterator<Tuple> iterator = configureThrottlingIterator(iteratorBuilder, config).build();
-        iterator.iterateAll(recordStore).join();
+        iterator.iterateAll(recordStoreBuilder).join();
         return validationResults;
     }
 
@@ -187,9 +188,7 @@ public class RecordRepairRunner {
         return builder
                 .withTransactionInitNotification(this::logStartTransaction)
                 .withTransactionSuccessNotification(this::logCommitTransaction)
-                .withMaxRecordsScannedPerTransaction(config.getMaxRecordScannedPerTransaction())
                 .withTransactionTimeQuotaMillis(config.getTransactionTimeQuotaMillis())
-                .withInitialRecordsScannedPerTransaction(config.getInitialRecordsScannedPerTransaction())
                 .withMaxRecordsDeletesPerTransaction(config.getMaxRecordDeletesPerTransaction())
                 .withMaxRecordsScannedPerSec(config.getMaxRecordScannedPerSec())
                 .withMaxRecordsDeletesPerSec(config.getMaxRecordDeletesPerSec())
@@ -215,12 +214,10 @@ public class RecordRepairRunner {
      */
     public static class Builder {
         @Nonnull
-        private final FDBDatabaseRunner databaseRunner;
+        private final FDBDatabase database;
         private int maxResultsReturned = 10_000;
 
-        private int maxRecordScannedPerTransaction = 0;
         private int transactionTimeQuotaMillis = (int)TimeUnit.SECONDS.toMillis(4);
-        private int initialRecordsScannedPerTransaction = 0;
         private int maxRecordDeletesPerTransaction = 0;
         private int maxRecordScannedPerSec = 0;
         private int maxRecordDeletesPerSec = 0;
@@ -228,10 +225,10 @@ public class RecordRepairRunner {
 
         /**
          * Constructor.
-         * @param databaseRunner
+         * @param database the FDB database to use
          */
-        public Builder(@Nonnull final FDBDatabaseRunner databaseRunner) {
-            this.databaseRunner = databaseRunner;
+        public Builder(@Nonnull final FDBDatabase database) {
+            this.database = database;
         }
 
         /**
@@ -246,22 +243,12 @@ public class RecordRepairRunner {
          * Limit the number of issues found.
          * This parameter is intended to stop the iteration once a number of issues has been found, as a means of controlling
          * the size of the list returned.
-         * @param maxResultsReturned the maximum number of issues to be returned from the {@link #runValidationAndRepair(FDBRecordStore, ValidationKind, boolean)} method.
+         * @param maxResultsReturned the maximum number of issues to be returned from the {@link #runValidationAndRepair(FDBRecordStore.Builder, ValidationKind, boolean)} method.
          * Default: 0 (unlimited)
          * @return this builder
          */
         public Builder withMaxResultsReturned(int maxResultsReturned) {
             this.maxResultsReturned = maxResultsReturned;
-            return this;
-        }
-
-        public Builder withMaxRecordScannedPerTransaction(final int maxRecordScannedPerTransaction) {
-            this.maxRecordScannedPerTransaction = maxRecordScannedPerTransaction;
-            return this;
-        }
-
-        public Builder withInitialRecordsScannedPerTransaction(final int initialRecordsScannedPerTransaction) {
-            this.initialRecordsScannedPerTransaction = initialRecordsScannedPerTransaction;
             return this;
         }
 
@@ -325,24 +312,16 @@ public class RecordRepairRunner {
         }
 
         @Nonnull
-        public FDBDatabaseRunner getDatabaseRunner() {
-            return databaseRunner;
+        public FDBDatabase getDatabase() {
+            return database;
         }
 
         public int getMaxResultsReturned() {
             return maxResultsReturned;
         }
 
-        public int getMaxRecordScannedPerTransaction() {
-            return maxRecordScannedPerTransaction;
-        }
-
         public int getTransactionTimeQuotaMillis() {
             return transactionTimeQuotaMillis;
-        }
-
-        public int getInitialRecordsScannedPerTransaction() {
-            return initialRecordsScannedPerTransaction;
         }
 
         public int getMaxRecordDeletesPerTransaction() {
