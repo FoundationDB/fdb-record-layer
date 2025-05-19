@@ -369,7 +369,16 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
             // limit the candidates to those that actually contain all the variations in its memo
             final List<Reference> existingRefs = commonReferencingExpressions.stream()
                     .map(expressionToReferenceMap::get)
-                    .filter(ref -> ref.containsAllInMemo(expressions, AliasMap.emptyMap(), false))
+                    .filter(ref -> {
+                        // Validate the reference is correlated to the same set of quantifiers as the
+                        // expressions to memoize, and then check to see if they are all in the memo for
+                        // this reference
+                        // Note: the correlated-to check is already done in some Reference.containsInMemo variants
+                        // but not others. Should this get pushed down to containsAllInMemo??
+                        var refCorrelatedTo = ref.getCorrelatedTo();
+                        return expressions.stream().allMatch(expr -> refCorrelatedTo.equals(expr.getCorrelatedTo()))
+                                && ref.containsAllInMemo(expressions, AliasMap.emptyMap(), false);
+                    })
                     .collect(ImmutableList.toImmutableList());
 
             // If we found such a reference, re-use it
