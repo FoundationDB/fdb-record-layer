@@ -110,10 +110,12 @@ public class RecordRepairRunner {
      */
     public RecordValidationStatsResult runValidationStats(FDBRecordStore.Builder recordStoreBuilder, ValidationKind validationKind) {
         RecordValidationStatsResult statsResult = new RecordValidationStatsResult();
-        final ThrottledRetryingIterator.Builder<Tuple> iteratorBuilder =
+        ThrottledRetryingIterator.Builder<Tuple> iteratorBuilder =
                 ThrottledRetryingIterator.builder(config.getDatabase(), cursorFactory(), countResultsHandler(statsResult, validationKind));
-        final ThrottledRetryingIterator<Tuple> iterator = configureThrottlingIterator(iteratorBuilder, config).build();
-        iterator.iterateAll(recordStoreBuilder).join();
+        iteratorBuilder = configureThrottlingIterator(iteratorBuilder, config);
+        try (ThrottledRetryingIterator<Tuple> iterator = iteratorBuilder.build()) {
+            iterator.iterateAll(recordStoreBuilder).join();
+        }
         return statsResult;
     }
 
@@ -130,10 +132,12 @@ public class RecordRepairRunner {
         }
 
         List<RecordValidationResult> validationResults = new ArrayList<>();
-        final ThrottledRetryingIterator.Builder<Tuple> iteratorBuilder =
+        ThrottledRetryingIterator.Builder<Tuple> iteratorBuilder =
                 ThrottledRetryingIterator.builder(config.getDatabase(), cursorFactory(), validateAndRepairHandler(validationResults, validationKind));
-        final ThrottledRetryingIterator<Tuple> iterator = configureThrottlingIterator(iteratorBuilder, config).build();
-        iterator.iterateAll(recordStoreBuilder).join();
+        iteratorBuilder = configureThrottlingIterator(iteratorBuilder, config);
+        try (final ThrottledRetryingIterator<Tuple> iterator = iteratorBuilder.build()) {
+            iterator.iterateAll(recordStoreBuilder).join();
+        }
         return validationResults;
     }
 
