@@ -246,9 +246,8 @@ public class Comparisons {
         }
     }
 
-    @Nullable
     @SpotBugsSuppressWarnings("NP_BOOLEAN_RETURN_NULL")
-    private static Boolean compareNotDistinctFrom(Object value, Object comparand) {
+    private static boolean compareNotDistinctFrom(Object value, Object comparand) {
         if (value == null && comparand == null) {
             return true;
         } else if (value == null || comparand == null) {
