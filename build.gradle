@@ -100,7 +100,7 @@ allprojects {
 
     // Configure JUnit tests
     tasks.withType(Test) {
-        reports.junitXml.destination = project.file("${->project.buildDir}/test-results")
+        reports.junitXml.outputLocation = project.file("${->project.buildDir}/test-results")
     }
 
     // Configure JAR generation
