@@ -299,14 +299,14 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         } else {
             final Typed arg1 = arguments.get(1);
             final Type res1 = arg1.getResultType();
-            if (functionName.equals("isDistinctFrom")) {
+            if ("isDistinctFrom".equals(functionName)) {
                 if (res0.getTypeCode() == Type.TypeCode.NULL && res1.getTypeCode() != Type.TypeCode.NULL) {
                     return encapsulate("notNull", Comparisons.Type.NOT_NULL, List.of(arg1));
                 } else if (res1.getTypeCode() == Type.TypeCode.NULL && res0.getTypeCode() != Type.TypeCode.NULL) {
                     return encapsulate("notNull", Comparisons.Type.NOT_NULL, List.of(arg0));
                 }
             }
-            if (functionName.equals("notDistinctFrom")) {
+            if ("notDistinctFrom".equals(functionName)) {
                 if (res0.getTypeCode() == Type.TypeCode.NULL && res1.getTypeCode() != Type.TypeCode.NULL) {
                     return encapsulate("isNull", Comparisons.Type.IS_NULL, List.of(arg1));
                 } else if (res1.getTypeCode() == Type.TypeCode.NULL && res0.getTypeCode() != Type.TypeCode.NULL) {
