@@ -182,8 +182,10 @@ allprojects {
 subprojects {
     apply from: rootProject.file('gradle/testing.gradle')
 
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
+    java {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
 
     def publishBuild = Boolean.parseBoolean(findProperty('publishBuild') ?: 'false')
     def autoServiceVersion = publishBuild ? libs.versions.autoService.asProvider().get() : libs.versions.autoService.development.get()
