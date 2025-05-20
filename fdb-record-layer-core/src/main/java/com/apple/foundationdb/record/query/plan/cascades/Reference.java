@@ -693,15 +693,6 @@ public class Reference implements Correlated<Reference>, Typed {
         return PlannerGraphVisitor.show(renderSingleGroups, this);
     }
 
-    public static boolean isMemoizedExpression(@Nonnull final RelationalExpression expression,
-                                               @Nonnull final RelationalExpression otherExpression) {
-        if (!expression.getCorrelatedTo().equals(otherExpression.getCorrelatedTo())) {
-            return false;
-        }
-
-        return isMemoizedExpression(expression, otherExpression, AliasMap.emptyMap());
-    }
-
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private static boolean isMemoizedExpression(@Nonnull final RelationalExpression member,
                                                 @Nonnull final RelationalExpression otherExpression,
@@ -710,6 +701,14 @@ public class Reference implements Correlated<Reference>, Typed {
             return true;
         }
         if (member.getClass() != otherExpression.getClass()) {
+            return false;
+        }
+
+        final Set<CorrelationIdentifier> originalCorrelatedTo = member.getCorrelatedTo();
+        final Set<CorrelationIdentifier> translatedCorrelatedTo = equivalenceMap.definesOnlyIdentities()
+                ? originalCorrelatedTo
+                : originalCorrelatedTo.stream().map(id -> equivalenceMap.getTargetOrDefault(id, id)).collect(ImmutableSet.toImmutableSet());
+        if (!translatedCorrelatedTo.equals(otherExpression.getCorrelatedTo())) {
             return false;
         }
 

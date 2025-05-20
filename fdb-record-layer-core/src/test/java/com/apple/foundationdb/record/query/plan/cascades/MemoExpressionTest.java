@@ -38,7 +38,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -166,6 +167,51 @@ public class MemoExpressionTest {
         assertTrue(firstTwoRoots.containsAllInMemo(Reference.initialOf(singleRefExpression), AliasMap.emptyMap()));
     }
 
+    @Test
+    void checkCorrelated() {
+        SyntheticPlannerExpression expr1 = SyntheticPlannerExpression.withCorrelated("a", "x", "y");
+        final Reference ref = Reference.initialOf(expr1);
+
+        // Should match when the expression has the same correlations
+        SyntheticPlannerExpression expr2 = SyntheticPlannerExpression.withCorrelated("a", "x", "y");
+        final Reference refWith2 = Reference.initialOf(expr2);
+        assertTrue(ref.containsAllInMemo(refWith2, AliasMap.emptyMap()));
+
+        // Should fail when the correlations are different
+        SyntheticPlannerExpression expr3 = SyntheticPlannerExpression.withCorrelated("a", "y", "z");
+        final Reference refWith3 = Reference.initialOf(expr3);
+        assertFalse(ref.containsAllInMemo(refWith3, AliasMap.emptyMap()));
+
+        // Should succeed when given a translation map that aligns the correlated ids
+        AliasMap totalMap = AliasMap.builder(2)
+                .put(CorrelationIdentifier.of("x"), CorrelationIdentifier.of("y"))
+                .put(CorrelationIdentifier.of("y"), CorrelationIdentifier.of("z"))
+                .build();
+        assertTrue(ref.containsAllInMemo(refWith3, totalMap));
+        AliasMap mapXToZ = AliasMap.ofAliases(CorrelationIdentifier.of("x"), CorrelationIdentifier.of("z"));
+        assertTrue(ref.containsAllInMemo(refWith3, mapXToZ));
+
+        // Do not succeed when the translation map does not equate the right correlations
+        AliasMap mapYToW = AliasMap.ofAliases(CorrelationIdentifier.of("y"), CorrelationIdentifier.of("w"));
+        assertFalse(ref.containsAllInMemo(refWith3, mapYToW));
+    }
+
+    @Test
+    void checkCorrelatedWithCommonChild() {
+        SyntheticPlannerExpression leaf = new SyntheticPlannerExpression("leaf");
+        Reference leafRef = Reference.initialOf(leaf);
+
+        // Create two quantifiers over the leaf
+        Quantifier q1 = Quantifier.forEach(leafRef);
+        Quantifier q2 = Quantifier.forEach(leafRef);
+
+        // Create two expressions. One of them has q1 as a child and is correlated to q2. The other has
+        // q2 as a child and is correlated to q1
+        Reference p1Ref = Reference.initialOf(new SyntheticPlannerExpression("parent", ImmutableList.of(q1), ImmutableSet.of(q2.getAlias())));
+        Reference p2Ref = Reference.initialOf(new SyntheticPlannerExpression("parent", ImmutableList.of(q2), ImmutableSet.of(q1.getAlias())));
+        assertFalse(p1Ref.containsAllInMemo(p2Ref, AliasMap.emptyMap()));
+    }
+
     @ParameterizedTest
     @ValueSource(longs = { 2L, 3L, 5L })
     public void memoInsertionAtRoot(long seed) {
@@ -289,7 +335,7 @@ public class MemoExpressionTest {
         assertThat(notReused1, allOf(not(sameInstance(inter1)), not(sameInstance(inter2)), not(sameInstance(root))));
 
         Reference notReused2 = memoizer.memoizeExploratoryExpression(SyntheticPlannerExpression.ofRefs("p1", ref1));
-        assertThat(notReused1, allOf(not(sameInstance(inter1)), not(sameInstance(inter2)), not(sameInstance(root))));
+        assertThat(notReused2, allOf(not(sameInstance(inter1)), not(sameInstance(inter2)), not(sameInstance(root))));
     }
 
     @Test
@@ -301,7 +347,7 @@ public class MemoExpressionTest {
         Reference inter1 = ofExploratoryExpressions(SyntheticPlannerExpression.ofRefs("p1", ref1, ref2), SyntheticPlannerExpression.ofRefs("p1", ref1, ref3), SyntheticPlannerExpression.ofRefs("p1", ref2, ref4));
         Reference inter2 = ofExploratoryExpressions(SyntheticPlannerExpression.ofRefs("p2", ref2, ref3));
         Reference root = ofExploratoryExpressions(SyntheticPlannerExpression.ofRefs("root", inter1, inter2));
-        Memoizer memoizer = createMemoizer(root);
+        final Memoizer memoizer = createMemoizer(root);
 
         Reference reusedP1a = memoizer.memoizeExploratoryExpressions(ImmutableList.of(
                 SyntheticPlannerExpression.ofRefs("p1", ref1, ref2),
@@ -330,6 +376,29 @@ public class MemoExpressionTest {
         assertThat(notReusedMixed, allOf(not(sameInstance(inter1)), not(sameInstance(inter2))));
     }
 
+    @Test
+    void doNotReuseWhenCorrelationsAreFlipped() {
+        Reference leafRef = ofExploratoryExpressions(new SyntheticPlannerExpression("leaf"));
+        Quantifier leafQ1 = Quantifier.forEach(leafRef);
+        Quantifier leafQ2 = Quantifier.forEach(leafRef);
+        Reference parent1 = ofExploratoryExpressions(new SyntheticPlannerExpression("p1", ImmutableList.of(leafQ1), ImmutableSet.of(leafQ2.getAlias())));
+        Reference parent2 = ofExploratoryExpressions(new SyntheticPlannerExpression("p2", ImmutableList.of(leafQ2), ImmutableSet.of(leafQ1.getAlias())));
+        Reference root = ofExploratoryExpressions(SyntheticPlannerExpression.ofRefs("root", parent1, parent2));
+        final Memoizer memoizer = createMemoizer(root);
+
+        // Do re-use the reference if the correlations align
+        Reference reusedP1 = memoizer.memoizeExploratoryExpression(new SyntheticPlannerExpression("p1", ImmutableList.of(leafQ1), ImmutableSet.of(leafQ2.getAlias())));
+        assertSame(parent1, reusedP1);
+        Reference reusedP2 = memoizer.memoizeExploratoryExpression(new SyntheticPlannerExpression("p2", ImmutableList.of(leafQ2), ImmutableSet.of(leafQ1.getAlias())));
+        assertSame(parent2, reusedP2);
+
+        // Do not re-use the reference if the correlations are backwards
+        Reference notReusedP1 = memoizer.memoizeExploratoryExpression(new SyntheticPlannerExpression("p1", ImmutableList.of(leafQ2), ImmutableSet.of(leafQ1.getAlias())));
+        assertThat(notReusedP1, allOf(not(sameInstance(parent1)), not(sameInstance(parent2))));
+        Reference notReusedP2 = memoizer.memoizeExploratoryExpression(new SyntheticPlannerExpression("p2", ImmutableList.of(leafQ1), ImmutableSet.of(leafQ2.getAlias())));
+        assertThat(notReusedP2, allOf(not(sameInstance(parent1)), not(sameInstance(parent2))));
+    }
+
     /**
      * A mock planner expression with very general semantics to test the correctness of various operations on the memo
      * data structure.
@@ -339,15 +408,22 @@ public class MemoExpressionTest {
         private final String identity;
         @Nonnull
         private final List<? extends Quantifier> quantifiers;
+        private final Set<CorrelationIdentifier> correlatedTo;
 
         public SyntheticPlannerExpression(@Nonnull String identity) {
-            this(identity, Collections.emptyList());
+            this(identity, ImmutableList.of());
+        }
+
+        public SyntheticPlannerExpression(@Nonnull String identity, @Nonnull Collection<? extends Quantifier> children) {
+            this(identity, children, ImmutableSet.of());
         }
 
         public SyntheticPlannerExpression(@Nonnull String identity,
-                                          @Nonnull List<? extends Quantifier> children) {
+                                          @Nonnull Collection<? extends Quantifier> children,
+                                          @Nonnull Collection<CorrelationIdentifier> correlatedTo) {
             this.identity = identity;
-            this.quantifiers = children;
+            this.quantifiers = ImmutableList.copyOf(children);
+            this.correlatedTo = ImmutableSet.copyOf(correlatedTo);
         }
 
         @Nonnull
@@ -406,7 +482,7 @@ public class MemoExpressionTest {
         @Nonnull
         @Override
         public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-            return ImmutableSet.of();
+            return correlatedTo;
         }
 
         @Nonnull
@@ -433,6 +509,11 @@ public class MemoExpressionTest {
         @Nonnull
         public static SyntheticPlannerExpression ofRefs(@Nonnull String name, @Nonnull Reference... references) {
             return new SyntheticPlannerExpression(name, Quantifiers.forEachQuantifiers(List.of(references)));
+        }
+
+        @Nonnull
+        public static SyntheticPlannerExpression withCorrelated(@Nonnull String name, @Nonnull String... correlatedTo) {
+            return new SyntheticPlannerExpression(name, ImmutableList.of(), Arrays.stream(correlatedTo).map(CorrelationIdentifier::of).collect(ImmutableSet.toImmutableSet()));
         }
     }
 }
