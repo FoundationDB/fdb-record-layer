@@ -103,16 +103,19 @@ allprojects {
         reports.junitXml.outputLocation = project.file("${->project.buildDir}/test-results")
     }
 
+    def projectName = it.name
+    def projectVersion = it.version
+
     // Configure JAR generation
     tasks.jar.configure {
         description = "Produces a Jar with the main classes in .out/."
         manifest {
             attributes "Built-JDK": System.getProperty("java.version"),
-                    "Specification-Title": project.name,
-                    "Specification-Version": "${-> project.version}",
+                    "Specification-Title": projectName,
+                    "Specification-Version": "${-> projectVersion}",
                     "Specification-Vendor": "Apple Inc.",
-                    "Implementation-Title": project.name,
-                    "Implementation-Version": "${-> project.version}",
+                    "Implementation-Title": projectName,
+                    "Implementation-Version": "${-> projectVersion}",
                     "Implementation-Vendor": "Apple Inc."
         }
         doFirst {
