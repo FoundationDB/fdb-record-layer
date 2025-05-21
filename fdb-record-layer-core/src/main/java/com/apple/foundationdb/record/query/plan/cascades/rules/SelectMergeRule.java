@@ -49,14 +49,14 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 /**
  * Rule for merging related select boxes into a single, larger select box.
  */
-public class CellMergeRule extends CascadesRule<SelectExpression> {
+public class SelectMergeRule extends CascadesRule<SelectExpression> {
     @Nonnull
     private static final BindingMatcher<Reference> ref = ReferenceMatchers.anyRef();
     private static final BindingMatcher<Quantifier.ForEach> qun = forEachQuantifierWithoutDefaultOnEmptyOverRef(ref);
     @Nonnull
     private static final BindingMatcher<SelectExpression> root = selectExpression(qun);
 
-    public CellMergeRule() {
+    public SelectMergeRule() {
         super(root);
     }
 
