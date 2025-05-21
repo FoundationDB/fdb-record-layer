@@ -964,7 +964,7 @@ public class StandardQueryTests {
                 Assertions.assertEquals(1, statement.executeInsert("STUDENT", row1), "Incorrect insertion count");
                 Assertions.assertEquals(1, statement.executeInsert("STUDENT", row2), "Incorrect insertion count");
 
-                Assertions.assertTrue(statement.execute("SELECT * from STUDENT f WHERE score is not distinct from null"), "Did not return a result set from a select statement!");
+                Assertions.assertTrue(statement.execute("SELECT * from STUDENT WHERE score is not distinct from null"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow()
@@ -972,7 +972,7 @@ public class StandardQueryTests {
                             .hasNoNextRow();
                 }
 
-                Assertions.assertTrue(statement.execute("SELECT * from STUDENT f WHERE score is not distinct from 100"), "Did not return a result set from a select statement!");
+                Assertions.assertTrue(statement.execute("SELECT * from STUDENT WHERE score is not distinct from 100"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow()
@@ -980,7 +980,7 @@ public class StandardQueryTests {
                             .hasNoNextRow();
                 }
 
-                Assertions.assertTrue(statement.execute("SELECT * from STUDENT f WHERE null is not distinct from score"), "Did not return a result set from a select statement!");
+                Assertions.assertTrue(statement.execute("SELECT * from STUDENT WHERE null is not distinct from score"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow()
@@ -988,7 +988,7 @@ public class StandardQueryTests {
                             .hasNoNextRow();
                 }
 
-                Assertions.assertTrue(statement.execute("SELECT * from STUDENT f WHERE 100 is not distinct from score"), "Did not return a result set from a select statement!");
+                Assertions.assertTrue(statement.execute("SELECT * from STUDENT WHERE 100 is not distinct from score"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow()
@@ -996,7 +996,7 @@ public class StandardQueryTests {
                             .hasNoNextRow();
                 }
 
-                Assertions.assertTrue(statement.execute("SELECT * from STUDENT f WHERE 100 is not distinct from 100"), "Did not return a result set from a select statement!");
+                Assertions.assertTrue(statement.execute("SELECT * from STUDENT WHERE 100 is not distinct from 100"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow()
@@ -1006,7 +1006,7 @@ public class StandardQueryTests {
                             .hasNoNextRow();
                 }
 
-                Assertions.assertTrue(statement.execute("SELECT * from STUDENT f WHERE null is not distinct from null"), "Did not return a result set from a select statement!");
+                Assertions.assertTrue(statement.execute("SELECT * from STUDENT WHERE null is not distinct from null"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet)
                             .hasNextRow()
@@ -1014,6 +1014,71 @@ public class StandardQueryTests {
                             .hasNextRow()
                             .hasColumn("NAME", "Bob")
                             .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void testExplainDistinctFrom() throws Exception {
+        final String schemaTemplate = "CREATE TYPE AS STRUCT contact_detail(phone_number string, address string) " +
+                "CREATE TABLE STUDENT(id bigint, name string, contact contact_detail, score bigint, primary key(id)) " +
+                "CREATE index score_idx as select score from STUDENT";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                try (final RelationalResultSet resultSet = statement.executeQuery("EXPLAIN SELECT name FROM STUDENT where score is distinct from null")) {
+                    resultSet.next();
+                    String plan = resultSet.getString(1);
+                    assertThat(plan).matches("ISCAN\\(SCORE_IDX \\(\\[null\\],>\\) \\| MAP \\(_\\.NAME AS NAME\\)");
+                }
+            }
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                try (final RelationalResultSet resultSet = statement.executeQuery("EXPLAIN SELECT name FROM STUDENT where score is distinct from 100")) {
+                    resultSet.next();
+                    String plan = resultSet.getString(1);
+                    assertThat(plan).matches("COVERING\\(SCORE_IDX <,> -> \\[ID: KEY\\[.*], SCORE: KEY\\[.*]\\]\\) \\| FILTER _\\.SCORE IS_DISTINCT_FROM promote\\(@.* AS LONG\\) \\| FETCH \\| MAP \\(_\\.NAME AS NAME\\)");
+                }
+            }
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                try (final RelationalResultSet resultSet = statement.executeQuery("EXPLAIN SELECT name FROM STUDENT where null is distinct from score")) {
+                    resultSet.next();
+                    String plan = resultSet.getString(1);
+                    assertThat(plan).matches("ISCAN\\(SCORE_IDX \\(\\[null\\],>\\) \\| MAP \\(_\\.NAME AS NAME\\)");
+                }
+            }
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                try (final RelationalResultSet resultSet = statement.executeQuery("EXPLAIN SELECT name FROM STUDENT where 100 is distinct from score")) {
+                    resultSet.next();
+                    String plan = resultSet.getString(1);
+                    assertThat(plan).matches("COVERING\\(SCORE_IDX <,> -> \\[ID: KEY\\[.*], SCORE: KEY\\[.*]\\]\\) \\| FILTER _\\.SCORE IS_DISTINCT_FROM promote\\(@.* AS LONG\\) \\| FETCH \\| MAP \\(_\\.NAME AS NAME\\)");
+                }
+            }
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                try (final RelationalResultSet resultSet = statement.executeQuery("EXPLAIN SELECT name FROM STUDENT where score is not distinct from null")) {
+                    resultSet.next();
+                    String plan = resultSet.getString(1);
+                    assertThat(plan).matches("ISCAN\\(SCORE_IDX \\[\\[null\\],\\[null\\]\\]\\) \\| MAP \\(_\\.NAME AS NAME\\)");
+                }
+            }
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                try (final RelationalResultSet resultSet = statement.executeQuery("EXPLAIN SELECT name FROM STUDENT where score is not distinct from 100")) {
+                    resultSet.next();
+                    String plan = resultSet.getString(1);
+                    assertThat(plan).matches("COVERING\\(SCORE_IDX <,> -> \\[ID: KEY\\[.*], SCORE: KEY\\[.*]\\]\\) \\| FILTER _\\.SCORE NOT_DISTINCT_FROM promote\\(@.* AS LONG\\) \\| FETCH \\| MAP \\(_\\.NAME AS NAME\\)");
+                }
+            }
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                try (final RelationalResultSet resultSet = statement.executeQuery("EXPLAIN SELECT name FROM STUDENT where null is not distinct from score")) {
+                    resultSet.next();
+                    String plan = resultSet.getString(1);
+                    assertThat(plan).matches("ISCAN\\(SCORE_IDX \\[\\[null\\],\\[null\\]\\]\\) \\| MAP \\(_\\.NAME AS NAME\\)");
+                }
+            }
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                try (final RelationalResultSet resultSet = statement.executeQuery("EXPLAIN SELECT name FROM STUDENT where 100 is not distinct from score")) {
+                    resultSet.next();
+                    String plan = resultSet.getString(1);
+                    assertThat(plan).matches("COVERING\\(SCORE_IDX <,> -> \\[ID: KEY\\[.*], SCORE: KEY\\[.*]\\]\\) \\| FILTER _\\.SCORE NOT_DISTINCT_FROM promote\\(@.* AS LONG\\) \\| FETCH \\| MAP \\(_\\.NAME AS NAME\\)");
                 }
             }
         }
