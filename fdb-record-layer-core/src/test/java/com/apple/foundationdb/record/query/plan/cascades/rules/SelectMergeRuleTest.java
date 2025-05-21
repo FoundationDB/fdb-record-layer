@@ -63,11 +63,11 @@ import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHe
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Tests of the {@link CellMergeRule}.
+ * Tests of the {@link SelectMergeRule}.
  */
-class CellMergeRuleTest {
+class SelectMergeRuleTest {
     @Nonnull
-    private static final RuleTestHelper testHelper = new RuleTestHelper(new CellMergeRule());
+    private static final RuleTestHelper testHelper = new RuleTestHelper(new SelectMergeRule());
 
     @BeforeEach
     void setUp() {
