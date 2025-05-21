@@ -385,14 +385,13 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             return executionContext.metricCollector.clock(RelationalMetric.RelationalEvent.CREATE_RESULT_SET_ITERATOR, () -> {
                 final ResumableIterator<Row> iterator = RecordLayerIterator.create(cursor, messageFDBQueriedRecord -> new MessageTuple(messageFDBQueriedRecord.getMessage()));
                 return new RecordLayerResultSet(metaData, iterator, connection,
-                        (continuation, reason) -> enrichContinuation(continuation, fdbRecordStore.getRecordMetaData(),
+                        (continuation, reason) -> enrichContinuation(continuation,
                                 currentPlanHashMode, reason, getContinuationsContainsCompiledStatements(options)));
             });
         }
 
         @Nonnull
         private Continuation enrichContinuation(@Nonnull final Continuation continuation,
-                                                @Nonnull final RecordMetaData recordMetaData,
                                                 @Nonnull final PlanHashMode currentPlanHashMode,
                                                 @Nonnull final Continuation.Reason reason,
                                                 final boolean serializeCompiledStatement) throws RelationalException {
