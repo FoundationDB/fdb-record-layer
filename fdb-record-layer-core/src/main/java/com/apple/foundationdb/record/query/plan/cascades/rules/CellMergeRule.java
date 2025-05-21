@@ -67,7 +67,7 @@ public class CellMergeRule extends CascadesRule<SelectExpression> {
         final Reference childRef = call.get(ref);
 
         // todo: worry about correlation dependencies
-        for (RelationalExpression childExpr : childRef.getMembers()) {
+        for (RelationalExpression childExpr : childRef.getExploratoryExpressions()) {
             MergeChildQuantifiersVisitor mergeVisitor = new MergeChildQuantifiersVisitor(child.getAlias());
             if (mergeVisitor.visit(childExpr)) {
                 final ImmutableList.Builder<Quantifier> children = ImmutableList.builder();
@@ -89,7 +89,7 @@ public class CellMergeRule extends CascadesRule<SelectExpression> {
                 predicates.addAll(Objects.requireNonNull(mergeVisitor.predicates));
 
                 TranslationMap translationMap = Objects.requireNonNull(mergeVisitor.translationMap);
-                select.getPredicates().forEach(predicate -> predicates.add(predicate.translateValues(translationMap)));
+                select.getPredicates().forEach(predicate -> predicates.add(predicate.translateCorrelations(translationMap, true)));
 
                 // Translate the result value in the same way
                 Value newResultValue = select.getResultValue().translateCorrelations(translationMap, true);
@@ -97,7 +97,7 @@ public class CellMergeRule extends CascadesRule<SelectExpression> {
                 //
                 // Yield a new select merging the existing select with the child
                 //
-                call.yieldExpression(new SelectExpression(newResultValue, children.build(), predicates.build()));
+                call.yieldExploratoryExpression(new SelectExpression(newResultValue, children.build(), predicates.build()));
             }
         }
     }
