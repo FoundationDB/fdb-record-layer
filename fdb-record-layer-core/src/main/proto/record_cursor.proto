@@ -141,3 +141,8 @@ message RecursiveCursorContinuation {
 message RangeCursorContinuation {
     optional int64 nextPosition = 1;
 }
+
+message KeyValueCursorContinuation {
+    optional bytes lastKey = 1;
+    optional int32 prefixLength = 2;
+}

@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.KeyRange;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
@@ -46,6 +47,7 @@ import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.awt.RenderingHints;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -170,6 +172,14 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
                 return null;
             }
             return Arrays.copyOfRange(lastKey, prefixLength, lastKey.length);
+        }
+
+        @Nonnull
+        private RecordCursorProto.KeyValueCursorContinuation toProto() {
+            return RecordCursorProto.KeyValueCursorContinuation.newBuilder()
+                    .setLastKey(ByteString.copyFrom(lastKey))
+                    .setPrefixLength(prefixLength)
+                    .build();
         }
     }
 
