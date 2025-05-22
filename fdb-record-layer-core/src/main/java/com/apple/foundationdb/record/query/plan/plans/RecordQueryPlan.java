@@ -210,9 +210,7 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
             final var minimizedPlan =
                     minimizePlanOverMinimizedReferences(minimizationCache, reference.getOnlyElementAsPlan());
 
-            if (minimizedPlan == plan) {
-                minimizationCache.put(reference, reference);
-            } else {
+            if (minimizedPlan != plan) {
                 minimizationCache.put(reference, Reference.plannedOf(minimizedPlan));
             }
         }
@@ -234,10 +232,8 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
             final var physicalQuantifier = quantifier.narrow(Quantifier.Physical.class);
             final var childReference = physicalQuantifier.getRangesOver();
 
-            // the child must exist
-            Verify.verify(minimizationCache.containsKey(childReference));
             final Reference translatedChildReference = minimizationCache.get(childReference);
-            if (translatedChildReference != childReference) {
+            if (translatedChildReference != null) {
                 newQuantifiersBuilder.add(physicalQuantifier.overNewReference(translatedChildReference));
                 allMinimizedChildrenSame = false;
             } else {
