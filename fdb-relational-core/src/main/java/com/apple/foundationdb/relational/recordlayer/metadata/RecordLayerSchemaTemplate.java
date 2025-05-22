@@ -416,6 +416,18 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             return this;
         }
 
+        @Nonnull
+        public Builder replaceInvokedRoutine(@Nonnull final RecordLayerInvokedRoutine invokedRoutine) {
+            invokedRoutines.put(invokedRoutine.getName(), invokedRoutine);
+            return this;
+        }
+
+        @Nonnull
+        public Builder addInvokedRoutines(@Nonnull final Collection<RecordLayerInvokedRoutine> invokedRoutines) {
+            invokedRoutines.forEach(this::addInvokedRoutine);
+            return this;
+        }
+
         /**
          * Adds an auxiliary type, an auxiliary type is a type that is merely created, so it can be referenced later on
          * in a table definition. Any {@link DataType.Named} data type can be added as an auxiliary type such as {@code enum}s
@@ -622,12 +634,12 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     }
 
     @Nonnull
-    @VisibleForTesting
     public Builder toBuilder() {
         return newBuilder()
                 .setName(name)
                 .setVersion(version)
                 .setEnableLongRows(enableLongRows)
-                .addTables(getTables());
+                .addTables(getTables())
+                .addInvokedRoutines(getInvokedRoutines());
     }
 }
