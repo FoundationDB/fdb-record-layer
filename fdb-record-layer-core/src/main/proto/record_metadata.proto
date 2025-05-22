@@ -116,6 +116,12 @@ message DataStoreInfo {
   // indexes are working sufficiently, the RecordCountKey can be removed from the metadata more safely.
   // This was introduced with FormatVersion.RECORD_COUNT_STATE
   optional RecordCountState record_count_state = 9;
+
+  enum SepcialStoreState {
+    NORMAL = 1;
+    FORBID_RECORD_UPDATE = 2;
+  }
+  optional SepcialStoreState special_store_state = 10;
 }
 
 message Index {
