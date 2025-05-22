@@ -117,11 +117,20 @@ message DataStoreInfo {
   // This was introduced with FormatVersion.RECORD_COUNT_STATE
   optional RecordCountState record_count_state = 9;
 
-  enum SepcialStoreState {
-    NORMAL = 1;
-    FORBID_RECORD_UPDATE = 2;
+  // Setting a special store state
+  message SpecialStoreState {
+    enum State {
+      NONE = 1;
+      // In this state the store may not create new records or change an existing one. If set, the store - from the user's
+      // point of view - becomes a read-only store, while indexes and other internal metadata can still be modified.
+      // This type of lock may be useful in some extreme cases, such as recovery.
+      FORBID_RECORD_UPDATE = 2;
+    }
+    required State specialState = 1;
+    required string logStamp = 2;
+    required int64 timeStamp = 3;
   }
-  optional SepcialStoreState special_store_state = 10;
+  optional SpecialStoreState special_store_state = 10;
 }
 
 message Index {
