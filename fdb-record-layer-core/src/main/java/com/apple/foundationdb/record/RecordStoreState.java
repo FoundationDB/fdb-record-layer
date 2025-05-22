@@ -325,6 +325,10 @@ public class RecordStoreState {
         return storeHeader.get();
     }
 
+    public boolean shouldBForbidRecordUpdate() {
+        return storeHeader.get().hasSpecialStoreState() && getStoreHeader().getSpecialStoreState().equals(RecordMetaDataProto.DataStoreInfo.SepcialStoreState.FORBID_RECORD_UPDATE);
+    }
+
     /**
      * Checks if this <code>RecordStoreState</code> specifies identical state
      * as the given object.

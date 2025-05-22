@@ -25,6 +25,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -32,12 +33,14 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.util.pair.Pair;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableMap;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -886,6 +889,73 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         } finally {
             fdb.setTrackLastSeenVersionOnRead(dbTracksReadVersionOnRead);
             fdb.setTrackLastSeenVersionOnRead(dbTracksReadVersionOnCommit);
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testForbidRecordUpdates(boolean releaseByNull) {
+        final Index index = new Index("newIndex", field("num_value_2"));
+        final FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> {
+            metaDataBuilder.addIndex("MySimpleRecord", index);
+        };
+        openSimpleMetaData(hook);
+
+        try (FDBRecordContext context = openContext()) {
+            for (int i = 0; i < 20; i++) {
+                TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(i).setNumValue2(i).build();
+                recordStore.saveRecord(record);
+            }
+            recordStore.clearAndMarkIndexWriteOnly(index).join();
+            context.commit();
+        }
+
+        // Forbid record updates
+        try (FDBRecordContext context = openContext()) {
+            recordStore.updateSpecialStoreStateAsync(RecordMetaDataProto.DataStoreInfo.SepcialStoreState.FORBID_RECORD_UPDATE).join();
+            context.commit();
+        }
+
+        // Make sure that a new record cannot be written
+        try (FDBRecordContext context = openContext()) {
+            TestRecords1Proto.MySimpleRecord recordThatWillNotBeSaved = TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(8888).setNumValue2(8888).build();
+
+            assertThrows(RecordCoreException.class, () -> recordStore.saveRecord(recordThatWillNotBeSaved));
+            context.commit();
+        }
+
+        // Build index under this special state
+        try (OnlineIndexer indexBuilder = newIndexerBuilder()
+                .setIndex(index)
+                .build()) {
+            indexBuilder.buildIndex();
+        }
+
+        // Assert readable
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
+            context.commit();
+        }
+
+        // Allow record updates
+        try (FDBRecordContext context = openContext()) {
+            recordStore.updateSpecialStoreStateAsync(releaseByNull ? null : RecordMetaDataProto.DataStoreInfo.SepcialStoreState.NORMAL).join();
+            context.commit();
+        }
+
+        // Successfully update records
+        try (FDBRecordContext context = openContext()) {
+            for (int i = 100; i < 110; i++) {
+                TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(i).setNumValue2(i).build();
+                recordStore.saveRecord(record);
+            }
+            context.commit();
+        }
+
+        // Assert readable index
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
+            context.commit();
         }
     }
 

@@ -544,6 +544,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 final FDBStoredRecord<M> newRecord = dryRunSetSizeInfo(typedSerializer, recordBuilder, metaData);
                 return CompletableFuture.completedFuture(newRecord);
             } else {
+                if (getRecordStoreState().shouldBForbidRecordUpdate()) {
+                    throw new RecordCoreException("Record Store state is set to block record update");
+                }
                 final FDBStoredRecord<M> newRecord = serializeAndSaveRecord(typedSerializer, recordBuilder, metaData, oldRecord);
                 if (oldRecord == null) {
                     addRecordCount(metaData, newRecord, LITTLE_ENDIAN_INT64_ONE);
@@ -3312,6 +3315,17 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             throw new RecordCoreException("Invalid state transition for RecordCountState")
                     .addLogInfo(LogMessageKeys.OLD, existing)
                     .addLogInfo(LogMessageKeys.NEW, newState);
+        });
+    }
+
+    public CompletableFuture<Void> updateSpecialStoreStateAsync(RecordMetaDataProto.DataStoreInfo.SepcialStoreState state) {
+        return updateStoreHeaderAsync(builder -> {
+            if (state == null) {
+                builder.clearSpecialStoreState();
+            } else {
+                builder.setSpecialStoreState(state);
+            }
+            return builder;
         });
     }
 
