@@ -704,10 +704,26 @@ public class Reference implements Correlated<Reference>, Typed {
             return false;
         }
 
+        //
+        // We need to check if the expressions' correlatedTo sets are identical under the consideration of the given
+        // map of alias equivalences. If they are not, the member is not memoizing the otherExpression.
+        //
+        // Specific example:
+        // SELECT *
+        // FROM A a, SELECT * FROM B WHERE a.x = b.y
+        //
+        // Let's assume the inner 'SELECT * FROM B WHERE a.x = b.y' already is member (in the memoization structure).
+        // This member is correlated to 'a'.
+        // However, if we didn't do the check for correlation sets here, we would satisfy the following otherExpression:
+        // SELECT * FROM A WHERE a.x = b.y is correlated to b
+        //
         final Set<CorrelationIdentifier> originalCorrelatedTo = member.getCorrelatedTo();
-        final Set<CorrelationIdentifier> translatedCorrelatedTo = equivalenceMap.definesOnlyIdentities()
+        final Set<CorrelationIdentifier> translatedCorrelatedTo =
+                equivalenceMap.definesOnlyIdentities()
                 ? originalCorrelatedTo
-                : originalCorrelatedTo.stream().map(id -> equivalenceMap.getTargetOrDefault(id, id)).collect(ImmutableSet.toImmutableSet());
+                : originalCorrelatedTo.stream()
+                        .map(alias -> equivalenceMap.getTargetOrDefault(alias, alias))
+                        .collect(ImmutableSet.toImmutableSet());
         if (!translatedCorrelatedTo.equals(otherExpression.getCorrelatedTo())) {
             return false;
         }
