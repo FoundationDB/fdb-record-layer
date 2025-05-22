@@ -169,11 +169,15 @@ indexAttribute
     ;
 
 createTempFunction
-    : CREATE (OR REPLACE)? TEMPORARY sqlInvokedFunction
+    : CREATE (OR REPLACE)? TEMPORARY tempSqlInvokedFunction
     ;
 
 createFunction
     : CREATE sqlInvokedFunction
+    ;
+
+tempSqlInvokedFunction
+    : functionSpecification ON COMMIT DROP FUNCTION routineBody
     ;
 
 sqlInvokedFunction

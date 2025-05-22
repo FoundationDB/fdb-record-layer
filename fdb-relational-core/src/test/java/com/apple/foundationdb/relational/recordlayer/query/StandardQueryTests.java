@@ -1464,7 +1464,7 @@ public class StandardQueryTests {
             final var connection = ddl.getConnection();
             connection.setAutoCommit(false);
             try (var statement = connection.createStatement()) {
-                statement.execute("create temporary function sq1(in x bigint) as select * from t1 where a < 40 + x ");
+                statement.execute("create temporary function sq1(in x bigint) on commit drop function as select * from t1 where a < 40 + x ");
                 Assertions.assertTrue(statement.execute("select * from sq1(x => 2)"));
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()

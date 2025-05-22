@@ -183,6 +183,9 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     CompiledSqlFunction visitCreateFunction(RelationalParser.CreateFunctionContext ctx);
 
     @Override
+    CompiledSqlFunction visitTempSqlInvokedFunction(RelationalParser.TempSqlInvokedFunctionContext ctx);
+
+    @Override
     CompiledSqlFunction visitSqlInvokedFunction(RelationalParser.SqlInvokedFunctionContext ctx);
 
     @Override
