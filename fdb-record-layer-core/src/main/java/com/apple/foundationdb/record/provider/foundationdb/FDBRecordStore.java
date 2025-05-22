@@ -446,6 +446,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return recordStoreStateRef.get();
     }
 
+    private CompletableFuture<RecordStoreState> getRecordStoreStateAsync() {
+        if (recordStoreStateRef.get() != null) {
+            return CompletableFuture.completedFuture(recordStoreStateRef.get());
+        }
+        return preloadRecordStoreStateAsync()
+                .thenApply(ignore -> recordStoreStateRef.get());
+    }
+
     @Override
     @Nonnull
     public RecordSerializer<Message> getSerializer() {
@@ -543,8 +551,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (isDryRun) {
                 final FDBStoredRecord<M> newRecord = dryRunSetSizeInfo(typedSerializer, recordBuilder, metaData);
                 return CompletableFuture.completedFuture(newRecord);
-            } else {
-                if (getRecordStoreState().shouldBForbidRecordUpdate()) {
+            }
+            return getRecordStoreStateAsync().thenCompose(recordStoreState -> {
+                if (recordStoreState.shouldBForbidRecordUpdate()) {
                     throw new RecordCoreException("Record Store state is set to block record update");
                 }
                 final FDBStoredRecord<M> newRecord = serializeAndSaveRecord(typedSerializer, recordBuilder, metaData, oldRecord);
@@ -556,7 +565,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     }
                 }
                 return updateSecondaryIndexes(oldRecord, newRecord).thenApply(v -> newRecord);
-            }
+            });
         });
         return context.instrument(FDBStoreTimer.Events.SAVE_RECORD, result);
     }
