@@ -84,9 +84,11 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     @Nonnull
     private final IndexKeyValueToPartialRecord toRecord;
     // TODO the following value should not be part of this plan
+    //      https://github.com/FoundationDB/fdb-record-layer/issues/3367
     @Nonnull
     private final Value resultValue;
     // TODO the following value should not be part of this plan
+    //      https://github.com/FoundationDB/fdb-record-layer/issues/3367
     @Nonnull
     private final Value groupByResultValue;
     @Nonnull
