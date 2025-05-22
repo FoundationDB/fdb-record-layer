@@ -33,14 +33,14 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.util.pair.Pair;
-import com.apple.test.BooleanSource;
+import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import com.google.common.collect.Comparators;
 import com.google.common.collect.ImmutableMap;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -892,9 +892,10 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         }
     }
 
-    @ParameterizedTest
-    @BooleanSource
-    void testForbidRecordUpdates(boolean releaseByNull) {
+    @Test
+    void testForbidRecordUpdates() {
+        // Set special "forbid record updates" state, verify that records cannot be updates yet indexes can be built
+        this.formatVersion = Comparators.min(FormatVersion.SPECIAL_STORE_STATE, this.formatVersion);
         final Index index = new Index("newIndex", field("num_value_2"));
         final FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> {
             metaDataBuilder.addIndex("MySimpleRecord", index);
@@ -912,19 +913,41 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
 
         // Forbid record updates
         try (FDBRecordContext context = openContext()) {
-            recordStore.updateSpecialStoreStateAsync(RecordMetaDataProto.DataStoreInfo.SepcialStoreState.FORBID_RECORD_UPDATE).join();
+            recordStore.setSpecialStoreStateAsync(RecordMetaDataProto.DataStoreInfo.SpecialStoreState.State.FORBID_RECORD_UPDATE, "testing").join();
             context.commit();
         }
 
-        // Make sure that a new record cannot be written
+        // Make sure that records cannot be updates
         try (FDBRecordContext context = openContext()) {
-            TestRecords1Proto.MySimpleRecord recordThatWillNotBeSaved = TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(8888).setNumValue2(8888).build();
-
-            assertThrows(RecordCoreException.class, () -> recordStore.saveRecord(recordThatWillNotBeSaved));
+            // Create new or modify existing records
+            for (int i: List.of(0, 10, 20, 8888)) {
+                TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(i).setNumValue2(i + 100).build();
+                assertThrows(RecordCoreException.class, () -> recordStore.saveRecord(record));
+                // Dry run should always succeed
+                recordStore.dryRunSaveRecordAsync(record, FDBRecordStoreBase.RecordExistenceCheck.NONE).join();
+            }
+            // Delete existing records - should fail
+            for (int i: List.of(0, 4, 5, 19)) {
+                assertThrows(RecordCoreException.class, () -> recordStore.deleteRecord(Tuple.from(i)));
+                // Dry run should always succeed
+                recordStore.dryRunDeleteRecordAsync(Tuple.from(i)).join();
+            }
+            // Delete non-existing records - no affect, therefore should succeed
+            for (int i: List.of(20, 300, 8888)) {
+                recordStore.deleteRecord(Tuple.from(i));
+                // Dry run should always succeed
+                recordStore.dryRunDeleteRecordAsync(Tuple.from(i)).join();
+            }
             context.commit();
         }
 
-        // Build index under this special state
+        // Assert non-readable index
+        try (FDBRecordContext context = openContext()) {
+            assertFalse(recordStore.getRecordStoreState().allIndexesReadable());
+            context.commit();
+        }
+
+        // Build index while record updates are forbidden
         try (OnlineIndexer indexBuilder = newIndexerBuilder()
                 .setIndex(index)
                 .build()) {
@@ -937,22 +960,25 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             context.commit();
         }
 
-        // Allow record updates
+        // Clear update records lock
         try (FDBRecordContext context = openContext()) {
-            recordStore.updateSpecialStoreStateAsync(releaseByNull ? null : RecordMetaDataProto.DataStoreInfo.SepcialStoreState.NORMAL).join();
+            recordStore.clearSpecialStoreStateAsync().join();
             context.commit();
         }
 
-        // Successfully update records
+        // Successfully update/create/delete records
         try (FDBRecordContext context = openContext()) {
-            for (int i = 100; i < 110; i++) {
+            for (int i = 15; i < 25; i++) {
                 TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(i).setNumValue2(i).build();
                 recordStore.saveRecord(record);
+            }
+            for (int i: List.of(0, 4, 5, 19, 200)) {
+                recordStore.deleteRecord(Tuple.from(i));
             }
             context.commit();
         }
 
-        // Assert readable index
+        // Assert readable index (just to make a point...)
         try (FDBRecordContext context = openContext()) {
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
             context.commit();
