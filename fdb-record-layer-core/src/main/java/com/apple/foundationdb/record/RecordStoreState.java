@@ -325,8 +325,12 @@ public class RecordStoreState {
         return storeHeader.get();
     }
 
-    public boolean shouldBForbidRecordUpdate() {
-        return getStoreHeader().hasSpecialStoreState() && getStoreHeader().getSpecialStoreState().equals(RecordMetaDataProto.DataStoreInfo.SepcialStoreState.FORBID_RECORD_UPDATE);
+    /**
+     * Check if records may be updated.
+     * @return true if record update is allowed.
+     */
+    public boolean isRecordUpdateAllowed() {
+        return !(getStoreHeader().hasSpecialStoreState() && getStoreHeader().getSpecialStoreState().getSpecialState().equals(RecordMetaDataProto.DataStoreInfo.SpecialStoreState.State.FORBID_RECORD_UPDATE));
     }
 
     /**

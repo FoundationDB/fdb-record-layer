@@ -151,7 +151,12 @@ public enum FormatVersion implements Comparable<FormatVersion> {
      * This FormatVersion allows setting a state for the RecordCountKey on an individual store.
      * @see RecordMetaDataProto.DataStoreInfo#getRecordCountState()
      */
-    RECORD_COUNT_STATE(11);
+    RECORD_COUNT_STATE(11),
+    /**
+     * This FormatVersion supports setting a special store state.
+     */
+    SPECIAL_STORE_STATE(12),
+    ;
 
     private final int value;
 
