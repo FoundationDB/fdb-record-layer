@@ -20,139 +20,122 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
-import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
-import com.google.common.base.Verify;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierWithoutDefaultOnEmptyOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
  * Rule for merging related select boxes into a single, larger select box.
  */
-public class SelectMergeRule extends CascadesRule<SelectExpression> {
+public class SelectMergeRule extends ExplorationCascadesRule<SelectExpression> {
     @Nonnull
-    private static final BindingMatcher<Reference> ref = ReferenceMatchers.anyRef();
-    private static final BindingMatcher<Quantifier.ForEach> qun = forEachQuantifierWithoutDefaultOnEmptyOverRef(ref);
-    @Nonnull
-    private static final BindingMatcher<SelectExpression> root = selectExpression(qun);
+    private static final BindingMatcher<SelectExpression> root = selectExpression();
 
     public SelectMergeRule() {
         super(root);
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(@Nonnull final ExplorationCascadesRuleCall call) {
         final SelectExpression select = call.get(root);
-        final Quantifier.ForEach child = call.get(qun);
-        final Reference childRef = call.get(ref);
 
-        // todo: worry about correlation dependencies
-        for (RelationalExpression childExpr : childRef.getExploratoryExpressions()) {
-            MergeChildQuantifiersVisitor mergeVisitor = new MergeChildQuantifiersVisitor(child.getAlias());
-            if (mergeVisitor.visit(childExpr)) {
-                final ImmutableList.Builder<Quantifier> children = ImmutableList.builder();
+        // Identify the set of children of the current select that do not create correlations
+        final Set<Quantifier> mergeableChildren = select.getQuantifiers().stream()
+                .filter(qun -> qun instanceof Quantifier.ForEach)
+                .map(qun -> (Quantifier.ForEach) qun)
+                .filter(qun ->
+                        // Cannot merge if child introduces a null on empty as that changes the overall cardinality
+                        !qun.isNullOnEmpty()
+                                // Require that at least one child expression is of a mergeable type
+                                && qun.getRangesOver().getExploratoryExpressions().stream().anyMatch(expr -> expr instanceof SelectExpression || expr instanceof LogicalFilterExpression)
+                                // If there are correlations pointing to that child from other children, then it can't be merged up as we'd have
+                                // to potentially rewrite children to remove those references
+                                && select.getQuantifiers().stream().filter(qun2 -> qun2 != qun).noneMatch(qun2 -> qun2.isCorrelatedTo(qun.getAlias()))
+                )
+                .collect(ImmutableSet.toImmutableSet());
 
-                // Replace the matched quantifier with it child quantifiers
-                for (Quantifier selectQun : select.getQuantifiers()) {
-                    if (selectQun.equals(child)) {
-                        children.addAll(Objects.requireNonNull(mergeVisitor.childQuantifiers));
-                    } else {
-                        children.add(selectQun);
-                    }
+        // Nothing to merge found. Exit early
+        if (mergeableChildren.isEmpty()) {
+            return;
+        }
+
+        // Collect up the mergeable children, grouping by which child they came from
+        final List<List<NonnullPair<CorrelationIdentifier, RelationalExpression>>> mergeableIdExpressions = mergeableChildren.stream()
+                .map(qun -> qun.getRangesOver().getExploratoryExpressions().stream()
+                        .filter(expr -> expr instanceof SelectExpression || expr instanceof LogicalFilterExpression)
+                        .map(expr -> NonnullPair.of(qun.getAlias(), expr))
+                        .collect(Collectors.toList())
+                )
+                .collect(Collectors.toList());
+
+        // For each element in the cross product of the available children, meld those children
+        // into the upper select expression
+        CrossProduct.crossProduct(mergeableIdExpressions).forEach(mergeableByIdList -> {
+            // For each of the merged children, link the original quantifier alias to the expression
+            final Map<CorrelationIdentifier, RelationalExpression> mergeableById = mergeableByIdList.stream()
+                    .collect(Collectors.toMap(NonnullPair::getKey, NonnullPair::getValue));
+
+            // Merge the quantifiers and predicates from each mergeable child expression
+            final ImmutableList.Builder<Quantifier> newQuantifiers = ImmutableList.builder();
+            final ImmutableList.Builder<QueryPredicate> newPredicates = ImmutableList.builder();
+            final TranslationMap.Builder translationBuilder = TranslationMap.builder();
+            for (Quantifier selectChild : select.getQuantifiers()) {
+                @Nullable RelationalExpression childExpression = mergeableById.get(selectChild.getAlias());
+                if (childExpression == null) {
+                    //
+                    // Not mergeable. Retain original quantifier
+                    //
+                    newQuantifiers.add(selectChild);
+                } else if (childExpression instanceof SelectExpression || childExpression instanceof LogicalFilterExpression) {
+                    //
+                    // Mergeable. Add the child quantifiers in the old one's place and scoop up any predicates.
+                    //
+                    RelationalExpressionWithPredicates predicateExpression = (RelationalExpressionWithPredicates) childExpression;
+                    newQuantifiers.addAll(predicateExpression.getQuantifiers());
+                    newPredicates.addAll(predicateExpression.getPredicates());
+                    translationBuilder.when(selectChild.getAlias())
+                            .then((alias, leaf) -> predicateExpression.getResultValue());
+                } else {
+                    throw new RecordCoreException("unexpected mergeable expression type",
+                            LogMessageKeys.VALUE, childExpression);
                 }
-
-                // Combine the predicates. These come from two sources: one are the
-                // child predicates, which can be pulled up directly.
-                // The rest are the upper predicates, which need to be translated so that any
-                // references to the removed value now applies to the new value.
-                final ImmutableList.Builder<QueryPredicate> predicates = ImmutableList.builder();
-                predicates.addAll(Objects.requireNonNull(mergeVisitor.predicates));
-
-                TranslationMap translationMap = Objects.requireNonNull(mergeVisitor.translationMap);
-                select.getPredicates().forEach(predicate -> predicates.add(predicate.translateCorrelations(translationMap, true)));
-
-                // Translate the result value in the same way
-                Value newResultValue = select.getResultValue().translateCorrelations(translationMap, true);
-
-                //
-                // Yield a new select merging the existing select with the child
-                //
-                call.yieldExploratoryExpression(new SelectExpression(newResultValue, children.build(), predicates.build()));
             }
-        }
-    }
 
-    private static final class MergeChildQuantifiersVisitor implements RelationalExpressionVisitorWithDefaults<Boolean> {
-        @Nonnull
-        private final CorrelationIdentifier parentId;
-        @Nullable
-        private TranslationMap translationMap;
-        @Nullable
-        private List<? extends Quantifier> childQuantifiers;
-        @Nullable
-        private List<? extends QueryPredicate> predicates;
-
-        public MergeChildQuantifiersVisitor(@Nonnull CorrelationIdentifier parentId) {
-            this.parentId = parentId;
-        }
-
-        @Nonnull
-        @Override
-        public Boolean visitLogicalFilterExpression(@Nonnull final LogicalFilterExpression filterExpression) {
             //
-            // Logical filters can be absorbed by parent selects. Any references to the filter
-            // expression need to be rewritten in terms of the original inner alias
+            // Use the new translation map to update the final result value as well as any pre-existing predicates
             //
-            translationMap = TranslationMap.rebaseWithAliasMap(
-                    AliasMap.ofAliases(parentId, filterExpression.getInner().getAlias()));
-            childQuantifiers = filterExpression.getQuantifiers();
-            Verify.verify(childQuantifiers.size() == 1, "logical filter expressions should always have exactly 1 child quantifier");
-            predicates = filterExpression.getPredicates();
-            return true;
-        }
+            TranslationMap translationMap = translationBuilder.build();
+            select.getPredicates()
+                    .forEach(predicate -> newPredicates.add(predicate.translateCorrelations(translationMap, true)));
 
-        @Nonnull
-        @Override
-        public Boolean visitSelectExpression(@Nonnull final SelectExpression select) {
-            //
-            // Select expressions can be merged with higher selects.
-            // References should be rewritten using this expression's base
-            // value in place of the original reference
-            //
-            translationMap = TranslationMap.builder()
-                    .when(parentId)
-                    .then((alias, leaf) -> select.getResultValue())
-                    .build();
-            childQuantifiers = select.getQuantifiers();
-            predicates = select.getPredicates();
-            return true;
-        }
-
-        @Nonnull
-        @Override
-        public Boolean visitDefault(@Nonnull final RelationalExpression element) {
-            // By default, we cannot merge the expression into a higher select
-            return false;
-        }
+            call.yieldExploratoryExpression(new SelectExpression(
+                    select.getResultValue().translateCorrelations(translationMap, true),
+                    newQuantifiers.build(),
+                    newPredicates.build()
+            ));
+        });
     }
 }
