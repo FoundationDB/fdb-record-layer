@@ -5643,8 +5643,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          * @param minimumPossibleFormatVersion the minimum {@link FormatVersion} that this store could have possibly
          * had. Notably, upgrading to {@link FormatVersion#SAVE_VERSION_WITH_RECORD} requires moving data, and upgrading
          * to {@link FormatVersion#SAVE_UNSPLIT_WITH_SUFFIX} requires storing whether the store should have the unsplit
-         * suffix or not. It's not impossible for {@code repairMissingHeader} to determine what to do based on the rest
-         * of the data in the store, but to keep this simple, upgrading across those versions is not supported.
+         * suffix or not. It is probably possible for {@code repairMissingHeader} to determine what to do based on the
+         * rest of the data in the store, but to keep this simple, upgrading across those versions is not supported.
          *
          * @return a store
          */
@@ -5657,7 +5657,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
             if (!minimumPossibleFormatVersion.isAtLeast(FormatVersion.SAVE_VERSION_WITH_RECORD)
                     && formatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX)) {
-                throw new RecordCoreArgumentException("minimumPossibleFormatVersion is not supported")
+                throw new RecordCoreArgumentException("minimumPossibleFormatVersion is not supported for target FormatVersion")
                         .addLogInfo(LogMessageKeys.FORMAT_VERSION, minimumPossibleFormatVersion);
             }
             return uncheckedOpenAsync()
