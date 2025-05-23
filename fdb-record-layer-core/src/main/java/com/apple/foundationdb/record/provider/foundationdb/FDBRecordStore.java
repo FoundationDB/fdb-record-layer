@@ -96,6 +96,7 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.query.plan.cascades.StoreIsLockedForRecordUpdates;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerializationRegistry;
@@ -554,7 +555,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
             return getRecordStoreStateAsync().thenCompose(recordStoreState -> {
                 if (!recordStoreState.isRecordUpdateAllowed()) {
-                    throw new RecordCoreException("Record Store is locked for record updates");
+                    throw new StoreIsLockedForRecordUpdates(recordStoreState);
                 }
                 final FDBStoredRecord<M> newRecord = serializeAndSaveRecord(typedSerializer, recordBuilder, metaData, oldRecord);
                 if (oldRecord == null) {
@@ -1658,7 +1659,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
             return getRecordStoreStateAsync().thenCompose(recordStoreState -> {
                 if (!recordStoreState.isRecordUpdateAllowed()) {
-                    throw new RecordCoreException("Record Store is locked for record updates");
+                    throw new StoreIsLockedForRecordUpdates(recordStoreState);
                 }
 
                 SplitHelper.deleteSplit(getRecordContext(), recordsSubspace(), primaryKey, metaData.isSplitLongRecords(), omitUnsplitRecordSuffix, true, oldRecord);
