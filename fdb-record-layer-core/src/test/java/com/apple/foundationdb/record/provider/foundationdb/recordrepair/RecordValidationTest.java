@@ -329,7 +329,6 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
         // Validate by primary key
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-            RecordValidator valueValidator = new RecordValueValidator(store);
             result.forEach(rec -> {
                 validateRecordValue(store, rec.getPrimaryKey(), RecordValueValidator.CODE_DESERIALIZE_ERROR);
             });
@@ -390,6 +389,7 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
         RecordValidationResult actualResult = null;
         actualResult = validator.validateRecordAsync(primaryKey).join();
 
+        assertEquals(primaryKey, actualResult.getPrimaryKey());
         if (expectedValueValidationCode.equals(RecordValidationResult.CODE_VALID)) {
             assertTrue(actualResult.isValid());
         } else {

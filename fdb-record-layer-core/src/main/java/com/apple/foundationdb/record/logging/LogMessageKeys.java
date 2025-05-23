@@ -138,6 +138,7 @@ public enum LogMessageKeys {
     END_TUPLE,
     REAL_END,
     RECORDS_SCANNED,
+    RECORDS_DELETED,
     ORIGINAL_RANGE,
     SPLIT_RANGES,
     REASON,
@@ -312,6 +313,7 @@ public enum LogMessageKeys {
     TOTAL_RECORDS_SCANNED,
     TOTAL_RECORDS_SCANNED_DURING_FAILURES,
     SCRUB_TYPE,
+    RETRY_COUNT,
 
     // time limits milliseconds
     TIME_LIMIT_MILLIS("time_limit_milliseconds"),
