@@ -1738,6 +1738,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         // Clear out all data except for the store header key and the index state space.
         // Those two subspaces are determined by the configuration of the record store rather then
         // the records.
+        if (!getRecordStoreState().isRecordUpdateAllowed()) {
+            throw new StoreIsLockedForRecordUpdates(getRecordStoreState());
+        }
         Range indexStateRange = indexStateSubspace().range();
         context.clear(new Range(recordsSubspace().getKey(), indexStateRange.begin));
         context.clear(new Range(indexStateRange.end, getSubspace().range().end));
@@ -1748,7 +1751,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (recordStoreStateRef.get() == null) {
             return preloadRecordStoreStateAsync().thenCompose(ignore -> deleteRecordsWhereAsync(component));
         }
-
+        if (!recordStoreStateRef.get().isRecordUpdateAllowed()) {
+            throw new StoreIsLockedForRecordUpdates(recordStoreStateRef.get());
+        }
         preloadCache.invalidateAll();
         recordStoreStateRef.get().beginRead();
         boolean async = false;
