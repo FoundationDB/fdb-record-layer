@@ -72,7 +72,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
     public AggregateCursor(@Nonnull RecordCursor<QueryResult> inner,
                            @Nonnull final StreamGrouping<M> streamGrouping,
                            @Nonnull RecordCursorContinuation continuation,
-                           final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode) {
+                           @Nonnull final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode) {
         this.inner = inner;
         this.streamGrouping = streamGrouping;
         this.serializationMode = serializationMode;
