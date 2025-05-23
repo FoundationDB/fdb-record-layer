@@ -5726,7 +5726,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                     context.setMetaDataVersionStamp();
                                 }
                             }));
-            // This could be improved with:
+            // The handling of indexes could be improved with any of the following, but we're keeping it simple:
             // 1. If the index was added in the same metadata version that added the type, and has not been
             //    modified, we could mark that as readable, because they either do not have any records of
             //    that type, or the index was built when the type was originally added, and maintained since

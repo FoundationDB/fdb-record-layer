@@ -279,10 +279,8 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
     @SuppressWarnings("deprecation")
     void disableRecordCountKeyOnRepair(boolean hasRecordCountKey, FormatVersion formatVersion) {
         // We cannot tell whether the recordCountKey had changed since the last time we did checkVersion, so
-        // we can't guarantee that it is correct. Since we currently don't have a way to disable the RecordCountKey, or
-        // rebuild it across multiple transactions, we fail the repair if there is a recordCountKey on the metadata.
-        // With https://github.com/FoundationDB/fdb-record-layer/issues/3326 we should be able to set the RecordCountKey
-        // to disabled.
+        // we can't guarantee that it is correct. If there is a RecordCountKey and we're on a new enough format version
+        // we'll disable the record count key, otherwise, we'll throw an exception
         final RecordMetaData recordMetaData = simpleMetaData(metadata -> {
             metadata.setSplitLongRecords(true);
             if (hasRecordCountKey) {
