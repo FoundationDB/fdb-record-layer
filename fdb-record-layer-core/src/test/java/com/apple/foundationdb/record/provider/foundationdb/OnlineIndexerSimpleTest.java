@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.query.plan.cascades.StoreIsLockedForRecordUpdates;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
@@ -922,13 +923,13 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             // Create new or modify existing records
             for (int i: List.of(0, 10, 20, 8888)) {
                 TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(i).setNumValue2(i + 100).build();
-                assertThrows(RecordCoreException.class, () -> recordStore.saveRecord(record));
+                assertThrows(StoreIsLockedForRecordUpdates.class, () -> recordStore.saveRecord(record));
                 // Dry run should always succeed
                 recordStore.dryRunSaveRecordAsync(record, FDBRecordStoreBase.RecordExistenceCheck.NONE).join();
             }
             // Delete existing records - should fail
             for (int i: List.of(0, 4, 5, 19)) {
-                assertThrows(RecordCoreException.class, () -> recordStore.deleteRecord(Tuple.from(i)));
+                assertThrows(StoreIsLockedForRecordUpdates.class, () -> recordStore.deleteRecord(Tuple.from(i)));
                 // Dry run should always succeed
                 recordStore.dryRunDeleteRecordAsync(Tuple.from(i)).join();
             }
