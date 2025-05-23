@@ -127,6 +127,11 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
      * @return a future that, when complete normally, means the iteration is complete
      */
     public CompletableFuture<Void> iterateAll(final FDBRecordStore.Builder storeBuilder) {
+        if (closed) {
+            // Early termination (would still abort, but this is faster)
+            return CompletableFuture.failedFuture(new FDBDatabaseRunner.RunnerClosed());
+        }
+
         final AtomicReference<RecordCursorResult<T>> lastSuccessCont = new AtomicReference<>(null);
         final QuotaManager singleIterationQuotaManager = new QuotaManager();
         return AsyncUtil.whileTrue(() ->
@@ -193,33 +198,36 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
             RecordCursor<T> cursor = cursorCreator.createCursor(store, cursorStartPoint, cursorRowsLimit);
             rangeIterationStartTimeMilliseconds = nowMillis();
 
-            return AsyncUtil.whileTrue(() -> cursor.onNext()
-                        .thenCompose(result -> {
-                            cont.set(result);
-                            if (!result.hasNext()) {
-                                if (result.getNoNextReason().isSourceExhausted()) {
-                                    // terminate the iteration
-                                    singleIterationQuotaManager.hasMore = false;
-                                }
-                                // end of this one range
-                                return AsyncUtil.READY_FALSE;
-                            }
-                            singleIterationQuotaManager.scannedCount++;
-                            CompletableFuture<Void> future = singleItemHandler.handleOneItem(store, result, singleIterationQuotaManager);
-                            // Register the externally-provided future so that it is closed if the runner is closed before it completes
-                            return futureManager.registerFuture(future)
-                                    .thenApply(ignore -> singleIterationQuotaManager.hasMore);
-                        })
-                        .thenApply(rangeHasMore -> {
-                            if (rangeHasMore && ((0 < transactionTimeQuotaMillis && elapsedTimeMillis() > transactionTimeQuotaMillis) ||
-                                                 (0 < maxRecordDeletesPerTransaction && singleIterationQuotaManager.deletesCount >= maxRecordDeletesPerTransaction))) {
-                                // Reached time/delete quota in this transaction. Continue in a new one (possibly after throttling)
-                                return false;
-                            }
-                            return rangeHasMore;
-                        }),
-                        executor)
-                    .whenComplete((r, e) -> cursor.close());
+            return AsyncUtil.whileTrue(() -> {
+                final CompletableFuture<RecordCursorResult<T>> onNext = cursor.onNext();
+                // Register the future with the future manager such that it is completed once the iterator is closed
+                return futureManager.registerFuture(onNext).thenCompose(result -> {
+                    cont.set(result);
+                    if (!result.hasNext()) {
+                        if (result.getNoNextReason().isSourceExhausted()) {
+                            // terminate the iteration
+                            singleIterationQuotaManager.hasMore = false;
+                        }
+                        // end of this one range
+                        return AsyncUtil.READY_FALSE;
+                    }
+                    singleIterationQuotaManager.scannedCount++;
+                    CompletableFuture<Void> future = singleItemHandler.handleOneItem(store, result, singleIterationQuotaManager);
+                    // Register the externally-provided future so that it is closed if the runner is closed before it completes
+                    return futureManager.registerFuture(future)
+                        .thenApply(ignore -> singleIterationQuotaManager.hasMore);
+                    })
+                    .thenApply(rangeHasMore -> {
+                        if (rangeHasMore && ((0 < transactionTimeQuotaMillis && elapsedTimeMillis() > transactionTimeQuotaMillis) ||
+                                                     (0 < maxRecordDeletesPerTransaction && singleIterationQuotaManager.deletesCount >= maxRecordDeletesPerTransaction))) {
+                            // Reached time/delete quota in this transaction. Continue in a new one (possibly after throttling)
+                            return false;
+                        }
+                        return rangeHasMore;
+                    });
+            }, executor)
+            .whenComplete((r, e) ->
+                    cursor.close());
         }).thenApply(ignore -> cont.get());
     }
 
@@ -411,9 +419,9 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
      * @param <T> the item type being iterated on.
      */
     public static class Builder<T> {
-        public TransactionalRunner transactionalRunner;
-        public Executor executor;
-        public ScheduledExecutorService scheduledExecutor;
+        private TransactionalRunner transactionalRunner;
+        private Executor executor;
+        private ScheduledExecutorService scheduledExecutor;
         private final CursorFactory<T> cursorCreator;
         private final ItemHandler<T> singleItemHandler;
         private Consumer<QuotaManager> transactionSuccessNotification;

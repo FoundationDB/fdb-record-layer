@@ -47,5 +47,5 @@ public interface ItemHandler<T> {
      * @return Future (Void) for when the operation is complete
      */
     @Nonnull
-    CompletableFuture<Void> handleOneItem(FDBRecordStore store, RecordCursorResult<T> lastResult, ThrottledRetryingIterator.QuotaManager quotaManager);
+    CompletableFuture<Void> handleOneItem(@Nonnull FDBRecordStore store, @Nonnull RecordCursorResult<T> lastResult, @Nonnull ThrottledRetryingIterator.QuotaManager quotaManager);
 }
