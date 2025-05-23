@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.cascades.StoreIsLockedForRecordUpdates;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
@@ -939,6 +940,13 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                 // Dry run should always succeed
                 recordStore.dryRunDeleteRecordAsync(Tuple.from(i)).join();
             }
+            // Delete all records - should fail
+            assertThrows(StoreIsLockedForRecordUpdates.class, () -> recordStore.deleteAllRecords());
+
+            // Delete where - should fail (the expression is meaningless here)
+            assertThrows(StoreIsLockedForRecordUpdates.class,
+                    () -> recordStore.deleteRecordsWhere(Query.field("num_value_2").greaterThan(10)));
+
             context.commit();
         }
 
@@ -982,6 +990,13 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         // Assert readable index (just to make a point...)
         try (FDBRecordContext context = openContext()) {
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
+            context.commit();
+        }
+
+        // Check delete where / delete all
+        try (FDBRecordContext context = openContext()) {
+            // TODO: recordStore.deleteRecordsWhere(...)
+            recordStore.deleteAllRecords();
             context.commit();
         }
     }
