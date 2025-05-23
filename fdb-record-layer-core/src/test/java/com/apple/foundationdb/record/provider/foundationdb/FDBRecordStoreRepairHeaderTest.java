@@ -122,6 +122,34 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    void repairMetaDataVersion() {
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        metaDataBuilder.addIndex("MySimpleRecord", "ToRemove1", "num_value_2");
+        metaDataBuilder.addIndex("MySimpleRecord", "ToRemove2", "num_value_unique");
+        RecordMetaData metadata1 = metaDataBuilder.build();
+        metaDataBuilder.removeIndex("ToRemove1");
+        metaDataBuilder.removeIndex("ToRemove2");
+        final RecordMetaData metadata2 = metaDataBuilder.build();
+
+
+        final List<Tuple> primaryKeys = createInitialStore(FormatVersion.getMaximumSupportedVersion(), metadata1);
+        final List<FDBStoredRecord<Message>> originalRecords = createOriginalRecords(metadata1, primaryKeys);
+
+        clearStoreHeader(metadata1);
+        validateCannotOpen(metadata1);
+
+
+        try (FDBRecordContext context = openContext()) {
+            repairHeader(context, 1, getStoreBuilder(context, metadata2)
+                    .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
+                    .setUserVersionChecker(new AssertMatchingMetaDataVersion(metadata2)));
+            commit(context);
+        }
+        validateRepaired(1, metadata2, new AssertMatchingMetaDataVersion(metadata2), originalRecords);
+
+    }
+
+    @Test
     void needRebuildIndex() {
         final RecordMetaData recordMetaData = getRecordMetaData(true);
         final List<Tuple> primaryKeys = createInitialStore(FormatVersion.getMaximumSupportedVersion(), recordMetaData);
@@ -586,6 +614,29 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
         public CompletableFuture<Integer> checkUserVersion(final int oldUserVersion, final int oldMetaDataVersion, final RecordMetaDataProvider metaData) {
             assertEquals(this.oldUserVersion, oldUserVersion);
             return CompletableFuture.completedFuture(newUserVersion);
+        }
+    }
+
+    private static class AssertMatchingMetaDataVersion implements FDBRecordStoreBase.UserVersionChecker {
+        private final RecordMetaData expected;
+
+        public AssertMatchingMetaDataVersion(final RecordMetaData recordMetaData) {
+            expected = recordMetaData;
+        }
+
+        @Override
+        public CompletableFuture<Integer> checkUserVersion(@Nonnull final RecordMetaDataProto.DataStoreInfo storeHeader, final RecordMetaDataProvider metaData) {
+            assertThat(storeHeader.getMetaDataversion()).isEqualTo(expected.getVersion());
+            assertThat(metaData).isEqualTo(expected);
+            return CompletableFuture.completedFuture(storeHeader.getUserVersion());
+        }
+
+        @Override
+        @SuppressWarnings("deprecation") // overriding deprecated method
+        public CompletableFuture<Integer> checkUserVersion(final int oldUserVersion, final int oldMetaDataVersion, final RecordMetaDataProvider metaData) {
+            assertThat(oldMetaDataVersion).isEqualTo(expected.getVersion());
+            assertThat(metaData).isEqualTo(expected);
+            return CompletableFuture.completedFuture(oldUserVersion);
         }
     }
 }
