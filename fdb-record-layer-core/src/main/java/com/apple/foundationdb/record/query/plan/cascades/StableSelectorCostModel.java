@@ -1,5 +1,5 @@
 /*
- * RewritingCostModel.java
+ * StableSelectorCostModel.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,37 +22,37 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 
 import javax.annotation.Nonnull;
 
 /**
- * Cost model for {@link PlannerPhase#REWRITING}. TODO To be fleshed out whe we have actual rules.
+ * A comparator implementing a simple cost model for the {@link CascadesPlanner} to choose the plan with the smallest
+ * plan hash.
  */
 @API(API.Status.EXPERIMENTAL)
 @SpotBugsSuppressWarnings("SE_COMPARATOR_SHOULD_BE_SERIALIZABLE")
-public class RewritingCostModel implements CascadesCostModel {
-    @Nonnull
-    private final RecordQueryPlannerConfiguration configuration;
-
-    public RewritingCostModel(@Nonnull final RecordQueryPlannerConfiguration configuration) {
-        this.configuration = configuration;
-    }
-
+public class StableSelectorCostModel implements CascadesCostModel {
     @Nonnull
     @Override
     public RecordQueryPlannerConfiguration getConfiguration() {
-        return configuration;
+        return RecordQueryPlannerConfiguration.defaultPlannerConfiguration();
     }
 
     @Override
-    public int compare(final RelationalExpression a, final RelationalExpression b) {
-        // TODO Implement this!
+    public int compare(@Nonnull final RelationalExpression a, @Nonnull final RelationalExpression b) {
+        //
+        // If plans are indistinguishable from a cost perspective, select one by planHash. This makes the cost model
+        // stable (select the same plan on subsequent plannings).
+        //
+        if ((a instanceof PlanHashable) && (b instanceof PlanHashable)) {
+            int hA = ((PlanHashable)a).planHash(PlanHashable.CURRENT_FOR_CONTINUATION);
+            int hB = ((PlanHashable)b).planHash(PlanHashable.CURRENT_FOR_CONTINUATION);
+            return Integer.compare(hA, hB);
+        }
 
-        //
-        // If expressions are indistinguishable from a cost perspective, select one by its semanticHash.
-        //
-        return Integer.compare(a.semanticHashCode(), b.semanticHashCode());
+        return 0;
     }
 }

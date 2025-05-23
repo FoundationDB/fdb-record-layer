@@ -315,6 +315,19 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
                 matchCandidateOptional);
     }
 
+    @Override
+    public boolean canBeMinimized() {
+        return matchCandidateOptional.isPresent();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlan minimize(@Nonnull final List<Quantifier.Physical> newQuantifiers) {
+        Verify.verify(newQuantifiers.isEmpty());
+        return new RecordQueryScanPlan(recordTypes, flowedType, commonPrimaryKey, comparisons, reverse, strictlySorted,
+                Optional.empty());
+    }
+
     @Nonnull
     @Override
     public Value getResultValue() {

@@ -272,6 +272,19 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     }
 
     @Override
+    public boolean canBeMinimized() {
+        return indexPlan.canBeMinimized();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlan minimize(@Nonnull final List<Quantifier.Physical> newQuantifiers) {
+        Verify.verify(newQuantifiers.isEmpty());
+        return new RecordQueryAggregateIndexPlan(indexPlan.minimize(newQuantifiers), recordTypeName, toRecord,
+                resultValue, groupByResultValue, constraint);
+    }
+
+    @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
