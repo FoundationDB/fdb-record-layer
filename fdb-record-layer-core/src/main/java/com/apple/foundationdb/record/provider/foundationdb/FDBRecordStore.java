@@ -5685,14 +5685,24 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             // they see fit, transactionally before doing anything else
 
             // We cannot tell whether the recordCountKey had changed since the last time we did checkVersion, so
-            // we can't guarantee that it is correct. Since we currently don't have a way to disable the RecordCountKey, or
-            // rebuild it across multiple transactions, we fail the repair if there is a recordCountKey on the metadata.
-            // With https://github.com/FoundationDB/fdb-record-layer/issues/3326 we should be able to set the RecordCountKey
-            // to disabled.
-            if (recordMetaData.getRecordCountKey() != null) {
-                throw new RecordCoreException("Repair is not currently supported if the metadata has a RecordCountKey");
+            // we can't guarantee that it is correct. With FormatVersion.RECORD_COUNT_STATE though, we can mark it as
+            // disabled.
+            if (recordMetaData.getRecordCountKey() != null && !formatVersion.isAtLeast(FormatVersion.RECORD_COUNT_STATE)) {
+                throw new RecordCoreException("Repair is not supported if the metadata has a RecordCountKey until FormatVersion.RECORD_COUNT_STATE")
+                        .addLogInfo(LogMessageKeys.FORMAT_VERSION, formatVersion);
             }
             store.saveStoreHeader(dataStoreInfo.build());
+
+            // We want to make sure all former indexes have been cleared, since we have no way of knowing whether
+            // it has done a checkVersion since the index was removed, and there's something to clear up
+            recordMetaData.getFormerIndexes().forEach(store::removeFormerIndex);
+            // If there is a record count key, we want to mark it as disabled
+            CompletableFuture<Void> updateRecordCountState;
+            if (recordMetaData.getRecordCountKey() != null) {
+                updateRecordCountState = store.updateRecordCountStateAsync(RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED);
+            } else {
+                updateRecordCountState = AsyncUtil.DONE;
+            }
             // It's possible that the old store header was cacheable, in which case, another store may
             // still have a cached version, even though we don't. We need to make sure that the other
             // instance refreshes it's cached version after we generate a new missing store header.
@@ -5702,17 +5712,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
             // Since another instance may still have a cached version of the store header, we need to make
             // sure that the cache is invalidated
-            final CompletableFuture<Void> bumpMetaDataVersionStamp = context.getMetaDataVersionStampAsync(IsolationLevel.SNAPSHOT)
-                    .thenAccept(metaDataVersionStamp -> {
-                        // If the metaDataVersionStamp was null before than nothing was cached based on
-                        // the metaDataVersionStamp, so we don't need to set the stamp.
-                        if (metaDataVersionStamp != null) {
-                            context.setMetaDataVersionStamp();
-                        }
-                    });
-            // We want to make sure all former indexes have been cleared, since we have no way of knowing whether
-            // it has done a checkVersion since the index was removed, and there's something to clear up
-            recordMetaData.getFormerIndexes().forEach(store::removeFormerIndex);
+            final CompletableFuture<Void> bumpMetaDataVersionStamp = updateRecordCountState.thenCompose(vignore ->
+                    context.getMetaDataVersionStampAsync(IsolationLevel.SNAPSHOT)
+                            .thenAccept(metaDataVersionStamp -> {
+                                // If the metaDataVersionStamp was null before than nothing was cached based on
+                                // the metaDataVersionStamp, so we don't need to set the stamp.
+                                if (metaDataVersionStamp != null) {
+                                    context.setMetaDataVersionStamp();
+                                }
+                            }));
             // This could be improved with:
             // 1. If the index was added in the same metadata version that added the type, and has not been
             //    modified, we could mark that as readable, because they either do not have any records of
