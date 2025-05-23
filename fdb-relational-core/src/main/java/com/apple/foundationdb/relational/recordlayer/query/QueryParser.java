@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.generated.RelationalLexer;
 import com.apple.foundationdb.relational.generated.RelationalParser;
+import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
 import com.apple.foundationdb.relational.util.Environment;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -39,6 +40,8 @@ import org.antlr.v4.runtime.atn.ATNConfigSet;
 import org.antlr.v4.runtime.atn.PredictionMode;
 import org.antlr.v4.runtime.dfa.DFA;
 import org.antlr.v4.runtime.misc.Interval;
+import org.antlr.v4.runtime.tree.ParseTree;
+import org.antlr.v4.runtime.tree.TerminalNode;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -53,8 +56,7 @@ import java.util.Locale;
 public class QueryParser {
 
     @VisibleForTesting
-    public static class ErrorStringifier extends BaseErrorListener
-    {
+    public static class ErrorStringifier extends BaseErrorListener {
         @Nonnull
         private final List<String> syntaxErrors;
 
@@ -68,8 +70,7 @@ public class QueryParser {
         }
 
         @Nonnull
-        List<String> getSyntaxErrors()
-        {
+        List<String> getSyntaxErrors() {
             return syntaxErrors;
         }
 
@@ -82,9 +83,8 @@ public class QueryParser {
         public void syntaxError(Recognizer<?, ?> recognizer,
                                 Object offendingSymbol,
                                 int line, int charPositionInLine,
-                                String msg, RecognitionException e)
-        {
-            syntaxErrors.add(ParseHelpers.underlineParsingError(recognizer, (Token) offendingSymbol, line, charPositionInLine));
+                                String msg, RecognitionException e) {
+            syntaxErrors.add(ParseHelpers.underlineParsingError(recognizer, (Token)offendingSymbol, line, charPositionInLine));
         }
 
         @Override
@@ -154,6 +154,60 @@ public class QueryParser {
         }
 
         return result;
+    }
+
+    private static final class PreparedParamsReplacer extends RelationalParserBaseVisitor<Void> {
+
+        @Nonnull
+        private final StringBuilder sqlBuilder;
+
+        @Nonnull
+        private final PreparedParams preparedStatementParameters;
+
+        private PreparedParamsReplacer(@Nonnull final PreparedParams preparedStatementParameters) {
+            this.preparedStatementParameters = preparedStatementParameters;
+            sqlBuilder = new StringBuilder();
+        }
+
+        @Override
+        public Void visitPreparedStatementParameter(@Nonnull RelationalParser.PreparedStatementParameterContext ctx) {
+            Object param;
+            if (ctx.QUESTION() != null) {
+                param = preparedStatementParameters.nextUnnamedParamValue();
+                sqlBuilder.append(PreparedParams.prettyPrintParam(param)).append(" ");
+            } else {
+                // Note we preserve named parameters in canonical representation, otherwise we could mix up different queries
+                // if we use '?' ubiquitously.
+                // e.g. select * from t1 where col1 = ?P1 and col2 = ?P2
+                //      select * from t1 where col1 = ?P2 and col2 = ?P1
+                final var namedParameterContext = ctx.NAMED_PARAMETER();
+                final var parameterName = namedParameterContext.getText().substring(1);
+                param = preparedStatementParameters.namedParamValue(parameterName);
+                sqlBuilder.append("?").append(parameterName).append(":").append(PreparedParams.prettyPrintParam(param)).append(" ");
+            }
+            return null;
+        }
+
+        @Override
+        public Void visitTerminal(@Nonnull TerminalNode node) {
+            if (node.getSymbol().getType() != Token.EOF) {
+                sqlBuilder.append(node.getText()).append(" ");
+            }
+            return null;
+        }
+
+        @Nonnull
+        String getQuery() {
+            return sqlBuilder.toString();
+        }
+    }
+
+    @Nonnull
+    public static String replacePreparedParams(@Nonnull final ParseTree context,
+                                               @Nonnull final PreparedParams preparedParams) {
+        final var replacer = new PreparedParamsReplacer(preparedParams);
+        replacer.visit(context);
+        return replacer.getQuery();
     }
 
     private static void setInterpreterMode(@Nonnull final RelationalParser parser) {

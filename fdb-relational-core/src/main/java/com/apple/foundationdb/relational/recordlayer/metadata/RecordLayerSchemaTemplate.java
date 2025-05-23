@@ -42,6 +42,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -51,14 +52,17 @@ import com.google.protobuf.Descriptors;
 import javax.annotation.Nonnull;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
 public final class RecordLayerSchemaTemplate implements SchemaTemplate {
@@ -299,8 +303,15 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     @Nonnull
     @Override
-    public Optional<InvokedRoutine> findInvokedRoutineByName(@Nonnull final String routineName) throws RelationalException {
-        return Optional.empty();
+    public Optional<? extends InvokedRoutine> findInvokedRoutineByName(@Nonnull final String routineName) {
+        return invokedRoutines.stream().filter(routine -> routine.getName().equals(routineName)).findFirst();
+    }
+
+    @Nonnull
+    @Override
+    public Collection<? extends InvokedRoutine> getTemporaryInvokedRoutines() {
+        return invokedRoutines.stream().filter(RecordLayerInvokedRoutine::isTemporary)
+                .sorted(Comparator.comparing(RecordLayerInvokedRoutine::getName)).collect(ImmutableList.toImmutableList());
     }
 
     @Nonnull

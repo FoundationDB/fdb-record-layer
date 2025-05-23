@@ -286,4 +286,13 @@ public class SqlFunctionTest {
                 containsRoutinesInAnyOrder(routine("SQ1", "CREATE FUNCTION SQ1(S BIGINT) AS SELECT * FROM T WHERE b < S"),
                         routine("SQ2", "CREATE FUNCTION SQ2(S BIGINT) AS SELECT * FROM T WHERE b < S")));
     }
+
+    @Test
+    void definingTempFunctionInSchemaTemplateDefinitionThrows() throws Exception {
+        assertThrows(() -> ddl("CREATE SCHEMA TEMPLATE test_template " +
+                        "CREATE TABLE T(a BIGINT, b BIGINT, primary key(a)) " +
+                        "CREATE TEMPORARY FUNCTION SQ1(S BIGINT) ON COMMIT DROP FUNCTION AS SELECT * FROM T WHERE b < S " +
+                        "CREATE FUNCTION SQ2(S BIGINT) AS SELECT * FROM T WHERE b < S"))
+                .hasErrorCode(ErrorCode.SYNTAX_ERROR);
+    }
 }

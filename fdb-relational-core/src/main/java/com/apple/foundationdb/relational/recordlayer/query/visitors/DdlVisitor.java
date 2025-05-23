@@ -42,11 +42,13 @@ import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.IndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
+import com.apple.foundationdb.relational.recordlayer.query.QueryParser;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import org.antlr.v4.runtime.tree.ParseTree;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -254,8 +256,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         // TODO: this is currently relying on the lexical order of the function to resolve function dependencies which
         //       is limited.
         functionClauses.build().forEach(functionClause -> {
-            final var invokedRoutine = getInvokedRoutineMetadata(functionClause.functionSpecification(), functionClause.routineBody(),
-                    metadataBuilder.build(), false);
+            final var invokedRoutine = getInvokedRoutineMetadata(functionClause, functionClause.functionSpecification(),
+                    functionClause.routineBody(), metadataBuilder.build());
             metadataBuilder.addInvokedRoutine(invokedRoutine);
         });
         for (final var index : indexes) {
@@ -312,10 +314,10 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Nonnull
-    private RecordLayerInvokedRoutine getInvokedRoutineMetadata(@Nonnull final RelationalParser.FunctionSpecificationContext functionSpecCtx,
+    private RecordLayerInvokedRoutine getInvokedRoutineMetadata(@Nonnull final ParseTree functionCtx,
+                                                                @Nonnull final RelationalParser.FunctionSpecificationContext functionSpecCtx,
                                                                 @Nonnull final RelationalParser.RoutineBodyContext bodyCtx,
-                                                                @Nonnull final RecordLayerSchemaTemplate ddlCatalog,
-                                                                boolean isTemporary) {
+                                                                @Nonnull final RecordLayerSchemaTemplate ddlCatalog) {
         // parse the index SQL query using the newly constructed metadata.
         getDelegate().replaceSchemaTemplate(ddlCatalog);
 
@@ -323,15 +325,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var functionName = visitFullId(functionSpecCtx.schemaQualifiedRoutineName).toString();
 
         // 2. get the function SQL definition string.
-        final var queryString = getDelegate().getPlanGenerationContext().getQuery();
-        final var functionSpecStart = functionSpecCtx.start.getStartIndex();
-        final var functionSpecEnd = functionSpecCtx.stop.getStopIndex() + 1; // inclusive.
-        final var bodyStart = bodyCtx.start.getStartIndex();
-        final var bodyEnd = bodyCtx.stop.getStopIndex() + 1; // inclusive.
-        final var functionDefinition = "CREATE " + (isTemporary ? "TEMPORARY " : "")
-                + queryString.substring(functionSpecStart, functionSpecEnd)
-                + (isTemporary ? "ON COMMIT DROP FUNCTION " : "")
-                + queryString.substring(bodyStart, bodyEnd);
+        final var functionDefinition = QueryParser.replacePreparedParams(functionCtx, getDelegate().getPlanGenerationContext().getPreparedParams());
 
         // 3. visit the SQL string to generate (compile) the corresponding SQL plan.
         final var function = visitSqlInvokedFunction(functionSpecCtx, bodyCtx);
@@ -341,16 +335,17 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 .setName(functionName)
                 .setDescription(functionDefinition)
                 .withCompilableRoutine(() -> function)
+                .setTemporary(functionCtx instanceof RelationalParser.CreateTempFunctionContext)
                 .build();
     }
 
     @Override
     public ProceduralPlan visitCreateTempFunction(@Nonnull RelationalParser.CreateTempFunctionContext ctx) {
-        final var invokedRoutine = getInvokedRoutineMetadata(ctx.tempSqlInvokedFunction().functionSpecification(),
-                ctx.tempSqlInvokedFunction().routineBody(), getDelegate().getSchemaTemplate(), true);
-        var throwIfNotExists = ctx.REPLACE() != null;
+        final var invokedRoutine = getInvokedRoutineMetadata(ctx, ctx.tempSqlInvokedFunction().functionSpecification(),
+                ctx.tempSqlInvokedFunction().routineBody(), getDelegate().getSchemaTemplate());
+        var throwIfExists = ctx.REPLACE() == null;
         return ProceduralPlan.of(metadataOperationsFactory.getCreateTemporaryFunctionConstantAction(getDelegate().getSchemaTemplate(),
-                throwIfNotExists, invokedRoutine));
+                throwIfExists, invokedRoutine));
     }
 
     @Override

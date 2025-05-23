@@ -384,6 +384,11 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     }
 
     @Nonnull
+    public PreparedParams getPreparedParams() {
+        return preparedParams;
+    }
+
+    @Nonnull
     private Value processPreparedStatementParameter(@Nullable Object param,
                                                     @Nullable Type type,
                                                     @Nullable Integer unnamedParameterIndex,

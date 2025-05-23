@@ -36,23 +36,23 @@ public class CreateTemporaryFunctionConstantAction implements ConstantAction  {
     @Nonnull
     private final RecordLayerInvokedRoutine invokedRoutine;
 
-    private final boolean throwIfNotExists;
+    private final boolean throwIfExists;
 
     @Nonnull
     private final SchemaTemplate template;
 
     public CreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template,
-                                                 boolean throwIfNotExists,
+                                                 boolean throwIfExists,
                                                  @Nonnull final RecordLayerInvokedRoutine invokedRoutine) {
         this.template = template;
-        this.throwIfNotExists = throwIfNotExists;
+        this.throwIfExists = throwIfExists;
         this.invokedRoutine = invokedRoutine;
     }
 
     @Override
     public void execute(final Transaction txn) throws RelationalException {
         var transactionBoundSchemaTemplate = Assert.castUnchecked(txn.getBoundSchemaMaybe().orElse(template), RecordLayerSchemaTemplate.class);
-        if (throwIfNotExists) {
+        if (throwIfExists) {
             Assert.thatUnchecked(transactionBoundSchemaTemplate.getInvokedRoutines().stream()
                                     .noneMatch(r -> r.getName().equals(invokedRoutine.getName())),
                     ErrorCode.DUPLICATE_FUNCTION, () -> "function '" + invokedRoutine.getName() + "' already exists");

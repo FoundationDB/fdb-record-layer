@@ -23,13 +23,19 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
 
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.sql.Array;
+import java.sql.SQLException;
+import java.sql.Struct;
+import java.util.Arrays;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Warn: this class is stateful.
@@ -103,5 +109,26 @@ public final class PreparedParams {
     @Nonnull
     public static PreparedParams copyOf(@Nonnull PreparedParams other) {
         return new PreparedParams(other.unnamedParams, other.namedParams);
+    }
+
+    @Nonnull
+    public static String prettyPrintParam(@Nullable Object value) {
+        if (value == null) {
+            return "<<NULL>>";
+        }
+        try {
+            if (value instanceof Array) {
+                final var array = (Array)value;
+                return "Array" + Arrays.stream(Assert.castUnchecked(array.getArray(), Object[].class))
+                        .map(PreparedParams::prettyPrintParam).collect(Collectors.joining(",", "[", "]"));
+            } else if (value instanceof Struct) {
+                final var struct = (Struct)value;
+                return "Struct" + Arrays.stream(Assert.castUnchecked(struct.getAttributes(), Object[].class))
+                        .map(PreparedParams::prettyPrintParam).collect(Collectors.joining(",", "{", "}"));
+            }
+        } catch (SQLException e) {
+            throw new RelationalException(e).toUncheckedWrappedException();
+        }
+        return value.toString();
     }
 }

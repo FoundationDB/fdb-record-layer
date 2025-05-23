@@ -1454,33 +1454,6 @@ public class StandardQueryTests {
         }
     }
 
-    @Test
-    void testTemporaryFunction() throws Exception {
-        final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
-            }
-            final var connection = ddl.getConnection();
-            connection.setAutoCommit(false);
-            try (var statement = connection.createStatement()) {
-                statement.execute("create temporary function sq1(in x bigint) on commit drop function as select * from t1 where a < 40 + x ");
-                Assertions.assertTrue(statement.execute("select * from sq1(x => 2)"));
-                try (final RelationalResultSet resultSet = statement.getResultSet()) {
-                    ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .isRowExactly(1L, 10L)
-                            .hasNextRow()
-                            .isRowExactly(2L, 20L)
-                            .hasNextRow()
-                            .isRowExactly(3L, 30L)
-                            .hasNextRow()
-                            .isRowExactly(4L, 40L)
-                            .hasNoNextRow();
-                }
-            }
-        }
-    }
-
     // todo (yhatem) add more tests for queries w and w/o index definition.
 
     private RelationalStruct insertTypeConflictRecords(RelationalStatement s) throws SQLException {

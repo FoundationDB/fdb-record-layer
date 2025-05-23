@@ -31,10 +31,12 @@ import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
@@ -65,6 +67,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
  * Visitor of SQL query abstract syntax tree (AST) that does the following:
@@ -598,7 +601,11 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         astNormalizer.visit(context);
         return new Result(
                 schemaTemplate.getName(),
-                QueryCacheKey.of(astNormalizer.getCanonicalSqlString(), astNormalizer.getHash(), schemaTemplate.getVersion(), readableIndexes, userVersion),
+                QueryCacheKey.of(astNormalizer.getCanonicalSqlString(), astNormalizer.getHash(),
+                        schemaTemplate.getVersion(), readableIndexes, userVersion,
+                        Assert.castUnchecked(schemaTemplate, RecordLayerSchemaTemplate.class)
+                                .getTemporaryInvokedRoutines().stream().map(InvokedRoutine::getDescription)
+                                .collect(Collectors.joining("."))),
                 astNormalizer.getQueryExecutionParameters(),
                 context,
                 astNormalizer.getQueryCachingFlags(),

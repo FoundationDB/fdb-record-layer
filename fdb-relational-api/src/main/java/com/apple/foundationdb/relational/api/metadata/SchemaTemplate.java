@@ -26,6 +26,7 @@ import com.google.common.collect.Multimap;
 
 import javax.annotation.Nonnull;
 import java.util.BitSet;
+import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
 
@@ -113,6 +114,9 @@ public interface SchemaTemplate extends Metadata {
      */
     @Nonnull
     Optional<? extends InvokedRoutine> findInvokedRoutineByName(@Nonnull String routineName) throws RelationalException;
+
+    @Nonnull
+    Collection<? extends InvokedRoutine> getTemporaryInvokedRoutines() throws RelationalException;
 
     /**
      * Creates a {@link Schema} instance using the specified.
