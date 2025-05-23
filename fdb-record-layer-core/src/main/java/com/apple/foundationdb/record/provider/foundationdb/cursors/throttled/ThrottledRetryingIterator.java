@@ -216,7 +216,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
                     // Register the externally-provided future so that it is closed if the runner is closed before it completes
                     return futureManager.registerFuture(future)
                         .thenApply(ignore -> singleIterationQuotaManager.hasMore);
-                    })
+                })
                     .thenApply(rangeHasMore -> {
                         if (rangeHasMore && ((0 < transactionTimeQuotaMillis && elapsedTimeMillis() > transactionTimeQuotaMillis) ||
                                                      (0 < maxRecordDeletesPerTransaction && singleIterationQuotaManager.deletesCount >= maxRecordDeletesPerTransaction))) {
@@ -419,9 +419,9 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
      * @param <T> the item type being iterated on.
      */
     public static class Builder<T> {
-        private TransactionalRunner transactionalRunner;
-        private Executor executor;
-        private ScheduledExecutorService scheduledExecutor;
+        private final TransactionalRunner transactionalRunner;
+        private final Executor executor;
+        private final ScheduledExecutorService scheduledExecutor;
         private final CursorFactory<T> cursorCreator;
         private final ItemHandler<T> singleItemHandler;
         private Consumer<QuotaManager> transactionSuccessNotification;
