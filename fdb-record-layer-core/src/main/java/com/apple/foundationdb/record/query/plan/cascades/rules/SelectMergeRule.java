@@ -48,7 +48,12 @@ import java.util.stream.Collectors;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
- * Rule for merging related select boxes into a single, larger select box.
+ * Rule for merging related select boxes into a single, larger select box. This works by starting with
+ * a single {@link SelectExpression}. It then loops over its children's exploratory members, and looks
+ * for "mergeable" child expressions. A child expression is considered mergeable if (1) the quantifier
+ * is a {@link com.apple.foundationdb.record.query.plan.cascades.Quantifier.ForEach} that does not
+ * introduce a null-on-empty, (2) none of the other children are correlated to the original quantifier,
+ * and (3) the child expression is a {@link SelectExpression} or a {@link LogicalFilterExpression}.
  */
 public class SelectMergeRule extends ExplorationCascadesRule<SelectExpression> {
     @Nonnull
@@ -65,7 +70,7 @@ public class SelectMergeRule extends ExplorationCascadesRule<SelectExpression> {
         // Identify the set of children of the current select that do not create correlations
         final Set<Quantifier> mergeableChildren = select.getQuantifiers().stream()
                 .filter(qun -> qun instanceof Quantifier.ForEach)
-                .map(qun -> (Quantifier.ForEach) qun)
+                .map(qun -> (Quantifier.ForEach)qun)
                 .filter(qun ->
                         // Cannot merge if child introduces a null on empty as that changes the overall cardinality
                         !qun.isNullOnEmpty()
@@ -82,14 +87,59 @@ public class SelectMergeRule extends ExplorationCascadesRule<SelectExpression> {
             return;
         }
 
+        /*
         // Collect up the mergeable children, grouping by which child they came from
+        final Comparator<RelationalExpression> costModel = new RewritingCostModel(call.getContext().getPlannerConfiguration());
+
+        // Merge the quantifiers and predicates from each mergeable child expression
+        final ImmutableList.Builder<Quantifier> newQuantifiers = ImmutableList.builder();
+        final ImmutableList.Builder<QueryPredicate> newPredicates = ImmutableList.builder();
+        final TranslationMap.Builder translationBuilder = TranslationMap.builder();
+        for (Quantifier selectChild : select.getQuantifiers()) {
+            if (mergeableChildren.contains(selectChild)) {
+                final RelationalExpression childExpression = selectChild.getRangesOver().getFinalExpressions().stream()
+                        .filter(expr -> expr instanceof SelectExpression || expr instanceof LogicalFilterExpression)
+                        .min(costModel)
+                        .orElseThrow(() -> new RecordCoreException("should have mergeable child expression in mergeable quantifier"));
+                //
+                // Mergeable. Add the child quantifiers in the old one's place and scoop up any predicates.
+                //
+                RelationalExpressionWithPredicates predicateExpression = (RelationalExpressionWithPredicates)childExpression;
+                newQuantifiers.addAll(predicateExpression.getQuantifiers());
+                newPredicates.addAll(predicateExpression.getPredicates());
+                translationBuilder.when(selectChild.getAlias())
+                        .then((alias, leaf) -> predicateExpression.getResultValue());
+            } else {
+                //
+                // Not mergeable. Retain original quantifier
+                //
+                newQuantifiers.add(selectChild);
+            }
+        }
+
+        //
+        // Use the new translation map to update the final result value as well as any pre-existing predicates
+        //
+        TranslationMap translationMap = translationBuilder.build();
+        select.getPredicates()
+                .forEach(predicate -> newPredicates.add(predicate.translateCorrelations(translationMap, true)));
+
+        final SelectExpression newSelect = new SelectExpression(
+                select.getResultValue().translateCorrelations(translationMap, true),
+                newQuantifiers.build(),
+                newPredicates.build()
+        );
+        call.yieldExploratoryExpression(newSelect);
+         */
+
         final List<List<NonnullPair<CorrelationIdentifier, RelationalExpression>>> mergeableIdExpressions = mergeableChildren.stream()
                 .map(qun -> qun.getRangesOver().getExploratoryExpressions().stream()
                         .filter(expr -> expr instanceof SelectExpression || expr instanceof LogicalFilterExpression)
                         .map(expr -> NonnullPair.of(qun.getAlias(), expr))
-                        .collect(Collectors.toList())
+                        // .min(costModel)
+                        .collect(ImmutableList.toImmutableList())
                 )
-                .collect(Collectors.toList());
+                .collect(ImmutableList.toImmutableList());
 
         // For each element in the cross product of the available children, meld those children
         // into the upper select expression

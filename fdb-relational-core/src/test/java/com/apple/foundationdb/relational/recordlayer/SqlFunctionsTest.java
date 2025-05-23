@@ -25,6 +25,7 @@ import com.apple.foundationdb.relational.utils.SchemaTemplateRule;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -38,7 +39,11 @@ public class SqlFunctionsTest {
             "create function f1 ( in a bigint, in b string )\n" +
             "as select col1, col2 from t1 where col1 < a and col2 = b\n" +
             "create function f2 ( in k bigint )\n" +
-            "as select col1, col2 from f1(102, 'b')";
+            "as select col1, col2 from f1(102, 'b')\n" +
+            "create function f3 (in x bigint, in y string)\n" +
+            "as select a.col1 as col1a, a.col2 as col2a, b.col1 as col1b, b.col2 as col2b from f2(x) as a, f1(x, y) as b\n" +
+            "create function f4 (in x bigint, in y string)\n" +
+            "as select col1a + col1b as s, col2a, col2b from f3(x, y)\n";
 
     @RegisterExtension
     @Order(0)
@@ -62,6 +67,11 @@ public class SqlFunctionsTest {
     @Order(4)
     public final LogAppenderRule logAppender = new LogAppenderRule("SqlFunctionsTest", PlanGenerator.class, Level.INFO);
 
+    @BeforeEach
+    void setUpDebugger() {
+        Utils.enableCascadesDebugger();
+    }
+
     @Test
     public void queryFunctionWithParameterLiterals() throws Exception {
         statement.execute("select * from f1(42, 'a') options (log query)");
@@ -76,5 +86,10 @@ public class SqlFunctionsTest {
         Assertions.assertTrue(logAppender.lastMessageIsCacheMiss());
         statement.execute("select * from f2(43) options (log query)");
         Assertions.assertTrue(logAppender.lastMessageIsCacheHit());
+    }
+
+    @Test
+    void queryThreeLevelsDeep() throws Exception {
+        statement.execute("select * from f3(42, 'a') where col2a > col2b");
     }
 }

@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.planprotos.PRangeValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInTableFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
@@ -217,6 +218,21 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
         final var beginInclusive = Value.fromValueProto(serializationContext, rangeValueProto.getBeginInclusiveChild());
         final var step = Value.fromValueProto(serializationContext, rangeValueProto.getStepChild());
         return new RangeValue(endExclusive, beginInclusive, step);
+    }
+
+    @Nonnull
+    @Override
+    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+        if (other == this) {
+            return BooleanWithConstraint.alwaysTrue();
+        }
+        if (!(other instanceof RangeValue)) {
+            return BooleanWithConstraint.falseValue();
+        }
+        RangeValue otherRange = (RangeValue) other;
+        return beginInclusive.equalsWithoutChildren(otherRange.beginInclusive)
+                .composeWithOther(endExclusive.equalsWithoutChildren(otherRange.endExclusive))
+                .composeWithOther(step.equalsWithoutChildren(otherRange.step));
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
