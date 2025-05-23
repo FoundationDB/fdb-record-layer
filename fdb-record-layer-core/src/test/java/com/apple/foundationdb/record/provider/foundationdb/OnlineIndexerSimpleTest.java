@@ -932,7 +932,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                 // Dry run should always succeed
                 recordStore.dryRunDeleteRecordAsync(Tuple.from(i)).join();
             }
-            // Delete non-existing records - no affect, therefore should succeed
+            // Delete non-existing records - no effect, therefore should succeed
             for (int i: List.of(20, 300, 8888)) {
                 recordStore.deleteRecord(Tuple.from(i));
                 // Dry run should always succeed
