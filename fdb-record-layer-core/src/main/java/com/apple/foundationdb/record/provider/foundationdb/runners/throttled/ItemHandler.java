@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.provider.foundationdb.cursors.throttled;
+package com.apple.foundationdb.record.provider.foundationdb.runners.throttled;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCursorResult;

@@ -20,6 +20,6 @@
 
 /**
  * Throttled iterator: Iterator that cam handle resource constraints and retry on failures.
- * {@link com.apple.foundationdb.record.provider.foundationdb.cursors.throttled.ThrottledRetryingIterator}
+ * {@link com.apple.foundationdb.record.provider.foundationdb.runners.throttled.ThrottledRetryingIterator}
  */
-package com.apple.foundationdb.record.provider.foundationdb.cursors.throttled;
+package com.apple.foundationdb.record.provider.foundationdb.runners.throttled;
