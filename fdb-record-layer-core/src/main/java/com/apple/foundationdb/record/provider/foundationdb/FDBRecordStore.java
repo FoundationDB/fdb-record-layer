@@ -5687,9 +5687,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             // We cannot tell whether the recordCountKey had changed since the last time we did checkVersion, so
             // we can't guarantee that it is correct. With FormatVersion.RECORD_COUNT_STATE though, we can mark it as
             // disabled.
-            if (recordMetaData.getRecordCountKey() != null && !formatVersion.isAtLeast(FormatVersion.RECORD_COUNT_STATE)) {
-                throw new RecordCoreException("Repair is not supported if the metadata has a RecordCountKey until FormatVersion.RECORD_COUNT_STATE")
-                        .addLogInfo(LogMessageKeys.FORMAT_VERSION, formatVersion);
+            if (recordMetaData.getRecordCountKey() != null) {
+                if (formatVersion.isAtLeast(FormatVersion.RECORD_COUNT_KEY_ADDED)) {
+                    dataStoreInfo.setRecordCountKey(recordMetaData.getRecordCountKey().toKeyExpression());
+                }
+                if (!formatVersion.isAtLeast(FormatVersion.RECORD_COUNT_STATE)) {
+                    throw new RecordCoreException("Repair is not supported if the metadata has a RecordCountKey until FormatVersion.RECORD_COUNT_STATE")
+                            .addLogInfo(LogMessageKeys.FORMAT_VERSION, formatVersion);
+                }
             }
             store.saveStoreHeader(dataStoreInfo.build());
 

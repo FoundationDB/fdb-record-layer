@@ -314,19 +314,31 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
             }
         }
 
-        if (hasRecordCountKey && !formatVersion.isAtLeast(FormatVersion.RECORD_COUNT_STATE)) {
-            validateCannotOpen(recordMetaData);
+        if (hasRecordCountKey) {
+            if (formatVersion.isAtLeast(FormatVersion.RECORD_COUNT_STATE)) {
+                validateRepaired(formatVersion, recordMetaData, originalRecords);
+                try (FDBRecordContext context = openContext()) {
+                    recordStore = getStoreBuilder(context, recordMetaData, path)
+                            .setFormatVersion(formatVersion)
+                            .open();
+
+                    assertThat(recordStore.getRecordStoreState().getStoreHeader().getRecordCountState())
+                            .isEqualTo(RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED);
+                    assertThat(recordStore.getRecordStoreState().getStoreHeader().getRecordCountKey())
+                            .isEqualTo(recordMetaData.getRecordCountKey().toKeyExpression());
+                }
+            } else {
+                validateCannotOpen(recordMetaData);
+            }
         } else {
             validateRepaired(formatVersion, recordMetaData, originalRecords);
-        }
-        if (hasRecordCountKey && formatVersion.isAtLeast(FormatVersion.RECORD_COUNT_STATE)) {
             try (FDBRecordContext context = openContext()) {
                 recordStore = getStoreBuilder(context, recordMetaData, path)
                         .setFormatVersion(formatVersion)
                         .open();
 
-                assertThat(recordStore.getRecordStoreState().getStoreHeader().getRecordCountState())
-                        .isEqualTo(RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED);
+                assertThat(recordStore.getRecordStoreState().getStoreHeader().hasRecordCountKey())
+                        .isFalse();
             }
         }
     }
