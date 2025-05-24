@@ -326,6 +326,14 @@ public class RecordStoreState {
     }
 
     /**
+     * Check if records may be updated.
+     * @return true if record update is allowed.
+     */
+    public boolean isRecordUpdateAllowed() {
+        return !(getStoreHeader().hasSpecialStoreState() && getStoreHeader().getSpecialStoreState().getSpecialState().equals(RecordMetaDataProto.DataStoreInfo.SpecialStoreState.State.FORBID_RECORD_UPDATE));
+    }
+
+    /**
      * Checks if this <code>RecordStoreState</code> specifies identical state
      * as the given object.
      * @param o the object to check for equality
