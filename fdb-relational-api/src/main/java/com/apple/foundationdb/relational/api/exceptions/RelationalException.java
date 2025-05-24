@@ -29,6 +29,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("serial")
 public class RelationalException extends Exception {
     private static final long serialVersionUID = 1L;
     private final ErrorCode errorCode;

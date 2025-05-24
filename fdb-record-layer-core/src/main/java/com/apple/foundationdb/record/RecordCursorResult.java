@@ -295,6 +295,7 @@ public class RecordCursorResult<T> {
     public static class IllegalResultValueAccessException extends RecordCoreException {
         private static final long serialVersionUID = 1;
 
+        @SuppressWarnings("this-escape")
         public IllegalResultValueAccessException(@Nonnull RecordCursorContinuation continuation, @Nonnull RecordCursor.NoNextReason noNextReason) {
             super("Tried to call get() on a RecordCoreResult that did not have a next value.");
             addLogInfo("continuation", continuation);
@@ -308,6 +309,7 @@ public class RecordCursorResult<T> {
     public static class IllegalResultNoNextReasonAccessException extends RecordCoreException {
         private static final long serialVersionUID = 1;
 
+        @SuppressWarnings("this-escape")
         public IllegalResultNoNextReasonAccessException(@Nullable Object value, @Nonnull RecordCursorContinuation continuation) {
             super("Tried to call noNextReason() on a RecordCoreResult that had a next value.");
             addLogInfo("value", value);

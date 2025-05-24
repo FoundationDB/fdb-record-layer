@@ -195,7 +195,7 @@ public class RecordQueryFlatMapPlan implements RecordQueryPlanWithChildren, Rela
 
     @Nonnull
     @Override
-    public Value getResultValue() {
+    public final Value getResultValue() {
         return resultValue;
     }
 

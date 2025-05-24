@@ -74,6 +74,7 @@ public interface TrieNode<D, T, N extends TrieNode<D, T, N>> extends TreeLike<N>
         @Nonnull
         private final Supplier<Integer> heightSupplier;
 
+        @SuppressWarnings("this-escape")
         public AbstractTrieNode(@Nullable final T value, @Nullable final Map<D, N> childrenMap) {
             this.value = value;
             this.childrenMap = childrenMap == null ? null : ImmutableMap.copyOf(childrenMap);

@@ -49,6 +49,7 @@ public abstract class AbstractValue implements Value {
     @Nonnull
     private final Supplier<Iterable<? extends Value>> childrenSupplier;
 
+    @SuppressWarnings("this-escape")
     protected AbstractValue() {
         this.correlatedToSupplier = Suppliers.memoize(this::computeCorrelatedTo);
         this.semanticHashCodeSupplier = Suppliers.memoize(this::computeSemanticHashCode);

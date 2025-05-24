@@ -82,7 +82,7 @@ public class UserDefinedField<T extends DataType> implements Field<T> {
 
     @Nonnull
     @Override
-    public T getType() {
+    public final T getType() {
         return type;
     }
 
