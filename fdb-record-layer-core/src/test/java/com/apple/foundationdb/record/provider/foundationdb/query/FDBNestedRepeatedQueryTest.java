@@ -1672,7 +1672,8 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
             // Verify that the byKey plan chooses the index that keeps entries together
             final RecordQueryPlan byKeyPlan = planGraph(this::querySumIntValueByKey);
             assertThat(byKeyPlan.getUsedIndexes(), contains(SUM_VALUE_BY_KEY));
-            assertEquals(byKeyPlan, planGraph(this::querySumIntValueByKey, SUM_VALUE_BY_KEY));
+            final var actual = planGraph(this::querySumIntValueByKey, SUM_VALUE_BY_KEY);
+            assertEquals(byKeyPlan, actual);
 
             // Verify that the other byWholeRecord plan chooses the index that does not keep entries together
             final RecordQueryPlan byWholeRecordPlan = planGraph(this::querySumIntValueForRecordByKey);

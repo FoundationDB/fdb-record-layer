@@ -75,7 +75,7 @@ public class RecordTypeValue extends AbstractValue {
     @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
-        return ImmutableList.of();
+        return ImmutableList.of(in);
     }
 
     @Nonnull

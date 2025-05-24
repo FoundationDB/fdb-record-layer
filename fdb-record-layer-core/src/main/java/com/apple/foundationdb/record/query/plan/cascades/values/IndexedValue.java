@@ -54,14 +54,14 @@ public class IndexedValue extends AbstractValue implements LeafValue, Value.NonE
         this(Type.primitiveType(Type.TypeCode.UNKNOWN));
     }
 
+    public IndexedValue(@Nonnull final Type resultType) {
+        this.resultType = resultType;
+    }
+
     @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of();
-    }
-
-    public IndexedValue(@Nonnull final Type resultType) {
-        this.resultType = resultType;
     }
 
     @Nonnull

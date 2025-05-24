@@ -1,7 +1,7 @@
 ô
 Ä
 standard-testsnEXPLAIN select id, case when col1 = 10 then 100 when col2 in (6,7,8,9) then 200 else 300 end as NEWCOL from T1ì
-≠»»áN ≤Î°(0…Ü@8@ñISCAN(I1 <,>) | MAP (_.ID AS ID, pick(ConditionSelector(_.COL1 equals @c8, _.COL2 IN promote(@c14 AS ARRAY(LONG)), TRUE), @c10, @c24, @c26) AS NEWCOL)‹
+≠—“¶M  ∆Í(0Ω√[8@ñISCAN(I1 <,>) | MAP (_.ID AS ID, pick(ConditionSelector(_.COL1 equals @c8, _.COL2 IN promote(@c14 AS ARRAY(LONG)), TRUE), @c10, @c24, @c26) AS NEWCOL)‹
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -14,7 +14,7 @@ digraph G {
 }˜
 w
 standard-testseEXPLAIN select id, case when col1 = 10 then 100 when col2 in (6,7,8,9) then 200 end as NEWCOL from T1˚
-≠’˝ıN êéã(0˛úS8@äISCAN(I1 <,>) | MAP (_.ID AS ID, pick(ConditionSelector(_.COL1 equals @c8, _.COL2 IN promote(@c14 AS ARRAY(LONG))), @c10, @c24) AS NEWCOL)–
+≠îËµM îº˝(0óüK8@äISCAN(I1 <,>) | MAP (_.ID AS ID, pick(ConditionSelector(_.COL1 equals @c8, _.COL2 IN promote(@c14 AS ARRAY(LONG))), @c10, @c24) AS NEWCOL)–
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -27,8 +27,7 @@ digraph G {
 }ã
 b
 standard-testsPEXPLAIN select * from (select * from (select * from T1) as x where ID = 5) as y;§
-ñ»¿ÿ
-| ùÓß($0Êêà83@
+ñˆ®Ø| Ñöå($0ÖÊ¿83@
 aCOVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.ID EQUALS promote(@c19 AS LONG) | FETCH¢digraph G {
   fontname=courier;
   rankdir=BT;
@@ -43,7 +42,7 @@ b
 }å
 b
 standard-testsPEXPLAIN select * from (select * from (select * from T1) as x) as y where ID = 5;•
-°œÖïÅ º·“($0»˜Ä86@aCOVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.ID EQUALS promote(@c22 AS LONG) | FETCH¢digraph G {
+°ô¡ˆÅ π˙¬($0´µ÷86@aCOVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.ID EQUALS promote(@c22 AS LONG) | FETCH¢digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -57,7 +56,8 @@ b
 }î
 
 standard-testsmEXPLAIN select count(*) from (select * from (select * from (select * from T1  where ID = 5) as x) as y) as z;ê
-¬Â©ö∆ €£(00”Ãñ8V@◊COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.ID EQUALS promote(@c23 AS LONG) | FETCH | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)ñdigraph G {
+¬≈—’
+∆ ´Ωä(00Âﬂ∏8V@◊COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.ID EQUALS promote(@c23 AS LONG) | FETCH | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)ñdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -79,7 +79,7 @@ b
 }Ø
 y
 standard-testsgEXPLAIN select * from (select * from (select * from (select * from T1  where ID > 10) as x) as y) as z;±
-Ùä¥Ò¥ Ü†Â(.0Ç≈î8F@gCOVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.ID GREATER_THAN promote(@c20 AS LONG) | FETCH®digraph G {
+Ù‹ÏÌ¥ ‚Î“(.0≤Ö¯8F@gCOVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.ID GREATER_THAN promote(@c20 AS LONG) | FETCH®digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
