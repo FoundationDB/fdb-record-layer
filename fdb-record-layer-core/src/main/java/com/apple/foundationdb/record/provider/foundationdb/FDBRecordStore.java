@@ -554,9 +554,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 return CompletableFuture.completedFuture(newRecord);
             }
             return getRecordStoreStateAsync().thenCompose(recordStoreState -> {
-                if (!recordStoreState.isRecordUpdateAllowed()) {
-                    throw new StoreIsLockedForRecordUpdates(recordStoreState);
-                }
+                recordUpdateAllowedOrThrow(recordStoreState);
                 final FDBStoredRecord<M> newRecord = serializeAndSaveRecord(typedSerializer, recordBuilder, metaData, oldRecord);
                 if (oldRecord == null) {
                     addRecordCount(metaData, newRecord, LITTLE_ENDIAN_INT64_ONE);
@@ -1658,10 +1656,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 return AsyncUtil.READY_FALSE;
             }
             return getRecordStoreStateAsync().thenCompose(recordStoreState -> {
-                if (!recordStoreState.isRecordUpdateAllowed()) {
-                    throw new StoreIsLockedForRecordUpdates(recordStoreState);
-                }
-
+                recordUpdateAllowedOrThrow(recordStoreState);
                 SplitHelper.deleteSplit(getRecordContext(), recordsSubspace(), primaryKey, metaData.isSplitLongRecords(), omitUnsplitRecordSuffix, true, oldRecord);
                 countKeysAndValues(FDBStoreTimer.Counts.DELETE_RECORD_KEY, FDBStoreTimer.Counts.DELETE_RECORD_KEY_BYTES, FDBStoreTimer.Counts.DELETE_RECORD_VALUE_BYTES,
                         oldRecord);
@@ -1738,9 +1733,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         // Clear out all data except for the store header key and the index state space.
         // Those two subspaces are determined by the configuration of the record store rather then
         // the records.
-        if (!getRecordStoreState().isRecordUpdateAllowed()) {
-            throw new StoreIsLockedForRecordUpdates(getRecordStoreState());
-        }
+        recordUpdateAllowedOrThrow(getRecordStoreState());
         Range indexStateRange = indexStateSubspace().range();
         context.clear(new Range(recordsSubspace().getKey(), indexStateRange.begin));
         context.clear(new Range(indexStateRange.end, getSubspace().range().end));
@@ -1751,9 +1744,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (recordStoreStateRef.get() == null) {
             return preloadRecordStoreStateAsync().thenCompose(ignore -> deleteRecordsWhereAsync(component));
         }
-        if (!recordStoreStateRef.get().isRecordUpdateAllowed()) {
-            throw new StoreIsLockedForRecordUpdates(recordStoreStateRef.get());
-        }
+        recordUpdateAllowedOrThrow(recordStoreStateRef.get());
         preloadCache.invalidateAll();
         recordStoreStateRef.get().beginRead();
         boolean async = false;
@@ -1765,6 +1756,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (!async) {
                 recordStoreStateRef.get().endRead();
             }
+        }
+    }
+
+    private static void recordUpdateAllowedOrThrow(RecordStoreState state) {
+        if (!state.isRecordUpdateAllowed()) {
+            throw new StoreIsLockedForRecordUpdates(state);
         }
     }
 

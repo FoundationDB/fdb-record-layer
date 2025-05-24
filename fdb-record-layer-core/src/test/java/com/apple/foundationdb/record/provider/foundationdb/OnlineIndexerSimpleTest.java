@@ -943,9 +943,9 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             // Delete all records - should fail
             assertThrows(StoreIsLockedForRecordUpdates.class, () -> recordStore.deleteAllRecords());
 
-            // Delete where - should fail (the expression is meaningless here)
+            // Delete where - should fail (the dummy expression will not be evaluated)
             assertThrows(StoreIsLockedForRecordUpdates.class,
-                    () -> recordStore.deleteRecordsWhere(Query.field("num_value_2").greaterThan(10)));
+                    () -> recordStore.deleteRecordsWhere(Query.field("RecNo").greaterThan(10)));
 
             context.commit();
         }
@@ -993,12 +993,10 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             context.commit();
         }
 
-        // Check delete where / delete all
+        // Check delete all
         try (FDBRecordContext context = openContext()) {
-            // TODO: recordStore.deleteRecordsWhere(...)
             recordStore.deleteAllRecords();
             context.commit();
         }
     }
-
 }
