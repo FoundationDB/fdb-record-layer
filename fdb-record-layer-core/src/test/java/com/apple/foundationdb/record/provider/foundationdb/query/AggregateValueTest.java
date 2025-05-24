@@ -271,7 +271,7 @@ class AggregateValueTest {
                 TypeRepository.newBuilder()
                         .addAllTypes(aggregateValue.getDynamicTypes())
                         .build();
-        final var accumulator = aggregateValue.createAccumulator(typeRepository);
+        final var accumulator = aggregateValue.createAccumulatorWithInitialState(typeRepository, null);
         Arrays.asList(items).forEach(accumulator::accumulate);
         final var finish = accumulator.finish();
         consumer.accept(finish);
