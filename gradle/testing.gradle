@@ -40,7 +40,7 @@ task destructiveTest(type: Test) {
         maxParallelForks = 1
     }
     reports {
-        junitXml.destination = file("${buildDir}/test-results/destructive")
+        junitXml.outputLocation = file("${buildDir}/test-results/destructive")
     }
 }
 

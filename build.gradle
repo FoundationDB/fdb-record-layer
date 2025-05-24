@@ -100,19 +100,22 @@ allprojects {
 
     // Configure JUnit tests
     tasks.withType(Test) {
-        reports.junitXml.destination = project.file("${->project.buildDir}/test-results")
+        reports.junitXml.outputLocation = project.file("${->project.buildDir}/test-results")
     }
+
+    def projectName = it.name
+    def projectVersion = it.version
 
     // Configure JAR generation
     tasks.jar.configure {
         description = "Produces a Jar with the main classes in .out/."
         manifest {
             attributes "Built-JDK": System.getProperty("java.version"),
-                    "Specification-Title": project.name,
-                    "Specification-Version": "${-> project.version}",
+                    "Specification-Title": projectName,
+                    "Specification-Version": "${-> projectVersion}",
                     "Specification-Vendor": "Apple Inc.",
-                    "Implementation-Title": project.name,
-                    "Implementation-Version": "${-> project.version}",
+                    "Implementation-Title": projectName,
+                    "Implementation-Version": "${-> projectVersion}",
                     "Implementation-Vendor": "Apple Inc."
         }
         doFirst {
@@ -182,8 +185,10 @@ allprojects {
 subprojects {
     apply from: rootProject.file('gradle/testing.gradle')
 
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
+    java {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
 
     def publishBuild = Boolean.parseBoolean(findProperty('publishBuild') ?: 'false')
     def autoServiceVersion = publishBuild ? libs.versions.autoService.asProvider().get() : libs.versions.autoService.development.get()

@@ -33,7 +33,7 @@ project.tasks.named("processTestResources") {
 }
 
 tasks.named("sourcesJar") {
-    duplicatesStrategy('include')
+    duplicatesStrategy = 'include'
     // classifier('sources')
     from sourceSets.main.allSource
 }

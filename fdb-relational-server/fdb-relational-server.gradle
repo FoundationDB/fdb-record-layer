@@ -56,7 +56,9 @@ jar {
 
 // Task to build a fat jar, one w/ all dependencies
 shadowJar {
-    mainClassName = mainServerClass
+    application {
+        mainClass = mainServerClass
+    }
     mergeServiceFiles()
 }
 

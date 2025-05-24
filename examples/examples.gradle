@@ -30,5 +30,7 @@ dependencies {
     runtimeOnly(libs.log4j.core) // library
 }
 
-mainClassName = 'com.apple.foundationdb.record.sample.Main'
-applicationDefaultJvmArgs = ["-Dlog4j.configurationFile=${projectDir}/src/main/resources/log4j2.properties"]
+application {
+    mainClass = 'com.apple.foundationdb.record.sample.Main'
+    applicationDefaultJvmArgs = ["-Dlog4j.configurationFile=${projectDir}/src/main/resources/log4j2.properties"]
+}

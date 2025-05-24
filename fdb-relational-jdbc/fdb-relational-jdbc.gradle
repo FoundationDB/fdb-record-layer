@@ -52,7 +52,7 @@ serviceLoader {
 }
 
 jar {
-    duplicatesStrategy "exclude"
+    duplicatesStrategy = "exclude"
 }
 
 // Task to build a fat jar, one w/ all dependencies; good for handing out as the 'jdbc' jar.
