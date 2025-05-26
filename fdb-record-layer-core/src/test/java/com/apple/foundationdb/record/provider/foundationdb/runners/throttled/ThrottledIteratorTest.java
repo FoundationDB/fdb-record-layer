@@ -210,9 +210,9 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
     @Test
     void testThrottleIteratorTransactionTimeLimit() throws Exception {
         // Set time limit for the transaction, add delay to each item handler
-        final int numRecords = 50;
-        final int delay = 10;
-        final int transactionTimeMillis = 50;
+        final int numRecords = 55;
+        final int delay = 100;
+        final int transactionTimeMillis = 500;
         AtomicInteger initTransactionCount = new AtomicInteger(0);
 
         final ItemHandler<Integer> itemHandler = (store, item, quotaManager) -> {
