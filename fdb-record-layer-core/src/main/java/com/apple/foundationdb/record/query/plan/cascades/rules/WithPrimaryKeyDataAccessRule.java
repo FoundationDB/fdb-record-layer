@@ -173,7 +173,7 @@ public class WithPrimaryKeyDataAccessRule extends AbstractDataAccessRule<Relatio
                                     .stream()
                                     .map(pair ->
                                             Objects.requireNonNull(matchToPlanMap.get(pair.getElement().getPartialMatch())))
-                                    .map(memoizer::memoizePlans)
+                                    .map(memoizer::memoizePlan)
                                     .map(Quantifier::physical)
                                     .collect(ImmutableList.toImmutableList());
 

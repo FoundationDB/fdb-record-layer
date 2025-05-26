@@ -32,7 +32,7 @@ import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.IntersectionMultiCursor;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
+import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
@@ -200,7 +200,7 @@ public class RecordQueryMultiIntersectionOnValuesPlan extends RecordQueryInterse
     }
 
     @Override
-    public RecordQueryMultiIntersectionOnValuesPlan strictlySorted(@Nonnull final Memoizer memoizer) {
+    public RecordQueryMultiIntersectionOnValuesPlan strictlySorted(@Nonnull final FinalMemoizer finalMemoizer) {
         return this;
     }
 

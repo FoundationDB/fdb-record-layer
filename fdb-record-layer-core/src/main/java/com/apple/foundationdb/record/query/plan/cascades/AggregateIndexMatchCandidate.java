@@ -434,7 +434,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             //
             // We need to perform a roll up.
             //
-            final var aggregateIndexScanReference = memoizer.memoizePlans(plan);
+            final var aggregateIndexScanReference = memoizer.memoizePlan(plan);
             final var aggregateIndexScanAlias = Quantifier.uniqueId();
 
             //final var recordValues = Values.deconstructRecord(recordValue);

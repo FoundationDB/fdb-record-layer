@@ -531,7 +531,7 @@ public interface MatchInfo {
 
                 final var candidateAggregateValue = entry.getValue();
                 final var candidateLowerExpression =
-                        Iterables.getOnlyElement(partialMatch.getCandidateRef().getMembers());
+                        Iterables.getOnlyElement(partialMatch.getCandidateRef().getAllMemberExpressions());
                 final var candidateLowerResultValue = candidateLowerExpression.getResultValue();
                 final var candidatePullUpMap =
                         candidateLowerResultValue.pullUp(ImmutableList.of(candidateAggregateValue),

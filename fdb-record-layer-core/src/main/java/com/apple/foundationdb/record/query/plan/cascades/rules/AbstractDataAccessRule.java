@@ -146,7 +146,8 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         //
         // return if there is no pre-determined interesting ordering
         //
-        final var requestedOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
+        final var requestedOrderingsOptional =
+                call.getPlannerConstraintMaybe(RequestedOrderingConstraint.REQUESTED_ORDERING);
         if (requestedOrderingsOptional.isEmpty()) {
             return;
         }
@@ -219,7 +220,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                         dataAccessForMatchPartition(call,
                                 requestedOrderings,
                                 matchPartition);
-                call.yieldExpression(dataAccessExpressions);
+                call.yieldMixedUnknownExpressions(dataAccessExpressions);
             }
         }
     }

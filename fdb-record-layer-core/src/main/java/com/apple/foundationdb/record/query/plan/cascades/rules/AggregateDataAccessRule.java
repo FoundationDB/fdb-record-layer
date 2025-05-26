@@ -209,7 +209,7 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalEx
                         final var singleMatchedAccess = singleMatchedAccessWithIndex.getElement();
                         final var plan = Objects.requireNonNull(matchToPlanMap.get(
                                 singleMatchedAccess.getPartialMatch()));
-                        final var reference = memoizer.memoizePlans(plan);
+                        final var reference = memoizer.memoizePlan(plan);
                         newQuantifiersBuilder.add(Quantifier.physical(reference));
                         candidateTopAliasesBuilder.add(singleMatchedAccess.getCandidateTopAlias());
                     }

@@ -87,7 +87,7 @@ public class TempTableTest extends TempTableTestBase {
         try (FDBRecordContext context = openContext()) {
             final var tempTable = tempTableInstance();
             addSampleDataToTempTable(tempTable);
-            final var tempTableId = CorrelationIdentifier.uniqueID();
+            final var tempTableId = CorrelationIdentifier.uniqueId();
             final var tempTableScanQun = Quantifier.forEach(Reference.initialOf(TempTableScanExpression.ofCorrelated(tempTableId, getTempTableType())));
             final var selectExpressionBuilder = GraphExpansion.builder()
                     .addAllResultColumns(ImmutableList.of(getIdCol(tempTableScanQun), getValueCol(tempTableScanQun)))
@@ -132,7 +132,7 @@ public class TempTableTest extends TempTableTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void insertIntoTempTableWorksCorrectlyAcrossContinuations() throws Exception {
+    void insertIntoTempTableWorksCorrectlyAcrossContinuations() {
         // insert into <tempTable> values ((1, 'first'), stop, resume, then insert (2, 'second'))
         byte[] continuation = null;
         RecordQueryPlan planToResume = null;
