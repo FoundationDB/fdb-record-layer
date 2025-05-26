@@ -37,7 +37,7 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Map used to specify translations.
+ * Map used to specify translations using a proper immutable backing map.
  */
 public class RegularTranslationMap implements TranslationMap {
     @Nonnull
@@ -51,20 +51,24 @@ public class RegularTranslationMap implements TranslationMap {
     }
 
     @Nonnull
+    @Override
     public Optional<AliasMap> getAliasMapMaybe() {
         return Optional.empty();
     }
 
+    @Override
     public boolean definesOnlyIdentities() {
         return getAliasMapMaybe().map(AliasMap::definesOnlyIdentities)
                 .orElseGet(aliasToFunctionMap::isEmpty);
     }
 
+    @Override
     public boolean containsSourceAlias(@Nullable CorrelationIdentifier sourceAlias) {
         return aliasToFunctionMap.containsKey(sourceAlias);
     }
 
     @Nonnull
+    @Override
     public Value applyTranslationFunction(@Nonnull final CorrelationIdentifier sourceAlias,
                                           @Nonnull final LeafValue leafValue) {
         final var translationFunction = Preconditions.checkNotNull(aliasToFunctionMap.get(sourceAlias));

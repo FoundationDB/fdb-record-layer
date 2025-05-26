@@ -33,7 +33,11 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Map used to specify translations. TODO
+ * Translation map that allows for rebasing of graphs in a way that the resulting rebased graph is only using unique
+ * aliases. This property is needed when a sub-graph that is pre-compiled is later unified with the current query's
+ * graph, and we have to ensure that aliases between the sub-graph and the encompassing graph do not clash.
+ * The logic adds a unique source to target mapping when a source is seen for the first time. When the same source is
+ * then mapped again, the previously fixed target is returned.
  */
 public class InferredTranslationMap implements TranslationMap {
     @Nonnull
@@ -44,6 +48,7 @@ public class InferredTranslationMap implements TranslationMap {
     }
 
     @Nonnull
+    @Override
     public Optional<AliasMap> getAliasMapMaybe() {
         return Optional.empty();
     }
@@ -59,16 +64,19 @@ public class InferredTranslationMap implements TranslationMap {
         return computeTargetIfAbsent(sourceAlias);
     }
 
+    @Override
     public boolean definesOnlyIdentities() {
         return false;
     }
 
+    @Override
     public boolean containsSourceAlias(@Nullable CorrelationIdentifier sourceAlias) {
         // we can always translate, therefore all possible aliases are in our map
         return true;
     }
 
     @Nonnull
+    @Override
     public Value applyTranslationFunction(@Nonnull final CorrelationIdentifier sourceAlias,
                                           @Nonnull final LeafValue leafValue) {
         return leafValue.rebaseLeaf(computeTargetIfAbsent(sourceAlias));
