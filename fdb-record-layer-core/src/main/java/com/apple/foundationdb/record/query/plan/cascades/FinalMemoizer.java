@@ -59,6 +59,15 @@ public interface FinalMemoizer {
     Reference memoizeFinalExpression(@Nonnull RelationalExpression expression);
 
     /**
+     * Memoize the given final {@link RelationalExpression}s. A new reference is created and returned to the caller.
+     * The expressions that are passed in must be final expressions of the current planner phase.
+     * @param expressions a collection of final expressions to memoize
+     * @return a new reference
+     */
+    @Nonnull
+    Reference memoizeFinalExpressions(@Nonnull Collection<RelationalExpression> expressions);
+
+    /**
      * Memoize the given exploratory of final {@link RelationalExpression}. A new reference is created and returned to
      * the caller.
      * <br>

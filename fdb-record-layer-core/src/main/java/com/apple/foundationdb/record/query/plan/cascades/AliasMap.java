@@ -613,7 +613,7 @@ public class AliasMap {
      * @return a new {@link AliasMap}
      */
     @Nonnull
-    public static AliasMap copyOf(@Nonnull final BiMap<CorrelationIdentifier, CorrelationIdentifier> map) {
+    public static AliasMap copyOf(@Nonnull final Map<CorrelationIdentifier, CorrelationIdentifier> map) {
         final var definesOnlyIdentities =
                 map.entrySet()
                         .stream()

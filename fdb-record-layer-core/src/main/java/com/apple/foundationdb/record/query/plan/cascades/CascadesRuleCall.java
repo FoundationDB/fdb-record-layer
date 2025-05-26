@@ -433,9 +433,15 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
     @Nonnull
     @Override
     public Reference memoizeFinalExpression(@Nonnull final RelationalExpression expression) {
-        return memoizeFinalExpressionsExactly(ImmutableList.of(expression),
-                expressions ->
-                        Reference.ofFinalExpressions(getPlannerPhase().getTargetPlannerStage(), expressions));
+        return memoizeFinalExpressions(ImmutableList.of(expression));
+    }
+
+    @Nonnull
+    @Override
+    public Reference memoizeFinalExpressions(@Nonnull final Collection<RelationalExpression> expressions) {
+        return memoizeFinalExpressionsExactly(expressions,
+                e ->
+                        Reference.ofFinalExpressions(getPlannerPhase().getTargetPlannerStage(), e));
     }
 
     @Nonnull

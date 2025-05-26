@@ -476,10 +476,11 @@ public class Reference implements Correlated<Reference>, Typed {
     }
 
     @Nonnull
-    public Reference translateCorrelations(@Nonnull final TranslationMap translationMap,
-                                           final boolean shouldSimplifyValues) {
+    public Reference translateGraph(@Nonnull final Memoizer memoizer,
+                                    @Nonnull final TranslationMap translationMap,
+                                    final boolean shouldSimplifyValues) {
         final var translatedRefs =
-                References.translateCorrelations(ImmutableList.of(this), translationMap, shouldSimplifyValues);
+                References.translateGraphs(ImmutableList.of(this), memoizer, translationMap, shouldSimplifyValues);
         return Iterables.getOnlyElement(translatedRefs);
     }
 

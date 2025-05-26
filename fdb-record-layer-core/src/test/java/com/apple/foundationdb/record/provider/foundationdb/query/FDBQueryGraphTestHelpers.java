@@ -76,6 +76,11 @@ public class FDBQueryGraphTestHelpers extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
+    public static Quantifier forEach(Reference reference) {
+        return Quantifier.forEach(reference);
+    }
+
+    @Nonnull
     public static Quantifier forEachWithNullOnEmpty(RelationalExpression relationalExpression) {
         return Quantifier.forEachWithNullOnEmpty(Reference.initialOf(relationalExpression));
     }
@@ -87,14 +92,28 @@ public class FDBQueryGraphTestHelpers extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     public static Quantifier fullScan(@Nonnull RecordMetaData metaData, AccessHints hints) {
-        Set<String> allRecordTypes = ImmutableSet.copyOf(metaData.getRecordTypes().keySet());
-        return forEach(
-                new FullUnorderedScanExpression(allRecordTypes, new Type.AnyRecord(false), hints));
+        return forEach(fullScanExpression(metaData, hints));
     }
 
     @Nonnull
     public static Quantifier fullScan(@Nonnull RecordMetaData metaData) {
         return fullScan(metaData, new AccessHints());
+    }
+
+    @Nonnull
+    public static RelationalExpression fullScanExpression(@Nonnull RecordMetaData metaData, AccessHints hints) {
+        Set<String> allRecordTypes = ImmutableSet.copyOf(metaData.getRecordTypes().keySet());
+        return new FullUnorderedScanExpression(allRecordTypes, new Type.AnyRecord(false), hints);
+    }
+
+    @Nonnull
+    public static RelationalExpression fullScanExpression(@Nonnull RecordMetaData metaData) {
+        return fullScanExpression(metaData, new AccessHints());
+    }
+
+    @Nonnull
+    public static Reference reference(@Nonnull final RelationalExpression expression) {
+        return Reference.initialOf(expression);
     }
 
     @Nonnull
