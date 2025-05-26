@@ -80,6 +80,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnK
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryMultiIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
@@ -440,12 +441,12 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         }
 
         @Nonnull
-    @Override
-    public Cardinalities visitRecordQueryMultiIntersectionOnValuesPlan(@Nonnull final RecordQueryMultiIntersectionOnValuesPlan recordQueryMultiIntersectionOnValuesPlan) {
-        return intersectCardinalities(fromChildren(recordQueryMultiIntersectionOnValuesPlan));
-    }
+        @Override
+        public Cardinalities visitRecordQueryMultiIntersectionOnValuesPlan(@Nonnull final RecordQueryMultiIntersectionOnValuesPlan recordQueryMultiIntersectionOnValuesPlan) {
+            return intersectCardinalities(fromChildren(recordQueryMultiIntersectionOnValuesPlan));
+        }
 
-    @Nonnull
+        @Nonnull
         @Override
         public Cardinalities visitRecordQueryInParameterJoinPlan(@Nonnull final RecordQueryInParameterJoinPlan element) {
             return Cardinalities.unknownMaxCardinality();
