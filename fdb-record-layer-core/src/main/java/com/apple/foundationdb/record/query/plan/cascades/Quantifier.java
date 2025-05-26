@@ -200,6 +200,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         }
 
         @Nonnull
+        @Override
         public ForEach overNewReference(@Nonnull final Reference reference) {
             return overNewReference(reference, getAlias());
         }
@@ -373,6 +374,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         }
 
         @Nonnull
+        @Override
         public Existential overNewReference(@Nonnull final Reference reference) {
             return overNewReference(reference, getAlias());
         }
@@ -524,6 +526,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         }
 
         @Nonnull
+        @Override
         public Physical overNewReference(@Nonnull final Reference reference) {
             return overNewReference(reference, getAlias());
         }

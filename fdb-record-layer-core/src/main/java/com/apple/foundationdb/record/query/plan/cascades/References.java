@@ -47,10 +47,26 @@ public class References {
         // do not instantiate
     }
 
-    public static List<? extends Reference> translateGraphs(@Nonnull final List<? extends Reference> refs,
-                                                            @Nonnull final Memoizer memoizer,
-                                                            @Nonnull final TranslationMap translationMap,
-                                                            final boolean shouldSimplifyValues) {
+    /**
+     * Method to translate correlations in graphs while preserving CSEs (common sub expressions). Note that internal
+     * aliases are not translated, only deeply-correlated aliases are translated according to the given
+     * {@link TranslationMap}. The logic in this method delegates to
+     * {@link RelationalExpression#translateCorrelations(TranslationMap, boolean, List)} to in turn translate
+     * predicates, select list expressions and others. Furthermore, the logic in this method attempts to not copy
+     * a sub-graph unless it is necessary to do so, i.e. uncorrelated sub-graphs are shared between the original graph
+     * and the translated one.
+     * @param refs a list of {@link Reference}s. They can share common sub-graphs
+     * @param memoizer a {@link Memoizer}. If used outside the planner rules, use
+     *        {@link Memoizer#noMemoization(PlannerStage)}
+     * @param translationMap the {@link TranslationMap} that defines the translations to be carried out
+     * @param shouldSimplifyValues an indicator whether we should attempt to simplify values after translation
+     * @return a list of translated references
+     */
+    @Nonnull
+    public static List<? extends Reference> translateCorrelationsInGraphs(@Nonnull final List<? extends Reference> refs,
+                                                                          @Nonnull final Memoizer memoizer,
+                                                                          @Nonnull final TranslationMap translationMap,
+                                                                          final boolean shouldSimplifyValues) {
         if (refs.isEmpty()) {
             return ImmutableList.of();
         }
@@ -81,6 +97,22 @@ public class References {
                 .collect(ImmutableList.toImmutableList());
     }
 
+    /**
+     * Method to rebase a graph while preserving CSEs (common sub expressions). Note that internal
+     * aliases are also translated as well as correlations are translated (rebased) according to the given
+     * {@link TranslationMap}. The logic in this method delegates to
+     * {@link RelationalExpression#translateCorrelations(TranslationMap, boolean, List)} to in turn translate
+     * predicates, select list expressions and others. Furthermore, the logic in this method attempts to not copy
+     * a sub-graph unless it is necessary to do so, i.e. uncorrelated sub-graphs are shared between the original graph
+     * and the translated one.
+     * @param refs a list of {@link Reference}s. They can share common sub-graphs
+     * @param memoizer a {@link Memoizer}. If used outside the planner rules, use
+     *        {@link Memoizer#noMemoization(PlannerStage)}
+     * @param translationMap the {@link TranslationMap} that defines the translations to be carried out
+     * @param shouldSimplifyValues an indicator whether we should attempt to simplify values after translation
+     * @return a list of translated references
+     */
+    @Nonnull
     public static List<? extends Reference> rebaseGraphs(@Nonnull final List<? extends Reference> refs,
                                                          @Nonnull final Memoizer memoizer,
                                                          @Nonnull final TranslationMap translationMap,
@@ -122,8 +154,9 @@ public class References {
                 final var childReference = quantifier.getRangesOver();
 
                 // these must exist
-                Verify.verify(translationsCache.containsKey(childReference));
-                final var translatedChildReference = translationsCache.get(childReference);
+                final var translatedChildReference =
+                        translationsCache.getOrDefault(childReference, childReference);
+
                 final var alias = quantifier.getAlias();
                 if (translatedChildReference == childReference &&
                         !translationMap.containsSourceAlias(alias)) {
@@ -171,9 +204,7 @@ public class References {
                 translatedExploratoryExpressionsBuilder.add(translatedExpression);
             }
         }
-        if (allMembersSame) {
-            translationsCache.put(reference, reference);
-        } else {
+        if (!allMembersSame) {
             final var translatedExploratoryExpressions =
                     translatedExploratoryExpressionsBuilder.build();
             final var translatedFinalExpressions =

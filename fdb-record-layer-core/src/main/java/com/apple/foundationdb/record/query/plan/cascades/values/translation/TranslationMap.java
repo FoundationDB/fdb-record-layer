@@ -35,7 +35,7 @@ import javax.annotation.Nullable;
 import java.util.Optional;
 
 /**
- * Map used to specify translations.
+ * Map-like interface that is used to specify translations.
  */
 public interface TranslationMap {
     @Nonnull
