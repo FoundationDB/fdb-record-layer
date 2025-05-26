@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.planprotos.PMacroFunctionValue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.RegularTranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
 
@@ -56,7 +57,7 @@ public class MacroFunction extends UserDefinedFunction {
     public Value encapsulate(@Nonnull List<? extends Typed> arguments) {
         // replace the QuantifiedObjectValue in body with arguments
         SemanticException.check(arguments.size() == parameterTypes.size(), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES, "argument length doesn't match with function definition");
-        TranslationMap.Builder translationMapBuilder = new TranslationMap.Builder();
+        final RegularTranslationMap.Builder translationMapBuilder = TranslationMap.regularBuilder();
         for (int i = 0; i < arguments.size(); i++) {
             // check that arguments[i] type matches with parameterTypes[i]
             final int finalI = i;

@@ -31,9 +31,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 
 import javax.annotation.Nonnull;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ReferencesAndDependenciesProperty.referencesAndDependencies;
 
@@ -45,13 +47,10 @@ public class References {
         // do not instantiate
     }
 
-    // TODO rebase() on quantifiers, expressions, and references should be deprecated as none of them take memoization
-    //  into account. They can but they don't currently. These translateCorrelations() calls should be made explicit in
-    //  a way that the caller must explicitly pass a memoizer. Nobody calls this code path currently. Let's keep it this
-    //  way until we can do it properly.
-    public static List<? extends Reference> translateCorrelations(@Nonnull final List<? extends Reference> refs,
-                                                                  @Nonnull final TranslationMap translationMap,
-                                                                  final boolean shouldSimplifyValues) {
+    public static List<? extends Reference> translateGraphs(@Nonnull final List<? extends Reference> refs,
+                                                            @Nonnull final Memoizer memoizer,
+                                                            @Nonnull final TranslationMap translationMap,
+                                                            final boolean shouldSimplifyValues) {
         if (refs.isEmpty()) {
             return ImmutableList.of();
         }
@@ -62,80 +61,132 @@ public class References {
                 TopologicalSort.anyTopologicalOrderPermutation(partialOrder)
                         .orElseThrow(() -> new RecordCoreException("graph has cycles"));
 
-        final var cachedTranslationsMap =
+        final var translationsCache =
                 Maps.<Reference, Reference>newIdentityHashMap();
 
         for (final var reference : references) {
             if (reference.getCorrelatedTo().stream().anyMatch(translationMap::containsSourceAlias)) {
-                var allMembersSame = true;
-                final var translatedExploratoryExpressionsBuilder = ImmutableList.<RelationalExpression>builder();
-                final var translatedFinalExpressionsBuilder = ImmutableList.<RelationalExpression>builder();
-                for (final var expression : reference.getAllMemberExpressions()) {
-                    var allChildTranslationsSame = true;
-                    final var translatedQuantifiersBuilder = ImmutableList.<Quantifier>builder();
-                    for (final var quantifier : expression.getQuantifiers()) {
-                        final var childReference = quantifier.getRangesOver();
-
-                        // these must exist
-                        Verify.verify(cachedTranslationsMap.containsKey(childReference));
-                        final Reference translatedChildReference = cachedTranslationsMap.get(childReference);
-                        if (translatedChildReference != childReference) {
-                            translatedQuantifiersBuilder.add(quantifier.overNewReference(translatedChildReference));
-                            allChildTranslationsSame = false;
-                        } else {
-                            translatedQuantifiersBuilder.add(quantifier);
-                        }
-                    }
-
-                    final var translatedQuantifiers = translatedQuantifiersBuilder.build();
-                    final RelationalExpression translatedExpression;
-
-                    // we may not have to translate the current member
-                    if (allChildTranslationsSame) {
-                        final Set<CorrelationIdentifier> memberCorrelatedTo;
-                        if (expression instanceof RelationalExpressionWithChildren) {
-                            memberCorrelatedTo = ((RelationalExpressionWithChildren)expression).getCorrelatedToWithoutChildren();
-                        } else {
-                            memberCorrelatedTo = expression.getCorrelatedTo();
-                        }
-
-                        if (memberCorrelatedTo.stream().noneMatch(translationMap::containsSourceAlias)) {
-                            translatedExpression = expression;
-                        } else {
-                            translatedExpression = expression.translateCorrelations(translationMap, shouldSimplifyValues,
-                                    translatedQuantifiers);
-                            Debugger.withDebugger(debugger -> debugger.onEvent(
-                                    new Debugger.TranslateCorrelationsEvent(translatedExpression, Debugger.Location.COUNT)));
-                            allMembersSame = false;
-                        }
-                    } else {
-                        translatedExpression = expression.translateCorrelations(translationMap, shouldSimplifyValues,
-                                translatedQuantifiers);
-                        Debugger.withDebugger(debugger -> debugger.onEvent(
-                                new Debugger.TranslateCorrelationsEvent(translatedExpression, Debugger.Location.COUNT)));
-                        allMembersSame = false;
-                    }
-                    if (reference.isFinal(expression)) {
-                        translatedFinalExpressionsBuilder.add(translatedExpression);
-                    }
-                    if (reference.isExploratory(expression)) {
-                        translatedExploratoryExpressionsBuilder.add(translatedExpression);
-                    }
-                }
-                if (allMembersSame) {
-                    cachedTranslationsMap.put(reference, reference);
-                } else {
-                    cachedTranslationsMap.put(reference, Reference.of(reference.getPlannerStage(),
-                            translatedExploratoryExpressionsBuilder.build(),
-                            translatedFinalExpressionsBuilder.build()));
-                }
+                rebaseGraph(memoizer, translationMap, shouldSimplifyValues, reference, translationsCache,
+                        alias -> {
+                            Verify.verify(!translationMap.containsSourceAlias(alias), "illegal translate");
+                            return alias;
+                        });
             } else {
-                cachedTranslationsMap.put(reference, reference);
+                translationsCache.put(reference, reference);
             }
         }
 
         return refs.stream()
-                .map(ref -> Objects.requireNonNull(cachedTranslationsMap.get(ref)))
+                .map(ref -> Objects.requireNonNull(translationsCache.get(ref)))
                 .collect(ImmutableList.toImmutableList());
+    }
+
+    public static List<? extends Reference> rebaseGraphs(@Nonnull final List<? extends Reference> refs,
+                                                         @Nonnull final Memoizer memoizer,
+                                                         @Nonnull final TranslationMap translationMap,
+                                                         final boolean shouldSimplifyValues) {
+        if (refs.isEmpty()) {
+            return ImmutableList.of();
+        }
+
+        final var partialOrder = referencesAndDependencies().evaluate(refs);
+
+        final var references =
+                TopologicalSort.anyTopologicalOrderPermutation(partialOrder)
+                        .orElseThrow(() -> new RecordCoreException("graph has cycles"));
+
+        final var translationsCache =
+                Maps.<Reference, Reference>newIdentityHashMap();
+
+        for (final var reference : references) {
+            rebaseGraph(memoizer, translationMap, shouldSimplifyValues, reference, translationsCache,
+                    translationMap::getTarget);
+        }
+
+        return refs.stream()
+                .map(ref -> Objects.requireNonNull(translationsCache.get(ref)))
+                .collect(ImmutableList.toImmutableList());
+    }
+
+    private static void rebaseGraph(@Nonnull final Memoizer memoizer, @Nonnull final TranslationMap translationMap,
+                                    final boolean shouldSimplifyValues, @Nonnull final Reference reference,
+                                    @Nonnull final IdentityHashMap<Reference, Reference> translationsCache,
+                                    @Nonnull final Function<CorrelationIdentifier, CorrelationIdentifier> quantifierAliasMapper) {
+        var allMembersSame = true;
+        final var translatedExploratoryExpressionsBuilder = ImmutableList.<RelationalExpression>builder();
+        final var translatedFinalExpressionsBuilder = ImmutableList.<RelationalExpression>builder();
+        for (final var expression : reference.getAllMemberExpressions()) {
+            var allChildTranslationsSame = true;
+            final var translatedQuantifiersBuilder = ImmutableList.<Quantifier>builder();
+            for (final var quantifier : expression.getQuantifiers()) {
+                final var childReference = quantifier.getRangesOver();
+
+                // these must exist
+                Verify.verify(translationsCache.containsKey(childReference));
+                final var translatedChildReference = translationsCache.get(childReference);
+                final var alias = quantifier.getAlias();
+                if (translatedChildReference == childReference &&
+                        !translationMap.containsSourceAlias(alias)) {
+                    translatedQuantifiersBuilder.add(quantifier);
+                } else {
+                    translatedQuantifiersBuilder.add(
+                            quantifier.overNewReference(translatedChildReference,
+                                    quantifierAliasMapper.apply(alias)));
+                    allChildTranslationsSame = false;
+                }
+            }
+
+            final var translatedQuantifiers = translatedQuantifiersBuilder.build();
+            final RelationalExpression translatedExpression;
+
+            // we may not have to translate the current member
+            if (allChildTranslationsSame) {
+                final Set<CorrelationIdentifier> memberCorrelatedTo;
+                if (expression instanceof RelationalExpressionWithChildren) {
+                    memberCorrelatedTo = ((RelationalExpressionWithChildren)expression).getCorrelatedToWithoutChildren();
+                } else {
+                    memberCorrelatedTo = expression.getCorrelatedTo();
+                }
+
+                if (memberCorrelatedTo.stream().noneMatch(translationMap::containsSourceAlias)) {
+                    translatedExpression = expression;
+                } else {
+                    translatedExpression = expression.translateCorrelations(translationMap, shouldSimplifyValues,
+                            translatedQuantifiers);
+                    Debugger.withDebugger(debugger -> debugger.onEvent(
+                            new Debugger.TranslateCorrelationsEvent(translatedExpression, Debugger.Location.COUNT)));
+                    allMembersSame = false;
+                }
+            } else {
+                translatedExpression = expression.translateCorrelations(translationMap, shouldSimplifyValues,
+                        translatedQuantifiers);
+                Debugger.withDebugger(debugger -> debugger.onEvent(
+                        new Debugger.TranslateCorrelationsEvent(translatedExpression, Debugger.Location.COUNT)));
+                allMembersSame = false;
+            }
+            if (reference.isFinal(expression)) {
+                translatedFinalExpressionsBuilder.add(translatedExpression);
+            }
+            if (reference.isExploratory(expression)) {
+                translatedExploratoryExpressionsBuilder.add(translatedExpression);
+            }
+        }
+        if (allMembersSame) {
+            translationsCache.put(reference, reference);
+        } else {
+            final var translatedExploratoryExpressions =
+                    translatedExploratoryExpressionsBuilder.build();
+            final var translatedFinalExpressions =
+                    translatedFinalExpressionsBuilder.build();
+
+            final Reference translatedReference;
+            if (!translatedExploratoryExpressions.isEmpty()) {
+                translatedReference = memoizer.memoizeExploratoryExpressions(translatedExploratoryExpressions);
+            } else {
+                translatedReference = memoizer.memoizeFinalExpressions(translatedFinalExpressions);
+            }
+
+            translationsCache.put(reference, translatedReference);
+        }
     }
 }
