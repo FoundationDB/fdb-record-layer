@@ -18,7 +18,7 @@
 # limitations under the License.
 ---
 options:
-    supported_version: !current_version
+    supported_version: 4.3.2.0
 ---
 schema_template:
     create table t1(col1 bigint, col2 string, col3 integer, primary key(col1))
