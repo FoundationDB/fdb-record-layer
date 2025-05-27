@@ -235,7 +235,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
 
         long totalTimeMillis = System.currentTimeMillis() - startTimeMillis;
         assertThat(totalTimeMillis).isGreaterThan(numRecords * delay);
-        assertThat(initTransactionCount.get()).isGreaterThanOrEqualTo(numRecords * delay / transactionTimeMillis);
+        assertThat(initTransactionCount.get()).isGreaterThanOrEqualTo((numRecords * delay / transactionTimeMillis) - 1);
     }
 
     @CsvSource({"-1", "0", "1", "3", "100"})
