@@ -114,17 +114,41 @@ public class ValidationTestUtils {
         final BitSet thirdSplitOnly = toBitSet(0b1000);
         final BitSet thirdSplitAndVerion = toBitSet(0b1001);
         final BitSet versionSplitOnly = toBitSet(0b0001);
-        final boolean storingVersion = versionStoredWithRecord(formatVersion);
         if ((numOfSplits == 2) && thirdSplitOnly.equals(splitsToRemove)) {
             // removing non-existent 3rd split
             return true;
         }
-        if ((numOfSplits == 2) && thirdSplitAndVerion.equals(splitsToRemove) && !ValidationTestUtils.versionStoredWithRecord(formatVersion)) {
+        if ((numOfSplits == 2) && thirdSplitAndVerion.equals(splitsToRemove) && !versionStoredWithRecord(formatVersion)) {
             // version stored elsewhere and we remove version and non-existent split
             return true;
         }
-        if (versionSplitOnly.equals(splitsToRemove) && !ValidationTestUtils.versionStoredWithRecord(formatVersion)) {
+        if (versionSplitOnly.equals(splitsToRemove) && !versionStoredWithRecord(formatVersion)) {
             // version stored elsewhere and we only remove the version
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Return TRUE if removing the given splits will leave the record without a version but otherwise valid.
+     * @param numOfSplits number of splits for the record (2 or 3)
+     * @param splitsToRemove the bitset of splits to be removed
+     * @param formatVersion the format version for the store
+     * @return TRUE if the record will be valid but without a version
+     */
+    public static boolean recordWillHaveVersionMissing(int numOfSplits, BitSet splitsToRemove, FormatVersion formatVersion) {
+        final BitSet thirdSplitAndVersion = toBitSet(0b1001);
+        final BitSet versionSplitOnly = toBitSet(0b0001);
+        if (!versionStoredWithRecord(formatVersion)) {
+            return false;
+        }
+
+        if ((numOfSplits == 2) && (versionSplitOnly.equals(splitsToRemove) || thirdSplitAndVersion.equals(splitsToRemove))) {
+            // removing version or version and non-existent split
+            return true;
+        }
+        if ((numOfSplits == 3) && versionSplitOnly.equals(splitsToRemove)) {
+            // remove version and no split
             return true;
         }
         return false;

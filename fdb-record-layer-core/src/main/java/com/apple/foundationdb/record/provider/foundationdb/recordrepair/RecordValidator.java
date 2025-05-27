@@ -30,9 +30,9 @@ import java.util.concurrent.CompletableFuture;
  * An interface to be implemented by record validation and repair operators.
  * A Record Validator should be able to perform two functions: Validate a record (given a primary key) and repair a broken
  * record. The intent for these is to be done in sequence, that is, a {@link #validateRecordAsync(Tuple)} call is to be
- * followed by an optional call to {@link #repairRecordAsync(Tuple, CompletableFuture)}. These are separate methods in
+ * followed by an optional call to {@link #repairRecordAsync(RecordValidationResult)}. These are separate methods in
  * order to allow a "dry run" such that validate alone is called as well as to allow specialization by subclassing
- * the validator and overriding the {@link #repairRecordAsync(Tuple, CompletableFuture)} or {@link #validateRecordAsync(Tuple)}
+ * the validator and overriding the {@link #repairRecordAsync(RecordValidationResult)} or {@link #validateRecordAsync(Tuple)}
  * methods.
  * <p>
  * Each call to {@link #validateRecordAsync(Tuple)} will return a {@link RecordValidationResult} that has an error code
@@ -40,7 +40,7 @@ import java.util.concurrent.CompletableFuture;
  * {@link RecordValidationResult#isValid()} should return {@code true}. When the {@link RecordValidationResult#isValid()}
  * returns false, the error code is validator dependant.
  * <p>
- * Each call to {@link #repairRecordAsync(Tuple, CompletableFuture)} takes a {@link RecordValidationResult}, presumably
+ * Each call to {@link #repairRecordAsync(RecordValidationResult)} takes a {@link RecordValidationResult}, presumably
  * returned by a previous call to {@link #validateRecordAsync(Tuple)}. Mixing results among different validators may result
  * in unpredictable behavior.
  * <p>
@@ -60,9 +60,8 @@ public interface RecordValidator {
 
     /**
      * Repair a record based on the previously executed validation.
-     * @param primaryKey the primary key of the record
      * @param validationResult the result of the previously executed validation
      * @return a future to be completed once the repair is done
      */
-    CompletableFuture<Void> repairRecordAsync(@Nonnull Tuple primaryKey, @Nonnull CompletableFuture<RecordValidationResult> validationResult);
+    CompletableFuture<RecordValidationResult> repairRecordAsync(@Nonnull RecordValidationResult validationResult);
 }

@@ -21,8 +21,16 @@
 package com.apple.foundationdb.record.provider.foundationdb.recordrepair;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.protobuf.Message;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
@@ -30,21 +38,31 @@ import java.util.concurrent.CompletableFuture;
 /**
  * A record validator that ensures the record has a valid version.
  * A record that is valid with this validator has to have a valid value, has to exist and has to have a version.
+ * Since version creation for a record can be done on a per-record basis (when the record is saved), it is the responsibility
+ * of the user of the validator to decide whether a version should be present on not. As a general rule, the metadata
+ * has a {@link RecordMetaData#isStoreRecordVersions()} property that is used as the default value for making that decision,
+ * but the {@link FDBRecordStore#saveRecordAsync(Message, FDBRecordVersion, FDBRecordStoreBase.VersionstampSaveBehavior)} )}
+ * can override this.
+ * Once this validator is used, it assumes that versions are to be saved with the records and will flag a record that has
+ * no version. The repair operation will create a new version for that record.
  */
 @API(API.Status.INTERNAL)
 public class RecordVersionValidator implements RecordValidator {
-    public static final String CODE_VERSION_MISSING_ERROR = "VersionMissingError";
+    public static final String CODE_VERSION_MISSING_ERROR = "RecordVersionMissingError";
     public static final String CODE_RECORD_MISSING_ERROR = "RecordMissingError";
+    public static final String REPAIR_VERSION_CREATED = "RecordVersionCreatedRepair";
+
+    private static final Logger logger = LoggerFactory.getLogger(RecordVersionValidator.class);
 
     @Nonnull
-    private FDBRecordStore store;
+    private final FDBRecordStore store;
 
     public RecordVersionValidator(@Nonnull final FDBRecordStore store) {
         this.store = store;
     }
 
     @Override
-    public CompletableFuture<RecordValidationResult> validateRecordAsync(final Tuple primaryKey) {
+    public CompletableFuture<RecordValidationResult> validateRecordAsync(@Nonnull final Tuple primaryKey) {
         return store.loadRecordAsync(primaryKey).thenApply(rec -> {
             if (rec == null) {
                 return RecordValidationResult.invalid(primaryKey, CODE_RECORD_MISSING_ERROR, "Record cannot be found");
@@ -57,7 +75,39 @@ public class RecordVersionValidator implements RecordValidator {
     }
 
     @Override
-    public CompletableFuture<Void> repairRecordAsync(final Tuple primaryKey, final CompletableFuture<RecordValidationResult> validationResult) {
-        throw new UnsupportedOperationException("Repair is not yet supported");
+    public CompletableFuture<RecordValidationResult> repairRecordAsync(@Nonnull final RecordValidationResult validationResult) {
+        if (validationResult.isValid()) {
+            // do nothing
+            return CompletableFuture.completedFuture(validationResult.withRepair(RecordValidationResult.REPAIR_NOT_NEEDED));
+        }
+        switch (validationResult.getErrorCode()) {
+            case CODE_RECORD_MISSING_ERROR:
+                // Nothing to do
+                return CompletableFuture.completedFuture(validationResult.withRepair(RecordValidationResult.REPAIR_NOT_NEEDED));
+            case CODE_VERSION_MISSING_ERROR:
+                if (logger.isInfoEnabled()) {
+                    logger.info(KeyValueLogMessage.of("Record repair: Version created",
+                            LogMessageKeys.PRIMARY_KEY, validationResult.getPrimaryKey()));
+                }
+                // Create a new version
+                // Todo: Is this correct???
+                // Save the record with the existing data and the new version
+                // This uses the WITH_VERSION behavior to force a version even if the metadata says otherwise, since this
+                // is the assumption of the validator
+                final FDBRecordVersion newVersion = FDBRecordVersion.incomplete(store.getContext().claimLocalVersion());
+                return store.loadRecordAsync(validationResult.getPrimaryKey()).thenCompose(rec ->
+                    store.saveRecordAsync(rec.getRecord(), newVersion, FDBRecordStoreBase.VersionstampSaveBehavior.WITH_VERSION)
+                ).thenApply(ignore ->
+                    validationResult.withRepair(REPAIR_VERSION_CREATED)
+                );
+            default:
+                // Unknown code
+                if (logger.isWarnEnabled()) {
+                    logger.warn(KeyValueLogMessage.of("Record version repair: Unknown code",
+                            LogMessageKeys.PRIMARY_KEY, validationResult.getPrimaryKey(),
+                            LogMessageKeys.CODE, validationResult.getErrorCode()));
+                }
+                return CompletableFuture.completedFuture(validationResult.withRepair(RecordValidationResult.REPAIR_UNKNOWN_VALIDATION_CODE));
+        }
     }
 }

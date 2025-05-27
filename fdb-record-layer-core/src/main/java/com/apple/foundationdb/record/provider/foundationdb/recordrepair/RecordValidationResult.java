@@ -40,7 +40,9 @@ import java.util.Objects;
  */
 @API(API.Status.EXPERIMENTAL)
 public class RecordValidationResult {
-    public static final String CODE_VALID = "valid";
+    public static final String CODE_VALID = "Valid";
+    public static final String REPAIR_NOT_NEEDED = "RepairNotNeeded";
+    public static final String REPAIR_UNKNOWN_VALIDATION_CODE = "UnknownCode";
 
     @Nonnull
     private final Tuple primaryKey;
@@ -49,12 +51,21 @@ public class RecordValidationResult {
     private final String errorCode;
     @Nullable
     private final String message;
+    private boolean isRepaired;
+    @Nullable
+    private String repairCode;
 
     private RecordValidationResult(@Nonnull final Tuple primaryKey, final boolean isValid, @Nonnull final String errorCode, @Nullable final String message) {
+        this(primaryKey, isValid, errorCode, message, false, null);
+    }
+
+    private RecordValidationResult(@Nonnull final Tuple primaryKey, final boolean isValid, @Nonnull final String errorCode, @Nullable final String message, boolean isRepaired, String repairCode) {
         this.primaryKey = primaryKey;
         this.isValid = isValid;
         this.errorCode = errorCode;
         this.message = message;
+        this.isRepaired = isRepaired;
+        this.repairCode = repairCode;
     }
 
     public static RecordValidationResult valid(Tuple primaryKey) {
@@ -63,6 +74,11 @@ public class RecordValidationResult {
 
     public static RecordValidationResult invalid(Tuple primaryKey, String error, String message) {
         return new RecordValidationResult(primaryKey, false, error, message);
+    }
+
+    @Nonnull
+    public RecordValidationResult withRepair(@Nonnull String repairCode) {
+        return new RecordValidationResult(primaryKey, isValid, errorCode, message, true, repairCode);
     }
 
     @Nonnull
@@ -84,6 +100,15 @@ public class RecordValidationResult {
         return message;
     }
 
+    public boolean isRepaired() {
+        return isRepaired;
+    }
+
+    @Nullable
+    public String getRepairCode() {
+        return repairCode;
+    }
+
     @Override
     public boolean equals(final Object o) {
         if (this == o) {
@@ -93,11 +118,11 @@ public class RecordValidationResult {
             return false;
         }
         final RecordValidationResult that = (RecordValidationResult)o;
-        return isValid == that.isValid && Objects.equals(primaryKey, that.primaryKey) && Objects.equals(errorCode, that.errorCode);
+        return isValid == that.isValid && isRepaired == that.isRepaired && Objects.equals(primaryKey, that.primaryKey) && Objects.equals(errorCode, that.errorCode) && Objects.equals(repairCode, that.repairCode);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(primaryKey, isValid, errorCode);
+        return Objects.hash(primaryKey, isValid, errorCode, isRepaired, repairCode);
     }
 }

@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.throttled.CursorFactory;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.throttled.ItemHandler;
@@ -50,15 +49,16 @@ import java.util.concurrent.TimeUnit;
  * validation capabilities include detecting missing splits (payload and version) and corrupt data that results in records
  * that cannot be deserialized.
  * <p>
- * This runner is expected to run for extended perios of time, and therefore makes use of the {@link ThrottledRetryingIterator}
+ * This runner is expected to run for extended period of time, and therefore makes use of the {@link ThrottledRetryingIterator}
  * to provide transaction resource management. The runner will create transactions and commit them as needed (and so does
  * not have to be run from within an existing transaction).
  * <p>
  * The runner provides two main entry points:
  * <ul>
- *     <li>{@link #runValidationStats(FDBRecordStore, ValidationKind)} that iterates through the store and returns an aggregated
+ *     <li>{@link #runValidationStats(FDBRecordStore.Builder, ValidationKind)} that iterates through the store and returns an aggregated
  *     count of all found issues</li>
- *     <li>{@link #validateAndRepairHandler(List, ValidationKind)} that iterates through the store and returns a list of all found issues</li>
+ *     <li>{@link #runValidationAndRepair(FDBRecordStore.Builder, ValidationKind, boolean)} that iterates through the store
+ *     and returns a list of all found issues</li>
  * </ul>
  * There is no significant performance difference between the two. The intent is to use the former to get a view of the store
  * status and to verify that a store is fully repaired, and to use the latter to iterate through the store record, one chunk
@@ -95,10 +95,10 @@ public class RecordRepairRunner {
 
     /**
      * Create a builder for the runner.
-     * @param database
+     * @param database the FDB database to use to create new transactions
      * @return the builder instance
      */
-    static Builder builder(FDBDatabase database) {
+    static Builder builder(@Nonnull FDBDatabase database) {
         return new Builder(database);
     }
 
@@ -108,7 +108,7 @@ public class RecordRepairRunner {
      * @param validationKind which validation to run
      * @return an aggregated result set of all the found issues
      */
-    public RecordValidationStatsResult runValidationStats(FDBRecordStore.Builder recordStoreBuilder, ValidationKind validationKind) {
+    public RecordValidationStatsResult runValidationStats(@Nonnull FDBRecordStore.Builder recordStoreBuilder, @Nonnull ValidationKind validationKind) {
         RecordValidationStatsResult statsResult = new RecordValidationStatsResult();
         ThrottledRetryingIterator.Builder<Tuple> iteratorBuilder =
                 ThrottledRetryingIterator.builder(config.getDatabase(), cursorFactory(), countResultsHandler(statsResult, validationKind));
@@ -126,14 +126,10 @@ public class RecordRepairRunner {
      * @param allowRepair whether to allow repair on the issues found
      * @return a list of issues found
      */
-    public List<RecordValidationResult> runValidationAndRepair(FDBRecordStore.Builder recordStoreBuilder, ValidationKind validationKind, boolean allowRepair) {
-        if (allowRepair) {
-            throw new UnsupportedOperationException("Repair is not yet supported");
-        }
-
+    public List<RecordValidationResult> runValidationAndRepair(@Nonnull FDBRecordStore.Builder recordStoreBuilder, @Nonnull ValidationKind validationKind, boolean allowRepair) {
         List<RecordValidationResult> validationResults = new ArrayList<>();
         ThrottledRetryingIterator.Builder<Tuple> iteratorBuilder =
-                ThrottledRetryingIterator.builder(config.getDatabase(), cursorFactory(), validateAndRepairHandler(validationResults, validationKind));
+                ThrottledRetryingIterator.builder(config.getDatabase(), cursorFactory(), validateAndRepairHandler(validationResults, validationKind, allowRepair));
         iteratorBuilder = configureThrottlingIterator(iteratorBuilder, config);
         try (final ThrottledRetryingIterator<Tuple> iterator = iteratorBuilder.build()) {
             iterator.iterateAll(recordStoreBuilder).join();
@@ -143,7 +139,7 @@ public class RecordRepairRunner {
 
     private CursorFactory<Tuple> cursorFactory() {
         return (@Nonnull FDBRecordStore store, @Nullable RecordCursorResult<Tuple> lastResult, int rowLimit) -> {
-            byte[] continuation = lastResult == null ? null : lastResult.getContinuation().toBytes(); // todo: can be null...
+            byte[] continuation = lastResult == null ? null : lastResult.getContinuation().toBytes();
             ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(executeProperties -> executeProperties.setReturnedRowLimit(rowLimit));
             return store.scanRecordKeys(continuation, scanProperties);
         };
@@ -151,7 +147,7 @@ public class RecordRepairRunner {
 
     private ItemHandler<Tuple> countResultsHandler(RecordValidationStatsResult statsResult, final ValidationKind validationKind) {
         return (FDBRecordStore store, RecordCursorResult<Tuple> lastResult, ThrottledRetryingIterator.QuotaManager quotaManager) -> {
-            return validateInternal(lastResult, store, validationKind).thenAccept(result -> {
+            return validateInternal(lastResult, store, validationKind, false).thenAccept(result -> {
                 if (!result.isValid()) {
                     statsResult.increment(result.getErrorCode());
                 }
@@ -159,33 +155,48 @@ public class RecordRepairRunner {
         };
     }
 
-    private ItemHandler<Tuple> validateAndRepairHandler(List<RecordValidationResult> results, final ValidationKind validationKind) {
+    private ItemHandler<Tuple> validateAndRepairHandler(List<RecordValidationResult> results, final ValidationKind validationKind, boolean allowRepair) {
         return (FDBRecordStore store, RecordCursorResult<Tuple> primaryKey, ThrottledRetryingIterator.QuotaManager quotaManager) -> {
-            return validateInternal(primaryKey, store, validationKind).thenAccept(result -> {
+            return validateInternal(primaryKey, store, validationKind, allowRepair).thenAccept(result -> {
                 if (!result.isValid()) {
                     results.add(result);
                     if ((config.getMaxResultsReturned() > 0) && (results.size() >= config.getMaxResultsReturned())) {
                         quotaManager.markExhausted();
+                    }
+                    // Mark record as deleted
+                    if (result.isRepaired() && RecordValueValidator.REPAIR_RECORD_DELETED.equals(result.getRepairCode())) {
+                        quotaManager.deleteCountAdd(1);
                     }
                 }
             });
         };
     }
 
-    private static CompletableFuture<RecordValidationResult> validateInternal(final RecordCursorResult<Tuple> primaryKey, final FDBRecordStore store, final ValidationKind validationKind) {
+    private static CompletableFuture<RecordValidationResult> validateInternal(@Nonnull final RecordCursorResult<Tuple> primaryKey,
+                                                                              @Nonnull final FDBRecordStore store,
+                                                                              @Nonnull final ValidationKind validationKind,
+                                                                              boolean allowRepair) {
         RecordValueValidator valueValidator = new RecordValueValidator(store);
-        CompletableFuture<RecordValidationResult> resultFuture = valueValidator.validateRecordAsync(primaryKey.get());
-        if (validationKind == ValidationKind.RECORD_VALUE_AND_VERSION) {
-            resultFuture = resultFuture.thenCompose(valueValidation -> {
-                if (valueValidation.isValid()) {
-                    RecordVersionValidator versionValidator = new RecordVersionValidator(store);
-                    return versionValidator.validateRecordAsync(primaryKey.get());
+        return valueValidator.validateRecordAsync(primaryKey.get()).thenCompose(result -> {
+            if (!result.isValid()) {
+                if (allowRepair) {
+                    return valueValidator.repairRecordAsync(result);
                 } else {
-                    return CompletableFuture.completedFuture(valueValidation);
+                    return CompletableFuture.completedFuture(result);
                 }
-            });
-        }
-        return resultFuture;
+            } else if (validationKind == ValidationKind.RECORD_VALUE_AND_VERSION) {
+                RecordVersionValidator versionValidator = new RecordVersionValidator(store);
+                return versionValidator.validateRecordAsync(primaryKey.get()).thenCompose(result2 -> {
+                    if (!result2.isValid() && allowRepair) {
+                        return versionValidator.repairRecordAsync(result2);
+                    } else {
+                        return CompletableFuture.completedFuture(result2);
+                    }
+                });
+            } else {
+                return CompletableFuture.completedFuture(result);
+            }
+        });
     }
 
     private ThrottledRetryingIterator.Builder<Tuple> configureThrottlingIterator(ThrottledRetryingIterator.Builder<Tuple> builder, Builder config) {

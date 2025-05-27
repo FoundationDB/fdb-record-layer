@@ -1643,7 +1643,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (oldRecord == null) {
                 return AsyncUtil.READY_FALSE;
             }
-            SplitHelper.deleteSplit(getRecordContext(), recordsSubspace(), primaryKey, metaData.isSplitLongRecords(), omitUnsplitRecordSuffix, true, oldRecord);
+            deleteRecordSplits(primaryKey, true, oldRecord, metaData);
             countKeysAndValues(FDBStoreTimer.Counts.DELETE_RECORD_KEY, FDBStoreTimer.Counts.DELETE_RECORD_KEY_BYTES, FDBStoreTimer.Counts.DELETE_RECORD_VALUE_BYTES,
                     oldRecord);
             addRecordCount(metaData, oldRecord, LITTLE_ENDIAN_INT64_MINUS_ONE);
@@ -1668,6 +1668,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
         });
         return context.instrument(FDBStoreTimer.Events.DELETE_RECORD, result);
+    }
+
+    @API(API.Status.INTERNAL)
+    public <M extends Message> void deleteRecordSplits(final @Nonnull Tuple primaryKey, final boolean clearBasedOnPreviousSizeInfo, final @Nullable FDBStoredRecord<M> oldRecord, final @Nonnull RecordMetaData metaData) {
+        SplitHelper.deleteSplit(getRecordContext(), recordsSubspace(), primaryKey, metaData.isSplitLongRecords(), omitUnsplitRecordSuffix, clearBasedOnPreviousSizeInfo, oldRecord);
     }
 
     /**
