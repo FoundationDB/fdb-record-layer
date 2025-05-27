@@ -7,6 +7,36 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.3
 
+### 4.3.2.0
+
+<h4> Bug Fixes </h4>
+
+* Don't memoize correlation sets in planner objects - [PR #3365](https://github.com/FoundationDB/fdb-record-layer/pull/3365)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Fix deprecated Gradle syntax and configuration features - [PR #3358](https://github.com/FoundationDB/fdb-record-layer/pull/3358)
+
+</details>
+
+
+**[Full Changelog (4.3.1.0...4.3.2.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.3.1.0...4.3.2.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.1.8.0`, ✅`4.1.9.0`, ✅`4.1.10.0`, ✅`4.2.2.0`, ✅`4.2.2.1`, ❌`4.2.3.0`, ❌`4.2.4.0`, ✅`4.2.5.0`, ✅`4.2.6.0`, ✅`4.2.8.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/15267203964)
+
+
+
 ### 4.3.1.0
 
 <h4> New Features </h4>
