@@ -84,7 +84,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
     public CompletableFuture<RecordCursorResult<QueryResult>> onNext() {
         if (previousResult != null && !previousResult.hasNext()) {
             // we are done
-            return CompletableFuture.completedFuture(RecordCursorResult.withoutNextValue(new AggregateCursorContinuation(previousResult.getContinuation(), partialAggregationResult, serializationMode),
+            return CompletableFuture.completedFuture(RecordCursorResult.withoutNextValue(new AggregateCursorContinuation(previousResult.getContinuation(), serializationMode),
                     previousResult.getNoNextReason()));
         }
 
@@ -235,7 +235,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
 
         @Override
         public boolean isEnd() {
-            return innerContinuation.isEnd();
+            return innerContinuation.isEnd() && partialAggregationResult == null;
         }
 
         @Nullable

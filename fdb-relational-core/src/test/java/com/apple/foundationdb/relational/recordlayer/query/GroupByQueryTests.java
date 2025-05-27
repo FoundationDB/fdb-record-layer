@@ -79,16 +79,14 @@ public class GroupByQueryTests {
                         continuation = resultSet.getContinuation();
                     }
                     // scan pk = 5 and pk = 4 rows, hit SCAN_LIMIT_REACHED
-                    String postfix = "EXECUTE CONTINUATION " + Base64.getEncoder().encodeToString(continuation.serialize());
-                    Assertions.assertTrue(statement.execute(query + postfix), "Did not return a result set from a select statement!");
+                    Assertions.assertTrue(statement.execute("EXECUTE CONTINUATION " + Base64.getEncoder().encodeToString(continuation.serialize())), "Did not return a result set from a select statement!");
                     try (final RelationalResultSet resultSet = statement.getResultSet()) {
                         ResultSetAssert.assertThat(resultSet)
                                 .hasNoNextRow();
                         continuation = resultSet.getContinuation();
                     }
                     // scan pk = 6 and pk = 8 rows, hit SCAN_LIMIT_REACHED
-                    postfix = " WITH CONTINUATION B64'" + Base64.getEncoder().encodeToString(continuation.serialize()) + "'";
-                    Assertions.assertTrue(statement.execute(query + postfix), "Did not return a result set from a select statement!");
+                    Assertions.assertTrue(statement.execute("EXECUTE CONTINUATION " + Base64.getEncoder().encodeToString(continuation.serialize())), "Did not return a result set from a select statement!");
                     try (final RelationalResultSet resultSet = statement.getResultSet()) {
                         ResultSetAssert.assertThat(resultSet).hasNextRow()
                                 .isRowExactly(1L, 2L, 15L)
@@ -96,15 +94,13 @@ public class GroupByQueryTests {
                         continuation = resultSet.getContinuation();
                     }
                     // scan pk = 7 and pk = 9 rows, hit SCAN_LIMIT_REACHED
-                    postfix = " WITH CONTINUATION B64'" + Base64.getEncoder().encodeToString(continuation.serialize()) + "'";
-                    Assertions.assertTrue(statement.execute(query + postfix), "Did not return a result set from a select statement!");
+                    Assertions.assertTrue(statement.execute("EXECUTE CONTINUATION " + Base64.getEncoder().encodeToString(continuation.serialize())), "Did not return a result set from a select statement!");
                     try (final RelationalResultSet resultSet = statement.getResultSet()) {
                         ResultSetAssert.assertThat(resultSet).hasNoNextRow();
                         continuation = resultSet.getContinuation();
                     }
                     // hit SOURCE_EXHAUSTED
-                    postfix = " WITH CONTINUATION B64'" + Base64.getEncoder().encodeToString(continuation.serialize()) + "'";
-                    Assertions.assertTrue(statement.execute(query + postfix), "Did not return a result set from a select statement!");
+                    Assertions.assertTrue(statement.execute("EXECUTE CONTINUATION " + Base64.getEncoder().encodeToString(continuation.serialize())), "Did not return a result set from a select statement!");
                     try (final RelationalResultSet resultSet = statement.getResultSet()) {
                         ResultSetAssert.assertThat(resultSet).hasNextRow()
                                 .isRowExactly(2L, 1L, 90L)
