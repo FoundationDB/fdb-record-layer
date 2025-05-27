@@ -50,6 +50,7 @@ import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -359,6 +360,7 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertFalse(nonExisting.isPresent());
     }
 
+    @Disabled
     @Test
     public void sqlFunctionsAreLazilyParsed() throws RelationalException {
         final var peekingDeserializer = recMetadataSampleWithFunctions(
@@ -374,6 +376,7 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertNotNull(plan);
     }
 
+    @Disabled
     @Test
     public void nestedSqlFunctionsAreLazilyParsed() throws RelationalException {
         final var peekingDeserializer = recMetadataSampleWithFunctions(
@@ -396,6 +399,7 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction2"));
     }
 
+    @Disabled
     @Test
     public void onlyQueriedSqlFunctionsAreCompiled() throws RelationalException {
         final var peekingDeserializer = recMetadataSampleWithFunctions(

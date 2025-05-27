@@ -25,7 +25,6 @@ import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
@@ -46,7 +45,8 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
                                      @Nonnull final Supplier<CompiledSqlFunction> compilableSqlFunctionSupplier) {
         this.description = description;
         this.name = name;
-        this.compilableSqlFunctionSupplier = Suppliers.memoize(compilableSqlFunctionSupplier);
+        // TODO this used to be memoized
+        this.compilableSqlFunctionSupplier = compilableSqlFunctionSupplier;
     }
 
     @Nonnull

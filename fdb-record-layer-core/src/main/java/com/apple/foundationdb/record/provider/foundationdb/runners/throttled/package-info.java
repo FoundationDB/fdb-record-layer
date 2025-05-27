@@ -1,9 +1,9 @@
 /*
- * examples.gradle
+ * package-info.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,19 +18,8 @@
  * limitations under the License.
  */
 
-apply from: rootProject.file('gradle/proto.gradle')
-apply plugin: 'application'
-
-def coreProject = ":${ext.coreProjectName}"
-dependencies {
-    implementation project(coreProject)
-    implementation(libs.protobuf)
-    implementation(libs.slf4j.api)
-    runtimeOnly(libs.log4j.slf4jBinding) // binding
-    runtimeOnly(libs.log4j.core) // library
-}
-
-application {
-    mainClass = 'com.apple.foundationdb.record.sample.Main'
-    applicationDefaultJvmArgs = ["-Dlog4j.configurationFile=${projectDir}/src/main/resources/log4j2.properties"]
-}
+/**
+ * Throttled iterator: Iterator that cam handle resource constraints and retry on failures.
+ * {@link com.apple.foundationdb.record.provider.foundationdb.runners.throttled.ThrottledRetryingIterator}
+ */
+package com.apple.foundationdb.record.provider.foundationdb.runners.throttled;
