@@ -40,7 +40,7 @@ class RecordsUpdateLockTest extends OnlineIndexerTest {
 
     @BeforeEach
     void beforeEach() {
-        this.formatVersion = Comparators.min(FormatVersion.SPECIAL_STORE_STATE, this.formatVersion);
+        this.formatVersion = Comparators.min(FormatVersion.STORE_LOCK_STATE, this.formatVersion);
     }
 
     @Test
@@ -109,7 +109,7 @@ class RecordsUpdateLockTest extends OnlineIndexerTest {
 
     @Test
     void testForbidUpdateRecordsAndBuildIndex() {
-        // Set special "forbid record updates" state, verify that records cannot be updates yet indexes can be built
+        // Set a "forbid record updates" state, verify that records cannot be updates yet indexes can be built
         final Index index = new Index("newIndex", field("num_value_2"));
         final FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> {
             metaDataBuilder.addIndex("MySimpleRecord", index);
@@ -256,7 +256,7 @@ class RecordsUpdateLockTest extends OnlineIndexerTest {
 
     private void forbidRecordUpdate() {
         try (FDBRecordContext context = openContext()) {
-            recordStore.setSpecialStoreStateAsync(RecordMetaDataProto.DataStoreInfo.SpecialStoreState.State.FORBID_RECORD_UPDATE, "testing").join();
+            recordStore.setStoreLockStateAsync(RecordMetaDataProto.DataStoreInfo.StoreLockState.State.FORBID_RECORD_UPDATE, "testing").join();
             context.commit();
         }
     }
@@ -264,7 +264,7 @@ class RecordsUpdateLockTest extends OnlineIndexerTest {
     private void allowRecordUpdate() {
         // Clear update records lock
         try (FDBRecordContext context = openContext()) {
-            recordStore.clearSpecialStoreStateAsync().join();
+            recordStore.clearStoreLockStateAsync().join();
             context.commit();
         }
     }
