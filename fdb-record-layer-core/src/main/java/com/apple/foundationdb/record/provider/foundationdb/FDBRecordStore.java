@@ -5627,7 +5627,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          *             long time, so it does not seem prudent to build out infrastructure to do so.
          *         </li>
          *     </ul>
-         *     However, it will not set the following, but they can be set transactionally on the returned store.
+         *     However, it will not set the following, though they can be set transactionally on the returned store.
          *     <ul>
          *         <li>
          *             Any header {@linkplain #setHeaderUserField user fields}.
