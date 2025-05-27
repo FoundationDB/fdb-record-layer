@@ -461,7 +461,9 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
     void testValidateMaxScansPerSec() throws Exception {
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(true, true);
         final FormatVersion maximumSupportedVersion = FormatVersion.getMaximumSupportedVersion();
-        saveRecords(1, 200, true, maximumSupportedVersion, simpleMetaData(hook));
+        final int totalRecords = 200;
+        final int maxRecordScannedPerSec = 100;
+        saveRecords(1, totalRecords, true, maximumSupportedVersion, simpleMetaData(hook));
 
         RecordRepairRunner.ValidationKind validationKind = RecordRepairRunner.ValidationKind.RECORD_VALUE_AND_VERSION;
         FDBRecordStore.Builder storeBuilder;
@@ -472,7 +474,7 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
         }
         RecordRepairRunner runner = RecordRepairRunner.builder(fdb)
                 // 200 records at 100 records / sec should average out to 2 seconds (actual scanning time is minimal)
-                .withMaxRecordScannedPerSec(100)
+                .withMaxRecordScannedPerSec(maxRecordScannedPerSec)
                 // have transaction as short as we can since the per-sec calculation only kicks in when transaction is done
                 .withTransactionTimeQuotaMillis(1)
                 .build();
@@ -483,8 +485,9 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
         List<RecordValidationResult> repairResults = runner.runValidationAndRepair(storeBuilder, validationKind, false);
         long end = System.currentTimeMillis();
 
-        Assertions.assertThat(mid - start).isGreaterThan(2000);
-        Assertions.assertThat(end - mid).isGreaterThan(2000);
+        // Total time to run the scan. Add some slack (300 ms) to allow for test to be less flaky
+        Assertions.assertThat(mid - start).isGreaterThan(totalRecords / maxRecordScannedPerSec * 1000 - 300);
+        Assertions.assertThat(end - mid).isGreaterThan(totalRecords / maxRecordScannedPerSec * 1000 - 300);
     }
 
 
