@@ -121,7 +121,7 @@ message DataStoreInfo {
   message SpecialStoreState {
     enum State {
       NONE = 1;
-      // In this state the store may not create new records or change an existing one. If set, the store - from the user's
+      // In this state the store may not create, update, or delete records. If set, the store - from the user's
       // point of view - becomes a read-only store, while indexes and other internal metadata can still be modified.
       // This type of lock may be useful in some extreme cases, such as recovery.
       FORBID_RECORD_UPDATE = 2;

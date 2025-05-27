@@ -96,7 +96,7 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
-import com.apple.foundationdb.record.query.plan.cascades.StoreIsLockedForRecordUpdates;
+import com.apple.foundationdb.record.StoreIsLockedForRecordUpdates;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerializationRegistry;
@@ -448,11 +448,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     private CompletableFuture<RecordStoreState> getRecordStoreStateAsync() {
-        if (recordStoreStateRef.get() != null) {
-            return CompletableFuture.completedFuture(recordStoreStateRef.get());
+        final MutableRecordStoreState localStoreState = recordStoreStateRef.get();
+        if (localStoreState != null) {
+            return CompletableFuture.completedFuture(localStoreState);
         }
         return preloadRecordStoreStateAsync()
-                .thenApply(ignore -> recordStoreStateRef.get());
+                .thenApply(ignore -> localStoreState);
     }
 
     @Override
