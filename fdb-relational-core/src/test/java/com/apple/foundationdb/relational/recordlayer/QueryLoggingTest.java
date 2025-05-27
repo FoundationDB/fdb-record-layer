@@ -31,7 +31,6 @@ import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
-
 import org.apache.logging.log4j.Level;
 import org.assertj.core.api.Assertions;
 import org.junit.Assert;
@@ -160,6 +159,39 @@ public class QueryLoggingTest {
                 }
                 Assertions.assertThat(logAppender.getLogEvents()).isEmpty();
             }
+            try (Statement stmt = conn.createStatement()) {
+                try (ResultSet rs = stmt.executeQuery("select name from restaurant")) {
+                    rs.next();
+                }
+                Assertions.assertThat(logAppender.getLogEvents()).isEmpty();
+            }
+        }
+    }
+
+    @Test
+    void testRelationalConnectionSetLogOnThenOff() throws Exception {
+        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.NONE)) {
+            conn.setSchema(database.getSchemaName());
+            try (Statement stmt = conn.createStatement()) {
+                try (ResultSet rs = stmt.executeQuery("select name from restaurant")) {
+                    rs.next();
+                }
+                Assertions.assertThat(logAppender.getLogEvents()).isEmpty();
+            }
+            // set logging to true
+            conn.setOption(Options.Name.LOG_QUERY, true);
+            try (PreparedStatement ps = conn.prepareStatement("SELECT name from restaurant where rest_no = ?")) {
+                ps.setLong(1, 0);
+                try (ResultSet rs = ps.executeQuery()) {
+                    rs.next();
+                }
+                Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("query=\"SELECT 'NAME' from 'RESTAURANT' where 'REST_NO' = ?\"");
+                Assertions.assertThat(logAppender.getLogEvents()).hasSize(1);
+            }
+            logAppender.getLogEvents().clear();
+            // ... and then explicitly to false
+            conn.setOption(Options.Name.LOG_QUERY, false);
             try (Statement stmt = conn.createStatement()) {
                 try (ResultSet rs = stmt.executeQuery("select name from restaurant")) {
                     rs.next();
