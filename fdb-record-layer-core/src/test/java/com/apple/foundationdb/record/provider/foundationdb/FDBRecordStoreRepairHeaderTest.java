@@ -41,6 +41,7 @@ import com.google.protobuf.Message;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -58,8 +59,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 
 @Tag(Tags.RequiresFDB)
+// These update the MetaDataVersion in the database, which is global state, and will play poorly with other
+// tests that depend on that, specifically tests of the caching. If we ever start running tests in parallel against
+// the same FDB we may want to consider creating a specific ResourceLock for the MetaDataVersion.
+@Isolated
 public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
 
     static Stream<FormatVersion> formatVersions() {
@@ -71,6 +77,16 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
                 .flatMap(oldVersion -> formatVersions().filter(newVersion -> newVersion.isAtLeast(oldVersion))
                 .flatMap(newVersion -> Stream.of(true, false)
                         .map(supportSplitRecords -> Arguments.of(oldVersion, newVersion, supportSplitRecords))));
+    }
+
+    @Test
+    void checkMaxFormatVersion() {
+        assertThat(FormatVersion.getMaximumSupportedVersion())
+                .as("The behavior of repairMissingHeader needs to be validated with the new format version")
+                // This should only fail when a new format version is added. If this test fails, the developer should
+                // make any modifications to repairMissingHeader to accommodate the new version, and then update this
+                // to the new value
+                .isEqualTo(FormatVersion.RECORD_COUNT_STATE);
     }
 
     @ParameterizedTest
@@ -611,9 +627,9 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
 
         @Override
         @SuppressWarnings("deprecation") // overriding deprecated method
-        public CompletableFuture<Integer> checkUserVersion(final int oldUserVersion, final int oldMetaDataVersion, final RecordMetaDataProvider metaData) {
-            assertEquals(this.oldUserVersion, oldUserVersion);
-            return CompletableFuture.completedFuture(newUserVersion);
+        public CompletableFuture<Integer> checkUserVersion(final int oldUserVersion, final int oldMetaDataVersion,
+                                                           final RecordMetaDataProvider metaData) {
+            return fail("Should not call deprecated checkUserVersion");
         }
     }
 
@@ -633,10 +649,9 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
 
         @Override
         @SuppressWarnings("deprecation") // overriding deprecated method
-        public CompletableFuture<Integer> checkUserVersion(final int oldUserVersion, final int oldMetaDataVersion, final RecordMetaDataProvider metaData) {
-            assertThat(oldMetaDataVersion).isEqualTo(expected.getVersion());
-            assertThat(metaData).isEqualTo(expected);
-            return CompletableFuture.completedFuture(oldUserVersion);
+        public CompletableFuture<Integer> checkUserVersion(final int oldUserVersion, final int oldMetaDataVersion,
+                                                           final RecordMetaDataProvider metaData) {
+            return fail("Should not call deprecated checkUserVersion");
         }
     }
 }
