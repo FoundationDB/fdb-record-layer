@@ -98,7 +98,7 @@ public class RecordRepairRunner {
      * @param database the FDB database to use to create new transactions
      * @return the builder instance
      */
-    static Builder builder(@Nonnull FDBDatabase database) {
+    public static Builder builder(@Nonnull FDBDatabase database) {
         return new Builder(database);
     }
 
@@ -177,24 +177,26 @@ public class RecordRepairRunner {
                                                                               @Nonnull final ValidationKind validationKind,
                                                                               boolean allowRepair) {
         RecordValueValidator valueValidator = new RecordValueValidator(store);
-        return valueValidator.validateRecordAsync(primaryKey.get()).thenCompose(result -> {
-            if (!result.isValid()) {
+        // The following is dependent on the semantics of value and version repairs. A more elaborate scheme
+        // to introduce flow control and abort/continue mechanisms would make this more generic but is yet unnecessary.
+        return valueValidator.validateRecordAsync(primaryKey.get()).thenCompose(valueValidationResult -> {
+            if (!valueValidationResult.isValid()) {
                 if (allowRepair) {
-                    return valueValidator.repairRecordAsync(result);
+                    return valueValidator.repairRecordAsync(valueValidationResult);
                 } else {
-                    return CompletableFuture.completedFuture(result);
+                    return CompletableFuture.completedFuture(valueValidationResult);
                 }
             } else if (validationKind == ValidationKind.RECORD_VALUE_AND_VERSION) {
                 RecordVersionValidator versionValidator = new RecordVersionValidator(store);
-                return versionValidator.validateRecordAsync(primaryKey.get()).thenCompose(result2 -> {
-                    if (!result2.isValid() && allowRepair) {
-                        return versionValidator.repairRecordAsync(result2);
+                return versionValidator.validateRecordAsync(primaryKey.get()).thenCompose(versionValidationResult -> {
+                    if (!versionValidationResult.isValid() && allowRepair) {
+                        return versionValidator.repairRecordAsync(versionValidationResult);
                     } else {
-                        return CompletableFuture.completedFuture(result2);
+                        return CompletableFuture.completedFuture(versionValidationResult);
                     }
                 });
             } else {
-                return CompletableFuture.completedFuture(result);
+                return CompletableFuture.completedFuture(valueValidationResult);
             }
         });
     }

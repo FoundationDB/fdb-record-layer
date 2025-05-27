@@ -43,6 +43,8 @@ import java.util.concurrent.CompletableFuture;
  * Each call to {@link #repairRecordAsync(RecordValidationResult)} takes a {@link RecordValidationResult}, presumably
  * returned by a previous call to {@link #validateRecordAsync(Tuple)}. Mixing results among different validators may result
  * in unpredictable behavior.
+ * Following a call to {@link #repairRecordAsync(RecordValidationResult)} the result's {@link RecordValidationResult#isRepaired()}
+ * should return {@code true} and the {@link RecordValidationResult#getRepairCode()} should return information about the repair.
  * <p>
  * Ideally, the two calls (validate and repair) would be called within the same transaction. Spanning them across transactions
  * may allow the database state to change in between the calls and create a repair operation that is incorrect.
@@ -61,7 +63,7 @@ public interface RecordValidator {
     /**
      * Repair a record based on the previously executed validation.
      * @param validationResult the result of the previously executed validation
-     * @return a future to be completed once the repair is done
+     * @return a future to be completed with the repair result
      */
     CompletableFuture<RecordValidationResult> repairRecordAsync(@Nonnull RecordValidationResult validationResult);
 }

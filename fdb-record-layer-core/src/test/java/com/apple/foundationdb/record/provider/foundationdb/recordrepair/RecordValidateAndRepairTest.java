@@ -48,6 +48,9 @@ import java.util.stream.Stream;
 /**
  * Test the store's {@link RecordRepairRunner} implementation.
  * End to end test for the entire record validation and repair process.
+ * This is very close in implementation to {@link RecordValidateOnlyTest}, except that the "repair" is turned on
+ * and more assertions and validations are added. It feals as though the two tests should remain separate to keep the
+ * code readable and maintainable.
  */
 public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
     public static Stream<Arguments> splitFormatVersion() {
@@ -260,7 +263,6 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
 
     @MethodSource("splitFormatVersion")
     @ParameterizedTest
-        // TODO: Remove?
     void testValidateRecordsMissingVersion(boolean splitLongRecords, FormatVersion formatVersion, boolean storeVersions, RecordRepairRunner.ValidationKind validationKind) throws Exception {
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(splitLongRecords, storeVersions);
         List<FDBStoredRecord<Message>> savedRecords = saveRecords(splitLongRecords, formatVersion, hook);
@@ -274,40 +276,59 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
-        RecordValidationStatsResult repairStats;
         List<RecordValidationResult> repairResults;
-
+        FDBRecordStore.Builder storeBuilder;
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-            RecordRepairRunner runner = RecordRepairRunner.builder(fdb).build();
-            repairStats = runner.runValidationStats(store.asBuilder(), validationKind);
-            repairResults = runner.runValidationAndRepair(store.asBuilder(), validationKind, false);
+            storeBuilder = store.asBuilder();
         }
+        RecordRepairRunner runner = RecordRepairRunner.builder(fdb).build();
+        repairResults = runner.runValidationAndRepair(storeBuilder, validationKind, true);
 
         if (validationKind.equals(RecordRepairRunner.ValidationKind.RECORD_VALUE)) {
             // not validating versions
-            Assertions.assertThat(repairStats.getStats()).isEmpty();
             Assertions.assertThat(repairResults).isEmpty();
         } else {
             if (!storeVersions) {
                 // checking but not storing versions
-                Assertions.assertThat(repairStats.getStats()).containsEntry(RecordVersionValidator.CODE_VERSION_MISSING_ERROR, 50);
-                Assertions.assertThat(repairResults).allMatch(result -> result.getErrorCode().equals(RecordVersionValidator.CODE_VERSION_MISSING_ERROR));
+                Assertions.assertThat(repairResults).allMatch(result ->
+                        result.getErrorCode().equals(RecordVersionValidator.CODE_VERSION_MISSING_ERROR) &&
+                                result.isRepaired() && result.getRepairCode().equals(RecordVersionValidator.REPAIR_VERSION_CREATED));
                 Assertions.assertThat(repairResults.stream().map(RecordValidationResult::getPrimaryKey).collect(Collectors.toList()))
                         .isEqualTo(IntStream.range(1, 51).boxed().map(Tuple::from).collect(Collectors.toList()));
             } else {
                 if (!ValidationTestUtils.versionStoredWithRecord(formatVersion)) {
                     // versions stored elsewhere - none deleted
-                    Assertions.assertThat(repairStats.getStats()).isEmpty();
                     Assertions.assertThat(repairResults).isEmpty();
                 } else {
                     // versions stored with records, 20 are deleted
-                    Assertions.assertThat(repairStats.getStats()).containsEntry(RecordVersionValidator.CODE_VERSION_MISSING_ERROR, 20);
-                    Assertions.assertThat(repairResults).allMatch(result -> result.getErrorCode().equals(RecordVersionValidator.CODE_VERSION_MISSING_ERROR));
+                    Assertions.assertThat(repairResults).allMatch(result ->
+                            result.isRepaired() && result.getRepairCode().equals(RecordVersionValidator.REPAIR_VERSION_CREATED));
                     Assertions.assertThat(repairResults.stream().map(RecordValidationResult::getPrimaryKey).collect(Collectors.toList()))
                             .isEqualTo(IntStream.range(1, 21).boxed().map(Tuple::from).collect(Collectors.toList()));
                 }
             }
+        }
+
+        // Run validation again
+        repairResults = runner.runValidationAndRepair(storeBuilder, validationKind, true);
+        if (!storeVersions && !ValidationTestUtils.versionStoredWithRecord(formatVersion) && validationKind.equals(RecordRepairRunner.ValidationKind.RECORD_VALUE_AND_VERSION)) {
+            // When the versions are stored away from the record and metadata says not to store versions, we are not loading versions ever
+            // So even if we are repairing the version, it will still be missing
+            Assertions.assertThat(repairResults).hasSize(50);
+            Assertions.assertThat(repairResults).allMatch(result ->
+                    (!result.isValid()) && result.getErrorCode().equals(RecordVersionValidator.CODE_VERSION_MISSING_ERROR) &&
+                            result.isRepaired() && result.getRepairCode().equals(RecordVersionValidator.REPAIR_VERSION_CREATED));
+        } else {
+            // Everything was "repaired"
+            Assertions.assertThat(repairResults).hasSize(0);
+        }
+
+        // Load the records again to  make sure they are all there
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
+            final List<FDBStoredRecord<Message>> records = store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asList().get();
+            Assertions.assertThat(records).hasSize(50);
         }
     }
 

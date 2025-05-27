@@ -36,6 +36,8 @@ import java.util.Objects;
  *     <li>isValid: an overall result of the validation operation</li>
  *     <li>errorCode: A unique key representing the result of the validation. Use {@link #CODE_VALID} for valid result</li>
  *     <li>message: A message describing the result of the validation</li>
+ *     <li>isRepaired: whether an attempt to repair the record was made</li>
+ *     <li>repairCode (Optional): The repair action taken</li>
  * </ul>
  */
 @API(API.Status.EXPERIMENTAL)
@@ -124,5 +126,17 @@ public class RecordValidationResult {
     @Override
     public int hashCode() {
         return Objects.hash(primaryKey, isValid, errorCode, isRepaired, repairCode);
+    }
+
+    @Override
+    public String toString() {
+        return "RecordValidationResult{" +
+                "primaryKey=" + primaryKey +
+                ", isValid=" + isValid +
+                ", errorCode='" + errorCode + '\'' +
+                ", message='" + message + '\'' +
+                ", isRepaired=" + isRepaired +
+                ", repairCode='" + repairCode + '\'' +
+                '}';
     }
 }

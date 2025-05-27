@@ -37,11 +37,11 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * A record validator that ensures the record has a valid version.
- * A record that is valid with this validator has to have a valid value, has to exist and has to have a version.
+ * A record has to have a valid value to be validated with this validator. It also has to exist and have a version.
  * Since version creation for a record can be done on a per-record basis (when the record is saved), it is the responsibility
  * of the user of the validator to decide whether a version should be present on not. As a general rule, the metadata
  * has a {@link RecordMetaData#isStoreRecordVersions()} property that is used as the default value for making that decision,
- * but the {@link FDBRecordStore#saveRecordAsync(Message, FDBRecordVersion, FDBRecordStoreBase.VersionstampSaveBehavior)} )}
+ * but the {@link FDBRecordStore#saveRecordAsync(Message, FDBRecordVersion, FDBRecordStoreBase.VersionstampSaveBehavior)}
  * can override this.
  * Once this validator is used, it assumes that versions are to be saved with the records and will flag a record that has
  * no version. The repair operation will create a new version for that record.
@@ -90,7 +90,6 @@ public class RecordVersionValidator implements RecordValidator {
                             LogMessageKeys.PRIMARY_KEY, validationResult.getPrimaryKey()));
                 }
                 // Create a new version
-                // Todo: Is this correct???
                 // Save the record with the existing data and the new version
                 // This uses the WITH_VERSION behavior to force a version even if the metadata says otherwise, since this
                 // is the assumption of the validator

@@ -48,7 +48,7 @@ import java.util.stream.Stream;
  * Test the store's {@link RecordRepairRunner} implementation.
  * End to end test for the entire record validation process.
  */
-public class RecordRepairRunnerTest extends FDBRecordStoreTestBase {
+public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
     public static Stream<Arguments> splitFormatVersion() {
         return ParameterizedTestUtils.cartesianProduct(
                 ParameterizedTestUtils.booleans("splitLongRecords"),
@@ -293,10 +293,11 @@ public class RecordRepairRunnerTest extends FDBRecordStoreTestBase {
         boolean storeVersions = true;
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(splitLongRecords, storeVersions);
         List<FDBStoredRecord<Message>> savedRecords = saveRecords(splitLongRecords, formatVersion, hook);
+        final Tuple primaryKey = savedRecords.get(ValidationTestUtils.RECORD_INDEX_WITH_THREE_SPLITS).getPrimaryKey();
         // corrupt the value of the record
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-            byte[] key = ValidationTestUtils.getSplitKey(store, savedRecords.get(ValidationTestUtils.RECORD_INDEX_WITH_THREE_SPLITS).getPrimaryKey(), 1);
+            byte[] key = ValidationTestUtils.getSplitKey(store, primaryKey, 1);
             final byte[] value = new byte[] {1, 2, 3, 4, 5};
             store.ensureContextActive().set(key, value);
             commit(context);
@@ -315,7 +316,7 @@ public class RecordRepairRunnerTest extends FDBRecordStoreTestBase {
         Assertions.assertThat(repairStats.getStats()).hasSize(1);
         Assertions.assertThat(repairStats.getStats()).containsEntry(RecordValueValidator.CODE_DESERIALIZE_ERROR, 1);
         Assertions.assertThat(repairResults).hasSize(1);
-        Assertions.assertThat(repairResults).allMatch(result -> result.getErrorCode().equals(RecordValueValidator.CODE_DESERIALIZE_ERROR));
+        Assertions.assertThat(repairResults.get(0)).isEqualTo(RecordValidationResult.invalid(primaryKey, RecordValueValidator.CODE_DESERIALIZE_ERROR, "any"));
     }
 
     @MethodSource("formatVersion")
@@ -390,7 +391,6 @@ public class RecordRepairRunnerTest extends FDBRecordStoreTestBase {
             storeBuilder = store.asBuilder();
         }
         RecordRepairRunner runner = RecordRepairRunner.builder(fdb).build();
-        RecordValidationStatsResult repairStats = runner.runValidationStats(storeBuilder, validationKind);
         List<RecordValidationResult> repairResults = runner.runValidationAndRepair(storeBuilder, validationKind, false);
 
         Map<Integer, RecordValidationResult> validationResultMap = repairResults.stream()
