@@ -821,7 +821,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         }
 
         public RecordQueryPlan build(final boolean useNestedResult, final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode) {
-            final var currentQuantifier = queryPredicates.isEmpty() ? quantifier : Quantifier.physical(Reference.of(new RecordQueryPredicatesFilterPlan(quantifier, queryPredicates)));
+            final var currentQuantifier = queryPredicates.isEmpty() ? quantifier : Quantifier.physical(Reference.plannedOf(new RecordQueryPredicatesFilterPlan(quantifier, queryPredicates)));
 
             List<Value> groupValues = new ArrayList<>();
             for (String f: groupFieldNames) {
