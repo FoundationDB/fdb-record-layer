@@ -153,9 +153,9 @@ public enum FormatVersion implements Comparable<FormatVersion> {
      */
     RECORD_COUNT_STATE(11),
     /**
-     * This FormatVersion supports setting a special store state.
+     * This FormatVersion supports setting a store lock state.
      */
-    SPECIAL_STORE_STATE(12),
+    STORE_LOCK_STATE(12),
     ;
 
     private final int value;

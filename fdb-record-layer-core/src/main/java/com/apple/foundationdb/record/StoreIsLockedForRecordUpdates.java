@@ -34,7 +34,7 @@ public class StoreIsLockedForRecordUpdates extends RecordCoreStorageException {
 
     public StoreIsLockedForRecordUpdates(@Nonnull final RecordStoreState recordStoreState) {
         super("Record Store is locked for record updates",
-                LogMessageKeys.SPECIAL_STORE_STATE_LOG_STAMP, recordStoreState.getStoreHeader().getSpecialStoreState().getLogStamp(),
-                LogMessageKeys.SPECIAL_STORE_STATE_TIME_STAMP_MILLIS, recordStoreState.getStoreHeader().getSpecialStoreState().getTimeStamp());
+                LogMessageKeys.STORE_LOCK_STATE_LOG_STAMP, recordStoreState.getStoreHeader().getStoreLockState().getReason(),
+                LogMessageKeys.STORE_LOCK_STATE_TIME_STAMP_MILLIS, recordStoreState.getStoreHeader().getStoreLockState().getTimestamp());
     }
 }

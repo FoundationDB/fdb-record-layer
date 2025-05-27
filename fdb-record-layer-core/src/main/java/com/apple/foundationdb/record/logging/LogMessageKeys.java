@@ -341,9 +341,9 @@ public enum LogMessageKeys {
     PROPERTY_NAME,
     PROPERTY_TYPE,
 
-    // Special Store State
-    SPECIAL_STORE_STATE_LOG_STAMP,
-    SPECIAL_STORE_STATE_TIME_STAMP_MILLIS,
+    // Store Lock State
+    STORE_LOCK_STATE_LOG_STAMP,
+    STORE_LOCK_STATE_TIME_STAMP_MILLIS,
     ;
 
     private final String logKey;
