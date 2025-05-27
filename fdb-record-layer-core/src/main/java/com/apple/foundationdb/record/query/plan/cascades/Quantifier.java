@@ -95,13 +95,6 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     private final CorrelationIdentifier alias;
 
     /**
-     * As a quantifier is immutable, the correlated set can be computed lazily and then cached. This supplier
-     * represents that cached set.
-     */
-    @Nonnull
-    private final Supplier<Set<CorrelationIdentifier>> correlatedToSupplier;
-
-    /**
      * As a quantifier is immutable, the columns that flow along the quantifier can be lazily computed.
      */
     @Nonnull
@@ -540,10 +533,10 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         public PPhysicalQuantifier toProto(@Nonnull final PlanSerializationContext serializationContext) {
             final PPhysicalQuantifier.Builder builder = PPhysicalQuantifier.newBuilder()
                     .setAlias(getAlias().getId());
-            final LinkedIdentitySet<RelationalExpression> members = getRangesOver().getMembers();
-            for (final RelationalExpression member : members) {
-                Verify.verify(member instanceof RecordQueryPlan);
-                builder.addPlanReferences(serializationContext.toPlanReferenceProto((RecordQueryPlan)member));
+            final var finalExpressions = getRangesOver().getFinalExpressions();
+            for (final RelationalExpression finalExpression : finalExpressions) {
+                Verify.verify(finalExpression instanceof RecordQueryPlan);
+                builder.addPlanReferences(serializationContext.toPlanReferenceProto((RecordQueryPlan)finalExpression));
             }
             return builder.build();
         }
@@ -551,11 +544,11 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         @Nonnull
         public static Physical fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                          @Nonnull final PPhysicalQuantifier physicalQuantifierProto) {
-            final ImmutableList.Builder<RelationalExpression> membersBuilder = ImmutableList.builder();
+            final ImmutableList.Builder<RecordQueryPlan> membersBuilder = ImmutableList.builder();
             for (int i = 0; i < physicalQuantifierProto.getPlanReferencesCount(); i ++) {
                 membersBuilder.add(serializationContext.fromPlanReferenceProto(physicalQuantifierProto.getPlanReferences(i)));
             }
-            final Reference reference = Reference.from(membersBuilder.build());
+            final Reference reference = Reference.ofFinalExpressions(PlannerStage.PLANNED, membersBuilder.build());
             return physicalBuilder().withAlias(CorrelationIdentifier.of(Objects.requireNonNull(physicalQuantifierProto.getAlias())))
                     .build(reference);
         }
@@ -584,7 +577,6 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     protected Quantifier(@Nonnull final CorrelationIdentifier alias) {
         this.alias = alias;
-        this.correlatedToSupplier = Suppliers.memoize(() -> getRangesOver().getCorrelatedTo());
         this.flowedColumnsSupplier = Suppliers.memoize(this::computeFlowedColumns);
         this.flowedValuesSupplier = Suppliers.memoize(this::computeFlowedValues);
         // Call debugger hook for this new quantifier.
@@ -615,14 +607,14 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     /**
      * Allow the computation of {@link ExpressionProperty}s across the quantifiers in the data flow graph.
-     * @param visitor the planner property that is being computed
-     * @param <U> the type of the property being computed
+     * @param visitor the visitor that is being accepted
+     * @param <U> the type the visitor computes
      * @return the property
      */
     @Nullable
-    public <U> U acceptPropertyVisitor(@Nonnull ExpressionProperty<U> visitor) {
+    public <U> U acceptVisitor(@Nonnull SimpleExpressionVisitor<U> visitor) {
         if (visitor.shouldVisit(this)) {
-            return visitor.evaluateAtQuantifier(this, getRangesOver().acceptPropertyVisitor(visitor));
+            return visitor.evaluateAtQuantifier(this, getRangesOver().acceptVisitor(visitor));
         }
         return null;
     }
@@ -672,7 +664,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
-        return correlatedToSupplier.get();
+        return getRangesOver().getCorrelatedTo();
     }
 
     /**
@@ -775,7 +767,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     @Override
     @Nonnull
     public Quantifier rebase(@Nonnull final AliasMap translationMap) {
-        return translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap), false);
+        throw new UnsupportedOperationException("rebase not supported on quantifier");
     }
 
     @Nonnull

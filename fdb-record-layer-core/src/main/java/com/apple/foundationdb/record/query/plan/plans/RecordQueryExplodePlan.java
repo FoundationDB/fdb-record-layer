@@ -33,15 +33,15 @@ import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
-import com.apple.foundationdb.record.query.plan.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
+import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -104,7 +104,9 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
     public RecordQueryExplodePlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                         final boolean shouldSimplifyValues,
                                                         @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        final Value translatedCollectionValue = collectionValue.translateCorrelations(translationMap, shouldSimplifyValues);
+        Verify.verify(translatedQuantifiers.isEmpty());
+        final Value translatedCollectionValue =
+                collectionValue.translateCorrelations(translationMap, shouldSimplifyValues);
         if (translatedCollectionValue != collectionValue) {
             return new RecordQueryExplodePlan(translatedCollectionValue);
         }
@@ -117,7 +119,7 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
     }
 
     @Override
-    public RecordQueryExplodePlan strictlySorted(@Nonnull final Memoizer memoizer) {
+    public RecordQueryExplodePlan strictlySorted(@Nonnull final FinalMemoizer memoizer) {
         return this;
     }
 

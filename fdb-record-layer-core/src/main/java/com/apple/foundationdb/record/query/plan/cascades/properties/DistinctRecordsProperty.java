@@ -23,10 +23,11 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
@@ -81,18 +82,35 @@ import java.util.List;
 /**
  * An attribute used to indicate if a plan produces distinct records.
  */
-public class DistinctRecordsProperty implements PlanProperty<Boolean> {
-    public static final PlanProperty<Boolean> DISTINCT_RECORDS = new DistinctRecordsProperty();
+public class DistinctRecordsProperty implements ExpressionProperty<Boolean> {
+    private static final DistinctRecordsProperty DISTINCT_RECORDS = new DistinctRecordsProperty();
+
+    private DistinctRecordsProperty() {
+        // prevent outside instantiation
+    }
 
     @Nonnull
     @Override
-    public RecordQueryPlanVisitor<Boolean> createVisitor() {
-        return new DistinctRecordsVisitor();
+    public RelationalExpressionVisitor<Boolean> createVisitor() {
+        return ExpressionProperty.toExpressionVisitor(new DistinctRecordsVisitor());
     }
 
     @Override
     public String toString() {
         return getClass().getSimpleName();
+    }
+
+    public boolean evaluate(@Nonnull final Reference reference) {
+        return evaluate(reference.getOnlyElementAsPlan());
+    }
+
+    public boolean evaluate(@Nonnull final RecordQueryPlan recordQueryPlan) {
+        return createVisitor().visit(recordQueryPlan);
+    }
+
+    @Nonnull
+    public static DistinctRecordsProperty distinctRecords() {
+        return DISTINCT_RECORDS;
     }
 
     /**
@@ -406,16 +424,11 @@ public class DistinctRecordsProperty implements PlanProperty<Boolean> {
 
         private boolean evaluateForReference(@Nonnull Reference reference) {
             final var memberDistinctRecordsCollection =
-                    reference.getPlannerAttributeForMembers(DISTINCT_RECORDS).values();
+                    reference.getProperty(DISTINCT_RECORDS).values();
 
             return memberDistinctRecordsCollection
                     .stream()
                     .allMatch(d -> d);
-        }
-
-        public static boolean evaluate(@Nonnull RecordQueryPlan recordQueryPlan) {
-            // Won't actually be null for relational planner expressions.
-            return new DistinctRecordsVisitor().visit(recordQueryPlan);
         }
     }
 }

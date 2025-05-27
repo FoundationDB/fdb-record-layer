@@ -29,7 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.Event;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.EventWithState;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.Location;
 import com.apple.foundationdb.record.query.plan.cascades.debug.RestartException;
-import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Enums;
@@ -310,7 +310,12 @@ public class Commands {
                                       @Nonnull final Event event,
                                       @Nonnull final ParsedLine parsedLine) {
             final State state = plannerRepl.getCurrentState();
-            final Event e = state.getEvents().get(state.getCurrentTick());
+            final List<Event> events = state.getEvents();
+            if (events == null) {
+                plannerRepl.printlnError("Configuration mandates to not record events. Please turn on event recording and restart.");
+                return false;
+            }
+            final Event e = events.get(state.getCurrentTick());
             plannerRepl.withProcessors(e, processor -> processor.onDetail(plannerRepl, e));
             return false;
         }
@@ -337,9 +342,13 @@ public class Commands {
                                       @Nonnull final Event event,
                                       @Nonnull final ParsedLine parsedLine) {
             final State state = plannerRepl.getCurrentState();
-            final List<Event> eventList = state.getEvents();
-            for (int tick = 0; tick < eventList.size(); tick++) {
-                final Event e = eventList.get(tick);
+            final List<Event> events = state.getEvents();
+            if (events == null) {
+                plannerRepl.printlnError("Configuration mandates to not record events. Please turn on event recording and restart.");
+                return false;
+            }
+            for (int tick = 0; tick < events.size(); tick++) {
+                final Event e = events.get(tick);
                 if (state.getCurrentTick() == tick) {
                     plannerRepl.printHighlighted("==> ");
                 } else {
@@ -453,7 +462,7 @@ public class Commands {
                 plannerRepl.printKeyValue("kind", reference == null ? "not in cache; " : reference.getClass().getSimpleName() + "; ");
 
                 if (reference != null) {
-                    final var members = reference.getMembers();
+                    final var members = reference.getAllMemberExpressions();
                     final String membersString = members
                             .stream()
                             .map(expression -> Optional.ofNullable(plannerRepl.nameForObject(expression)))
@@ -533,7 +542,7 @@ public class Commands {
                     final EventWithState eventWithState = (EventWithState)event;
                     final Reference rootReference = eventWithState.getRootReference();
                     if ("GRAPH".equals(word1)) {
-                        PlannerGraphProperty.show(PlannerGraphProperty.RENDER_SINGLE_GROUPS, rootReference);
+                        PlannerGraphVisitor.show(PlannerGraphVisitor.RENDER_SINGLE_GROUPS, rootReference);
                         return false;
                     } else if ("MATCH".equals(word1) && words.size() == 3) {
                         final String word2 = words.get(2);
@@ -544,16 +553,16 @@ public class Commands {
                                         .filter(matchCandidate -> word2.equals(matchCandidate.getName()))
                                         .findFirst();
                         if (matchCandidateOptional.isPresent()) {
-                            PlannerGraphProperty.show(true, rootReference, ImmutableSet.of(matchCandidateOptional.get()));
+                            PlannerGraphVisitor.show(true, rootReference, ImmutableSet.of(matchCandidateOptional.get()));
                         } else {
                             plannerRepl.printlnError("unknown match candidate");
                         }
                         return false;
                     } else if ("MATCHES".equals(word1)) {
-                        PlannerGraphProperty.show(true, rootReference, Objects.requireNonNull(plannerRepl.getPlanContext()).getMatchCandidates());
+                        PlannerGraphVisitor.show(true, rootReference, Objects.requireNonNull(plannerRepl.getPlanContext()).getMatchCandidates());
                         return false;
                     } else if ("PLANS".equals(word1)) {
-                        PlannerGraphProperty.show(PlannerGraphProperty.REMOVE_LOGICAL_EXPRESSIONS, rootReference);
+                        PlannerGraphVisitor.show(PlannerGraphVisitor.REMOVE_LOGICAL_EXPRESSIONS, rootReference);
                         return false;
                     }
                 }

@@ -474,7 +474,7 @@ public class Quantifiers {
         return quantifiers
                 .stream()
                 .map(Physical::getRangesOver)
-                .flatMap(reference -> reference.getMembers().stream())
+                .flatMap(reference -> reference.getFinalExpressions().stream())
                 .map(expression -> {
                     Verify.verify(expression instanceof RecordQueryPlan);
                     return (RecordQueryPlan)expression;

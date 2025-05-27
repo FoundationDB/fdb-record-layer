@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
@@ -32,10 +31,9 @@ import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesCostModel;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
-import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
+import com.apple.foundationdb.record.query.plan.cascades.StableSelectorCostModel;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -43,8 +41,8 @@ import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSeriali
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.continuation.CompiledStatement;
 import com.apple.foundationdb.relational.continuation.TypedQueryArgument;
@@ -57,7 +55,6 @@ import com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.RelationalLoggingUtil;
-
 import com.google.common.base.VerifyException;
 import com.google.common.collect.Maps;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -72,6 +69,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+
+import static com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty.usedTypes;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
@@ -191,7 +190,7 @@ public final class PlanGenerator {
                                     final var result = (QueryPlan.PhysicalQueryPlan) candidate;
                                     final var candidateQueryPlan = result.getRecordQueryPlan();
                                     var bestQueryPlan = acc == null ? null : ((QueryPlan.PhysicalQueryPlan) acc).getRecordQueryPlan();
-                                    if (bestQueryPlan == null || new CascadesCostModel(planner.getConfiguration()).compare(candidateQueryPlan, bestQueryPlan) < 0) {
+                                    if (bestQueryPlan == null || new StableSelectorCostModel().compare(candidateQueryPlan, bestQueryPlan) < 0) {
                                         return candidate;
                                     } else {
                                         return acc;
@@ -234,8 +233,8 @@ public final class PlanGenerator {
         // literal and parameter values without LIMIT and CONTINUATION)
         final var parameterHash = ast.getQueryExecutionParameters().getParameterHash();
         final var planGenerationContext = new MutablePlanGenerationContext(planContext.getPreparedStatementParameters(),
-                currentPlanHashMode, parameterHash);
-        final var metadata = RecordLayerSchemaTemplate.fromRecordMetadataWithFakeTemplateNameAndVersion(planContext.getMetaData());
+                currentPlanHashMode, ast.getQuery(), parameterHash);
+        final var metadata = Assert.castUnchecked(planContext.getSchemaTemplate(), RecordLayerSchemaTemplate.class);
         try {
             final var maybePlan = planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.GENERATE_LOGICAL_PLAN, () ->
                     new BaseVisitor(planGenerationContext, metadata, planContext.getDdlQueryFactory(),
@@ -291,7 +290,7 @@ public final class PlanGenerator {
             throw new PlanValidator.PlanValidationException("cannot continue query due to mismatch between serialized and actual plan hash");
         }
 
-        final var planTypes = UsedTypesProperty.evaluate(recordQueryPlan);
+        final var planTypes = usedTypes().evaluate(recordQueryPlan);
         final var typeRepositoryBuilder = TypeRepository.newBuilder();
         planTypes.forEach(typeRepositoryBuilder::addTypeIfNeeded);
         final var typeRepository = typeRepositoryBuilder.build();
@@ -320,11 +319,13 @@ public final class PlanGenerator {
 
         final var planGenerationContext = new MutablePlanGenerationContext(preparedStatementParameters,
                 currentPlanHashMode,
+                ast.getQuery(),
                 Objects.requireNonNull(continuation.getBindingHash()));
         planGenerationContext.setForExplain(ast.getQueryExecutionParameters().isForExplain());
         Arrays.stream(orderedLiterals).forEach(planGenerationContext::addStrippedLiteralOrParameter);
         planGenerationContext.setContinuation(continuationProto);
-        final var continuationPlanConstraint = QueryPlanConstraint.fromProto(serializationContext, compiledStatement.getPlanConstraint());
+        final var continuationPlanConstraint =
+                QueryPlanConstraint.fromProto(serializationContext, compiledStatement.getPlanConstraint());
         return new QueryPlan.ContinuedPhysicalQueryPlan(recordQueryPlan, typeRepository,
                 continuationPlanConstraint,
                 planGenerationContext,

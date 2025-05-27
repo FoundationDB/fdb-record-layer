@@ -22,17 +22,10 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
-import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
-import java.util.Collection;
-import java.util.Set;
-import java.util.function.Predicate;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcher.typed;
@@ -44,6 +37,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 public class ReferenceMatchers {
     @Nonnull
     private static final BindingMatcher<Reference> topReferenceMatcher = BindingMatcher.instance();
+    @Nonnull
+    private static final BindingMatcher<Reference> currentReferenceMatcher = BindingMatcher.instance();
+
 
     private ReferenceMatchers() {
         // do not instantiate
@@ -53,6 +49,11 @@ public class ReferenceMatchers {
     @Nonnull
     public static BindingMatcher<Reference> getTopReferenceMatcher() {
         return topReferenceMatcher;
+    }
+
+    @Nonnull
+    public static BindingMatcher<Reference> getCurrentReferenceMatcher() {
+        return currentReferenceMatcher;
     }
 
     @Nonnull
@@ -70,49 +71,15 @@ public class ReferenceMatchers {
     @SuppressWarnings("unchecked")
     public static <R extends Reference, E extends RelationalExpression> BindingMatcher<R> members(@Nonnull final CollectionMatcher<E> downstream) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<R>)(Class<?>)Reference.class,
-                Extractor.of(Reference::getMembers, name -> "members(" + name + ")"),
+                Extractor.of(Reference::getAllMemberExpressions, name -> "allMembers(" + name + ")"),
                 downstream);
     }
 
     @Nonnull
     @SuppressWarnings("unchecked")
-    public static <R extends Reference> BindingMatcher<R> planPartitions(@Nonnull final BindingMatcher<? extends Iterable<? extends PlanPartition>> downstream) {
-        return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<R>)(Class<?>)Reference.class,
-                Extractor.of(Reference::getPlanPartitions, name -> "planPartitions(" + name + ")"),
+    public static <R extends Reference, E extends RelationalExpression> BindingMatcher<R> exploratoryMembers(@Nonnull final CollectionMatcher<E> downstream) {
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<R>)Reference.class,
+                Extractor.of(Reference::getExploratoryExpressions, name -> "allMembers(" + name + ")"),
                 downstream);
-    }
-
-    @Nonnull
-    @SuppressWarnings("unchecked")
-    public static BindingMatcher<Collection<PlanPartition>> where(@Nonnull final Predicate<PlanPartition> predicate,
-                                                                  @Nonnull final BindingMatcher<? extends Iterable<? extends PlanPartition>> downstream) {
-        return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<Collection<PlanPartition>>)(Class<?>)Collection.class,
-                Extractor.of(planPartitions -> planPartitions.stream().filter(predicate).collect(ImmutableList.toImmutableList()), name -> "filtered planPartitions(" + name + ")"),
-                downstream);
-    }
-
-    public static BindingMatcher<Collection<PlanPartition>> rollUp(@Nonnull final BindingMatcher<? extends Iterable<? extends PlanPartition>> downstream) {
-        return rollUpTo(downstream, ImmutableSet.of());
-    }
-
-    public static BindingMatcher<Collection<PlanPartition>> rollUpTo(@Nonnull final BindingMatcher<? extends Iterable<? extends PlanPartition>> downstream, @Nonnull final PlanProperty<?> interestingAttribute) {
-        return rollUpTo(downstream, ImmutableSet.of(interestingAttribute));
-    }
-
-    @SuppressWarnings("unchecked")
-    public static BindingMatcher<Collection<PlanPartition>> rollUpTo(@Nonnull final BindingMatcher<? extends Iterable<? extends PlanPartition>> downstream, @Nonnull final Set<PlanProperty<?>> interestingAttributes) {
-        return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<Collection<PlanPartition>>)(Class<?>)Collection.class,
-                Extractor.of(planPartitions -> PlanPartition.rollUpTo(planPartitions, interestingAttributes), name -> "rolled up planPartitions(" + name + ")"),
-                downstream);
-    }
-
-    @Nonnull
-    public static BindingMatcher<PlanPartition> anyPlanPartition() {
-        return typed(PlanPartition.class);
-    }
-
-    @Nonnull
-    public static BindingMatcher<PlanPartition> planPartitionWhere(@Nonnull Predicate<PlanPartition> predicate) {
-        return TypedMatcherWithPredicate.typedMatcherWithPredicate(PlanPartition.class, predicate);
     }
 }

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.async;
 
 import com.apple.foundationdb.test.TestExecutors;
+import com.apple.test.ParameterizedTestUtils;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
@@ -215,10 +216,10 @@ public class MoreAsyncUtilTest {
     }
 
     public static Stream<Arguments> combineAndFailFast() {
-        return Arrays.stream(FutureBehavior.values())
-                .flatMap(future1 ->
-                        Arrays.stream(FutureBehavior.values())
-                                .map(future2 -> Arguments.of(future1, future2)));
+        return ParameterizedTestUtils.cartesianProduct(
+                Arrays.stream(FutureBehavior.values()),
+                Arrays.stream(FutureBehavior.values())
+        );
     }
 
     @ParameterizedTest

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.record.query.plan.HeuristicPlanner;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
@@ -41,6 +42,7 @@ import java.util.Set;
 /**
  * Union plan that compares using a {@link KeyExpression}.
  */
+@HeuristicPlanner
 public class RecordQueryInUnionOnKeyExpressionPlan extends RecordQueryInUnionPlan {
     protected RecordQueryInUnionOnKeyExpressionPlan(@Nonnull final PlanSerializationContext serializationContext,
                                                     @Nonnull final PRecordQueryInUnionOnKeyExpressionPlan recordQueryInUnionOnKeyExpressionPlanProto) {
@@ -89,12 +91,9 @@ public class RecordQueryInUnionOnKeyExpressionPlan extends RecordQueryInUnionPla
     public RecordQueryInUnionOnKeyExpressionPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                                        final boolean shouldSimplifyValues,
                                                                        @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new RecordQueryInUnionOnKeyExpressionPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
-                getInSources(),
-                getComparisonKeyExpression(),
-                reverse,
-                maxNumberOfValuesAllowed,
-                internal);
+        return new RecordQueryInUnionOnKeyExpressionPlan(
+                Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class), getInSources(),
+                getComparisonKeyExpression(), reverse, maxNumberOfValuesAllowed, internal);
     }
 
     @Nonnull

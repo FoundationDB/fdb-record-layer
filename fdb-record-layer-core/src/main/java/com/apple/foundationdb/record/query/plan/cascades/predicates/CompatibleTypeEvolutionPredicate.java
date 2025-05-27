@@ -37,18 +37,17 @@ import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
-import com.apple.foundationdb.record.query.plan.cascades.values.FirstOrDefaultStreamingValue;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
-import com.apple.foundationdb.record.query.plan.cascades.properties.DerivationsProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.FirstOrDefaultStreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FirstOrDefaultValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LeafValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.util.TrieNode;
 import com.google.auto.service.AutoService;
@@ -66,6 +65,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Supplier;
+
+import static com.apple.foundationdb.record.query.plan.cascades.properties.DerivationsProperty.derivations;
 
 /**
  * A predicate to be used as part of a {@link com.apple.foundationdb.record.query.plan.QueryPlanConstraint}
@@ -363,7 +364,7 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
 
     @Nonnull
     public static CompatibleTypeEvolutionPredicate fromPlan(@Nonnull final RecordQueryPlan plannedPlan) {
-        final var derivations = DerivationsProperty.evaluateDerivations(plannedPlan);
+        final var derivations = derivations().evaluate(plannedPlan);
         final var simplifiedLocalValues = derivations.simplifyLocalValues();
         final var fieldAccesses = CompatibleTypeEvolutionPredicate.computeFieldAccesses(simplifiedLocalValues);
         return new CompatibleTypeEvolutionPredicate(fieldAccesses);

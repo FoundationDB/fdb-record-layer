@@ -20,84 +20,42 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * A plan partition used for matching.
  */
-public class PlanPartition {
-    private final Map<PlanProperty<?>, ?> attributesMap;
-    private final Set<RecordQueryPlan> plans;
-
-    public PlanPartition(final Map<PlanProperty<?>, ?> attributesMap, final Collection<RecordQueryPlan> plans) {
-        this.attributesMap = ImmutableMap.copyOf(attributesMap);
-        this.plans = new LinkedIdentitySet<>(plans);
+public class PlanPartition extends ExpressionPartition<RecordQueryPlan> {
+    private PlanPartition(@Nonnull final Map<ExpressionProperty<?>, ?> propertyValuesMap,
+                          @Nonnull final Collection<RecordQueryPlan> plans) {
+        super(propertyValuesMap, plans);
     }
 
-    public Map<PlanProperty<?>, ?> getAttributesMap() {
-        return attributesMap;
-    }
-
-    public <A> A getAttributeValue(@Nonnull final PlanProperty<A> planProperty) {
-        return planProperty.narrowAttribute(Objects.requireNonNull(attributesMap.get(planProperty)));
-    }
-
+    @Nonnull
     public Set<RecordQueryPlan> getPlans() {
-        return plans;
+        return getExpressions();
     }
 
     @Nonnull
-    public static List<PlanPartition> rollUpTo(@Nonnull Collection<PlanPartition> planPartitions, @Nonnull final PlanProperty<?> rollupAttributes) {
-        return rollUpTo(planPartitions, ImmutableSet.of(rollupAttributes));
+    public static PlanPartition ofPlans(@Nonnull final Map<ExpressionProperty<?>, ?> propertyValuesMap,
+                                        @Nonnull final Collection<RecordQueryPlan> plans) {
+        return new PlanPartition(propertyValuesMap, plans);
     }
 
     @Nonnull
-    public static List<PlanPartition> rollUpTo(@Nonnull Collection<PlanPartition> planPartitions, @Nonnull final Set<PlanProperty<?>> rollupAttributes) {
-        final Map<Map<PlanProperty<?>, ?>, ? extends Set<RecordQueryPlan>> rolledUpAttributesMap =
-                planPartitions
-                        .stream()
-                        .map(planPartition -> {
-                            final var attributesMap = planPartition.getAttributesMap();
-                            final Map<PlanProperty<?>, ?> filteredAttributesMap =
-                                    attributesMap
-                                            .entrySet()
-                                            .stream()
-                                            .filter(attributeEntry -> rollupAttributes.contains(attributeEntry.getKey()))
-                                            .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
-
-                            // create a new partition that uses only the rollup attributes
-                            return new PlanPartition(filteredAttributesMap, planPartition.getPlans());
-                        })
-                        // group by the filtered attributes rolling up to form new sets of plans
-                        .collect(Collectors.groupingBy(PlanPartition::getAttributesMap,
-                                LinkedHashMap::new,
-                                Collectors.flatMapping(planPartition -> planPartition.getPlans().stream(), LinkedIdentitySet.toLinkedIdentitySet())));
-
-        return toPlanPartitions(rolledUpAttributesMap);
-    }
-
-    @Nonnull
-    public static List<PlanPartition> toPlanPartitions(@Nonnull Map<Map<PlanProperty<?>, ?>, ? extends Set<RecordQueryPlan>> attributesToPlansMap) {
-        return attributesToPlansMap
-                .entrySet()
-                .stream()
-                .map(entry -> {
-                    final var attributesMap = entry.getKey();
-                    final var plans = entry.getValue();
-                    return new PlanPartition(attributesMap, plans);
-                })
-                .collect(ImmutableList.toImmutableList());
+    @SuppressWarnings("unchecked")
+    public static PlanPartition ofExpressions(@Nonnull final Map<ExpressionProperty<?>, ?> propertyValuesMap,
+                                              @Nonnull final Collection<? extends RelationalExpression> expressions) {
+        Debugger.sanityCheck(() ->
+                Verify.verify(expressions.stream().allMatch(plan -> plan instanceof RecordQueryPlan)));
+        return new PlanPartition(propertyValuesMap, (Collection<RecordQueryPlan>)expressions);
     }
 }

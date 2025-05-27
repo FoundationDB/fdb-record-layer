@@ -26,9 +26,10 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.FirstOrDefaultStreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
@@ -108,18 +109,37 @@ import java.util.Objects;
  * In particular, a {@link Value}-tree that somewhere appears in a plan as part of a {@link QueryPredicate}, or other
  * expression, is guaranteed to be part of a derivation which is not correlated.
  */
-public class DerivationsProperty implements PlanProperty<DerivationsProperty.Derivations> {
-    public static final DerivationsProperty DERIVATIONS = new DerivationsProperty();
+public class DerivationsProperty implements ExpressionProperty<DerivationsProperty.Derivations> {
+    private static final DerivationsProperty DERIVATIONS = new DerivationsProperty();
+
+    private DerivationsProperty() {
+        // prevent outside instantiation
+    }
 
     @Nonnull
     @Override
-    public RecordQueryPlanVisitor<Derivations> createVisitor() {
-        return new DerivationsVisitor();
+    public RelationalExpressionVisitor<Derivations> createVisitor() {
+        return ExpressionProperty.toExpressionVisitor(new DerivationsVisitor());
     }
 
     @Override
     public String toString() {
         return getClass().getSimpleName();
+    }
+
+    @Nonnull
+    public Derivations evaluate(@Nonnull final Reference reference) {
+        return evaluate(reference.getOnlyElementAsPlan());
+    }
+
+    @Nonnull
+    public Derivations evaluate(@Nonnull final RecordQueryPlan recordQueryPlan) {
+        return createVisitor().visit(recordQueryPlan);
+    }
+
+    @Nonnull
+    public static DerivationsProperty derivations() {
+        return DERIVATIONS;
     }
 
     /**
@@ -791,11 +811,6 @@ public class DerivationsProperty implements PlanProperty<DerivationsProperty.Der
             final RelationalExpression expression = reference.get();
             return visit((RecordQueryPlan)expression);
         }
-    }
-
-    @Nonnull
-    public static Derivations evaluateDerivations(@Nonnull RecordQueryPlan recordQueryPlan) {
-        return DERIVATIONS.createVisitor().visit(recordQueryPlan);
     }
 
     /**

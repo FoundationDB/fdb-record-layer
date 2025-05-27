@@ -29,14 +29,24 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * An annotation for parameterized tests that take a single boolean argument. One might think one could use
- * {@link org.junit.jupiter.params.provider.ValueSource} for that, but that annotation does not allow
- * one to set a boolean value. This will always provide {@code false} and {@code true} as the single argument
- * to parameterized tests that have this annotation in that order.
+ * An annotation for parameterized tests that take boolean arguments.
+ * One could use {@link org.junit.jupiter.params.provider.ValueSource} for that, but it requires you to explicitly state
+ * that you want to run for {@code true} and {@code false}.
+ * By default, this will provide {@code false} and {@code true} as the single argument to parameterized tests that have
+ * this annotation in that order.
+ * If more than one {@code value} is provided, this will produce the same number of boolean arguments, each with the
+ * given name.
  */
 @Documented
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 @ArgumentsSource(BooleanArgumentsProvider.class)
 public @interface BooleanSource {
+    /**
+     * A name to give the boolean values; if unspecified, {@code "true"} and {@code "false"} will be used.
+     * If multiple values are given, the cartesian product of {@code true} and {@code false} will be used for each of
+     * the names, giving all combinations. There should be one value in this array per boolean parameter to the test.
+     * @return the names to be used for the true value for each argument, the false value will be prefixed with "!"
+     */
+    String[] value() default "";
 }

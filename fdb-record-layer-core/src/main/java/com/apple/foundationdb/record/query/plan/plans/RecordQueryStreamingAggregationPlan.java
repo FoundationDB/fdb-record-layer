@@ -49,14 +49,15 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
-import com.apple.foundationdb.record.query.plan.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -207,9 +208,13 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
     public RecordQueryStreamingAggregationPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                                      final boolean shouldSimplifyValues,
                                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        Verify.verify(translatedQuantifiers.size() == 1);
         final var translatedGroupingKeyValue =
-                groupingKeyValue == null ? null : groupingKeyValue.translateCorrelations(translationMap, shouldSimplifyValues);
-        final var translatedAggregateValue = (AggregateValue)aggregateValue.translateCorrelations(translationMap, shouldSimplifyValues);
+                groupingKeyValue == null
+                ? null
+                : groupingKeyValue.translateCorrelations(translationMap, shouldSimplifyValues);
+        final var translatedAggregateValue =
+                (AggregateValue)aggregateValue.translateCorrelations(translationMap, shouldSimplifyValues);
 
         return new RecordQueryStreamingAggregationPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 translatedGroupingKeyValue,

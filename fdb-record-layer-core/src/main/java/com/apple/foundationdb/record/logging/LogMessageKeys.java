@@ -66,6 +66,8 @@ public enum LogMessageKeys {
     FOUND_INDEX,
     KNOWN_LAST_KEY,
     SPLIT_NEXT_INDEX("next_index"),
+    SPLIT_EXPECTED,
+    SPLIT_FOUND,
     SPLIT_REVERSE("reverse"),
     READ_LAST_KEY_MICROS,
     // protobuf parsing
@@ -310,6 +312,7 @@ public enum LogMessageKeys {
     TOTAL_RECORDS_SCANNED,
     TOTAL_RECORDS_SCANNED_DURING_FAILURES,
     SCRUB_TYPE,
+    RETRY_COUNT,
 
     // time limits milliseconds
     TIME_LIMIT_MILLIS("time_limit_milliseconds"),

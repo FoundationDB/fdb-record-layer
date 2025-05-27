@@ -22,11 +22,11 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
@@ -48,10 +48,10 @@ import javax.annotation.Nonnull;
 import java.util.List;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.rollUpPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyQuantifierOverRef;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyPlanPartition;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.planPartitions;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.rollUp;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.canBeImplemented;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.SetMatcher.exactlyInAnyOrder;
@@ -61,7 +61,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> {
+public class ImplementNestedLoopJoinRule extends ImplementationCascadesRule<SelectExpression> {
     @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(ImplementNestedLoopJoinRule.class);
 
@@ -70,7 +70,7 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
 
     @Nonnull
     private static final BindingMatcher<Reference> outerReferenceMatcher =
-            planPartitions(rollUp(all(outerPlanPartitionsMatcher)));
+            planPartitions(rollUpPartitions(all(outerPlanPartitionsMatcher)));
     @Nonnull
     private static final BindingMatcher<Quantifier> outerQuantifierMatcher = anyQuantifierOverRef(outerReferenceMatcher);
     @Nonnull
@@ -78,7 +78,7 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
 
     @Nonnull
     private static final BindingMatcher<Reference> innerReferenceMatcher =
-            planPartitions(rollUp(all(innerPlanPartitionsMatcher)));
+            planPartitions(rollUpPartitions(all(innerPlanPartitionsMatcher)));
     @Nonnull
     private static final BindingMatcher<Quantifier> innerQuantifierMatcher = anyQuantifierOverRef(innerReferenceMatcher);
     @Nonnull
@@ -92,8 +92,8 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
 
     @Override
     @SuppressWarnings({"java:S135", "java:S2629", "checkstyle:VariableDeclarationUsageDistance", "PMD.GuardLogStatement"})
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
-        final var requestedOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
+    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+        final var requestedOrderingsOptional = call.getPlannerConstraintMaybe(RequestedOrderingConstraint.REQUESTED_ORDERING);
         if (requestedOrderingsOptional.isEmpty()) {
             return;
         }
@@ -155,14 +155,14 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
         final List<QueryPredicate> outerPredicates = outerPredicatesBuilder.build();
         final List<QueryPredicate> outerInnerPredicates = outerInnerPredicatesBuilder.build();
 
-        var outerRef = call.memoizeMemberPlans(outerReference, outerPartition.getPlans());
+        var outerRef = call.memoizeMemberPlansFromOther(outerReference, outerPartition.getPlans());
 
         if (outerQuantifier instanceof Quantifier.Existential) {
-            outerRef = call.memoizePlans(
+            outerRef = call.memoizePlan(
                     new RecordQueryFirstOrDefaultPlan(Quantifier.physicalBuilder().withAlias(outerAlias).build(outerRef),
                             new NullValue(outerQuantifier.getFlowedObjectType())));
         }  else if (outerQuantifier instanceof Quantifier.ForEach && ((Quantifier.ForEach)outerQuantifier).isNullOnEmpty()) {
-            outerRef = call.memoizePlans(
+            outerRef = call.memoizePlan(
                     new RecordQueryDefaultOnEmptyPlan(
                             Quantifier.physicalBuilder().withAlias(outerAlias).build(outerRef),
                             new NullValue(outerQuantifier.getFlowedObjectType())));
@@ -171,27 +171,28 @@ public class ImplementNestedLoopJoinRule extends CascadesRule<SelectExpression> 
         if (!outerPredicates.isEmpty()) {
             // create a new quantifier using a new alias
             final var newOuterLowerQuantifier = Quantifier.physicalBuilder().withAlias(outerAlias).build(outerRef);
-            outerRef = call.memoizePlans(new RecordQueryPredicatesFilterPlan(newOuterLowerQuantifier, outerPredicates));
+            outerRef = call.memoizePlan(new RecordQueryPredicatesFilterPlan(newOuterLowerQuantifier, outerPredicates));
         }
 
         final var newOuterQuantifier =
                 Quantifier.physicalBuilder().withAlias(outerAlias).build(outerRef);
 
         var innerRef =
-                call.memoizeMemberPlans(innerReference, innerPartition.getPlans());
+                call.memoizeMemberPlansFromOther(innerReference, innerPartition.getPlans());
 
         if (innerQuantifier instanceof Quantifier.Existential) {
-            innerRef = call.memoizePlans(new RecordQueryFirstOrDefaultPlan(Quantifier.physicalBuilder().withAlias(innerAlias).build(innerRef),
+            innerRef = call.memoizePlan(new RecordQueryFirstOrDefaultPlan(Quantifier.physicalBuilder().withAlias(innerAlias).build(innerRef),
                     new NullValue(innerQuantifier.getFlowedObjectType())));
         }
 
         if (!outerInnerPredicates.isEmpty()) {
             final var newInnerLowerQuantifier = Quantifier.physicalBuilder().withAlias(innerAlias).build(innerRef);
-            innerRef = call.memoizePlans(new RecordQueryPredicatesFilterPlan(newInnerLowerQuantifier, outerInnerPredicates));
+            innerRef = call.memoizePlan(new RecordQueryPredicatesFilterPlan(newInnerLowerQuantifier, outerInnerPredicates));
         }
 
         final var newInnerQuantifier = Quantifier.physicalBuilder().withAlias(innerAlias).build(innerRef);
 
-        call.yieldExpression(new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier, selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Existential));
+        call.yieldPlan(new RecordQueryFlatMapPlan(newOuterQuantifier, newInnerQuantifier,
+                selectExpression.getResultValue(), innerQuantifier instanceof Quantifier.Existential));
     }
 }

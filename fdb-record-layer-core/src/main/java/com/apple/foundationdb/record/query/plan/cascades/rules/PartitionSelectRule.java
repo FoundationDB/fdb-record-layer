@@ -22,13 +22,12 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
@@ -38,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -58,7 +58,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class PartitionSelectRule extends CascadesRule<SelectExpression> {
+public class PartitionSelectRule extends ExplorationCascadesRule<SelectExpression> {
     private static final CollectionMatcher<Quantifier> combinationQuantifierMatcher = all(anyQuantifier());
 
     private static final BindingMatcher<SelectExpression> root =
@@ -70,7 +70,7 @@ public class PartitionSelectRule extends CascadesRule<SelectExpression> {
 
     @SuppressWarnings("java:S135")
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(@Nonnull final ExplorationCascadesRuleCall call) {
         final var bindings = call.getBindings();
 
         final var selectExpression = bindings.get(root);
@@ -78,6 +78,10 @@ public class PartitionSelectRule extends CascadesRule<SelectExpression> {
             return;
         }
 
+        //
+        // Form lowerAliases and upperAliases. We get lowerAliases from the matcher; upperAliases is what lowerAliases
+        // is not, i.e. the complement of the quantifiers owned by the select expression.
+        //
         final var lowerAliases = bindings.get(combinationQuantifierMatcher)
                 .stream()
                 .map(Quantifier::getAlias)
@@ -94,6 +98,8 @@ public class PartitionSelectRule extends CascadesRule<SelectExpression> {
             }
         }
         final var upperAliases = upperAliasesBuilder.build();
+
+        // we need to have a non-trivial partitioning.
         if (upperAliases.isEmpty()) {
             return;
         }
@@ -249,7 +255,7 @@ public class PartitionSelectRule extends CascadesRule<SelectExpression> {
             final var lowerSelectExpression = lowerGraphExpansionBuilder.build().buildSelect();
 
             final var upperGraphExpansionBuilder = GraphExpansion.builder();
-            upperGraphExpansionBuilder.addQuantifier(Quantifier.forEachBuilder().withAlias(lowerAliasCorrelatedToByUpperAliases).build(call.memoizeExpression(lowerSelectExpression)));
+            upperGraphExpansionBuilder.addQuantifier(Quantifier.forEachBuilder().withAlias(lowerAliasCorrelatedToByUpperAliases).build(call.memoizeExploratoryExpression(lowerSelectExpression)));
             upperGraphExpansionBuilder.addAllQuantifiers(upperAliases.stream().map(alias -> Verify.verifyNotNull(aliasToQuantifierMap.get(alias))).collect(ImmutableList.toImmutableList()));
             upperGraphExpansionBuilder.addAllPredicates(upperPredicates);
             upperSelectExpression = upperGraphExpansionBuilder.build().buildSelectWithResultValue(resultValue);
@@ -258,7 +264,7 @@ public class PartitionSelectRule extends CascadesRule<SelectExpression> {
             final var lowerSelectExpression = lowerGraphExpansionBuilder.build().buildSelectWithResultValue(Verify.verifyNotNull(aliasToQuantifierMap.get(lowerAlias)).getFlowedObjectValue());
 
             final var upperGraphExpansionBuilder = GraphExpansion.builder();
-            upperGraphExpansionBuilder.addQuantifier(Quantifier.forEachBuilder().withAlias(lowerAlias).build(call.memoizeExpression(lowerSelectExpression)));
+            upperGraphExpansionBuilder.addQuantifier(Quantifier.forEachBuilder().withAlias(lowerAlias).build(call.memoizeExploratoryExpression(lowerSelectExpression)));
             upperGraphExpansionBuilder.addAllQuantifiers(upperAliases.stream().map(alias -> Verify.verifyNotNull(aliasToQuantifierMap.get(alias))).collect(ImmutableList.toImmutableList()));
             upperGraphExpansionBuilder.addAllPredicates(upperPredicates);
             upperSelectExpression = upperGraphExpansionBuilder.build().buildSelectWithResultValue(resultValue);
@@ -273,7 +279,7 @@ public class PartitionSelectRule extends CascadesRule<SelectExpression> {
                     RecordConstructorValue.ofColumns(lowerResultColumns);
 
             final var lowerSelectExpression = lowerGraphExpansionBuilder.build().buildSelectWithResultValue(joinedResultValue);
-            final var newUpperQuantifier = Quantifier.forEachBuilder().withAlias(lowerAliasCorrelatedToByUpperAliases).build(call.memoizeExpression(lowerSelectExpression));
+            final var newUpperQuantifier = Quantifier.forEachBuilder().withAlias(lowerAliasCorrelatedToByUpperAliases).build(call.memoizeExploratoryExpression(lowerSelectExpression));
 
             final var translationMapBuilder = TranslationMap.builder();
             for (int i = 0; i < lowerResultColumns.size(); i++) {
@@ -303,7 +309,7 @@ public class PartitionSelectRule extends CascadesRule<SelectExpression> {
             upperSelectExpression = upperGraphExpansionBuilder.build().buildSelectWithResultValue(newResultValue);
         }
         
-        call.yieldExpression(upperSelectExpression);
+        call.yieldExploratoryExpression(upperSelectExpression);
     }
 
     private boolean isCrossProduct(@Nonnull final Set<Set<CorrelationIdentifier>> independentQuantifiersPartitioning,

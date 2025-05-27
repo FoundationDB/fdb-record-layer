@@ -29,17 +29,17 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.cursors.ListCursor;
-import com.apple.foundationdb.record.planprotos.PTempTableScanPlan;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
+import com.apple.foundationdb.record.planprotos.PTempTableScanPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
-import com.apple.foundationdb.record.query.plan.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
+import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.TempTable;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -48,6 +48,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
@@ -90,10 +91,20 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public RelationalExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                       final boolean shouldSimplifyValues,
                                                       @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new TempTableScanPlan(tempTableReferenceValue.translateCorrelations(translationMap, shouldSimplifyValues));
+        Verify.verify(translatedQuantifiers.isEmpty());
+        if (translationMap.definesOnlyIdentities()) {
+            return this;
+        }
+        final var translatedTableReferenceValue =
+                tempTableReferenceValue.translateCorrelations(translationMap, shouldSimplifyValues);
+        if (translatedTableReferenceValue != tempTableReferenceValue) {
+            return new TempTableScanPlan(translatedTableReferenceValue);
+        }
+        return this;
     }
 
     @Override
@@ -102,7 +113,7 @@ public class TempTableScanPlan implements RecordQueryPlanWithNoChildren {
     }
 
     @Override
-    public TempTableScanPlan strictlySorted(@Nonnull Memoizer memoizer) {
+    public TempTableScanPlan strictlySorted(@Nonnull FinalMemoizer memoizer) {
         return this;
     }
 

@@ -74,7 +74,7 @@ dependencies {
 }
 
 jar {
-    duplicatesStrategy "exclude"
+    duplicatesStrategy = "exclude"
     manifest {
         attributes(
                 'Main-Class': 'com.apple.foundationdb.relational.cli.sqlline.RelationalSQLLine',

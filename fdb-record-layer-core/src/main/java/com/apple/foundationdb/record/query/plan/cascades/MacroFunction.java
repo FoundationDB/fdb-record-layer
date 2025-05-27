@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.planprotos.PMacroFunctionValue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
@@ -32,6 +33,7 @@ import com.google.auto.service.AutoService;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -76,6 +78,13 @@ public class MacroFunction extends UserDefinedFunction {
                         .setFunctionName(functionName)
                         .setBody(bodyValue.toValueProto(serializationContext)))
                 .build();
+    }
+
+
+    @Nonnull
+    @Override
+    public Typed encapsulate(@Nonnull final Map<String, ? extends Typed> namedArguments) {
+        throw new RecordCoreException("macro functions do not support named argument calling conventions");
     }
 
     @Nonnull

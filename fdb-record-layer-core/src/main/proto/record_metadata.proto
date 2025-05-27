@@ -26,21 +26,96 @@ import "record_query_plan.proto";
 
 option java_outer_classname = "RecordMetaDataProto";
 
+// This is the protobuf message used for the store header, an internal structure used in every store to track the
+// current state of the store (e.g. version of metadat) and ensure that data is read/written correctly.
+// This data is read any time a store is opened.
 message DataStoreInfo {
+  // The format version that the store is using. This is a monotonically increasing version number used to allow the
+  // store to record or use information in a way that older code may not understand or fully support.
+  // Controlling the version via FDBRecordStore.Builder.setFormatVersion allows clients to prevent the store from using
+  // these new features before other stores support them.
+  // If you try to open a store that has a format verison that is not supported, it will throw an error.
+  // Generally speaking this number can only go up.
+  // Generally speaking increasing this should be definitively achievable in a single transaction, regardless of the
+  // amount or type of data in the store.
+  // This corresponds to FormatVersion.getValueForSerialization().
   optional int32 formatVersion = 1;
+  // This is the version of the metadata that was last used with this store.
+  // This can only go up, you cannot downgrade the metaData version.
+  // Other than building new indexes, or rebuilding changed indexes, upgrading this should be achievable within a
+  // single transaction. UserVersionChecker.needRebuildIndex controls whether or not the record store should try to
+  // rebuild the indexes in the transaction during open (or checkVersion) and should check the record count or store
+  // size to determine whether this is reasonable to attempt.
   optional int32 metaDataversion = 2;
+  // The userVersion is intended to be used as a way for users to do something similar to the formatVersion, but for
+  // information that the record layer does not control.
+  // This _can_ also be used if the UserVersionChecker and RecordMetaDataProvider share state to control what metadata
+  // is provided, as a workaround for https://github.com/FoundationDB/fdb-record-layer/issues/965
   optional int32 userVersion = 3;
+  // If the metadata has a recordCountKey this tracks the key that was in the metadata the last time that
+  // metaDataVersion was updated.
+  // This is needed, in larger part because the RecordCountKey does not have a lastModifiedVersion, and thus we would
+  // have no way to know that the key has changed, and the counts need to be recalculated.
+  // Warning: We currently do not have any means to rebuild the record count key across transactions, so if this changes
+  // stores with more records than can be scanned in a single transaction will fail to run checkVersion (i.e. open)
+  // The counts associated with this key are used by FDBRecordStore.getSnapshotRecordCount and associated methods, but
+  // that will fallback to evaluating an aggregate function.
+  // This was introduced with FormatVersion.RECORD_COUNT_KEY_ADDED.
   optional com.apple.foundationdb.record.expressions.KeyExpression record_count_key = 4;
+  // Tracks the last time the store header was updated for auditing purposes.
   optional uint64 lastUpdateTime = 5;
+  // This was introduced with FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX to maintain backwards compatibility on stores
+  // that have a metadata with splitLongRecords disabled.
+  // If the format version is at least 5, and the metadata has splitLongRecords disabled, and this is true, we will
+  // not insert or expect a split suffix. If splitLongRecords is enabled, or this is false records will always have
+  // a split suffix on the key, regardless of the record size.
+  // Without the suffix, you cannot start splitting long records, so by enabling the suffix you sacrifice a byte
+  // per-record, in exchange for be able to allow larger records in the future.
+  // Additionally, if the suffix is not used, and isStoreRecordVersions is enabled on the metaData, then they are placed
+  // in a disjoint space. This is less efficient, because it requires an additional read anytime you load a record.
+  // The existing of this means that upgrading the format version can happen transactionally, but the stores will not
+  // get the advantages of having the split-record-suffix.
+  // Ideally we would have a way to migrate stores: https://github.com/FoundationDB/fdb-record-layer/issues/3303
   optional bool omit_unsplit_record_suffix = 6;
+  // Whether this store's store header should be cached using MetaDataVersionStampStoreStateCache
+  // This is most important for very active stores that rarely change their metadata to avoid creating a hot shard on
+  // the store header.
+  // Note: All stores with this true will lose their cache any time any store on the cluster changes their store header,
+  // so it should not be used on too many stores within a cluster, or its benefits will be lost.
+  // This was introduced with FormatVersion.CACHEABLE_STATE.
   optional bool cacheable = 7;
 
-  // Compatible with map<string, bytes> on the wire
+  // Compatible with map<string, bytes> on the wire; see user_field.
   message UserFieldEntry {
     optional string key = 1;
     optional bytes value = 2;
   }
+  // A user defined map for storing additional information on the store header.
+  // This should be kept very small, as it is loaded every time the store is opened, and cannot be split.
+  // When considering using this, one should also consider introducing a new record type to store the data.
+  // This was introduced with FormatVersion.HEADER_USER_FIELDS.
   repeated UserFieldEntry user_field = 8;
+
+  // The state of the RecordCount as defined by record_count_key. This is similar to IndexState, but since there is no
+  // mechanism for building the RecordCount across multiple transactions, the state transitions are slightly different.
+  enum RecordCountState {
+    // The RecordCountKey is maintained and usable for FDBRecordStore.getSnapshotRecordCount
+    READABLE = 1;
+    // The RecordCount as defined by record_count_key is maintained, but not queryable
+    // This can be freely updated back to READABLE
+    WRITE_ONLY = 2;
+    // The RecordCount as defined by record_count_key is not maintained.
+    // Once disabled, there is no way to go back to WriteOnly
+    DISABLED = 3;
+  }
+
+  // Whether the RecordCount as defined by record_count_key is usable by FDBRecordStore.getSnapshotRecordCount and
+  // whether it is maintained at all.
+  // This helps as a mechanism to de-risk removing the deprecated RecordCountKey from metadata by disabling it for
+  // queries first, and then disabling entirely, but only for specific stores. Once validated that the necessary COUNT
+  // indexes are working sufficiently, the RecordCountKey can be removed from the metadata more safely.
+  // This was introduced with FormatVersion.RECORD_COUNT_STATE
+  optional RecordCountState record_count_state = 9;
 }
 
 message Index {
@@ -85,6 +160,11 @@ message FormerIndex {
   extensions 1000 to 2000;
 }
 
+message PRawSqlFunction {
+  optional string name = 1;
+  optional string definition = 2;
+}
+
 message MetaData {
   optional google.protobuf.FileDescriptorProto records = 1;
   repeated Index indexes = 2;
@@ -106,6 +186,7 @@ message MetaData {
 message PUserDefinedFunction {
   oneof specific_function {
     com.apple.foundationdb.record.planprotos.PMacroFunctionValue macro_function = 1;
+    PRawSqlFunction sql_function = 2;
   }
 }
 

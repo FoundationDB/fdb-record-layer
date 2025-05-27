@@ -97,6 +97,24 @@ public interface SchemaTemplate extends Metadata {
     BitSet getIndexEntriesAsBitset(@Nonnull Optional<Set<String>> readableIndexNames) throws RelationalException;
 
     /**
+     * Returns all {@link InvokedRoutine}s defined in this schema template.
+     *
+     * @return A set of all {@link InvokedRoutine}s defined in this schema template.
+     * @throws RelationalException If there was an error retrieving the invoked routines from the catalog.
+     */
+    @Nonnull
+    Set<? extends InvokedRoutine> getInvokedRoutines() throws RelationalException;
+
+    /**
+     * Retrieves a {@link InvokedRoutine} by looking up its name.
+     *
+     * @param routineName The name of the {@link InvokedRoutine}.
+     * @return An {@link Optional} containing the {@link InvokedRoutine} if it is found, otherwise {@code Empty}.
+     */
+    @Nonnull
+    Optional<? extends InvokedRoutine> findInvokedRoutineByName(@Nonnull String routineName) throws RelationalException;
+
+    /**
      * Creates a {@link Schema} instance using the specified.
      *
      * @param databaseId The ID of the database.

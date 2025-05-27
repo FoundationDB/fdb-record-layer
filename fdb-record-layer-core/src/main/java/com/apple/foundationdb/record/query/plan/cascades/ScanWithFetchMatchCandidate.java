@@ -54,7 +54,7 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
                                                  @Nonnull final CorrelationIdentifier sourceAlias,
                                                  @Nonnull final CorrelationIdentifier targetAlias,
                                                  @Nonnull final Iterable<? extends Value> providedValuesFromIndex) {
-        if (!isOfPushableTypes(toBePushedValue)) {
+        if (!isOfPushableTypesOrConstant(toBePushedValue, sourceAlias)) {
             return Optional.empty();
         }
 
@@ -76,12 +76,16 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
         return translatedValueOptional.filter(translatedValue -> !translatedValue.getCorrelatedTo().contains(sourceAlias));
     }
 
-    private static boolean isOfPushableTypes(@Nonnull Value toBePushedValue) {
+    private static boolean isOfPushableTypesOrConstant(@Nonnull final Value toBePushedValue,
+                                                       @Nonnull final CorrelationIdentifier sourceAlias) {
+        if (!toBePushedValue.getCorrelatedTo().contains(sourceAlias)) {
+            return true;
+        }
         if (toBePushedValue instanceof FieldValue) {
             return true;
         } else if (toBePushedValue instanceof RecordConstructorValue) {
             return ((RecordConstructorValue)toBePushedValue).getColumns().stream()
-                    .allMatch(column -> isOfPushableTypes(column.getValue()));
+                    .allMatch(column -> isOfPushableTypesOrConstant(column.getValue(), sourceAlias));
         } else {
             // Effectively, this check is needed because of values like the VersionValue, which aren't
             // accessible without a record fetch, even if the index entry contains a VersionValue. We

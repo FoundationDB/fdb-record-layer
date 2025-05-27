@@ -49,10 +49,8 @@ import com.apple.foundationdb.record.query.plan.cascades.WithPrimaryKeyMatchCand
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalIntersectionExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.Cardinality;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
@@ -83,14 +81,15 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.cardinalities;
+
 /**
  * A rule that utilizes index matching information compiled by {@link CascadesPlanner} to create one or more
  * expressions for data access. While this rule delegates specifics to the {@link MatchCandidate}s, the following are
  * possible outcomes of the application of this transformation rule. Based on the match info, we may create for a single match:
  *
  * <ul>
- *     <li>a {@link PrimaryScanExpression} for a single {@link PrimaryScanMatchCandidate},</li>
- *     <li>an index scan/index scan + fetch for a single {@link ValueIndexScanMatchCandidate}</li>
+ *     <li>a primary scan/index scan/index scan + fetch for a single {@link ValueIndexScanMatchCandidate}</li>
  *     <li>an intersection ({@link LogicalIntersectionExpression}) of data accesses </li>
  * </ul>
  *
@@ -752,7 +751,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                     final var dataAccessPlan = entry.getValue();
                                     if (matchCandidate.createsDuplicates()) {
                                         return new RecordQueryUnorderedPrimaryKeyDistinctPlan(
-                                                Quantifier.physical(memoizer.memoizePlans(dataAccessPlan)));
+                                                Quantifier.physical(memoizer.memoizePlan(dataAccessPlan)));
                                     }
                                     return dataAccessPlan;
                                 }));
@@ -860,7 +859,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                             partition
                                     .stream()
                                     .map(pair -> Objects.requireNonNull(matchToPlanMap.get(pair.getElement().getPartialMatch())))
-                                    .map(memoizer::memoizePlans)
+                                    .map(memoizer::memoizePlan)
                                     .map(Quantifier::physical)
                                     .collect(ImmutableList.toImmutableList());
 
@@ -1008,7 +1007,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             intersectionInfoMap.put(cacheKey, IntersectionInfo.ofImpossibleAccess(orderingFromSingleMatchedAccess));
         } else {
             final var compensatedExpression = compensatedExpressionOptional.get();
-            final var cardinalities = CardinalitiesProperty.evaluate(compensatedExpression);
+            final var cardinalities = cardinalities().evaluate(compensatedExpression);
 
             intersectionInfoMap.put(cacheKey,
                     IntersectionInfo.ofSingleAccess(orderingFromSingleMatchedAccess, compensatedExpression,

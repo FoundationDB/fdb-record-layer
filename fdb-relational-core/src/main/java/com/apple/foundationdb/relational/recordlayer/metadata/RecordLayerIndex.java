@@ -115,11 +115,12 @@ public final class RecordLayerIndex implements Index  {
 
     @Nonnull
     public static RecordLayerIndex from(@Nonnull final String tableName, @Nonnull final com.apple.foundationdb.record.metadata.Index index) {
+        final var indexProto = index.toProto();
         return newBuilder().setName(index.getName())
                 .setIndexType(index.getType())
                 .setTableName(tableName)
                 .setKeyExpression(index.getRootExpression())
-                .setPredicate(index.toProto().hasPredicate() ? index.toProto().getPredicate() : null)
+                .setPredicate(indexProto.hasPredicate() ? indexProto.getPredicate() : null)
                 .setOptions(index.getOptions())
                 .build();
     }
@@ -224,7 +225,8 @@ public final class RecordLayerIndex implements Index  {
             Assert.notNullUnchecked(tableName, "table name is not set");
             Assert.notNullUnchecked(indexType, "index type is not set");
             Assert.notNullUnchecked(keyExpression, "index key expression is not set");
-            return new RecordLayerIndex(tableName, indexType, name, keyExpression, predicate, optionsBuilder == null ? ImmutableMap.of() : optionsBuilder.build());
+            return new RecordLayerIndex(tableName, indexType, name, keyExpression, predicate,
+                    optionsBuilder == null ? ImmutableMap.of() : optionsBuilder.build());
         }
     }
 

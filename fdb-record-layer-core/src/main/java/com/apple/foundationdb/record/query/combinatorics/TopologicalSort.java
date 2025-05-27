@@ -730,6 +730,10 @@ public class TopologicalSort {
      * @return a permutation of the set that is topologically correctly ordered with respect to {@code dependsOnFn}
      */
     public static <T> Optional<List<T>> anyTopologicalOrderPermutation(@Nonnull final PartiallyOrderedSet<T> partiallyOrderedSet) {
+        if (partiallyOrderedSet.getDependencyMap().isEmpty()) {
+            // if there are no dependencies, just return a list copy of the set
+            return Optional.of(ImmutableList.copyOf(partiallyOrderedSet.getSet()));
+        }
         return anyTopologicalOrderPermutation(partiallyOrderedSet.getSet(),
                 () -> new KahnIterable<>(PartiallyOrderedSet.of(partiallyOrderedSet.getSet(), partiallyOrderedSet.getDependencyMap().inverse())));
     }

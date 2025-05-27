@@ -73,7 +73,7 @@ public class PushReferencedFieldsThroughFilterRule extends CascadesRule<LogicalF
 
         final Reference lowerRef = bindings.get(lowerRefMatcher);
         final ImmutableSet<FieldValue> allReferencedValues = ImmutableSet.<FieldValue>builder()
-                .addAll(call.getPlannerConstraint(ReferencedFieldsConstraint.REFERENCED_FIELDS)
+                .addAll(call.getPlannerConstraintMaybe(ReferencedFieldsConstraint.REFERENCED_FIELDS)
                         .map(ReferencedFields::getReferencedFieldValues)
                         .orElse(ImmutableSet.of()))
                 .addAll(fieldValuesFromPredicates)

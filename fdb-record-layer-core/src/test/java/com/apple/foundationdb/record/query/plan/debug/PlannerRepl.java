@@ -20,13 +20,13 @@
 
 package com.apple.foundationdb.record.query.plan.debug;
 
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.RestartException;
 import com.apple.foundationdb.record.query.plan.cascades.debug.StatsMaps;
-import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.util.ServiceLoaderProvider;
 import com.google.common.cache.Cache;
@@ -35,10 +35,12 @@ import com.google.common.collect.HashBiMap;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.LineReader;
 import org.jline.reader.LineReaderBuilder;
@@ -138,6 +140,7 @@ public class PlannerRepl implements Debugger {
     }
 
     @Nullable
+    @Override
     public PlanContext getPlanContext() {
         return planContext;
     }
@@ -197,7 +200,7 @@ public class PlannerRepl implements Debugger {
 
     @Override
     public void onShow(@Nonnull final Reference ref) {
-        PlannerGraphProperty.show(true, ref);
+        PlannerGraphVisitor.show(true, ref);
     }
 
     @Override
@@ -472,7 +475,7 @@ public class PlannerRepl implements Debugger {
 
     private void reset() {
         this.stateStack.clear();
-        this.stateStack.push(State.initial(false, null));
+        this.stateStack.push(State.initial(true, false, null));
         this.breakPoints.clear();
         this.currentBreakPointIndex = 0;
         this.currentInternalBreakPointIndex = -1;
@@ -496,7 +499,7 @@ public class PlannerRepl implements Debugger {
 
         printlnKeyValue(prefix + "name", nameForObjectOrNotInCache(reference));
         printlnKeyValue(prefix + "  members", "");
-        for (final RelationalExpression member : reference.getMembers()) {
+        for (final RelationalExpression member : reference.getAllMemberExpressions()) {
             printlnKeyValue(prefix + "  " + nameForObjectOrNotInCache(member), "");
             printlnKeyValue(prefix + "      toString()", String.valueOf(member.toString()));
         }
@@ -849,9 +852,10 @@ public class PlannerRepl implements Debugger {
         public boolean onCallback(final PlannerRepl plannerRepl, final Event event) {
             if (super.onCallback(plannerRepl, event)) {
                 final TransformRuleCallEvent transformRuleCallEvent = (TransformRuleCallEvent)event;
-                return transformRuleCallEvent.getRuleCall()
-                        .getNewExpressions()
-                        .stream()
+                final var ruleCall = transformRuleCallEvent.getRuleCall();
+                final var newExpressions = Iterables.concat(ruleCall.getNewFinalExpressions(),
+                        ruleCall.getNewExploratoryExpressions());
+                return Streams.stream(newExpressions)
                         .map(expression -> Optional.ofNullable(plannerRepl.nameForObject(expression)))
                         .anyMatch(nameOptional -> nameOptional.isPresent() && expressionName.equals(nameOptional.get()));
             }

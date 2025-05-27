@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.HeuristicPlanner;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.EvaluationContextBuilder;
@@ -43,15 +44,16 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.RankedSetIndexHelper;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
-import com.apple.foundationdb.record.query.plan.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
@@ -85,8 +87,9 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
     @Nonnull
     private final List<ScoreForRank> ranks;
 
+    @HeuristicPlanner
     public RecordQueryScoreForRankPlan(@Nonnull RecordQueryPlan plan, @Nonnull List<ScoreForRank> ranks) {
-        this(Quantifier.physical(Reference.of(plan)), ranks);
+        this(Quantifier.physical(Reference.plannedOf(Debugger.verifyHeuristicPlanner(plan))), ranks);
     }
 
     private RecordQueryScoreForRankPlan(@Nonnull final Quantifier.Physical inner,

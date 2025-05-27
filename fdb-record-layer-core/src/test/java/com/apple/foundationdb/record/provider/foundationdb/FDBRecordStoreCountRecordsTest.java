@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexState;
@@ -37,22 +39,31 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.IntConsumer;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
@@ -70,6 +81,9 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 @Tag(Tags.RequiresFDB)
 public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
+
+    private static final String GROUPING_FIELD = "num_value_3_indexed";
+    private static final FieldKeyExpression GROUP_EXPRESSION = field(GROUPING_FIELD);
 
     @Test
     @SuppressWarnings("deprecation")
@@ -139,22 +153,14 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
     private void countRecords(boolean useIndex) {
         final RecordMetaDataHook hook = countKeyHook(EmptyKeyExpression.EMPTY, useIndex, 0);
 
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, hook);
-
-            assertEquals(0, recordStore.getSnapshotRecordCount().join().longValue());
-
-            for (int i = 0; i < 100; i++) {
-                int numBucket = i % 5;
-                recordStore.saveRecord(makeRecord(i, 0, numBucket));
-            }
-            commit(context);
-        }
+        saveRecords(simpleMetaData(hook), 0, 100,
+                () -> assertUngroupedCount(0),
+                () -> assertUngroupedCount(100));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
 
-            assertEquals(100, recordStore.getSnapshotRecordCount().join().longValue());
+            assertUngroupedCount(100);
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -170,7 +176,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
 
-            assertEquals(95, recordStore.getSnapshotRecordCount().join().longValue());
+            assertUngroupedCount(95);
             commit(context);
         }
     }
@@ -186,7 +192,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
     }
 
     private void countRecordsKeyed(boolean useIndex) {
-        final KeyExpression key = field("num_value_3_indexed");
+        final KeyExpression key = GROUP_EXPRESSION;
         final RecordMetaDataHook hook = countKeyHook(key, useIndex, 0);
 
         try (FDBRecordContext context = openContext()) {
@@ -201,7 +207,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
 
-            assertEquals(100, recordStore.getSnapshotRecordCount().join().longValue());
+            assertUngroupedCount(100);
             assertEquals(20, recordStore.getSnapshotRecordCount(key, Key.Evaluated.scalar(1)).join().longValue());
             commit(context);
         }
@@ -228,7 +234,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             // Simulate the state the store would be in if this were done before counting was added.
             recordStore = getStoreBuilder(context, simpleMetaData(countMetaDataHook))
-                    .setFormatVersion(FDBRecordStore.INFO_ADDED_FORMAT_VERSION)
+                    .setFormatVersion(FormatVersion.INFO_ADDED)
                     .uncheckedOpen();
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_EXISTS).join();
 
@@ -238,13 +244,13 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
-        KeyExpression key3 = field("num_value_3_indexed");
+        KeyExpression key3 = GROUP_EXPRESSION;
         countMetaDataHook.metaDataVersion++;
         countMetaDataHook.baseHook = countKeyHook(key3, useIndex, countMetaDataHook.metaDataVersion);
 
         try (FDBRecordContext context = openContext()) {
             recordStore = getStoreBuilder(context, simpleMetaData(countMetaDataHook))
-                    .setFormatVersion(FDBRecordStore.RECORD_COUNT_ADDED_FORMAT_VERSION)
+                    .setFormatVersion(FormatVersion.RECORD_COUNT_ADDED)
                     .uncheckedOpen();
 
             for (int i = 90; i < 100; i++) {
@@ -255,7 +261,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             recordStore = getStoreBuilder(context, simpleMetaData(countMetaDataHook))
-                    .setFormatVersion(FDBRecordStore.RECORD_COUNT_ADDED_FORMAT_VERSION)
+                    .setFormatVersion(FormatVersion.RECORD_COUNT_ADDED)
                     .uncheckedOpen();
 
             assertEquals(10, recordStore.getSnapshotRecordCount().join().longValue(), "should only see new records");
@@ -335,7 +341,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
                 assertThat(recordStore.isIndexReadable(index), is(true));
             }
 
-            assertEquals(132, recordStore.getSnapshotRecordCount().join().longValue());
+            assertUngroupedCount(132);
             for (int i = 0; i < 100; i++) {
                 assertEquals(1, recordStore.getSnapshotRecordCount(pkey, Key.Evaluated.scalar(i + startingPoint)).join().longValue(), "Incorrect when i is " + i);
             }
@@ -363,7 +369,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
             assertThat(e.getMessage(), containsString("requires appropriate index"));
         }
 
-        RecordMetaDataHook hook = countKeyHook(field("num_value_3_indexed"), true, 10);
+        RecordMetaDataHook hook = countKeyHook(GROUP_EXPRESSION, true, 10);
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -415,7 +421,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
 
         AtomicInteger versionCounter = new AtomicInteger(recordStore.getRecordMetaData().getVersion());
         RecordMetaDataHook hook = md -> {
-            md.setRecordCountKey(field("num_value_3_indexed"));
+            md.setRecordCountKey(GROUP_EXPRESSION);
             md.setVersion(md.getVersion() + versionCounter.incrementAndGet());
         };
 
@@ -524,7 +530,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
 
     @Test
     public void countRecordUpdates() {
-        final KeyExpression key = field("num_value_3_indexed");
+        final KeyExpression key = GROUP_EXPRESSION;
         final RecordMetaDataHook hook = countUpdatesKeyHook(key, 0);
         HashMap<Integer, Integer> expectedCountBuckets = new HashMap<>();
 
@@ -544,15 +550,8 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
 
         checkRecordUpdateCounts(expectedCountBuckets, hook, key);
 
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, hook);
-
-            // Delete 5 records, this shouldn't change the counts
-            for (int i = 95; i < 100; i++) {
-                recordStore.deleteRecord(Tuple.from(i));
-            }
-            commit(context);
-        }
+        // Delete 5 records, this shouldn't change the counts
+        deleteRecords(simpleMetaData(hook), 95, 100);
 
         checkRecordUpdateCounts(expectedCountBuckets, hook, key);
 
@@ -651,12 +650,441 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
         }
     }
 
+    static Stream<Arguments> disableRecordCountKey() {
+        return Stream.of(true, false)
+                .flatMap(fromWriteOnly -> Stream.of(true, false)
+                        .flatMap(hasFallBack -> Stream.of(true, false)
+                                .map(grouped -> Arguments.of(fromWriteOnly, hasFallBack, grouped))));
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void disableRecordCountKey(boolean fromWriteOnly, boolean hasFallback, boolean grouped) {
+        final RecordMetaDataBuilder metaDataBuilder = simpleMetaDataBuilder();
+        addRecordCountKey(metaDataBuilder, grouped ? GROUP_EXPRESSION : EmptyKeyExpression.EMPTY);
+        if (hasFallback) {
+            addCountIndex(metaDataBuilder, grouped ? GROUP_EXPRESSION : EmptyKeyExpression.EMPTY);
+        }
+        IntConsumer assertCount = expected -> {
+            if (grouped) {
+                for (int groupingValue = 0; groupingValue < 5; groupingValue++) {
+                    assertGroupedCount(expected / 5, groupingValue);
+                }
+            } else {
+                assertUngroupedCount(expected);
+            }
+        };
+        final RecordMetaData metaData = metaDataBuilder.build();
+        saveRecords(metaData, 0, 100,
+                () -> assertCount.accept(0),
+                () -> assertCount.accept(100));
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            assertCount.accept(100);
+        }
+
+        rawAssertHasRecordCount(metaData, true);
+        if (fromWriteOnly) {
+            updateRecordCountState(metaData, RecordMetaDataProto.DataStoreInfo.RecordCountState.WRITE_ONLY);
+        }
+
+        updateRecordCountState(metaData, RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED);
+
+        rawAssertHasRecordCount(metaData, false);
+
+        // We should be able to save new records without issue
+        saveRecords(metaData, 100, 110, () -> { }, () -> { });
+
+        // We should be able to delete some records without issue
+        deleteRecords(metaData, 95, 100);
+
+        // We cannot get the record count because there is no index, or recordCountKey
+        if (hasFallback) {
+            try (FDBRecordContext context = openContext()) {
+                createOrOpenRecordStore(context, metaData);
+                assertCount.accept(105);
+            }
+        } else {
+            assertCannotGetUngroupedRecordCount(metaData);
+        }
+
+        // ensure that the updates did not write anything to the RecordCountKey space
+        rawAssertHasRecordCount(metaData, false);
+    }
+
+    static Stream<Arguments> shouldNotRebuildIndexesWhenRecordCountIsNotReadable() {
+        return Stream.of(true, false)
+                .flatMap(startsWithCountKey -> Stream.of(true, false)
+                        .map(disabled -> Arguments.of(startsWithCountKey, disabled)));
+    }
+
+    @ParameterizedTest
+    @MethodSource
+    void shouldNotRebuildIndexesWhenRecordCountIsNotReadable(boolean startsWithCountKey, boolean disabled) {
+        // If disabled or WriteOnly, rebuilding indexes should behave the same as if the RecordCountKey didn't exist
+        final RecordMetaDataBuilder builder;
+        if (startsWithCountKey) {
+            builder = addRecordCountKey(simpleMetaDataBuilder(), EmptyKeyExpression.EMPTY);
+        } else {
+            builder = simpleMetaDataBuilder();
+        }
+        final RecordMetaData initialMetaData = builder.build();
+        saveRecords(initialMetaData, 0, 100,
+                () -> {
+                    if (startsWithCountKey) {
+                        assertUngroupedCount(0);
+                    }
+                },
+                () -> {
+                    if (startsWithCountKey) {
+                        assertUngroupedCount(100);
+                    }
+                });
+
+        if (startsWithCountKey) {
+            updateRecordCountState(initialMetaData, disabled ? RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED :
+                    RecordMetaDataProto.DataStoreInfo.RecordCountState.WRITE_ONLY);
+        }
+
+        final Index index = new Index("OnNum", "num_value_2");
+        builder.addIndex("MySimpleRecord", index);
+        final RecordMetaData newMetaData = builder.build();
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, newMetaData);
+            assertEquals(IndexState.DISABLED, recordStore.getAllIndexStates().get(index));
+            commit(context);
+        }
+    }
+
+    @Test
+    void recordCountStateWriteOnly() {
+        final RecordMetaData metaData = addRecordCountKey(simpleMetaDataBuilder(), EmptyKeyExpression.EMPTY).build();
+        saveRecords(metaData, 0, 100,
+                () -> assertUngroupedCount(0),
+                () -> assertUngroupedCount(100));
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            assertUngroupedCount(100);
+        }
+
+        updateRecordCountState(metaData, RecordMetaDataProto.DataStoreInfo.RecordCountState.WRITE_ONLY);
+
+        // We should be able to save new records without issue
+        saveRecords(metaData, 100, 110, () -> { }, () -> { });
+
+        // We should be able to delete some records without issue
+        deleteRecords(metaData, 95, 100);
+
+        // We cannot get the record count because there is no index, or recordCountKey
+        assertCannotGetUngroupedRecordCount(metaData);
+
+        updateRecordCountState(metaData, RecordMetaDataProto.DataStoreInfo.RecordCountState.READABLE);
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            assertUngroupedCount(105); // we added 10 and deleted 5
+        }
+    }
+
+    @Test
+    void recordCountStatefromDisabledShouldFail() {
+        final RecordMetaData metaData = addRecordCountKey(simpleMetaDataBuilder(), EmptyKeyExpression.EMPTY).build();
+        saveRecords(metaData, 0, 100,
+                () -> assertUngroupedCount(0),
+                () -> assertUngroupedCount(100));
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            assertUngroupedCount(100);
+        }
+
+        updateRecordCountState(metaData, RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED);
+
+        // Once disabled we cannot change it to not disabled
+        // We could implement something to rebuild the data, but it's deprecated, and that's a fair amount of work
+        try (FDBRecordContext context1 = openContext()) {
+            createOrOpenRecordStore(context1, metaData);
+            assertThrows(RecordCoreException.class, this::markRecordCountWriteOnly);
+            context1.commit();
+        }
+
+        try (FDBRecordContext context1 = openContext()) {
+            createOrOpenRecordStore(context1, metaData);
+            assertThrows(RecordCoreException.class, this::markRecordCountReadable);
+            context1.commit();
+        }
+    }
+
+    @Test
+    void updateRecordCountStateShouldFailOnOldVersion() {
+        final RecordMetaData metaData = addRecordCountKey(simpleMetaDataBuilder(), EmptyKeyExpression.EMPTY).build();
+        final FormatVersion formatVersion = FormatVersionTestUtils.previous(FormatVersion.RECORD_COUNT_STATE);
+        saveRecords(metaData, 0, 100,
+                () -> assertUngroupedCount(0),
+                () -> assertUngroupedCount(100),
+                formatVersion);
+
+        try (FDBRecordContext context = openContext()) {
+            recordStore = createOrOpenRecordStore(context, metaData, path, formatVersion);
+            assertUngroupedCount(100);
+        }
+
+        for (final RecordMetaDataProto.DataStoreInfo.RecordCountState newState : RecordMetaDataProto.DataStoreInfo.RecordCountState.values()) {
+            try (FDBRecordContext context1 = openContext()) {
+                recordStore = createOrOpenRecordStore(context1, metaData, path, formatVersion);
+                assertThrows(RecordCoreException.class, () -> recordStore.updateRecordCountStateAsync(newState).join(),
+                        () -> "Should not allow updating to " + newState);
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(RecordMetaDataProto.DataStoreInfo.RecordCountState.class)
+    @SuppressWarnings("deprecation")
+    void deleteWhereSuccessfully(RecordMetaDataProto.DataStoreInfo.RecordCountState newState) {
+        // deleteWhere should work regardless of the state
+        final RecordMetaDataBuilder recordMetaDataBuilder = simpleMetaDataBuilder();
+        recordMetaDataBuilder.setRecordCountKey(GROUP_EXPRESSION);
+        allowDeleteWhereByGroupingField(recordMetaDataBuilder);
+        final RecordMetaData metaData = recordMetaDataBuilder.build();
+        saveRecords(metaData, 0, 100,
+                () -> assertGroupedCount(0, 1),
+                () -> {
+                    assertGroupedCount(20, 1);
+                    assertGroupedCount(20, 2);
+                    assertGroupedCount(20, 3);
+                });
+
+        updateRecordCountState(metaData, newState);
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            recordStore.deleteRecordsWhere(Query.field(GROUPING_FIELD).equalsValue(2));
+            commit(context);
+        }
+
+        if (newState != RecordMetaDataProto.DataStoreInfo.RecordCountState.READABLE) {
+            try (FDBRecordContext context = openContext()) {
+                createOrOpenRecordStore(context, metaData);
+                final Key.Evaluated value = Key.Evaluated.concatenate(1);
+                final RecordCoreException recordCoreException = assertThrows(RecordCoreException.class,
+                        () -> recordStore.getSnapshotRecordCount(GROUP_EXPRESSION, value).join());
+                assertThat(recordCoreException.getMessage(), containsString("requires appropriate index"));
+            }
+        }
+        if (newState == RecordMetaDataProto.DataStoreInfo.RecordCountState.WRITE_ONLY) {
+            updateRecordCountState(metaData, RecordMetaDataProto.DataStoreInfo.RecordCountState.READABLE);
+        }
+
+        if (newState != RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED) {
+            try (FDBRecordContext context = openContext()) {
+                createOrOpenRecordStore(context, metaData);
+                assertGroupedCount(20, 1);
+                assertGroupedCount(0, 2);
+                assertGroupedCount(20, 3);
+                commit(context);
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(RecordMetaDataProto.DataStoreInfo.RecordCountState.class)
+    @SuppressWarnings("deprecation")
+    void deleteWhereNotCompatible(RecordMetaDataProto.DataStoreInfo.RecordCountState newState) {
+        // deleteWhere should fail if the count key is not grouped correctly, unless it is disabled
+        final RecordMetaDataBuilder recordMetaDataBuilder = simpleMetaDataBuilder();
+        recordMetaDataBuilder.setRecordCountKey(Key.Expressions.empty());
+        allowDeleteWhereByGroupingField(recordMetaDataBuilder);
+        final RecordMetaData metaData = recordMetaDataBuilder.build();
+        saveRecords(metaData, 0, 100,
+                () -> assertUngroupedCount(0),
+                () -> assertUngroupedCount(100));
+
+        updateRecordCountState(metaData, newState);
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            final QueryComponent deleteWhereQuery = Query.field(GROUPING_FIELD).equalsValue(2);
+            if (newState == RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED) {
+                recordStore.deleteRecordsWhere(deleteWhereQuery);
+                commit(context);
+            } else {
+                assertThrows(Query.InvalidExpressionException.class,
+                        () -> recordStore.deleteRecordsWhere(deleteWhereQuery));
+            }
+        }
+
+        if (newState == RecordMetaDataProto.DataStoreInfo.RecordCountState.WRITE_ONLY) {
+            updateRecordCountState(metaData, RecordMetaDataProto.DataStoreInfo.RecordCountState.READABLE);
+        }
+
+        if (newState != RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED) {
+            try (FDBRecordContext context = openContext()) {
+                createOrOpenRecordStore(context, metaData);
+                assertUngroupedCount(100);
+                commit(context);
+            }
+        } else {
+            rawAssertHasRecordCount(metaData,  false);
+        }
+    }
+
+    private static void allowDeleteWhereByGroupingField(final RecordMetaDataBuilder recordMetaDataBuilder) {
+        // update the primary keys to support deleteWhere
+        recordMetaDataBuilder.getRecordType("MySimpleRecord")
+                .setPrimaryKey(Key.Expressions.concatenateFields(GROUPING_FIELD, "rec_no"));
+        recordMetaDataBuilder.getRecordType("MyOtherRecord")
+                .setPrimaryKey(Key.Expressions.concatenateFields(GROUPING_FIELD, "rec_no"));
+        // these indexes have to be removed as they aren't grouped in a way that would allow deleteWhere
+        recordMetaDataBuilder.removeIndex("MySimpleRecord$num_value_unique");
+        recordMetaDataBuilder.removeIndex("MySimpleRecord$num_value_3_indexed");
+        recordMetaDataBuilder.removeIndex("MySimpleRecord$str_value_indexed");
+    }
+
+    @ParameterizedTest
+    @EnumSource(RecordMetaDataProto.DataStoreInfo.RecordCountState.class)
+    void rebuildRecordCountDuringCheckVersion(RecordMetaDataProto.DataStoreInfo.RecordCountState newState) {
+        // If the RecordCount is disabled it should not be rebuilt during checkVersion, otherwise it should
+        final RecordMetaDataBuilder builder;
+        builder = addRecordCountKey(simpleMetaDataBuilder(), EmptyKeyExpression.EMPTY);
+        final RecordMetaData initialMetaData = builder.build();
+        saveRecords(initialMetaData, 0, 100,
+                () -> assertUngroupedCount(0),
+                () -> assertUngroupedCount(100));
+
+        updateRecordCountState(initialMetaData, newState);
+
+        addRecordCountKey(builder, GROUP_EXPRESSION);
+        final RecordMetaData newMetaData = builder.build();
+
+        final boolean isDisabled = newState == RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED;
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, newMetaData);
+            assertEquals(isDisabled ? 0 : 1, timer.getCount(FDBStoreTimer.Events.RECOUNT_RECORDS));
+            commit(context);
+        }
+
+        if (isDisabled) {
+            rawAssertHasRecordCount(newMetaData, false);
+        } else {
+            rawAssertHasRecordCount(newMetaData, true);
+            // the following would be impossible if we didn't rebuild
+            try (FDBRecordContext context = openContext()) {
+                createOrOpenRecordStore(context, newMetaData);
+                markRecordCountReadable();
+                assertGroupedCount(20, 1);
+                assertGroupedCount(20, 2);
+            }
+        }
+
+    }
+
+    private void updateRecordCountState(final RecordMetaData metaData,
+                                        final RecordMetaDataProto.DataStoreInfo.RecordCountState newState) {
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            recordStore.updateRecordCountStateAsync(newState).join();
+            context.commit();
+        }
+    }
+
+    private Void markRecordCountWriteOnly() {
+        return recordStore.updateRecordCountStateAsync(RecordMetaDataProto.DataStoreInfo.RecordCountState.WRITE_ONLY).join();
+    }
+
+    private Void markRecordCountReadable() {
+        return recordStore.updateRecordCountStateAsync(RecordMetaDataProto.DataStoreInfo.RecordCountState.READABLE).join();
+    }
+
+    private void rawAssertHasRecordCount(final RecordMetaData metaData, final boolean hasRecordCounts) {
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            final Tuple tuple = Tuple.from(FDBRecordStoreKeyspace.RECORD_COUNT.key());
+            final List<KeyValue> counts = context.ensureActive()
+                    .getRange(Range.startsWith(recordStore.getSubspace().pack(tuple)))
+                    .asList().join();
+
+            assertEquals(counts.isEmpty(), !hasRecordCounts, counts.toString());
+        }
+    }
+
+    private void assertCannotGetUngroupedRecordCount(final RecordMetaData metaData) {
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            final RecordCoreException recordCoreException = assertThrows(RecordCoreException.class,
+                    () -> recordStore.getSnapshotRecordCount().get());
+            assertThat(recordCoreException.getMessage(), containsString("requires appropriate index"));
+        }
+    }
+
+    private void assertUngroupedCount(final int expected) {
+        assertEquals(expected, recordStore.getSnapshotRecordCount().join().longValue());
+    }
+
+    private void assertGroupedCount(final int expected, final int groupingValue) {
+        final Key.Evaluated value = Key.Evaluated.concatenate(groupingValue);
+        assertEquals(expected, recordStore.getSnapshotRecordCount(GROUP_EXPRESSION, value).join().longValue());
+    }
+
+    private void saveRecords(final RecordMetaData metaData, final int start, final int end,
+                             final Runnable beforeHook, final Runnable afterHook) {
+        saveRecords(metaData, start, end, beforeHook, afterHook, FormatVersion.getMaximumSupportedVersion());
+    }
+
+    private void saveRecords(final RecordMetaData metaData, final int start, final int end,
+                             final Runnable beforeHook, final Runnable afterHook, final FormatVersion formatVersion) {
+        try (FDBRecordContext context = openContext()) {
+            this.recordStore = createOrOpenRecordStore(context, metaData, path, formatVersion);
+
+            beforeHook.run();
+
+            for (int i = start; i < end; i++) {
+                int numBucket = i % 5;
+                recordStore.saveRecord(makeRecord(i, 0, numBucket));
+            }
+
+            afterHook.run();
+            commit(context);
+        }
+    }
+
+    private void deleteRecords(final RecordMetaData metaData, final int start, final int end) {
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+
+            for (int i = start; i < end; i++) {
+                recordStore.deleteRecord(Tuple.from(i));
+            }
+            commit(context);
+        }
+    }
+
     private TestRecords1Proto.MySimpleRecord makeRecord(long recordNo, int numValue2, int numValue3Indexed) {
         TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
         recBuilder.setRecNo(recordNo);
         recBuilder.setNumValue2(numValue2);
         recBuilder.setNumValue3Indexed(numValue3Indexed);
         return recBuilder.build();
+    }
+
+    private static void addCountIndex(@Nonnull final RecordMetaDataBuilder recordMetaDataBuilder,
+                                      @Nonnull final KeyExpression keyExpression) {
+        addCountIndex(keyExpression, -1, recordMetaDataBuilder);
+    }
+
+    @SuppressWarnings("deprecation")
+    private static RecordMetaDataBuilder addRecordCountKey(@Nonnull final RecordMetaDataBuilder recordMetaDataBuilder,
+                                                           @Nonnull final KeyExpression keyExpression) {
+        recordMetaDataBuilder.setRecordCountKey(keyExpression);
+        return recordMetaDataBuilder;
+    }
+
+    @Nonnull
+    private static RecordMetaDataBuilder simpleMetaDataBuilder() {
+        return RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
     }
 
     // Get a new metadata version every time we change the count key definition.
@@ -676,9 +1104,7 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
     private static RecordMetaDataHook countUpdatesKeyHook(KeyExpression key, int indexVersion) {
         return md -> {
             md.removeIndex(COUNT_UPDATES_INDEX_NAME);
-            Index index = new Index("record_update_count", new GroupingKeyExpression(key, 0), IndexTypes.COUNT_UPDATES);
-            index.setLastModifiedVersion(indexVersion);
-            md.addUniversalIndex(index);
+            addIndex("record_update_count", key, IndexTypes.COUNT_UPDATES, indexVersion, md);
         };
     }
 
@@ -687,13 +1113,23 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
         if (useIndex) {
             return md -> {
                 md.removeIndex(COUNT_INDEX_NAME);
-                Index index = new Index("record_count", new GroupingKeyExpression(key, 0), IndexTypes.COUNT);
-                index.setLastModifiedVersion(indexVersion);
-                md.addUniversalIndex(index);
+                addCountIndex(key, indexVersion, md);
             };
         } else {
             return md -> md.setRecordCountKey(key);
         }
+    }
+
+    private static void addCountIndex(final KeyExpression key, final int indexVersion,
+                                      final RecordMetaDataBuilder metaData) {
+        addIndex("record_count", key, IndexTypes.COUNT, indexVersion, metaData);
+    }
+
+    private static void addIndex(final String record_update_count, final KeyExpression key, final String countUpdates,
+                                 final int indexVersion, final RecordMetaDataBuilder metaData) {
+        Index index = new Index(record_update_count, new GroupingKeyExpression(key, 0), countUpdates);
+        index.setLastModifiedVersion(indexVersion);
+        metaData.addUniversalIndex(index);
     }
 
 }

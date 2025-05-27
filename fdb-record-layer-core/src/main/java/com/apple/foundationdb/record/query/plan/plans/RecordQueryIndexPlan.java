@@ -60,21 +60,21 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.MultidimensionalIndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.UnsupportedRemoteFetchIndexException;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
-import com.apple.foundationdb.record.query.plan.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRanges;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
-import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -448,7 +448,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
     }
 
     @Override
-    public RecordQueryIndexPlan strictlySorted(@Nonnull final Memoizer memoizer) {
+    public RecordQueryIndexPlan strictlySorted(@Nonnull final FinalMemoizer memoizer) {
         return new RecordQueryIndexPlan(indexName, getCommonPrimaryKey(), scanParameters, getIndexFetchMethod(), fetchIndexRecords, reverse, true, matchCandidateOptional, resultType, constraint);
     }
 
@@ -469,21 +469,30 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                                                       final boolean shouldSimplifyValues,
                                                       @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.isEmpty());
+        if (translationMap.definesOnlyIdentities()) {
+            return this;
+        }
         return withIndexScanParameters(scanParameters.translateCorrelations(translationMap, shouldSimplifyValues));
+    }
+
+    @Override
+    public boolean canBeMinimized() {
+        return matchCandidateOptional.isPresent();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryIndexPlan minimize(@Nonnull final List<Quantifier.Physical> newQuantifiers) {
+        Verify.verify(newQuantifiers.isEmpty());
+        return new RecordQueryIndexPlan(indexName, commonPrimaryKey, scanParameters, indexFetchMethod,
+                fetchIndexRecords, reverse, strictlySorted, Optional.empty(), resultType,
+                constraint);
     }
 
     @Nonnull
     protected RecordQueryIndexPlan withIndexScanParameters(@Nonnull final IndexScanParameters newIndexScanParameters) {
-        return new RecordQueryIndexPlan(indexName,
-                commonPrimaryKey,
-                newIndexScanParameters,
-                indexFetchMethod,
-                fetchIndexRecords,
-                reverse,
-                strictlySorted,
-                matchCandidateOptional,
-                resultType,
-                constraint);
+        return new RecordQueryIndexPlan(indexName, commonPrimaryKey, newIndexScanParameters, indexFetchMethod,
+                fetchIndexRecords, reverse, strictlySorted, matchCandidateOptional, resultType, constraint);
     }
 
     @Nonnull

@@ -22,14 +22,14 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
-import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
+import com.apple.foundationdb.record.query.plan.cascades.PlanPartitions;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
@@ -71,7 +71,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.rules.PushReques
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
+public class ImplementInUnionRule extends ImplementationCascadesRule<SelectExpression> {
     private static final BindingMatcher<ExplodeExpression> explodeExpressionMatcher = explodeExpression();
     private static final CollectionMatcher<Quantifier.ForEach> explodeQuantifiersMatcher = some(forEachQuantifier(explodeExpressionMatcher));
 
@@ -84,10 +84,10 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
 
     @SuppressWarnings({"unchecked", "java:S135", "PMD.CompareObjectsWithEquals"})
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
         final var bindings = call.getBindings();
 
-        final var requestedOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
+        final var requestedOrderingsOptional = call.getPlannerConstraintMaybe(RequestedOrderingConstraint.REQUESTED_ORDERING);
         if (requestedOrderingsOptional.isEmpty()) {
             return;
         }
@@ -159,14 +159,14 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
         
         final var innerReference = innerQuantifier.getRangesOver();
         final var planPartitions =
-                PlanPartition.rollUpTo(
-                        innerReference.getPlanPartitions(),
-                        OrderingProperty.ORDERING);
+                PlanPartitions.rollUpTo(
+                        innerReference.toPlanPartitions(),
+                        OrderingProperty.ordering());
 
         final int attemptFailedInJoinAsUnionMaxSize = call.getContext().getPlannerConfiguration().getAttemptFailedInJoinAsUnionMaxSize();
 
         for (final var planPartition : planPartitions) {
-            final var providedOrdering = planPartition.getAttributeValue(OrderingProperty.ORDERING);
+            final var providedOrdering = planPartition.getPropertyValue(OrderingProperty.ordering());
 
             for (final var requestedOrdering : requestedOrderings) {
                 if (requestedOrdering.isPreserve()) {
@@ -197,8 +197,8 @@ public class ImplementInUnionRule extends CascadesRule<SelectExpression> {
                     //
                     // At this point we know we can implement the distinct union over the partitions of compatibly ordered plans
                     //
-                    final Quantifier.Physical newInnerQuantifier = Quantifier.physical(call.memoizeMemberPlans(innerReference, planPartition.getPlans()));
-                    call.yieldExpression(
+                    final Quantifier.Physical newInnerQuantifier = Quantifier.physical(call.memoizeMemberPlansFromOther(innerReference, planPartition.getPlans()));
+                    call.yieldPlan(
                             RecordQueryInUnionPlan.from(newInnerQuantifier,
                                     inSources,
                                     comparisonOrderingParts,

@@ -23,56 +23,61 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 
 /**
  * This property establishes a partial order over the expressions contained in a subgraph.
  */
-public class ReferencesAndDependenciesProperty implements ExpressionProperty<PartiallyOrderedSet<Reference>>, RelationalExpressionVisitorWithDefaults<PartiallyOrderedSet<Reference>> {
+public class ReferencesAndDependenciesProperty implements ExpressionProperty<PartiallyOrderedSet<Reference>> {
+    private static final ReferencesAndDependenciesProperty REFERENCES_AND_DEPENDENCIES =
+            new ReferencesAndDependenciesProperty();
+
+    private ReferencesAndDependenciesProperty() {
+        // prevent outside instantiation
+    }
 
     @Nonnull
     @Override
-    public PartiallyOrderedSet<Reference> evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<PartiallyOrderedSet<Reference>> childResults) {
-        return mergePartialOrders(childResults);
+    public ReferencesAndDependenciesVisitor createVisitor() {
+        return new ReferencesAndDependenciesVisitor();
     }
 
-    @SuppressWarnings("UnstableApiUsage")
     @Nonnull
-    @Override
-    public PartiallyOrderedSet<Reference> evaluateAtRef(@Nonnull Reference ref, @Nonnull List<PartiallyOrderedSet<Reference>> memberResults) {
-        final var membersPartialOrder = mergePartialOrders(memberResults);
+    public PartiallyOrderedSet<Reference> evaluate(@Nonnull Iterable<? extends Reference> references) {
+        final var refResults =
+                Streams.stream(references)
+                        .map(this::evaluate)
+                        .collect(ImmutableList.toImmutableList());
 
-        final var membersSet = membersPartialOrder.getSet();
-        final var membersDependencyMap = membersPartialOrder.getDependencyMap();
-
-        final var setBuilder = ImmutableSet.<Reference>builder();
-        final var dependencyMapBuilder = ImmutableSetMultimap.<Reference, Reference>builder();
-
-        setBuilder.addAll(membersSet);
-        setBuilder.add(ref);
-        dependencyMapBuilder.putAll(membersDependencyMap.entries());
-
-        for (final var member : ref.getMembers()) {
-            for (final var quantifier : member.getQuantifiers()) {
-                dependencyMapBuilder.put(ref, quantifier.getRangesOver());
-            }
-        }
-
-        return PartiallyOrderedSet.of(setBuilder.build(), dependencyMapBuilder.build());
+        return mergePartialOrders(refResults);
     }
 
-    @SuppressWarnings("UnstableApiUsage")
-    private PartiallyOrderedSet<Reference> mergePartialOrders(@Nonnull Iterable<PartiallyOrderedSet<Reference>> partialOrders) {
+    @Nonnull
+    public PartiallyOrderedSet<Reference> evaluate(@Nonnull Reference reference) {
+        return Objects.requireNonNull(reference.acceptVisitor(createVisitor()));
+    }
+
+    @Nonnull
+    public PartiallyOrderedSet<Reference> evaluate(@Nonnull RelationalExpression expression) {
+        return Objects.requireNonNull(expression.acceptVisitor(createVisitor()));
+    }
+
+    @Nonnull
+    public static ReferencesAndDependenciesProperty referencesAndDependencies() {
+        return REFERENCES_AND_DEPENDENCIES;
+    }
+
+    @Nonnull
+    private static PartiallyOrderedSet<Reference> mergePartialOrders(@Nonnull final Iterable<PartiallyOrderedSet<Reference>> partialOrders) {
         final var setBuilder = ImmutableSet.<Reference>builder();
         final var dependencyMapBuilder = ImmutableSetMultimap.<Reference, Reference>builder();
 
@@ -84,20 +89,35 @@ public class ReferencesAndDependenciesProperty implements ExpressionProperty<Par
         return PartiallyOrderedSet.of(setBuilder.build(), dependencyMapBuilder.build());
     }
 
-    @Nonnull
-    public static PartiallyOrderedSet<Reference> evaluate(@Nonnull Reference ref) {
-        @Nullable final var nullableResult =
-                ref.acceptPropertyVisitor(new ReferencesAndDependenciesProperty());
-        return Objects.requireNonNull(nullableResult);
-    }
+    public static class ReferencesAndDependenciesVisitor implements SimpleExpressionVisitor<PartiallyOrderedSet<Reference>> {
+        @Nonnull
+        @Override
+        public PartiallyOrderedSet<Reference> evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<PartiallyOrderedSet<Reference>> childResults) {
+            return mergePartialOrders(childResults);
+        }
 
-    @Nonnull
-    public static PartiallyOrderedSet<Reference> evaluate(@Nonnull Iterable<? extends Reference> refs) {
-        final var property = new ReferencesAndDependenciesProperty();
-        final var refResults = Streams.stream(refs)
-                .map(ref -> Objects.requireNonNull(ref.acceptPropertyVisitor(property)))
-                .collect(ImmutableList.toImmutableList());
+        @Nonnull
+        @Override
+        public PartiallyOrderedSet<Reference> evaluateAtRef(@Nonnull Reference ref, @Nonnull List<PartiallyOrderedSet<Reference>> memberResults) {
+            final var membersPartialOrder = mergePartialOrders(memberResults);
 
-        return property.mergePartialOrders(refResults);
+            final var membersSet = membersPartialOrder.getSet();
+            final var membersDependencyMap = membersPartialOrder.getDependencyMap();
+
+            final var setBuilder = ImmutableSet.<Reference>builder();
+            final var dependencyMapBuilder = ImmutableSetMultimap.<Reference, Reference>builder();
+
+            setBuilder.addAll(membersSet);
+            setBuilder.add(ref);
+            dependencyMapBuilder.putAll(membersDependencyMap.entries());
+
+            for (final var member : ref.getAllMemberExpressions()) {
+                for (final var quantifier : member.getQuantifiers()) {
+                    dependencyMapBuilder.put(ref, quantifier.getRangesOver());
+                }
+            }
+
+            return PartiallyOrderedSet.of(setBuilder.build(), dependencyMapBuilder.build());
+        }
     }
 }

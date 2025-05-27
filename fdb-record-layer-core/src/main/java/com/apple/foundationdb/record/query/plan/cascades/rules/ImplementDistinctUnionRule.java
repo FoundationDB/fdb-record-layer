@@ -22,8 +22,8 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
@@ -35,7 +35,10 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDist
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.properties.DistinctRecordsProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.PrimaryKeyProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
@@ -49,21 +52,17 @@ import com.google.common.collect.Streams;
 import javax.annotation.Nonnull;
 import java.util.List;
 
-import static com.apple.foundationdb.record.query.plan.cascades.PropertiesMap.allAttributesExcept;
+import static com.apple.foundationdb.record.query.plan.cascades.PlanPropertiesMap.allAttributesExcept;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.filterPartition;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.rollUpPartitionsTo;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifier;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyPlanPartition;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.planPartitions;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.rollUpTo;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.where;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalDistinctExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalUnionExpression;
-import static com.apple.foundationdb.record.query.plan.cascades.properties.DistinctRecordsProperty.DISTINCT_RECORDS;
-import static com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty.ORDERING;
-import static com.apple.foundationdb.record.query.plan.cascades.properties.PrimaryKeyProperty.PRIMARY_KEY;
-import static com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty.STORED_RECORD;
 
 /**
  * A rule that implements a distinct union of its (already implemented) children. This will extract the
@@ -72,16 +71,16 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.Store
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpression> {
+public class ImplementDistinctUnionRule extends ImplementationCascadesRule<LogicalDistinctExpression> {
 
     @Nonnull
     private static final CollectionMatcher<PlanPartition> unionLegPlanPartitionsMatcher = all(anyPlanPartition());
 
     @Nonnull
     private static final BindingMatcher<Reference> unionLegReferenceMatcher =
-            planPartitions(where(planPartition -> planPartition.getAttributeValue(STORED_RECORD) &&
-                                                  planPartition.getAttributeValue(PRIMARY_KEY).isPresent(),
-                    rollUpTo(unionLegPlanPartitionsMatcher, allAttributesExcept(DISTINCT_RECORDS))));
+            planPartitions(filterPartition(planPartition -> planPartition.getPropertyValue(StoredRecordProperty.storedRecord()) &&
+                                                  planPartition.getPropertyValue(PrimaryKeyProperty.primaryKey()).isPresent(),
+                    rollUpPartitionsTo(unionLegPlanPartitionsMatcher, allAttributesExcept(DistinctRecordsProperty.distinctRecords()))));
 
     private static final CollectionMatcher<Quantifier.ForEach> allForEachQuantifiersMatcher =
             all(forEachQuantifierOverRef(unionLegReferenceMatcher));
@@ -102,8 +101,8 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
 
     @Override
     @SuppressWarnings({"java:S135", "UnstableApiUsage"})
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
-        final var requestedOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
+    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
+        final var requestedOrderingsOptional = call.getPlannerConstraintMaybe(RequestedOrderingConstraint.REQUESTED_ORDERING);
         if (requestedOrderingsOptional.isEmpty()) {
             return;
         }
@@ -151,7 +150,7 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
 
                 final var commonPrimaryKeyValuesMaybe =
                         PrimaryKeyProperty.commonPrimaryKeyValuesMaybeFromOptionals(partitions.stream()
-                                .map(partition -> partition.getAttributeValue(PRIMARY_KEY))
+                                .map(partition -> partition.getPropertyValue(PrimaryKeyProperty.primaryKey()))
                                 .collect(ImmutableList.toImmutableList()));
 
                 if (commonPrimaryKeyValuesMaybe.isEmpty()) {
@@ -162,7 +161,7 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                 final ImmutableList<Ordering> orderings =
                         partitions
                                 .stream()
-                                .map(planPartition -> planPartition.getAttributeValue(ORDERING))
+                                .map(planPartition -> planPartition.getPropertyValue(OrderingProperty.ordering()))
                                 .collect(ImmutableList.toImmutableList());
                 pushInterestingOrders(call, unionForEachQuantifier, orderings, requestedOrdering);
 
@@ -204,7 +203,7 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                     final var newQuantifiers =
                             Streams.zip(partitions.stream(),
                                             allForEachQuantifiers.stream(),
-                                            (partition, quantifier) -> call.memoizeMemberPlans(quantifier.getRangesOver(), partition.getPlans()))
+                                            (partition, quantifier) -> call.memoizeMemberPlansFromOther(quantifier.getRangesOver(), partition.getPlans()))
                                     .map(Quantifier::physical)
                                     .collect(ImmutableList.toImmutableList());
 
@@ -224,14 +223,14 @@ public class ImplementDistinctUnionRule extends CascadesRule<LogicalDistinctExpr
                                 RecordQueryUnionPlan.fromQuantifiers(newQuantifiers,
                                         comparisonOrderingParts, comparisonIsReverse,
                                         true);
-                        call.yieldExpression(unionPlan);
+                        call.yieldPlan(unionPlan);
                     }
                 }
             }
         }
     }
 
-    private void pushInterestingOrders(@Nonnull final CascadesRuleCall call,
+    private void pushInterestingOrders(@Nonnull final ImplementationCascadesRuleCall call,
                                        @Nonnull final Quantifier unionForEachQuantifier,
                                        @Nonnull final ImmutableList<Ordering> providedOrderings,
                                        @Nonnull final RequestedOrdering requestedOrdering) {

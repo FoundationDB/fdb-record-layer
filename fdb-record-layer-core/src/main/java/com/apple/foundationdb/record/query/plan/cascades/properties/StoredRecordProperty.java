@@ -22,10 +22,11 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
@@ -82,18 +83,35 @@ import java.util.List;
  * represent records that reside stored on disk and were retrieved by this query. This is opposite of truly computed
  * records which do not such data associated with them (such as primary key information and/or similar).
  */
-public class StoredRecordProperty implements PlanProperty<Boolean> {
-    public static final PlanProperty<Boolean> STORED_RECORD = new StoredRecordProperty();
+public class StoredRecordProperty implements ExpressionProperty<Boolean> {
+    private static final StoredRecordProperty STORED_RECORD = new StoredRecordProperty();
+
+    private StoredRecordProperty() {
+        // prevent outside instantiation
+    }
 
     @Nonnull
     @Override
-    public RecordQueryPlanVisitor<Boolean> createVisitor() {
-        return new StoredRecordVisitor();
+    public RelationalExpressionVisitor<Boolean> createVisitor() {
+        return ExpressionProperty.toExpressionVisitor(new StoredRecordVisitor());
     }
 
     @Override
     public String toString() {
         return getClass().getSimpleName();
+    }
+
+    public boolean evaluate(@Nonnull final Reference reference) {
+        return evaluate(reference.getOnlyElementAsPlan());
+    }
+
+    public boolean evaluate(@Nonnull final RecordQueryPlan recordQueryPlan) {
+        return createVisitor().visit(recordQueryPlan);
+    }
+
+    @Nonnull
+    public static StoredRecordProperty storedRecord() {
+        return STORED_RECORD;
     }
 
     /**
@@ -395,16 +413,11 @@ public class StoredRecordProperty implements PlanProperty<Boolean> {
 
         private boolean evaluateForReference(@Nonnull Reference reference) {
             final var memberStoredRecordsCollection =
-                    reference.getPlannerAttributeForMembers(STORED_RECORD).values();
+                    reference.getProperty(STORED_RECORD).values();
 
             return memberStoredRecordsCollection
                     .stream()
                     .allMatch(d -> d);
-        }
-
-        public static boolean evaluate(@Nonnull RecordQueryPlan recordQueryPlan) {
-            // Won't actually be null for relational planner expressions.
-            return new StoredRecordVisitor().visit(recordQueryPlan);
         }
     }
 }

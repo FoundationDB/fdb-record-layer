@@ -21,24 +21,24 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 
 import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.filterPartition;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyPlanPartition;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.planPartitions;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.where;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.updateExpression;
-import static com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty.STORED_RECORD;
 
 /**
  * A rule that implements an {@link UpdateExpression} by creating
@@ -46,13 +46,13 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.Store
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class ImplementUpdateRule extends CascadesRule<UpdateExpression> {
+public class ImplementUpdateRule extends ImplementationCascadesRule<UpdateExpression> {
     @Nonnull
     private static final BindingMatcher<PlanPartition> innerPlanPartitionMatcher = anyPlanPartition();
 
     @Nonnull
     private static final BindingMatcher<Reference> innerReferenceMatcher =
-            planPartitions(where(planPartition -> planPartition.getAttributeValue(STORED_RECORD),
+            planPartitions(filterPartition(planPartition -> planPartition.getPropertyValue(StoredRecordProperty.storedRecord()),
                     any(innerPlanPartitionMatcher)));
 
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher =
@@ -67,22 +67,22 @@ public class ImplementUpdateRule extends CascadesRule<UpdateExpression> {
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
         final var innerPlanPartition = call.get(innerPlanPartitionMatcher);
         final var innerReference = call.get(innerReferenceMatcher);
         final var innerQuantifier = call.get(innerQuantifierMatcher);
         final var updateExpression = call.get(root);
 
         final var planPartitionReference =
-                call.memoizeMemberPlans(innerReference, innerPlanPartition.getPlans());
+                call.memoizeMemberPlansFromOther(innerReference, innerPlanPartition.getPlans());
 
         final var distinctPlansReference =
-                call.memoizePlans(new RecordQueryUnorderedPrimaryKeyDistinctPlan(Quantifier.physical(planPartitionReference)));
+                call.memoizePlan(new RecordQueryUnorderedPrimaryKeyDistinctPlan(Quantifier.physical(planPartitionReference)));
 
         final var physicalQuantifier =
                 Quantifier.physicalBuilder()
                         .morphFrom(innerQuantifier)
                         .build(distinctPlansReference);
-        call.yieldExpression(updateExpression.toPlan(physicalQuantifier));
+        call.yieldPlan(updateExpression.toPlan(physicalQuantifier));
     }
 }

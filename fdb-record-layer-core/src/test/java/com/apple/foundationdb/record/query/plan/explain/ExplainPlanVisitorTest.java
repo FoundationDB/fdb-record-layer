@@ -52,6 +52,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
@@ -346,7 +347,7 @@ public class ExplainPlanVisitorTest {
     private static NonnullPair<RecordQueryPlan, String> randomMapPlan(@Nonnull Random r, double decay) {
         NonnullPair<RecordQueryPlan, String> childPlan = randomPlanAndString(r, decay);
         Value resultValue = LiteralValue.ofScalar("a_value");
-        return NonnullPair.of(new RecordQueryMapPlan(Quantifier.physical(Reference.of(childPlan.getLeft())), resultValue),
+        return NonnullPair.of(new RecordQueryMapPlan(Quantifier.physical(Reference.plannedOf(childPlan.getLeft())), resultValue),
                 String.format("%s | MAP %s", childPlan.getRight(), resultValue));
     }
 

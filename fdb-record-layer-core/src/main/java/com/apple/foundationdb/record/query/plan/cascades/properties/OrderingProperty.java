@@ -26,15 +26,16 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedSortOrder;
-import com.apple.foundationdb.record.query.plan.cascades.PlanProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -100,22 +101,42 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.Bindings.Internal.CORRELATION;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.cardinalities;
 
 /**
  * A property used for the ordering(s) of a plan.
  */
-public class OrderingProperty implements PlanProperty<Ordering> {
-    public static final PlanProperty<Ordering> ORDERING = new OrderingProperty();
+public class OrderingProperty implements ExpressionProperty<Ordering> {
+    private static final OrderingProperty ORDERING = new OrderingProperty();
+
+    private OrderingProperty() {
+        // prevent outside instantiation
+    }
 
     @Nonnull
     @Override
-    public RecordQueryPlanVisitor<Ordering> createVisitor() {
-        return new OrderingVisitor();
+    public RelationalExpressionVisitor<Ordering> createVisitor() {
+        return ExpressionProperty.toExpressionVisitor(new OrderingVisitor());
     }
 
     @Override
     public String toString() {
         return getClass().getSimpleName();
+    }
+
+    @Nonnull
+    public Ordering evaluate(@Nonnull final Reference reference) {
+        return evaluate(reference.getOnlyElementAsPlan());
+    }
+
+    @Nonnull
+    public Ordering evaluate(@Nonnull final RecordQueryPlan recordQueryPlan) {
+        return createVisitor().visit(recordQueryPlan);
+    }
+
+    @Nonnull
+    public static OrderingProperty ordering() {
+        return ORDERING;
     }
 
     /**
@@ -512,7 +533,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
             final var correlatedTo = flatMapPlan.getCorrelatedTo();
             final var resultValue = flatMapPlan.getResultValue();
 
-            final var outerCardinalities = CardinalitiesProperty.evaluate(flatMapPlan.getOuterQuantifier());
+            final var outerCardinalities = cardinalities().evaluate(flatMapPlan.getOuterQuantifier().getRangesOver());
             final var outerMaxCardinality = outerCardinalities.getMaxCardinality();
             if (!outerMaxCardinality.isUnknown() && outerMaxCardinality.getCardinality() == 1L) {
                 // outer max cardinality is proven to be 1 row
@@ -687,7 +708,7 @@ public class OrderingProperty implements PlanProperty<Ordering> {
         @Nonnull
         private Ordering evaluateForReference(@Nonnull Reference reference) {
             final var memberOrderings =
-                    reference.getPlannerAttributeForMembers(ORDERING).values();
+                    reference.getProperty(ORDERING).values();
             final var allAreDistinct =
                     memberOrderings
                             .stream()
@@ -701,10 +722,6 @@ public class OrderingProperty implements PlanProperty<Ordering> {
                                                                                                                      @Nonnull final Ordering.MergeOperator<O> mergeOperator) {
             final var mergedOrdering = Ordering.merge(orderings, mergeOperator, (left, right) -> true);
             return mergedOrdering.applyComparisonKey(comparisonKeyOrderingParts);
-        }
-
-        public static Ordering evaluate(@Nonnull RecordQueryPlan recordQueryPlan) {
-            return new OrderingVisitor().visit(recordQueryPlan);
         }
     }
 }
