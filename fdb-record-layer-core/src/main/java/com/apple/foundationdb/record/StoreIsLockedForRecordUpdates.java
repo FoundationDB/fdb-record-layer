@@ -1,5 +1,5 @@
 /*
- * RecordAreLockedForUpdates.java
+ * StoreIsLockedForRecordUpdates.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,11 +18,9 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades;
+package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 
 import javax.annotation.Nonnull;
@@ -31,7 +29,7 @@ import javax.annotation.Nonnull;
  * Error being thrown when attempting to update a record while the store is locked for record updates.
  */
 @API(API.Status.EXPERIMENTAL)
-public class StoreIsLockedForRecordUpdates extends RecordCoreException {
+public class StoreIsLockedForRecordUpdates extends RecordCoreStorageException {
     private static final long serialVersionUID = -640771754012134421L;
 
     public StoreIsLockedForRecordUpdates(@Nonnull final RecordStoreState recordStoreState) {

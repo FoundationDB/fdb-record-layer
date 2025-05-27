@@ -25,19 +25,14 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
-import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.MetaDataException;
-import com.apple.foundationdb.record.query.expressions.Query;
-import com.apple.foundationdb.record.query.plan.cascades.StoreIsLockedForRecordUpdates;
 import com.apple.foundationdb.record.util.pair.Pair;
-import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
-import com.google.common.collect.Comparators;
 import com.google.common.collect.ImmutableMap;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
@@ -891,112 +886,6 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         } finally {
             fdb.setTrackLastSeenVersionOnRead(dbTracksReadVersionOnRead);
             fdb.setTrackLastSeenVersionOnRead(dbTracksReadVersionOnCommit);
-        }
-    }
-
-    @Test
-    void testForbidRecordUpdates() {
-        // Set special "forbid record updates" state, verify that records cannot be updates yet indexes can be built
-        this.formatVersion = Comparators.min(FormatVersion.SPECIAL_STORE_STATE, this.formatVersion);
-        final Index index = new Index("newIndex", field("num_value_2"));
-        final FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> {
-            metaDataBuilder.addIndex("MySimpleRecord", index);
-        };
-        openSimpleMetaData(hook);
-
-        try (FDBRecordContext context = openContext()) {
-            for (int i = 0; i < 20; i++) {
-                TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(i).setNumValue2(i).build();
-                recordStore.saveRecord(record);
-            }
-            recordStore.clearAndMarkIndexWriteOnly(index).join();
-            context.commit();
-        }
-
-        // Forbid record updates
-        try (FDBRecordContext context = openContext()) {
-            recordStore.setSpecialStoreStateAsync(RecordMetaDataProto.DataStoreInfo.SpecialStoreState.State.FORBID_RECORD_UPDATE, "testing").join();
-            context.commit();
-        }
-
-        // Make sure that records cannot be updates
-        try (FDBRecordContext context = openContext()) {
-            // Create new or modify existing records
-            for (int i: List.of(0, 10, 20, 8888)) {
-                TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(i).setNumValue2(i + 100).build();
-                assertThrows(StoreIsLockedForRecordUpdates.class, () -> recordStore.saveRecord(record));
-                // Dry run should always succeed
-                recordStore.dryRunSaveRecordAsync(record, FDBRecordStoreBase.RecordExistenceCheck.NONE).join();
-            }
-            // Delete existing records - should fail
-            for (int i: List.of(0, 4, 5, 19)) {
-                assertThrows(StoreIsLockedForRecordUpdates.class, () -> recordStore.deleteRecord(Tuple.from(i)));
-                // Dry run should always succeed
-                recordStore.dryRunDeleteRecordAsync(Tuple.from(i)).join();
-            }
-            // Delete non-existing records - no effect, therefore should succeed
-            for (int i: List.of(20, 300, 8888)) {
-                recordStore.deleteRecord(Tuple.from(i));
-                // Dry run should always succeed
-                recordStore.dryRunDeleteRecordAsync(Tuple.from(i)).join();
-            }
-            // Delete all records - should fail
-            assertThrows(StoreIsLockedForRecordUpdates.class, () -> recordStore.deleteAllRecords());
-
-            // Delete where - should fail (the dummy expression will not be evaluated)
-            assertThrows(StoreIsLockedForRecordUpdates.class,
-                    () -> recordStore.deleteRecordsWhere(Query.field("RecNo").greaterThan(10)));
-
-            context.commit();
-        }
-
-        // Assert non-readable index
-        try (FDBRecordContext context = openContext()) {
-            assertFalse(recordStore.getRecordStoreState().allIndexesReadable());
-            context.commit();
-        }
-
-        // Build index while record updates are forbidden
-        try (OnlineIndexer indexBuilder = newIndexerBuilder()
-                .setIndex(index)
-                .build()) {
-            indexBuilder.buildIndex();
-        }
-
-        // Assert readable
-        try (FDBRecordContext context = openContext()) {
-            assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
-            context.commit();
-        }
-
-        // Clear update records lock
-        try (FDBRecordContext context = openContext()) {
-            recordStore.clearSpecialStoreStateAsync().join();
-            context.commit();
-        }
-
-        // Successfully update/create/delete records
-        try (FDBRecordContext context = openContext()) {
-            for (int i = 15; i < 25; i++) {
-                TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(i).setNumValue2(i).build();
-                recordStore.saveRecord(record);
-            }
-            for (int i: List.of(0, 4, 5, 19, 200)) {
-                recordStore.deleteRecord(Tuple.from(i));
-            }
-            context.commit();
-        }
-
-        // Assert readable index (just to make a point...)
-        try (FDBRecordContext context = openContext()) {
-            assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
-            context.commit();
-        }
-
-        // Check delete all
-        try (FDBRecordContext context = openContext()) {
-            recordStore.deleteAllRecords();
-            context.commit();
         }
     }
 }
