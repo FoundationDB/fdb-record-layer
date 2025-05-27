@@ -4,21 +4,21 @@ unnamed-2:
     explain: ISCAN(I1 [EQUALS promote(@c14 AS LONG)]) | MAP (version([_]) AS VERSION,
         _.COL2 AS COL2)
     task_count: 899
-    task_total_time_ms: 41
-    transform_count: 233
-    transform_time_ms: 11
+    task_total_time_ms: 46
+    transform_count: 237
+    transform_time_ms: 12
     transform_yield_count: 65
-    insert_time_ms: 2
+    insert_time_ms: 7
     insert_new_count: 103
     insert_reused_count: 9
 -   query: EXPLAIN select t1.* from t1 where col1 = 10;
     explain: ISCAN(I1 [EQUALS promote(@c10 AS LONG)])
     task_count: 903
-    task_total_time_ms: 31
-    transform_count: 237
-    transform_time_ms: 8
+    task_total_time_ms: 34
+    transform_count: 241
+    transform_time_ms: 9
     transform_yield_count: 71
-    insert_time_ms: 2
+    insert_time_ms: 4
     insert_new_count: 95
     insert_reused_count: 13
 -   query: EXPLAIN select s.version, s.col2 from (select "__ROW_VERSION" as version,
@@ -27,10 +27,10 @@ unnamed-2:
         _.COL2 AS COL2) | MAP (_.VERSION AS VERSION, _.COL2 AS COL2)
     task_count: 1144
     task_total_time_ms: 45
-    transform_count: 255
+    transform_count: 261
     transform_time_ms: 14
     transform_yield_count: 64
-    insert_time_ms: 3
+    insert_time_ms: 5
     insert_new_count: 137
     insert_reused_count: 17
 -   query: EXPLAIN select s."__ROW_VERSION", s.col2 from (select "__ROW_VERSION",
@@ -38,22 +38,22 @@ unnamed-2:
     explain: ISCAN(I1 [EQUALS promote(@c22 AS LONG)]) | MAP (version([_]) AS __ROW_VERSION,
         _.COL2 AS COL2) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.COL2 AS COL2)
     task_count: 1144
-    task_total_time_ms: 48
-    transform_count: 255
-    transform_time_ms: 14
+    task_total_time_ms: 52
+    transform_count: 261
+    transform_time_ms: 18
     transform_yield_count: 64
-    insert_time_ms: 3
+    insert_time_ms: 6
     insert_new_count: 137
     insert_reused_count: 17
 -   query: EXPLAIN select "__ROW_VERSION" as version, t1.* from t1 where col1 = 20;
     explain: ISCAN(I1 [EQUALS promote(@c14 AS LONG)]) | MAP (version([_]) AS VERSION,
         _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)
     task_count: 899
-    task_total_time_ms: 37
-    transform_count: 233
-    transform_time_ms: 10
+    task_total_time_ms: 49
+    transform_count: 237
+    transform_time_ms: 15
     transform_yield_count: 65
-    insert_time_ms: 2
+    insert_time_ms: 4
     insert_new_count: 103
     insert_reused_count: 9
 -   query: EXPLAIN select "__ROW_VERSION" as version, (t1.*) from t1 where col1 =
@@ -61,33 +61,33 @@ unnamed-2:
     explain: ISCAN(I1 [EQUALS promote(@c16 AS LONG)]) | MAP (version([_]) AS VERSION,
         _ AS _1)
     task_count: 899
-    task_total_time_ms: 40
-    transform_count: 233
-    transform_time_ms: 11
+    task_total_time_ms: 25
+    transform_count: 237
+    transform_time_ms: 6
     transform_yield_count: 65
-    insert_time_ms: 2
+    insert_time_ms: 3
     insert_new_count: 103
     insert_reused_count: 9
 -   query: EXPLAIN select "__ROW_VERSION", t1.* from t1 where col1 = 20;
     explain: ISCAN(I1 [EQUALS promote(@c12 AS LONG)]) | MAP (version([_]) AS __ROW_VERSION,
         _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)
     task_count: 899
-    task_total_time_ms: 42
-    transform_count: 233
-    transform_time_ms: 11
+    task_total_time_ms: 48
+    transform_count: 237
+    transform_time_ms: 14
     transform_yield_count: 65
-    insert_time_ms: 2
+    insert_time_ms: 5
     insert_new_count: 103
     insert_reused_count: 9
 -   query: EXPLAIN select "__ROW_VERSION", (t1.*) from t1 where col1 = 20;
     explain: ISCAN(I1 [EQUALS promote(@c14 AS LONG)]) | MAP (version([_]) AS __ROW_VERSION,
         _ AS _1)
     task_count: 899
-    task_total_time_ms: 27
-    transform_count: 233
-    transform_time_ms: 7
+    task_total_time_ms: 44
+    transform_count: 237
+    transform_time_ms: 11
     transform_yield_count: 65
-    insert_time_ms: 1
+    insert_time_ms: 6
     insert_new_count: 103
     insert_reused_count: 9
 -   query: EXPLAIN select "__ROW_VERSION", t1.id from t1 order by "__ROW_VERSION"
@@ -95,9 +95,9 @@ unnamed-2:
     explain: ISCAN(VERSION_INDEX <,>) | MAP (version([_]) AS __ROW_VERSION, _.ID AS
         ID)
     task_count: 254
-    task_total_time_ms: 10
-    transform_count: 66
-    transform_time_ms: 5
+    task_total_time_ms: 7
+    transform_count: 70
+    transform_time_ms: 3
     transform_yield_count: 34
     insert_time_ms: 0
     insert_new_count: 23
@@ -107,9 +107,9 @@ unnamed-2:
     explain: ISCAN(VERSION_INDEX <,> REVERSE) | MAP (version([_]) AS __ROW_VERSION,
         _.ID AS ID)
     task_count: 254
-    task_total_time_ms: 9
-    transform_count: 66
-    transform_time_ms: 4
+    task_total_time_ms: 11
+    transform_count: 70
+    transform_time_ms: 5
     transform_yield_count: 34
     insert_time_ms: 0
     insert_new_count: 23
@@ -119,9 +119,9 @@ unnamed-2:
     explain: ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c14 AS LONG)]) | MAP (version([_])
         AS __ROW_VERSION, _.ID AS ID)
     task_count: 399
-    task_total_time_ms: 16
-    transform_count: 109
-    transform_time_ms: 6
+    task_total_time_ms: 13
+    transform_count: 113
+    transform_time_ms: 5
     transform_yield_count: 41
     insert_time_ms: 0
     insert_new_count: 43
@@ -131,9 +131,9 @@ unnamed-2:
     explain: ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c12 AS LONG)] REVERSE) |
         MAP (version([_]) AS __ROW_VERSION, _.ID AS ID)
     task_count: 399
-    task_total_time_ms: 16
-    transform_count: 109
-    transform_time_ms: 7
+    task_total_time_ms: 23
+    transform_count: 113
+    transform_time_ms: 10
     transform_yield_count: 41
     insert_time_ms: 0
     insert_new_count: 43
@@ -143,9 +143,9 @@ unnamed-2:
     explain: ISCAN(GROUPED_VERSION_INDEX [[GREATER_THAN promote(@c14 AS LONG)]]) |
         MAP (version([_]) AS __ROW_VERSION, _.COL1 AS COL1, _.ID AS ID)
     task_count: 361
-    task_total_time_ms: 12
-    transform_count: 93
-    transform_time_ms: 5
+    task_total_time_ms: 9
+    transform_count: 97
+    transform_time_ms: 4
     transform_yield_count: 39
     insert_time_ms: 0
     insert_new_count: 35

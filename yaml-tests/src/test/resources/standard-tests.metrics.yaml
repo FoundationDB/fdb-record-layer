@@ -4,9 +4,9 @@ standard-tests:
     explain: ISCAN(I1 <,>) | MAP (_.ID AS ID, pick(ConditionSelector(_.COL1 equals
         @c8, _.COL2 IN promote(@c14 AS ARRAY(LONG)), TRUE), @c10, @c24, @c26) AS NEWCOL)
     task_count: 301
-    task_total_time_ms: 13
-    transform_count: 77
-    transform_time_ms: 5
+    task_total_time_ms: 16
+    transform_count: 81
+    transform_time_ms: 7
     transform_yield_count: 26
     insert_time_ms: 1
     insert_new_count: 31
@@ -16,9 +16,9 @@ standard-tests:
     explain: ISCAN(I1 <,>) | MAP (_.ID AS ID, pick(ConditionSelector(_.COL1 equals
         @c8, _.COL2 IN promote(@c14 AS ARRAY(LONG))), @c10, @c24) AS NEWCOL)
     task_count: 301
-    task_total_time_ms: 13
-    transform_count: 77
-    transform_time_ms: 6
+    task_total_time_ms: 15
+    transform_count: 81
+    transform_time_ms: 7
     transform_yield_count: 26
     insert_time_ms: 1
     insert_new_count: 31
@@ -28,11 +28,11 @@ standard-tests:
     explain: 'COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.ID EQUALS
         promote(@c19 AS LONG) | FETCH'
     task_count: 534
-    task_total_time_ms: 23
-    transform_count: 124
-    transform_time_ms: 8
+    task_total_time_ms: 32
+    transform_count: 130
+    transform_time_ms: 5
     transform_yield_count: 36
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 51
     insert_reused_count: 10
 -   query: EXPLAIN select * from (select * from (select * from T1) as x) as y where
@@ -40,11 +40,11 @@ standard-tests:
     explain: 'COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.ID EQUALS
         promote(@c22 AS LONG) | FETCH'
     task_count: 545
-    task_total_time_ms: 25
-    transform_count: 129
+    task_total_time_ms: 24
+    transform_count: 136
     transform_time_ms: 9
     transform_yield_count: 36
-    insert_time_ms: 3
+    insert_time_ms: 4
     insert_new_count: 54
     insert_reused_count: 13
 -   query: EXPLAIN select count(*) from (select * from (select * from (select * from
@@ -53,11 +53,11 @@ standard-tests:
         promote(@c23 AS LONG) | FETCH | MAP (_ AS _0) | AGG (count_star(*) AS _0)
         | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
     task_count: 834
-    task_total_time_ms: 22
-    transform_count: 198
-    transform_time_ms: 8
+    task_total_time_ms: 26
+    transform_count: 203
+    transform_time_ms: 10
     transform_yield_count: 48
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 86
     insert_reused_count: 8
 -   query: EXPLAIN select * from (select * from (select * from (select * from T1  where
@@ -65,10 +65,10 @@ standard-tests:
     explain: 'COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.ID GREATER_THAN
         promote(@c20 AS LONG) | FETCH'
     task_count: 756
-    task_total_time_ms: 29
-    transform_count: 180
+    task_total_time_ms: 32
+    transform_count: 185
     transform_time_ms: 11
     transform_yield_count: 46
-    insert_time_ms: 4
+    insert_time_ms: 6
     insert_new_count: 70
     insert_reused_count: 8
