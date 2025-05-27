@@ -5609,8 +5609,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          * the store, and fill in the missing header.
          * <p>
          * If it is possible that multiple different instances have a different idea of any of the versions
-         * ({@link #setFormatVersion format version}, {@link RecordMetaData#getVersion() metaData version}, or
-         * {@link #getUserVersion() user version}), ensure that this builder is created with the maximal option for each.
+         * ({@linkplain #setFormatVersion format version}, {@linkplain RecordMetaData#getVersion() metaData version}, or
+         * {@linkplain #getUserVersion() user version}), ensure that this builder is created with the maximal option for each.
          * </p>
          * <p>
          *     In addition to setting the formatVersion, userVersion and metaDataVersion, this will:
@@ -5630,7 +5630,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          *     However, it will not set the following, but they can be set transactionally on the returned store.
          *     <ul>
          *         <li>
-         *             Any header {@link #setHeaderUserField user fields}.
+         *             Any header {@linkplain #setHeaderUserField user fields}.
          *         </li>
          *         <li>
          *             The {@link #setStateCacheability stateCacheability} will be disabled, and the associated
@@ -5710,7 +5710,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
             // It's possible that the old store header was cacheable, in which case, another store may
             // still have a cached version, even though we don't. We need to make sure that the other
-            // instance refreshes it's cached version after we generate a new missing store header.
+            // instance refreshes its cached version after we generate a new missing store header.
             // Obviously, being able to recover from the cached version would be ideal, but that
             // is a limited use case, as you wouldn't notice it was missing until after caches started
             // expiring, and you would have to repair before they all expired.
