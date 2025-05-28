@@ -7,6 +7,28 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.3
 
+### 4.3.3.0
+
+<h4> New Features </h4>
+
+* Create throttled and retrying record iterator - [PR #3350](https://github.com/FoundationDB/fdb-record-layer/pull/3350)
+<h4> Performance Improvements </h4>
+
+* Reenable memoization of correlated-to sets - [PR #3371](https://github.com/FoundationDB/fdb-record-layer/pull/3371)
+
+
+**[Full Changelog (4.3.2.0...4.3.3.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.3.2.0...4.3.3.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.1.9.0`, ✅`4.1.10.0`, ✅`4.2.2.0`, ✅`4.2.2.1`, ❌`4.2.3.0`, ❌`4.2.4.0`, ✅`4.2.5.0`, ✅`4.2.6.0`, ✅`4.2.8.0`, ✅`4.3.2.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/15296431095)
+
+
+
 ### 4.3.2.0
 
 <h4> Bug Fixes </h4>
