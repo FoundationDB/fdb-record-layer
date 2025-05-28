@@ -156,6 +156,7 @@ public class QueryParser {
         return result;
     }
 
+    @SuppressWarnings("PMD.AvoidStringBufferField") // the lifetime of this object is very short and it is scoped to processing DDLs of temp functions only.
     private static final class PreparedParamsReplacer extends RelationalParserBaseVisitor<Void> {
 
         @Nonnull

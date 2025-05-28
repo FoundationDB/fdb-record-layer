@@ -121,11 +121,13 @@ public class NoOpSchemaTemplate implements SchemaTemplate {
     }
 
     @Nonnull
+    @Override
     public Collection<InvokedRoutine> getTemporaryInvokedRoutines() throws RelationalException {
         throw new RelationalException("NoOpSchemaTemplate doesn't have temporary invoked routines!", ErrorCode.INVALID_PARAMETER);
     }
 
     @Nonnull
+    @Override
     public String getTransactionBoundMetadataAsString() throws RelationalException {
         throw new RelationalException("NoOpSchemaTemplate doesn't have temporary invoked routines!", ErrorCode.INVALID_PARAMETER);
     }

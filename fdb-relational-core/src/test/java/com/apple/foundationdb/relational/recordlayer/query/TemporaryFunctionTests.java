@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
-import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
@@ -150,9 +149,75 @@ public class TemporaryFunctionTests {
         }
     }
 
+    @Test
+    void createTemporaryFunctionWithPreparedParameters() throws Exception {
+        final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
+            }
+            final var connection = ddl.getConnection();
+            connection.setAutoCommit(false);
+            try (var statement = connection.prepareStatement("create temporary function sq1(in x bigint) on commit drop function as select * from t1 where a < ? + x ")) {
+                statement.setLong(1, 40L);
+                statement.executeUpdate();
+            }
+            try (var statement = connection.prepareStatement("select * from sq1(x => ?)")) {
+                statement.setLong(1, 2L);
+                try (var resultSet = statement.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .isRowExactly(1L, 10L)
+                            .hasNextRow()
+                            .isRowExactly(2L, 20L)
+                            .hasNextRow()
+                            .isRowExactly(3L, 30L)
+                            .hasNextRow()
+                            .isRowExactly(4L, 40L)
+                            .hasNoNextRow();
+                }
+            }
+            connection.rollback();
+        }
+    }
+
+    @Test
+    void createNestedTemporaryFunctionWithPreparedParameters() throws Exception {
+        final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
+            }
+            final var connection = ddl.getConnection();
+            connection.setAutoCommit(false);
+            try (var statement = connection.prepareStatement("create temporary function sq0(in x bigint) on commit drop function as select * from t1 where a < ? + x ")) {
+                statement.setLong(1, 40L);
+                statement.executeUpdate();
+            }
+
+            try (var statement = connection.createStatement()) {
+                statement.execute("create temporary function sq1(in x bigint) on commit drop function as select * from sq0(x) ");
+            }
+            try (var statement = connection.prepareStatement("select * from sq1(x => ?)")) {
+                statement.setLong(1, 2L);
+                try (var resultSet = statement.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .isRowExactly(1L, 10L)
+                            .hasNextRow()
+                            .isRowExactly(2L, 20L)
+                            .hasNextRow()
+                            .isRowExactly(3L, 30L)
+                            .hasNextRow()
+                            .isRowExactly(4L, 40L)
+                            .hasNoNextRow();
+                }
+            }
+            connection.rollback();
+        }
+    }
+
     private static void invokeAndVerifyTempFunction(final RelationalStatement statement) throws SQLException {
         Assertions.assertTrue(statement.execute("select * from sq1(x => 2)"));
-        try (final RelationalResultSet resultSet = statement.getResultSet()) {
+        try (var resultSet = statement.getResultSet()) {
             ResultSetAssert.assertThat(resultSet).hasNextRow()
                     .isRowExactly(1L, 10L)
                     .hasNextRow()

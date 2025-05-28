@@ -41,6 +41,7 @@ import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.IndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
+import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryParser;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
@@ -325,7 +326,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var functionName = visitFullId(functionSpecCtx.schemaQualifiedRoutineName).toString();
 
         // 2. get the function SQL definition string.
-        final var functionDefinition = QueryParser.replacePreparedParams(functionCtx, getDelegate().getPlanGenerationContext().getPreparedParams());
+        final var functionDefinition = QueryParser.replacePreparedParams(functionCtx, PreparedParams.copyOf(getDelegate().getPlanGenerationContext().getPreparedParams()));
 
         // 3. visit the SQL string to generate (compile) the corresponding SQL plan.
         final var function = visitSqlInvokedFunction(functionSpecCtx, bodyCtx);
