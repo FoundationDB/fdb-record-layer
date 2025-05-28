@@ -422,8 +422,7 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
             // scans without record scan limit, returns the correct result
             executePlanWithRecordScanLimit(plan, 0, null, resultOf("0", 3));
 
-            // In the testing data, there are 2 groups, each group has 3 rows.
-            // recordScanLimit = 4: scans num_value_2 = 0, 1, 2 then hit SCAN_LIMIT_REACHED, not knowing if this is end of the group, so return nothing
+            // scans num_value_2 = 0, 1, 2 then hit SCAN_LIMIT_REACHED, not knowing if this is end of the group, so return nothing
             RecordCursorContinuation continuation1 = executePlanWithRecordScanLimit(plan, 4, null);
             // scans num_value_2 = 3, 4, all filtered out by FilterCursor, so AggregateCursor doesn't receive any "innerResult", not knowing if this is end of the group, so return nothing
             RecordCursorContinuation continuation2 = executePlanWithRecordScanLimit(plan, 2, continuation1.toBytes());
