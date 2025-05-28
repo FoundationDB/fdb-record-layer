@@ -120,7 +120,7 @@ message DataStoreInfo {
   // Setting a store lock state
   message StoreLockState {
     enum State {
-      NONE = 0;
+      UNSPECIFIED = 0;
       // In this state the store may not create, update, or delete records. If set, the store - from the user's
       // point of view - becomes a read-only store, while indexes and other internal metadata can still be modified.
       // This type of lock may be useful in some extreme cases, such as recovery.

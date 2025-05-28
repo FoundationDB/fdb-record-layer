@@ -452,12 +452,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (localStoreState != null) {
             return CompletableFuture.completedFuture(localStoreState);
         }
-        beginRecordStoreStateRead();
         return preloadRecordStoreStateAsync()
-                .thenApply(ignore -> {
-                    endRecordStoreStateRead();
-                    return Objects.requireNonNull(recordStoreStateRef.get());
-                });
+                .thenApply(ignore -> Objects.requireNonNull(recordStoreStateRef.get()));
     }
 
     @Override
@@ -3342,12 +3338,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * Set a store lock state. A logStamp is required, note that a timestamp will be added automatically.
+     * Set a store lock state.
      * @param state the new lock state
-     * @param logStamp a free text message that can hint future observers about the reasons for setting this state.
+     * @param reason a free text message that can hint future observers about the reasons for setting this state.
      * @return a future that sets this state
      */
-    public CompletableFuture<Void> setStoreLockStateAsync(@Nonnull RecordMetaDataProto.DataStoreInfo.StoreLockState.State state, @Nonnull String logStamp) {
+    public CompletableFuture<Void> setStoreLockStateAsync(@Nonnull RecordMetaDataProto.DataStoreInfo.StoreLockState.State state, @Nonnull String reason) {
         if (!getFormatVersionEnum().isAtLeast(FormatVersion.STORE_LOCK_STATE)) {
             throw new RecordCoreException("Store does not support setting a store lock state")
                     .addLogInfo(LogMessageKeys.FORMAT_VERSION, getFormatVersionEnum());
@@ -3355,7 +3351,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return updateStoreHeaderAsync(builder ->
                 builder.setStoreLockState(RecordMetaDataProto.DataStoreInfo.StoreLockState.newBuilder()
                         .setLockState(state)
-                        .setReason(logStamp)
+                        .setReason(reason)
                         .setTimestamp(System.currentTimeMillis())));
     }
 

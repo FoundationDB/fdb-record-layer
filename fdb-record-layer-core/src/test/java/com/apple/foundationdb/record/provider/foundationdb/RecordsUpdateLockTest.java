@@ -84,9 +84,9 @@ class RecordsUpdateLockTest extends OnlineIndexerTest {
         };
         openSimpleMetaData(hook);
         populateStore(23);
-        disableAll(List.of(index));
 
         forbidRecordUpdate();
+        disableAll(List.of(index));
 
         // Assert non-readable index
         try (FDBRecordContext context = openContext()) {
@@ -116,9 +116,9 @@ class RecordsUpdateLockTest extends OnlineIndexerTest {
         };
         openSimpleMetaData(hook);
         populateStore(20);
-        disableAll(List.of(index));
 
         forbidRecordUpdate();
+        disableAll(List.of(index));
 
         try (FDBRecordContext context = openContext()) {
             // Fail to create new or modify existing records
