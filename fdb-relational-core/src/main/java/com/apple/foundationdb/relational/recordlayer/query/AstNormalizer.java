@@ -604,8 +604,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                 QueryCacheKey.of(astNormalizer.getCanonicalSqlString(), astNormalizer.getHash(),
                         schemaTemplate.getVersion(), readableIndexes, userVersion,
                         Assert.castUnchecked(schemaTemplate, RecordLayerSchemaTemplate.class)
-                                .getTemporaryInvokedRoutines().stream().map(InvokedRoutine::getDescription)
-                                .collect(Collectors.joining("."))),
+                                .getTransactionBoundMetadataAsString()),
                 astNormalizer.getQueryExecutionParameters(),
                 context,
                 astNormalizer.getQueryCachingFlags(),

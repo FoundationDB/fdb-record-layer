@@ -22,7 +22,11 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
@@ -30,13 +34,17 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
+import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.recordlayer.util.Hex;
 import com.apple.foundationdb.relational.util.Assert;
 
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
+import org.apache.commons.lang3.NotImplementedException;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -49,6 +57,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.relational.recordlayer.query.QueryExecutionContext.OrderedLiteral.constantId;
@@ -69,7 +78,7 @@ import static com.apple.foundationdb.relational.recordlayer.query.QueryExecution
 public class AstNormalizerTests {
 
     @Nonnull
-    private static final SchemaTemplate fakeSchemaTemplate = RecordLayerSchemaTemplate
+    private static final RecordLayerSchemaTemplate fakeSchemaTemplate = RecordLayerSchemaTemplate
             .newBuilder()
             .setName("testTemplate")
             .addTable(RecordLayerTable
@@ -221,6 +230,23 @@ public class AstNormalizerTests {
                                  int limit,
                                  @Nullable EnumSet<AstNormalizer.Result.QueryCachingFlags> queryCachingFlags,
                                  @Nullable Map<Options.Name, Object> queryOptions) throws RelationalException {
+        final var schemaTemplates = ImmutableList.<SchemaTemplate>builder();
+        // test all queries against the same schema template.
+        queries.forEach(ignored -> schemaTemplates.add(fakeSchemaTemplate));
+        validate(queries, preparedParameters, expectedCanonicalRepresentation, expectedParametersList, expectedContinuation,
+                limit, queryCachingFlags, queryOptions, schemaTemplates.build(), "");
+    }
+
+    private static void validate(@Nonnull final List<String> queries,
+                                 @Nonnull final PreparedParams preparedParameters,
+                                 @Nonnull final String expectedCanonicalRepresentation,
+                                 @Nonnull final List<Map<String, Object>> expectedParametersList,
+                                 @Nullable final String expectedContinuation,
+                                 int limit,
+                                 @Nullable EnumSet<AstNormalizer.Result.QueryCachingFlags> queryCachingFlags,
+                                 @Nullable Map<Options.Name, Object> queryOptions,
+                                 @Nonnull final List<SchemaTemplate> schemaTemplates,
+                                 @Nonnull final String auxiliaryMetadata) throws RelationalException {
         Assert.thatUnchecked(!queries.isEmpty());
         Assert.thatUnchecked(queries.size() == expectedParametersList.size());
         Integer queryHash = null;
@@ -228,9 +254,10 @@ public class AstNormalizerTests {
         for (int i = 0; i < queries.size(); i++) {
             final var query = queries.get(i);
             final var expectedParameters = expectedParametersList.get(i);
-            final var hashResults = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query).getRootContext(),
+            final var hashResults = AstNormalizer.normalizeAst(schemaTemplates.get(i), QueryParser.parse(query).getRootContext(),
                     PreparedParams.copyOf(preparedParameters), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0, query);
             Assertions.assertThat(hashResults.getQueryCacheKey().getCanonicalQueryString()).isEqualTo(expectedCanonicalRepresentation);
+            Assertions.assertThat(hashResults.getQueryCacheKey().getAuxiliaryMetadata()).isEqualTo(auxiliaryMetadata);
             final var execParams = hashResults.getQueryExecutionParameters();
             final var evaluationContext = execParams.getEvaluationContext();
             final var constantBindingName = Bindings.Internal.CONSTANT.bindingName(Quantifier.constant().getId());
@@ -323,6 +350,18 @@ public class AstNormalizerTests {
         Assertions.assertThat(result1.getQueryCacheKey()).isNotEqualTo(result2.getQueryCacheKey());
     }
 
+    private static void validateNotEqual(@Nonnull final String query1,
+                                         @Nonnull final RecordLayerSchemaTemplate schemaTemplate1,
+                                         @Nonnull final String query2,
+                                         @Nonnull final RecordLayerSchemaTemplate schemaTemplate2,
+                                         @Nonnull PreparedParams preparedParams) throws RelationalException {
+        final var result1 = AstNormalizer.normalizeAst(schemaTemplate1, QueryParser.parse(query1).getRootContext(),
+                PreparedParams.copyOf(preparedParams), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0, query1);
+        final var result2 = AstNormalizer.normalizeAst(schemaTemplate2, QueryParser.parse(query2).getRootContext(),
+                PreparedParams.copyOf(preparedParams), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0, query2);
+        Assertions.assertThat(result1.getQueryCacheKey()).isNotEqualTo(result2.getQueryCacheKey());
+    }
+
     @SuppressWarnings("unchecked")
     private static void compareBindings(@Nonnull final Object actual, @Nonnull final Object expected) {
         Assertions.assertThat(actual instanceof Map).isTrue();
@@ -341,6 +380,42 @@ public class AstNormalizerTests {
     @Nonnull
     private static java.sql.Array toArrayParameter(List<Object> elements) throws SQLException {
         return EmbeddedRelationalArray.newBuilder().addAll(elements.toArray()).build();
+    }
+
+    @Nonnull
+    private static RecordLayerSchemaTemplate schemaTemplateWithFunction(@Nonnull final RecordLayerSchemaTemplate schemaTemplate,
+                                                                        @Nonnull final String name,
+                                                                        @Nonnull final String functionDdl,
+                                                                        boolean isTemporary) {
+        //noinspection DataFlowIssue
+        return Assert.castUnchecked(schemaTemplate, RecordLayerSchemaTemplate.class).toBuilder()
+                .addInvokedRoutine(RecordLayerInvokedRoutine.newBuilder()
+                        .setName(name)
+                        .setTemporary(isTemporary)
+                        .setDescription(functionDdl)
+                        // invoking the compiled routine should only happen during plan generation.
+                        .withCompilableRoutine(() -> new CompiledSqlFunction("", ImmutableList.of(), ImmutableList.of(),
+                                ImmutableList.of(), Optional.empty(), null) {
+                            @Nonnull
+                            @Override
+                            public RecordMetaDataProto.PUserDefinedFunction toProto(@Nonnull final PlanSerializationContext serializationContext) {
+                                throw new NotImplementedException("unexpected call");
+                            }
+
+                            @Nonnull
+                            @Override
+                            public RelationalExpression encapsulate(@Nonnull final List<? extends Typed> arguments) {
+                                throw new NotImplementedException("unexpected call");
+                            }
+
+                            @Nonnull
+                            @Override
+                            public RelationalExpression encapsulate(@Nonnull final Map<String, ? extends Typed> namedArguments) {
+                                throw new NotImplementedException("unexpected call");
+                            }
+                        })
+                        .build())
+                .build();
     }
 
     @Test
@@ -1005,5 +1080,145 @@ public class AstNormalizerTests {
     @Test
     void hashSyntacticallyIncorrectQueryFails() {
         shouldFail("selec * from t1", "syntax error");
+    }
+
+    @Test
+    void normalizeQueryWithSchemaContainingTemporaryFunction() throws Exception {
+        final var tempFunctionDefinition = "create temporary function sq1(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
+        final var schemaTemplate1 = schemaTemplateWithFunction(fakeSchemaTemplate, "foo", tempFunctionDefinition, true);
+        validate(List.of("select * from t1 where col1 > 42"),
+                PreparedParams.empty(),
+                "select * from \"T1\" where \"COL1\" > ? ",
+                List.of(Map.of(constantId(7), 42)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT),
+                Map.of(Options.Name.LOG_QUERY, false),
+                List.of(schemaTemplate1), tempFunctionDefinition);
+    }
+
+    @Test
+    void normalizeQueryWithSchemaContainingNonTemporaryFunction() throws Exception {
+        final var tempFunctionDefinition = "create function sq1(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
+        final var schemaTemplate1 = schemaTemplateWithFunction(fakeSchemaTemplate, "foo", tempFunctionDefinition, false);
+        validate(List.of("select * from t1 where col1 > 42"),
+                PreparedParams.empty(),
+                "select * from \"T1\" where \"COL1\" > ? ",
+                List.of(Map.of(constantId(7), 42)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT),
+                Map.of(Options.Name.LOG_QUERY, false),
+                List.of(schemaTemplate1), "");
+    }
+
+    @Test
+    void normalizeQueryWithSchemaContainingMultipleTemporaryFunctions() throws Exception {
+        final var tmpFunction1 = "create temporary function tmpFunction1(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
+        final var tmpFunction2 = "create temporary function tmpFunction2(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
+        final var tmpFunction3 = "create temporary function tmpFunction3(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
+        final var tmpFunction4 = "create temporary function tmpFunction4(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
+        var schemaTemplate = schemaTemplateWithFunction(fakeSchemaTemplate, "tmpFunction1", tmpFunction1, true);
+        schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "tmpFunction2", tmpFunction2, true);
+        schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "tmpFunction3", tmpFunction3, true);
+        schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "tmpFunction4", tmpFunction4, true);
+
+        validate(List.of("select * from t1 where col1 > 42"),
+                PreparedParams.empty(),
+                "select * from \"T1\" where \"COL1\" > ? ",
+                List.of(Map.of(constantId(7), 42)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT),
+                Map.of(Options.Name.LOG_QUERY, false),
+                List.of(schemaTemplate), tmpFunction1 + "||" + tmpFunction2 + "||" + tmpFunction3 + "||" + tmpFunction4);
+    }
+
+    @Test
+    void normalizeQueryWithSchemaContainingMixedTemporaryAndNonTemporaryFunction() throws Exception {
+        final var tmpFunction1 = "create temporary function tmpFunction1(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
+        final var tmpFunction2 = "create temporary function tmpFunction2(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
+        final var function1 = "create function function1(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
+        final var tmpFunction3 = "create temporary function tmpFunction3(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
+        final var tmpFunction4 = "create temporary function tmpFunction4(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
+        final var function2 = "create function function2(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
+        var schemaTemplate = schemaTemplateWithFunction(fakeSchemaTemplate, "tmpFunction1", tmpFunction1, true);
+        schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "tmpFunction2", tmpFunction2, true);
+        schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "function1", function1, false);
+        schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "tmpFunction3", tmpFunction3, true);
+        schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "tmpFunction4", tmpFunction4, true);
+        schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "function2", function2, false);
+
+        validate(List.of("select * from t1 where col1 > 42"),
+                PreparedParams.empty(),
+                "select * from \"T1\" where \"COL1\" > ? ",
+                List.of(Map.of(constantId(7), 42)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT),
+                Map.of(Options.Name.LOG_QUERY, false),
+                List.of(schemaTemplate), tmpFunction1 + "||" + tmpFunction2 + "||" + tmpFunction3 + "||" + tmpFunction4);
+    }
+
+    @Test
+    void normalizeQueryWithSchemaContainingTemporaryFunctionsOrderIsLexicographical() throws Exception {
+        final var tmpFunction1 = "create temporary function tmpFunction1(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
+        final var tmpFunction2 = "create temporary function tmpFunction2(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
+        final var function1 = "create function function1(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
+        final var tmpFunction3 = "create temporary function tmpFunction3(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
+        var schemaTemplate1 = schemaTemplateWithFunction(fakeSchemaTemplate, "tmpFunction1", tmpFunction1, true);
+        schemaTemplate1 = schemaTemplateWithFunction(schemaTemplate1, "tmpFunction2", tmpFunction2, true);
+        schemaTemplate1 = schemaTemplateWithFunction(schemaTemplate1, "function1", function1, false);
+        schemaTemplate1 = schemaTemplateWithFunction(schemaTemplate1, "tmpFunction3", tmpFunction3, true);
+
+
+        var schemaTemplate2 = schemaTemplateWithFunction(fakeSchemaTemplate, "tmpFunction3", tmpFunction1, true);
+        schemaTemplate2 = schemaTemplateWithFunction(schemaTemplate2, "function1", function1, false);
+        schemaTemplate2 = schemaTemplateWithFunction(schemaTemplate2, "tmpFunction1", tmpFunction2, true);
+        schemaTemplate2 = schemaTemplateWithFunction(schemaTemplate2, "tmpFunction2", tmpFunction3, true);
+
+        validate(List.of("select * from t1 where col1 > 42", "select * from t1 where col1 > 42"),
+                PreparedParams.empty(),
+                "select * from \"T1\" where \"COL1\" > ? ",
+                List.of(Map.of(constantId(7), 42), Map.of(constantId(7), 42)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT),
+                Map.of(Options.Name.LOG_QUERY, false),
+                List.of(schemaTemplate1, schemaTemplate2), tmpFunction1 + "||" + tmpFunction2 + "||" + tmpFunction3);
+    }
+
+
+    @Test
+    void normalizeQueryWithSchemaContainingNestedTemporaryFunctionsNoDeclarationOrder() throws Exception {
+        // A depends on Z, however, A still appears before Z in the schema template's tx-bound metadata (lexicographical order)
+        final var tmpFunctionZ = "create temporary function tmpFunctionZ(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
+        final var tmpFunctionA = "create temporary function tmpFunctionA(in x bigint) on commit drop function as select * from tmpFunctionZ where a < 40 + x ";
+        var schemaTemplate = schemaTemplateWithFunction(fakeSchemaTemplate, "tmpFunction1", tmpFunctionZ, true);
+        schemaTemplate = schemaTemplateWithFunction(schemaTemplate, "tmpFunction2", tmpFunctionA, true);
+
+        validate(List.of("select * from t1 where col1 > 42"),
+                PreparedParams.empty(),
+                "select * from \"T1\" where \"COL1\" > ? ",
+                List.of(Map.of(constantId(7), 42)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT),
+                Map.of(Options.Name.LOG_QUERY, false),
+                List.of(schemaTemplate), tmpFunctionA + "||" + tmpFunctionZ);
+    }
+
+    @Test
+    void normalizeSameQueryWithMetadataObjectsContainingDifferentTemporaryFunctions() throws Exception {
+        final var tmpFunction1 = "create temporary function tmpFunction1(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
+        var schemaTemplate1 = schemaTemplateWithFunction(fakeSchemaTemplate, "tmpFunction1", tmpFunction1, true);
+
+        final var tmpFunction2 = "create temporary function tmpFunction2(in x bigint) on commit drop function as select * from t1 where a < 40 + x ";
+        var schemaTemplate2 = schemaTemplateWithFunction(fakeSchemaTemplate, "tmpFunction2", tmpFunction2, true);
+
+        // normalizing the _same_ query under schema templates with different transaction-bound functions results in two different
+        // cache key structures
+        final var query = "select * from t1 where col1 > 42";
+        validateNotEqual(query, schemaTemplate1, query, schemaTemplate2, PreparedParams.empty());
     }
 }

@@ -118,6 +118,9 @@ public interface SchemaTemplate extends Metadata {
     @Nonnull
     Collection<? extends InvokedRoutine> getTemporaryInvokedRoutines() throws RelationalException;
 
+    @Nonnull
+    String getTransactionBoundMetadataAsString() throws RelationalException;
+
     /**
      * Creates a {@link Schema} instance using the specified.
      *
