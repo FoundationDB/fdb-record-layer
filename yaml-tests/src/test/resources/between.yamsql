@@ -91,4 +91,59 @@ test_block:
               {ID: 6, 20, 6}, {ID: 7, 20, 7}, {ID: 8, 20, 8}, {ID: 9, 20, 9}, {ID: 10, 20, 10},
               {ID: 11, 30, 11}, {ID: 12, 30, 12}, {ID: 13, 30, 13}
       ]
+---
+test_block:
+  name: between-incompatible-types
+  tests:
+    -
+      - query: select * from t1 WHERE col1 BETWEEN 10 AND 'a'
+      - error: "XX000"
+    -
+      - query: select * from t1 WHERE 'a' BETWEEN 10 AND 20
+      - error: "XX000"
+---
+test_block:
+  name: between-compatible-types
+  tests:
+    -
+      - query: select * from t1 WHERE col2 BETWEEN 4 AND 6.2
+      - result: [{ID: 4, 10, 4}, {ID: 5, 10, 5}, {ID: 6, 20, 6}]
+    -
+      - query: select * from t1 WHERE col2 BETWEEN 4.0 AND 6
+      - result: [{ID: 4, 10, 4}, {ID: 5, 10, 5}, {ID: 6, 20, 6}]
+    -
+      - query: select * from t1 WHERE col2 BETWEEN 4.1 AND 6
+      - result: [{ID: 5, 10, 5}, {ID: 6, 20, 6}]
+    -
+      - query: select count(*) from t1 WHERE 4.5 BETWEEN 4 AND 6
+      - result: [{13}]
+---
+test_block:
+  name: between-complex-operands
+  tests:
+    -
+      - query: select count(*) from t1 WHERE 2+2 BETWEEN 1+1 AND 3+3
+      - result: [{13}]
+---
+test_block:
+  name: between-nulls
+  tests:
+    -
+      - query: select count(*) from t1 WHERE null BETWEEN 1 AND 2
+      - error: "XX000"
+    -
+      - query: select count(*) from t1 WHERE col2 BETWEEN null AND 2
+      - error: "XX000"
+    -
+      - query: select count(*) from t1 WHERE col2 BETWEEN 1 AND null
+      - error: "XX000"
+    -
+      - query: select count(*) from t1 WHERE null NOT BETWEEN 1 AND 2
+      - error: "XX000"
+    -
+      - query: select count(*) from t1 WHERE col2 NOT BETWEEN null AND 2
+      - error: "XX000"
+    -
+      - query: select count(*) from t1 WHERE col2 NOT BETWEEN 1 AND null
+      - error: "XX000"
 ...
