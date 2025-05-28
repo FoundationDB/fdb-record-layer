@@ -223,6 +223,33 @@ public class QueryLoggingTest {
         }
     }
 
+    @Test
+    void testRelationalConnectionSetLogIsOverriddenByExecuteContinuationQueryOption() throws Exception {
+        insertRows();
+        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.NONE)) {
+            Continuation continuation;
+            conn.setSchema(database.getSchemaName());
+            try (RelationalPreparedStatement ps = conn.prepareStatement("SELECT name from restaurant")) {
+                ps.setMaxRows(1);
+                try (RelationalResultSet rs = ps.executeQuery()) {
+                    rs.next();
+                    continuation = rs.getContinuation();
+                }
+                Assertions.assertThat(logAppender.getLogEvents()).isEmpty();
+            }
+            conn.setOption(Options.Name.LOG_QUERY, false);
+            try (RelationalPreparedStatement ps = conn.prepareStatement("EXECUTE CONTINUATION ?continuation OPTIONS(LOG QUERY)")) {
+                ps.setBytes("continuation", continuation.serialize());
+                try (RelationalResultSet rs = ps.executeQuery()) {
+                    rs.next();
+                }
+                Assertions.assertThat(logAppender.getLogEvents()).isNotEmpty();
+                Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("plan=\"COVERING(RECORD_TYPE_COVERING <,> -> [NAME: VALUE[0], REST_NO: KEY[0]]) | MAP (_.NAME AS NAME)\"");
+            }
+        }
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void testRelationalConnectionSetLogWithExecuteContinuation(boolean setLogging) throws Exception {
