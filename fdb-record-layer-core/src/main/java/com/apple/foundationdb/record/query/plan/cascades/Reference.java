@@ -421,14 +421,17 @@ public class Reference implements Correlated<Reference>, Typed {
             return true;
         }
 
-        for (final RelationalExpression otherExpression : otherRef.getExploratoryExpressions()) {
-            if (!exploratoryMembers.containsInMemo(otherExpression, equivalenceMap)) {
-                return false;
-            }
-        }
+        return containsAllInMemo(otherRef.getExploratoryExpressions(), equivalenceMap, false)
+                && containsAllInMemo(otherRef.getFinalExpressions(), equivalenceMap, true);
+    }
 
-        for (final RelationalExpression otherExpression : otherRef.getFinalExpressions()) {
-            if (!finalMembers.containsInMemo(otherExpression, equivalenceMap)) {
+    @API(API.Status.INTERNAL)
+    boolean containsAllInMemo(@Nonnull final Collection<? extends RelationalExpression> expressions,
+                              @Nonnull final AliasMap equivalenceMap,
+                              boolean isFinal) {
+        Members members = isFinal ? finalMembers : exploratoryMembers;
+        for (final RelationalExpression otherExpression : expressions) {
+            if (!members.containsInMemo(otherExpression, equivalenceMap)) {
                 return false;
             }
         }
@@ -690,15 +693,6 @@ public class Reference implements Correlated<Reference>, Typed {
         return PlannerGraphVisitor.show(renderSingleGroups, this);
     }
 
-    public static boolean isMemoizedExpression(@Nonnull final RelationalExpression expression,
-                                               @Nonnull final RelationalExpression otherExpression) {
-        if (!expression.getCorrelatedTo().equals(otherExpression.getCorrelatedTo())) {
-            return false;
-        }
-
-        return isMemoizedExpression(expression, otherExpression, AliasMap.emptyMap());
-    }
-
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private static boolean isMemoizedExpression(@Nonnull final RelationalExpression member,
                                                 @Nonnull final RelationalExpression otherExpression,
@@ -707,6 +701,30 @@ public class Reference implements Correlated<Reference>, Typed {
             return true;
         }
         if (member.getClass() != otherExpression.getClass()) {
+            return false;
+        }
+
+        //
+        // We need to check if the expressions' correlatedTo sets are identical under the consideration of the given
+        // map of alias equivalences. If they are not, the member is not memoizing the otherExpression.
+        //
+        // Specific example:
+        // SELECT *
+        // FROM A a, SELECT * FROM B WHERE a.x = b.y
+        //
+        // Let's assume the inner 'SELECT * FROM B WHERE a.x = b.y' already is member (in the memoization structure).
+        // This member is correlated to 'a'.
+        // However, if we didn't do the check for correlation sets here, we would satisfy the following otherExpression:
+        // SELECT * FROM A WHERE a.x = b.y is correlated to b
+        //
+        final Set<CorrelationIdentifier> originalCorrelatedTo = member.getCorrelatedTo();
+        final Set<CorrelationIdentifier> translatedCorrelatedTo =
+                equivalenceMap.definesOnlyIdentities()
+                ? originalCorrelatedTo
+                : originalCorrelatedTo.stream()
+                        .map(alias -> equivalenceMap.getTargetOrDefault(alias, alias))
+                        .collect(ImmutableSet.toImmutableSet());
+        if (!translatedCorrelatedTo.equals(otherExpression.getCorrelatedTo())) {
             return false;
         }
 
