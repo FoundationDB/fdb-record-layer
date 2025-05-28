@@ -257,8 +257,12 @@ test_block:
       # Cannot use FORCE_CONTINUATIONS with older versions due to: https://github.com/FoundationDB/fdb-record-layer/issues/3096
       # (Extra values being produced after exhausting source of an aggregate cursor)
       # Can remove once we do not care about backwards compatibility before 4.1.9.0
-      - maxRows: 0
-      - result: [{COL3: 1, S: 1}, {COL3: 2, S: 2}, {COL3: 100, S: 1}, {COL3: 200, S: 2}]
+      - maxRows: 1
+      - result: [{COL3: 1, S: 1}]
+      - result: [{COL3: 2, S: 2}]
+      - result: [{COL3: 100, S: 1}]
+      - result: [{COL3: 200, S: 2}]
+      - result: []
     -
       - query: select col3, sum(col2) as s from t2 use index (mv9) where col1 = 1 group by col1, col3 order by col3 desc;
       - supported_version: 4.1.9.0
@@ -269,8 +273,12 @@ test_block:
       # Cannot use FORCE_CONTINUATIONS with older versions due to: https://github.com/FoundationDB/fdb-record-layer/issues/3096
       # (Extra values being produced after exhausting source of an aggregate cursor)
       # Can remove once we do not care about backwards compatibility before 4.1.9.0
-      - maxRows: 0
-      - result: [{COL3: 200, S: 2}, {COL3: 100, S: 1}, {COL3: 2, S: 2}, {COL3: 1, S: 1}]
+      - maxRows: 1
+      - result: [{COL3: 200, S: 2}]
+      - result: [{COL3: 100, S: 1}]
+      - result: [{COL3: 2, S: 2}]
+      - result: [{COL3: 1, S: 1}]
+      - result: []
 #    -
 #      # grouping by constant is not yet supported.
 #      - query: select sum(col2) from t1 group by 3,2,1;

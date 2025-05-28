@@ -70,14 +70,14 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
     @Nullable
     private byte[] lastKey;
     @Nonnull
-    private SerializationMode serializationMode;
+    private final SerializationMode serializationMode;
 
     protected KeyValueCursorBase(@Nonnull final FDBRecordContext context,
                                  @Nonnull final AsyncIterator<K> iterator,
                                  int prefixLength,
                                  @Nonnull final CursorLimitManager limitManager,
                                  int valuesLimit,
-                                 SerializationMode serializationMode) {
+                                 @Nonnull SerializationMode serializationMode) {
         super(context.getExecutor(), iterator);
 
         this.context = context;
@@ -193,11 +193,13 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         @Nonnull
         private RecordCursorProto.KeyValueCursorContinuation toProto() {
             RecordCursorProto.KeyValueCursorContinuation.Builder builder = RecordCursorProto.KeyValueCursorContinuation.newBuilder();
-            if (lastKey != null) {
+            if (lastKey == null) {
+                builder.setIsEnd(true);
+            } else {
                 ByteString base = ZeroCopyByteString.wrap(lastKey);
-                builder.setContinuation(base.substring(prefixLength, lastKey.length));
+                builder.setContinuation(base.substring(prefixLength, lastKey.length)).setIsEnd(false);
             }
-            return builder.setIsStart(false).build();
+            return builder.build();
         }
     }
 
