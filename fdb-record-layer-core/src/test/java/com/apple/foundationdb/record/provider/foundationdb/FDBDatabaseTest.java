@@ -374,6 +374,7 @@ class FDBDatabaseTest {
                     .setContext(context)
                     .setKeySpacePath(path)
                     .build();
+            store.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.NONE).join();
             store.deleteAllRecords();
             store.saveRecord(simpleRecord);
             return null;
