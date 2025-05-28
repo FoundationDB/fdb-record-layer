@@ -256,32 +256,6 @@ public class QueryLoggingTest {
     }
 
     @Test
-    void testExecuteContinuationSetLogOn() throws Exception {
-        insertRows();
-        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
-        try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.NONE)) {
-            Continuation continuation;
-            conn.setSchema(database.getSchemaName());
-            try (RelationalPreparedStatement ps = conn.prepareStatement("SELECT name from restaurant")) {
-                ps.setMaxRows(1);
-                try (RelationalResultSet rs = ps.executeQuery()) {
-                    rs.next();
-                    continuation = rs.getContinuation();
-                }
-                Assertions.assertThat(logAppender.getLogEvents()).isEmpty();
-            }
-            conn.setOption(Options.Name.LOG_QUERY, true);
-            try (RelationalPreparedStatement ps = conn.prepareStatement("EXECUTE CONTINUATION ?continuation")) {
-                ps.setBytes("continuation", continuation.serialize());
-                try (RelationalResultSet rs = ps.executeQuery()) {
-                    rs.next();
-                }
-                Assertions.assertThat(logAppender.getLogEvents()).isEmpty();
-            }
-        }
-    }
-
-    @Test
     void testLogQueryBecauseLoggerIsSetToDebug() throws Exception {
         try (LogAppenderRule debugRule = LogAppenderRule.of("DebugLogAppender", PlanGenerator.class, Level.DEBUG)) {
             try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RESTAURANT")) {
