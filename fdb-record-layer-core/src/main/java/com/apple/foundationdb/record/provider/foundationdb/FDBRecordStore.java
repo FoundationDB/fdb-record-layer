@@ -1738,11 +1738,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         // Clear out all data except for the store header key and the index state space.
         // Those two subspaces are determined by the configuration of the record store rather then
         // the records.
-        final MutableRecordStoreState localRecordStoreState = recordStoreStateRef.get();
-        if (localRecordStoreState == null) {
-            throw new RecordCoreException("Please check version in this path");
-        }
-        validateRecordUpdateAllowed(localRecordStoreState); // this function will throw if the store state was not initilized
+        validateRecordUpdateAllowed(getRecordStoreState()); // this function will throw if the store state was not initilized
         Range indexStateRange = indexStateSubspace().range();
         context.clear(new Range(recordsSubspace().getKey(), indexStateRange.begin));
         context.clear(new Range(indexStateRange.end, getSubspace().range().end));
