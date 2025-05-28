@@ -246,6 +246,9 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
     public boolean equals(final Object other) {
+        if (other == null) {
+            return false;
+        }
         if (getClass() != other.getClass()) {
             return false;
         }
