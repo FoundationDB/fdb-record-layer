@@ -131,7 +131,7 @@ public class RecordRepairRunner {
         ThrottledRetryingIterator.Builder<Tuple> iteratorBuilder =
                 ThrottledRetryingIterator.builder(config.getDatabase(), cursorFactory(), validateAndRepairHandler(validationResults, validationKind, allowRepair));
         iteratorBuilder = configureThrottlingIterator(iteratorBuilder, config);
-        try (final ThrottledRetryingIterator<Tuple> iterator = iteratorBuilder.build()) {
+        try (ThrottledRetryingIterator<Tuple> iterator = iteratorBuilder.build()) {
             iterator.iterateAll(recordStoreBuilder).join();
         }
         return validationResults;
@@ -212,6 +212,7 @@ public class RecordRepairRunner {
                 .withNumOfRetries(config.getNumOfRetries());
     }
 
+    @SuppressWarnings("PMD.UnusedFormalParameter")
     private void logStartTransaction(ThrottledRetryingIterator.QuotaManager quotaManager) {
         if (logger.isInfoEnabled()) {
             logger.info(KeyValueLogMessage.of("RecordRepairRunner: transaction started"));

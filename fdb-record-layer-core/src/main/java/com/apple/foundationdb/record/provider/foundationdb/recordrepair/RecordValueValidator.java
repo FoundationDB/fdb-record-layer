@@ -105,7 +105,9 @@ public class RecordValueValidator implements RecordValidator {
             default:
                 // Unknown code
                 if (logger.isWarnEnabled()) {
-                    logger.warn("Record repair: Unknown code", LogMessageKeys.PRIMARY_KEY, validationResult.getPrimaryKey(), LogMessageKeys.CODE, validationResult.getErrorCode());
+                    logger.warn(KeyValueLogMessage.of("Record repair: Unknown code",
+                            LogMessageKeys.PRIMARY_KEY, validationResult.getPrimaryKey(),
+                            LogMessageKeys.CODE, validationResult.getErrorCode()));
                 }
                 return CompletableFuture.completedFuture(validationResult.withRepair(RecordValidationResult.REPAIR_UNKNOWN_VALIDATION_CODE));
         }
