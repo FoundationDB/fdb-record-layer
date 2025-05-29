@@ -189,7 +189,7 @@ public class KeyValueCursorTest {
                     .setRange(TupleRange.ALL)
                     .setContinuation(cursor.getNext().getContinuation().toBytes())
                     .setScanProperties(ScanProperties.FORWARD_SCAN)
-                    .setSerializationMode(KeyValueCursorBase.SerializationMode.TO_NEW)
+                    .setSerializationMode(KeyValueCursorBase.SerializationMode.TO_OLD)
                     .build();
             assertEquals(0, (int)cursor.getCount().join());
 

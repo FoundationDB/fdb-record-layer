@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.Utils;
@@ -33,6 +34,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
+import java.util.Base64;
 
 import static com.apple.foundationdb.relational.recordlayer.query.QueryTestUtils.insertT1Record;
 import static com.apple.foundationdb.relational.recordlayer.query.QueryTestUtils.insertT1RecordColAIsNull;
@@ -76,6 +78,51 @@ public class GroupByQueryTests {
                             .hasColumn("PLAN", "AISCAN(SUM_IDX [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)");
                 }
             }
+        }
+    }
+
+    @Test
+    void test() throws Exception {
+        final String schemaTemplate =
+                "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))\n" +
+                        "create index mv9 as select a, max(b), c from T1 group by a, c order by a, max(b), c";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                insertT1Record(statement, 1, 1, 1, 100);
+                insertT1Record(statement, 2, 1, 1, 1);
+                insertT1Record(statement, 3, 1, 2, 2);
+                insertT1Record(statement, 4, 1, 2, 200);
+                insertT1Record(statement, 5, 2, 1, 200);
+                insertT1Record(statement, 6, 2, 1, 3);
+                insertT1Record(statement, 7, 2, 1, 400);
+                insertT1Record(statement, 8, 2, 1, 400);
+                insertT1Record(statement, 9, 2, 1, 400);
+                //statement.setMaxRows(1);
+                Continuation continuation;
+                try (final RelationalResultSet resultSet = statement.executeQuery("select c, sum(b) as s from t1 use index (mv9) where a = 1 group by a, c order by c desc")) {
+                    //Assertions.assertEquals(200L, resultSet.getLong(1));
+                    //continuation = resultSet.getContinuation();
+
+                    ResultSetAssert.assertThat(resultSet).hasNextRow()
+                            .isRowExactly(200L, 2L)
+                            .hasNextRow()
+                            .isRowExactly(100L, 1L)
+                            .hasNextRow()
+                            .isRowExactly(2L, 2L)
+                            .hasNextRow()
+                            .isRowExactly(1L, 1L)
+                            .hasNoNextRow();
+                }
+                /*
+                Assertions.assertTrue(statement.execute("EXECUTE CONTINUATION " + Base64.getEncoder().encodeToString(continuation.serialize())), "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    Assertions.assertEquals(100L, resultSet.getLong(1));
+                    continuation = resultSet.getContinuation();
+                }
+
+                 */
+            }
+
         }
     }
 
