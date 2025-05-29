@@ -95,6 +95,13 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     private final CorrelationIdentifier alias;
 
     /**
+     * As a quantifier is immutable, the correlated set can be computed lazily and then cached. This supplier
+     * represents that cached set.
+     */
+    @Nonnull
+    private final Supplier<Set<CorrelationIdentifier>> correlatedToSupplier;
+
+    /**
      * As a quantifier is immutable, the columns that flow along the quantifier can be lazily computed.
      */
     @Nonnull
@@ -577,6 +584,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     protected Quantifier(@Nonnull final CorrelationIdentifier alias) {
         this.alias = alias;
+        this.correlatedToSupplier = Suppliers.memoize(() -> getRangesOver().getCorrelatedTo());
         this.flowedColumnsSupplier = Suppliers.memoize(this::computeFlowedColumns);
         this.flowedValuesSupplier = Suppliers.memoize(this::computeFlowedValues);
         // Call debugger hook for this new quantifier.
@@ -664,7 +672,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
-        return getRangesOver().getCorrelatedTo();
+        return correlatedToSupplier.get();
     }
 
     /**
