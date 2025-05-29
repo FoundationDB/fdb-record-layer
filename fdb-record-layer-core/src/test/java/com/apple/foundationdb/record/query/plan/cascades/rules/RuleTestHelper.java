@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
@@ -32,13 +33,19 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RangeValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.assertj.core.api.AutoCloseableSoftAssertions;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.forEach;
@@ -98,6 +105,28 @@ public class RuleTestHelper {
     @Nonnull
     public static GraphExpansion.Builder join(Quantifier... quns) {
         return GraphExpansion.builder().addAllQuantifiers(List.of(quns));
+    }
+
+    @Nonnull
+    public static Quantifier rangeOneQun() {
+        var rangeValue = (RangeValue) new RangeValue.RangeFn().encapsulate(ImmutableList.of(LiteralValue.ofScalar(1L)));
+        TableFunctionExpression tvf = new TableFunctionExpression(rangeValue);
+        return Quantifier.forEach(Reference.initialOf(tvf));
+    }
+
+    @Nonnull
+    public static Quantifier valuesQun(@Nonnull Map<String, Value> valueMap) {
+        var graphBuilder = GraphExpansion.builder()
+                .addQuantifier(rangeOneQun());
+        for (Map.Entry<String, Value> entry : valueMap.entrySet()) {
+            graphBuilder.addResultColumn(Column.of(Optional.of(entry.getKey()), entry.getValue()));
+        }
+        return Quantifier.forEach(Reference.initialOf(graphBuilder.build().buildSelect()));
+    }
+
+    @Nonnull
+    public static Quantifier valuesQun(@Nonnull Value value) {
+        return Quantifier.forEach(Reference.initialOf(new SelectExpression(value, ImmutableList.of(rangeOneQun()), ImmutableList.of())));
     }
 
     @Nonnull

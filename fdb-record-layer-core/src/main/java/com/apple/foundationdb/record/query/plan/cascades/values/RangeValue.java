@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInTableFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
+import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
@@ -131,6 +132,21 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
                         beginExplainTokens,
                         endExplainTokens,
                         new ExplainTokens().addKeyword("STEP").addWhitespace().addNested(stepExplainTokens))));
+    }
+
+    @Nonnull
+    @Override
+    public CardinalitiesProperty.Cardinalities getCardinalities() {
+        try {
+            long beginLong = ((Number) beginInclusive.evalWithoutStore(EvaluationContext.EMPTY)).longValue();
+            long endLong = ((Number) endExclusive.evalWithoutStore(EvaluationContext.EMPTY)).longValue();
+            long stepLong = ((Number) step.evalWithoutStore(EvaluationContext.EMPTY)).longValue();
+
+            var cardinality = CardinalitiesProperty.Cardinality.ofCardinality(Math.floorDiv(endLong - beginLong, stepLong));
+            return new CardinalitiesProperty.Cardinalities(cardinality, cardinality);
+        } catch (NullPointerException npe) {
+            return CardinalitiesProperty.Cardinalities.unknownMaxCardinality();
+        }
     }
 
     @Nullable
