@@ -53,6 +53,12 @@ test_block:
       - supported_version: !current_version
       - result: [ { B2: true, 'foo' },
                   { B2: false, 'bar' } ]
+    -
+      - query: select a3, case when a3 > 15 then 10 else 3.14 end from A;
+      - supported_version: !current_version
+      - result: [ { A3: 10, 3.14 },
+                  { A3: 20, 10.0 },
+                  { A3: 30, 10.0 } ]
 ---
 setup:
   steps:
