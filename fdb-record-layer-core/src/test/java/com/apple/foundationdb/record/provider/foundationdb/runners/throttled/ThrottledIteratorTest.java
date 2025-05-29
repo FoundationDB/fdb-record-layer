@@ -108,13 +108,16 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         };
 
         ThrottledRetryingIterator<Integer> iterator;
+        FDBRecordStore.Builder storeBuilder;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            try (ThrottledRetryingIterator<Integer> throttledIterator =
-                         iteratorBuilder(10, itemHandler, null, null, -1, -1, -1, -1, null).build()) {
-                iterator = throttledIterator;
-                throttledIterator.iterateAll(recordStore.asBuilder()).join();
-            }
+            storeBuilder = recordStore.asBuilder();
+            commit(context);
+        }
+        try (ThrottledRetryingIterator<Integer> throttledIterator =
+                     iteratorBuilder(10, itemHandler, null, null, -1, -1, -1, -1, null).build()) {
+            iterator = throttledIterator;
+            throttledIterator.iterateAll(storeBuilder).join();
         }
 
         Assertions.assertThatThrownBy(() -> iterator.iterateAll(recordStore.asBuilder()).join()).hasCauseInstanceOf(FDBDatabaseRunner.RunnerClosed.class);
@@ -145,6 +148,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             storeBuilder = recordStore.asBuilder();
+            commit(context);
         }
         try (ThrottledRetryingIterator<Integer> throttledIterator =
                      iteratorBuilder(numRecords, itemHandler, null, successNotification, -1, deleteLimit, -1, -1, limitRef).build()) {
@@ -188,7 +192,11 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
             iteratedCount.addAndGet(quotaManager.getScannedCount());
             deletedCount.addAndGet(quotaManager.getDeletesCount());
         };
-
+        // Create the store first
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            commit(context);
+        }
         long startTimeMillis = System.currentTimeMillis();
         try (FDBRecordContext context = openContext()) {
             // For variety, leave this iterator running within the existing transaction
@@ -197,6 +205,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
                     iteratorBuilder(numRecords, itemHandler, null, successNotification,  maxPerSecLimit, -1, -1, -1, limitRef).build()) {
                 throttledIterator.iterateAll(recordStore.asBuilder()).join();
             }
+            commit(context);
         }
 
         long totalTimeMillis = System.currentTimeMillis() - startTimeMillis;
@@ -227,6 +236,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             storeBuilder = recordStore.asBuilder();
+            commit(context);
         }
         try (ThrottledRetryingIterator<Integer> throttledIterator =
                      iteratorBuilder(numRecords, itemHandler, initNotification, null, -1, -1, -1, transactionTimeMillis, null).build()) {
@@ -278,6 +288,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             storeBuilder = recordStore.asBuilder();
+            commit(context);
         }
         try (ThrottledRetryingIterator<Integer> throttledIterator =
                      iteratorBuilder(numRecords, itemHandler, initNotification, successNotification, -1, deleteLimit, -1, -1, limitRef).build()) {
@@ -328,6 +339,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             storeBuilder = recordStore.asBuilder();
+            commit(context);
         }
         try (ThrottledRetryingIterator<Integer> throttledIterator =
                      iteratorBuilder(numRecords, itemHandler, initNotification, successNotification, maxPerSecLimit, -1, -1, -1, null).build()) {
@@ -364,6 +376,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             storeBuilder = recordStore.asBuilder();
+            commit(context);
         }
         try (ThrottledRetryingIterator<Integer> throttledIterator =
                      iteratorBuilder(500, itemHandler, initNotification, successNotification, -1, -1, numRetries, -1, null).build()) {
@@ -420,6 +433,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             storeBuilder = recordStore.asBuilder();
+            commit(context);
         }
         try (ThrottledRetryingIterator<Integer> throttledIterator =
                      iteratorBuilder(999, itemHandler, null, null, -1, -1, -1, -1, limitRef).build()) {
@@ -459,6 +473,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             storeBuilder = recordStore.asBuilder();
+            commit(context);
         }
         try (ThrottledRetryingIterator<Integer> throttledIterator =
                      iteratorBuilder(2000, itemHandler, null, null, -1, -1, -1, -1, limitRef).build()) {
@@ -488,6 +503,7 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             storeBuilder = recordStore.asBuilder();
+            commit(context);
         }
         try (ThrottledRetryingIterator<Integer> throttledIterator =
                      iteratorBuilder(numRecords, itemHandler, null, successNotification, -1, -1, -1, -1, null).build()) {
@@ -580,7 +596,10 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
             try (FDBRecordContext context = openContext()) {
                 openSimpleRecordStore(context);
                 iterateAll = throttledIterator.iterateAll(recordStore.asBuilder());
+                commit(context);
             }
+            // "sleep" for 10 ms to allow futures to get scheduled
+            MoreAsyncUtil.delayedFuture(10, TimeUnit.MILLISECONDS).join();
             // Only first future in the list - waiting for it to complete
             assertThat(futures).hasSize(1);
             // complete the first future, release all of them
@@ -619,11 +638,14 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             storeBuilder = recordStore.asBuilder();
+            commit(context);
         }
         final ThrottledRetryingIterator.Builder<Integer> builder = ThrottledRetryingIterator.builder(fdb, cursorFactory, itemHandler)
                 .withTransactionInitNotification(initNotification);
         try (ThrottledRetryingIterator<Integer> iterator = builder.build()) {
             iterateAll = iterator.iterateAll(storeBuilder);
+            // "sleep" for 10 ms to allow futures to get scheduled
+            MoreAsyncUtil.delayedFuture(10, TimeUnit.MILLISECONDS).join();
             // Closing the iterator before the first future completes
         }
 
@@ -664,10 +686,13 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             storeBuilder = recordStore.asBuilder();
+            commit(context);
         }
         final ThrottledRetryingIterator.Builder<Integer> builder = ThrottledRetryingIterator.builder(fdb, cursorFactory, itemHandler);
         try (ThrottledRetryingIterator<Integer> iterator = builder.build()) {
             iterateAll = iterator.iterateAll(storeBuilder);
+            // "sleep" for 10 ms to allow futures to get scheduled
+            MoreAsyncUtil.delayedFuture(10, TimeUnit.MILLISECONDS).join();
             // Closing the iterator before the first future completes
         }
 
