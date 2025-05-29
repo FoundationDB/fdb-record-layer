@@ -130,20 +130,20 @@ test_block:
   tests:
     -
       - query: select count(*) from t1 WHERE null BETWEEN 1 AND 2
-      - error: "XX000"
+      - result: [{0}]
     -
       - query: select count(*) from t1 WHERE col2 BETWEEN null AND 2
-      - error: "XX000"
+      - result: [{0}]
     -
       - query: select count(*) from t1 WHERE col2 BETWEEN 1 AND null
-      - error: "XX000"
+      - result: [{0}]
     -
       - query: select count(*) from t1 WHERE null NOT BETWEEN 1 AND 2
-      - error: "XX000"
+      - result: [{0}]
     -
       - query: select count(*) from t1 WHERE col2 NOT BETWEEN null AND 2
-      - error: "XX000"
+      - result: [{11}]
     -
       - query: select count(*) from t1 WHERE col2 NOT BETWEEN 1 AND null
-      - error: "XX000"
+      - result: [{0}]
 ...
