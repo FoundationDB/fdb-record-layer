@@ -311,12 +311,13 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitCaseFunctionCall(@Nonnull RelationalParser.CaseFunctionCallContext ctx) {
-        final ImmutableList.Builder<BooleanValue> implications = ImmutableList.builder();
+        final ImmutableList.Builder<Value> implications = ImmutableList.builder();
         final ImmutableList.Builder<Value> pickerValues = ImmutableList.builder();
         for (final var caseAlternative : ctx.caseFuncAlternative()) {
             final var condition = visitFunctionArg(caseAlternative.condition);
+            Assert.thatUnchecked(condition.getDataType().getCode().equals(DataType.Code.BOOLEAN));
             final var consequent = visitFunctionArg(caseAlternative.consequent);
-            implications.add(Assert.castUnchecked(condition.getUnderlying(), BooleanValue.class));
+            implications.add(condition.getUnderlying());
             pickerValues.add(consequent.getUnderlying());
         }
         if (ctx.ELSE() != null) {

@@ -21,6 +21,7 @@
 schema_template:
     create type as struct S(S1 bigint, S2 bigint)
     create table A(A1 bigint, A2 bigint, A3 bigint, primary key(A1))
+    create table B(B1 bigint, B2 boolean, primary key(B1))
 ---
 setup:
   steps:
@@ -28,6 +29,9 @@ setup:
         (1, 10, 10),
         (2, 11, 20),
         (3, 12, 30);
+    - query: insert into B values
+        (1, true),
+        (2, false);
 ---
 test_block:
   tests:
@@ -36,6 +40,19 @@ test_block:
       - result: [ { A1: 1, A2: 10, A3: 10 },
                   { A1: 2, A2: 11, A3: 20 },
                   { A1: 3, A2: 12, A3: 30 } ]
+---
+test_block:
+  tests:
+    -
+      - query: select a3, case when a3 > 15 then 'foo' else 'bar' end from A;
+      - result: [ { A3: 10, 'bar' },
+                  { A3: 20, 'foo' },
+                  { A3: 30, 'foo' } ]
+    -
+      - query: select b2, case when b2 then 'foo' else 'bar' end from b;
+      - supported_version: !current_version
+      - result: [ { B2: true, 'foo' },
+                  { B2: false, 'bar' } ]
 ---
 setup:
   steps:
