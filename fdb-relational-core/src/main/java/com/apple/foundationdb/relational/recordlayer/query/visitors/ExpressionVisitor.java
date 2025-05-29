@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConditionSelectorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ExistsValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
