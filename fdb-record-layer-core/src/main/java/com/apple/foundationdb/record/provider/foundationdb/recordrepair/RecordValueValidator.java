@@ -46,8 +46,11 @@ import java.util.concurrent.CompletionException;
  */
 @API(API.Status.INTERNAL)
 public class RecordValueValidator implements RecordValidator {
+    /** (error code) Record splits issue (missing split/out of order). */
     public static final String CODE_SPLIT_ERROR = "RecordValueSplitError";
+    /** (error code) Record could not be serialized (corrupt data, missing split). */
     public static final String CODE_DESERIALIZE_ERROR = "RecordValueDeserializeError";
+    /** (repair code) Record data was deleted as a repair. */
     public static final String REPAIR_RECORD_DELETED = "RecordValueRecordDeletedRepair";
 
     private static final Logger logger = LoggerFactory.getLogger(RecordValueValidator.class);
@@ -99,7 +102,9 @@ public class RecordValueValidator implements RecordValidator {
                 // Delete record subspace
                 store.deleteRecordSplits(validationResult.getPrimaryKey(), false, null, store.getRecordMetaData());
                 if (logger.isInfoEnabled()) {
-                    logger.info(KeyValueLogMessage.of("Record repair: Record deleted", LogMessageKeys.PRIMARY_KEY, validationResult.getPrimaryKey()));
+                    logger.info(KeyValueLogMessage.of("Record repair: Record deleted",
+                            LogMessageKeys.PRIMARY_KEY, validationResult.getPrimaryKey(),
+                            LogMessageKeys.CODE, validationResult.getErrorCode()));
                 }
                 return CompletableFuture.completedFuture(validationResult.withRepair(REPAIR_RECORD_DELETED));
             default:

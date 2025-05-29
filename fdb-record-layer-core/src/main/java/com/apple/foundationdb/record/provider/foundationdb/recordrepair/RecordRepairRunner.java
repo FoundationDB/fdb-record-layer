@@ -87,10 +87,22 @@ public class RecordRepairRunner {
     private static final Logger logger = LoggerFactory.getLogger(RecordRepairRunner.class);
 
     @Nonnull
-    private final Builder config;
+    private final FDBDatabase database;
+    private final int maxResultsReturned;
+    private final int transactionTimeQuotaMillis;
+    private final int maxRecordDeletesPerTransaction;
+    private final int maxRecordScannedPerSec;
+    private final int maxRecordDeletesPerSec;
+    private final int numOfRetries;
 
     private RecordRepairRunner(@Nonnull final Builder config) {
-        this.config = config;
+        this.database = config.database;
+        this.maxResultsReturned = config.getMaxResultsReturned();
+        this.transactionTimeQuotaMillis = config.getTransactionTimeQuotaMillis();
+        this.maxRecordDeletesPerTransaction = config.getMaxRecordDeletesPerTransaction();
+        this.maxRecordScannedPerSec = config.getMaxRecordScannedPerSec();
+        this.maxRecordDeletesPerSec = config.getMaxRecordDeletesPerSec();
+        this.numOfRetries = config.getNumOfRetries();
     }
 
     /**
@@ -111,8 +123,8 @@ public class RecordRepairRunner {
     public RecordValidationStatsResult runValidationStats(@Nonnull FDBRecordStore.Builder recordStoreBuilder, @Nonnull ValidationKind validationKind) {
         RecordValidationStatsResult statsResult = new RecordValidationStatsResult();
         ThrottledRetryingIterator.Builder<Tuple> iteratorBuilder =
-                ThrottledRetryingIterator.builder(config.getDatabase(), cursorFactory(), countResultsHandler(statsResult, validationKind));
-        iteratorBuilder = configureThrottlingIterator(iteratorBuilder, config);
+                ThrottledRetryingIterator.builder(database, cursorFactory(), countResultsHandler(statsResult, validationKind));
+        iteratorBuilder = configureThrottlingIterator(iteratorBuilder);
         try (ThrottledRetryingIterator<Tuple> iterator = iteratorBuilder.build()) {
             iterator.iterateAll(recordStoreBuilder).join();
         }
@@ -129,8 +141,8 @@ public class RecordRepairRunner {
     public List<RecordValidationResult> runValidationAndRepair(@Nonnull FDBRecordStore.Builder recordStoreBuilder, @Nonnull ValidationKind validationKind, boolean allowRepair) {
         List<RecordValidationResult> validationResults = new ArrayList<>();
         ThrottledRetryingIterator.Builder<Tuple> iteratorBuilder =
-                ThrottledRetryingIterator.builder(config.getDatabase(), cursorFactory(), validateAndRepairHandler(validationResults, validationKind, allowRepair));
-        iteratorBuilder = configureThrottlingIterator(iteratorBuilder, config);
+                ThrottledRetryingIterator.builder(database, cursorFactory(), validateAndRepairHandler(validationResults, validationKind, allowRepair));
+        iteratorBuilder = configureThrottlingIterator(iteratorBuilder);
         try (ThrottledRetryingIterator<Tuple> iterator = iteratorBuilder.build()) {
             iterator.iterateAll(recordStoreBuilder).join();
         }
@@ -160,7 +172,7 @@ public class RecordRepairRunner {
             return validateInternal(primaryKey, store, validationKind, allowRepair).thenAccept(result -> {
                 if (!result.isValid()) {
                     results.add(result);
-                    if ((config.getMaxResultsReturned() > 0) && (results.size() >= config.getMaxResultsReturned())) {
+                    if ((maxResultsReturned > 0) && (results.size() >= maxResultsReturned)) {
                         quotaManager.markExhausted();
                     }
                     // Mark record as deleted
@@ -201,27 +213,27 @@ public class RecordRepairRunner {
         });
     }
 
-    private ThrottledRetryingIterator.Builder<Tuple> configureThrottlingIterator(ThrottledRetryingIterator.Builder<Tuple> builder, Builder config) {
+    private ThrottledRetryingIterator.Builder<Tuple> configureThrottlingIterator(ThrottledRetryingIterator.Builder<Tuple> builder) {
         return builder
                 .withTransactionInitNotification(this::logStartTransaction)
                 .withTransactionSuccessNotification(this::logCommitTransaction)
-                .withTransactionTimeQuotaMillis(config.getTransactionTimeQuotaMillis())
-                .withMaxRecordsDeletesPerTransaction(config.getMaxRecordDeletesPerTransaction())
-                .withMaxRecordsScannedPerSec(config.getMaxRecordScannedPerSec())
-                .withMaxRecordsDeletesPerSec(config.getMaxRecordDeletesPerSec())
-                .withNumOfRetries(config.getNumOfRetries());
+                .withTransactionTimeQuotaMillis(transactionTimeQuotaMillis)
+                .withMaxRecordsDeletesPerTransaction(maxRecordDeletesPerTransaction)
+                .withMaxRecordsScannedPerSec(maxRecordScannedPerSec)
+                .withMaxRecordsDeletesPerSec(maxRecordDeletesPerSec)
+                .withNumOfRetries(numOfRetries);
     }
 
     @SuppressWarnings("PMD.UnusedFormalParameter")
     private void logStartTransaction(ThrottledRetryingIterator.QuotaManager quotaManager) {
-        if (logger.isInfoEnabled()) {
-            logger.info(KeyValueLogMessage.of("RecordRepairRunner: transaction started"));
+        if (logger.isDebugEnabled()) {
+            logger.debug(KeyValueLogMessage.of("RecordRepairRunner: transaction started"));
         }
     }
 
     private void logCommitTransaction(ThrottledRetryingIterator.QuotaManager quotaManager) {
-        if (logger.isInfoEnabled()) {
-            logger.info(KeyValueLogMessage.of("RecordRepairRunner: transaction committed",
+        if (logger.isDebugEnabled()) {
+            logger.debug(KeyValueLogMessage.of("RecordRepairRunner: transaction committed",
                     LogMessageKeys.RECORDS_SCANNED, quotaManager.getScannedCount(),
                     LogMessageKeys.RECORDS_DELETED, quotaManager.getDeletesCount()));
         }
@@ -238,7 +250,7 @@ public class RecordRepairRunner {
         private int transactionTimeQuotaMillis = (int)TimeUnit.SECONDS.toMillis(4);
         private int maxRecordDeletesPerTransaction = 0;
         private int maxRecordScannedPerSec = 0;
-        private int maxRecordDeletesPerSec = 0;
+        private int maxRecordDeletesPerSec = 1000;
         private int numOfRetries = 4;
 
         /**
@@ -262,7 +274,7 @@ public class RecordRepairRunner {
          * This parameter is intended to stop the iteration once a number of issues has been found, as a means of controlling
          * the size of the list returned.
          * @param maxResultsReturned the maximum number of issues to be returned from the {@link #runValidationAndRepair(FDBRecordStore.Builder, ValidationKind, boolean)} method.
-         * Default: 0 (unlimited)
+         * Default: 10,000. Use 0 for Unlimited.
          * @return this builder
          */
         public Builder withMaxResultsReturned(int maxResultsReturned) {
@@ -274,7 +286,8 @@ public class RecordRepairRunner {
          * Limit the number of records deleted in a transaction.
          * Records can be deleted as part of the repair process. Once this number is reached, the transaction gets committed
          * and a new one is started.
-         * @param maxRecordDeletesPerTransaction the max number of records allowed to be deleted in a transaction. Default: 0 (unlimited)
+         * @param maxRecordDeletesPerTransaction the max number of records allowed to be deleted in a transaction.
+         * Default: 0 (unlimited)
          * @return this builder
          */
         public Builder withMaxRecordDeletesPerTransaction(final int maxRecordDeletesPerTransaction) {
@@ -285,8 +298,10 @@ public class RecordRepairRunner {
         /**
          * Limit the amount of time a transaction can take.
          * This will instruct the runner to stop a transaction once this duration has been reached. Note that each transaction
-         * is limited by default to 5 seconds so it cannot go beyond that.
-         * @param transactionTimeQuotaMillis the max number of milliseconds to spend in a transaction. Default: 0 (Unlimited)
+         * is limited (to 5 seconds normally) by FDB as well. If set to 0 the runner will not limit transaction time,
+         * which may result in FDB failing to commit (transaction too long).
+         * @param transactionTimeQuotaMillis the max number of milliseconds to spend in a transaction.
+         * Default: 4000. Use 0 for unlimited.
          * @return this builder
          */
         public Builder withTransactionTimeQuotaMillis(final int transactionTimeQuotaMillis) {
@@ -296,9 +311,9 @@ public class RecordRepairRunner {
 
         /**
          * Limit the number of records that can be scanned every second.
-         * This would delay the next transaction to ensure the limit is maintained (while each record iteration is not restricted
-         * by itself).
-         * @param maxRecordScannedPerSec the average number of records to scan in per second. Default: 0 (unlimited)
+         * This would delay the next transaction to ensure the limit is maintained (while there are no delays added during a transaction).
+         * @param maxRecordScannedPerSec the average number of records to scan in per second.
+         * Default: 0 (unlimited)
          * @return this builder
          */
         public Builder withMaxRecordScannedPerSec(final int maxRecordScannedPerSec) {
@@ -308,9 +323,9 @@ public class RecordRepairRunner {
 
         /**
          * Limit the number of records that can be deleted every second.
-         * This would delay the next transaction to ensure the limit is maintained (while each record iteration is not restricted
-         * by itself).
-         * @param maxRecordDeletesPerSec the average number of records to delete in per second. Default: 0 (unlimited)
+         * This would delay the next transaction to ensure the limit is maintained (while there are no delays added during a transaction).
+         * @param maxRecordDeletesPerSec the average number of records to delete in per second.
+         * Default: 1000. Use 0 for unlimited.
          * @return this builder
          */
         public Builder withMaxRecordDeletesPerSec(final int maxRecordDeletesPerSec) {
@@ -321,7 +336,8 @@ public class RecordRepairRunner {
         /**
          * Control the number of retries before failure.
          * The runner will retry a transaction if failed. Once the max number of retries has been reached, the operation would fail.
-         * @param numOfRetries the maximum number of times to retry a transaction upon failure. Default: 4
+         * @param numOfRetries the maximum number of times to retry a transaction upon failure.
+         * Default: 4
          * @return this builder
          */
         public Builder withNumOfRetries(final int numOfRetries) {

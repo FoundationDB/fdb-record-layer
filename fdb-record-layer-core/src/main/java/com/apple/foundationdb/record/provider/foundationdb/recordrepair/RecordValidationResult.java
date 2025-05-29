@@ -42,8 +42,11 @@ import java.util.Objects;
  */
 @API(API.Status.EXPERIMENTAL)
 public class RecordValidationResult {
+    /** (error code) Validation did not find any issue with the record. */
     public static final String CODE_VALID = "Valid";
+    /** (repair code) Repair attempted for the record but the record was valid, so no action was taken. */
     public static final String REPAIR_NOT_NEEDED = "RepairNotNeeded";
+    /** (repair code) Repair was attempted for the record but the validation error code was not recognized. */
     public static final String REPAIR_UNKNOWN_VALIDATION_CODE = "UnknownCode";
 
     @Nonnull

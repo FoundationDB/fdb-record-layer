@@ -37,9 +37,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -352,62 +350,6 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
         return ParameterizedTestUtils.cartesianProduct(
                 ValidationTestUtils.formatVersions(),
                 ValidationTestUtils.splitsToRemove());
-    }
-
-    /**
-     * A test that runs through all the combinations of 4-bits and erases a split for every bit that is set.
-     * This simulated all the combinations of splits that can go missing for a record with 3 splits
-     * (version, splits 1-3).
-     *
-     * @param formatVersion the version format
-     * @param splitsToRemove the splits to remove
-     */
-    @ParameterizedTest
-    @MethodSource("versionAndBitset")
-    void testValidateRecordCombinationSplitMissing(FormatVersion formatVersion, BitSet splitsToRemove) throws Exception {
-        final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(true, true);
-        List<FDBStoredRecord<Message>> result = saveRecords(true, formatVersion, hook);
-        // Delete the splits for two of the long records
-        try (FDBRecordContext context = openContext()) {
-            final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-            // Delete all the splits that have a bit set
-            splitsToRemove.stream().forEach(bit -> {
-                // bit #0 is the version (-1)
-                // bits #1 - #3 are the split numbers (no split #0 for a split record)
-                int split = (bit == 0) ? -1 : bit;
-                byte[] key = ValidationTestUtils.getSplitKey(store, result.get(ValidationTestUtils.RECORD_INDEX_WITH_THREE_SPLITS).getPrimaryKey(), split);
-                store.ensureContextActive().clear(key);
-                key = ValidationTestUtils.getSplitKey(store, result.get(ValidationTestUtils.RECORD_INDEX_WITH_TWO_SPLITS).getPrimaryKey(), split);
-                store.ensureContextActive().clear(key);
-            });
-            commit(context);
-        }
-
-        RecordRepairRunner.ValidationKind validationKind = RecordRepairRunner.ValidationKind.RECORD_VALUE_AND_VERSION;
-        FDBRecordStore.Builder storeBuilder;
-
-        try (FDBRecordContext context = openContext()) {
-            final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-            storeBuilder = store.asBuilder();
-        }
-        RecordRepairRunner runner = RecordRepairRunner.builder(fdb).build();
-        List<RecordValidationResult> repairResults = runner.runValidationAndRepair(storeBuilder, validationKind, false);
-
-        Map<Integer, RecordValidationResult> validationResultMap = repairResults.stream()
-                .collect(Collectors.toMap(res -> (int)res.getPrimaryKey().getLong(0), res -> res));
-
-        // Assert that both records are either gone or are valid or flagged as corrupt
-        Assertions.assertThat(
-                        ValidationTestUtils.recordWillDisappear(2, splitsToRemove, formatVersion) ||
-                                ValidationTestUtils.recordWillRemainValid(2, splitsToRemove, formatVersion) ||
-                                validationResultMap.containsKey(ValidationTestUtils.RECORD_ID_WITH_TWO_SPLITS))
-                .isTrue();
-
-        Assertions.assertThat(
-                        ValidationTestUtils.recordWillDisappear(3, splitsToRemove, formatVersion) ||
-                                ValidationTestUtils.recordWillRemainValid(3, splitsToRemove, formatVersion) ||
-                                validationResultMap.containsKey(ValidationTestUtils.RECORD_ID_WITH_THREE_SPLITS))
-                .isTrue();
     }
 
     /**

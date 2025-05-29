@@ -39,7 +39,7 @@ import java.util.concurrent.CompletableFuture;
  * A record validator that ensures the record has a valid version.
  * A record has to have a valid value to be validated with this validator. It also has to exist and have a version.
  * Since version creation for a record can be done on a per-record basis (when the record is saved), it is the responsibility
- * of the user of the validator to decide whether a version should be present on not. As a general rule, the metadata
+ * of the user of the validator to decide whether a version should be present or not. As a general rule, the metadata
  * has a {@link RecordMetaData#isStoreRecordVersions()} property that is used as the default value for making that decision,
  * but the {@link FDBRecordStore#saveRecordAsync(Message, FDBRecordVersion, FDBRecordStoreBase.VersionstampSaveBehavior)}
  * can override this.
@@ -48,8 +48,11 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.INTERNAL)
 public class RecordVersionValidator implements RecordValidator {
+    /** (error code) Record version is missing. */
     public static final String CODE_VERSION_MISSING_ERROR = "RecordVersionMissingError";
+    /** (error code) Record is missing (so cannot verify version existence). */
     public static final String CODE_RECORD_MISSING_ERROR = "RecordMissingError";
+    /** (repair code) Record version was created and added to the record. */
     public static final String REPAIR_VERSION_CREATED = "RecordVersionCreatedRepair";
 
     private static final Logger logger = LoggerFactory.getLogger(RecordVersionValidator.class);
@@ -87,18 +90,19 @@ public class RecordVersionValidator implements RecordValidator {
             case CODE_VERSION_MISSING_ERROR:
                 if (logger.isInfoEnabled()) {
                     logger.info(KeyValueLogMessage.of("Record repair: Version created",
-                            LogMessageKeys.PRIMARY_KEY, validationResult.getPrimaryKey()));
+                            LogMessageKeys.PRIMARY_KEY, validationResult.getPrimaryKey(),
+                            LogMessageKeys.CODE, validationResult.getErrorCode()));
                 }
                 // Create a new version
                 // Save the record with the existing data and the new version
                 // This uses the WITH_VERSION behavior to force a version even if the metadata says otherwise, since this
                 // is the assumption of the validator
                 final FDBRecordVersion newVersion = FDBRecordVersion.incomplete(store.getContext().claimLocalVersion());
-                return store.loadRecordAsync(validationResult.getPrimaryKey()).thenCompose(rec ->
-                    store.saveRecordAsync(rec.getRecord(), newVersion, FDBRecordStoreBase.VersionstampSaveBehavior.WITH_VERSION)
-                ).thenApply(ignore ->
-                    validationResult.withRepair(REPAIR_VERSION_CREATED)
-                );
+                return store.loadRecordAsync(validationResult.getPrimaryKey())
+                        .thenCompose(rec ->
+                                store.saveRecordAsync(rec.getRecord(), newVersion, FDBRecordStoreBase.VersionstampSaveBehavior.WITH_VERSION))
+                        .thenApply(ignore ->
+                                validationResult.withRepair(REPAIR_VERSION_CREATED));
             default:
                 // Unknown code
                 if (logger.isWarnEnabled()) {
