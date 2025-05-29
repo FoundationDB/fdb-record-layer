@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.RelationalConnectionRule;
 import com.apple.foundationdb.relational.recordlayer.Utils;
+import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.utils.PermutationIterator;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
@@ -40,6 +41,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -104,18 +106,29 @@ public class SqlFunctionTest {
 
     void shouldWorkWithInjectedFactory(@Nonnull final String query, @Nonnull final MetadataOperationsFactory metadataOperationsFactory)
             throws Exception {
+        shouldWorkWithInjectedFactory(query, PreparedParams.empty(), metadataOperationsFactory);
+    }
+
+    void shouldWorkWithInjectedFactory(@Nonnull final String query, @Nonnull final PreparedParams preparedParams,
+                                       @Nonnull final MetadataOperationsFactory metadataOperationsFactory)
+            throws Exception {
         connection.setAutoCommit(false);
         connection.getUnderlyingEmbeddedConnection().createNewTransaction();
         DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
-                        "/SqlFunctionTest", metadataOperationsFactory).getPlan(query);
+                "/SqlFunctionTest", metadataOperationsFactory, preparedParams).getPlan(query);
         connection.rollback();
         connection.setAutoCommit(true);
     }
 
     @Nonnull
     SchemaTemplate ddl(@Nonnull final String sql) throws Exception {
+        return ddl(sql, PreparedParams.empty());
+    }
+
+    @Nonnull
+    SchemaTemplate ddl(@Nonnull final String sql, @Nonnull final PreparedParams preparedParams) throws Exception {
         final AtomicReference<SchemaTemplate> t = new AtomicReference<>();
-        shouldWorkWithInjectedFactory(sql, new AbstractMetadataOperationsFactory() {
+        shouldWorkWithInjectedFactory(sql, preparedParams, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template,
@@ -293,6 +306,16 @@ public class SqlFunctionTest {
                         "CREATE TABLE T(a BIGINT, b BIGINT, primary key(a)) " +
                         "CREATE TEMPORARY FUNCTION SQ1(S BIGINT) ON COMMIT DROP FUNCTION AS SELECT * FROM T WHERE b < S " +
                         "CREATE FUNCTION SQ2(S BIGINT) AS SELECT * FROM T WHERE b < S"))
+                .hasErrorCode(ErrorCode.SYNTAX_ERROR);
+    }
+
+    @Test
+    void definingNonTemporaryFunctionWithPreparedParametersThrows() {
+        assertThrows(() -> ddl("CREATE SCHEMA TEMPLATE test_template " +
+                "CREATE TABLE T(a BIGINT, b BIGINT, primary key(a)) " +
+                "CREATE FUNCTION SQ1(IN Q BIGINT, IN R BIGINT) AS SELECT * FROM T WHERE b < Q " +
+                "CREATE FUNCTION SQ2(IN S BIGINT) AS SELECT * FROM SQ1(100) WHERE b < ?",
+                PreparedParams.ofUnnamed(Map.of(1, 42L))))
                 .hasErrorCode(ErrorCode.SYNTAX_ERROR);
     }
 }

@@ -30,10 +30,10 @@ import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.sql.Array;
 import java.sql.SQLException;
 import java.sql.Struct;
 import java.util.Arrays;
+import java.util.Formatter;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -113,18 +113,27 @@ public final class PreparedParams {
 
     @Nonnull
     public static String prettyPrintParam(@Nullable Object value) {
-        if (value == null) {
-            return "<<NULL>>";
-        }
         try {
-            if (value instanceof Array) {
-                final var array = (Array)value;
-                return "Array" + Arrays.stream(Assert.castUnchecked(array.getArray(), Object[].class))
-                        .map(PreparedParams::prettyPrintParam).collect(Collectors.joining(",", "[", "]"));
+            if (value == null) {
+                return "<<NULL>>";
+            } else if (value instanceof Byte) {
+                return new Formatter().format("%02x", value).toString();
+            } else if (value.getClass().isArray()) {
+                final var result = new StringBuilder("Array[");
+                int length = java.lang.reflect.Array.getLength(value);
+                for (int count = 0; count < length; count++ ) {
+                    result.append(prettyPrintParam(java.lang.reflect.Array.get(value, count)));
+                    if (count < length - 1) {
+                        result.append(",");
+                    }
+                }
+                return result.append("]").toString();
             } else if (value instanceof Struct) {
                 final var struct = (Struct)value;
-                return "Struct" + Arrays.stream(Assert.castUnchecked(struct.getAttributes(), Object[].class))
+                return "Struct" + Arrays.stream(struct.getAttributes())
                         .map(PreparedParams::prettyPrintParam).collect(Collectors.joining(",", "{", "}"));
+            } else if (value instanceof String) {
+                return "'" + value + "'";
             }
         } catch (SQLException e) {
             throw new RelationalException(e).toUncheckedWrappedException();

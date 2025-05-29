@@ -318,7 +318,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     @Nonnull
     private Collection<? extends InvokedRoutine> computeTemporaryInvokedRoutines() {
         return invokedRoutines.stream().filter(RecordLayerInvokedRoutine::isTemporary)
-                .sorted(Comparator.comparing(RecordLayerInvokedRoutine::getDescription)).collect(ImmutableList.toImmutableList());
+                .sorted(Comparator.comparing(RecordLayerInvokedRoutine::getNonPreparedDescription)).collect(ImmutableList.toImmutableList());
     }
 
     @Nonnull
@@ -329,7 +329,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     @Nonnull
     private String computeTransactionBoundMetadata() {
-        return getTemporaryInvokedRoutines().stream().map(InvokedRoutine::getDescription)
+        return getTemporaryInvokedRoutines().stream().map(InvokedRoutine::getNonPreparedDescription)
                 .collect(Collectors.joining("||"));
     }
 

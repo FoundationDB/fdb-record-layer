@@ -49,7 +49,7 @@ import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSql
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import org.antlr.v4.runtime.tree.ParseTree;
+import org.antlr.v4.runtime.ParserRuleContext;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -315,18 +315,32 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Nonnull
-    private RecordLayerInvokedRoutine getInvokedRoutineMetadata(@Nonnull final ParseTree functionCtx,
+    private RecordLayerInvokedRoutine getInvokedRoutineMetadata(@Nonnull final ParserRuleContext functionCtx,
                                                                 @Nonnull final RelationalParser.FunctionSpecificationContext functionSpecCtx,
                                                                 @Nonnull final RelationalParser.RoutineBodyContext bodyCtx,
                                                                 @Nonnull final RecordLayerSchemaTemplate ddlCatalog) {
         // parse the index SQL query using the newly constructed metadata.
         getDelegate().replaceSchemaTemplate(ddlCatalog);
 
+        final var isTemporary = functionCtx instanceof RelationalParser.CreateTempFunctionContext;
+
         // 1. get the function name.
         final var functionName = visitFullId(functionSpecCtx.schemaQualifiedRoutineName).toString();
 
         // 2. get the function SQL definition string.
-        final var functionDefinition = QueryParser.replacePreparedParams(functionCtx, PreparedParams.copyOf(getDelegate().getPlanGenerationContext().getPreparedParams()));
+        final var queryString = getDelegate().getPlanGenerationContext().getQuery();
+        final var start = functionCtx.start.getStartIndex();
+        final var stop = functionCtx.stop.getStopIndex() + 1; // inclusive.
+        final var functionDefinition = (isTemporary ? "" : "CREATE ") + queryString.substring(start, stop);
+        final String unpreparedFunctionDefinition;
+        if (isTemporary) {
+            unpreparedFunctionDefinition = QueryParser.replacePreparedParams(functionCtx,
+                    PreparedParams.copyOf(getDelegate().getPlanGenerationContext().getPreparedParams()));
+        } else {
+            // prepared non-temporary SQL functions are not supported.
+            QueryParser.validateNoPreparedParams(functionCtx);
+            unpreparedFunctionDefinition = functionDefinition;
+        }
 
         // 3. visit the SQL string to generate (compile) the corresponding SQL plan.
         final var function = visitSqlInvokedFunction(functionSpecCtx, bodyCtx);
@@ -335,8 +349,9 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         return RecordLayerInvokedRoutine.newBuilder()
                 .setName(functionName)
                 .setDescription(functionDefinition)
+                .setNonPreparedDescription(unpreparedFunctionDefinition)
                 .withCompilableRoutine(() -> function)
-                .setTemporary(functionCtx instanceof RelationalParser.CreateTempFunctionContext)
+                .setTemporary(isTemporary)
                 .build();
     }
 
