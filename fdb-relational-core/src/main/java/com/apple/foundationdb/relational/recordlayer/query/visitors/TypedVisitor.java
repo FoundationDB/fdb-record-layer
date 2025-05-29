@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserVisitor;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
@@ -35,6 +36,7 @@ import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
+import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -138,6 +140,10 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
+    DataType visitFunctionColumnType(@Nonnull RelationalParser.FunctionColumnTypeContext ctx);
+
+    @Nonnull
+    @Override
     DataType visitColumnType(@Nonnull RelationalParser.ColumnTypeContext ctx);
 
     @Nonnull
@@ -169,6 +175,36 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Override
     Object visitIndexAttribute(RelationalParser.IndexAttributeContext ctx);
+
+    @Override
+    CompiledSqlFunction visitCreateFunction(RelationalParser.CreateFunctionContext ctx);
+
+    @Override
+    CompiledSqlFunction visitSqlInvokedFunction(RelationalParser.SqlInvokedFunctionContext ctx);
+
+    @Override
+    LogicalOperator visitStatementBody(RelationalParser.StatementBodyContext ctx);
+
+    @Override
+    RecordLayerInvokedRoutine visitFunctionSpecification(RelationalParser.FunctionSpecificationContext ctx);
+
+    @Override
+    Expressions visitSqlParameterDeclarationList(RelationalParser.SqlParameterDeclarationListContext ctx);
+
+    @Override
+    Expressions visitSqlParameterDeclarations(RelationalParser.SqlParameterDeclarationsContext ctx);
+
+    @Override
+    Expression visitSqlParameterDeclaration(RelationalParser.SqlParameterDeclarationContext ctx);
+
+    @Override
+    DataType visitReturnsType(RelationalParser.ReturnsTypeContext ctx);
+
+    @Override
+    LogicalOperator visitSqlReturnStatement(RelationalParser.SqlReturnStatementContext ctx);
+
+    @Override
+    LogicalOperator visitReturnValue(RelationalParser.ReturnValueContext ctx);
 
     @Nonnull
     @Override
@@ -215,7 +251,10 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     LogicalOperator visitNamedQuery(RelationalParser.NamedQueryContext ctx);
 
     @Override
-    Expression visitTableFunction(@Nonnull RelationalParser.TableFunctionContext ctx);
+    LogicalOperator visitTableFunction(@Nonnull RelationalParser.TableFunctionContext ctx);
+
+    @Override
+    Expressions visitTableFunctionArgs(RelationalParser.TableFunctionArgsContext ctx);
 
     @Override
     Identifier visitTableFunctionName(RelationalParser.TableFunctionNameContext ctx);
@@ -814,6 +853,9 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Override
     Object visitFunctionArg(@Nonnull RelationalParser.FunctionArgContext ctx);
 
+    @Override
+    Expression visitNamedFunctionArg(RelationalParser.NamedFunctionArgContext ctx);
+
     @Nonnull
     @Override
     Expression visitIsExpression(@Nonnull RelationalParser.IsExpressionContext ctx);
@@ -841,6 +883,10 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Nonnull
     @Override
     Expression visitBinaryComparisonPredicate(@Nonnull RelationalParser.BinaryComparisonPredicateContext ctx);
+
+    @Nonnull
+    @Override
+    Expression visitBetweenComparisonPredicate(@Nonnull RelationalParser.BetweenComparisonPredicateContext ctx);
 
     @Nonnull
     @Override

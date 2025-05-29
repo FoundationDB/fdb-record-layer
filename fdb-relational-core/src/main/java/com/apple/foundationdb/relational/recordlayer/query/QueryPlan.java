@@ -130,12 +130,16 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         private final QueryPlanConstraint constraint;
 
         @Nonnull
+        private final QueryPlanConstraint continuationConstraint;
+
+        @Nonnull
         private final QueryExecutionContext queryExecutionParameters;
 
         public PhysicalQueryPlan(@Nonnull final RecordQueryPlan recordQueryPlan,
                                  @Nullable final StatsMaps plannerStatsMaps,
                                  @Nonnull final TypeRepository typeRepository,
                                  @Nonnull final QueryPlanConstraint constraint,
+                                 @Nonnull final QueryPlanConstraint continuationConstraint,
                                  @Nonnull final QueryExecutionContext queryExecutionParameters,
                                  @Nonnull final String query,
                                  @Nonnull final PlanHashMode currentPlanHashMode) {
@@ -144,6 +148,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             this.plannerStatsMaps = plannerStatsMaps;
             this.typeRepository = typeRepository;
             this.constraint = constraint;
+            this.continuationConstraint = continuationConstraint;
             this.queryExecutionParameters = queryExecutionParameters;
             this.currentPlanHashMode = currentPlanHashMode;
             this.planHashSupplier = Suppliers.memoize(() -> recordQueryPlan.planHash(currentPlanHashMode));
@@ -163,6 +168,11 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         @Nonnull
         public QueryPlanConstraint getConstraint() {
             return constraint;
+        }
+
+        @Nonnull
+        public QueryPlanConstraint getContinuationConstraint() {
+            return continuationConstraint;
         }
 
         @Nonnull
@@ -188,8 +198,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             if (parameters == this.queryExecutionParameters) {
                 return this;
             }
-            return new PhysicalQueryPlan(recordQueryPlan, plannerStatsMaps, typeRepository, constraint, parameters,
-                    query, parameters.getPlanHashMode());
+            return new PhysicalQueryPlan(recordQueryPlan, plannerStatsMaps, typeRepository, constraint,
+                    continuationConstraint, parameters, query, parameters.getPlanHashMode());
         }
 
         @Nonnull
@@ -348,9 +358,9 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         @Nonnull
         @SuppressWarnings("PMD.CloseResource") // cursor returned inside the ResultSet, Connection now owned by this method
         private RelationalResultSet executePhysicalPlan(@Nonnull final RecordLayerSchema recordLayerSchema,
-                                                      @Nonnull final EvaluationContext evaluationContext,
-                                                      @Nonnull final ExecutionContext executionContext,
-                                                      @Nonnull final ContinuationImpl parsedContinuation) throws RelationalException {
+                                                        @Nonnull final EvaluationContext evaluationContext,
+                                                        @Nonnull final ExecutionContext executionContext,
+                                                        @Nonnull final ContinuationImpl parsedContinuation) throws RelationalException {
             final var connection = (EmbeddedRelationalConnection) executionContext.connection;
             Type type = recordQueryPlan.getResultType().getInnerType();
             Assert.notNull(type);
@@ -375,14 +385,13 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             return executionContext.metricCollector.clock(RelationalMetric.RelationalEvent.CREATE_RESULT_SET_ITERATOR, () -> {
                 final ResumableIterator<Row> iterator = RecordLayerIterator.create(cursor, messageFDBQueriedRecord -> new MessageTuple(messageFDBQueriedRecord.getMessage()));
                 return new RecordLayerResultSet(metaData, iterator, connection,
-                        (continuation, reason) -> enrichContinuation(continuation, fdbRecordStore.getRecordMetaData(),
+                        (continuation, reason) -> enrichContinuation(continuation,
                                 currentPlanHashMode, reason, getContinuationsContainsCompiledStatements(options)));
             });
         }
 
         @Nonnull
         private Continuation enrichContinuation(@Nonnull final Continuation continuation,
-                                                @Nonnull final RecordMetaData recordMetaData,
                                                 @Nonnull final PlanHashMode currentPlanHashMode,
                                                 @Nonnull final Continuation.Reason reason,
                                                 final boolean serializeCompiledStatement) throws RelationalException {
@@ -432,23 +441,11 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                     i++;
                 }
 
-                compiledStatementBuilder.setPlanConstraint(
-                        getContinuationPlanConstraint(recordMetaData).toProto(serializationContext));
+                compiledStatementBuilder.setPlanConstraint(getContinuationConstraint().toProto(serializationContext));
 
                 continuationBuilder.withCompiledStatement(compiledStatementBuilder.build());
             }
             return continuationBuilder.build();
-        }
-
-        @Nonnull
-        protected QueryPlanConstraint getContinuationPlanConstraint(@Nonnull RecordMetaData recordMetaData) {
-            // this plan was planned -- we need to compute the plan constraints
-            final var compatibleTypeEvolutionPredicate =
-                    CompatibleTypeEvolutionPredicate.fromPlan(recordQueryPlan);
-            final var databaseObjectDependenciesPredicate =
-                    DatabaseObjectDependenciesPredicate.fromPlan(recordMetaData, recordQueryPlan);
-            return QueryPlanConstraint.ofPredicates(ImmutableList.of(compatibleTypeEvolutionPredicate,
-                    databaseObjectDependenciesPredicate));
         }
 
         public int planHash(@Nonnull final PlanHashMode currentPlanHashMode) {
@@ -486,13 +483,13 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
         public ContinuedPhysicalQueryPlan(@Nonnull final RecordQueryPlan recordQueryPlan,
                                           @Nonnull final TypeRepository typeRepository,
-                                          @Nonnull final QueryPlanConstraint constraint,
+                                          @Nonnull final QueryPlanConstraint continuationConstraint,
                                           @Nonnull final QueryExecutionContext queryExecutionParameters,
                                           @Nonnull final String query,
                                           @Nonnull final PlanHashMode currentPlanHashMode,
                                           @Nonnull final PlanHashMode serializedPlanHashMode) {
-            super(recordQueryPlan, null, typeRepository, constraint, queryExecutionParameters, query,
-                    currentPlanHashMode);
+            super(recordQueryPlan, null, typeRepository, QueryPlanConstraint.tautology(),
+                    continuationConstraint, queryExecutionParameters, query, currentPlanHashMode);
             this.serializedPlanHashMode = serializedPlanHashMode;
         }
 
@@ -508,7 +505,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             if (parameters == this.getQueryExecutionParameters()) {
                 return this;
             }
-            return new ContinuedPhysicalQueryPlan(getRecordQueryPlan(), getTypeRepository(), getConstraint(),
+            return new ContinuedPhysicalQueryPlan(getRecordQueryPlan(), getTypeRepository(), getContinuationConstraint(),
                     parameters, query, parameters.getPlanHashMode(), getSerializedPlanHashMode());
         }
 
@@ -522,7 +519,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
             final var metricCollector = executionContext.metricCollector;
             try {
-                PlanValidator.validateContinuationConstraint(fdbRecordStore, getConstraint());
+                PlanValidator.validateContinuationConstraint(fdbRecordStore, getContinuationConstraint());
             } catch (final PlanValidator.PlanValidationException pVE) {
                 metricCollector.increment(RelationalMetric.RelationalCount.CONTINUATION_REJECTED);
             }
@@ -533,12 +530,6 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             }
 
             metricCollector.increment(RelationalMetric.RelationalCount.CONTINUATION_ACCEPTED);
-        }
-
-        @Nonnull
-        @Override
-        protected QueryPlanConstraint getContinuationPlanConstraint(@Nonnull final RecordMetaData recordMetaData) {
-            return getConstraint();
         }
     }
 
@@ -592,7 +583,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                 final QueryPlanResult planResult;
                 try {
                     planResult = planner.planGraph(() ->
-                                    Reference.of(relationalExpression),
+                                    Reference.initialOf(relationalExpression),
                             planContext.getPlannerConfiguration().getReadableIndexes().map(s -> s),
                             IndexQueryabilityFilter.TRUE,
                             typedEvaluationContext);
@@ -603,16 +594,20 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                 final var statsMaps = planResult.getPlanInfo().get(QueryPlanInfoKeys.STATS_MAPS);
 
                 // The plan itself can introduce new types. Collect those and include them in the type repository stored with the PhysicalQueryPlan
-                final RecordQueryPlan recordQueryPlan = planResult.getPlan();
+                final RecordQueryPlan plannedPlan = planResult.getPlan();
+                final RecordQueryPlan minimizedPlan = plannedPlan.minimize();
 
-                Set<Type> planTypes = usedTypes().evaluate(recordQueryPlan);
+                Set<Type> planTypes = usedTypes().evaluate(minimizedPlan);
                 planTypes.forEach(builder::addTypeIfNeeded);
+                final var constraint = QueryPlanConstraint.composeConstraints(
+                        List.of(Objects.requireNonNull(planResult.getPlanInfo().get(QueryPlanInfoKeys.CONSTRAINTS)),
+                                getConstraint()));
+                final QueryPlanConstraint continuationConstraint =
+                        computeContinuationPlanConstraint(planContext.getMetaData(), plannedPlan);
+
                 optimizedPlan = Optional.of(
-                        new PhysicalQueryPlan(recordQueryPlan, statsMaps, builder.build(),
-                                QueryPlanConstraint.composeConstraints(
-                                        List.of(Objects.requireNonNull(planResult.getPlanInfo().get(QueryPlanInfoKeys.CONSTRAINTS)),
-                                                getConstraint())),
-                                context, query, currentPlanHashMode));
+                        new PhysicalQueryPlan(minimizedPlan, statsMaps, builder.build(),
+                                constraint, continuationConstraint, context, query, currentPlanHashMode));
                 return optimizedPlan.get();
             });
         }
@@ -662,6 +657,18 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                                           @Nonnull final MutablePlanGenerationContext context,
                                           @Nonnull final String query) {
             return new LogicalQueryPlan(relationalExpression, context, query);
+        }
+
+        @Nonnull
+        private static QueryPlanConstraint computeContinuationPlanConstraint(@Nonnull final RecordMetaData recordMetaData,
+                                                                             @Nonnull final RecordQueryPlan plannedPlan) {
+            // this plan was planned -- we need to compute the plan constraints
+            final var compatibleTypeEvolutionPredicate =
+                    CompatibleTypeEvolutionPredicate.fromPlan(plannedPlan);
+            final var databaseObjectDependenciesPredicate =
+                    DatabaseObjectDependenciesPredicate.fromPlan(recordMetaData, plannedPlan);
+            return QueryPlanConstraint.ofPredicates(ImmutableList.of(compatibleTypeEvolutionPredicate,
+                    databaseObjectDependenciesPredicate));
         }
     }
 

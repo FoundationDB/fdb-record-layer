@@ -41,7 +41,7 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRanges;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
+import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.WithPrimaryKeyMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
@@ -257,7 +257,7 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
     }
 
     @Override
-    public RecordQueryScanPlan strictlySorted(@Nonnull Memoizer memoizer) {
+    public RecordQueryScanPlan strictlySorted(@Nonnull FinalMemoizer memoizer) {
         return new RecordQueryScanPlan(recordTypes, flowedType, commonPrimaryKey, comparisons, reverse, true, matchCandidateOptional);
     }
 
@@ -292,16 +292,40 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public RecordQueryScanPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                      final boolean shouldSimplifyValues,
                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        Verify.verify(translatedQuantifiers.isEmpty());
+        if (translationMap.definesOnlyIdentities()) {
+            return this;
+        }
+        final var translatedComparisons =
+                comparisons.translateCorrelations(translationMap, shouldSimplifyValues);
+        if (translatedComparisons == comparisons) {
+            return this;
+        }
+
         return new RecordQueryScanPlan(recordTypes,
                 flowedType,
                 commonPrimaryKey,
-                comparisons.translateCorrelations(translationMap, shouldSimplifyValues),
+                translatedComparisons,
                 reverse,
                 strictlySorted,
                 matchCandidateOptional);
+    }
+
+    @Override
+    public boolean canBeMinimized() {
+        return matchCandidateOptional.isPresent();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlan minimize(@Nonnull final List<Quantifier.Physical> newQuantifiers) {
+        Verify.verify(newQuantifiers.isEmpty());
+        return new RecordQueryScanPlan(recordTypes, flowedType, commonPrimaryKey, comparisons, reverse, strictlySorted,
+                Optional.empty());
     }
 
     @Nonnull

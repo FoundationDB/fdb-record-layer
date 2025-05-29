@@ -31,9 +31,9 @@ import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesCostModel;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
+import com.apple.foundationdb.record.query.plan.cascades.StableSelectorCostModel;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -190,7 +190,7 @@ public final class PlanGenerator {
                                     final var result = (QueryPlan.PhysicalQueryPlan) candidate;
                                     final var candidateQueryPlan = result.getRecordQueryPlan();
                                     var bestQueryPlan = acc == null ? null : ((QueryPlan.PhysicalQueryPlan) acc).getRecordQueryPlan();
-                                    if (bestQueryPlan == null || new CascadesCostModel(planner.getConfiguration()).compare(candidateQueryPlan, bestQueryPlan) < 0) {
+                                    if (bestQueryPlan == null || new StableSelectorCostModel().compare(candidateQueryPlan, bestQueryPlan) < 0) {
                                         return candidate;
                                     } else {
                                         return acc;
@@ -233,8 +233,8 @@ public final class PlanGenerator {
         // literal and parameter values without LIMIT and CONTINUATION)
         final var parameterHash = ast.getQueryExecutionParameters().getParameterHash();
         final var planGenerationContext = new MutablePlanGenerationContext(planContext.getPreparedStatementParameters(),
-                currentPlanHashMode, parameterHash);
-        final var metadata = RecordLayerSchemaTemplate.fromRecordMetadataWithFakeTemplateNameAndVersion(planContext.getMetaData());
+                currentPlanHashMode, ast.getQuery(), parameterHash);
+        final var metadata = Assert.castUnchecked(planContext.getSchemaTemplate(), RecordLayerSchemaTemplate.class);
         try {
             final var maybePlan = planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.GENERATE_LOGICAL_PLAN, () ->
                     new BaseVisitor(planGenerationContext, metadata, planContext.getDdlQueryFactory(),
@@ -319,11 +319,13 @@ public final class PlanGenerator {
 
         final var planGenerationContext = new MutablePlanGenerationContext(preparedStatementParameters,
                 currentPlanHashMode,
+                ast.getQuery(),
                 Objects.requireNonNull(continuation.getBindingHash()));
         planGenerationContext.setForExplain(ast.getQueryExecutionParameters().isForExplain());
         Arrays.stream(orderedLiterals).forEach(planGenerationContext::addStrippedLiteralOrParameter);
         planGenerationContext.setContinuation(continuationProto);
-        final var continuationPlanConstraint = QueryPlanConstraint.fromProto(serializationContext, compiledStatement.getPlanConstraint());
+        final var continuationPlanConstraint =
+                QueryPlanConstraint.fromProto(serializationContext, compiledStatement.getPlanConstraint());
         return new QueryPlan.ContinuedPhysicalQueryPlan(recordQueryPlan, typeRepository,
                 continuationPlanConstraint,
                 planGenerationContext,

@@ -37,7 +37,7 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
-public class AbstractValueRuleSet<R, C extends AbstractValueRuleCall<R, C>> extends AbstractRuleSet<R, C, Value> {
+public class AbstractValueRuleSet<R, C extends AbstractValueRuleCall<R, C>> extends AbstractRuleSet<C, Value> {
     @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     protected AbstractValueRuleSet(@Nonnull final Set<? extends AbstractValueRule<R, C, ? extends Value>> rules,
                                    @Nonnull final SetMultimap<? extends AbstractValueRule<R, C, ? extends Value>, ? extends AbstractValueRule<R, C, ? extends Value>> dependencies) {

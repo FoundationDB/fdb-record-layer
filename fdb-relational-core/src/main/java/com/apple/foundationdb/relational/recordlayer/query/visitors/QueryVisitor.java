@@ -21,20 +21,17 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.DeleteExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -56,7 +53,6 @@ import com.apple.foundationdb.relational.recordlayer.query.StringTrieNode;
 import com.apple.foundationdb.relational.recordlayer.util.MemoizedFunction;
 import com.apple.foundationdb.relational.recordlayer.util.TypeUtils;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -184,7 +180,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var recursiveLegInsert = LogicalOperator.newTemporaryTableInsert(recursiveLeg, insertTempTableId, type);
         final var recursiveUnion = new RecursiveUnionExpression(initialLegInsert.getQuantifier(), recursiveLegInsert.getQuantifier(),
                 CorrelationIdentifier.of(scanId.getName()), CorrelationIdentifier.of(insertTempTableId.getName()));
-        final var quantifier = Quantifier.forEach(Reference.of(recursiveUnion));
+        final var quantifier = Quantifier.forEach(Reference.initialOf(recursiveUnion));
         var logicalOperator = LogicalOperator.newNamedOperator(queryName, Expressions.fromQuantifier(quantifier), quantifier);
         if (recursiveQueryContext.columnAliases != null) {
             final var columnAliases = visitFullIdList(recursiveQueryContext.columnAliases);
@@ -358,7 +354,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var arguments = Expressions.of(rowExpressionBuilder.build()).asList().toArray(new Expression[0]);
         final var arrayOfTuples = getDelegate().resolveFunction("__internal_array", false, arguments);
         final var explodeExpression = new ExplodeExpression(arrayOfTuples.getUnderlying());
-        final var resultingQuantifier = Quantifier.forEach(Reference.of(explodeExpression));
+        final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(explodeExpression));
         var output = Expressions.of(LogicalOperator.convertToExpressions(resultingQuantifier));
         return typeMaybe == null
                ? LogicalOperator.newUnnamedOperator(output, resultingQuantifier)
@@ -367,14 +363,10 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Override
     public LogicalOperator visitTableValuedFunction(@Nonnull RelationalParser.TableValuedFunctionContext tableValuedFunctionContext) {
-        final var expression = visitTableFunction(tableValuedFunctionContext.tableFunction());
-        final var underlyingValue = expression.getUnderlying();
-        final var explodeExpression = new TableFunctionExpression(Assert.castUnchecked(underlyingValue, StreamingValue.class));
-        final var resultingQuantifier = Quantifier.forEach(Reference.of(explodeExpression));
-        final var output = Expressions.of(LogicalOperator.convertToExpressions(resultingQuantifier));
-        final var aliasMaybe = Optional.ofNullable(tableValuedFunctionContext.uid() == null ? null : visitUid(tableValuedFunctionContext.uid()));
-        return aliasMaybe.map(alias -> LogicalOperator.newNamedOperator(alias, output, resultingQuantifier))
-                .orElse(LogicalOperator.newUnnamedOperator(output, resultingQuantifier));
+        final var logicalOperator = visitTableFunction(tableValuedFunctionContext.tableFunction());
+        final var aliasMaybe = Optional.ofNullable(tableValuedFunctionContext.uid() == null ? null :
+                                                   visitUid(tableValuedFunctionContext.uid()));
+        return aliasMaybe.map(logicalOperator::withName).orElse(logicalOperator);
     }
 
     @Nonnull
@@ -444,7 +436,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var arguments = Expressions.of(insertTuples.build()).asList().toArray(new Expression[0]);
         final var arrayOfTuples = getDelegate().resolveFunction("__internal_array", false, arguments);
         final var explodeExpression = new ExplodeExpression(arrayOfTuples.getUnderlying());
-        final var resultingQuantifier = Quantifier.forEach(Reference.of(explodeExpression));
+        final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(explodeExpression));
         return LogicalOperator.newUnnamedOperator(Expressions.ofSingle(arrayOfTuples), resultingQuantifier);
     }
 
@@ -476,7 +468,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                 table.getName(),
                 tableType,
                 transformMapBuilder.build());
-        final var updateQuantifier = Quantifier.forEach(Reference.of(updateExpression));
+        final var updateQuantifier = Quantifier.forEach(Reference.initialOf(updateExpression));
         final var resultingUpdate = LogicalOperator.newUnnamedOperator(Expressions.fromQuantifier(updateQuantifier), updateQuantifier);
 
         getDelegate().getCurrentPlanFragment().setOperator(resultingUpdate);
@@ -514,7 +506,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         final var deleteSource = LogicalOperator.generateSimpleSelect(output, getDelegate().getLogicalOperators(), whereMaybe, Optional.of(tableId), ImmutableSet.of(), false);
 
         final var deleteExpression = new DeleteExpression(Assert.castUnchecked(deleteSource.getQuantifier(), Quantifier.ForEach.class), table.getName());
-        final var deleteQuantifier = Quantifier.forEach(Reference.of(deleteExpression));
+        final var deleteQuantifier = Quantifier.forEach(Reference.initialOf(deleteExpression));
         final var resultingDelete = LogicalOperator.newUnnamedOperator(Expressions.fromQuantifier(deleteQuantifier), deleteQuantifier);
 
         getDelegate().getCurrentPlanFragment().setOperator(resultingDelete);

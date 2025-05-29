@@ -22,8 +22,8 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -51,7 +51,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * {@link PredicateToLogicalUnionRule}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class NormalizePredicatesRule extends CascadesRule<SelectExpression> {
+public class NormalizePredicatesRule extends ExplorationCascadesRule<SelectExpression> {
     private static final CollectionMatcher<QueryPredicate> predicatesMatcher = all(anyPredicate());
     private static final CollectionMatcher<Quantifier> innerQuantifiersMatcher = all(anyQuantifier());
 
@@ -63,7 +63,7 @@ public class NormalizePredicatesRule extends CascadesRule<SelectExpression> {
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(@Nonnull final ExplorationCascadesRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
         final SelectExpression selectExpression = bindings.get(root);
         final Collection<? extends QueryPredicate> predicates = bindings.get(predicatesMatcher);
@@ -78,7 +78,7 @@ public class NormalizePredicatesRule extends CascadesRule<SelectExpression> {
 
         cnfNormalizer.normalizeAndSimplify(conjunctedPredicate, false)
                 .ifPresent(cnfPredicate ->
-                        call.yieldExpression(new SelectExpression(selectExpression.getResultValue(),
+                        call.yieldExploratoryExpression(new SelectExpression(selectExpression.getResultValue(),
                                 quantifiers.stream().map(quantifier -> quantifier.toBuilder().build(quantifier.getRangesOver())).collect(ImmutableList.toImmutableList()),
                                 AndPredicate.conjuncts(cnfPredicate))));
     }

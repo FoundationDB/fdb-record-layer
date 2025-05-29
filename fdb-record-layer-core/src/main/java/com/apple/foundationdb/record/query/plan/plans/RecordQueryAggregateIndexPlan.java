@@ -44,17 +44,18 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRanges;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
-import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -82,11 +83,14 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     private final String recordTypeName;
     @Nonnull
     private final IndexKeyValueToPartialRecord toRecord;
+    // TODO the following value should not be part of this plan
+    //      https://github.com/FoundationDB/fdb-record-layer/issues/3367
     @Nonnull
     private final Value resultValue;
+    // TODO the following value should not be part of this plan
+    //      https://github.com/FoundationDB/fdb-record-layer/issues/3367
     @Nonnull
     private final Value groupByResultValue;
-
     @Nonnull
     private final QueryPlanConstraint constraint;
 
@@ -196,7 +200,7 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     }
 
     @Override
-    public RecordQueryAggregateIndexPlan strictlySorted(@Nonnull final Memoizer memoizer) {
+    public RecordQueryAggregateIndexPlan strictlySorted(@Nonnull final FinalMemoizer memoizer) {
         return new RecordQueryAggregateIndexPlan(indexPlan.strictlySorted(memoizer), recordTypeName, toRecord,
                 resultValue, groupByResultValue, constraint);
     }
@@ -226,6 +230,7 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     @Nonnull
     @Override
     public Value getResultValue() {
+        // TODO this is bad since the derivations property or others might pick this up without understanding it
         return resultValue;
     }
 
@@ -240,8 +245,6 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     public Set<CorrelationIdentifier> getCorrelatedTo() {
         final var result = ImmutableSet.<CorrelationIdentifier>builder();
         result.addAll(indexPlan.getCorrelatedTo());
-        result.addAll(resultValue.getCorrelatedTo());
-        result.addAll(groupByResultValue.getCorrelatedTo());
         return result.build();
     }
 
@@ -251,16 +254,34 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
     public RecordQueryAggregateIndexPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                                final boolean shouldSimplifyValues,
                                                                @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        Verify.verify(translatedQuantifiers.isEmpty());
+        if (translationMap.definesOnlyIdentities()) {
+            // no new quantifiers and no translations
+            return this;
+        }
+
         final var translatedIndexPlan = indexPlan.translateCorrelations(translationMap,
                 shouldSimplifyValues, translatedQuantifiers);
-        final var newResultValue = resultValue.translateCorrelations(translationMap, shouldSimplifyValues);
-        final var newGroupByResultValue = groupByResultValue.translateCorrelations(translationMap, shouldSimplifyValues);
 
-        if (translatedIndexPlan != indexPlan || newResultValue != resultValue || newGroupByResultValue != groupByResultValue) {
-            return new RecordQueryAggregateIndexPlan(translatedIndexPlan, recordTypeName, toRecord, newResultValue,
-                    newGroupByResultValue, constraint);
+        // this is ok as there are no new quantifiers
+        if (translatedIndexPlan != indexPlan) {
+            return new RecordQueryAggregateIndexPlan(translatedIndexPlan, recordTypeName, toRecord, resultValue,
+                    groupByResultValue, constraint);
         }
         return this;
+    }
+
+    @Override
+    public boolean canBeMinimized() {
+        return indexPlan.canBeMinimized();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlan minimize(@Nonnull final List<Quantifier.Physical> newQuantifiers) {
+        Verify.verify(newQuantifiers.isEmpty());
+        return new RecordQueryAggregateIndexPlan(indexPlan.minimize(newQuantifiers), recordTypeName, toRecord,
+                resultValue, groupByResultValue, constraint);
     }
 
     @Override
@@ -276,9 +297,7 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
         final RecordQueryAggregateIndexPlan other = (RecordQueryAggregateIndexPlan) otherExpression;
         return indexPlan.structuralEquals(other.indexPlan, equivalencesMap) &&
                 recordTypeName.equals(other.recordTypeName) &&
-                toRecord.equals(other.toRecord) &&
-                resultValue.semanticEquals(other.resultValue, equivalencesMap) &&
-                groupByResultValue.semanticEquals(other.groupByResultValue, equivalencesMap);
+                toRecord.equals(other.toRecord);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -294,7 +313,7 @@ public class RecordQueryAggregateIndexPlan implements RecordQueryPlanWithNoChild
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(indexPlan, recordTypeName, toRecord, resultValue, groupByResultValue);
+        return Objects.hash(indexPlan, recordTypeName, toRecord);
     }
 
     @Override

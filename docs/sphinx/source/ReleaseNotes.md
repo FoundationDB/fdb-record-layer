@@ -5,7 +5,145 @@ This document contains a log of changes to the FoundationDB Record Layer. It aim
 
 As the [versioning guide](Versioning.md) details, it cannot always be determined solely by looking at the version numbers whether one Record Layer version contains all changes included in another. In particular, bug fixes and backwards-compatible changes might be back-ported to or introduced as patches against older versions. To track when a patch version has been included in the main release train, some releases will say as a note that they contain all changes from a specific patch.
 
+## 4.3
+
+### 4.3.3.0
+
+<h4> New Features </h4>
+
+* Create throttled and retrying record iterator - [PR #3350](https://github.com/FoundationDB/fdb-record-layer/pull/3350)
+<h4> Performance Improvements </h4>
+
+* Reenable memoization of correlated-to sets - [PR #3371](https://github.com/FoundationDB/fdb-record-layer/pull/3371)
+
+
+**[Full Changelog (4.3.2.0...4.3.3.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.3.2.0...4.3.3.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.1.9.0`, ✅`4.1.10.0`, ✅`4.2.2.0`, ✅`4.2.2.1`, ❌`4.2.3.0`, ❌`4.2.4.0`, ✅`4.2.5.0`, ✅`4.2.6.0`, ✅`4.2.8.0`, ✅`4.3.2.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/15296431095)
+
+
+
+### 4.3.2.0
+
+<h4> Bug Fixes </h4>
+
+* Don't memoize correlation sets in planner objects - [PR #3365](https://github.com/FoundationDB/fdb-record-layer/pull/3365)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Fix deprecated Gradle syntax and configuration features - [PR #3358](https://github.com/FoundationDB/fdb-record-layer/pull/3358)
+
+</details>
+
+
+**[Full Changelog (4.3.1.0...4.3.2.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.3.1.0...4.3.2.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.1.8.0`, ✅`4.1.9.0`, ✅`4.1.10.0`, ✅`4.2.2.0`, ✅`4.2.2.1`, ❌`4.2.3.0`, ❌`4.2.4.0`, ✅`4.2.5.0`, ✅`4.2.6.0`, ✅`4.2.8.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/15267203964)
+
+
+
+### 4.3.1.0
+
+<h4> New Features </h4>
+
+* New planner rule added to push predicates down in the query representation - [PR #3324](https://github.com/FoundationDB/fdb-record-layer/pull/3324)
+* Create FutureManagerRunner and convert FDBDatabaseRunnerImpl to use it. - [PR #3347](https://github.com/FoundationDB/fdb-record-layer/pull/3347)
+* Implement Compilable SQL functions - [PR #3307](https://github.com/FoundationDB/fdb-record-layer/pull/3307)
+* Add RecordCountKey State - [PR #3334](https://github.com/FoundationDB/fdb-record-layer/pull/3334)
+* multi phase planning - [PR #3328](https://github.com/FoundationDB/fdb-record-layer/pull/3328)
+<h4> Bug Fixes </h4>
+
+* add minimize to RecordQueryPlan - [PR #3356](https://github.com/FoundationDB/fdb-record-layer/pull/3356)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* ParameterizedTest utilities - [PR #3336](https://github.com/FoundationDB/fdb-record-layer/pull/3336)
+* Remove 4.2.7.0 release notes as build was never published - [PR #3345](https://github.com/FoundationDB/fdb-record-layer/pull/3345)
+
+</details>
+
+
+**[Full Changelog (4.2.8.0...4.3.1.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.2.8.0...4.3.1.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.1.8.0`, ✅`4.1.9.0`, ✅`4.1.10.0`, ✅`4.2.2.0`, ✅`4.2.2.1`, ❌`4.2.3.0`, ❌`4.2.4.0`, ✅`4.2.5.0`, ✅`4.2.6.0`, ✅`4.2.8.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/15223203009)
+
+
+
 ## 4.2
+
+### 4.2.8.0
+
+<h4> Breaking Changes </h4>
+
+* Remove deprecated IndexingByRecords module - [PR #3312](https://github.com/FoundationDB/fdb-record-layer/pull/3312)
+<h4> New Features </h4>
+
+* Add support for record validation - [PR #3314](https://github.com/FoundationDB/fdb-record-layer/pull/3314)
+* Transition FormatVersion from constants to an enum - [PR #3304](https://github.com/FoundationDB/fdb-record-layer/pull/3304)
+* Prepare the Cascades planner for multi-stage planning by enabling property computation on arbitrary expressions - [PR #3321](https://github.com/FoundationDB/fdb-record-layer/pull/3321)
+* Extra cleanup for the index scrubbing code - [PR #3317](https://github.com/FoundationDB/fdb-record-layer/pull/3317)
+<h4> Bug Fixes </h4>
+
+* query uses grouping index with Is_Null predicate  - [PR #3327](https://github.com/FoundationDB/fdb-record-layer/pull/3327)
+* fix for pull up of null-on-empty bug - [PR #3323](https://github.com/FoundationDB/fdb-record-layer/pull/3323)
+* Fix potential NPE due to exception not having an underlying message - [PR #3302](https://github.com/FoundationDB/fdb-record-layer/pull/3302)
+* Prevent setting the format version to an unsupported version - [PR #3309](https://github.com/FoundationDB/fdb-record-layer/pull/3309)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Remove jfrog from repository list - [PR #3339](https://github.com/FoundationDB/fdb-record-layer/pull/3339)
+* Fix broken gradle task: testShadowJar - [PR #3320](https://github.com/FoundationDB/fdb-record-layer/pull/3320)
+* Upgrade to gradle 8 - [PR #3316](https://github.com/FoundationDB/fdb-record-layer/pull/3316)
+* Remove jfrog from repository list - [PR #3339](https://github.com/FoundationDB/fdb-record-layer/pull/3339)
+
+</details>
+
+
+**[Full Changelog (4.2.6.0...4.2.8.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.2.6.0...4.2.8.0)**
+
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.1.6.0`, ❌`4.1.8.0`, ✅`4.1.9.0`, ✅`4.1.10.0`, ✅`4.2.2.0`, ✅`4.2.2.1`, ❌`4.2.3.0`, ❌`4.2.4.0`, ✅`4.2.5.0`, ✅`4.2.6.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/14880158619)
+
+
 
 ### 4.2.6.0
 

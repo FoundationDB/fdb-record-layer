@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,136 +23,27 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.Set;
 
 /**
- * A memoization interface.
- *
+ * An interface for memoizing {@link Reference}s and their member {@link RelationalExpression}s. The methods declared in
+ * this interface mostly have one thing in common. They expect among their parameters an expression or a collection of
+ * expressions which are to be memoized and return a {@link Reference} which may be a new reference that was just
+ * created or an already existing reference that was previously memoized by this {@code Memoizer} and that was deemed
+ * to be compatible to be reused.
+ * <br>
+ * There are numerous considerations that determine if a reference can be safely reused. Most of these considerations
+ * can be derived from the individual use case and the context the method is called from. Each individual method
+ * declaration in this interface will also indicate (via java doc) if the method can return a reused expression or
+ * if the caller can always expect a fresh reference to be returned. Note that the terminology used here is that
+ * a <em>memoized expression</em> indicates that the memoization structures of the planner are aware of this expression.
+ * A reference (not an expression) can be reused as an effect of memoization of the given expressions (depending on
+ * use case and context).
  */
 @API(API.Status.EXPERIMENTAL)
-public interface Memoizer  {
-    Memoizer NO_MEMO = new Memoizer() {
-        @Nonnull
-        @Override
-        public Reference memoizeExpression(@Nonnull final RelationalExpression expression) {
-            return Reference.of(expression);
-        }
-
-        @Nonnull
-        @Override
-        public Reference memoizeLeafExpression(@Nonnull final RelationalExpression expression) {
-            return Reference.of(expression);
-        }
-
-        @Nonnull
-        @Override
-        public Reference memoizeMemberPlans(@Nonnull final Reference reference, @Nonnull final Collection<? extends RecordQueryPlan> plans) {
-            return Reference.from(plans);
-        }
-
-        @Nonnull
-        @Override
-        public Reference memoizePlans(@Nonnull final RecordQueryPlan... plans) {
-            return Reference.from(plans);
-        }
-
-        @Nonnull
-        @Override
-        public Reference memoizePlans(@Nonnull final Collection<? extends RecordQueryPlan> plans) {
-            return Reference.from(plans);
-        }
-
-        @Nonnull
-        @Override
-        public Reference memoizeReference(@Nonnull final Reference reference) {
-            return reference;
-        }
-
-        @Nonnull
-        @Override
-        public ReferenceBuilder memoizeExpressionBuilder(@Nonnull final RelationalExpression expression) {
-            return memoizeBuilder(ImmutableList.of(expression));
-        }
-
-        @Nonnull
-        private ReferenceBuilder memoizeBuilder(@Nonnull final Collection<? extends RelationalExpression> expressions) {
-            final var expressionsAsSet = new LinkedIdentitySet<>(expressions);
-            return new ReferenceBuilder() {
-                @Nonnull
-                @Override
-                public Reference reference() {
-                    return Reference.from(expressions);
-                }
-
-                @Nonnull
-                @Override
-                public Set<? extends RelationalExpression> members() {
-                    return expressionsAsSet;
-                }
-            };
-        }
-
-        @Nonnull
-        @Override
-        public ReferenceBuilder memoizeMemberPlansBuilder(@Nonnull final Reference reference, @Nonnull final Collection<? extends RecordQueryPlan> plans) {
-            return memoizeBuilder(plans);
-        }
-
-        @Nonnull
-        @Override
-        public ReferenceBuilder memoizePlansBuilder(@Nonnull final RecordQueryPlan... plans) {
-            return memoizeBuilder(Arrays.asList(plans));
-        }
-
-        @Nonnull
-        @Override
-        public ReferenceBuilder memoizePlansBuilder(@Nonnull final Collection<? extends RecordQueryPlan> plans) {
-            return memoizeBuilder(plans);
-        }
-    };
-
-    @Nonnull
-    Reference memoizeExpression(@Nonnull RelationalExpression expression);
-
-    @Nonnull
-    Reference memoizeLeafExpression(@Nonnull RelationalExpression expression);
-
-
-    @Nonnull
-    Reference memoizeMemberPlans(@Nonnull Reference reference,
-                                 @Nonnull Collection<? extends RecordQueryPlan> plans);
-
-    @Nonnull
-    Reference memoizePlans(@Nonnull RecordQueryPlan... plans);
-
-    @Nonnull
-    Reference memoizePlans(@Nonnull Collection<? extends RecordQueryPlan> plans);
-
-    @Nonnull
-    Reference memoizeReference(@Nonnull Reference reference);
-
-    @Nonnull
-    ReferenceBuilder memoizeExpressionBuilder(@Nonnull RelationalExpression expression);
-
-    @Nonnull
-    ReferenceBuilder memoizeMemberPlansBuilder(@Nonnull Reference reference,
-                                               @Nonnull Collection<? extends RecordQueryPlan> plans);
-
-    @Nonnull
-    ReferenceBuilder memoizePlansBuilder(@Nonnull RecordQueryPlan... plans);
-
-    @Nonnull
-    ReferenceBuilder memoizePlansBuilder(@Nonnull Collection<? extends RecordQueryPlan> plans);
-
-    static Memoizer noMemo() {
-        return NO_MEMO;
-    }
-
+public interface Memoizer extends ExploratoryMemoizer, FinalMemoizer {
     /**
      * Builder for references.
      */
@@ -162,5 +53,14 @@ public interface Memoizer  {
 
         @Nonnull
         Set<? extends RelationalExpression> members();
+    }
+
+    /**
+     * Builder for references.
+     */
+    interface ReferenceOfPlansBuilder extends ReferenceBuilder {
+        @Nonnull
+        @Override
+        Set<? extends RecordQueryPlan> members();
     }
 }

@@ -239,7 +239,7 @@ public class PlanSerialization {
             final E1 e1 = javaEnumConstants[i];
             final E2 e2 = protoEnumConstants[i];
             Verify.verify(e1.ordinal() == e2.ordinal());
-            Verify.verify(e1.name().equals(e2.name()));
+            Verify.verify(e1.name().equals(e2.name()), "%s not equal to %s", e1, e2);
             enumBiMap.put(e1, e2);
         }
         return enumBiMap;

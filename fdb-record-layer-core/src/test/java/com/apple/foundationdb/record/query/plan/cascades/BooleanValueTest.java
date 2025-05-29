@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PValue;
@@ -97,15 +98,19 @@ class BooleanValueTest {
     private static final LiteralValue<Long> LONG_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), 1L);
     private static final LiteralValue<Long> LONG_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), 2L);
     private static final LiteralValue<Long> LONG_3 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), 3L);
+    private static final LiteralValue<Long> LONG_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), null);
     private static final LiteralValue<Float> FLOAT_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT), 1.0F);
     private static final LiteralValue<Float> FLOAT_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT), 2.0F);
     private static final LiteralValue<Float> FLOAT_3 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT), 3.0F);
+    private static final LiteralValue<Float> FLOAT_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT), null);
     private static final LiteralValue<Double> DOUBLE_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), 1.0);
     private static final LiteralValue<Double> DOUBLE_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), 2.0);
     private static final LiteralValue<Double> DOUBLE_3 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), 3.0);
+    private static final LiteralValue<Double> DOUBLE_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), null);
     private static final LiteralValue<String> STRING_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "a");
     private static final LiteralValue<String> STRING_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "b");
     private static final LiteralValue<String> STRING_3 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "c");
+    private static final LiteralValue<String> STRING_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), null);
     private static final LiteralValue<String> ENUM_STRING_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING, false), "HEARTS");
     private static final LiteralValue<String> ENUM_STRING_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING, false), "DIAMONDS");
     private static final LiteralValue<String> UUID_STRING_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING, false), "0920df1c-be81-4ec1-8a06-2180226f051d");
@@ -123,6 +128,8 @@ class BooleanValueTest {
     private static final ArithmeticValue ADD_LONGS_1_2 = (ArithmeticValue) new ArithmeticValue.AddFn().encapsulate(List.of(LONG_1, LONG_2));
     private static final ArithmeticValue ADD_FLOATS_1_2 = (ArithmeticValue) new ArithmeticValue.AddFn().encapsulate(List.of(FLOAT_1, FLOAT_2));
     private static final ArithmeticValue ADD_DOUBLE_1_2 = (ArithmeticValue) new ArithmeticValue.AddFn().encapsulate(List.of(DOUBLE_1, DOUBLE_2));
+
+    private static final LiteralValue<Void> NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.NULL), null);
 
     static class BinaryPredicateTestProvider implements ArgumentsProvider {
         @Override
@@ -416,6 +423,85 @@ class BooleanValueTest {
                     Arguments.of(List.of(BOOL_NULL, BOOL_FALSE), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(BOOL_NULL, BOOL_TRUE), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
 
+                    Arguments.of(List.of(NULL, LONG_1), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, LONG_NULL), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, INT_1), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, INT_NULL), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, FLOAT_1), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, FLOAT_NULL), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, DOUBLE_1), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, DOUBLE_NULL), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, STRING_1), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, STRING_NULL), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UUID_1), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UUID_NULL), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, BOOL_FALSE), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, BOOL_TRUE), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, BOOL_NULL), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, LONG_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, LONG_NULL), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, INT_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, INT_NULL), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, FLOAT_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, FLOAT_NULL), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, DOUBLE_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, DOUBLE_NULL), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, STRING_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, STRING_NULL), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UUID_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UUID_NULL), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, BOOL_FALSE), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, BOOL_TRUE), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, BOOL_NULL), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, LONG_1), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, LONG_NULL), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, INT_1), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, INT_NULL), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, FLOAT_1), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, FLOAT_NULL), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, DOUBLE_1), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, DOUBLE_NULL), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, STRING_1), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, STRING_NULL), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UUID_1), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UUID_NULL), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, LONG_1), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, LONG_NULL), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, INT_1), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, INT_NULL), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, FLOAT_1), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, FLOAT_NULL), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, DOUBLE_1), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, DOUBLE_NULL), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, STRING_1), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, STRING_NULL), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UUID_1), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UUID_NULL), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, LONG_1), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, LONG_NULL), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, INT_1), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, INT_NULL), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, FLOAT_1), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, FLOAT_NULL), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, DOUBLE_1), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, DOUBLE_NULL), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, STRING_1), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, STRING_NULL), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UUID_1), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UUID_NULL), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, LONG_1), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, LONG_NULL), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, INT_1), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, INT_NULL), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, FLOAT_1), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, FLOAT_NULL), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, DOUBLE_1), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, DOUBLE_NULL), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, STRING_1), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, STRING_NULL), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UUID_1), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UUID_NULL), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+
                     Arguments.of(List.of(F_ENUM_1, F_ENUM_2), new RelOpValue.EqualsFn(), new ValuePredicate(F_ENUM_1, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, F_ENUM_2))),
 
                     Arguments.of(List.of(UUID_STRING_1, UUID_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
@@ -702,6 +788,26 @@ class BooleanValueTest {
 
     @ParameterizedTest
     @SuppressWarnings({"rawtypes", "unchecked"})
+    @ArgumentsSource(BinaryPredicateTestProvider.class)
+    void testEval(List<Value> args, BuiltInFunction function, QueryPredicate result) {
+        if (args.stream().anyMatch(arg -> !(arg instanceof LiteralValue))) {
+            return;
+        }
+        final var evalContext = EvaluationContext.forTypeRepository(typeRepositoryBuilder.build());
+        if (result != null) {
+            Typed value = function.encapsulate(args);
+            Assertions.assertInstanceOf(BooleanValue.class, value);
+            value = verifySerialization((Value)value);
+            Object actual = ((Value)value).evalWithoutStore(evalContext);
+            Object expected = result.evalWithoutStore(evalContext);
+            Assertions.assertEquals(actual, expected);
+        } else {
+            Assertions.assertThrows(SemanticException.class, () -> function.encapsulate(args));
+        }
+    }
+
+    @ParameterizedTest
+    @SuppressWarnings({"rawtypes", "unchecked"})
     @ArgumentsSource(LazyBinaryPredicateTestProvider.class)
     void testLazyPredicate(List<Value> args, BuiltInFunction function, QueryPredicate result) {
         if (result != null) {
@@ -718,7 +824,7 @@ class BooleanValueTest {
     @Test
     void passingIncorrectNumberOfResolutionParameterToBuiltInFunctionThrows() {
         try {
-            new RelOpValue.EqualsFn().resolveParameterTypes(-1);
+            new RelOpValue.EqualsFn().getParameterTypes(-1);
             Assertions.fail("expected an exception to be thrown");
         } catch (Exception e) {
             Assertions.assertTrue(e instanceof VerifyException);
@@ -729,7 +835,7 @@ class BooleanValueTest {
     @Test
     void passingIncorrectIndexToBuiltInFunctionThrows() {
         try {
-            new RelOpValue.EqualsFn().resolveParameterType(-1);
+            new RelOpValue.EqualsFn().conputeParameterType(-1);
             Assertions.fail("expected an exception to be thrown");
         } catch (Exception e) {
             Assertions.assertTrue(e instanceof VerifyException);

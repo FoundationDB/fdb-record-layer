@@ -229,8 +229,9 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             }
         }
         for (RecordMetaDataProto.PUserDefinedFunction function: metaDataProto.getUserDefinedFunctionsList()) {
-            UserDefinedFunction func = (UserDefinedFunction)PlanSerialization.dispatchFromProtoContainer(new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
-                    PlanHashable.CURRENT_FOR_CONTINUATION), function);
+            final UserDefinedFunction func = (UserDefinedFunction)PlanSerialization.dispatchFromProtoContainer(
+                    new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
+                            PlanHashable.CURRENT_FOR_CONTINUATION), function);
             userDefinedFunctionMap.put(func.getFunctionName(), func);
         }
         if (metaDataProto.hasSplitLongRecords()) {

@@ -23,9 +23,10 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Traversal;
-import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 
@@ -60,7 +61,7 @@ public class TestRuleExecution {
     @SuppressWarnings("unchecked")
     @Nullable
     public <T> T getResultMemberWithClass(@Nonnull Class<T> clazz) {
-        for (RelationalExpression member : result.getMembers()) {
+        for (RelationalExpression member : result.getAllMemberExpressions()) {
             if (clazz.isInstance(member)) {
                 return (T) member;
             }
@@ -73,9 +74,10 @@ public class TestRuleExecution {
                                               @Nonnull Reference group,
                                               @Nonnull final EvaluationContext evaluationContext) {
         boolean ruleMatched = false;
-        for (RelationalExpression expression : group.getMembers()) {
+        for (RelationalExpression expression : group.getAllMemberExpressions()) {
             final Iterator<CascadesRuleCall> ruleCalls = rule.getMatcher().bindMatches(context.getPlannerConfiguration(), PlannerBindings.empty(), expression)
-                    .map(bindings -> new CascadesRuleCall(context, rule, group, Traversal.withRoot(group), new ArrayDeque<>(), bindings, evaluationContext))
+                    .map(bindings -> new CascadesRuleCall(PlannerPhase.REWRITING, context, rule, group,
+                            Traversal.withRoot(group), new ArrayDeque<>(), bindings, evaluationContext))
                     .iterator();
             while (ruleCalls.hasNext()) {
                 ruleCalls.next().run();

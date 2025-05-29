@@ -101,7 +101,7 @@ public class RecordLayerDatabase extends AbstractDatabase {
         EmbeddedRelationalConnection conn = new EmbeddedRelationalConnection(this, storeCatalog, transaction, options);
         setConnection(conn);
         if (defaultSchema != null) {
-            /**
+            /*
              * If we have set a default schema here, then we should have already validated that it is correct and exists
              * and everything, so we don't duplicate the checking here.
              */

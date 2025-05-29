@@ -89,11 +89,20 @@ public class TempTableScanExpression implements RelationalExpression, PlannerGra
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public TempTableScanExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                          final boolean shouldSimplifyValues,
                                                          @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new TempTableScanExpression(
-                tempTableReferenceValue.translateCorrelations(translationMap, shouldSimplifyValues));
+        Verify.verify(translatedQuantifiers.isEmpty());
+        if (translationMap.definesOnlyIdentities()) {
+            return this;
+        }
+        final var translatedTableReferenceValue =
+                tempTableReferenceValue.translateCorrelations(translationMap, shouldSimplifyValues);
+        if (translatedTableReferenceValue != tempTableReferenceValue) {
+            return new TempTableScanExpression(translatedTableReferenceValue);
+        }
+        return this;
     }
 
     @Override

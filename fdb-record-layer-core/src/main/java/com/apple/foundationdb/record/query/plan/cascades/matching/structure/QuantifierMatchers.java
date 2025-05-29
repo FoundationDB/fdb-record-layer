@@ -21,8 +21,8 @@
 package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.ImmutableList;
@@ -50,7 +50,7 @@ public class QuantifierMatchers {
     public static <Q extends Quantifier> BindingMatcher<Q> ofTypeRangingOver(@Nonnull final Class<Q> bindableClass,
                                                                              @Nonnull final BindingMatcher<? extends Collection<? extends RelationalExpression>> downstream) {
         return typedWithDownstream(bindableClass,
-                Extractor.of(q -> q.getRangesOver().getMembers(), name -> "rangesOver(getMembers(" + name + "))"),
+                Extractor.of(q -> q.getRangesOver().getAllMemberExpressions(), name -> "rangesOver(getAllMemberExpressions(" + name + "))"),
                 downstream);
     }
 
@@ -129,17 +129,29 @@ public class QuantifierMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<Quantifier.ForEach> forEachQuantifierWithDefaultOnEmptyOverRef(@Nonnull final BindingMatcher<? extends Reference> downstream) {
+    public static BindingMatcher<Quantifier.ForEach> forEachQuantifierOverRef(@Nonnull final BindingMatcher<? extends Reference> downstream, BindingMatcher<? super Boolean> defaultOnEmptyMatcher) {
         return typedWithDownstream(Quantifier.ForEach.class,
                 Extractor.identity(),
                 AllOfMatcher.matchingAllOf(Quantifier.ForEach.class,
                         ImmutableList.of(
                                 typedWithDownstream(Quantifier.ForEach.class,
                                         Extractor.of(Quantifier.ForEach::isNullOnEmpty, name -> "withDefaultOnEmpty(" + name + ")"),
-                                        PrimitiveMatchers.equalsObject(true)),
+                                        defaultOnEmptyMatcher
+                                ),
                                 typedWithDownstream(Quantifier.ForEach.class,
                                         Extractor.of(Quantifier::getRangesOver, name -> "rangesOver(" + name + ")"),
-                                        downstream))));
+                                        downstream)
+                        )));
+    }
+
+    @Nonnull
+    public static BindingMatcher<Quantifier.ForEach> forEachQuantifierWithDefaultOnEmptyOverRef(@Nonnull final BindingMatcher<? extends Reference> downstream) {
+        return forEachQuantifierOverRef(downstream, PrimitiveMatchers.equalsObject(true));
+    }
+
+    @Nonnull
+    public static BindingMatcher<Quantifier.ForEach> forEachQuantifierWithoutDefaultOnEmptyOverRef(@Nonnull final BindingMatcher<? extends Reference> downstream) {
+        return forEachQuantifierOverRef(downstream, PrimitiveMatchers.equalsObject(false));
     }
 
     @Nonnull

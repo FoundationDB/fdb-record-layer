@@ -31,11 +31,11 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TypeFilterExpression;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFlatMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
@@ -116,8 +116,6 @@ public class RecordTypesProperty implements ExpressionProperty<Set<String>> {
                         .orElse(ImmutableSet.of());
             } else if (expression instanceof TypeFilterExpression) {
                 return Sets.filter(childResults.get(0), ((TypeFilterExpression)expression).getRecordTypes()::contains);
-            } else if (expression instanceof PrimaryScanExpression) {
-                return ((PrimaryScanExpression)expression).getRecordTypes();
             } else if (childResults.isEmpty()) {
                 // try to see if the leaf expression is correlated and follow up the correlations
                 final Set<String> recordTypes = Sets.newHashSet();
@@ -161,7 +159,8 @@ public class RecordTypesProperty implements ExpressionProperty<Set<String>> {
                             expression instanceof RecordQueryIntersectionPlan ||
                             expression instanceof LogicalUnionExpression ||
                             expression instanceof RecursiveUnionExpression ||
-                            expression instanceof SelectExpression) {
+                            expression instanceof SelectExpression ||
+                            expression instanceof RecordQueryFlatMapPlan) {
                         final Set<String> union = new HashSet<>();
                         for (Set<String> childResulSet : childResults) {
                             union.addAll(childResulSet);
