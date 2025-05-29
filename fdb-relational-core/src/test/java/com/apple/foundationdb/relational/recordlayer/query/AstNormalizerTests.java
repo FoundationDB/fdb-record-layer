@@ -393,6 +393,7 @@ public class AstNormalizerTests {
                         .setName(name)
                         .setTemporary(isTemporary)
                         .setDescription(functionDdl)
+                        .setNonPreparedDescription(functionDdl)
                         // invoking the compiled routine should only happen during plan generation.
                         .withCompilableRoutine(() -> new CompiledSqlFunction("", ImmutableList.of(), ImmutableList.of(),
                                 ImmutableList.of(), Optional.empty(), null) {
