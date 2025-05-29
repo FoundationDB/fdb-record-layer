@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PPickValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
@@ -49,7 +48,6 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 /**
  * A value representing multiple "alternative" values.
@@ -232,7 +230,8 @@ public class PickValue extends AbstractValue {
             super("pick", List.of(Type.primitiveType(Type.TypeCode.INT), Type.any()), Type.any(), PickValueFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction,
+        @SuppressWarnings("PMD.UnusedFormalParameter")
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> ignored,
                                          @Nonnull final List<? extends Typed> arguments) {
             Verify.verify(arguments.size() > 1);
             var selectorValue = (Value)arguments.get(0);
