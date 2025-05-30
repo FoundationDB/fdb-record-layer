@@ -888,5 +888,4 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             fdb.setTrackLastSeenVersionOnRead(dbTracksReadVersionOnCommit);
         }
     }
-
 }
