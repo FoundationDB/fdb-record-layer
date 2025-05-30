@@ -8,11 +8,11 @@ union-tests:
         promote(0l AS LONG)) AS B) | MAP (_ AS _0) | AGG (sum_l(_._0.A) AS _0, sum_l(_._0.B)
         AS _1) | ON EMPTY NULL | MAP (_._0._0 AS A, _._0._1 AS B)
     task_count: 835
-    task_total_time_ms: 24
-    transform_count: 201
-    transform_time_ms: 5
+    task_total_time_ms: 20
+    transform_count: 209
+    transform_time_ms: 4
     transform_yield_count: 57
-    insert_time_ms: 1
+    insert_time_ms: 2
     insert_new_count: 90
     insert_reused_count: 7
 -   query: EXPLAIN select sum(Y) as S from (select count(*) as Y from t3 where a <
@@ -23,29 +23,29 @@ union-tests:
         promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) |
         ON EMPTY NULL | MAP (_._0._0 AS S)'
     task_count: 831
-    task_total_time_ms: 28
-    transform_count: 207
-    transform_time_ms: 8
+    task_total_time_ms: 29
+    transform_count: 220
+    transform_time_ms: 11
     transform_yield_count: 56
-    insert_time_ms: 1
+    insert_time_ms: 2
     insert_new_count: 75
     insert_reused_count: 5
 -   query: EXPLAIN select sum(Y) as S from (select count(*) as Y from t3 union all
         select count(*) from t1) as X
-    explain: SCAN(<,>) | TFILTER T3 | MAP (_ AS _0) | AGG (count_star(*) AS _0) |
-        ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS Y) | MAP
-        (_.Y AS Y) ⊎ ISCAN(VI1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) |
-        ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) |
-        MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS
-        S)
-    task_count: 912
-    task_total_time_ms: 21
-    transform_count: 220
-    transform_time_ms: 6
-    transform_yield_count: 64
-    insert_time_ms: 1
-    insert_new_count: 94
-    insert_reused_count: 7
+    explain: 'AISCAN(MV10 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | AGG sum_l(_._1)
+        GROUP BY () | MAP ((_._1 AS _0) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
+        promote(0l AS LONG)) AS Y) | MAP (_.Y AS Y) ⊎ ISCAN(VI1 <,>) | MAP (_ AS _0)
+        | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
+        promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) |
+        ON EMPTY NULL | MAP (_._0._0 AS S)'
+    task_count: 1173
+    task_total_time_ms: 33
+    transform_count: 302
+    transform_time_ms: 10
+    transform_yield_count: 76
+    insert_time_ms: 3
+    insert_new_count: 125
+    insert_reused_count: 11
 -   query: EXPLAIN select sum(Y) as S from (select count(*) as Y from t6 union all
         select count(*) from t7) as X
     explain: 'AISCAN(MV11 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
@@ -54,10 +54,10 @@ union-tests:
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS
         _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)'
     task_count: 1208
-    task_total_time_ms: 28
-    transform_count: 318
-    transform_time_ms: 9
+    task_total_time_ms: 26
+    transform_count: 334
+    transform_time_ms: 10
     transform_yield_count: 76
-    insert_time_ms: 1
+    insert_time_ms: 3
     insert_new_count: 124
     insert_reused_count: 10

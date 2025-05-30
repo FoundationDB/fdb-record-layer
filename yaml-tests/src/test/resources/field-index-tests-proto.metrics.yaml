@@ -5,9 +5,9 @@ field-index-tests-proto:
         AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)
     task_count: 503
-    task_total_time_ms: 10
-    transform_count: 130
-    transform_time_ms: 2
+    task_total_time_ms: 2
+    transform_count: 135
+    transform_time_ms: 1
     transform_yield_count: 28
     insert_time_ms: 0
     insert_new_count: 42
@@ -16,9 +16,9 @@ field-index-tests-proto:
     explain: SCAN(<,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL
         | MAP (_._0._0 AS _0)
     task_count: 265
-    task_total_time_ms: 7
-    transform_count: 67
-    transform_time_ms: 2
+    task_total_time_ms: 10
+    transform_count: 71
+    transform_time_ms: 3
     transform_yield_count: 18
     insert_time_ms: 0
     insert_new_count: 24
@@ -27,10 +27,10 @@ field-index-tests-proto:
     explain: SCAN(<,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY NULL
         | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
     task_count: 265
-    task_total_time_ms: 7
-    transform_count: 67
+    task_total_time_ms: 10
+    transform_count: 71
     transform_time_ms: 1
     transform_yield_count: 18
-    insert_time_ms: 0
+    insert_time_ms: 2
     insert_new_count: 24
     insert_reused_count: 2

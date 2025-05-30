@@ -4,7 +4,7 @@ primary-key-tests:
         | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
     task_count: 265
     task_total_time_ms: 3
-    transform_count: 67
+    transform_count: 71
     transform_time_ms: 1
     transform_yield_count: 18
     insert_time_ms: 0
