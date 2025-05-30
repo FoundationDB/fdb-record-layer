@@ -21,12 +21,14 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 
 /**
  * A value representing an aggregate: a value calculated (derived) from other values by applying an aggregation operator
@@ -41,11 +43,12 @@ public interface AggregateValue extends Value {
      * values representing this value.
      *
      * @param typeRepository dynamic schema
+     * @param initialState initial state of the accumulator
      *
      * @return a new {@link Accumulator} for aggregating values for this Value.
      */
     @Nonnull
-    Accumulator createAccumulator(@Nonnull TypeRepository typeRepository);
+    Accumulator createAccumulatorWithInitialState(@Nonnull TypeRepository typeRepository, @Nullable List<RecordCursorProto.AccumulatorState> initialState);
 
     @Nullable
     <M extends Message> Object evalToPartial(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context);
