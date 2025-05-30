@@ -36,9 +36,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
-import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.base.Strings;
+import com.apple.test.ParameterizedTestUtils;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -73,14 +72,6 @@ public class ScanRecordKeysTest extends FDBRecordStoreTestBase {
     private static final int ROW_LIMIT = 19;
     private static final int BYTES_LIMIT = 2000;
 
-    private static final int LONG_RECORD_SPACING = 17;
-    private static final int RECORD_INDEX_WITH_NO_SPLITS = 1;
-    private static final int RECORD_ID_WITH_NO_SPLITS = RECORD_INDEX_WITH_NO_SPLITS + 1;
-    private static final int RECORD_INDEX_WITH_TWO_SPLITS = 16;
-    private static final int RECORD_ID_WITH_TWO_SPLITS = RECORD_INDEX_WITH_TWO_SPLITS + 1;
-    private static final int RECORD_INDEX_WITH_THREE_SPLITS = 33;
-    private static final int RECORD_ID_WITH_THREE_SPLITS = RECORD_INDEX_WITH_THREE_SPLITS + 1;
-
     public enum UseContinuations { NONE, CONTINUATIONS, BYTE_LIMIT }
 
     /**
@@ -95,14 +86,14 @@ public class ScanRecordKeysTest extends FDBRecordStoreTestBase {
     }
 
     public static Stream<Arguments> splitContinuationVersion() {
-        return Stream.of(true, false)
-                .flatMap(split -> Arrays.stream(UseContinuations.values())
-                        .flatMap(useContinuations -> ValidationTestUtils.formatVersions()
-                                .flatMap(formatVersion -> Stream.of(true, false)
-                                        .map(storeVersions -> Arguments.of(split, useContinuations, formatVersion, storeVersions)))));
+        return ParameterizedTestUtils.cartesianProduct(
+                ParameterizedTestUtils.booleans("splitLongRecords"),
+                Arrays.stream(UseContinuations.values()),
+                ValidationTestUtils.formatVersions(),
+                ParameterizedTestUtils.booleans("storeVersions"));
     }
 
-    @ParameterizedTest(name = "testIterateRecordsNoIssue [splitLongRecords = {0}, useContinuations = {1}, formatVersion = {2}, storeVersions = {3}]")
+    @ParameterizedTest
     @MethodSource("splitContinuationVersion")
     void testIterateRecordsNoIssue(boolean splitLongRecords, UseContinuations useContinuations, FormatVersion formatVersion, boolean storeVersions) throws Exception {
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(splitLongRecords, storeVersions);
@@ -114,7 +105,7 @@ public class ScanRecordKeysTest extends FDBRecordStoreTestBase {
         assertEquals(expectedKeys, actualKeys);
     }
 
-    @ParameterizedTest(name = "testIterateRecordsMissingRecord [splitLongRecords = {0}, useContinuations = {1}, formatVersion = {2}, storeVersions = {3}]")
+    @ParameterizedTest
     @MethodSource("splitContinuationVersion")
     void testIterateRecordsMissingRecord(boolean splitLongRecords, UseContinuations useContinuations, FormatVersion formatVersion, boolean storeVersions) throws Exception {
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(splitLongRecords, storeVersions);
@@ -123,8 +114,8 @@ public class ScanRecordKeysTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
             // Note that the primary keys start with 1, so the location is one-off when removed
-            store.deleteRecord(result.get(RECORD_INDEX_WITH_NO_SPLITS).getPrimaryKey());
-            store.deleteRecord(result.get(RECORD_INDEX_WITH_THREE_SPLITS).getPrimaryKey());
+            store.deleteRecord(result.get(ValidationTestUtils.RECORD_INDEX_WITH_NO_SPLITS).getPrimaryKey());
+            store.deleteRecord(result.get(ValidationTestUtils.RECORD_INDEX_WITH_THREE_SPLITS).getPrimaryKey());
             store.deleteRecord(result.get(21).getPrimaryKey());
             store.deleteRecord(result.get(22).getPrimaryKey());
             store.deleteRecord(result.get(44).getPrimaryKey());
@@ -133,19 +124,20 @@ public class ScanRecordKeysTest extends FDBRecordStoreTestBase {
         // Scan records
         ScanProperties scanProperties = getScanProperties(useContinuations);
         final List<Tuple> actualKeys = scanKeys(useContinuations, formatVersion, hook, scanProperties);
-        List<Tuple> expectedKeys = getExpectedPrimaryKeys(i -> !Set.of(RECORD_ID_WITH_NO_SPLITS, RECORD_ID_WITH_THREE_SPLITS, 22, 23, 45).contains(i));
+        List<Tuple> expectedKeys = getExpectedPrimaryKeys(i -> !Set.of(ValidationTestUtils.RECORD_ID_WITH_NO_SPLITS, ValidationTestUtils.RECORD_ID_WITH_THREE_SPLITS, 22, 23, 45).contains(i));
         assertEquals(expectedKeys, actualKeys);
     }
 
     public static Stream<Arguments> splitNumberContinuationsVersion() {
-        return Stream.of(0, 1, 2, 3)
-                .flatMap(splitNumber -> Stream.of(UseContinuations.values())
-                        .flatMap(useContinuations -> ValidationTestUtils.formatVersions()
-                                .flatMap(formatVersion -> Stream.of(true, false)
-                                        .map(storeVersions -> Arguments.of(splitNumber, useContinuations, formatVersion, storeVersions)))));
+        return ParameterizedTestUtils.cartesianProduct(
+                Stream.of(0, 1, 2, 3),
+                Arrays.stream(UseContinuations.values()),
+                ValidationTestUtils.formatVersions(),
+                ParameterizedTestUtils.booleans("storeVersions")
+        );
     }
 
-    @ParameterizedTest(name = "testIterateRecordsMissingSplit [splitNumber = {0}, useContinuations = {1}, formatVersion = {2}, storeVersions = {3}]")
+    @ParameterizedTest
     @MethodSource("splitNumberContinuationsVersion")
     void testIterateRecordsMissingSplit(int splitNumber, UseContinuations useContinuations, FormatVersion formatVersion, boolean storeVersions) throws Exception {
         boolean splitLongRecords = true;
@@ -159,7 +151,7 @@ public class ScanRecordKeysTest extends FDBRecordStoreTestBase {
             // If operating on the long record, splits can be 1,2,3
             // Use splitNumber to decide which record to operate on.
             // Record #1 in the saved records is a short record, #33 is a long (split) record
-            int recordIndex = (splitNumber == 0) ? RECORD_INDEX_WITH_NO_SPLITS : RECORD_INDEX_WITH_THREE_SPLITS;
+            int recordIndex = (splitNumber == 0) ? ValidationTestUtils.RECORD_INDEX_WITH_NO_SPLITS : ValidationTestUtils.RECORD_INDEX_WITH_THREE_SPLITS;
             byte[] split = ValidationTestUtils.getSplitKey(store, savedRecords.get(recordIndex).getPrimaryKey(), splitNumber);
             store.ensureContextActive().clear(split);
             commit(context);
@@ -172,7 +164,7 @@ public class ScanRecordKeysTest extends FDBRecordStoreTestBase {
         // When format version is below 6 and the record is a short record, deleting the only split will make the record disappear
         // When format version is 6 or 10, and we're not saving version, the same
         if ((splitNumber == 0) && (!ValidationTestUtils.versionStoredWithRecord(formatVersion) || !storeVersions)) {
-            expectedKeys = getExpectedPrimaryKeys(i -> i != RECORD_ID_WITH_NO_SPLITS);
+            expectedKeys = getExpectedPrimaryKeys(i -> i != ValidationTestUtils.RECORD_ID_WITH_NO_SPLITS);
         } else {
             expectedKeys = getExpectedPrimaryKeys();
         }
@@ -185,13 +177,14 @@ public class ScanRecordKeysTest extends FDBRecordStoreTestBase {
     }
 
     public static Stream<Arguments> splitContinuationFormatVersion() {
-        return Stream.of(true, false)
-                .flatMap(split -> Arrays.stream(UseContinuations.values())
-                        .flatMap(useContinuations -> ValidationTestUtils.formatVersions()
-                                .map(formatVersion -> Arguments.of(split, useContinuations, formatVersion))));
+        return ParameterizedTestUtils.cartesianProduct(
+                ParameterizedTestUtils.booleans("splitLongVersions"),
+                Arrays.stream(UseContinuations.values()),
+                ValidationTestUtils.formatVersions()
+        );
     }
 
-    @ParameterizedTest(name = "testIterateRecordsMissingVersion [splitLongRecords = {0}, useContinuations = {1}, formatVersion = {2}]")
+    @ParameterizedTest
     @MethodSource("splitContinuationFormatVersion")
     void testIterateRecordsMissingVersion(boolean splitLongRecords, UseContinuations useContinuations, FormatVersion formatVersion) throws Exception {
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(splitLongRecords, true);
@@ -220,7 +213,7 @@ public class ScanRecordKeysTest extends FDBRecordStoreTestBase {
      * @param useContinuations whether to use continuations
      * @param formatVersion what format version to use
      */
-    @ParameterizedTest(name = "testIterateRecordsMixedVersions [splitLongRecords = {0}, useContinuations = {1}, formatVersion = {2}]")
+    @ParameterizedTest
     @MethodSource("splitContinuationFormatVersion")
     void testIterateRecordsMixedVersions(boolean splitLongRecords, UseContinuations useContinuations, FormatVersion formatVersion) throws Exception {
         // This test changes the metadata so needs special attention to the metadata version
@@ -249,10 +242,11 @@ public class ScanRecordKeysTest extends FDBRecordStoreTestBase {
 
     // list of arguments for version and a bitset that has all the combinations of 4 bits set (except all unset)
     private static Stream<Arguments> continuationVersionAndBitset() {
-        return Arrays.stream(UseContinuations.values())
-                .flatMap(useContinuations -> ValidationTestUtils.formatVersions()
-                        .flatMap(version -> ValidationTestUtils.splitsToRemove()
-                                .map(bitset -> Arguments.of(useContinuations, version, bitset))));
+        return ParameterizedTestUtils.cartesianProduct(
+                Arrays.stream(UseContinuations.values()),
+                ValidationTestUtils.formatVersions(),
+                ValidationTestUtils.splitsToRemove()
+        );
     }
 
     /**
@@ -264,7 +258,7 @@ public class ScanRecordKeysTest extends FDBRecordStoreTestBase {
      * @param formatVersion the version format
      * @param splitsToRemove the splits to remove
      */
-    @ParameterizedTest(name = "testIterateRecordCombinationSplitMissing [useContinuations = {0}, formatVersion = {1}, splitsToRemove = {2}]")
+    @ParameterizedTest
     @MethodSource("continuationVersionAndBitset")
     void testIterateRecordCombinationSplitMissing(UseContinuations useContinuations, FormatVersion formatVersion, BitSet splitsToRemove) throws Exception {
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(true, true);
@@ -277,9 +271,9 @@ public class ScanRecordKeysTest extends FDBRecordStoreTestBase {
                 // bit #0 is the version (-1)
                 // bits #1 - #3 are the split numbers (no split #0 for a split record)
                 int split = (bit == 0) ? -1 : bit;
-                byte[] key = ValidationTestUtils.getSplitKey(store, result.get(RECORD_INDEX_WITH_THREE_SPLITS).getPrimaryKey(), split);
+                byte[] key = ValidationTestUtils.getSplitKey(store, result.get(ValidationTestUtils.RECORD_INDEX_WITH_THREE_SPLITS).getPrimaryKey(), split);
                 store.ensureContextActive().clear(key);
-                key = ValidationTestUtils.getSplitKey(store, result.get(RECORD_INDEX_WITH_TWO_SPLITS).getPrimaryKey(), split);
+                key = ValidationTestUtils.getSplitKey(store, result.get(ValidationTestUtils.RECORD_INDEX_WITH_TWO_SPLITS).getPrimaryKey(), split);
                 store.ensureContextActive().clear(key);
             });
             commit(context);
@@ -290,11 +284,11 @@ public class ScanRecordKeysTest extends FDBRecordStoreTestBase {
         final List<Tuple> actualKeys = scanKeys(useContinuations, formatVersion, hook, scanProperties);
         // The cases where the record will go missing altogether
         Set<Integer> keysExpectedToDisappear = new HashSet<>();
-        if (recordWillDisappear(2, splitsToRemove, formatVersion)) {
-            keysExpectedToDisappear.add(RECORD_ID_WITH_TWO_SPLITS);
+        if (ValidationTestUtils.recordWillDisappear(2, splitsToRemove, formatVersion)) {
+            keysExpectedToDisappear.add(ValidationTestUtils.RECORD_ID_WITH_TWO_SPLITS);
         }
-        if (recordWillDisappear(3, splitsToRemove, formatVersion)) {
-            keysExpectedToDisappear.add(RECORD_ID_WITH_THREE_SPLITS);
+        if (ValidationTestUtils.recordWillDisappear(3, splitsToRemove, formatVersion)) {
+            keysExpectedToDisappear.add(ValidationTestUtils.RECORD_ID_WITH_THREE_SPLITS);
         }
 
         List<Tuple> expectedKeys = getExpectedPrimaryKeys(i -> !keysExpectedToDisappear.contains(i));
@@ -304,25 +298,6 @@ public class ScanRecordKeysTest extends FDBRecordStoreTestBase {
         // Only in cases where the corruption actually makes the record corrupt.
         if ( !(keysExpectedToDisappear.size() < 2) && splitsToRemove.equals(ValidationTestUtils.toBitSet(0b0110))) {
             assertRecordsCorrupted(formatVersion, hook);
-        }
-    }
-
-    private boolean recordWillDisappear(int numOfSplits, BitSet splitsToRemove, FormatVersion formatVersion) {
-        final BitSet allThreeSplits = ValidationTestUtils.toBitSet(0b1111);
-        final BitSet allThreeSplitsWithoutVersion = ValidationTestUtils.toBitSet(0b1110);
-        final BitSet allTwoSplits = ValidationTestUtils.toBitSet(0b0111);
-        final BitSet allTwoSplitsWithoutVersion = ValidationTestUtils.toBitSet(0b0110);
-        final boolean storingVersion = ValidationTestUtils.versionStoredWithRecord(formatVersion);
-        switch (numOfSplits) {
-            case 3:
-                return (splitsToRemove.equals(allThreeSplits) ||
-                                (!storingVersion && splitsToRemove.equals(allThreeSplitsWithoutVersion)));
-            case 2:
-                return (splitsToRemove.equals(allThreeSplits) || splitsToRemove.equals(allTwoSplits) ||
-                                (!storingVersion &&
-                                         (splitsToRemove.equals(allThreeSplitsWithoutVersion) || splitsToRemove.equals(allTwoSplitsWithoutVersion))));
-            default:
-                throw new IllegalArgumentException("Non supported number of splits");
         }
     }
 
@@ -405,41 +380,17 @@ public class ScanRecordKeysTest extends FDBRecordStoreTestBase {
     }
 
     private List<FDBStoredRecord<Message>> saveRecords(final boolean splitLongRecords, FormatVersion formatVersion, final RecordMetaDataHook hook) throws Exception {
-        return saveRecords(1, 50, splitLongRecords, formatVersion, hook);
-    }
-
-    private List<FDBStoredRecord<Message>> saveRecords(int initialId, int totalRecords, final boolean splitLongRecords, FormatVersion formatVersion, final RecordMetaDataHook hook) throws Exception {
-        return saveRecords(initialId, totalRecords, splitLongRecords, formatVersion, simpleMetaData(hook));
+        return saveRecords(1, 50, splitLongRecords, formatVersion, simpleMetaData(hook));
     }
 
     private List<FDBStoredRecord<Message>> saveRecords(int initialId, int totalRecords, final boolean splitLongRecords, FormatVersion formatVersion, final RecordMetaData metaData) throws Exception {
         List<FDBStoredRecord<Message>> result;
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = createOrOpenRecordStore(context, metaData, path, formatVersion);
-            List<FDBStoredRecord<Message>> result1 = new ArrayList<>(totalRecords);
-            for (int i = initialId; i < initialId + totalRecords; i++) {
-                final String someText = Strings.repeat("x", recordTextSize(splitLongRecords, i));
-                final TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder()
-                        .setRecNo(i)
-                        .setStrValueIndexed(someText)
-                        .setNumValue3Indexed(1415 + i * 7)
-                        .build();
-                result1.add(store.saveRecord(record));
-            }
-            result = result1;
+            result = ValidationTestUtils.saveRecords(store, initialId, totalRecords, splitLongRecords);
             commit(context);
         }
         return result;
-    }
-
-    private int recordTextSize(boolean splitLongRecords, int recordId) {
-        // Every 17th record is long. The number of splits increases with the record ID
-        if (splitLongRecords && ((recordId % LONG_RECORD_SPACING) == 0)) {
-            final int sizeInSplits = recordId / LONG_RECORD_SPACING;
-            return SplitHelper.SPLIT_RECORD_SIZE * sizeInSplits + 2;
-        } else {
-            return 10;
-        }
     }
 
     @Nonnull
