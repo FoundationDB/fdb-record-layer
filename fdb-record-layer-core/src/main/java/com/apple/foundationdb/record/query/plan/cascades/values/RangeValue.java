@@ -144,7 +144,7 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
 
             var cardinality = CardinalitiesProperty.Cardinality.ofCardinality(Math.floorDiv(endLong - beginLong, stepLong));
             return new CardinalitiesProperty.Cardinalities(cardinality, cardinality);
-        } catch (NullPointerException npe) {
+        } catch (RecordCoreException | NullPointerException evalException) {
             return CardinalitiesProperty.Cardinalities.unknownMaxCardinality();
         }
     }

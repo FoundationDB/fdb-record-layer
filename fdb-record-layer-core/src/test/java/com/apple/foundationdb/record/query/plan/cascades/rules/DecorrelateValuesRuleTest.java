@@ -30,16 +30,22 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpr
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RangeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.google.common.collect.ImmutableList;
@@ -61,7 +67,9 @@ import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQuery
 import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.baseT;
 import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.baseTau;
 import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.join;
+import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.rangeOneQun;
 import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.valuesQun;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Tests of the {@link DecorrelateValuesRule}.
@@ -560,5 +568,129 @@ class DecorrelateValuesRuleTest {
                 .build().buildSelect();
 
         testHelper.assertYields(selectHaving, newSelectHaving);
+    }
+
+    private void doNotTreatQuantifierAsValuesBox(@Nonnull Quantifier notQuiteValuesQun) {
+        final Quantifier base = baseT();
+        final Quantifier correlatedSelect = forEach(selectWithPredicates(base,
+                ImmutableList.of("b", "c", "d"),
+                fieldPredicate(base, "a", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, notQuiteValuesQun.getFlowedObjectValue()))));
+
+        final SelectExpression selectExpression = join(notQuiteValuesQun, correlatedSelect)
+                .addResultColumn(projectColumn(correlatedSelect, "b"))
+                .build().buildSelect();
+
+        testHelper.assertYieldsNothing(selectExpression, true);
+    }
+
+    /**
+     * Make sure that we don't treat an ungrouped count object like a values box. Like a values box, the cardinality
+     * of an ungrouped value is exactly one. But it has additional meaning, and so we don't want to move it around
+     * like we do a values box. This is done here with a query like:
+     * <pre>{@code
+     * SELECT x.count, y.b, y.c, y.d
+     *   FROM (SELECT count(*) AS count FROM T) x,
+     *        (SELECT b, c, d FROM T WHERE a = x.count) y
+     * }</pre>
+     * <p>
+     * We then assert that the count box does not get pushed into the {@code y} leg by this rule.
+     * </p>
+     */
+    @Test
+    void doNotTreatUngroupedCountAsValues() {
+        final Quantifier base = baseT();
+        final Quantifier selectWhere = forEach(new SelectExpression(base.getFlowedObjectValue(), ImmutableList.of(base), ImmutableList.of()));
+        final Quantifier groupBy = forEach(new GroupByExpression(
+                null,
+                (AggregateValue) new CountValue.CountFn().encapsulate(ImmutableList.of(RecordConstructorValue.ofColumns(ImmutableList.of()))),
+                GroupByExpression::nestedResults,
+                selectWhere));
+
+        //
+        // Make sure that the cardinality of the ungrouped count value is equal to exactly one, which
+        // is one of the criteria we look for when choosing a values box
+        //
+        CardinalitiesProperty.Cardinalities cardinalities = CardinalitiesProperty.cardinalities().evaluate(groupBy.getRangesOver());
+        assertEquals(CardinalitiesProperty.Cardinalities.exactlyOne(), cardinalities);
+
+        final Quantifier selectHaving = forEach(new SelectExpression(
+                fieldValue(groupBy, "_0"),
+                ImmutableList.of(groupBy),
+                ImmutableList.of()
+        ));
+
+        doNotTreatQuantifierAsValuesBox(selectHaving);
+    }
+
+    @Test
+    void doNotUseValuesBoxWithPredicates() {
+        final Quantifier rangeOne = rangeOneQun();
+
+        final Quantifier notQuiteValuesQun = forEach(new SelectExpression(
+                LiteralValue.ofScalar(42L),
+                ImmutableList.of(rangeOne),
+                ImmutableList.of(ConstantPredicate.TRUE)
+        ));
+        doNotTreatQuantifierAsValuesBox(notQuiteValuesQun);
+    }
+
+    @Test
+    void doNotAllowValuesBoxWithJoin() {
+        final Quantifier rangeOneA = rangeOneQun();
+        final Quantifier rangeOneB = rangeOneQun();
+        final Quantifier valuesBox = forEach(new SelectExpression(
+                LiteralValue.ofScalar(42L),
+                ImmutableList.of(rangeOneA, rangeOneB),
+                ImmutableList.of()
+        ));
+        doNotTreatQuantifierAsValuesBox(valuesBox);
+    }
+
+    @Test
+    void doNotTreatRangeTwoAsValues() {
+        final Quantifier rangeTwoQun = forEach(new TableFunctionExpression(
+                (StreamingValue) new RangeValue.RangeFn().encapsulate(ImmutableList.of(LiteralValue.ofScalar(2L)))));
+        final Quantifier valuesBox = forEach(new SelectExpression(LiteralValue.ofScalar(42L), ImmutableList.of(rangeTwoQun), ImmutableList.of()));
+        doNotTreatQuantifierAsValuesBox(valuesBox);
+    }
+
+    @Test
+    void doNotTreatRangeWithConstantObjectValueAsValueBox() {
+        final ConstantObjectValue endCov = ConstantObjectValue.of(Quantifier.constant(), "0", Type.primitiveType(Type.TypeCode.LONG, false));
+        final Quantifier rangeQun = forEach(new TableFunctionExpression(
+                (StreamingValue) new RangeValue.RangeFn().encapsulate(ImmutableList.of(endCov))));
+        final Quantifier valuesBox = forEach(new SelectExpression(LiteralValue.ofScalar(42L), ImmutableList.of(rangeQun), ImmutableList.of()));
+        doNotTreatQuantifierAsValuesBox(valuesBox);
+    }
+
+    @Test
+    void doNotUseValuesBoxWithCorrelationsInTheValue() {
+        final Quantifier base = baseT();
+        final Quantifier lowerSelect = forEach(selectWithPredicates(base, ImmutableList.of("a", "b", "c"),
+                fieldPredicate(base, "d", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(base, "b")))));
+
+        final Quantifier valuesBox = valuesQun(ImmutableMap.of("x", fieldValue(lowerSelect, "b")));
+
+        final SelectExpression selectExpression = join(valuesBox, lowerSelect)
+                .addResultColumn(projectColumn(lowerSelect, "a"))
+                .addResultColumn(projectColumn(valuesBox, "x"))
+                .addResultColumn(projectColumn(lowerSelect, "c"))
+                .build().buildSelect();
+
+        testHelper.assertYieldsNothing(selectExpression, true);
+    }
+
+    @Test
+    void doNotMatchExistentialValuesQuantifier() {
+        final Quantifier valuesBox = valuesQun(LiteralValue.ofScalar(42L));
+        final Quantifier existsValues = Quantifier.existential(valuesBox.getRangesOver());
+
+        final Quantifier base = baseT();
+        final SelectExpression selectExpression = join(base, existsValues)
+                .addResultColumn(projectColumn(base, "a"))
+                .addPredicate(new ExistsPredicate(existsValues.getAlias()))
+                .build().buildSelect();
+
+        testHelper.assertYieldsNothing(selectExpression, true);
     }
 }

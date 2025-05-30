@@ -24,12 +24,14 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExploratoryMemoizer;
+import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers;
@@ -49,13 +51,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.anyExpressionPartition;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.expressionPartitions;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.filterPartition;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.rollUpPartitionsTo;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
-import static com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.cardinalities;
 
 /**
  * Rule to de-correlate any "values boxes" by pushing them into referencing expressions. In this case, a
@@ -72,16 +68,10 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.Cardi
 public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpression> {
 
     @Nonnull
-    private static final BindingMatcher<Reference> singleCardinalityRef = expressionPartitions(
-            filterPartition(
-                    partition -> CardinalitiesProperty.Cardinalities.exactlyOne().equals(partition.getPropertyValue(cardinalities())),
-                    rollUpPartitionsTo(all(anyExpressionPartition()), cardinalities())));
+    private static final BindingMatcher<Quantifier.ForEach> forEach = QuantifierMatchers.forEachQuantifier();
 
     @Nonnull
-    private static final BindingMatcher<Quantifier.ForEach> forEachWithSingleCardinality = QuantifierMatchers.forEachQuantifierOverRef(singleCardinalityRef);
-
-    @Nonnull
-    private static final BindingMatcher<SelectExpression> root = RelationalExpressionMatchers.selectExpression(some(forEachWithSingleCardinality));
+    private static final BindingMatcher<SelectExpression> root = RelationalExpressionMatchers.selectExpression(some(forEach));
 
     public DecorrelateValuesRule() {
         super(root);
@@ -102,13 +92,13 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
     @Override
     public void onMatch(@Nonnull final ExplorationCascadesRuleCall call) {
         final SelectExpression selectExpression = call.get(root);
-        final List<? extends Quantifier.ForEach> valueQunCandidates = call.getBindings().getAll(forEachWithSingleCardinality);
+        final List<? extends Quantifier.ForEach> valueQunCandidates = call.getBindings().getAll(forEach);
 
         final Set<CorrelationIdentifier> selectChildQunIds = selectExpression.getQuantifiers().stream().map(Quantifier::getAlias).collect(ImmutableSet.toImmutableSet());
         ImmutableMap.Builder<CorrelationIdentifier, SelectExpression> valuesByIdBuilder = ImmutableMap.builderWithExpectedSize(valueQunCandidates.size());
         ImmutableMap.Builder<CorrelationIdentifier, Quantifier> qunsByIdBuilder = ImmutableMap.builderWithExpectedSize(valueQunCandidates.size());
         for (Quantifier.ForEach qun : valueQunCandidates) {
-            @Nullable SelectExpression childSelect = findSelectForQuantifier(qun, selectChildQunIds);
+            @Nullable SelectExpression childSelect = findSelectForQuantifier(call.getContext(), qun, selectChildQunIds);
             if (childSelect != null) {
                 valuesByIdBuilder.put(qun.getAlias(), childSelect);
                 qunsByIdBuilder.put(qun.getAlias(), qun);
@@ -166,7 +156,9 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
     }
 
     @Nullable
-    private SelectExpression findSelectForQuantifier(@Nonnull Quantifier.ForEach qun, @Nonnull Set<CorrelationIdentifier> selectChildQunIds) {
+    private SelectExpression findSelectForQuantifier(@Nonnull PlanContext planContext,
+                                                     @Nonnull Quantifier.ForEach qun,
+                                                     @Nonnull Set<CorrelationIdentifier> selectChildQunIds) {
         // Make sure that the quantifier is over an acceptable value. For this to be the case, it should have a
         // select expression over a single quantifier. The returned SelectExpression's result value should not
         // contain references to any of the other children of the root select, nor should it be dependent on its input
@@ -176,6 +168,9 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
                 continue;
             }
             final SelectExpression childSelect = (SelectExpression) childExpr;
+            if (!childSelect.getPredicates().isEmpty()) {
+                continue;
+            }
             if (childSelect.getQuantifiers().size() != 1) {
                 continue;
             }
@@ -186,6 +181,15 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
             final Set<CorrelationIdentifier> childResultCorrelatedTo = childResultValue.getCorrelatedTo();
             if (childResultCorrelatedTo.contains(grandChildQuantifier.getAlias())
                     || !emptyIntersection(childResultCorrelatedTo, selectChildQunIds)) {
+                continue;
+            }
+
+            // Validate that the quantifier is over a singleton range, like range(1)
+            if (grandChildQuantifier.getRangesOver().getAllMemberExpressions()
+                    .stream()
+                    .filter(expr -> expr instanceof TableFunctionExpression)
+                    .map(TableFunctionExpression.class::cast)
+                    .noneMatch(tvf -> CardinalitiesProperty.Cardinalities.exactlyOne().equals(tvf.getValue().getCardinalities()))) {
                 continue;
             }
 

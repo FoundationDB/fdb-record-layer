@@ -835,6 +835,8 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
                     return rangeOverCardinalities.floor(1L);
                 }
                 return rangeOverCardinalities;
+            } else if (quantifier instanceof Quantifier.Physical) {
+                return visit(((Quantifier.Physical)quantifier).getRangesOverPlan());
             } else {
                 throw new RecordCoreException("unsupported quantifier value type",
                         LogMessageKeys.VALUE, quantifier);
