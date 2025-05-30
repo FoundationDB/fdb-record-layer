@@ -1041,7 +1041,7 @@ public abstract class IndexingBase {
 
     abstract CompletableFuture<Void> rebuildIndexInternalAsync(FDBRecordStore store);
 
-    protected void validateOrThrowEx(boolean isValid, @Nonnull String msg) {
+    protected final void validateOrThrowEx(boolean isValid, @Nonnull String msg) {
         if (!isValid) {
             throw new ValidationException(msg,
                     LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),

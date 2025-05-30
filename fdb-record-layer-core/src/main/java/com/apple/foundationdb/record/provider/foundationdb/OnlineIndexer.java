@@ -319,7 +319,7 @@ public class OnlineIndexer implements AutoCloseable {
      * that contains no keys which have yet been processed by the {@link OnlineIndexer}
      * during an index build.
      */
-    @SuppressWarnings("serial")
+    @SuppressWarnings({"serial", "this-escape"})
     public static class RecordBuiltRangeException extends RecordCoreException {
         public RecordBuiltRangeException(@Nullable Tuple start, @Nullable Tuple end) {
             super("Range specified as unbuilt contained subranges that had already been built");
