@@ -22,10 +22,14 @@ package com.apple.foundationdb.record.provider.foundationdb.recordrepair;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.RecordDeserializationException;
 import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
 import com.apple.foundationdb.tuple.Tuple;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
@@ -40,20 +44,26 @@ import java.util.concurrent.CompletionException;
  * A record that is valid according to this validator has a split set that is legal (either 0 or 1..n) - or is not split -
  * and a payload that can be serialized with the store's schema.
  */
-@API(API.Status.EXPERIMENTAL)
+@API(API.Status.INTERNAL)
 public class RecordValueValidator implements RecordValidator {
-    public static final String CODE_SPLIT_ERROR = "SplitError";
-    public static final String CODE_DESERIALIZE_ERROR = "DeserializeError";
+    /** (error code) Record splits issue (missing split/out of order). */
+    public static final String CODE_SPLIT_ERROR = "RecordValueSplitError";
+    /** (error code) Record could not be serialized (corrupt data, missing split). */
+    public static final String CODE_DESERIALIZE_ERROR = "RecordValueDeserializeError";
+    /** (repair code) Record data was deleted as a repair. */
+    public static final String REPAIR_RECORD_DELETED = "RecordValueRecordDeletedRepair";
+
+    private static final Logger logger = LoggerFactory.getLogger(RecordValueValidator.class);
 
     @Nonnull
-    private FDBRecordStore store;
+    private final FDBRecordStore store;
 
     public RecordValueValidator(@Nonnull final FDBRecordStore store) {
         this.store = store;
     }
 
     @Override
-    public CompletableFuture<RecordValidationResult> validateRecordAsync(final Tuple primaryKey) {
+    public CompletableFuture<RecordValidationResult> validateRecordAsync(@Nonnull final Tuple primaryKey) {
         return store.loadRecordAsync(primaryKey).handle((rec, exception) -> {
             if (exception != null) {
                 if (exception instanceof CompletionException) {
@@ -81,7 +91,30 @@ public class RecordValueValidator implements RecordValidator {
     }
 
     @Override
-    public CompletableFuture<Void> repairRecordAsync(final Tuple primaryKey, final CompletableFuture<RecordValidationResult> validationResult) {
-        throw new UnsupportedOperationException("Repair is not yet supported");
+    public CompletableFuture<RecordValidationResult> repairRecordAsync(@Nonnull RecordValidationResult validationResult) {
+        if (validationResult.isValid()) {
+            // do nothing
+            return CompletableFuture.completedFuture(validationResult.withRepair(RecordValidationResult.REPAIR_NOT_NEEDED));
+        }
+        switch (validationResult.getErrorCode()) {
+            case CODE_SPLIT_ERROR:
+            case CODE_DESERIALIZE_ERROR:
+                // Delete record subspace
+                store.deleteRecordSplits(validationResult.getPrimaryKey(), false, null, store.getRecordMetaData());
+                if (logger.isInfoEnabled()) {
+                    logger.info(KeyValueLogMessage.of("Record repair: Record deleted",
+                            LogMessageKeys.PRIMARY_KEY, validationResult.getPrimaryKey(),
+                            LogMessageKeys.CODE, validationResult.getErrorCode()));
+                }
+                return CompletableFuture.completedFuture(validationResult.withRepair(REPAIR_RECORD_DELETED));
+            default:
+                // Unknown code
+                if (logger.isWarnEnabled()) {
+                    logger.warn(KeyValueLogMessage.of("Record repair: Unknown code",
+                            LogMessageKeys.PRIMARY_KEY, validationResult.getPrimaryKey(),
+                            LogMessageKeys.CODE, validationResult.getErrorCode()));
+                }
+                return CompletableFuture.completedFuture(validationResult.withRepair(RecordValidationResult.REPAIR_UNKNOWN_VALIDATION_CODE));
+        }
     }
 }

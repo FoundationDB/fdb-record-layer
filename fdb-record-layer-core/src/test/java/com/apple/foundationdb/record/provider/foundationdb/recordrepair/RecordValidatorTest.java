@@ -1,5 +1,5 @@
 /*
- * RecordValidationTest.java
+ * RecordValidatorTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -31,13 +31,13 @@ import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Strings;
 import com.google.protobuf.Message;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.BitSet;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -54,7 +54,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Because the validators make assumptions about the structure of the record, splits and versions, this test monitors
  * the available format versions and forces re-evaluation when a new format version is added.
  */
-public class RecordValidationTest extends FDBRecordStoreTestBase {
+public class RecordValidatorTest extends FDBRecordStoreTestBase {
     // Repeated here for the benefit of MethodSource
     private static Stream<FormatVersion> formatVersions() {
         return ValidationTestUtils.formatVersions();
@@ -86,8 +86,8 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
             result.forEach(rec -> {
-                validateRecordValue(store, rec.getPrimaryKey(), RecordValidationResult.CODE_VALID);
-                validateRecordVersion(store, rec.getPrimaryKey(), RecordValidationResult.CODE_VALID);
+                validateRecordValue(store, rec.getPrimaryKey(), RecordValidationResult.CODE_VALID, RecordValidationResult.REPAIR_NOT_NEEDED);
+                validateRecordVersion(store, rec.getPrimaryKey(), RecordValidationResult.CODE_VALID, RecordValidationResult.REPAIR_NOT_NEEDED);
             });
             context.commit();
         }
@@ -110,8 +110,8 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
             result.forEach(rec -> {
-                validateRecordValue(store, rec.getPrimaryKey(), RecordValidationResult.CODE_VALID);
-                validateRecordVersion(store, rec.getPrimaryKey(), RecordVersionValidator.CODE_RECORD_MISSING_ERROR);
+                validateRecordValue(store, rec.getPrimaryKey(), RecordValidationResult.CODE_VALID, RecordValidationResult.REPAIR_NOT_NEEDED);
+                validateRecordVersion(store, rec.getPrimaryKey(), RecordVersionValidator.CODE_RECORD_MISSING_ERROR, RecordValidationResult.REPAIR_NOT_NEEDED);
             });
             context.commit();
         }
@@ -152,13 +152,19 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
             // When format version is below 6 and the record is a short record, deleting the only split will make the record disappear
             if ((splitNumber == 0) && ( ! ValidationTestUtils.versionStoredWithRecord(formatVersion))) {
-                validateRecordValue(store, result.get(recordNumber).getPrimaryKey(), RecordValidationResult.CODE_VALID);
-                validateRecordVersion(store, result.get(recordNumber).getPrimaryKey(), RecordVersionValidator.CODE_RECORD_MISSING_ERROR);
+                validateRecordValue(store, result.get(recordNumber).getPrimaryKey(), RecordValidationResult.CODE_VALID, RecordValidationResult.REPAIR_NOT_NEEDED);
+                validateRecordVersion(store, result.get(recordNumber).getPrimaryKey(), RecordVersionValidator.CODE_RECORD_MISSING_ERROR, RecordValidationResult.REPAIR_NOT_NEEDED);
             } else {
-                validateRecordValue(store, result.get(recordNumber).getPrimaryKey(), RecordValueValidator.CODE_SPLIT_ERROR);
-                final Exception exception = assertThrows(Exception.class, () -> validateRecordVersion(store, result.get(recordNumber).getPrimaryKey(), RecordValidationResult.CODE_VALID));
+                validateRecordValue(store, result.get(recordNumber).getPrimaryKey(), RecordValueValidator.CODE_SPLIT_ERROR, null);
+                final Exception exception = assertThrows(Exception.class, () -> validateRecordVersion(store, result.get(recordNumber).getPrimaryKey(), RecordValidationResult.CODE_VALID, null));
                 assertTrue((exception.getCause() instanceof SplitHelper.FoundSplitWithoutStartException) ||
                         (exception.getCause() instanceof SplitHelper.FoundSplitOutOfOrderException));
+                // Now with validation, the record will be deleted
+                validateRecordValue(store, result.get(recordNumber).getPrimaryKey(), RecordValueValidator.CODE_SPLIT_ERROR, RecordValueValidator.REPAIR_RECORD_DELETED);
+                validateRecordVersion(store, result.get(recordNumber).getPrimaryKey(), RecordVersionValidator.CODE_RECORD_MISSING_ERROR, RecordValidationResult.REPAIR_NOT_NEEDED);
+                // Record deleted, validate again to make sure
+                validateRecordValue(store, result.get(recordNumber).getPrimaryKey(), RecordValidationResult.CODE_VALID, null);
+                validateRecordVersion(store, result.get(recordNumber).getPrimaryKey(), RecordVersionValidator.CODE_RECORD_MISSING_ERROR, RecordValidationResult.REPAIR_NOT_NEEDED);
             }
             context.commit();
         }
@@ -184,9 +190,15 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
         // Validate by primary key
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-            validateRecordValue(store, result.get(recordNumber).getPrimaryKey(), RecordValueValidator.CODE_DESERIALIZE_ERROR);
-            final Exception exception = assertThrows(Exception.class, () -> validateRecordVersion(store, result.get(recordNumber).getPrimaryKey(), RecordValidationResult.CODE_VALID));
+            validateRecordValue(store, result.get(recordNumber).getPrimaryKey(), RecordValueValidator.CODE_DESERIALIZE_ERROR, null);
+            final Exception exception = assertThrows(Exception.class, () -> validateRecordVersion(store, result.get(recordNumber).getPrimaryKey(), RecordValidationResult.CODE_VALID, null));
             assertTrue(exception.getCause() instanceof RecordDeserializationException);
+            validateRecordValue(store, result.get(recordNumber).getPrimaryKey(), RecordValueValidator.CODE_DESERIALIZE_ERROR, RecordValueValidator.REPAIR_RECORD_DELETED);
+            validateRecordVersion(store, result.get(recordNumber).getPrimaryKey(), RecordVersionValidator.CODE_RECORD_MISSING_ERROR, RecordValidationResult.REPAIR_NOT_NEEDED);
+            assertTrue(exception.getCause() instanceof RecordDeserializationException);
+            // Record deleted, validate again to make sure
+            validateRecordValue(store, result.get(recordNumber).getPrimaryKey(), RecordValidationResult.CODE_VALID, null);
+            validateRecordVersion(store, result.get(recordNumber).getPrimaryKey(), RecordVersionValidator.CODE_RECORD_MISSING_ERROR, RecordValidationResult.REPAIR_NOT_NEEDED);
             context.commit();
         }
     }
@@ -209,17 +221,20 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
 
         // For format version below 6, the version is stored elsewhere so deleting it from the split makes no difference
         String expectedResult;
+        String expectedRepair;
         if (! ValidationTestUtils.versionStoredWithRecord(formatVersion)) {
             expectedResult = RecordValidationResult.CODE_VALID;
+            expectedRepair = RecordValidationResult.REPAIR_NOT_NEEDED;
         } else {
             expectedResult = RecordVersionValidator.CODE_VERSION_MISSING_ERROR;
+            expectedRepair = RecordVersionValidator.REPAIR_VERSION_CREATED;
         }
         // Validate by primary key
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
             result.forEach(rec -> {
-                validateRecordValue(store, rec.getPrimaryKey(), RecordValidationResult.CODE_VALID);
-                validateRecordVersion(store, rec.getPrimaryKey(), expectedResult);
+                validateRecordValue(store, rec.getPrimaryKey(), RecordValidationResult.CODE_VALID, RecordValidationResult.REPAIR_NOT_NEEDED);
+                validateRecordVersion(store, rec.getPrimaryKey(), expectedResult, expectedRepair);
             });
             commit(context);
         }
@@ -235,8 +250,8 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
             result.forEach(rec -> {
-                validateRecordValue(store, rec.getPrimaryKey(), RecordValidationResult.CODE_VALID);
-                validateRecordVersion(store, rec.getPrimaryKey(), RecordVersionValidator.CODE_VERSION_MISSING_ERROR);
+                validateRecordValue(store, rec.getPrimaryKey(), RecordValidationResult.CODE_VALID, RecordValidationResult.REPAIR_NOT_NEEDED);
+                validateRecordVersion(store, rec.getPrimaryKey(), RecordVersionValidator.CODE_VERSION_MISSING_ERROR, RecordVersionValidator.REPAIR_VERSION_CREATED);
             });
             commit(context);
         }
@@ -262,10 +277,6 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
     @ParameterizedTest(name = "testValidateRecordCombinationSplitMissing [formatVersion = {0}, splitsToRemove = {1}]")
     @MethodSource("versionAndBitset")
     void testValidateRecordCombinationSplitMissing(FormatVersion formatVersion, BitSet splitsToRemove) throws Exception {
-        // for formatVersion below 6 we don't have a version split, so removing it by itself does nothing
-        Assumptions.assumeFalse((!ValidationTestUtils.versionStoredWithRecord(formatVersion)) &&
-                (splitsToRemove.equals(ValidationTestUtils.toBitSet(0b0001))));
-
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(true);
         List<FDBStoredRecord<Message>> result = saveRecords(true, formatVersion, hook);
         // Delete the splits
@@ -283,19 +294,28 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
-        // Validate by primary key
-        // We should see at least one validation fail for each split combination
+        // validate
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-            RecordValidator valueValidator = new RecordValueValidator(store);
-            final RecordValidationResult valueValidatorResult = valueValidator.validateRecordAsync(longRecord.getPrimaryKey()).get();
-            if (valueValidatorResult.isValid()) {
-                // ensure there is a version issue instead
-                RecordValidator versionValidator = new RecordVersionValidator(store);
-                final RecordValidationResult versionValidatorResult = versionValidator.validateRecordAsync(longRecord.getPrimaryKey()).get();
-                assertFalse(versionValidatorResult.isValid());
-            }
 
+            if (ValidationTestUtils.recordWillRemainValid(3, splitsToRemove, formatVersion)) {
+                validateRecordValue(store, longRecord.getPrimaryKey(), RecordValidationResult.CODE_VALID, RecordValidationResult.REPAIR_NOT_NEEDED);
+                validateRecordVersion(store, longRecord.getPrimaryKey(), RecordValidationResult.CODE_VALID, RecordValidationResult.REPAIR_NOT_NEEDED);
+            } else if (ValidationTestUtils.recordWillDisappear(3, splitsToRemove, formatVersion)) {
+                validateRecordValue(store, longRecord.getPrimaryKey(), RecordValidationResult.CODE_VALID, RecordValidationResult.REPAIR_NOT_NEEDED);
+                validateRecordVersion(store, longRecord.getPrimaryKey(), RecordVersionValidator.CODE_RECORD_MISSING_ERROR, RecordValidationResult.REPAIR_NOT_NEEDED);
+            } else if (ValidationTestUtils.recordWillHaveVersionMissing(3, splitsToRemove, formatVersion)) {
+                validateRecordValue(store, longRecord.getPrimaryKey(), RecordValidationResult.CODE_VALID, RecordValidationResult.REPAIR_NOT_NEEDED);
+                validateRecordVersion(store, longRecord.getPrimaryKey(), RecordVersionValidator.CODE_VERSION_MISSING_ERROR, RecordVersionValidator.REPAIR_VERSION_CREATED);
+            } else {
+                RecordValidator valueValidator = new RecordValueValidator(store);
+                // Some other validation error for the value (missing split or deserialization error
+                RecordValidationResult validationResult = valueValidator.validateRecordAsync(longRecord.getPrimaryKey()).join();
+                assertFalse(validationResult.isValid());
+                validationResult = valueValidator.repairRecordAsync(validationResult).join();
+                assertTrue(validationResult.isRepaired());
+                assertEquals(RecordValueValidator.REPAIR_RECORD_DELETED, validationResult.getRepairCode());
+            }
             commit(context);
         }
     }
@@ -329,9 +349,8 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
         // Validate by primary key
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-            RecordValidator valueValidator = new RecordValueValidator(store);
             result.forEach(rec -> {
-                validateRecordValue(store, rec.getPrimaryKey(), RecordValueValidator.CODE_DESERIALIZE_ERROR);
+                validateRecordValue(store, rec.getPrimaryKey(), RecordValueValidator.CODE_DESERIALIZE_ERROR, RecordValueValidator.REPAIR_RECORD_DELETED);
             });
             commit(context);
         }
@@ -378,24 +397,30 @@ public class RecordValidationTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private void validateRecordVersion(final FDBRecordStore store, final Tuple primaryKey, final @Nonnull String expectedVersionValidationCode) {
-        validate(expectedVersionValidationCode, new RecordVersionValidator(store), primaryKey);
+    private void validateRecordVersion(final FDBRecordStore store, final Tuple primaryKey, final @Nonnull String expectedValidationCode, final String expectedRepairCode) {
+        validate(expectedValidationCode, expectedRepairCode, new RecordVersionValidator(store), primaryKey);
     }
 
-    private void validateRecordValue(final FDBRecordStore store, final Tuple primaryKey, final @Nonnull String expectedValueValidationCode) {
-        validate(expectedValueValidationCode, new RecordValueValidator(store), primaryKey);
+    private void validateRecordValue(final FDBRecordStore store, final Tuple primaryKey, final @Nonnull String expectedValidationCode, final String expectedRepairCode) {
+        validate(expectedValidationCode, expectedRepairCode, new RecordValueValidator(store), primaryKey);
     }
 
-    private void validate(String expectedValueValidationCode, RecordValidator validator, Tuple primaryKey) {
-        RecordValidationResult actualResult = null;
-        actualResult = validator.validateRecordAsync(primaryKey).join();
+    private void validate(String expectedValidationCode, @Nullable String expectedRepairCode, RecordValidator validator, Tuple primaryKey) {
+        RecordValidationResult actualResult = validator.validateRecordAsync(primaryKey).join();
 
-        if (expectedValueValidationCode.equals(RecordValidationResult.CODE_VALID)) {
+        assertEquals(primaryKey, actualResult.getPrimaryKey());
+        if (expectedValidationCode.equals(RecordValidationResult.CODE_VALID)) {
             assertTrue(actualResult.isValid());
         } else {
             assertFalse(actualResult.isValid());
         }
-        assertEquals(expectedValueValidationCode, actualResult.getErrorCode());
+        assertEquals(expectedValidationCode, actualResult.getErrorCode());
+
+        if (expectedRepairCode != null) {
+            RecordValidationResult repairResult = validator.repairRecordAsync(actualResult).join();
+            assertTrue(repairResult.isRepaired());
+            assertEquals(expectedRepairCode, repairResult.getRepairCode());
+        }
     }
 
     @Nonnull
