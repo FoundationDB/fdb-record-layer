@@ -194,29 +194,33 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
             singleIterationQuotaManager.init();
 
             runUnlessNull(transactionInitNotification, singleIterationQuotaManager); // let the user know about this range iteration attempt
-            final FDBRecordStore store = userStoreBuilder.setContext(transaction).build();
-            RecordCursor<T> cursor = cursorCreator.createCursor(store, cursorStartPoint, cursorRowsLimit);
-            rangeIterationStartTimeMilliseconds = nowMillis();
+            final CompletableFuture<FDBRecordStore> storeFuture = userStoreBuilder
+                    .setContext(transaction)
+                    // Open store - this does require the store to exist (which is sensible for iterating)
+                    .openAsync();
+            return storeFuture.thenCompose(store -> {
+                RecordCursor<T> cursor = cursorCreator.createCursor(store, cursorStartPoint, cursorRowsLimit);
+                rangeIterationStartTimeMilliseconds = nowMillis();
 
-            return AsyncUtil.whileTrue(() -> {
-                final CompletableFuture<RecordCursorResult<T>> onNext = cursor.onNext();
-                // Register the future with the future manager such that it is completed once the iterator is closed
-                return futureManager.registerFuture(onNext).thenCompose(result -> {
-                    cont.set(result);
-                    if (!result.hasNext()) {
-                        if (result.getNoNextReason().isSourceExhausted()) {
-                            // terminate the iteration
-                            singleIterationQuotaManager.hasMore = false;
+                return AsyncUtil.whileTrue(() -> {
+                    final CompletableFuture<RecordCursorResult<T>> onNext = cursor.onNext();
+                    // Register the future with the future manager such that it is completed once the iterator is closed
+                    return futureManager.registerFuture(onNext).thenCompose(result -> {
+                        cont.set(result);
+                        if (!result.hasNext()) {
+                            if (result.getNoNextReason().isSourceExhausted()) {
+                                // terminate the iteration
+                                singleIterationQuotaManager.hasMore = false;
+                            }
+                            // end of this one range
+                            return AsyncUtil.READY_FALSE;
                         }
-                        // end of this one range
-                        return AsyncUtil.READY_FALSE;
-                    }
-                    singleIterationQuotaManager.scannedCount++;
-                    CompletableFuture<Void> future = singleItemHandler.handleOneItem(store, result, singleIterationQuotaManager);
-                    // Register the externally-provided future so that it is closed if the runner is closed before it completes
-                    return futureManager.registerFuture(future)
-                        .thenApply(ignore -> singleIterationQuotaManager.hasMore);
-                })
+                        singleIterationQuotaManager.scannedCount++;
+                        CompletableFuture<Void> future = singleItemHandler.handleOneItem(store, result, singleIterationQuotaManager);
+                        // Register the externally-provided future so that it is closed if the runner is closed before it completes
+                        return futureManager.registerFuture(future)
+                            .thenApply(ignore -> singleIterationQuotaManager.hasMore);
+                    })
                     .thenApply(rangeHasMore -> {
                         if (rangeHasMore && ((0 < transactionTimeQuotaMillis && elapsedTimeMillis() > transactionTimeQuotaMillis) ||
                                                      (0 < maxRecordDeletesPerTransaction && singleIterationQuotaManager.deletesCount >= maxRecordDeletesPerTransaction))) {
@@ -225,9 +229,10 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
                         }
                         return rangeHasMore;
                     });
-            }, executor)
-            .whenComplete((r, e) ->
-                    cursor.close());
+                }, executor)
+                    .whenComplete((r, e) ->
+                            cursor.close());
+            });
         }).thenApply(ignore -> cont.get());
     }
 
