@@ -26,6 +26,8 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.generated.RelationalLexer;
 import com.apple.foundationdb.relational.generated.RelationalParser;
+import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
+import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.Environment;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -39,6 +41,8 @@ import org.antlr.v4.runtime.atn.ATNConfigSet;
 import org.antlr.v4.runtime.atn.PredictionMode;
 import org.antlr.v4.runtime.dfa.DFA;
 import org.antlr.v4.runtime.misc.Interval;
+import org.antlr.v4.runtime.tree.ParseTree;
+import org.antlr.v4.runtime.tree.TerminalNode;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -53,8 +57,7 @@ import java.util.Locale;
 public class QueryParser {
 
     @VisibleForTesting
-    public static class ErrorStringifier extends BaseErrorListener
-    {
+    public static class ErrorStringifier extends BaseErrorListener {
         @Nonnull
         private final List<String> syntaxErrors;
 
@@ -68,8 +71,7 @@ public class QueryParser {
         }
 
         @Nonnull
-        List<String> getSyntaxErrors()
-        {
+        List<String> getSyntaxErrors() {
             return syntaxErrors;
         }
 
@@ -82,9 +84,8 @@ public class QueryParser {
         public void syntaxError(Recognizer<?, ?> recognizer,
                                 Object offendingSymbol,
                                 int line, int charPositionInLine,
-                                String msg, RecognitionException e)
-        {
-            syntaxErrors.add(ParseHelpers.underlineParsingError(recognizer, (Token) offendingSymbol, line, charPositionInLine));
+                                String msg, RecognitionException e) {
+            syntaxErrors.add(ParseHelpers.underlineParsingError(recognizer, (Token)offendingSymbol, line, charPositionInLine));
         }
 
         @Override
@@ -154,6 +155,87 @@ public class QueryParser {
         }
 
         return result;
+    }
+
+    @SuppressWarnings("PMD.AvoidStringBufferField") // the lifetime of this object is very short, and it is scoped to processing DDLs of temp functions only.
+    private static final class PreparedParamsReplacer extends RelationalParserBaseVisitor<Void> {
+
+        @Nonnull
+        private final StringBuilder unpreparedSqlBuilder;
+
+        @Nonnull
+        private final StringBuilder sqlBuilder;
+
+        @Nonnull
+        private final PreparedParams preparedStatementParameters;
+
+        private PreparedParamsReplacer(@Nonnull final PreparedParams preparedStatementParameters) {
+            this.preparedStatementParameters = preparedStatementParameters;
+            unpreparedSqlBuilder = new StringBuilder();
+            sqlBuilder = new StringBuilder();
+        }
+
+        @Override
+        public Void visitPreparedStatementParameter(@Nonnull RelationalParser.PreparedStatementParameterContext ctx) {
+            Object param;
+            if (ctx.QUESTION() != null) {
+                param = preparedStatementParameters.nextUnnamedParamValue();
+            } else {
+                final var namedParameterContext = ctx.NAMED_PARAMETER();
+                final var parameterName = namedParameterContext.getText().substring(1);
+                param = preparedStatementParameters.namedParamValue(parameterName);
+            }
+            unpreparedSqlBuilder.append(PreparedParams.prettyPrintParam(param)).append(" ");
+            return null;
+        }
+
+        @Override
+        public Void visitTerminal(@Nonnull TerminalNode node) {
+            if (node.getSymbol().getType() != Token.EOF) {
+                unpreparedSqlBuilder.append(node.getText()).append(" ");
+                sqlBuilder.append(node.getText()).append(" ");
+            }
+            return null;
+        }
+
+        @Nonnull
+        String getQuery() {
+            return unpreparedSqlBuilder.toString();
+        }
+    }
+
+    private static final class PreparedParamsValidator extends RelationalParserBaseVisitor<Void> {
+        @Override
+        public Void visitPreparedStatementParameter(final RelationalParser.PreparedStatementParameterContext ctx) {
+            Assert.failUnchecked(ErrorCode.SYNTAX_ERROR, "found prepared parameter(s) in SQL statement");
+            return null;
+        }
+    }
+
+    /**
+     * Replaces the prepared parameters with their corresponding literals, note that the resulting query is not necessarily
+     * parsable, this is due to the lack of support for non-prepared objects of complex types. However, the resulting
+     * representation can be used for distinguishing prepared queries by including their literals in the query string
+     * itself, which is useful e.g. in the context of caching plans.
+     * @param context The parse tree of the query.
+     * @param preparedParams The prepared parameters list.
+     * @return A pseudo query string where the prepared parameters are replaced with their literals.
+     */
+    @Nonnull
+    public static String replacePreparedParams(@Nonnull final ParseTree context,
+                                               @Nonnull final PreparedParams preparedParams) {
+        final var replacer = new PreparedParamsReplacer(preparedParams);
+        replacer.visit(context);
+        return replacer.getQuery();
+    }
+
+    /**
+     * visits the parse tree and throws if it encounters a prepared parameter.
+     * @param context The parse tree of the query.
+     */
+    public static void validateNoPreparedParams(@Nonnull final ParseTree context) {
+        final var validator = new PreparedParamsValidator();
+        validator.visit(context);
     }
 
     private static void setInterpreterMode(@Nonnull final RelationalParser parser) {

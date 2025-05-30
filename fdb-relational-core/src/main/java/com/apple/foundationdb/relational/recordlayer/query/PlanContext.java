@@ -302,6 +302,7 @@ public final class PlanContext {
                     .withDdlQueryFactory(planContext.ddlQueryFactory)
                     .withPlannerConfiguration(planContext.plannerConfiguration)
                     .withUserVersion(planContext.userVersion)
+                    .withPreparedParameters(planContext.preparedStatementParameters)
                     .isCaseSensitive(planContext.isCaseSensitive);
         }
     }

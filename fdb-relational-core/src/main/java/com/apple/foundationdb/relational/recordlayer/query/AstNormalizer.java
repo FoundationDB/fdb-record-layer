@@ -35,6 +35,7 @@ import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
@@ -598,7 +599,10 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         astNormalizer.visit(context);
         return new Result(
                 schemaTemplate.getName(),
-                QueryCacheKey.of(astNormalizer.getCanonicalSqlString(), astNormalizer.getHash(), schemaTemplate.getVersion(), readableIndexes, userVersion),
+                QueryCacheKey.of(astNormalizer.getCanonicalSqlString(), astNormalizer.getHash(),
+                        schemaTemplate.getVersion(), readableIndexes, userVersion,
+                        Assert.castUnchecked(schemaTemplate, RecordLayerSchemaTemplate.class)
+                                .getTransactionBoundMetadataAsString()),
                 astNormalizer.getQueryExecutionParameters(),
                 context,
                 astNormalizer.getQueryCachingFlags(),

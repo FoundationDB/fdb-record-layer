@@ -24,10 +24,13 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import org.apache.commons.lang3.NotImplementedException;
 
 import javax.annotation.Nonnull;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 public class InMemoryTransactionManager implements TransactionManager {
 
@@ -68,6 +71,16 @@ public class InMemoryTransactionManager implements TransactionManager {
         @Override
         public void abort() throws RelationalException {
             txnManager.abort(this);
+        }
+
+        @Override
+        public Optional<SchemaTemplate> getBoundSchemaMaybe() {
+            throw new NotImplementedException("method is not implemented");
+        }
+
+        @Override
+        public void setBoundSchema(@Nonnull final SchemaTemplate schemaTemplate) {
+            throw new NotImplementedException("method is not implemented");
         }
 
         @Override

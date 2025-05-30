@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.api.ddl;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -67,4 +68,9 @@ public abstract class AbstractMetadataOperationsFactory implements MetadataOpera
         return NoOpMetadataOperationsFactory.INSTANCE.getDropSchemaTemplateConstantAction(templateId, throwIfDoesNotExist, options);
     }
 
+    @Nonnull
+    @Override
+    public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template, boolean throwIfNotExists, @Nonnull final RecordLayerInvokedRoutine invokedRoutine) {
+        return NoOpMetadataOperationsFactory.INSTANCE.getCreateTemporaryFunctionConstantAction(template, throwIfNotExists, invokedRoutine);
+    }
 }
