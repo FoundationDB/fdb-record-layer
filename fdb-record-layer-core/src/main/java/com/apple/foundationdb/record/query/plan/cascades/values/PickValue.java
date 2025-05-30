@@ -31,6 +31,8 @@ import com.apple.foundationdb.record.planprotos.PPickValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
@@ -216,6 +218,39 @@ public class PickValue extends AbstractValue {
         public PickValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                    @Nonnull final PPickValue pickValueProto) {
             return PickValue.fromProto(serializationContext, pickValueProto);
+        }
+    }
+
+    /**
+     * The {@code pick} function.
+     */
+    @AutoService(BuiltInFunction.class)
+    public static class PickValueFn extends BuiltInFunction<Value> {
+        public PickValueFn() {
+            super("pick", List.of(Type.primitiveType(Type.TypeCode.INT), Type.any()), Type.any(), PickValueFn::encapsulate);
+        }
+
+        @SuppressWarnings("PMD.UnusedFormalParameter")
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> ignored,
+                                         @Nonnull final List<? extends Typed> arguments) {
+            Verify.verify(arguments.size() > 1);
+            var selectorValue = (Value)arguments.get(0);
+            final var selectorMaxType = Type.maximumType(selectorValue.getResultType(), Type.primitiveType(Type.TypeCode.INT));
+            SemanticException.check(selectorMaxType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+            selectorValue = PromoteValue.inject(selectorValue, selectorMaxType);
+
+            final var firstAlternative = (Value)arguments.get(1);
+            var alternativesMaxType = firstAlternative.getResultType();
+            for (int i = 2; i < arguments.size(); i++) {
+                alternativesMaxType = Type.maximumType(alternativesMaxType, arguments.get(i).getResultType());
+                SemanticException.check(alternativesMaxType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
+            }
+
+            final var alternativesList = ImmutableList.<Value>builder();
+            for (int i = 1; i < arguments.size(); i++) {
+                alternativesList.add(PromoteValue.inject((Value)arguments.get(i), alternativesMaxType));
+            }
+            return new PickValue(selectorValue, alternativesList.build());
         }
     }
 }
