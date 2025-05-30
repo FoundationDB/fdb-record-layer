@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProto;
@@ -48,6 +49,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -435,6 +437,69 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
         validateRepaired(FormatVersion.getMaximumSupportedVersion(), recordMetaData, originalRecords);
     }
 
+    /**
+     * We don't repair everything.
+     */
+    @Test
+    void corruptHeader() {
+        final RecordMetaData recordMetaData = getRecordMetaData(true);
+        final List<Tuple> primaryKeys = createInitialStore(FormatVersion.getMaximumSupportedVersion(), recordMetaData);
+        createOriginalRecords(recordMetaData, primaryKeys);
+        try (FDBRecordContext context1 = openContext()) {
+            recordStore = getStoreBuilder(context1, recordMetaData, path).createOrOpen();
+            context1.ensureActive().set(recordStore.getSubspace().pack(FDBRecordStoreKeyspace.STORE_INFO.key()),
+                    "Definitely not a valid store header".getBytes(StandardCharsets.UTF_8));
+            commit(context1);
+        }
+        validateCannotOpen(recordMetaData, RecordCoreStorageException.class);
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore.Builder builder = getStoreBuilder(context, recordMetaData)
+                    .setFormatVersion(FormatVersion.getMaximumSupportedVersion());
+            assertThatThrownBy(() -> repairHeader(context, 1, builder, FormatVersion.CACHEABLE_STATE))
+                    .isInstanceOf(RecordCoreStorageException.class);
+        }
+
+        validateCannotOpen(recordMetaData, RecordCoreStorageException.class);
+    }
+
+    /**
+     * If the store didn't exist at all, {@link FDBRecordStore.Builder#repairMissingHeader(int, FormatVersion)}
+     * should behave the same as {@link FDBRecordStore.Builder#createAsync()}.
+     */
+    @Test
+    void noStore() {
+        final RecordMetaData recordMetaData = getRecordMetaData(true);
+        final RecordMetaDataProto.DataStoreInfo asIfCreated;
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore.Builder storeBuilder = getStoreBuilder(context, recordMetaData, path)
+                    .setUserVersionChecker(new AssertMatchingUserVersion(0, 1));
+            asIfCreated = storeBuilder.create().getRecordStoreState()
+                    .getStoreHeader();
+            // do not commit it
+        }
+        // ensure nothing else created the store header
+        try (FDBRecordContext context1 = openContext()) {
+            final FDBRecordStore.Builder storeBuilder = getStoreBuilder(context1, recordMetaData, path);
+            assertThatThrownBy(storeBuilder::open) // explicitly call open, not create
+                    .isInstanceOf(RecordStoreDoesNotExistException.class);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore.Builder builder = getStoreBuilder(context, recordMetaData)
+                    .setFormatVersion(FormatVersion.getMaximumSupportedVersion());
+            repairHeader(context, 1, builder, FormatVersion.CACHEABLE_STATE);
+            commit(context);
+        }
+
+        try (FDBRecordContext context1 = openContext()) {
+            final FDBRecordStore.Builder storeBuilder = getStoreBuilder(context1, recordMetaData, path);
+            final FDBRecordStore store = storeBuilder.open(); // should succeed, because repair created it
+            assertThat(store.getRecordStoreState().getStoreHeader().toBuilder().clearLastUpdateTime().build())
+                    .isEqualTo(asIfCreated.toBuilder().clearLastUpdateTime().build());
+        }
+    }
+
     private List<FDBStoredRecord<Message>> createOriginalRecords(final RecordMetaData recordMetaData, final List<Tuple> primaryKeys) {
         try (FDBRecordContext context = openContext()) {
             recordStore = getStoreBuilder(context, recordMetaData, path).open();
@@ -530,10 +595,14 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
     }
 
     private void validateCannotOpen(final RecordMetaDataProvider metaData) {
+        validateCannotOpen(metaData, RecordStoreNoInfoAndNotEmptyException.class);
+    }
+
+    private void validateCannotOpen(final RecordMetaDataProvider metaData, final Class<? extends RecordCoreException> exceptionType) {
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore.Builder storeBuilder = getStoreBuilder(context, metaData, path);
             assertThatThrownBy(storeBuilder::createOrOpen)
-                    .isInstanceOf(RecordStoreNoInfoAndNotEmptyException.class);
+                    .isInstanceOf(exceptionType);
             commit(context);
         }
     }
