@@ -377,7 +377,7 @@ public class PredicatePushDownRule extends ExplorationCascadesRule<SelectExpress
             // Push down the original predicates by translating them to apply to the select expression's inner
             // predicates, and then combine them with the select's original predicates
             //
-            final var translationMap = TranslationMap.builder()
+            final var translationMap = TranslationMap.regularBuilder()
                     .when(getPushQuantifier().getAlias())
                     .then(((sourceAlias, leafValue) -> selectExpression.getResultValue()))
                     .build();
