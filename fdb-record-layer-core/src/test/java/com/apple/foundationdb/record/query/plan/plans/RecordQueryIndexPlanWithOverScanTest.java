@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursorBase;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -78,6 +79,7 @@ class RecordQueryIndexPlanWithOverScanTest extends FDBRecordStoreQueryTestBase {
     private static final RecordQueryPlannerConfiguration plannerConfiguration = RecordQueryPlannerConfiguration.builder()
             .setIndexScanPreference(QueryPlanner.IndexScanPreference.PREFER_INDEX)
             .setAttemptFailedInJoinAsOr(true)
+            .setKeyValueContinuationSerializationMode(KeyValueCursorBase.SerializationMode.TO_NEW)
             .setComplexityThreshold(RecordQueryPlanner.DEFAULT_COMPLEXITY_THRESHOLD)
             .addValueIndexOverScanNeeded("MySimpleRecord$str_value_indexed")
             .addValueIndexOverScanNeeded("compoundIndex")

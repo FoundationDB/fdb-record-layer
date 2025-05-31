@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.RecordPlannerConfigurationProto;
+import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursorBase;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
@@ -432,6 +433,16 @@ public class RecordQueryPlannerConfiguration {
 
         public Builder() {
             this.protoBuilder = RecordPlannerConfigurationProto.PlannerConfiguration.newBuilder();
+        }
+
+        @Nonnull
+        public Builder setKeyValueContinuationSerializationMode(@Nonnull KeyValueCursorBase.SerializationMode serializationMode) {
+            if (serializationMode == KeyValueCursorBase.SerializationMode.TO_OLD) {
+                protoBuilder.setKeyValueCursorContinuationSerializationMode(RecordPlannerConfigurationProto.PlannerConfiguration.KeyValueCursorContinuationSerializationMode.TO_OLD);
+            } else {
+                protoBuilder.setKeyValueCursorContinuationSerializationMode(RecordPlannerConfigurationProto.PlannerConfiguration.KeyValueCursorContinuationSerializationMode.TO_NEW);
+            }
+            return this;
         }
 
         @Nonnull
