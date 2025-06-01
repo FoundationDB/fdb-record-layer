@@ -1736,7 +1736,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         // the records.
         final RecordStoreState localRecordStoreState = recordStoreStateRef.get();
         if (localRecordStoreState == null) {
-            throw new IllegalStateException("checkVersion must be called before calling deleteAllRecords");
+            throw new RecordCoreException("checkVersion must be called before calling deleteAllRecords");
         }
         validateRecordUpdateAllowed(localRecordStoreState);
         Range indexStateRange = indexStateSubspace().range();
