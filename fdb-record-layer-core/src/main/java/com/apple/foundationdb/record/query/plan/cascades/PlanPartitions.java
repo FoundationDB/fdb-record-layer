@@ -20,13 +20,11 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -49,7 +47,7 @@ public class PlanPartitions {
     }
 
     @Nonnull
-    public static List<PlanPartition> toPartitions(@Nonnull Map<Map<ExpressionProperty<?>, ?>, ? extends Set<RecordQueryPlan>> attributesToPlansMap) {
-        return ExpressionPartitions.toPartitions(attributesToPlansMap, PlanPartition::ofPlans);
+    public static List<PlanPartition> toPartitions(@Nonnull final PlanPropertiesMap propertiesMap) {
+        return ExpressionPartitions.toPartitions(propertiesMap, PlanPartition::ofPlans);
     }
 }

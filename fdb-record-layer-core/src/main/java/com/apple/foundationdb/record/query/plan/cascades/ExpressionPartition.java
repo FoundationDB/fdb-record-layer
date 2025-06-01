@@ -21,10 +21,8 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
-import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -35,27 +33,33 @@ import java.util.Set;
  */
 public class ExpressionPartition<E extends RelationalExpression> {
     @Nonnull
-    private final Map<ExpressionProperty<?>, ?> propertyValuesMap;
+    private final Map<ExpressionProperty<?>, ?> groupingPropertyMap;
     @Nonnull
-    private final Set<E> expressions;
+    private final Map<E, Map<ExpressionProperty<?>, ?>> groupedPropertyMap;
 
-    public ExpressionPartition(final Map<ExpressionProperty<?>, ?> propertyValuesMap, final Collection<E> expressions) {
-        this.propertyValuesMap = ImmutableMap.copyOf(propertyValuesMap);
-        this.expressions = new LinkedIdentitySet<>(expressions);
+    public ExpressionPartition(@Nonnull final Map<ExpressionProperty<?>, ?> groupingPropertyMap,
+                               @Nonnull final Map<E, Map<ExpressionProperty<?>, ?>> groupedPropertyMap) {
+        this.groupingPropertyMap = groupingPropertyMap;
+        this.groupedPropertyMap = groupedPropertyMap;
     }
 
     @Nonnull
-    public Map<ExpressionProperty<?>, ?> getPropertyValuesMap() {
-        return propertyValuesMap;
+    public Map<ExpressionProperty<?>, ?> getGroupingPropertyMap() {
+        return groupingPropertyMap;
+    }
+
+    @Nonnull
+    public Map<E, Map<ExpressionProperty<?>, ?>> getGroupedPropertyMap() {
+        return groupedPropertyMap;
     }
 
     @Nonnull
     public <A> A getPropertyValue(@Nonnull final ExpressionProperty<A> expressionProperty) {
-        return expressionProperty.narrowAttribute(Objects.requireNonNull(propertyValuesMap.get(expressionProperty)));
+        return expressionProperty.narrowAttribute(Objects.requireNonNull(groupingPropertyMap.get(expressionProperty)));
     }
 
     @Nonnull
     public Set<E> getExpressions() {
-        return expressions;
+        return groupedPropertyMap.keySet();
     }
 }
