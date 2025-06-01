@@ -27,13 +27,11 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.PrimaryKeyPr
 import com.apple.foundationdb.record.query.plan.cascades.properties.StoredRecordProperty;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -59,7 +57,7 @@ public class PlanPropertiesMap extends ExpressionPropertiesMap<RecordQueryPlan> 
     }
 
     public PlanPropertiesMap(@Nonnull Collection<? extends RelationalExpression> plans) {
-        super(RecordQueryPlan.class, expressionProperties, plans);
+        super(RecordQueryPlan.class, expressionProperties, ImmutableSet.of(), plans);
     }
 
     @Nonnull
@@ -70,9 +68,8 @@ public class PlanPropertiesMap extends ExpressionPropertiesMap<RecordQueryPlan> 
 
     @Nonnull
     @Override
-    public List<PlanPartition> toPlanPartitions() {
-        update();
-        return PlanPartitions.toPartitions(Multimaps.asMap(getPropertyGroupedExpressionsMap()));
+    public Map<Map<ExpressionProperty<?>, ?>, Set<RecordQueryPlan>> getGroupingPropertiesPlansMap() {
+        return getGroupingPropertiesExpressionsMap();
     }
 
     @Nonnull

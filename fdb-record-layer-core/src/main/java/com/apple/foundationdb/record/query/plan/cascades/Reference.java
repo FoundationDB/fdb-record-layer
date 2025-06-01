@@ -585,12 +585,12 @@ public class Reference implements Correlated<Reference>, Typed {
 
     @Nonnull
     public List<? extends ExpressionPartition<? extends RelationalExpression>> toExpressionPartitions() {
-        return propertiesMap.toExpressionPartitions();
+        return ExpressionPartitions.toPartitions(propertiesMap);
     }
 
     @Nonnull
     public List<PlanPartition> toPlanPartitions() {
-        return propertiesMap.toPlanPartitions();
+        return PlanPartitions.toPartitions((PlanPropertiesMap)propertiesMap);
     }
 
     @Nullable
