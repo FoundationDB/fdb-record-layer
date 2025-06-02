@@ -22,26 +22,30 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDriver;
+import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.recordlayer.query.AstNormalizer;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
-
 import org.apache.logging.log4j.Level;
 import org.assertj.core.api.Assertions;
 import org.junit.Assert;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 
@@ -170,6 +174,115 @@ public class QueryLoggingTest {
     }
 
     @Test
+    void testRelationalConnectionSetLogOnThenOff() throws Exception {
+        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.NONE)) {
+            conn.setSchema(database.getSchemaName());
+            try (Statement stmt = conn.createStatement()) {
+                try (ResultSet rs = stmt.executeQuery("select name from restaurant")) {
+                    rs.next();
+                }
+                Assertions.assertThat(logAppender.getLogEvents()).isEmpty();
+            }
+            // set logging to true
+            conn.setOption(Options.Name.LOG_QUERY, true);
+            try (PreparedStatement ps = conn.prepareStatement("SELECT name from restaurant where rest_no = ?")) {
+                ps.setLong(1, 0);
+                try (ResultSet rs = ps.executeQuery()) {
+                    rs.next();
+                }
+                Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("query=\"SELECT 'NAME' from 'RESTAURANT' where 'REST_NO' = ?\"");
+                Assertions.assertThat(logAppender.getLogEvents()).hasSize(1);
+            }
+            logAppender.getLogEvents().clear();
+            // ... and then explicitly to false
+            conn.setOption(Options.Name.LOG_QUERY, false);
+            try (Statement stmt = conn.createStatement()) {
+                try (ResultSet rs = stmt.executeQuery("select name from restaurant")) {
+                    rs.next();
+                }
+                Assertions.assertThat(logAppender.getLogEvents()).isEmpty();
+            }
+        }
+    }
+
+    @Test
+    void testRelationalConnectionSetLogIsOverriddenByQueryOption() throws Exception {
+        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.NONE)) {
+            conn.setSchema(database.getSchemaName());
+            conn.setOption(Options.Name.LOG_QUERY, false);
+            try (PreparedStatement ps = conn.prepareStatement("SELECT name from restaurant where rest_no = ? OPTIONS(LOG QUERY)")) {
+                ps.setLong(1, 0);
+                try (ResultSet rs = ps.executeQuery()) {
+                    rs.next();
+                }
+                Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("query=\"SELECT 'NAME' from 'RESTAURANT' where 'REST_NO' = ?\"");
+                Assertions.assertThat(logAppender.getLogEvents()).hasSize(1);
+            }
+        }
+    }
+
+    @Test
+    void testRelationalConnectionSetLogIsOverriddenByExecuteContinuationQueryOption() throws Exception {
+        insertRows();
+        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.NONE)) {
+            Continuation continuation;
+            conn.setSchema(database.getSchemaName());
+            try (RelationalPreparedStatement ps = conn.prepareStatement("SELECT name from restaurant")) {
+                ps.setMaxRows(1);
+                try (RelationalResultSet rs = ps.executeQuery()) {
+                    rs.next();
+                    continuation = rs.getContinuation();
+                }
+                Assertions.assertThat(logAppender.getLogEvents()).isEmpty();
+            }
+            conn.setOption(Options.Name.LOG_QUERY, false);
+            try (RelationalPreparedStatement ps = conn.prepareStatement("EXECUTE CONTINUATION ?continuation OPTIONS(LOG QUERY)")) {
+                ps.setBytes("continuation", continuation.serialize());
+                try (RelationalResultSet rs = ps.executeQuery()) {
+                    rs.next();
+                }
+                Assertions.assertThat(logAppender.getLogEvents()).isNotEmpty();
+                Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("plan=\"COVERING(RECORD_TYPE_COVERING <,> -> [NAME: VALUE[0], REST_NO: KEY[0]]) | MAP (_.NAME AS NAME)\"");
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testRelationalConnectionSetLogWithExecuteContinuation(boolean setLogging) throws Exception {
+        insertRows();
+        final var driver = (RelationalDriver) DriverManager.getDriver(database.getConnectionUri().toString());
+        try (RelationalConnection conn = driver.connect(database.getConnectionUri(), Options.NONE)) {
+            Continuation continuation;
+            conn.setSchema(database.getSchemaName());
+            try (RelationalPreparedStatement ps = conn.prepareStatement("SELECT name from restaurant")) {
+                ps.setMaxRows(1);
+                try (RelationalResultSet rs = ps.executeQuery()) {
+                    rs.next();
+                    continuation = rs.getContinuation();
+                }
+                Assertions.assertThat(logAppender.getLogEvents()).isEmpty();
+            }
+            conn.setOption(Options.Name.LOG_QUERY, setLogging);
+            try (RelationalPreparedStatement ps = conn.prepareStatement("EXECUTE CONTINUATION ?continuation")) {
+                ps.setBytes("continuation", continuation.serialize());
+                try (RelationalResultSet rs = ps.executeQuery()) {
+                    rs.next();
+                }
+                if (!setLogging) {
+                    Assertions.assertThat(logAppender.getLogEvents()).isEmpty();
+                } else {
+                    Assertions.assertThat(logAppender.getLogEvents()).isNotEmpty();
+                    Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("plan=\"COVERING(RECORD_TYPE_COVERING <,> -> [NAME: VALUE[0], REST_NO: KEY[0]]) | MAP (_.NAME AS NAME)\"");
+                }
+            }
+        }
+    }
+
+    @Test
     void testLogQueryBecauseLoggerIsSetToDebug() throws Exception {
         try (LogAppenderRule debugRule = LogAppenderRule.of("DebugLogAppender", PlanGenerator.class, Level.DEBUG)) {
             try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RESTAURANT")) {
@@ -271,5 +384,11 @@ public class QueryLoggingTest {
     void testLogDelete() throws Exception {
         statement.executeUpdate("DELETE FROM RESTAURANT WHERE rest_no = 54 OPTIONS (LOG QUERY)");
         Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("query=\"DELETE FROM 'RESTAURANT' WHERE 'REST_NO' = ?\"");
+    }
+
+    // insert to the table and closes the running statement.
+    private void insertRows() throws SQLException {
+        statement.executeUpdate("INSERT INTO RESTAURANT(REST_NO) VALUES (1), (2), (3)");
+        statement.close();
     }
 }
