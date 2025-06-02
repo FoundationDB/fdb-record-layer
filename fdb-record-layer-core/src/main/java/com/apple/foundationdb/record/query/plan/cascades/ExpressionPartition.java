@@ -32,11 +32,25 @@ import java.util.Set;
  * @param <E> type parameter to indicate the type of expression this partition holds.
  */
 public class ExpressionPartition<E extends RelationalExpression> {
+    /**
+     * Grouping property map which holds all properties and their values that are common to all plans and therefore
+     * defining the partition.
+     */
     @Nonnull
     private final Map<ExpressionProperty<?>, ?> groupingPropertyMap;
+    /**
+     * Grouped property map which is a map from each individual plan in the partition to properties and their values
+     * for properties that are not defining the partition.
+     */
     @Nonnull
     private final Map<E, Map<ExpressionProperty<?>, ?>> groupedPropertyMap;
 
+    /**
+     * Constructor. Note that we do not defensively copy here as it is dependent on the use case if we need a copy or
+     * not. The caller needs to ensure that the maps being passed in are either immutable or owned.
+     * @param groupingPropertyMap grouping property map
+     * @param groupedPropertyMap grouped property map
+     */
     public ExpressionPartition(@Nonnull final Map<ExpressionProperty<?>, ?> groupingPropertyMap,
                                @Nonnull final Map<E, Map<ExpressionProperty<?>, ?>> groupedPropertyMap) {
         this.groupingPropertyMap = groupingPropertyMap;
@@ -54,8 +68,15 @@ public class ExpressionPartition<E extends RelationalExpression> {
     }
 
     @Nonnull
-    public <A> A getPropertyValue(@Nonnull final ExpressionProperty<A> expressionProperty) {
+    public <A> A getGroupingPropertyValue(@Nonnull final ExpressionProperty<A> expressionProperty) {
         return expressionProperty.narrowAttribute(Objects.requireNonNull(groupingPropertyMap.get(expressionProperty)));
+    }
+
+    @Nonnull
+    public <A> A getGroupedPropertyValue(@Nonnull final E expression,
+                                         @Nonnull final ExpressionProperty<A> expressionProperty) {
+        final var propertyMapForExpression = groupedPropertyMap.get(expression);
+        return expressionProperty.narrowAttribute(Objects.requireNonNull(propertyMapForExpression.get(expressionProperty)));
     }
 
     @Nonnull

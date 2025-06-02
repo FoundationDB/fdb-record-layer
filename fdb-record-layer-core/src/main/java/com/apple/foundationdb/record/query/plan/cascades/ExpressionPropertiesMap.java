@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.properties.SelectCountProperty;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -83,7 +84,7 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
      * Map from each expression to its associated map of computed property values.
      */
     @Nonnull
-    private final Map<E, Map<ExpressionProperty<?>, ?>> expressionPropertiesMap;
+    private final Map<E, Map<ExpressionProperty<?>, ?>> propertiesMap;
 
     /**
      * {@link SetMultimap} from a map of computed properties to {@code E}s.
@@ -99,7 +100,7 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
         this.trackedGroupingProperties = ImmutableSet.copyOf(trackedGroupingProperties);
         this.trackedGroupedProperties = ImmutableSet.copyOf(trackedGroupedProperties);
         this.toBeInsertedExpressions = new ArrayDeque<>();
-        this.expressionPropertiesMap = new LinkedIdentityMap<>();
+        this.propertiesMap = new LinkedIdentityMap<>();
         this.groupingPropertiesExpressionsMap = Multimaps.newSetMultimap(Maps.newLinkedHashMap(), LinkedIdentitySet::new);
         expressions.forEach(this::add);
     }
@@ -134,13 +135,13 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
     }
 
     @Nonnull
-    public Map<E, Map<ExpressionProperty<?>, ?>> getExpressionPropertiesMap() {
-        return expressionPropertiesMap;
+    public Map<E, Map<ExpressionProperty<?>, ?>> getPropertiesMap() {
+        return propertiesMap;
     }
 
     @Nonnull
     public Map<E, Map<ExpressionProperty<?>, ?>> computeNonGroupingPropertiesMap() {
-        return Maps.transformValues(expressionPropertiesMap,
+        return Maps.transformValues(propertiesMap,
                 propertyMap ->
                         Maps.filterKeys(propertyMap, trackedGroupedProperties::contains));
     }
@@ -168,7 +169,7 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
      */
     @Nullable
     public Map<ExpressionProperty<?>, ?> getCurrentProperties(@Nonnull final RelationalExpression expression) {
-        return expressionPropertiesMap.get(narrow(expression));
+        return propertiesMap.get(narrow(expression));
     }
 
     /**
@@ -216,13 +217,13 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
                     @Nonnull final Map<ExpressionProperty<?>, ?> groupingPropertyMap,
                     @Nonnull final Map<ExpressionProperty<?>, ?> groupedPropertyMap) {
         final E typedExpression = narrow(expression);
-        Verify.verify(!expressionPropertiesMap.containsKey(typedExpression));
+        Verify.verify(!propertiesMap.containsKey(typedExpression));
         final var combinedPropertyMap =
                 ImmutableMap.<ExpressionProperty<?>, Object>builder()
                         .putAll(groupingPropertyMap)
                         .putAll(groupedPropertyMap)
                         .build();
-        expressionPropertiesMap.put(typedExpression, combinedPropertyMap);
+        propertiesMap.put(typedExpression, combinedPropertyMap);
         groupingPropertiesExpressionsMap.put(groupingPropertyMap, typedExpression);
     }
 
@@ -235,7 +236,7 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
 
     public void clear() {
         toBeInsertedExpressions.clear();
-        expressionPropertiesMap.clear();
+        propertiesMap.clear();
         groupingPropertiesExpressionsMap.clear();
     }
 
@@ -251,7 +252,7 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
     public <P> Map<E, P> propertyValueForExpressions(@Nonnull final ExpressionProperty<P> expressionProperty) {
         update();
         final var resultMap = new LinkedIdentityMap<E, P>();
-        for (final var entry : expressionPropertiesMap.entrySet()) {
+        for (final var entry : propertiesMap.entrySet()) {
             resultMap.put(entry.getKey(), expressionProperty.narrowAttribute(entry.getValue().get(expressionProperty)));
         }
         return resultMap;
@@ -282,7 +283,8 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
     }
 
     @Nonnull
-    public static ExpressionPropertiesMap<RelationalExpression> defaultForExpressions() {
-        return new ExpressionPropertiesMap<>(RelationalExpression.class, ImmutableSet.of(), ImmutableSet.of(), ImmutableList.of());
+    public static ExpressionPropertiesMap<RelationalExpression> defaultForRewritePhase() {
+        return new ExpressionPropertiesMap<>(RelationalExpression.class, ImmutableSet.of(),
+                ImmutableSet.of(SelectCountProperty.selectCount()), ImmutableList.of());
     }
 }

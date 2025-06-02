@@ -166,7 +166,7 @@ public class ImplementInUnionRule extends ImplementationCascadesRule<SelectExpre
         final int attemptFailedInJoinAsUnionMaxSize = call.getContext().getPlannerConfiguration().getAttemptFailedInJoinAsUnionMaxSize();
 
         for (final var planPartition : planPartitions) {
-            final var providedOrdering = planPartition.getPropertyValue(OrderingProperty.ordering());
+            final var providedOrdering = planPartition.getGroupingPropertyValue(OrderingProperty.ordering());
 
             for (final var requestedOrdering : requestedOrderings) {
                 if (requestedOrdering.isPreserve()) {

@@ -75,6 +75,7 @@ public class FindExpressionVisitor implements SimpleExpressionVisitor<Map<Class<
         return Iterables.getOnlyElement(memberResults);
     }
 
+    @Nonnull
     @SuppressWarnings({"SameParameterValue", "java:S4276"})
     private Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> mergeMaps(@Nonnull final Iterable<Map<Class<? extends RelationalExpression>, Set<RelationalExpression>>> childResults) {
         final ImmutableMap.Builder<Class<? extends RelationalExpression>, Set<RelationalExpression>> resultMap = ImmutableMap.builder();
@@ -91,10 +92,12 @@ public class FindExpressionVisitor implements SimpleExpressionVisitor<Map<Class<
         return resultMap.build();
     }
 
+    @Nonnull
     public static Set<? extends RelationalExpression> findExpressions(@Nonnull final Class<? extends RelationalExpression> expressionClass, @Nonnull final RelationalExpression expression) {
         return findExpressions(ImmutableSet.of(expressionClass), expression);
     }
 
+    @Nonnull
     public static Set<? extends RelationalExpression> findExpressions(@Nonnull final Set<Class<? extends RelationalExpression>> expressionClasses, @Nonnull final RelationalExpression expression) {
         final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> expressionClassToExpressionsMap = new FindExpressionVisitor(expressionClasses).visit(expression);
         if (expressionClassToExpressionsMap == null) {
@@ -108,6 +111,7 @@ public class FindExpressionVisitor implements SimpleExpressionVisitor<Map<Class<
         return accumulated;
     }
 
+    @Nonnull
     @SafeVarargs
     public static Set<? extends RelationalExpression> slice(@Nonnull final Map<Class<? extends RelationalExpression>, Set<RelationalExpression>> inMap, @Nonnull final Class<? extends RelationalExpression>... expressionClasses) {
         final Set<RelationalExpression> accumulated = new LinkedIdentitySet<>();
@@ -117,7 +121,6 @@ public class FindExpressionVisitor implements SimpleExpressionVisitor<Map<Class<
                 accumulated.addAll(childResultForClass);
             }
         }
-
         return accumulated;
     }
 
