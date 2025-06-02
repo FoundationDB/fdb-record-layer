@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.recordrepair;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
@@ -28,8 +29,8 @@ import javax.annotation.Nullable;
 import java.util.Objects;
 
 /**
- * A record validation result.
- * This would be returned from a {@link RecordValidator#validateRecordAsync(Tuple)} call with the results of the validation
+ * A record validation and repair result.
+ * This would be returned from a {@link RecordRepairRunner#runValidationAndRepair(FDBRecordStore.Builder, RecordRepairRunner.ValidationKind, boolean)} call with the results of the validation
  * operation. The results should have the following fields populated:
  * <ul>
  *     <li>primaryKey: The key of the record validated</li>
@@ -41,13 +42,26 @@ import java.util.Objects;
  * </ul>
  */
 @API(API.Status.EXPERIMENTAL)
-public class RecordValidationResult {
+public class RecordRepairResult {
     /** (error code) Validation did not find any issue with the record. */
     public static final String CODE_VALID = "Valid";
+    /** (error code) Record splits issue (missing split/out of order). */
+    public static final String CODE_SPLIT_ERROR = "RecordValueSplitError";
+    /** (error code) Record could not be serialized (corrupt data, missing split). */
+    public static final String CODE_DESERIALIZE_ERROR = "RecordValueDeserializeError";
+    /** (error code) Record version is missing. */
+    public static final String CODE_VERSION_MISSING_ERROR = "RecordVersionMissingError";
+    /** (error code) Record is missing (so cannot verify version existence). */
+    public static final String CODE_RECORD_MISSING_ERROR = "RecordMissingError";
+
     /** (repair code) Repair attempted for the record but the record was valid, so no action was taken. */
     public static final String REPAIR_NOT_NEEDED = "RepairNotNeeded";
     /** (repair code) Repair was attempted for the record but the validation error code was not recognized. */
     public static final String REPAIR_UNKNOWN_VALIDATION_CODE = "UnknownCode";
+    /** (repair code) Record data was deleted as a repair. */
+    public static final String REPAIR_RECORD_DELETED = "RecordValueRecordDeletedRepair";
+    /** (repair code) Record version was created and added to the record. */
+    public static final String REPAIR_VERSION_CREATED = "RecordVersionCreatedRepair";
 
     @Nonnull
     private final Tuple primaryKey;
@@ -56,15 +70,15 @@ public class RecordValidationResult {
     private final String errorCode;
     @Nullable
     private final String message;
-    private boolean isRepaired;
+    private final boolean isRepaired;
     @Nullable
-    private String repairCode;
+    private final String repairCode;
 
-    private RecordValidationResult(@Nonnull final Tuple primaryKey, final boolean isValid, @Nonnull final String errorCode, @Nullable final String message) {
+    private RecordRepairResult(@Nonnull final Tuple primaryKey, final boolean isValid, @Nonnull final String errorCode, @Nullable final String message) {
         this(primaryKey, isValid, errorCode, message, false, null);
     }
 
-    private RecordValidationResult(@Nonnull final Tuple primaryKey, final boolean isValid, @Nonnull final String errorCode, @Nullable final String message, boolean isRepaired, String repairCode) {
+    private RecordRepairResult(@Nonnull final Tuple primaryKey, final boolean isValid, @Nonnull final String errorCode, @Nullable final String message, boolean isRepaired, String repairCode) {
         this.primaryKey = primaryKey;
         this.isValid = isValid;
         this.errorCode = errorCode;
@@ -73,17 +87,17 @@ public class RecordValidationResult {
         this.repairCode = repairCode;
     }
 
-    public static RecordValidationResult valid(Tuple primaryKey) {
-        return new RecordValidationResult(primaryKey, true, CODE_VALID, null);
+    public static RecordRepairResult valid(Tuple primaryKey) {
+        return new RecordRepairResult(primaryKey, true, CODE_VALID, null);
     }
 
-    public static RecordValidationResult invalid(Tuple primaryKey, String error, String message) {
-        return new RecordValidationResult(primaryKey, false, error, message);
+    public static RecordRepairResult invalid(Tuple primaryKey, String error, String message) {
+        return new RecordRepairResult(primaryKey, false, error, message);
     }
 
     @Nonnull
-    public RecordValidationResult withRepair(@Nonnull String repairCode) {
-        return new RecordValidationResult(primaryKey, isValid, errorCode, message, true, repairCode);
+    public RecordRepairResult withRepair(@Nonnull String repairCode) {
+        return new RecordRepairResult(primaryKey, isValid, errorCode, message, true, repairCode);
     }
 
     @Nonnull
@@ -119,10 +133,10 @@ public class RecordValidationResult {
         if (this == o) {
             return true;
         }
-        if (!(o instanceof RecordValidationResult)) {
+        if (!(o instanceof RecordRepairResult)) {
             return false;
         }
-        final RecordValidationResult that = (RecordValidationResult)o;
+        final RecordRepairResult that = (RecordRepairResult)o;
         return isValid == that.isValid && isRepaired == that.isRepaired && Objects.equals(primaryKey, that.primaryKey) && Objects.equals(errorCode, that.errorCode) && Objects.equals(repairCode, that.repairCode);
     }
 

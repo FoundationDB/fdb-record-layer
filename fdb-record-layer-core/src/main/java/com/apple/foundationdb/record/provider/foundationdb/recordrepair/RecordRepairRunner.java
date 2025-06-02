@@ -138,8 +138,8 @@ public class RecordRepairRunner {
      * @param allowRepair whether to allow repair on the issues found
      * @return a list of issues found
      */
-    public List<RecordValidationResult> runValidationAndRepair(@Nonnull FDBRecordStore.Builder recordStoreBuilder, @Nonnull ValidationKind validationKind, boolean allowRepair) {
-        List<RecordValidationResult> validationResults = new ArrayList<>();
+    public List<RecordRepairResult> runValidationAndRepair(@Nonnull FDBRecordStore.Builder recordStoreBuilder, @Nonnull ValidationKind validationKind, boolean allowRepair) {
+        List<RecordRepairResult> validationResults = new ArrayList<>();
         ThrottledRetryingIterator.Builder<Tuple> iteratorBuilder =
                 ThrottledRetryingIterator.builder(database, cursorFactory(), validateAndRepairHandler(validationResults, validationKind, allowRepair));
         iteratorBuilder = configureThrottlingIterator(iteratorBuilder);
@@ -167,7 +167,7 @@ public class RecordRepairRunner {
         };
     }
 
-    private ItemHandler<Tuple> validateAndRepairHandler(List<RecordValidationResult> results, final ValidationKind validationKind, boolean allowRepair) {
+    private ItemHandler<Tuple> validateAndRepairHandler(List<RecordRepairResult> results, final ValidationKind validationKind, boolean allowRepair) {
         return (FDBRecordStore store, RecordCursorResult<Tuple> primaryKey, ThrottledRetryingIterator.QuotaManager quotaManager) -> {
             return validateInternal(primaryKey, store, validationKind, allowRepair).thenAccept(result -> {
                 if (!result.isValid()) {
@@ -176,7 +176,7 @@ public class RecordRepairRunner {
                         quotaManager.markExhausted();
                     }
                     // Mark record as deleted
-                    if (result.isRepaired() && RecordValueValidator.REPAIR_RECORD_DELETED.equals(result.getRepairCode())) {
+                    if (result.isRepaired() && RecordRepairResult.REPAIR_RECORD_DELETED.equals(result.getRepairCode())) {
                         quotaManager.deleteCountAdd(1);
                     }
                 }
@@ -184,10 +184,10 @@ public class RecordRepairRunner {
         };
     }
 
-    private static CompletableFuture<RecordValidationResult> validateInternal(@Nonnull final RecordCursorResult<Tuple> primaryKey,
-                                                                              @Nonnull final FDBRecordStore store,
-                                                                              @Nonnull final ValidationKind validationKind,
-                                                                              boolean allowRepair) {
+    private static CompletableFuture<RecordRepairResult> validateInternal(@Nonnull final RecordCursorResult<Tuple> primaryKey,
+                                                                          @Nonnull final FDBRecordStore store,
+                                                                          @Nonnull final ValidationKind validationKind,
+                                                                          boolean allowRepair) {
         RecordValueValidator valueValidator = new RecordValueValidator(store);
         // The following is dependent on the semantics of value and version repairs. A more elaborate scheme
         // to introduce flow control and abort/continue mechanisms would make this more generic but is yet unnecessary.

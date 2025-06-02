@@ -46,13 +46,6 @@ import java.util.concurrent.CompletionException;
  */
 @API(API.Status.INTERNAL)
 public class RecordValueValidator implements RecordValidator {
-    /** (error code) Record splits issue (missing split/out of order). */
-    public static final String CODE_SPLIT_ERROR = "RecordValueSplitError";
-    /** (error code) Record could not be serialized (corrupt data, missing split). */
-    public static final String CODE_DESERIALIZE_ERROR = "RecordValueDeserializeError";
-    /** (repair code) Record data was deleted as a repair. */
-    public static final String REPAIR_RECORD_DELETED = "RecordValueRecordDeletedRepair";
-
     private static final Logger logger = LoggerFactory.getLogger(RecordValueValidator.class);
 
     @Nonnull
@@ -63,20 +56,20 @@ public class RecordValueValidator implements RecordValidator {
     }
 
     @Override
-    public CompletableFuture<RecordValidationResult> validateRecordAsync(@Nonnull final Tuple primaryKey) {
+    public CompletableFuture<RecordRepairResult> validateRecordAsync(@Nonnull final Tuple primaryKey) {
         return store.loadRecordAsync(primaryKey).handle((rec, exception) -> {
             if (exception != null) {
                 if (exception instanceof CompletionException) {
                     exception = exception.getCause();
                 }
                 if (exception instanceof SplitHelper.FoundSplitWithoutStartException) {
-                    return RecordValidationResult.invalid(primaryKey, CODE_SPLIT_ERROR, "Found split record without start");
+                    return RecordRepairResult.invalid(primaryKey, RecordRepairResult.CODE_SPLIT_ERROR, "Found split record without start");
                 }
                 if (exception instanceof SplitHelper.FoundSplitOutOfOrderException) {
-                    return RecordValidationResult.invalid(primaryKey, CODE_SPLIT_ERROR, "Split record segments out of order");
+                    return RecordRepairResult.invalid(primaryKey, RecordRepairResult.CODE_SPLIT_ERROR, "Split record segments out of order");
                 }
                 if (exception instanceof RecordDeserializationException) {
-                    return RecordValidationResult.invalid(primaryKey, CODE_DESERIALIZE_ERROR, "Record cannot be deseralized");
+                    return RecordRepairResult.invalid(primaryKey, RecordRepairResult.CODE_DESERIALIZE_ERROR, "Record cannot be deseralized");
                 }
                 if (exception instanceof RecordCoreException) {
                     // In order to facilitate error handling for out of band (and other known errors) by the caller, allow
@@ -85,20 +78,20 @@ public class RecordValueValidator implements RecordValidator {
                 }
                 throw new UnknownValidationException("Unknown exception caught", exception);
             } else {
-                return RecordValidationResult.valid(primaryKey);
+                return RecordRepairResult.valid(primaryKey);
             }
         });
     }
 
     @Override
-    public CompletableFuture<RecordValidationResult> repairRecordAsync(@Nonnull RecordValidationResult validationResult) {
+    public CompletableFuture<RecordRepairResult> repairRecordAsync(@Nonnull RecordRepairResult validationResult) {
         if (validationResult.isValid()) {
             // do nothing
-            return CompletableFuture.completedFuture(validationResult.withRepair(RecordValidationResult.REPAIR_NOT_NEEDED));
+            return CompletableFuture.completedFuture(validationResult.withRepair(RecordRepairResult.REPAIR_NOT_NEEDED));
         }
         switch (validationResult.getErrorCode()) {
-            case CODE_SPLIT_ERROR:
-            case CODE_DESERIALIZE_ERROR:
+            case RecordRepairResult.CODE_SPLIT_ERROR:
+            case RecordRepairResult.CODE_DESERIALIZE_ERROR:
                 // Delete record subspace
                 store.deleteRecordSplits(validationResult.getPrimaryKey(), false, null, store.getRecordMetaData());
                 if (logger.isInfoEnabled()) {
@@ -106,7 +99,7 @@ public class RecordValueValidator implements RecordValidator {
                             LogMessageKeys.PRIMARY_KEY, validationResult.getPrimaryKey(),
                             LogMessageKeys.CODE, validationResult.getErrorCode()));
                 }
-                return CompletableFuture.completedFuture(validationResult.withRepair(REPAIR_RECORD_DELETED));
+                return CompletableFuture.completedFuture(validationResult.withRepair(RecordRepairResult.REPAIR_RECORD_DELETED));
             default:
                 // Unknown code
                 if (logger.isWarnEnabled()) {
@@ -114,7 +107,7 @@ public class RecordValueValidator implements RecordValidator {
                             LogMessageKeys.PRIMARY_KEY, validationResult.getPrimaryKey(),
                             LogMessageKeys.CODE, validationResult.getErrorCode()));
                 }
-                return CompletableFuture.completedFuture(validationResult.withRepair(RecordValidationResult.REPAIR_UNKNOWN_VALIDATION_CODE));
+                return CompletableFuture.completedFuture(validationResult.withRepair(RecordRepairResult.REPAIR_UNKNOWN_VALIDATION_CODE));
         }
     }
 }

@@ -48,13 +48,6 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.INTERNAL)
 public class RecordVersionValidator implements RecordValidator {
-    /** (error code) Record version is missing. */
-    public static final String CODE_VERSION_MISSING_ERROR = "RecordVersionMissingError";
-    /** (error code) Record is missing (so cannot verify version existence). */
-    public static final String CODE_RECORD_MISSING_ERROR = "RecordMissingError";
-    /** (repair code) Record version was created and added to the record. */
-    public static final String REPAIR_VERSION_CREATED = "RecordVersionCreatedRepair";
-
     private static final Logger logger = LoggerFactory.getLogger(RecordVersionValidator.class);
 
     @Nonnull
@@ -65,29 +58,29 @@ public class RecordVersionValidator implements RecordValidator {
     }
 
     @Override
-    public CompletableFuture<RecordValidationResult> validateRecordAsync(@Nonnull final Tuple primaryKey) {
+    public CompletableFuture<RecordRepairResult> validateRecordAsync(@Nonnull final Tuple primaryKey) {
         return store.loadRecordAsync(primaryKey).thenApply(rec -> {
             if (rec == null) {
-                return RecordValidationResult.invalid(primaryKey, CODE_RECORD_MISSING_ERROR, "Record cannot be found");
+                return RecordRepairResult.invalid(primaryKey, RecordRepairResult.CODE_RECORD_MISSING_ERROR, "Record cannot be found");
             }
             if (!rec.hasVersion()) {
-                return RecordValidationResult.invalid(primaryKey, CODE_VERSION_MISSING_ERROR, "Record version is missing");
+                return RecordRepairResult.invalid(primaryKey, RecordRepairResult.CODE_VERSION_MISSING_ERROR, "Record version is missing");
             }
-            return RecordValidationResult.valid(primaryKey);
+            return RecordRepairResult.valid(primaryKey);
         });
     }
 
     @Override
-    public CompletableFuture<RecordValidationResult> repairRecordAsync(@Nonnull final RecordValidationResult validationResult) {
+    public CompletableFuture<RecordRepairResult> repairRecordAsync(@Nonnull final RecordRepairResult validationResult) {
         if (validationResult.isValid()) {
             // do nothing
-            return CompletableFuture.completedFuture(validationResult.withRepair(RecordValidationResult.REPAIR_NOT_NEEDED));
+            return CompletableFuture.completedFuture(validationResult.withRepair(RecordRepairResult.REPAIR_NOT_NEEDED));
         }
         switch (validationResult.getErrorCode()) {
-            case CODE_RECORD_MISSING_ERROR:
+            case RecordRepairResult.CODE_RECORD_MISSING_ERROR:
                 // Nothing to do
-                return CompletableFuture.completedFuture(validationResult.withRepair(RecordValidationResult.REPAIR_NOT_NEEDED));
-            case CODE_VERSION_MISSING_ERROR:
+                return CompletableFuture.completedFuture(validationResult.withRepair(RecordRepairResult.REPAIR_NOT_NEEDED));
+            case RecordRepairResult.CODE_VERSION_MISSING_ERROR:
                 if (logger.isInfoEnabled()) {
                     logger.info(KeyValueLogMessage.of("Record repair: Version created",
                             LogMessageKeys.PRIMARY_KEY, validationResult.getPrimaryKey(),
@@ -102,7 +95,7 @@ public class RecordVersionValidator implements RecordValidator {
                         .thenCompose(rec ->
                                 store.saveRecordAsync(rec.getRecord(), newVersion, FDBRecordStoreBase.VersionstampSaveBehavior.WITH_VERSION))
                         .thenApply(ignore ->
-                                validationResult.withRepair(REPAIR_VERSION_CREATED));
+                                validationResult.withRepair(RecordRepairResult.REPAIR_VERSION_CREATED));
             default:
                 // Unknown code
                 if (logger.isWarnEnabled()) {
@@ -110,7 +103,7 @@ public class RecordVersionValidator implements RecordValidator {
                             LogMessageKeys.PRIMARY_KEY, validationResult.getPrimaryKey(),
                             LogMessageKeys.CODE, validationResult.getErrorCode()));
                 }
-                return CompletableFuture.completedFuture(validationResult.withRepair(RecordValidationResult.REPAIR_UNKNOWN_VALIDATION_CODE));
+                return CompletableFuture.completedFuture(validationResult.withRepair(RecordRepairResult.REPAIR_UNKNOWN_VALIDATION_CODE));
         }
     }
 }
