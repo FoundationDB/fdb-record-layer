@@ -886,7 +886,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         public Cardinalities floor(long minimum) {
             Cardinality newMin = minCardinality.floor(minimum);
             Cardinality newMax = maxCardinality.floor(minimum);
-            if (newMin == minCardinality && newMax == maxCardinality) {
+            if (newMin.equals(minCardinality) && newMax.equals(maxCardinality)) {
                 return this;
             }
             return new Cardinalities(newMin, newMax);

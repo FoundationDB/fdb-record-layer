@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExploratoryMemoizer;
-import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
@@ -154,7 +153,7 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
         ImmutableMap.Builder<CorrelationIdentifier, SelectExpression> valuesByIdBuilder = ImmutableMap.builderWithExpectedSize(valueQunCandidates.size());
         ImmutableMap.Builder<CorrelationIdentifier, Quantifier> qunsByIdBuilder = ImmutableMap.builderWithExpectedSize(valueQunCandidates.size());
         for (Quantifier.ForEach qun : valueQunCandidates) {
-            @Nullable SelectExpression childSelect = findSelectForQuantifier(call.getContext(), qun, selectChildQunIds);
+            @Nullable SelectExpression childSelect = findSelectForQuantifier(qun, selectChildQunIds);
             if (childSelect != null) {
                 valuesByIdBuilder.put(qun.getAlias(), childSelect);
                 qunsByIdBuilder.put(qun.getAlias(), qun);
@@ -216,9 +215,9 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
         call.yieldExploratoryExpression(new SelectExpression(newResultValue, newQuantifiersBuilder.build(), newPredicates));
     }
 
+    @SuppressWarnings("PMD.AvoidBranchingStatementAsLastInLoop")
     @Nullable
-    private SelectExpression findSelectForQuantifier(@Nonnull PlanContext planContext,
-                                                     @Nonnull Quantifier.ForEach qun,
+    private SelectExpression findSelectForQuantifier(@Nonnull Quantifier.ForEach qun,
                                                      @Nonnull Set<CorrelationIdentifier> selectChildQunIds) {
         // Make sure that the quantifier is over an acceptable value. For this to be the case, it should have a
         // select expression over a single quantifier. The returned SelectExpression's result value should not
