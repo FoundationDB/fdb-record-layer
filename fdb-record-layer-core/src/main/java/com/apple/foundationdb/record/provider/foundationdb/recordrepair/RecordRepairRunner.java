@@ -40,6 +40,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * A class that iterates through all records in a given store and validates (and optionally repairs) them.
@@ -127,6 +129,8 @@ public class RecordRepairRunner {
         iteratorBuilder = configureThrottlingIterator(iteratorBuilder);
         try (ThrottledRetryingIterator<Tuple> iterator = iteratorBuilder.build()) {
             iterator.iterateAll(recordStoreBuilder).join();
+        } catch (Exception ex) {
+            statsResult.setExceptionCaught(ex);
         }
         return statsResult;
     }
@@ -136,17 +140,22 @@ public class RecordRepairRunner {
      * @param recordStoreBuilder the store builder to use
      * @param validationKind which validation to run
      * @param allowRepair whether to allow repair on the issues found
-     * @return a list of issues found
+     * @return The {@link RepairResults} containing the result of the operation
      */
-    public List<RecordRepairResult> runValidationAndRepair(@Nonnull FDBRecordStore.Builder recordStoreBuilder, @Nonnull ValidationKind validationKind, boolean allowRepair) {
-        List<RecordRepairResult> validationResults = new ArrayList<>();
+    public RepairResults runValidationAndRepair(@Nonnull FDBRecordStore.Builder recordStoreBuilder, @Nonnull ValidationKind validationKind, boolean allowRepair) {
+        List<RecordRepairResult> invalidResults = new ArrayList<>();
+        AtomicInteger validResultCount = new AtomicInteger(0);
+        AtomicBoolean earlyReturn = new AtomicBoolean(false);
+
         ThrottledRetryingIterator.Builder<Tuple> iteratorBuilder =
-                ThrottledRetryingIterator.builder(database, cursorFactory(), validateAndRepairHandler(validationResults, validationKind, allowRepair));
+                ThrottledRetryingIterator.builder(database, cursorFactory(), validateAndRepairHandler(invalidResults, validResultCount, earlyReturn, validationKind, allowRepair));
         iteratorBuilder = configureThrottlingIterator(iteratorBuilder);
         try (ThrottledRetryingIterator<Tuple> iterator = iteratorBuilder.build()) {
             iterator.iterateAll(recordStoreBuilder).join();
+        } catch (Exception ex) {
+            return new RepairResults(false, ex, invalidResults, validResultCount.get());
         }
-        return validationResults;
+        return new RepairResults(!earlyReturn.get(), null, invalidResults, validResultCount.get());
     }
 
     private CursorFactory<Tuple> cursorFactory() {
@@ -160,20 +169,21 @@ public class RecordRepairRunner {
     private ItemHandler<Tuple> countResultsHandler(RecordValidationStatsResult statsResult, final ValidationKind validationKind) {
         return (FDBRecordStore store, RecordCursorResult<Tuple> lastResult, ThrottledRetryingIterator.QuotaManager quotaManager) -> {
             return validateInternal(lastResult, store, validationKind, false).thenAccept(result -> {
-                if (!result.isValid()) {
-                    statsResult.increment(result.getErrorCode());
-                }
+                statsResult.increment(result.getErrorCode());
             });
         };
     }
 
-    private ItemHandler<Tuple> validateAndRepairHandler(List<RecordRepairResult> results, final ValidationKind validationKind, boolean allowRepair) {
+    private ItemHandler<Tuple> validateAndRepairHandler(@Nonnull List<RecordRepairResult> invalidResults, @Nonnull AtomicInteger validResultCount, @Nonnull AtomicBoolean earlyReturn, final ValidationKind validationKind, boolean allowRepair) {
         return (FDBRecordStore store, RecordCursorResult<Tuple> primaryKey, ThrottledRetryingIterator.QuotaManager quotaManager) -> {
             return validateInternal(primaryKey, store, validationKind, allowRepair).thenAccept(result -> {
-                if (!result.isValid()) {
-                    results.add(result);
-                    if ((maxResultsReturned > 0) && (results.size() >= maxResultsReturned)) {
+                if (result.isValid()) {
+                    validResultCount.incrementAndGet();
+                } else {
+                    invalidResults.add(result);
+                    if ((maxResultsReturned > 0) && (invalidResults.size() >= maxResultsReturned)) {
                         quotaManager.markExhausted();
+                        earlyReturn.set(true);
                     }
                     // Mark record as deleted
                     if (result.isRepaired() && RecordRepairResult.REPAIR_RECORD_DELETED.equals(result.getRepairCode())) {

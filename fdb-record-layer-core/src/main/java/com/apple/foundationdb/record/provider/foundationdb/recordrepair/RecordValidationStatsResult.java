@@ -28,7 +28,8 @@ import java.util.stream.Collectors;
 
 public class RecordValidationStatsResult {
     @Nonnull
-    private Map<String, AtomicInteger> stats;
+    private final Map<String, AtomicInteger> stats;
+    private Exception exceptionCaught;
 
     public RecordValidationStatsResult() {
         this.stats = new HashMap<>();
@@ -41,5 +42,13 @@ public class RecordValidationStatsResult {
     @Nonnull
     public Map<String, Integer> getStats() {
         return stats.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().get()));
+    }
+
+    public Throwable getExceptionCaught() {
+        return exceptionCaught;
+    }
+
+    void setExceptionCaught(final Exception ex) {
+        this.exceptionCaught = ex;
     }
 }

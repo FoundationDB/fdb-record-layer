@@ -29,11 +29,14 @@ import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Strings;
 import com.google.protobuf.Message;
+import org.assertj.core.api.Assertions;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
+import java.util.function.Predicate;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
@@ -195,6 +198,45 @@ public class ValidationTestUtils {
             result1.add(store.saveRecord(record));
         }
         return result1;
+    }
+
+    public static void assertInvalidResults(List<RecordRepairResult> invalidResults, int expectedResults, @Nullable Predicate<RecordRepairResult> predicate) {
+        Assertions.assertThat(invalidResults).hasSize(expectedResults);
+        if (expectedResults > 0) {
+            Assertions.assertThat(invalidResults).allMatch(predicate);
+        }
+    }
+
+    public static void assertCompleteResults(final RepairResults repairResults, int numRecords) {
+        Assertions.assertThat(repairResults.isComplete()).isTrue();
+        Assertions.assertThat(repairResults.getCaughtException()).isNull();
+        Assertions.assertThat(repairResults.getInvalidResults().size() + repairResults.getValidResultCount()).isEqualTo(numRecords);
+    }
+
+    public static void assertRepairStats(RecordValidationStatsResult stats, int numValidResults) {
+        assertRepairStats(stats, numValidResults, 0, null, 0, null);
+    }
+
+    public static void assertRepairStats(RecordValidationStatsResult stats, int numValidResults, int numResults1, String codeResults1) {
+        assertRepairStats(stats, numValidResults, numResults1, codeResults1, 0, null);
+    }
+
+    public static void assertRepairStats(RecordValidationStatsResult stats, int numValidResults, int numResults1, String codeResults1, int numResults2, String codeResults2) {
+        int numEntries = 0;
+        if (numValidResults > 0) {
+            Assertions.assertThat(stats.getStats().get(RecordRepairResult.CODE_VALID)).isEqualTo(numValidResults);
+            numEntries++;
+        }
+        if (numResults1 > 0) {
+            Assertions.assertThat(stats.getStats().get(codeResults1)).isEqualTo(numResults1);
+            numEntries++;
+        }
+        if (numResults2 > 0) {
+            Assertions.assertThat(stats.getStats().get(codeResults2)).isEqualTo(numResults2);
+            numEntries++;
+        }
+        Assertions.assertThat(stats.getExceptionCaught()).isNull();
+        Assertions.assertThat(stats.getStats()).hasSize(numEntries);
     }
 
     private static int recordTextSize(boolean splitLongRecords, int recordId) {
