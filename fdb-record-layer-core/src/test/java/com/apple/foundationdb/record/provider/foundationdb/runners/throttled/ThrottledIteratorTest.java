@@ -43,6 +43,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -581,8 +582,12 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         // A test that completes the first future outside the transaction
         int numRecords = 50;
         List<CompletableFuture<Void>> futures = new ArrayList<>(numRecords);
+        // A gate to stop the test until the futures get scheduled
+        Semaphore gate = new Semaphore(0);
 
         final ItemHandler<Integer> itemHandler = (store, item, quotaManager) -> {
+            // Release the rest of the flow once handling of the first item initiated
+            gate.release();
             // First future hangs on, all others are immediately completed
             CompletableFuture<Void> future = (item.get() == 0) ? new CompletableFuture<>() : CompletableFuture.completedFuture(null);
             futures.add(future);
@@ -598,8 +603,8 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
                 iterateAll = throttledIterator.iterateAll(recordStore.asBuilder());
                 commit(context);
             }
-            // "sleep" for 10 ms to allow futures to get scheduled
-            MoreAsyncUtil.delayedFuture(10, TimeUnit.MILLISECONDS).join();
+            // Block here to let the futures a chance to get scheduled (the store future will trigger the iteration and then the itemHandler)
+            gate.acquire();
             // Only first future in the list - waiting for it to complete
             assertThat(futures).hasSize(1);
             // complete the first future, release all of them
@@ -616,6 +621,8 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         AtomicInteger transactionStart = new AtomicInteger(0);
         List<CompletableFuture<Void>> futures = new ArrayList<>(numRecords);
         AtomicReference<RecordCursor<Integer>> cursor = new AtomicReference<>();
+        // A gate to stop the test until the futures get scheduled
+        Semaphore gate = new Semaphore(0);
 
         final CursorFactory<Integer> cursorFactory = (store, lastResult, rowLimit) -> {
             cursor.set(RecordCursor.fromList(IntStream.range(0, numRecords).boxed().collect(Collectors.toList()), null));
@@ -623,6 +630,8 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         };
 
         final ItemHandler<Integer> itemHandler = (store, item, quotaManager) -> {
+            // Release the rest of the flow once handling of the first item initiated
+            gate.release();
             // First future hangs on, all others are immediately completed
             CompletableFuture<Void> future = (item.get() == 0) ? new CompletableFuture<>() : CompletableFuture.completedFuture(null);
             futures.add(future);
@@ -644,8 +653,8 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
                 .withTransactionInitNotification(initNotification);
         try (ThrottledRetryingIterator<Integer> iterator = builder.build()) {
             iterateAll = iterator.iterateAll(storeBuilder);
-            // "sleep" for 10 ms to allow futures to get scheduled
-            MoreAsyncUtil.delayedFuture(10, TimeUnit.MILLISECONDS).join();
+            // Block here to let the futures a chance to get scheduled (the store future will trigger the iteration and then the itemHandler)
+            gate.acquire();
             // Closing the iterator before the first future completes
         }
 
@@ -670,8 +679,12 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         // This future never completes
         CompletableFuture<RecordCursorResult<Integer>> future = new CompletableFuture<>();
         AtomicReference<RecordCursor<Integer>> cursor = new AtomicReference<>();
+        // A gate to stop the test until the futures get scheduled
+        Semaphore gate = new Semaphore(0);
 
         final CursorFactory<Integer> cursorFactory = (store, lastResult, rowLimit) -> {
+            // Release the rest of the flow once handling of the first item initiated
+            gate.release();
             cursor.set(new SingleItemCursor<>(store.getExecutor(), future));
             return cursor.get();
         };
@@ -691,8 +704,8 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         final ThrottledRetryingIterator.Builder<Integer> builder = ThrottledRetryingIterator.builder(fdb, cursorFactory, itemHandler);
         try (ThrottledRetryingIterator<Integer> iterator = builder.build()) {
             iterateAll = iterator.iterateAll(storeBuilder);
-            // "sleep" for 10 ms to allow futures to get scheduled
-            MoreAsyncUtil.delayedFuture(10, TimeUnit.MILLISECONDS).join();
+            // Block here to let the futures a chance to get scheduled (the store future will trigger the iteration and then the itemHandler)
+            gate.acquire();
             // Closing the iterator before the first future completes
         }
 
