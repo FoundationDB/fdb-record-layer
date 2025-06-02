@@ -53,7 +53,7 @@ public class ImplementDeleteRule extends ImplementationCascadesRule<DeleteExpres
 
     @Nonnull
     private static final BindingMatcher<Reference> innerReferenceMatcher =
-            planPartitions(filterPartition(planPartition -> planPartition.getPropertyValue(StoredRecordProperty.storedRecord()),
+            planPartitions(filterPartition(planPartition -> planPartition.getGroupingPropertyValue(StoredRecordProperty.storedRecord()),
                     any(innerPlanPartitionMatcher)));
 
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher =
@@ -77,7 +77,7 @@ public class ImplementDeleteRule extends ImplementationCascadesRule<DeleteExpres
         final var planPartitionReference =
                 call.memoizeMemberPlansFromOther(innerReference, innerPlanPartition.getPlans());
         final var distinctPlansReference =
-                innerPlanPartition.getPropertyValue(DistinctRecordsProperty.distinctRecords())
+                innerPlanPartition.getGroupingPropertyValue(DistinctRecordsProperty.distinctRecords())
                 ? planPartitionReference
                 : call.memoizePlan(new RecordQueryUnorderedPrimaryKeyDistinctPlan(Quantifier.physical(planPartitionReference)));
 

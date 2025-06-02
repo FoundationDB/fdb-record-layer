@@ -55,7 +55,7 @@ public class ImplementUniqueRule extends ImplementationCascadesRule<LogicalUniqu
     @Nonnull
     private static final BindingMatcher<Reference> innerReferenceMatcher = planPartitions(
             filterPartition(planPartition -> planPartition.getGroupingPropertyMap().containsKey(DistinctRecordsProperty.distinctRecords())
-                                   && planPartition.getPropertyValue(PrimaryKeyProperty.primaryKey()).isPresent(),
+                                   && planPartition.getGroupingPropertyValue(PrimaryKeyProperty.primaryKey()).isPresent(),
                     rollUpPartitions(anyPlanPartitionMatcher)));
 
     @Nonnull

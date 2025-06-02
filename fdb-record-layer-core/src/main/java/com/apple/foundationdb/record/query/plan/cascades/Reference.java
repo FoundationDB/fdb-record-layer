@@ -579,7 +579,12 @@ public class Reference implements Correlated<Reference>, Typed {
     }
 
     @Nonnull
-    public <A> Map<RecordQueryPlan, A> getProperty(@Nonnull final ExpressionProperty<A> expressionProperty) {
+    public <A> Map<? extends RelationalExpression, A> getPropertyForExpressions(@Nonnull final ExpressionProperty<A> expressionProperty) {
+        return propertiesMap.propertyValueForExpressions(expressionProperty);
+    }
+
+    @Nonnull
+    public <A> Map<RecordQueryPlan, A> getPropertyForPlans(@Nonnull final ExpressionProperty<A> expressionProperty) {
         return propertiesMap.propertyValueForPlans(expressionProperty);
     }
 

@@ -33,7 +33,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Helpers for collections of {@link ExpressionPartition}.
+ * Helpers for collections of {@link ExpressionPartition}s.
  */
 public class ExpressionPartitions {
     private ExpressionPartitions() {
@@ -106,22 +106,28 @@ public class ExpressionPartitions {
     }
 
     @Nonnull
-    protected static <E extends RelationalExpression, P extends ExpressionPartition<E>> List<P> toPartitions(@Nonnull final Map<Map<ExpressionProperty<?>, ?>, ? extends Set<E>> groupingPropertiesMap,
-                                                                                                             @Nonnull Map<E, Map<ExpressionProperty<?>, ?>> nonGroupingPropertiesMap,
-                                                                                                             @Nonnull final PartitionCreator<E, P> partitionCreator) {
+    private static <E extends RelationalExpression, P extends ExpressionPartition<E>> List<P> toPartitions(@Nonnull final Map<Map<ExpressionProperty<?>, ?>, ? extends Set<E>> groupingPropertiesMap,
+                                                                                                           @Nonnull Map<E, Map<ExpressionProperty<?>, ?>> nonGroupingPropertiesMap,
+                                                                                                           @Nonnull final PartitionCreator<E, P> partitionCreator) {
         return groupingPropertiesMap
                 .entrySet()
                 .stream()
                 .map(entry -> {
                     final var groupingPropertyMap = entry.getKey();
                     final var expressions = entry.getValue();
-                    final var expressionPropertyMap = new LinkedIdentityMap<E, Map<ExpressionProperty<?>, ?>>();
+                    final var groupedPropertyMap = new LinkedIdentityMap<E, Map<ExpressionProperty<?>, ?>>();
                     for (final var expression : expressions) {
                         final var propertiesMapForExpression =
                                 nonGroupingPropertiesMap.get(expression);
-                        expressionPropertyMap.put(expression, propertiesMapForExpression);
+                        groupedPropertyMap.put(expression, ImmutableMap.copyOf(propertiesMapForExpression));
                     }
-                    return partitionCreator.create(ImmutableMap.copyOf(groupingPropertyMap), expressionPropertyMap);
+
+                    //
+                    // Note that the creator is not expected to blindly copy the maps handed in, however, the partition
+                    // needs to own these maps. The grouping property map is not necessarily immutable nor is it owned
+                    // by the partition. We need to defensively copy that map.
+                    //
+                    return partitionCreator.create(ImmutableMap.copyOf(groupingPropertyMap), groupedPropertyMap);
                 })
                 .collect(ImmutableList.toImmutableList());
     }

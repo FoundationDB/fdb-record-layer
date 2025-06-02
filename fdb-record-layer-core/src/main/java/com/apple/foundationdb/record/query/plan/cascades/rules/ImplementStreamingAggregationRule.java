@@ -94,7 +94,7 @@ public class ImplementStreamingAggregationRule extends ImplementationCascadesRul
         final var planPartitions = PlanPartitions.rollUpTo(innerReference.toPlanPartitions(), OrderingProperty.ordering());
 
         for (final var planPartition : planPartitions) {
-            final var providedOrdering = planPartition.getPropertyValue(OrderingProperty.ordering());
+            final var providedOrdering = planPartition.getGroupingPropertyValue(OrderingProperty.ordering());
             if (requiredOrderingKeyValues == null || providedOrdering.satisfiesGroupingValues(requiredOrderingKeyValues)) {
                 call.yieldPlan(implementGroupBy(call, planPartition, groupByExpression));
             }
