@@ -55,8 +55,30 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 
 /**
  * Rule to de-correlate any "values boxes" by pushing them into referencing expressions. In this case, a
- * "values box" is a special kind of {@link SelectExpression} that is generally over a {@code range(1)}
- * expression and which returns values that are uncorrelated to its child. These are used by
+ * "values box" is a special kind of {@link SelectExpression} that is over a {@code range(1)}
+ * expression and which returns values that are uncorrelated to its child. These kinds of expressions
+ * are generated during the in-lining of parameterized functions. Generally, an expression like:
+ *
+ * <pre>{@code
+ * CREATE FUNCTION foo(x bigint, y string)
+ *    AS SELECT c, b FROM T WHERE a = x AND b = y;
+ * SELECT d FROM foo(42, 'hello') WHERE c IS NULL
+ * }</pre>
+ *
+ * <p>
+ * Will be expressed in the query graph as something approximating:
+ * </p>
+ *
+ * <pre>{@code
+ * SELECT f.d
+ *   FROM (SELECT 42 AS x, 'hello' as y FROM range(1)) p,
+ *        (SELECT c, d FROM T WHERE a = p.x AND b = p.y) f
+ *   WHERE f.c IS NULL
+ * }</pre>
+ *
+ * <p>
+ * That is, the parameters are expressed on the left hand side of the join, and the function
+ * </p>
  *
  * <p>
  * It may be somewhat hard to see, but this rule is actually useful for values in-lining. That is,
@@ -107,6 +129,11 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
         final Map<CorrelationIdentifier, SelectExpression> valuesById = valuesByIdBuilder.build();
         if (valuesById.isEmpty()) {
             // No actual values boxes here. Exit now
+            return;
+        }
+        if (valuesById.size() == selectExpression.getQuantifiers().size()) {
+            // All the quantifiers are values boxes. We can't push them around as this would
+            // leave no children at all. So we exit here.
             return;
         }
 

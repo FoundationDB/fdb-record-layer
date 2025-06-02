@@ -23,10 +23,13 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
@@ -54,6 +57,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.column;
@@ -64,6 +68,7 @@ import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQuery
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.forEachWithNullOnEmpty;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.projectColumn;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.selectWithPredicates;
+import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.EQUALS_42;
 import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.baseT;
 import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.baseTau;
 import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.join;
@@ -72,7 +77,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHe
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Tests of the {@link DecorrelateValuesRule}.
+ * Tests of the {@link DecorrelateValuesRule}. These manipulate the values box in order to ensure that
+ * the values are pushed down into the tree.
  */
 class DecorrelateValuesRuleTest {
     @Nonnull
@@ -411,6 +417,92 @@ class DecorrelateValuesRuleTest {
     }
 
     @Test
+    void pushIntoExpressionsWithVariations() {
+        final Quantifier valuesBox = valuesQun(Map.of("x", LiteralValue.ofScalar(42L), "y", LiteralValue.ofScalar("hello")));
+
+        //
+        // Create three expressions with the same result value. One of them is:
+        //    SELECT c, d FROM T WHERE a = v.x AND b = v.y
+        // Another is:
+        //    SELECT DISTINCT c, d FROM T WHERE v.x = a AND v.y = b
+        // And the final is:
+        //    SELECT c, d FROM T
+        // These are not actually equivalent, but they can nevertheless be placed in a reference
+        //
+        final Quantifier base = baseT();
+        final SelectExpression selectBase = selectWithPredicates(base,
+                ImmutableList.of("c", "d"),
+                fieldPredicate(base, "a", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(valuesBox, "x"))),
+                fieldPredicate(base, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(valuesBox, "y"))));
+        final Quantifier selectReversePredicatesQun = forEach(selectWithPredicates(base,
+                ImmutableList.of("c", "d"),
+                fieldPredicate(valuesBox, "x", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(base, "c"))),
+                fieldPredicate(valuesBox, "y", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(base, "d")))));
+        final LogicalDistinctExpression distinct = new LogicalDistinctExpression(selectReversePredicatesQun);
+        final SelectExpression selectUncorrelated = selectWithPredicates(base,
+                ImmutableList.of("c", "d"));
+
+        //
+        // Take the three expressions and treat them as variations of a single expression. Join this with the values
+        // box
+        //
+        final Quantifier lower = Quantifier.forEach(Reference.ofExploratoryExpressions(PlannerStage.CANONICAL, ImmutableList.of(selectBase, distinct, selectUncorrelated)));
+        final SelectExpression selectExpression = join(valuesBox, lower)
+                .addResultColumn(projectColumn(valuesBox, "x"))
+                .addResultColumn(projectColumn(valuesBox, "y"))
+                .addResultColumn(projectColumn(lower, "c"))
+                .addResultColumn(projectColumn(lower, "d"))
+                .build().buildSelect();
+
+        //
+        // Rewrite the original expressions. The first one creates a new select:
+        //   SELECT c, d FROM values(x = 42, y = 'hello') AS V, T WHERE T.a = V.x AND T.b = V.y
+        // That is, the select absorbs the values box. Running this rule a subsequent time would
+        // remove the values box entirely
+        //
+        // The second expression needs to introduce a new select as it cannot be pushed into the
+        // logical distinct expression directly:
+        //   SELECT DISTINCT T.* FROM values(x = 42, y = 'hello') AS v, (SELECT c, d FROM T WHERE v.x = T.a AND v.y = T.b)
+        // Running this rule again on the new inner select will push the values further, but note that it will leave
+        // an empty select box (that is, one that neither projects nor filters but simply passes through) that will need
+        // to be simplified by select merge.
+        //
+        // The third expression was not correlated to the values box, and so it is unchanged.
+        //
+        final SelectExpression newSelectBase = join(valuesBox, base)
+                .addResultColumn(projectColumn(base, "c"))
+                .addResultColumn(projectColumn(base, "d"))
+                .addPredicate(fieldPredicate(base, "a", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(valuesBox, "x"))))
+                .addPredicate(fieldPredicate(base, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(valuesBox, "y"))))
+                .build().buildSelect();
+        final Quantifier newDistinctChildQun = forEach(new SelectExpression(
+                selectReversePredicatesQun.getFlowedObjectValue(),
+                ImmutableList.of(valuesBox, selectReversePredicatesQun),
+                ImmutableList.of()
+        ));
+        final LogicalDistinctExpression newDistinct = new LogicalDistinctExpression(newDistinctChildQun);
+
+        //
+        // Validate that we get a re-written child with the expected variations. Note that the values box
+        // has also been applied to the result columns
+        //
+        final Quantifier newLower = Quantifier.forEach(Reference.ofExploratoryExpressions(PlannerStage.CANONICAL, ImmutableList.of(newSelectBase, newDistinct, selectUncorrelated)));
+        final SelectExpression expected = GraphExpansion.builder()
+                .addQuantifier(newLower)
+                .addResultColumn(Column.of(Optional.of("x"), LiteralValue.ofScalar(42L)))
+                .addResultColumn(Column.of(Optional.of("y"), LiteralValue.ofScalar("hello")))
+                .addResultColumn(projectColumn(newLower, "c"))
+                .addResultColumn(projectColumn(newLower, "d"))
+                .build().buildSelect();
+
+        testHelper.assertYields(selectExpression, expected);
+    }
+
+    /**
+     * Push a values box into an explode expression. The explode expression itself has no children, but
+     * it has a return value that would need to be translated to the one in the value.
+     */
+    @Test
     void pushToExplodeChild() {
         final ConstantObjectValue cov = ConstantObjectValue.of(Quantifier.current(), "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.LONG, false)));
         final Quantifier valuesBox = valuesQun(ImmutableMap.of("x", cov));
@@ -434,6 +526,10 @@ class DecorrelateValuesRuleTest {
         testHelper.assertYields(selectExpression, expected);
     }
 
+    /**
+     * Push a set of values boxes into a {@link LogicalUnionExpression}. Each values box can be referenced by one
+     * or more child quantifier, so this ensures that each child gets references to only the values it references.
+     */
     @Test
     void pushToUnionChild() {
         final ConstantObjectValue cov0 = ConstantObjectValue.of(Quantifier.current(), "0", Type.primitiveType(Type.TypeCode.LONG, true));
@@ -486,8 +582,30 @@ class DecorrelateValuesRuleTest {
         testHelper.assertYields(selectExpression, expected);
     }
 
+    /**
+     * This pushes a values box into a {@link GroupByExpression}'s children. In this case the original query is
+     * something like:
+     * <pre>{@code
+     * SELECT T.b, T.c, sum(T.a) as sum FROM
+     *    values(@0) as v,
+     *    T
+     *    WHERE T.d = v
+     *    GROUP BY T.b, T.c
+     * }</pre>
+     * <p>
+     * This will be rewritten as:
+     * </p>
+     * <pre>{@code
+     * SELECT T.b, T.c, sum(T.a) as sum FROM
+     *    (SELECT T.* FROM values(@0) as v, T WHERE T.d = v) T
+     *    GROUP BY T.b, T.c
+     * }</pre>
+     * <p>
+     * A later step will simplify the inner select.
+     * </p>
+     */
     @Test
-    void pushIntoGroupBySelectHaving() {
+    void pushIntoGroupBySelectWhere() {
         final ConstantObjectValue cov = ConstantObjectValue.of(Quantifier.constant(), "0", Type.primitiveType(Type.TypeCode.STRING, false));
         final Quantifier valuesBox = valuesQun(cov);
 
@@ -533,6 +651,30 @@ class DecorrelateValuesRuleTest {
         testHelper.assertYields(selectHaving, newSelectHaving);
     }
 
+    /**
+     * This pushes a values box into a {@link GroupByExpression}'s grouping columns. In this case the original query is
+     * something like:
+     * <pre>{@code
+     * SELECT v AS group, min(T.a) AS min FROM
+     *    values(@0) AS v,
+     *    T
+     *    WHERE T.b = 'hello'
+     *    GROUP BY v
+     * }</pre>
+     * <p>
+     * Note that the values box is only referenced in the grouping columns. This will be rewritten as:
+     * </p>
+     * <pre>{@code
+     * SELECT @0 AS group, min(T.a) AS min FROM
+     *    T
+     *    WHERE T.b = 'hello'
+     *    GROUP BY @0
+     * }</pre>
+     * <p>
+     * A later step will simplify the inner select. Note that the inner grouping logic is the same,
+     * as the values quantifier does not need to be pushed into the children.
+     * </p>
+     */
     @Test
     void pushIntoGroupByGroupingColumns() {
         final ConstantObjectValue cov = ConstantObjectValue.of(Quantifier.constant(), "0", Type.primitiveType(Type.TypeCode.STRING, false));
@@ -622,6 +764,10 @@ class DecorrelateValuesRuleTest {
         doNotTreatQuantifierAsValuesBox(selectHaving);
     }
 
+    /**
+     * Make sure we don't allow values boxes with predicates. In principle, we could allow this as long as the
+     * predicates are tautologies, but it doesn't buy us much to do so.
+     */
     @Test
     void doNotUseValuesBoxWithPredicates() {
         final Quantifier rangeOne = rangeOneQun();
@@ -634,6 +780,10 @@ class DecorrelateValuesRuleTest {
         doNotTreatQuantifierAsValuesBox(notQuiteValuesQun);
     }
 
+    /**
+     * Do not allow a values box with multiple children, even if the cardinality
+     * is one.
+     */
     @Test
     void doNotAllowValuesBoxWithJoin() {
         final Quantifier rangeOneA = rangeOneQun();
@@ -643,9 +793,20 @@ class DecorrelateValuesRuleTest {
                 ImmutableList.of(rangeOneA, rangeOneB),
                 ImmutableList.of()
         ));
+
+        //
+        // Note that the cardinality for the join is still one
+        //
+        CardinalitiesProperty.Cardinalities cardinalities = CardinalitiesProperty.cardinalities().evaluate(valuesBox.getRangesOver());
+        assertEquals(CardinalitiesProperty.Cardinalities.exactlyOne(), cardinalities);
+
         doNotTreatQuantifierAsValuesBox(valuesBox);
     }
 
+    /**
+     * Disallow a values box over {@code range(2)} instead of {@code range(1)}. The cardinality here is
+     * different, and we'd expect
+     */
     @Test
     void doNotTreatRangeTwoAsValues() {
         final Quantifier rangeTwoQun = forEach(new TableFunctionExpression(
@@ -654,6 +815,12 @@ class DecorrelateValuesRuleTest {
         doNotTreatQuantifierAsValuesBox(valuesBox);
     }
 
+    /**
+     * Make sure we don't match a values box which references a constant value. In theory, if we
+     * checked that the constant was set to 1, this may be acceptable, but we'd need to make sure
+     * we generated an appropriate query plan constraint to ensure that if we cached the plan,
+     * we double check that this constant box is still set to 1.
+     */
     @Test
     void doNotTreatRangeWithConstantObjectValueAsValueBox() {
         final ConstantObjectValue endCov = ConstantObjectValue.of(Quantifier.constant(), "0", Type.primitiveType(Type.TypeCode.LONG, false));
@@ -663,6 +830,12 @@ class DecorrelateValuesRuleTest {
         doNotTreatQuantifierAsValuesBox(valuesBox);
     }
 
+    /**
+     * Reject a "values box" that includes correlations to other children at that same level.
+     * We do allow for the values box to have correlations to other parts of the tree, but this
+     * one is unsafe as we can't push the values box into anything that it correlates to. In theory,
+     * we could push it to other children.
+     */
     @Test
     void doNotUseValuesBoxWithCorrelationsInTheValue() {
         final Quantifier base = baseT();
@@ -680,8 +853,13 @@ class DecorrelateValuesRuleTest {
         testHelper.assertYieldsNothing(selectExpression, true);
     }
 
+    /**
+     * If we have an existential quantifier over a values box, we should not
+     * attempt to push it down. This is because the existential quantifier does
+     * not forward along its values in a way that is useful.
+     */
     @Test
-    void doNotMatchExistentialValuesQuantifier() {
+    void doNotPushDownExistentialValuesQuantifier() {
         final Quantifier valuesBox = valuesQun(LiteralValue.ofScalar(42L));
         final Quantifier existsValues = Quantifier.existential(valuesBox.getRangesOver());
 
@@ -692,5 +870,65 @@ class DecorrelateValuesRuleTest {
                 .build().buildSelect();
 
         testHelper.assertYieldsNothing(selectExpression, true);
+    }
+
+    /**
+     * Validate that the rule is not applied if all the children are existential quantifiers.
+     * The rule only needs to fire if there is at least one for each quantifier.
+     */
+    @Test
+    void doNotMatchIfAllExistentialQuantifiers() {
+        final Quantifier valuesBox = valuesQun(LiteralValue.ofScalar(42L));
+        final Quantifier existsValues = Quantifier.existential(valuesBox.getRangesOver());
+
+        final Quantifier base = baseT();
+        final Quantifier existsT = exists(selectWithPredicates(base,
+                fieldPredicate(base, "a", EQUALS_42)));
+        final SelectExpression selectExpression = join(existsValues, existsT)
+                .addResultColumn(Column.of(Optional.of("x"), LiteralValue.ofScalar("y")))
+                .addPredicate(new ExistsPredicate(existsValues.getAlias()))
+                .addPredicate(new ExistsPredicate(existsT.getAlias()))
+                .build().buildSelect();
+
+        // Note: it seems like we should _not_ match the rule here (rather than matching but
+        // not yielding anything). It could be that the multi-matcher some(matcher) is vacuously
+        // matching, which is leading this rule to be matched
+        testHelper.assertYieldsNothing(selectExpression, true);
+    }
+
+    /**
+     * Validate that if we had a select over just a values box, we do not attempt to
+     * push it down. This is not allowed as it would result in a select expression with
+     * no children.
+     */
+    @Test
+    void doNotPushDownIfOnlyChild() {
+        final Quantifier valuesBox = valuesQun(LiteralValue.ofScalar(true));
+        final SelectExpression selectOnlyValue = new SelectExpression(
+                LiteralValue.ofScalar("hello"),
+                ImmutableList.of(valuesBox),
+                ImmutableList.of(valuesBox.getFlowedObjectValue().withComparison(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true)))
+        );
+
+        testHelper.assertYieldsNothing(selectOnlyValue, true);
+    }
+
+    /**
+     * Validate that if we had a select over multiple values boxes, we do not attempt to
+     * push it down. This is not allowed as it would result in a select expression with
+     * no children. This is similar to {@link #doNotPushDownIfOnlyChild()}, but it validates
+     * things for cases where there are multiple children, not just one.
+     */
+    @Test
+    void doNotPushDownIfAllChildrenAreValues() {
+        final Quantifier valuesBox1 = valuesQun(LiteralValue.ofScalar("hello"));
+        final Quantifier valuesBox2 = valuesQun(LiteralValue.ofScalar("world"));
+        final SelectExpression selectOnlyValue = new SelectExpression(
+                LiteralValue.ofScalar(42L),
+                ImmutableList.of(valuesBox1, valuesBox2),
+                ImmutableList.of(valuesBox1.getFlowedObjectValue().withComparison(new Comparisons.ValueComparison(Comparisons.Type.LESS_THAN, valuesBox2.getFlowedObjectValue())))
+        );
+
+        testHelper.assertYieldsNothing(selectOnlyValue, true);
     }
 }
