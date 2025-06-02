@@ -586,11 +586,11 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         Semaphore gate = new Semaphore(0);
 
         final ItemHandler<Integer> itemHandler = (store, item, quotaManager) -> {
-            // Release the rest of the flow once handling of the first item initiated
-            gate.release();
             // First future hangs on, all others are immediately completed
             CompletableFuture<Void> future = (item.get() == 0) ? new CompletableFuture<>() : CompletableFuture.completedFuture(null);
             futures.add(future);
+            // Release the rest of the flow once handling of the first item initiated
+            gate.release();
             return future;
         };
 
@@ -630,11 +630,11 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         };
 
         final ItemHandler<Integer> itemHandler = (store, item, quotaManager) -> {
-            // Release the rest of the flow once handling of the first item initiated
-            gate.release();
             // First future hangs on, all others are immediately completed
             CompletableFuture<Void> future = (item.get() == 0) ? new CompletableFuture<>() : CompletableFuture.completedFuture(null);
             futures.add(future);
+            // Release the rest of the flow once handling of the first item initiated
+            gate.release();
             return future;
         };
 
@@ -683,9 +683,9 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         Semaphore gate = new Semaphore(0);
 
         final CursorFactory<Integer> cursorFactory = (store, lastResult, rowLimit) -> {
+            cursor.set(new SingleItemCursor<>(store.getExecutor(), future));
             // Release the rest of the flow once handling of the first item initiated
             gate.release();
-            cursor.set(new SingleItemCursor<>(store.getExecutor(), future));
             return cursor.get();
         };
 
