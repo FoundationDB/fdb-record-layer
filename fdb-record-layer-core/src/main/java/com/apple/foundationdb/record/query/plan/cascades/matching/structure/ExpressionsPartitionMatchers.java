@@ -51,7 +51,7 @@ public class ExpressionsPartitionMatchers {
     @Nonnull
     @SuppressWarnings("unchecked")
     public static BindingMatcher<Collection<ExpressionPartition<? extends RelationalExpression>>> filterPartition(@Nonnull final Predicate<ExpressionPartition<? extends RelationalExpression>> predicate,
-                                                                                                                  @Nonnull final BindingMatcher<? extends Iterable<? extends ExpressionPartition<RelationalExpression>>> downstream) {
+                                                                                                                  @Nonnull final BindingMatcher<? extends Iterable<? extends ExpressionPartition<? extends RelationalExpression>>> downstream) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream(
                 (Class<Collection<ExpressionPartition<? extends RelationalExpression>>>)(Class<?>)Collection.class,
                 Extractor.of(planPartitions ->
