@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.MetaDataVersionStampStoreStateCacheFactory;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.ParameterizedTestUtils;
@@ -286,7 +287,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest
     @BooleanSource
-    void failIfHeaderExists(boolean cached) {
+    void noRepairIfHeaderExists(boolean cached) {
         // We don't allow repair if it is in the database, or if it is cached.
         // In theory, we could use the cached value to inform what we fabricate, but the chance that you will discover
         // that it is missing from the DB, but still have it in cache is pretty slim.
@@ -307,8 +308,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore.Builder builder = getStoreBuilder(context, recordMetaData)
                     .setFormatVersion(FormatVersion.getMaximumSupportedVersion());
-            assertThatThrownBy(() -> repairHeader(context, 1, builder))
-                    .isInstanceOf(RecordCoreException.class);
+            assertThat(repairHeader(context, 1, builder, FormatVersion.SAVE_VERSION_WITH_RECORD)).isFalse();
             commit(context);
         }
     }
@@ -616,14 +616,16 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
     }
 
     private void repairHeader(final FDBRecordContext context, final int userVersion,
-                              final FDBRecordStore.Builder builder) {
-        repairHeader(context, userVersion, builder, FormatVersion.SAVE_VERSION_WITH_RECORD);
+                                 final FDBRecordStore.Builder builder) {
+        assertThat(repairHeader(context, userVersion, builder, FormatVersion.SAVE_VERSION_WITH_RECORD)).isTrue();
     }
 
-    private void repairHeader(final FDBRecordContext context, final int userVersion,
-                              final FDBRecordStore.Builder builder, final FormatVersion minimumPossibleFormatVersion) {
-        recordStore = context.asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION,
+    private boolean repairHeader(final FDBRecordContext context, final int userVersion,
+                                 final FDBRecordStore.Builder builder, final FormatVersion minimumPossibleFormatVersion) {
+        final NonnullPair<Boolean, FDBRecordStore> result = context.asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_VERSION,
                 builder.repairMissingHeader(userVersion, minimumPossibleFormatVersion));
+        recordStore = result.getRight();
+        return result.getLeft();
     }
 
     @Nonnull

@@ -101,6 +101,7 @@ import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSeriali
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerializationRegistry;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
@@ -5646,10 +5647,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          * suffix or not. It is probably possible for {@code repairMissingHeader} to determine what to do based on the
          * rest of the data in the store, but to keep this simple, upgrading across those versions is not supported.
          *
-         * @return a store
+         * @return a boolean indicating whether a repair needed to be done ({@code true}) or not ({@code false}) and
+         * the opened store.
          */
         @API(API.Status.INTERNAL)
-        public CompletableFuture<FDBRecordStore> repairMissingHeader(final int userVersion, FormatVersion minimumPossibleFormatVersion) {
+        public CompletableFuture<NonnullPair<Boolean, FDBRecordStore>> repairMissingHeader(final int userVersion, FormatVersion minimumPossibleFormatVersion) {
             if (!formatVersion.isAtLeast(minimumPossibleFormatVersion)) {
                 throw new RecordCoreArgumentException("minimumPossibleFormatVersion is greater than the target formatVerson")
                         .addLogInfo(LogMessageKeys.FORMAT_VERSION, minimumPossibleFormatVersion)
@@ -5668,11 +5670,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                     storeStateCacheEntry.getRecordStoreState().getStoreHeader())));
         }
 
-        private CompletableFuture<FDBRecordStore> repairMissingHeader(final int userVersion,
-                                                                      @Nonnull final FDBRecordStore store,
-                                                                      @Nonnull final RecordMetaDataProto.DataStoreInfo existing) {
+        private CompletableFuture<NonnullPair<Boolean, FDBRecordStore>> repairMissingHeader(final int userVersion,
+                                                                                     @Nonnull final FDBRecordStore store,
+                                                                                     @Nonnull final RecordMetaDataProto.DataStoreInfo existing) {
             if (!existing.equals(RecordMetaDataProto.DataStoreInfo.getDefaultInstance())) {
-                throw new RecordCoreException("Store header is not missing");
+                return store.checkVersion(userVersionChecker, StoreExistenceCheck.ERROR_IF_NOT_EXISTS)
+                        .thenApply(checkVersionDidSomething -> NonnullPair.of(false, store));
             }
             final RecordMetaData recordMetaData = metaDataProvider.getRecordMetaData();
             final RecordMetaDataProto.DataStoreInfo.Builder dataStoreInfo = RecordMetaDataProto.DataStoreInfo.newBuilder()
@@ -5745,7 +5748,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                             recordMetaData.getAllIndexes().stream()
                                     .map(store::markIndexDisabled)
                                     .collect(Collectors.toList()))
-                    .thenApply(ignored -> store));
+                    .thenApply(ignored -> NonnullPair.of(true, store)));
         }
     }
 
