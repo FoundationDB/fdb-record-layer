@@ -44,7 +44,6 @@ public class JavaCallFunction extends BuiltInFunction<Value> {
         super("java_call", List.of(Type.primitiveType(Type.TypeCode.STRING)), new Type.Any(), JavaCallFunction::findFunction);
     }
 
-    @SuppressWarnings({"DataFlowIssue"})
     @Nonnull
     private static Value findFunction(@Nonnull final BuiltInFunction<Value> ignored, final List<? extends Typed> arguments) {
         Verify.verify(!arguments.isEmpty());

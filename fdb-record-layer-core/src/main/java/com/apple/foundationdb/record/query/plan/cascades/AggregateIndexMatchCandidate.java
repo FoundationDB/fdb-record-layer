@@ -245,15 +245,27 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
 
     private int indexWithPermutation(int i) {
         if (isPermuted()) {
+            // There are groupingKeyExpression.getColumnSize() = groupingCount + groupedCount columns in total.
+            // This needs to map the position in the permuted ordering of columns to their ordering in the
+            // original expression. The permutation process takes the final permutedCount elements of the
+            // grouping columns and moves them to the end. So, for groupingCount = 4, groupedCount = 2,
+            // and permutedCount = 3, that might look like:
+            //    [0, 1, 2, 3, 4, 5] -> [0, 4, 5, 1, 2, 3]
+            // So, the first (groupingCount - permutedCount) columns stay the same. The next groupedCount
+            // columns in the permuted list have been shifted over permutedCount columns from the right,
+            // so we add permutedCount to get their original position. The rest of the columns
+            // were moved over groupedCount columns from the left, so we subtract groupedCount to get
+            // their original position
             int permutedCount = getPermutedCount();
             final GroupingKeyExpression groupingKeyExpression = (GroupingKeyExpression)index.getRootExpression();
             int groupingCount = groupingKeyExpression.getGroupingCount();
+            int groupedCount = groupingKeyExpression.getGroupedCount();
             if ( i < groupingCount - permutedCount) {
                 return i;
-            } else if (i >= groupingCount - permutedCount && i < groupingCount - permutedCount + groupingKeyExpression.getGroupedCount()) {
+            } else if (i < groupingCount - permutedCount + groupedCount) {
                 return i + permutedCount;
             } else {
-                return i - permutedCount;
+                return i - groupedCount;
             }
         } else {
             return i;

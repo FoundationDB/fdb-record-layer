@@ -40,8 +40,10 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
@@ -57,6 +59,7 @@ import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.hamcrest.Matcher;
@@ -77,6 +80,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -94,6 +98,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -456,7 +461,9 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                                     .where(RecordQueryPlanMatchers.scanComparisons(ScanComparisons.equalities(ListMatcher.exactly(ScanComparisons.anyValueComparison()))))
                                     .and(RecordQueryPlanMatchers.isReverse())
                     )
-            ));
+            ).where(RecordQueryPlanMatchers.comparisonKeyValues(ListMatcher.exactly(
+                    ValueMatchers.fieldValueWithFieldNames("m"), ValueMatchers.fieldValueWithFieldNames("num_value_2"), ValueMatchers.fieldValueWithFieldNames("num_value_3_indexed")
+            ))));
 
             assertEquals(inComparisonCase.getContinuationPlanHash(), plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
@@ -537,7 +544,9 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                                     .where(RecordQueryPlanMatchers.scanComparisons(ScanComparisons.equalities(ListMatcher.exactly(ScanComparisons.anyValueComparison()))))
                                     .and(RecordQueryPlanMatchers.isReverse())
                     )
-            ));
+            ).where(RecordQueryPlanMatchers.comparisonKeyValues(ListMatcher.exactly(
+                    ValueMatchers.fieldValueWithFieldNames("m"), ValueMatchers.fieldValueWithFieldNames("str_value_indexed"), ValueMatchers.fieldValueWithFieldNames("num_value_3_indexed")
+            ))));
 
             assertEquals(inComparisonCase.getContinuationPlanHash(), plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
@@ -690,7 +699,9 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                             RecordQueryPlanMatchers.aggregateIndexPlan()
                                     .where(RecordQueryPlanMatchers.isReverse())
                     )
-            ));
+            ).where(RecordQueryPlanMatchers.comparisonKeyValues(ListMatcher.exactly(
+                    ValueMatchers.fieldValueWithFieldNames("m"), ValueMatchers.fieldValueWithFieldNames("x"), ValueMatchers.fieldValueWithFieldNames("num_value_2"))
+            )));
 
             assertEquals(inComparisonCase.getContinuationPlanHash(), plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
@@ -732,6 +743,154 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
                 });
             }
         }
+    }
+
+    @Nonnull
+    static Stream<InComparisonCase> testMaxUniqueByStr2And3WithDifferentOrderingKeys() {
+        ConstantObjectValue constant = ConstantObjectValue.of(Quantifier.uniqueID(), "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.STRING, false)));
+        List<String> literalStrList = ImmutableList.of("even", "odd", "empty", "other1", "other2");
+        return Stream.of(
+                new InComparisonCase("byParameter", new Comparisons.ParameterComparison(Comparisons.Type.IN, "strValueList"), strValueList -> Bindings.newBuilder().set("strValueList", strValueList).build(), 755361732, -85959138),
+                new InComparisonCase("byLiteral", new Comparisons.ListComparison(Comparisons.Type.IN, literalStrList), strValueList -> {
+                    Assumptions.assumeTrue(strValueList.equals(literalStrList));
+                    return Bindings.EMPTY_BINDINGS;
+                }, 381518259, -459802611),
+                new InComparisonCase("byConstantObjectValue", new Comparisons.ValueComparison(Comparisons.Type.IN, constant), strValueList -> constantBindings(constant, strValueList), -603175313, -1444496183)
+        );
+    }
+
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    @ParameterizedTest(name = "testMaxUniqueByStr2And3WithDifferentOrderingKeys[inComparisonCase={0}]")
+    @MethodSource
+    void testMaxUniqueByStr2And3WithDifferentOrderingKeys(InComparisonCase inComparisonCase) throws Exception {
+        Assumptions.assumeTrue(useCascadesPlanner);
+        final RecordMetaDataHook hook = metaData -> {
+            metaData.addIndex(metaData.getRecordType("MySimpleRecord"), maxUniqueByStrValueOrderBy2And3());
+            metaData.removeIndex("MySimpleRecord$num_value_unique"); // get rid of unique index as we don't want uniqueness constraint
+        };
+        complexQuerySetup(hook);
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+
+            // Add in a few more records. These will serve to create duplicates with the records included in the
+            // complex query setup hook
+            final Map<Tuple, Integer> expected = expectedMaxUniquesByStrValueNumValue2NumValue3();
+            final AtomicLong recNoCounter = new AtomicLong(100_000L);
+            saveOtherMax("other1", 980, 0, 0, recNoCounter, expected);
+            saveOtherMax("other2", 980, 1, 0, recNoCounter, expected);
+            saveOtherMax("other1", 992, 2, 0, recNoCounter, expected);
+            saveOtherMax("other2", 992, 2, 1, recNoCounter, expected);
+            saveOtherMax("other1", 972, 1, 3, recNoCounter, expected);
+            saveOtherMax("other2", 972, 2, 3, recNoCounter, expected);
+
+            final Object[] expectedArr = expected.entrySet().stream()
+                    .map(entry -> {
+                        Tuple key = entry.getKey();
+                        return ImmutableMap.<String, Object>of(
+                                "str_value_indexed", key.getString(0),
+                                "num_value_2", (int) key.getLong(1),
+                                "num_value_3_indexed", (int) key.getLong(2),
+                                "m", entry.getValue());
+                    })
+                    .toArray();
+
+            planner.setConfiguration(planner.getConfiguration().asBuilder().setAttemptFailedInJoinAsUnionMaxSize(10).build());
+
+            // Issue a query like:
+            //  SELECT str_value_indexed, max(num_value_unique) as m, num_value_2, num_value_3_indexed
+            //    FROM MySimpleRecord
+            //    GROUP BY str_value_indexed, num_value_2_indexed, num_value_3
+            //    HAVING str_value_indexed IN $strValueList
+            //    ORDER BY max(num_value_unique), num_value_2_indexed, num_value_3
+            // We will issue this with different ordering keys
+
+            final List<String> totalOrderingKey = ImmutableList.of("m", "num_value_2", "num_value_3_indexed");
+            boolean checkedPlanHash = false;
+            for (int i = 0; i <= totalOrderingKey.size(); i++) {
+                final List<String> orderingKey = totalOrderingKey.subList(0, i);
+
+                final RecordQueryPlan plan = planGraph(() -> {
+                    final var base = fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
+                    final var selectWhere = selectWhereQun(base, null);
+                    final var groupedByQun = maxByGroup(selectWhere, "num_value_unique", ImmutableList.of("str_value_indexed", "num_value_2", "num_value_3_indexed"));
+
+                    final var strValueReference = FieldValue.ofOrdinalNumberAndFuseIfPossible(FieldValue.ofOrdinalNumber(groupedByQun.getFlowedObjectValue(), 0), 0);
+                    final var qun = selectHaving(groupedByQun,
+                            strValueReference.withComparison(inComparisonCase.getComparison()),
+                            ImmutableList.of("str_value_indexed", "m", "num_value_2", "num_value_3_indexed"));
+                    final AliasMap aliasMap = AliasMap.ofAliases(qun.getAlias(), Quantifier.current());
+                    final List<Value> sortValues = orderingKey.stream()
+                            .map(fieldName -> FieldValue.ofFieldName(qun.getFlowedObjectValue(), fieldName).rebase(aliasMap))
+                            .collect(Collectors.toList());
+                    return Reference.initialOf(sortExpression(sortValues, true, qun));
+                });
+
+                var aggregatePlanMatcher = RecordQueryPlanMatchers.aggregateIndexPlan()
+                        .where(RecordQueryPlanMatchers.scanComparisons(ScanComparisons.equalities(ListMatcher.exactly(ScanComparisons.anyValueComparison()))));
+                if (orderingKey.isEmpty()) {
+                    // If we don't have an ordering constraint, use an IN-join.
+                    assertMatchesExactly(plan,
+                            RecordQueryPlanMatchers.inJoinPlan(
+                                    RecordQueryPlanMatchers.mapPlan(aggregatePlanMatcher)));
+                } else {
+                    // If we do have an ordering constraint, we need to use an IN-union.
+                    // The ordering key should be:
+                    //  1. Fields in the requested order
+                    //  2. The str_value_indexed field (meaning that we'll consume all values from a leg of the union for a fixed value of the ordering key)
+                    //  3. Any remaining elements in the underlying order
+                    final List<BindingMatcher<FieldValue>> comparisonKeyFieldMatchers = Stream.concat(
+                            orderingKey.stream(),
+                            Stream.concat(Stream.of("str_value_indexed"), totalOrderingKey.subList(i, totalOrderingKey.size()).stream())
+                    ).map(ValueMatchers::fieldValueWithFieldNames).collect(Collectors.toList());
+                    assertMatchesExactly(plan,
+                            RecordQueryPlanMatchers.inUnionOnValuesPlan(
+                                    RecordQueryPlanMatchers.mapPlan(
+                                            aggregatePlanMatcher.and(RecordQueryPlanMatchers.isReverse())))
+                                    .where(RecordQueryPlanMatchers.comparisonKeyValues(ListMatcher.exactly(comparisonKeyFieldMatchers)))
+                    );
+                }
+
+                // When we have a total ordering, compare the plan hashes. We only check this one plan because we only encode
+                // one plan hash overall, and we've hard-coded the one with the largest comparison key
+                if (orderingKey.size() == totalOrderingKey.size()) {
+                    assertEquals(inComparisonCase.getContinuationPlanHash(), plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+                    assertEquals(inComparisonCase.getLegacyPlanHash(), plan.planHash(PlanHashable.CURRENT_LEGACY));
+                    checkedPlanHash = true;
+                }
+
+                // Validate contents
+                final List<Map<String, Object>> queriedList = queryAsMaps(plan, inComparisonCase.getBindings(ImmutableList.of("even", "odd", "empty", "other1", "other2")));
+                assertThat(queriedList, containsInAnyOrder(expectedArr));
+
+                // Validate ordering
+                Tuple lastSeen = null;
+                for (Map<String, Object> queried : queriedList) {
+                    Tuple comparisonKey = Tuple.fromItems(orderingKey.stream().map(queried::get).collect(Collectors.toList()));
+                    if (lastSeen != null) {
+                        assertThat(comparisonKey, lessThanOrEqualTo(lastSeen));
+                    }
+                    lastSeen = comparisonKey;
+                }
+            }
+
+            // Validate that we actually checked the plan hash. This also double checks that we try the full comparison
+            // key case, which is also the case that exposes the bug alluded to by:
+            //  https://github.com/FoundationDB/fdb-record-layer/issues/3331
+            assertTrue(checkedPlanHash, "should have checked plan hashes during test");
+        }
+    }
+
+    private void saveOtherMax(@Nonnull String strValue, int numValueUnique, int numValue2, int numValue3, @Nonnull AtomicLong recNoCounter, @Nonnull Map<Tuple, Integer> collector) {
+        recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                .setRecNo(recNoCounter.getAndIncrement())
+                .setStrValueIndexed(strValue)
+                .setNumValueUnique(numValueUnique)
+                .setNumValue2(numValue2)
+                .setNumValue3Indexed(numValue3)
+                .build());
+        collector.compute(Tuple.from(strValue, numValue2, numValue3),
+                (key, oldMax) -> oldMax == null || oldMax < numValueUnique ? numValueUnique : oldMax);
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
@@ -958,6 +1117,19 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
 
             commit(context);
         }
+    }
+
+    @Nonnull
+    private static Map<Tuple, Integer> expectedMaxUniquesByStrValueNumValue2NumValue3() {
+        Map<Tuple, Integer> expected = new HashMap<>();
+        for (String strValue : List.of("even", "odd")) {
+            for (int numValue2 = 0; numValue2 < 3; numValue2++) {
+                final int nv2 = numValue2;
+                Map<Integer, Integer> maxBy3 = expectedMaxUniquesByNumValue3(x -> x == nv2, strValue::equals);
+                maxBy3.forEach((nv3, maxUnique) -> expected.put(Tuple.from(strValue, nv2, nv3), maxUnique));
+            }
+        }
+        return expected;
     }
 
     @Nonnull

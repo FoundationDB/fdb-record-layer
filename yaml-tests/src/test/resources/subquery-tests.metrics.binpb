@@ -1,7 +1,7 @@
 ë)
 [
 subquery-testsIEXPLAIN select ida from a where exists (select ida from a where ida = 1);‹)
-ßö˜‹Ä İÿ­()0×Â8J@ÀSCAN(<,>) | TFILTER A | FILTER _.IDA EQUALS promote(@c15 AS INT) | MAP (_.IDA AS IDA) | DEFAULT NULL | FLATMAP q0 -> { SCAN(<,>) | TFILTER A | FILTER q0 NOT_NULL AS q1 RETURN (q1.IDA AS IDA) }¨'digraph G {
+ßÔéÃ ˆŠà()0ààî8J@ÀSCAN(<,>) | TFILTER A | FILTER _.IDA EQUALS promote(@c15 AS INT) | MAP (_.IDA AS IDA) | DEFAULT NULL | FLATMAP q0 -> { SCAN(<,>) | TFILTER A | FILTER q0 NOT_NULL AS q1 RETURN (q1.IDA AS IDA) }¨'digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -31,10 +31,10 @@
     rankDir=LR;
     2 -> 8 [ color="red" style="invis" ];
   }
-}â)
+}ã)
 Y
-subquery-testsGEXPLAIN select idx from x where exists (select x from a where ida = 1);„)
-û™©ñÌ é Î(.0Ç¼t8M@¼SCAN(<,>) | TFILTER A | FILTER _.IDA EQUALS promote(@c15 AS INT) | MAP (_.X AS X) | DEFAULT NULL | FLATMAP q0 -> { SCAN(<,>) | TFILTER X | FILTER q0 NOT_NULL AS q1 RETURN (q1.IDX AS IDX) }¦'digraph G {
+subquery-testsGEXPLAIN select idx from x where exists (select x from a where ida = 1);…)
+û‰•ìË É¨(.0Ø”ƒ8M@¼SCAN(<,>) | TFILTER A | FILTER _.IDA EQUALS promote(@c15 AS INT) | MAP (_.X AS X) | DEFAULT NULL | FLATMAP q0 -> { SCAN(<,>) | TFILTER X | FILTER q0 NOT_NULL AS q1 RETURN (q1.IDX AS IDX) }¦'digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -64,10 +64,10 @@ Y
     rankDir=LR;
     2 -> 8 [ color="red" style="invis" ];
   }
-}î*
+}ï*
 m
-subquery-tests[EXPLAIN select x from a where exists (select a.x, max(idb) from b where q > a.x group by q)ü)
-¤Ğ„¥µ «Üç(10úôW8G@ìSCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP (_ AS _0) | AGG (max_i(_._0.IDB) AS _0) GROUP BY (_._0.Q AS _0) | MAP (q0.X AS X, _._1._0 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X AS X) }î'digraph G {
+subquery-tests[EXPLAIN select x from a where exists (select a.x, max(idb) from b where q > a.x group by q)ı)
+¤ÉüÈµ ÊêĞ(10®¦8G@ìSCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP (_ AS _0) | AGG (max_i(_._0.IDB) AS _0) GROUP BY (_._0.Q AS _0) | MAP (q0.X AS X, _._1._0 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X AS X) }î'digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -97,10 +97,10 @@ m
     rankDir=LR;
     2 -> 5 [ color="red" style="invis" ];
   }
-}ê*
+}ë*
 i
-subquery-testsWEXPLAIN select x from a where exists (select x, max(idb) from b where q > x group by q)ü)
-¤Š¬Úµ ¼™¡(10áo8G@ìSCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP (_ AS _0) | AGG (max_i(_._0.IDB) AS _0) GROUP BY (_._0.Q AS _0) | MAP (q0.X AS X, _._1._0 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X AS X) }î'digraph G {
+subquery-testsWEXPLAIN select x from a where exists (select x, max(idb) from b where q > x group by q)ı)
+¤æµ®µ ½ç¹	(10‚…Ş8G@ìSCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP (_ AS _0) | AGG (max_i(_._0.IDB) AS _0) GROUP BY (_._0.Q AS _0) | MAP (q0.X AS X, _._1._0 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X AS X) }î'digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -130,10 +130,10 @@ i
     rankDir=LR;
     2 -> 5 [ color="red" style="invis" ];
   }
-}¢+
+}£+
 n
-subquery-tests\EXPLAIN select x from a where exists (select max(x), max(idb) from b where q > x group by q)¯*
-¤´·™µ êÁÁ(10€ëc8G@ƒSCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP (_ AS _0) | AGG (max_i(q0.X) AS _0, max_i(_._0.IDB) AS _1) GROUP BY (_._0.Q AS _0) | MAP (_._1._0 AS _0, _._1._1 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X AS X) }Š(digraph G {
+subquery-tests\EXPLAIN select x from a where exists (select max(x), max(idb) from b where q > x group by q)°*
+¤ÖÓ©µ ¦™(10›È¦8G@ƒSCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP (_ AS _0) | AGG (max_i(q0.X) AS _0, max_i(_._0.IDB) AS _1) GROUP BY (_._0.Q AS _0) | MAP (_._1._0 AS _0, _._1._1 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X AS X) }Š(digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -163,10 +163,10 @@ n
     rankDir=LR;
     2 -> 5 [ color="red" style="invis" ];
   }
-}¤+
+}¥+
 p
-subquery-tests^EXPLAIN select x from a where exists (select max(a.x), max(idb) from b where q > x group by q)¯*
-¤Ëôµ ®ñÂ(10éÓc8G@ƒSCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP (_ AS _0) | AGG (max_i(q0.X) AS _0, max_i(_._0.IDB) AS _1) GROUP BY (_._0.Q AS _0) | MAP (_._1._0 AS _0, _._1._1 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X AS X) }Š(digraph G {
+subquery-tests^EXPLAIN select x from a where exists (select max(a.x), max(idb) from b where q > x group by q)°*
+¤µµ ßãç(10Èœœ8G@ƒSCAN(<,>) | TFILTER A | FLATMAP q0 -> { ISCAN(IB [[GREATER_THAN q0.X]]) | MAP (_ AS _0) | AGG (max_i(q0.X) AS _0, max_i(_._0.IDB) AS _1) GROUP BY (_._0.Q AS _0) | MAP (_._1._0 AS _0, _._1._1 AS _1) | DEFAULT NULL | FILTER _ NOT_NULL AS q0 RETURN (q0.X AS X) }Š(digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Reco
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
@@ -43,7 +42,6 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.physicalQuantifier;
@@ -229,21 +227,24 @@ public class PushFilterThroughFetchRule extends ImplementationCascadesRule<Recor
     }
 
     @Nullable
-    private QueryPredicate pushLeafPredicate(@Nonnull RecordQueryFetchFromPartialRecordPlan fetchPlan,
-                                             @Nonnull CorrelationIdentifier oldInnerAlias,
-                                             @Nonnull CorrelationIdentifier newInnerAlias,
+    private QueryPredicate pushLeafPredicate(@Nonnull final RecordQueryFetchFromPartialRecordPlan fetchPlan,
+                                             @Nonnull final CorrelationIdentifier oldInnerAlias,
+                                             @Nonnull final CorrelationIdentifier newInnerAlias,
                                              @Nonnull final QueryPredicate leafPredicate) {
         if (!(leafPredicate instanceof PredicateWithValue)) {
             // Only values depend on aliases -- returning this leaf is ok as it
             // appears to be pushable as is.
             return leafPredicate;
         }
-        final PredicateWithValue predicateWithValue = (PredicateWithValue)leafPredicate;
-
-        final Value value = Objects.requireNonNull(predicateWithValue.getValue());
-        final Optional<Value> pushedValueOptional = fetchPlan.pushValue(value, oldInnerAlias, newInnerAlias);
+        final var predicateWithValue = (PredicateWithValue)leafPredicate;
+        final var pushedLeafPredicateOptional =
+                predicateWithValue.translateValueAndComparisonsMaybe(
+                        value -> fetchPlan.pushValue(value, oldInnerAlias, newInnerAlias),
+                        comparison -> comparison.replaceValuesMaybe(value -> {
+                            return fetchPlan.pushValue(value, oldInnerAlias, newInnerAlias);
+                        }));
         // Something went wrong when attempting to push this value through the fetch.
         // We must return null to prevent pushing of this conjunct.
-        return pushedValueOptional.map(predicateWithValue::withValue).orElse(null);
+        return pushedLeafPredicateOptional.orElse(null);
     }
 }
