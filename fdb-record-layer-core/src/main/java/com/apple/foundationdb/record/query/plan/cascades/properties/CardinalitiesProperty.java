@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
@@ -196,7 +195,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         public Cardinalities visitRecordQueryAggregateIndexPlan(@Nonnull final RecordQueryAggregateIndexPlan aggregateIndexPlan) {
             final var groupingValueMaybe = aggregateIndexPlan.getGroupingValueMaybe();
             if (groupingValueMaybe.isEmpty()) {
-                return Cardinalities.atMostOne;
+                return Cardinalities.atMostOne();
             }
             final var groupingValue = groupingValueMaybe.get();
             final var indexScanPlan = aggregateIndexPlan.getIndexPlan();
@@ -210,7 +209,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
                             indexScanPlan.isReverse(),
                             false);
             if (ordering.getEqualityBoundValues().contains(groupingValue)) {
-                return Cardinalities.atMostOne;
+                return Cardinalities.atMostOne();
             } else {
                 return Cardinalities.unknownMaxCardinality();
             }
@@ -329,7 +328,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
                 if (primaryKeyValuesOptional.isPresent()) {
                     final var primaryKeyValues = primaryKeyValuesOptional.get();
                     if (equalityBoundValues.containsAll(primaryKeyValues)) {
-                        return Cardinalities.atMostOne;
+                        return Cardinalities.atMostOne();
                     }
                 }
             }
@@ -345,7 +344,7 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
                                 .map(keyValue -> keyValue.rebase(translationMap))
                                 .collect(ImmutableList.toImmutableList());
                 if (equalityBoundValues.containsAll(keyValues)) {
-                    return Cardinalities.atMostOne;
+                    return Cardinalities.atMostOne();
                 }
             }
 
@@ -646,11 +645,11 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
             // if we do not have any grouping value, we will apply the aggregation(s) over the entire child result set
             // and return a single row comprising the aggregation(s) result
             if (element.getGroupingValue() == null) {
-                return Cardinalities.exactlyOne;
+                return Cardinalities.exactlyOne();
             }
             // if the grouping value is constant, the cardinality ranges between 0 and 1.
             if (element.getGroupingValue().isConstant()) {
-                return Cardinalities.atMostOne;
+                return Cardinalities.atMostOne();
             }
             return Cardinalities.unknownMaxCardinality();
         }
@@ -827,20 +826,10 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         @Nonnull
         private Cardinalities fromQuantifier(@Nonnull final Quantifier quantifier) {
             if (quantifier instanceof Quantifier.Existential) {
-                return Cardinalities.exactlyOne;
-            } else if (quantifier instanceof Quantifier.ForEach) {
-                Cardinalities rangeOverCardinalities = visit(quantifier.getRangesOver().get());
-                if (((Quantifier.ForEach)quantifier).isNullOnEmpty()) {
-                    // Null on empty quantifiers always return at least one value
-                    return rangeOverCardinalities.floor(1L);
-                }
-                return rangeOverCardinalities;
-            } else if (quantifier instanceof Quantifier.Physical) {
-                return visit(((Quantifier.Physical)quantifier).getRangesOverPlan());
-            } else {
-                throw new RecordCoreException("unsupported quantifier value type",
-                        LogMessageKeys.VALUE, quantifier);
+                return Cardinalities.exactlyOne();
             }
+            // Should this be adjusted to add .floor(1) to null-if-empty quantifiers?
+            return visit(quantifier.getRangesOver().get());
         }
 
         @Nonnull
@@ -925,8 +914,14 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
             return unknownCardinalities;
         }
 
+        @Nonnull
         public static Cardinalities exactlyOne() {
             return exactlyOne;
+        }
+
+        @Nonnull
+        public static Cardinalities atMostOne() {
+            return atMostOne;
         }
 
         @Nonnull

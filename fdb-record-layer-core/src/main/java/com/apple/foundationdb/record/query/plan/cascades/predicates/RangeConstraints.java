@@ -413,29 +413,6 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
                 .allMatch(maybeAdded -> maybeAdded.orElse(false));
 
         return allAdded ? constraintsBuilder.build() : Optional.empty();
-
-        /*
-        final CompilableRange newEvaluableRange;
-
-        if (evaluableRange != null) {
-            final var newEvaluableRangeOptional = evaluableRange.translateRange(comparisonTranslator);
-            if (newEvaluableRangeOptional.isEmpty()) {
-                return Optional.empty();
-            }
-            newEvaluableRange = newEvaluableRangeOptional.get();
-        } else {
-            newEvaluableRange = null;
-        }
-        final var newDeferredRangesBuilder = ImmutableSet.<Comparisons.Comparison>builder();
-        for (final var deferredRange : deferredRanges) {
-            final var newDeferredRangeOptional = comparisonTranslator.apply(deferredRange);
-            if (newDeferredRangeOptional.isEmpty()) {
-                return Optional.empty();
-            }
-            newDeferredRangesBuilder.add(newDeferredRangeOptional.get());
-        }
-        return Optional.of(new RangeConstraints(newEvaluableRange, newDeferredRangesBuilder.build()));
-         */
     }
 
     @Override

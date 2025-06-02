@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
@@ -51,6 +52,12 @@ public interface StreamingValue extends Value {
                                                                @Nullable byte[] continuation,
                                                                @Nonnull ExecuteProperties executeProperties);
 
+    /**
+     * Get the cardinality bounds for this streaming value.
+     *
+     * @return a min and max cardinality bound for this value
+     */
+    @API(API.Status.INTERNAL)
     @Nonnull
     CardinalitiesProperty.Cardinalities getCardinalities();
 }
