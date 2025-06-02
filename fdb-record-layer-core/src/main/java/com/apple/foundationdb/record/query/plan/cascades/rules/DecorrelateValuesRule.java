@@ -77,15 +77,49 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * }</pre>
  *
  * <p>
- * That is, the parameters are expressed on the left hand side of the join, and the function
+ * That is, the parameters are expressed on the left-hand side of the join, and the function body is now
+ * in the right-hand side with correlations leading to its value box.
  * </p>
  *
  * <p>
- * It may be somewhat hard to see, but this rule is actually useful for values in-lining. That is,
- * by moving the values box around so that each one is closer to where it references, and replacing any
- * references to the values box within its select (in the result value and predicates) with direct
- * references to the values in question.
+ * This rule will then help facilitate value in-lining, in that it will detect cases where a select expression
+ * has a child that is a values box and then re-write any correlated children. So, in the above expression,
+ * it can push down the values box one level, giving us:
  * </p>
+ *
+ * <pre>{@code
+ * SELECT f.d
+ *   FROM (SELECT c, d
+ *           FROM (SELECT 42 AS x, 'hello' as y FROM range(1)) p,
+ *                T
+ *           WHERE a = p.x AND b = p.y
+ *   ) f
+ *   WHERE f.c IS NULL
+ * }</pre>
+ *
+ * <p>
+ * The new child is also eligible for value decorrelation, leading to the expression:
+ * </p>
+ *
+ * <pre>{@code
+ * SELECT f.d
+ *   FROM (SELECT c, d
+ *           FROM T
+ *           WHERE a = 42 AND b = 'hello'
+ *   ) f
+ *   WHERE f.c IS NULL
+ * }</pre>
+ *
+ * <p>
+ * At this point, this rule is done, but further straightforward selection merging can rewrite the expression
+ * as:
+ * </p>
+ *
+ * <pre>{@code
+ * SELECT T.d
+ *   FROM T
+ *   WHERE a = 42 AND b = 'hello' AND c IS NULL
+ * }</pre>
  */
 public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpression> {
 
