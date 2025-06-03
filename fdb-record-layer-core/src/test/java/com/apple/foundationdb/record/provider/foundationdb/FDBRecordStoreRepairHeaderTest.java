@@ -91,7 +91,7 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
                 // This should only fail when a new format version is added. If this test fails, the developer should
                 // make any modifications to repairMissingHeader to accommodate the new version, and then update this
                 // to the new value
-                .isEqualTo(FormatVersion.RECORD_COUNT_STATE);
+                .isEqualTo(FormatVersion.STORE_LOCK_STATE);
     }
 
     @ParameterizedTest
