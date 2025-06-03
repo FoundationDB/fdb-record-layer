@@ -880,7 +880,7 @@ public class StandardQueryTests {
             }
         }
     }
-    
+
     @Test
     void testBitmap() throws Exception {
         final String query = "SELECT BITMAP_CONSTRUCT_AGG(BITMAP_BIT_POSITION(uid)) as bitmap, category, BITMAP_BUCKET_OFFSET(uid) as offset FROM T1\n" +
