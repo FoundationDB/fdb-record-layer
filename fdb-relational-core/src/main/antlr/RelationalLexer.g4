@@ -127,8 +127,6 @@ INSERT:                              'INSERT';
 INTERVAL:                            'INTERVAL';
 INTO:                                'INTO';
 IS:                                  'IS';
-IS_DISTINCT_FROM:                    'IS DISTINCT FROM';
-IS_NOT_DISTINCT_FROM:                'IS NOT DISTINCT FROM';
 ITERATE:                             'ITERATE';
 JOIN:                                'JOIN';
 KEY:                                 'KEY';
