@@ -138,6 +138,7 @@ public enum LogMessageKeys {
     END_TUPLE,
     REAL_END,
     RECORDS_SCANNED,
+    RECORDS_DELETED,
     ORIGINAL_RANGE,
     SPLIT_RANGES,
     REASON,
