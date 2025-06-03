@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
+import com.apple.foundationdb.record.StoreIsLockedForRecordUpdates;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
@@ -62,6 +63,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 
 @Tag(Tags.RequiresFDB)
@@ -157,7 +159,6 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
         clearStoreHeader(metadata1);
         validateCannotOpen(metadata1);
 
-
         try (FDBRecordContext context = openContext()) {
             repairHeader(context, 1, getStoreBuilder(context, metadata2)
                     .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
@@ -225,6 +226,42 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
                     .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
                     .open();
             assertEquals(value, recordStore.getHeaderUserField(key));
+            commit(context);
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void repairWithRecordsAndSetRecordUpdateLock(boolean doLock) {
+        final RecordMetaData recordMetaData = getRecordMetaData(true);
+        final List<Tuple> primaryKeys = createInitialStore(FormatVersion.getMaximumSupportedVersion(), recordMetaData);
+        createOriginalRecords(recordMetaData, primaryKeys);
+        clearStoreHeader(recordMetaData);
+        validateCannotOpen(recordMetaData);
+
+        final int userVersion = 2;
+        try (FDBRecordContext context = openContext()) {
+            repairHeader(context, userVersion,
+                    getStoreBuilder(context, recordMetaData)
+                            .setFormatVersion(FormatVersion.getMaximumSupportedVersion()));
+            if (doLock) {
+                recordStore.setStoreLockStateAsync(RecordMetaDataProto.DataStoreInfo.StoreLockState.State.FORBID_RECORD_UPDATE, "testing")
+                        .join();
+            }
+            commit(context);
+        }
+        TestRecords1Proto.MySimpleRecord record = TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(200).setNumValue2(2100).build();
+        try (FDBRecordContext context = openContext()) {
+            recordStore = getStoreBuilder(context, recordMetaData, path)
+                    .setFormatVersion(FormatVersion.getMaximumSupportedVersion())
+                    .open();
+            if (doLock) {
+                // assert update record failure, then release
+                assertThrows(StoreIsLockedForRecordUpdates.class, () -> recordStore.saveRecord(record));
+                recordStore.clearStoreLockStateAsync().join();
+            }
+            // Successfully update a records after either not setting or releasing the records updates lock
+            recordStore.saveRecord(record);
             commit(context);
         }
     }

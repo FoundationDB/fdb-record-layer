@@ -3342,7 +3342,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * Set a store lock state.
+     * Set a store lock state. If done for recovery, note that setting a lock state requires a valid store header. If the header is
+     * corrupted, it should be recovered before any lock state usage. See {@link Builder#repairMissingHeader}.
      * @param state the new lock state
      * @param reason a free text message that can hint future observers about the reasons for setting this state.
      * @return a future that sets this state
