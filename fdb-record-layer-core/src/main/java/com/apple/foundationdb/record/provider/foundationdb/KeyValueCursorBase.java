@@ -142,7 +142,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         return new Continuation(lastKey, prefixLength, serializationMode);
     }
 
-    private static class Continuation implements RecordCursorContinuation {
+    public static class Continuation implements RecordCursorContinuation {
         @Nullable
         private final byte[] lastKey;
         private final int prefixLength;
@@ -190,6 +190,23 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             }
         }
 
+        @Nullable
+        public byte[] getInnerContinuationInBytes() {
+            if (lastKey == null) {
+                return null;
+            }
+            return Arrays.copyOfRange(lastKey, prefixLength, lastKey.length);
+        }
+
+        @Nonnull
+        public ByteString getInnerContinuationInByteString() {
+            if (lastKey == null) {
+                return ByteString.EMPTY;
+            }
+            ByteString base = ZeroCopyByteString.wrap(lastKey);
+            return base.substring(prefixLength, lastKey.length);
+        }
+
         @Nonnull
         private RecordCursorProto.KeyValueCursorContinuation toProto() {
             RecordCursorProto.KeyValueCursorContinuation.Builder builder = RecordCursorProto.KeyValueCursorContinuation.newBuilder();
@@ -197,7 +214,8 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
                 builder.setIsEnd(true);
             } else {
                 ByteString base = ZeroCopyByteString.wrap(lastKey);
-                builder.setContinuation(base.substring(prefixLength, lastKey.length)).setIsEnd(false);
+                builder.setContinuation(base.substring(prefixLength, lastKey.length))
+                        .setIsEnd(false);
             }
             return builder.build();
         }
@@ -293,6 +311,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
                         RecordCursorProto.KeyValueCursorContinuation keyValueCursorContinuation = RecordCursorProto.KeyValueCursorContinuation.parseFrom(continuation);
                         realContinuation = keyValueCursorContinuation.getContinuation().toByteArray();
                     } catch (InvalidProtocolBufferException ex) {
+                        System.out.println("InvalidProtocolBufferException hit");
                         realContinuation = continuation;
                     }
                 }
