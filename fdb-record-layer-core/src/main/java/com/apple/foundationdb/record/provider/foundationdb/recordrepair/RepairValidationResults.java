@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.provider.foundationdb.recordrepair;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;

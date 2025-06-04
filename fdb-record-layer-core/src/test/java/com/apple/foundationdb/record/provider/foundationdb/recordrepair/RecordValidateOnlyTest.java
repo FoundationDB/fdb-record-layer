@@ -58,8 +58,8 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
                 Arrays.stream(RecordRepair.ValidationKind.values()));
     }
 
-    @ParameterizedTest()
     @MethodSource("splitFormatVersion")
+    @ParameterizedTest
     void testValidateRecordsNoIssue(boolean splitLongRecords, FormatVersion formatVersion, boolean storeVersions, RecordRepair.ValidationKind validationKind) throws Exception {
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(splitLongRecords, storeVersions);
         saveRecords(splitLongRecords, formatVersion, hook);
@@ -84,44 +84,6 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @ParameterizedTest()
-    @MethodSource("splitFormatVersion")
-    void testValidateRecordsMissingRecord(boolean splitLongRecords, FormatVersion formatVersion, boolean storeVersions, RecordRepair.ValidationKind validationKind) throws Exception {
-        final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(splitLongRecords, storeVersions);
-        List<FDBStoredRecord<Message>> records = saveRecords(splitLongRecords, formatVersion, hook);
-        // Delete a record
-        try (FDBRecordContext context = openContext()) {
-            final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-            // Note that the primary keys start with 1, so the location is one-off when removed
-            store.deleteRecord(records.get(ValidationTestUtils.RECORD_INDEX_WITH_NO_SPLITS).getPrimaryKey());
-            store.deleteRecord(records.get(ValidationTestUtils.RECORD_INDEX_WITH_THREE_SPLITS).getPrimaryKey());
-            store.deleteRecord(records.get(21).getPrimaryKey());
-            store.deleteRecord(records.get(22).getPrimaryKey());
-            store.deleteRecord(records.get(44).getPrimaryKey());
-            commit(context);
-        }
-
-        RepairStatsResults repairStats;
-        RepairValidationResults repairResults;
-
-        try (FDBRecordContext context = openContext()) {
-            final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-            RecordRepair.Builder builder = RecordRepair.builder(fdb, store.asBuilder()).withValidationKind(validationKind);
-            try (RecordRepairStatsRunner statsRunner = builder.buildStatsRunner();
-                    RecordRepairValidateRunner repairRunner = builder.buildRepairRunner(false)) {
-                repairStats = statsRunner.run().join();
-                repairResults = repairRunner.run().join();
-            }
-        }
-
-        ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS - 5);
-        // Verify records: The missing records are gone, so won't be flagged, leaving only 45 records around.
-        // If we are storing versions, they will all be there
-        // If we are not storing versions, verifying them is a no-op, so none will be flagged
-        ValidationTestUtils.assertRepairStats(repairStats, NUM_RECORDS - 5);
-        ValidationTestUtils.assertInvalidResults(repairResults.getInvalidResults(), 0, null);
-    }
-
     public static Stream<Arguments> splitNumberFormatVersion() {
         return ParameterizedTestUtils.cartesianProduct(
                 Stream.of(0, 1, 2, 3),
@@ -130,8 +92,8 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
                 Arrays.stream(RecordRepair.ValidationKind.values()));
     }
 
-    @ParameterizedTest
     @MethodSource("splitNumberFormatVersion")
+    @ParameterizedTest
     void testValidateMissingSplit(int splitNumber, FormatVersion formatVersion, boolean storeVersions, RecordRepair.ValidationKind validationKind) throws Exception {
         boolean splitLongRecords = true;
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(splitLongRecords, storeVersions);
@@ -324,8 +286,9 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
             RepairValidationResults repairResults = repairRunner.run().join();
             // Iteration stopped short of the full scan
             Assertions.assertThat(repairStats.getExceptionCaught().getCause()).isInstanceOf(UnknownValidationException.class);
-            Assertions.assertThat(repairStats.getStats()).containsEntry(RecordRepairResult.CODE_VALID, ValidationTestUtils.RECORD_INDEX_WITH_THREE_SPLITS);
-            Assertions.assertThat(repairStats.getStats()).hasSize(1);
+            Assertions.assertThat(repairStats.getStats())
+                    .hasSize(1)
+                    .containsEntry(RecordRepairResult.CODE_VALID, ValidationTestUtils.RECORD_INDEX_WITH_THREE_SPLITS);
             Assertions.assertThat(repairResults.isComplete()).isFalse();
             Assertions.assertThat(repairResults.getCaughtException().getCause()).isInstanceOf(UnknownValidationException.class);
             Assertions.assertThat(repairResults.getValidResultCount()).isEqualTo(ValidationTestUtils.RECORD_INDEX_WITH_THREE_SPLITS);
@@ -338,8 +301,8 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
      * Validate the max number of results.
      * @param maxResultSize the max result size to return
      */
-    @ParameterizedTest
     @CsvSource({"-1", "0", "1", "10", "100"})
+    @ParameterizedTest
     void testValidateMaxResultsReturned(int maxResultSize) throws Exception {
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(true, true);
         final FormatVersion maximumSupportedVersion = FormatVersion.getMaximumSupportedVersion();

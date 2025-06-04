@@ -65,8 +65,8 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
                 Arrays.stream(RecordRepair.ValidationKind.values()));
     }
 
-    @ParameterizedTest()
     @MethodSource("splitFormatVersion")
+    @ParameterizedTest
     void testValidateRecordsNoIssue(boolean splitLongRecords, FormatVersion formatVersion, boolean storeVersions, RecordRepair.ValidationKind validationKind) throws Exception {
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(splitLongRecords, storeVersions);
         saveRecords(splitLongRecords, formatVersion, hook);
@@ -87,12 +87,7 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
             ValidationTestUtils.assertInvalidResults(repairResults.getInvalidResults(), 0, null);
         }
 
-        // Load the records again to make sure they are all there
-        try (FDBRecordContext context = openContext()) {
-            final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-            final List<FDBStoredRecord<Message>> records = store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asList().get();
-            Assertions.assertThat(records).hasSize(NUM_RECORDS);
-        }
+        validateNormalScan(hook, formatVersion, NUM_RECORDS, storeVersions);
     }
 
     public static Stream<Arguments> splitNumberFormatVersion() {
@@ -103,8 +98,8 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
                 Arrays.stream(RecordRepair.ValidationKind.values()));
     }
 
-    @ParameterizedTest
     @MethodSource("splitNumberFormatVersion")
+    @ParameterizedTest
     void testValidateMissingSplit(int splitNumber, FormatVersion formatVersion, boolean storeVersions, RecordRepair.ValidationKind validationKind) throws Exception {
         boolean splitLongRecords = true;
 
@@ -178,11 +173,7 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
         }
 
         // Load the records again to  make sure they are all there
-        try (FDBRecordContext context = openContext()) {
-            final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-            final List<FDBStoredRecord<Message>> records = store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asList().get();
-            Assertions.assertThat(records).hasSize(NUM_RECORDS - 1);
-        }
+        validateNormalScan(hook, formatVersion, NUM_RECORDS - 1, storeVersions);
     }
 
     @MethodSource("splitFormatVersion")
@@ -238,10 +229,23 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
             ValidationTestUtils.assertInvalidResults(repairResults.getInvalidResults(), 0, null);
         }
 
-        // Load the records again to  make sure they are all there
+        // Load the records again to make sure they are all there
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
             final List<FDBStoredRecord<Message>> records = store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asList().get();
+            if (!storeVersions) {
+                // no versions stored - no repair done
+                records.forEach(rec -> Assertions.assertThat(rec.getVersion()).isNull());
+            } else if (!ValidationTestUtils.versionStoredWithRecord(formatVersion)) {
+                // Versions were not deleted - they are all still there
+                records.forEach(rec -> Assertions.assertThat(rec.getVersion()).isNotNull());
+            } else if (validationKind.equals(RecordRepair.ValidationKind.RECORD_VALUE_AND_VERSION)) {
+                // Repair was run
+                records.forEach(rec -> Assertions.assertThat(rec.getVersion()).isNotNull());
+            } else {
+                // Versions deleted but no repair - they are still missing
+                Assertions.assertThat(records.stream().filter(rec -> rec.getVersion() == null).count()).isEqualTo(20);
+            }
             Assertions.assertThat(records).hasSize(NUM_RECORDS);
         }
     }
@@ -296,12 +300,8 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
             ValidationTestUtils.assertInvalidResults(repairResults.getInvalidResults(), 0, null);
         }
 
-        // Load the records again to  make sure they are all there
-        try (FDBRecordContext context = openContext()) {
-            final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-            final List<FDBStoredRecord<Message>> records = store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asList().get();
-            Assertions.assertThat(records).hasSize(NUM_RECORDS - 1);
-        }
+        // Load the records again to make sure they are all there
+        validateNormalScan(hook, formatVersion, NUM_RECORDS - 1, storeVersions);
     }
 
     /**
@@ -357,8 +357,8 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
      * @param formatVersion the version format
      * @param splitsToRemove the splits to remove
      */
-    @ParameterizedTest
     @MethodSource("versionAndBitset")
+    @ParameterizedTest
     void testValidateRecordCombinationSplitMissing(FormatVersion formatVersion, BitSet splitsToRemove) throws Exception {
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(true, true);
         List<FDBStoredRecord<Message>> result = saveRecords(true, formatVersion, hook);
@@ -435,21 +435,23 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
     /**
      * Allow only a few deletes per sec.
      * Validate the total length of time the validation takes.
+     * We corrupt 1/2 of the records and verify that only the number of deletes impacts the total time.
      */
     @Test
     void testValidateMaxDeletesPerSec() throws Exception {
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(true, true);
         final FormatVersion maximumSupportedVersion = FormatVersion.getMaximumSupportedVersion();
-        final List<FDBStoredRecord<Message>> savedRecords = saveRecords(1, 200, true, maximumSupportedVersion, simpleMetaData(hook));
+        final List<FDBStoredRecord<Message>> savedRecords = saveRecords(1, 400, false, maximumSupportedVersion, simpleMetaData(hook));
 
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, maximumSupportedVersion);
             savedRecords.stream().forEach(rec -> {
-                // Delete all #0 #1 splits from the records
-                byte[] split = ValidationTestUtils.getSplitKey(store, rec.getPrimaryKey(), 0);
-                store.ensureContextActive().clear(split);
-                split = ValidationTestUtils.getSplitKey(store, rec.getPrimaryKey(), 1);
-                store.ensureContextActive().clear(split);
+                // Corrupt 1/2 of the records (with even PK)
+                if (rec.getPrimaryKey().getLong(0) % 2 == 0) {
+                    // Delete all #0 splits from the records
+                    byte[] split = ValidationTestUtils.getSplitKey(store, rec.getPrimaryKey(), 0);
+                    store.ensureContextActive().clear(split);
+                }
             });
             commit(context);
         }
@@ -476,12 +478,8 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
 
         Assertions.assertThat(end - start).isGreaterThan(2000);
 
-        // There should be no records left
-        try (FDBRecordContext context = openContext()) {
-            final FDBRecordStore store = openSimpleRecordStore(context, hook, maximumSupportedVersion);
-            final List<FDBStoredRecord<Message>> records = store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asList().get();
-            Assertions.assertThat(records).isEmpty();
-        }
+        // There should be 200 records left
+        validateNormalScan(hook, maximumSupportedVersion, 200, true);
     }
 
     /**
@@ -579,5 +577,22 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
             commit(context);
         }
         return result;
+    }
+
+
+    private void validateNormalScan(final RecordMetaDataHook hook, final FormatVersion formatVersion, final int numRecords, Boolean hasVersion) throws Exception {
+        // Load the records again to make sure they are all there
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
+            final List<FDBStoredRecord<Message>> records = store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asList().get();
+            Assertions.assertThat(records).hasSize(numRecords);
+            if (hasVersion != null) {
+                if (hasVersion) {
+                    records.forEach(rec -> Assertions.assertThat(rec.getVersion()).isNotNull());
+                } else {
+                    records.forEach(rec -> Assertions.assertThat(rec.getVersion()).isNull());
+                }
+            }
+        }
     }
 }

@@ -277,7 +277,7 @@ public abstract class RecordRepair implements AutoCloseable {
          * Limit the amount of time a transaction can take.
          * This will instruct the runner to stop a transaction once this duration has been reached. Note that each transaction
          * is limited (to 5 seconds normally) by FDB as well. If set to 0 the runner will not limit transaction time,
-         * which may result in FDB failing to commit (transaction too long).
+         * which may result in FDB failing to commit (transaction too old).
          * @param transactionTimeQuotaMillis the max number of milliseconds to spend in a transaction.
          * Default: 4000. Use 0 for unlimited.
          * @return this builder

@@ -80,19 +80,18 @@ public class RecordVersionValidator implements RecordValidator {
                 // Nothing to do
                 return CompletableFuture.completedFuture(validationResult.withRepair(RecordRepairResult.REPAIR_NOT_NEEDED));
             case RecordRepairResult.CODE_VERSION_MISSING_ERROR:
-                if (logger.isInfoEnabled()) {
-                    logger.info(KeyValueLogMessage.of("Record repair: Version created",
+                if (logger.isDebugEnabled()) {
+                    logger.debug(KeyValueLogMessage.of("Record repair: Version created",
                             LogMessageKeys.PRIMARY_KEY, validationResult.getPrimaryKey(),
                             LogMessageKeys.CODE, validationResult.getErrorCode()));
                 }
                 // Create a new version
                 // Save the record with the existing data and the new version
-                // This uses the WITH_VERSION behavior to force a version even if the metadata says otherwise, since this
-                // is the assumption of the validator
+                // This uses the DEFAULT behavior to follow the metadata direction on whether to store the version
                 final FDBRecordVersion newVersion = FDBRecordVersion.incomplete(store.getContext().claimLocalVersion());
                 return store.loadRecordAsync(validationResult.getPrimaryKey())
                         .thenCompose(rec ->
-                                store.saveRecordAsync(rec.getRecord(), newVersion, FDBRecordStoreBase.VersionstampSaveBehavior.WITH_VERSION))
+                                store.saveRecordAsync(rec.getRecord(), newVersion, FDBRecordStoreBase.VersionstampSaveBehavior.DEFAULT))
                         .thenApply(ignore ->
                                 validationResult.withRepair(RecordRepairResult.REPAIR_VERSION_CREATED));
             default:

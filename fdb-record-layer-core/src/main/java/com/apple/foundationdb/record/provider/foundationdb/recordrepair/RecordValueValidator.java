@@ -94,8 +94,8 @@ public class RecordValueValidator implements RecordValidator {
             case RecordRepairResult.CODE_DESERIALIZE_ERROR:
                 // Delete record subspace
                 store.deleteRecordSplits(validationResult.getPrimaryKey(), false, null, store.getRecordMetaData());
-                if (logger.isInfoEnabled()) {
-                    logger.info(KeyValueLogMessage.of("Record repair: Record deleted",
+                if (logger.isDebugEnabled()) {
+                    logger.debug(KeyValueLogMessage.of("Record repair: Record deleted",
                             LogMessageKeys.PRIMARY_KEY, validationResult.getPrimaryKey(),
                             LogMessageKeys.CODE, validationResult.getErrorCode()));
                 }
