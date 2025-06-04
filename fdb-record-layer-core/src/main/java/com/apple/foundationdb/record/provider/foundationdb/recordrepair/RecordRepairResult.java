@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.provider.foundationdb.recordrepair;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
@@ -30,13 +29,13 @@ import java.util.Objects;
 
 /**
  * A record validation and repair result.
- * This would be returned from a {@link RecordRepair#runValidationAndRepair(FDBRecordStore.Builder, RecordRepair.ValidationKind, boolean)} call with the results of the validation
+ * This would be returned from a {@link RecordRepairValidateRunner#run()} call with the results of the validation
  * operation. The results should have the following fields populated:
  * <ul>
  *     <li>primaryKey: The key of the record validated</li>
  *     <li>isValid: an overall result of the validation operation</li>
  *     <li>errorCode: A unique key representing the result of the validation. Use {@link #CODE_VALID} for valid result</li>
- *     <li>message: A message describing the result of the validation</li>
+ *     <li>message (Optional): A message describing the result of the validation</li>
  *     <li>isRepaired: whether an attempt to repair the record was made</li>
  *     <li>repairCode (Optional): The repair action taken</li>
  * </ul>

@@ -34,6 +34,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * A repair runner that can run validation and repairs on a store's records.
+ */
 @API(API.Status.EXPERIMENTAL)
 public class RecordRepairValidateRunner extends RecordRepair {
     private final boolean allowRepair;
@@ -56,6 +59,10 @@ public class RecordRepairValidateRunner extends RecordRepair {
         earlyReturn = new AtomicBoolean(false);
     }
 
+    /**
+     * Run the validation operation.
+     * @return a future that completes once the iteration completes.
+     */
     public CompletableFuture<RepairValidationResults> run() {
         return iterateAll().handle((ignoreVoid, ex) -> {
             if (ex != null) {

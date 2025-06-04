@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
+import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.ParameterizedTestUtils;
 import com.google.protobuf.Message;
@@ -80,38 +81,10 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
         try (RecordRepairValidateRunner runner = builder.buildRepairRunner(true)) {
             RepairValidationResults repairResults = runner.run().join();
             ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS);
-
-            if (storeVersions || validationKind.equals(RecordRepair.ValidationKind.RECORD_VALUE)) {
-                // Verify records: If we are saving versions - all is OK.
-                ValidationTestUtils.assertInvalidResults(repairResults.getInvalidResults(), 0, null);
-            } else {
-                // If we're not saving versions, they will be flagged as missing.
-                ValidationTestUtils.assertInvalidResults(
-                        repairResults.getInvalidResults(),
-                        NUM_RECORDS,
-                        result -> (!result.isValid()) &&
-                                result.getErrorCode().equals(RecordRepairResult.CODE_VERSION_MISSING_ERROR) &&
-                                result.isRepaired() &&
-                                result.getRepairCode().equals(RecordRepairResult.REPAIR_VERSION_CREATED));
-            }
-        }
-
-        // run validate again (no repair)
-        try (RecordRepairValidateRunner runner = builder.buildRepairRunner(false)) {
-            RepairValidationResults repairResults = runner.run().join();
-            ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS);
-
-            if (!storeVersions && !ValidationTestUtils.versionStoredWithRecord(formatVersion) && validationKind.equals(RecordRepair.ValidationKind.RECORD_VALUE_AND_VERSION)) {
-                // When the versions are stored away from the record and metadata says not to store versions, we are not loading versions ever
-                ValidationTestUtils.assertInvalidResults(
-                        repairResults.getInvalidResults(),
-                        NUM_RECORDS,
-                        result -> (!result.isValid()) &&
-                                result.getErrorCode().equals(RecordRepairResult.CODE_VERSION_MISSING_ERROR));
-            } else {
-                // Everything was "repaired"
-                ValidationTestUtils.assertInvalidResults(repairResults.getInvalidResults(), 0, null);
-            }
+            // Verify records: all is OK.
+            // If we are storing versions, they will all be there
+            // If we are not storing versions, verifying them is a no-op, so none will be flagged
+            ValidationTestUtils.assertInvalidResults(repairResults.getInvalidResults(), 0, null);
         }
 
         // Load the records again to make sure they are all there
@@ -121,50 +94,6 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
             Assertions.assertThat(records).hasSize(NUM_RECORDS);
         }
     }
-
-////    @ParameterizedTest()
-////    @MethodSource("splitFormatVersion")
-////    void testValidateRecordsMissingRecord(boolean splitLongRecords, FormatVersion formatVersion, boolean storeVersions, RecordRepairRunner.ValidationKind validationKind) throws Exception {
-////        final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(splitLongRecords, storeVersions);
-////        List<FDBStoredRecord<Message>> savedRecords = saveRecords(splitLongRecords, formatVersion, hook);
-////        // Delete a record
-////        try (FDBRecordContext context = openContext()) {
-////            final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-////            // Note that the primary keys start with 1, so the location is one-off when removed
-////            store.deleteRecord(savedRecords.get(ValidationTestUtils.RECORD_INDEX_WITH_NO_SPLITS).getPrimaryKey());
-////            store.deleteRecord(savedRecords.get(ValidationTestUtils.RECORD_INDEX_WITH_THREE_SPLITS).getPrimaryKey());
-////            store.deleteRecord(savedRecords.get(21).getPrimaryKey());
-////            store.deleteRecord(savedRecords.get(22).getPrimaryKey());
-////            store.deleteRecord(savedRecords.get(44).getPrimaryKey());
-////            commit(context);
-////        }
-////
-////        List<RecordRepairResult> repairResults;
-////
-////        try (FDBRecordContext context = openContext()) {
-////            final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-////            RecordRepairRunner runner = RecordRepairRunner.builder(fdb).build();
-////            repairResults = runner.runValidationAndRepair(store.asBuilder(), validationKind, true);
-////        }
-////
-////        // Verify records: The missing records are gone, so won't be flagged, leaving only 45 records around.
-////        if (storeVersions || validationKind.equals(RecordRepairRunner.ValidationKind.RECORD_VALUE)) {
-////            Assertions.assertThat(repairResults).hasSize(0);
-////        } else {
-////            assertInvalidResults(repairResults, 45, result ->
-////                    (!result.isValid()) &&
-////                            result.getErrorCode().equals(RecordRepairResult.CODE_VERSION_MISSING_ERROR) &&
-////                            result.isRepaired() &&
-////                            result.getRepairCode().equals(RecordRepairResult.REPAIR_VERSION_CREATED));
-////        }
-////
-////        // Load the records again to  make sure they are all there
-////        try (FDBRecordContext context = openContext()) {
-////            final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-////            final List<FDBStoredRecord<Message>> records = store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asList().get();
-////            Assertions.assertThat(records).hasSize(45);
-////        }
-////    }
 
     public static Stream<Arguments> splitNumberFormatVersion() {
         return ParameterizedTestUtils.cartesianProduct(
@@ -223,66 +152,29 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
                         ValidationTestUtils.assertInvalidResults(invalidResults, 0, null);
                     }
                 } else {
-                    if (validationKind.equals(RecordRepair.ValidationKind.RECORD_VALUE)) {
-                        // not storing and not checking versions (one record considered gone)
-                        ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS - 1);
-                        ValidationTestUtils.assertInvalidResults(invalidResults, 0, null);
-                    } else {
-                        // not storing but checking version (one record considered gone)
-                        ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS - 1);
-                        ValidationTestUtils.assertInvalidResults(invalidResults, NUM_RECORDS - 1, result ->
-                                (!result.isValid()) &&
-                                        result.getErrorCode().equals(RecordRepairResult.CODE_VERSION_MISSING_ERROR) &&
-                                        result.isRepaired() &&
-                                        result.getRepairCode().equals(RecordRepairResult.REPAIR_VERSION_CREATED));
-                    }
+                    // Not storing versions - record looks gone
+                    ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS - 1);
+                    ValidationTestUtils.assertInvalidResults(invalidResults, 0, null);
                 }
             } else {
                 final String expectedError = (splitNumber == 3) ? RecordRepairResult.CODE_DESERIALIZE_ERROR : RecordRepairResult.CODE_SPLIT_ERROR;
-                final RecordRepairResult expectedResult = RecordRepairResult.invalid(primaryKey, expectedError, "any").withRepair(RecordRepairResult.REPAIR_RECORD_DELETED);
-                if (storeVersions) {
-                    // record split missing
-                    ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS);
-                    ValidationTestUtils.assertInvalidResults(invalidResults, 1, result -> result.equals(expectedResult));
-                } else {
-                    if (validationKind.equals(RecordRepair.ValidationKind.RECORD_VALUE)) {
-                        // not storing and not checking versions - one split missing
-                        ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS);
-                        ValidationTestUtils.assertInvalidResults(invalidResults, 1, result -> result.equals(expectedResult));
-                    } else {
-                        // not storing but checking version (one record with split missing)
-                        ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS);
-                        ValidationTestUtils.assertInvalidResults(
-                                invalidResults,
-                                NUM_RECORDS,
-                                result ->
-                                        result.equals(expectedResult) ||
-                                                (!result.isValid() &&
-                                                         result.getErrorCode().equals(RecordRepairResult.CODE_VERSION_MISSING_ERROR) &&
-                                                         result.isRepaired() &&
-                                                         result.getRepairCode().equals(RecordRepairResult.REPAIR_VERSION_CREATED)));
-                    }
-                }
+                // record split missing - there will always be some split remaining, so the record will be flagged
+                ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS);
+                ValidationTestUtils.assertInvalidResults(
+                        invalidResults,
+                        1,
+                        result -> result.equals(RecordRepairResult
+                                .invalid(primaryKey, expectedError, "any")
+                                .withRepair(RecordRepairResult.REPAIR_RECORD_DELETED)));
             }
         }
 
         // Run validation again, no repair
         try (RecordRepairValidateRunner runner = builder.buildRepairRunner(false)) {
             RepairValidationResults repairResults = runner.run().join();
-            if (!storeVersions && !ValidationTestUtils.versionStoredWithRecord(formatVersion) && validationKind.equals(RecordRepair.ValidationKind.RECORD_VALUE_AND_VERSION)) {
-                // When the versions are stored away from the record and metadata says not to store versions, we are not loading versions ever
-                ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS - 1);
-                ValidationTestUtils.assertInvalidResults(
-                        repairResults.getInvalidResults(),
-                        NUM_RECORDS - 1,
-                        result ->
-                                (!result.isValid()) &&
-                                        result.getErrorCode().equals(RecordRepairResult.CODE_VERSION_MISSING_ERROR));
-            } else {
-                // Everything was "repaired"
-                ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS - 1);
-                ValidationTestUtils.assertInvalidResults(repairResults.getInvalidResults(), 0, null);
-            }
+            // Everything was "repaired"
+            ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS - 1);
+            ValidationTestUtils.assertInvalidResults(repairResults.getInvalidResults(), 0, null);
         }
 
         // Load the records again to  make sure they are all there
@@ -313,63 +205,37 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
             storeBuilder = store.asBuilder();
         }
+
         RecordRepair.Builder builder = RecordRepair.builder(fdb, storeBuilder).withValidationKind(validationKind);
         try (RecordRepairValidateRunner runner = builder.buildRepairRunner(true)) {
             // Run validate and repair
             RepairValidationResults repairResults = runner.run().join();
             List<RecordRepairResult> invalidResults = repairResults.getInvalidResults();
 
-            if (validationKind.equals(RecordRepair.ValidationKind.RECORD_VALUE)) {
-                // not validating versions
-                ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS);
+            ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS);
+            if (!storeVersions ||
+                    !ValidationTestUtils.versionStoredWithRecord(formatVersion) ||
+                    validationKind.equals(RecordRepair.ValidationKind.RECORD_VALUE)) {
+                // if there are no versions or they are stored elsewhere, all looks OK
                 ValidationTestUtils.assertInvalidResults(invalidResults, 0, null);
             } else {
-                if (!storeVersions) {
-                    // checking but not storing versions
-                    ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS);
-                    ValidationTestUtils.assertInvalidResults(
-                            invalidResults,
-                            NUM_RECORDS,
-                            result -> result.getErrorCode().equals(RecordRepairResult.CODE_VERSION_MISSING_ERROR) &&
-                                    result.isRepaired() && result.getRepairCode().equals(RecordRepairResult.REPAIR_VERSION_CREATED));
-                    Assertions.assertThat(invalidResults.stream().map(RecordRepairResult::getPrimaryKey).collect(Collectors.toList()))
-                            .isEqualTo(IntStream.range(1, NUM_RECORDS + 1).boxed().map(Tuple::from).collect(Collectors.toList()));
-                } else {
-                    if (!ValidationTestUtils.versionStoredWithRecord(formatVersion)) {
-                        // versions stored elsewhere - none deleted
-                        ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS);
-                        ValidationTestUtils.assertInvalidResults(invalidResults, 0, null);
-                    } else {
-                        // versions stored with records, 20 are deleted
-                        ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS);
-                        ValidationTestUtils.assertInvalidResults(
-                                invalidResults,
-                                20,
-                                result -> result.isRepaired() && result.getRepairCode().equals(RecordRepairResult.REPAIR_VERSION_CREATED));
-                        Assertions.assertThat(invalidResults.stream().map(RecordRepairResult::getPrimaryKey).collect(Collectors.toList()))
-                                .isEqualTo(IntStream.range(1, 21).boxed().map(Tuple::from).collect(Collectors.toList()));
-                    }
-                }
+                // versions stored with records, 20 are deleted
+                ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS);
+                ValidationTestUtils.assertInvalidResults(
+                        invalidResults,
+                        20,
+                        result -> result.isRepaired() && result.getRepairCode().equals(RecordRepairResult.REPAIR_VERSION_CREATED));
+                Assertions.assertThat(invalidResults.stream().map(RecordRepairResult::getPrimaryKey).collect(Collectors.toList()))
+                        .isEqualTo(IntStream.range(1, 21).boxed().map(Tuple::from).collect(Collectors.toList()));
             }
         }
 
         // Run validation again
         try (RecordRepairValidateRunner runner = builder.buildRepairRunner(false)) {
             RepairValidationResults repairResults = runner.run().join();
-            if (!storeVersions && !ValidationTestUtils.versionStoredWithRecord(formatVersion) && validationKind.equals(RecordRepair.ValidationKind.RECORD_VALUE_AND_VERSION)) {
-                // When the versions are stored away from the record and metadata says not to store versions, we are not loading versions ever
-                // So even if we are repairing the version, it will still be missing
-                ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS);
-                ValidationTestUtils.assertInvalidResults(
-                        repairResults.getInvalidResults(),
-                        NUM_RECORDS,
-                        result -> (!result.isValid()) &&
-                                result.getErrorCode().equals(RecordRepairResult.CODE_VERSION_MISSING_ERROR));
-            } else {
-                // Everything was "repaired"
-                ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS);
-                ValidationTestUtils.assertInvalidResults(repairResults.getInvalidResults(), 0, null);
-            }
+            // Everything was "repaired"
+            ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS);
+            ValidationTestUtils.assertInvalidResults(repairResults.getInvalidResults(), 0, null);
         }
 
         // Load the records again to  make sure they are all there
@@ -604,7 +470,7 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
 
         long start = System.currentTimeMillis();
         try (RecordRepairValidateRunner runner = builder.buildRepairRunner(true)) {
-            RepairValidationResults repairResults = runner.run().join();
+            runner.run().join();
         }
         long end = System.currentTimeMillis();
 
@@ -614,7 +480,62 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, maximumSupportedVersion);
             final List<FDBStoredRecord<Message>> records = store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asList().get();
-            Assertions.assertThat(records).hasSize(0);
+            Assertions.assertThat(records).isEmpty();
+        }
+    }
+
+    /**
+     * Allow a few transactions to commit but then introduce an exception that will stop the iteration.
+     */
+    @Test
+    void testValidateSomeTransactionsCommitted() throws Exception {
+        final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(true, true);
+        final FormatVersion maximumSupportedVersion = FormatVersion.getMaximumSupportedVersion();
+        final List<FDBStoredRecord<Message>> savedRecords = saveRecords(true, maximumSupportedVersion, hook);
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore store = openSimpleRecordStore(context, hook, maximumSupportedVersion);
+            savedRecords.stream().forEach(rec -> {
+                if (rec.getPrimaryKey().getLong(0) == ValidationTestUtils.RECORD_ID_WITH_THREE_SPLITS) {
+                    // Corrupt version for record #33, so that the iteration will fail at that point
+                    byte[] key = ValidationTestUtils.getSplitKey(store, rec.getPrimaryKey(), -1);
+                    final byte[] value = new byte[] {1, 2, 3, 4, 5};
+                    store.ensureContextActive().set(key, value);
+                } else {
+                    // Delete all #0 #1 splits from the other records
+                    byte[] split = ValidationTestUtils.getSplitKey(store, rec.getPrimaryKey(), 0);
+                    store.ensureContextActive().clear(split);
+                    split = ValidationTestUtils.getSplitKey(store, rec.getPrimaryKey(), 1);
+                    store.ensureContextActive().clear(split);
+                }
+            });
+            commit(context);
+        }
+
+        RecordRepair.ValidationKind validationKind = RecordRepair.ValidationKind.RECORD_VALUE_AND_VERSION;
+        FDBRecordStore.Builder storeBuilder;
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore store = openSimpleRecordStore(context, hook, maximumSupportedVersion);
+            storeBuilder = store.asBuilder();
+        }
+        RecordRepair.Builder builder = RecordRepair.builder(fdb, storeBuilder)
+                // break into smaller transactions
+                .withMaxRecordDeletesPerTransaction(10)
+                .withNumOfRetries(0) // so that we can reason about the record count
+                .withValidationKind(validationKind);
+        try (RecordRepairValidateRunner runner = builder.buildRepairRunner(true)) {
+            RepairValidationResults repairResults = runner.run().join();
+            Assertions.assertThat(repairResults.isComplete()).isFalse();
+            Assertions.assertThat(repairResults.getCaughtException()).hasCauseInstanceOf(UnknownValidationException.class);
+            Assertions.assertThat(repairResults.getValidResultCount()).isZero();
+            Assertions.assertThat(repairResults.getInvalidResults()).hasSize(ValidationTestUtils.RECORD_INDEX_WITH_THREE_SPLITS);
+        }
+
+        // We should not be able to load the records
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore store = openSimpleRecordStore(context, hook, maximumSupportedVersion);
+            Assertions.assertThatThrownBy(() -> store.scanRecords(TupleRange.ALL, null, ScanProperties.FORWARD_SCAN).asList().get()).hasCauseInstanceOf(SplitHelper.FoundSplitWithoutStartException.class);
         }
     }
 
@@ -622,7 +543,7 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
     void testRunnerUnusableOnceClosed() throws Exception {
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(true, true);
         final FormatVersion maximumSupportedVersion = FormatVersion.getMaximumSupportedVersion();
-        final List<FDBStoredRecord<Message>> savedRecords = saveRecords(true, maximumSupportedVersion, hook);
+        saveRecords(true, maximumSupportedVersion, hook);
 
         RecordRepair.ValidationKind validationKind = RecordRepair.ValidationKind.RECORD_VALUE_AND_VERSION;
         FDBRecordStore.Builder storeBuilder;

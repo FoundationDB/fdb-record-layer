@@ -1,5 +1,5 @@
 /*
- * RepirStatsResults.java
+ * RepairStatsResults.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -23,32 +23,47 @@ package com.apple.foundationdb.record.provider.foundationdb.recordrepair;
 import com.apple.foundationdb.annotation.API;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+/**
+ * A container for validation stats collected through the validation process.
+ * {@link RecordRepairStatsRunner}
+ */
 @API(API.Status.EXPERIMENTAL)
-public class RepirStatsResults {
+public class RepairStatsResults {
     @Nonnull
     private final Map<String, AtomicInteger> stats;
+    @Nullable
     private Throwable exceptionCaught;
 
-    public RepirStatsResults() {
+    RepairStatsResults() {
         this.stats = new HashMap<>();
     }
 
-    void increment(String code) {
-        stats.computeIfAbsent(code, ignore -> new AtomicInteger(0)).incrementAndGet();
-    }
-
+    /**
+     * Get the stats collected during the validation process.
+     * @return A Map of error code to a count of the times that this code was encountered
+     */
     @Nonnull
     public Map<String, Integer> getStats() {
         return stats.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().get()));
     }
 
+    /**
+     * Return an exception (if caught) during the iteration (in which case the iteration may be incomplete).
+     * @return an exception caught (if any)
+     */
+    @Nullable
     public Throwable getExceptionCaught() {
         return exceptionCaught;
+    }
+
+    void increment(String code) {
+        stats.computeIfAbsent(code, ignore -> new AtomicInteger(0)).incrementAndGet();
     }
 
     void setExceptionCaught(final Throwable ex) {

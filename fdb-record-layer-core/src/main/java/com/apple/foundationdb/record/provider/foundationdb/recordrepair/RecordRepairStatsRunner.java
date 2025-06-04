@@ -30,17 +30,24 @@ import com.apple.foundationdb.tuple.Tuple;
 import javax.annotation.Nonnull;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * A record repair runner that returns an aggregate of all the issues found.
+ */
 @API(API.Status.EXPERIMENTAL)
 public class RecordRepairStatsRunner extends RecordRepair {
     @Nonnull
-    private final RepirStatsResults statsResult;
+    private final RepairStatsResults statsResult;
 
     RecordRepairStatsRunner(@Nonnull final Builder config) {
         super(config);
-        statsResult = new RepirStatsResults();
+        statsResult = new RepairStatsResults();
     }
 
-    public CompletableFuture<RepirStatsResults> run() {
+    /**
+     * Run the validation operation.
+     * @return a future that completes once the iteration completes.
+     */
+    public CompletableFuture<RepairStatsResults> run() {
         return iterateAll().handle((ignoreVoid, ex) -> {
             if (ex != null) {
                 statsResult.setExceptionCaught(ex);

@@ -28,9 +28,9 @@ import javax.annotation.Nullable;
 import java.util.List;
 
 /**
- * Repair results for the call to {@link RecordRepair#runValidationAndRepair(FDBRecordStore.Builder, RecordRepair.ValidationKind, boolean)}.
+ * Repair results for the call to {@link RecordRepairValidateRunner#run}.
  * Holds the results of the execution of the validation and repair operation.
- * Note that the result may be incomplete: If the call to runValidationAndRepair restricted the number of results returned
+ * Note that the result may be incomplete: If the call to run() restricted the number of results returned
  * (via {@link RecordRepair.Builder#withMaxResultsReturned(int)} - e.g. to control the size of the list returned)
  * then this list would contain at most that many results and another call may be necessary to continue iterating through
  * the records.

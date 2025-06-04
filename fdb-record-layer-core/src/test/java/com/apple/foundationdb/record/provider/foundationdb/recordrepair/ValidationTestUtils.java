@@ -213,26 +213,26 @@ public class ValidationTestUtils {
         Assertions.assertThat(repairResults.getInvalidResults().size() + repairResults.getValidResultCount()).isEqualTo(numRecords);
     }
 
-    public static void assertRepairStats(RepirStatsResults stats, int numValidResults) {
+    public static void assertRepairStats(RepairStatsResults stats, int numValidResults) {
         assertRepairStats(stats, numValidResults, 0, null, 0, null);
     }
 
-    public static void assertRepairStats(RepirStatsResults stats, int numValidResults, int numResults1, String codeResults1) {
+    public static void assertRepairStats(RepairStatsResults stats, int numValidResults, int numResults1, String codeResults1) {
         assertRepairStats(stats, numValidResults, numResults1, codeResults1, 0, null);
     }
 
-    public static void assertRepairStats(RepirStatsResults stats, int numValidResults, int numResults1, String codeResults1, int numResults2, String codeResults2) {
+    public static void assertRepairStats(RepairStatsResults stats, int numValidResults, int numResults1, String codeResults1, int numResults2, String codeResults2) {
         int numEntries = 0;
         if (numValidResults > 0) {
-            Assertions.assertThat(stats.getStats().get(RecordRepairResult.CODE_VALID)).isEqualTo(numValidResults);
+            Assertions.assertThat(stats.getStats()).containsEntry(RecordRepairResult.CODE_VALID, numValidResults);
             numEntries++;
         }
         if (numResults1 > 0) {
-            Assertions.assertThat(stats.getStats().get(codeResults1)).isEqualTo(numResults1);
+            Assertions.assertThat(stats.getStats()).containsEntry(codeResults1, numResults1);
             numEntries++;
         }
         if (numResults2 > 0) {
-            Assertions.assertThat(stats.getStats().get(codeResults2)).isEqualTo(numResults2);
+            Assertions.assertThat(stats.getStats()).containsEntry(codeResults2, numResults2);
             numEntries++;
         }
         Assertions.assertThat(stats.getExceptionCaught()).isNull();

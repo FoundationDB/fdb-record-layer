@@ -53,9 +53,9 @@ import java.util.concurrent.TimeUnit;
  * <p>
  * The runner provides two main entry points:
  * <ul>
- *     <li>{@link #runValidationStats(FDBRecordStore.Builder, ValidationKind)} that iterates through the store and returns an aggregated
+ *     <li>{@link RecordRepairStatsRunner#run} that iterates through the store and returns an aggregated
  *     count of all found issues</li>
- *     <li>{@link #runValidationAndRepair(FDBRecordStore.Builder, ValidationKind, boolean)} that iterates through the store
+ *     <li>{@link RecordRepairValidateRunner#run} that iterates through the store
  *     and returns a list of all found issues</li>
  * </ul>
  * There is no significant performance difference between the two. The intent is to use the former to get a view of the store
@@ -69,11 +69,14 @@ import java.util.concurrent.TimeUnit;
  *     <li>{@link ValidationKind#RECORD_VALUE_AND_VERSION} will add to the previous validation the check that the record
  *     has a version present</li>
  * </ul>
- * The idea is that stores that are configured to not store version data can avoid the flurry of false positives by not
- * attempting to verify version information.
+ * The idea is that stores that are configured to not store version data can avoid the overhead of checking for version
+ * existence.
  * <p>
  * A note on repair: Repairing a corrupt data would normally mean deleting the data (without trying to update indexes).
  * Repairing missing version would normally mean creating a new version for the record.
+ * <p>
+ * A note on versions: Some stores may have had their metadata changed to include versions after some records have already
+ * been saved. In this case, the version repair operation may attempt to create many versions - for all the older records.
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class RecordRepair implements AutoCloseable {
@@ -104,7 +107,7 @@ public abstract class RecordRepair implements AutoCloseable {
     /**
      * Create a builder for the runner.
      * @param database the FDB database to use to create new transactions
-     * @param storeBuilder
+     * @param storeBuilder the store builder to use
      * @return the builder instance
      */
     public static Builder builder(@Nonnull FDBDatabase database, final FDBRecordStore.Builder storeBuilder) {
@@ -118,6 +121,10 @@ public abstract class RecordRepair implements AutoCloseable {
 
     protected abstract ItemHandler<Tuple> getItemHandler();
 
+    /**
+     * Internal utility ot start the iteration with the underlying iterator.
+     * @return a Future that completes when the iteration is done
+     */
     protected CompletableFuture<Void> iterateAll() {
         return throttledIterator.iterateAll(storeBuilder);
     }
@@ -206,6 +213,7 @@ public abstract class RecordRepair implements AutoCloseable {
         /**
          * Constructor.
          * @param database the FDB database to use
+         * @param storeBuilder the store builder to use
          */
         public Builder(@Nonnull final FDBDatabase database, @Nonnull final FDBRecordStore.Builder storeBuilder) {
             this.database = database;
@@ -213,13 +221,17 @@ public abstract class RecordRepair implements AutoCloseable {
         }
 
         /**
-         * Finalize the build and create a runner.
-         * @return the newly created runner
+         * Finalize the build and create a stats runner.
+         * @return the newly created stats runner
          */
         public RecordRepairStatsRunner buildStatsRunner() {
             return new RecordRepairStatsRunner(this);
         }
 
+        /**
+         * Finalize the build and create a repair  runner.
+         * @return the newly created repair runner
+         */
         public RecordRepairValidateRunner buildRepairRunner(boolean allowRepair) {
             return new RecordRepairValidateRunner(this, allowRepair);
         }
@@ -227,8 +239,8 @@ public abstract class RecordRepair implements AutoCloseable {
         /**
          * Limit the number of issues found.
          * This parameter is intended to stop the iteration once a number of issues has been found, as a means of controlling
-         * the size of the list returned.
-         * @param maxResultsReturned the maximum number of issues to be returned from the {@link #runValidationAndRepair(FDBRecordStore.Builder, ValidationKind, boolean)} method.
+         * the size of the list returned. Note that thisa is only relevant for a repair runner.
+         * @param maxResultsReturned the maximum number of issues to be returned from the {@link RecordRepairValidateRunner#run} method.
          * Default: 10,000. Use 0 for Unlimited.
          * @return this builder
          */
@@ -237,6 +249,12 @@ public abstract class RecordRepair implements AutoCloseable {
             return this;
         }
 
+        /**
+         * The {@link ValidationKind} to use for the validation or repair.
+         * Default: {@link ValidationKind#RECORD_VALUE_AND_VERSION}.
+         * @param validationKind the validation kind to use
+         * @return this builder
+         */
         public Builder withValidationKind(ValidationKind validationKind) {
             this.validationKind = validationKind;
             return this;
@@ -315,6 +333,7 @@ public abstract class RecordRepair implements AutoCloseable {
             return storeBuilder;
         }
 
+        @Nonnull
         public ValidationKind getValidationKind() {
             return validationKind;
         }

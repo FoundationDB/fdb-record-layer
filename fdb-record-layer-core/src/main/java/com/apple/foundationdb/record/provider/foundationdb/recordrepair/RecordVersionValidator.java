@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,13 +37,8 @@ import java.util.concurrent.CompletableFuture;
 /**
  * A record validator that ensures the record has a valid version.
  * A record has to have a valid value to be validated with this validator. It also has to exist and have a version.
- * Since version creation for a record can be done on a per-record basis (when the record is saved), it is the responsibility
- * of the user of the validator to decide whether a version should be present or not. As a general rule, the metadata
- * has a {@link RecordMetaData#isStoreRecordVersions()} property that is used as the default value for making that decision,
- * but the {@link FDBRecordStore#saveRecordAsync(Message, FDBRecordVersion, FDBRecordStoreBase.VersionstampSaveBehavior)}
- * can override this.
- * Once this validator is used, it assumes that versions are to be saved with the records and will flag a record that has
- * no version. The repair operation will create a new version for that record.
+ * As a general rule, the metadata has a {@link RecordMetaData#isStoreRecordVersions()} property that is used for making that decision:
+ * If the metadata declares that the store does not store data then the validator will mark the record as "valid".
  */
 @API(API.Status.INTERNAL)
 public class RecordVersionValidator implements RecordValidator {
@@ -59,6 +53,11 @@ public class RecordVersionValidator implements RecordValidator {
 
     @Override
     public CompletableFuture<RecordRepairResult> validateRecordAsync(@Nonnull final Tuple primaryKey) {
+        // In case the metadata says to not store versions, we will not actually check to see if a version exists
+        if ( ! store.getRecordMetaData().isStoreRecordVersions()) {
+            return CompletableFuture.completedFuture(RecordRepairResult.valid(primaryKey));
+        }
+
         return store.loadRecordAsync(primaryKey).thenApply(rec -> {
             if (rec == null) {
                 return RecordRepairResult.invalid(primaryKey, RecordRepairResult.CODE_RECORD_MISSING_ERROR, "Record cannot be found");
