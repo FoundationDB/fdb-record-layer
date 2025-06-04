@@ -43,8 +43,9 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 /**
- * Test the store's {@link RecordRepairRunner} implementation.
- * End to end test for the entire record validation process.
+ * Test the store's {@link RecordRepair} implementation.
+ * End-to-end test for the entire record validation process.
+ * This test does validation only and stats (allowRepair = false).
  */
 public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
     private static final int NUM_RECORDS = 50;
@@ -54,12 +55,12 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
                 ParameterizedTestUtils.booleans("splitLongRecords"),
                 ValidationTestUtils.formatVersions(),
                 ParameterizedTestUtils.booleans("storeVersions"),
-                Arrays.stream(RecordRepairRunner.ValidationKind.values()));
+                Arrays.stream(RecordRepair.ValidationKind.values()));
     }
 
     @ParameterizedTest()
     @MethodSource("splitFormatVersion")
-    void testValidateRecordsNoIssue(boolean splitLongRecords, FormatVersion formatVersion, boolean storeVersions, RecordRepairRunner.ValidationKind validationKind) throws Exception {
+    void testValidateRecordsNoIssue(boolean splitLongRecords, FormatVersion formatVersion, boolean storeVersions, RecordRepair.ValidationKind validationKind) throws Exception {
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(splitLongRecords, storeVersions);
         saveRecords(splitLongRecords, formatVersion, hook);
 
@@ -68,29 +69,31 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
             storeBuilder = store.asBuilder();
         }
-        RecordRepairRunner runner = RecordRepairRunner.builder(fdb).build();
-        RecordValidationStatsResult repairStats = runner.runValidationStats(storeBuilder, validationKind);
-        RepairResults repairResults = runner.runValidationAndRepair(storeBuilder, validationKind, false);
-        List<RecordRepairResult> invalidResults = repairResults.getInvalidResults();
-        ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS);
+        final RecordRepair.Builder builder = RecordRepair.builder(fdb, storeBuilder).withValidationKind(validationKind);
+        try (RecordRepairStatsRunner statsRunner = builder.buildStatsRunner();
+                RecordRepairValidateRunner repairRunner = builder.buildRepairRunner(false)) {
+            RepirStatsResults repairStats = statsRunner.run().join();
+            RepairValidationResults repairResults = repairRunner.run().join();
 
-        // Verify records: If we are saving versions - all is OK.
-        // If we're not saving versions, they will be flagged as missing.
-        if (storeVersions || validationKind.equals(RecordRepairRunner.ValidationKind.RECORD_VALUE)) {
-            ValidationTestUtils.assertRepairStats(repairStats, NUM_RECORDS);
-            ValidationTestUtils.assertInvalidResults(invalidResults, 0, null);
-        } else {
-            ValidationTestUtils.assertRepairStats(repairStats, 0, NUM_RECORDS, RecordRepairResult.CODE_VERSION_MISSING_ERROR);
-            ValidationTestUtils.assertInvalidResults(
-                    invalidResults,
-                    NUM_RECORDS,
-                    result -> (!result.isValid()) && result.getErrorCode().equals(RecordRepairResult.CODE_VERSION_MISSING_ERROR));
+            ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS);
+            if (storeVersions || validationKind.equals(RecordRepair.ValidationKind.RECORD_VALUE)) {
+                // Verify records: If we are saving versions - all is OK.
+                ValidationTestUtils.assertRepairStats(repairStats, NUM_RECORDS);
+                ValidationTestUtils.assertInvalidResults(repairResults.getInvalidResults(), 0, null);
+            } else {
+                // If we're not saving versions, they will be flagged as missing.
+                ValidationTestUtils.assertRepairStats(repairStats, 0, NUM_RECORDS, RecordRepairResult.CODE_VERSION_MISSING_ERROR);
+                ValidationTestUtils.assertInvalidResults(
+                        repairResults.getInvalidResults(),
+                        NUM_RECORDS,
+                        result -> (!result.isValid()) && result.getErrorCode().equals(RecordRepairResult.CODE_VERSION_MISSING_ERROR));
+            }
         }
     }
 
     @ParameterizedTest()
     @MethodSource("splitFormatVersion")
-    void testValidateRecordsMissingRecord(boolean splitLongRecords, FormatVersion formatVersion, boolean storeVersions, RecordRepairRunner.ValidationKind validationKind) throws Exception {
+    void testValidateRecordsMissingRecord(boolean splitLongRecords, FormatVersion formatVersion, boolean storeVersions, RecordRepair.ValidationKind validationKind) throws Exception {
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(splitLongRecords, storeVersions);
         List<FDBStoredRecord<Message>> records = saveRecords(splitLongRecords, formatVersion, hook);
         // Delete a record
@@ -105,28 +108,28 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
-        RecordValidationStatsResult repairStats;
-        RepairResults repairResults;
-        List<RecordRepairResult> invalidResults;
+        RepirStatsResults repairStats;
+        RepairValidationResults repairResults;
 
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-            RecordRepairRunner runner = RecordRepairRunner.builder(fdb).build();
-            repairStats = runner.runValidationStats(store.asBuilder(), validationKind);
-            repairResults = runner.runValidationAndRepair(store.asBuilder(), validationKind, false);
-            invalidResults = repairResults.getInvalidResults();
+            RecordRepair.Builder builder = RecordRepair.builder(fdb, store.asBuilder()).withValidationKind(validationKind);
+            try (RecordRepairStatsRunner statsRunner = builder.buildStatsRunner();
+                    RecordRepairValidateRunner repairRunner = builder.buildRepairRunner(false)) {
+                repairStats = statsRunner.run().join();
+                repairResults = repairRunner.run().join();
+            }
         }
 
         ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS - 5);
-
         // Verify records: The missing records are gone, so won't be flagged, leaving only 45 records around.
-        if (storeVersions || validationKind.equals(RecordRepairRunner.ValidationKind.RECORD_VALUE)) {
+        if (storeVersions || validationKind.equals(RecordRepair.ValidationKind.RECORD_VALUE)) {
             ValidationTestUtils.assertRepairStats(repairStats, NUM_RECORDS - 5);
-            ValidationTestUtils.assertInvalidResults(invalidResults, 0, null);
+            ValidationTestUtils.assertInvalidResults(repairResults.getInvalidResults(), 0, null);
         } else {
             ValidationTestUtils.assertRepairStats(repairStats, 0, NUM_RECORDS - 5, RecordRepairResult.CODE_VERSION_MISSING_ERROR);
             ValidationTestUtils.assertInvalidResults(
-                    invalidResults,
+                    repairResults.getInvalidResults(),
                     NUM_RECORDS - 5,
                     result -> (!result.isValid()) && result.getErrorCode().equals(RecordRepairResult.CODE_VERSION_MISSING_ERROR));
         }
@@ -137,12 +140,12 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
                 Stream.of(0, 1, 2, 3),
                 ValidationTestUtils.formatVersions(),
                 ParameterizedTestUtils.booleans("storeVersions"),
-                Arrays.stream(RecordRepairRunner.ValidationKind.values()));
+                Arrays.stream(RecordRepair.ValidationKind.values()));
     }
 
     @ParameterizedTest
     @MethodSource("splitNumberFormatVersion")
-    void testValidateMissingSplit(int splitNumber, FormatVersion formatVersion, boolean storeVersions, RecordRepairRunner.ValidationKind validationKind) throws Exception {
+    void testValidateMissingSplit(int splitNumber, FormatVersion formatVersion, boolean storeVersions, RecordRepair.ValidationKind validationKind) throws Exception {
         boolean splitLongRecords = true;
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(splitLongRecords, storeVersions);
         List<FDBStoredRecord<Message>> savedRecords = saveRecords(splitLongRecords, formatVersion, hook);
@@ -165,56 +168,49 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
             storeBuilder = store.asBuilder();
         }
-        RecordRepairRunner runner = RecordRepairRunner.builder(fdb).build();
-        RecordValidationStatsResult repairStats = runner.runValidationStats(storeBuilder, validationKind);
-        final RepairResults repairResults = runner.runValidationAndRepair(storeBuilder, validationKind, false);
-        List<RecordRepairResult> invalidResults = repairResults.getInvalidResults();
+        RecordRepair.Builder builder = RecordRepair.builder(fdb, storeBuilder).withValidationKind(validationKind);
+        try (RecordRepairStatsRunner statsRunner = builder.buildStatsRunner();
+                RecordRepairValidateRunner repairRunner = builder.buildRepairRunner(false)) {
+            RepirStatsResults repairStats = statsRunner.run().join();
+            RepairValidationResults repairResults = repairRunner.run().join();
+            List<RecordRepairResult> invalidResults = repairResults.getInvalidResults();
 
-        if (splitNumber == 0) {
-            if (storeVersions) {
-                if (ValidationTestUtils.versionStoredWithRecord(formatVersion)) {
-                    // record split gone but version remains
-                    ValidationTestUtils.assertRepairStats(repairStats, NUM_RECORDS - 1, 1, RecordRepairResult.CODE_SPLIT_ERROR);
-                    ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS);
-                    ValidationTestUtils.assertInvalidResults(
-                            invalidResults,
-                            1,
-                            result -> result.equals(RecordRepairResult.invalid(primaryKey, RecordRepairResult.CODE_SPLIT_ERROR, "any")));
+            if (splitNumber == 0) {
+                if (storeVersions) {
+                    if (ValidationTestUtils.versionStoredWithRecord(formatVersion)) {
+                        // record split gone but version remains
+                        ValidationTestUtils.assertRepairStats(repairStats, NUM_RECORDS - 1, 1, RecordRepairResult.CODE_SPLIT_ERROR);
+                        ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS);
+                        ValidationTestUtils.assertInvalidResults(
+                                invalidResults,
+                                1,
+                                result -> result.equals(RecordRepairResult.invalid(primaryKey, RecordRepairResult.CODE_SPLIT_ERROR, "any")));
+                    } else {
+                        // record split gone and version elsewhere - record looks gone
+                        ValidationTestUtils.assertRepairStats(repairStats, NUM_RECORDS - 1);
+                        ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS - 1);
+                        ValidationTestUtils.assertInvalidResults(invalidResults, 0, null);
+                    }
                 } else {
-                    // record split gone and version elsewhere - record looks gone
-                    ValidationTestUtils.assertRepairStats(repairStats, NUM_RECORDS - 1);
-                    ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS - 1);
-                    ValidationTestUtils.assertInvalidResults(invalidResults, 0, null);
+                    if (validationKind.equals(RecordRepair.ValidationKind.RECORD_VALUE)) {
+                        // not storing and not checking versions
+                        // TODO: assertRepairStats(repairStats, numRecords, 0, null, 0, null);
+                        // TODO: ValidationTestUtils.assertCompleteResults(repairResults, numRecords);
+                        ValidationTestUtils.assertInvalidResults(invalidResults, 0, null);
+                    } else {
+                        // not storing but checking version (one record considered gone)
+                        ValidationTestUtils.assertRepairStats(repairStats, 0, NUM_RECORDS - 1, RecordRepairResult.CODE_VERSION_MISSING_ERROR);
+                        ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS - 1);
+                        ValidationTestUtils.assertInvalidResults(
+                                invalidResults,
+                                NUM_RECORDS - 1,
+                                result -> (!result.isValid()) && result.getErrorCode().equals(RecordRepairResult.CODE_VERSION_MISSING_ERROR));
+                    }
                 }
             } else {
-                if (validationKind.equals(RecordRepairRunner.ValidationKind.RECORD_VALUE)) {
-                    // not storing and not checking versions
-                    // TODO: assertRepairStats(repairStats, numRecords, 0, null, 0, null);
-                    // TODO: ValidationTestUtils.assertCompleteResults(repairResults, numRecords);
-                    ValidationTestUtils.assertInvalidResults(invalidResults, 0, null);
-                } else {
-                    // not storing but checking version (one record considered gone)
-                    ValidationTestUtils.assertRepairStats(repairStats, 0, NUM_RECORDS - 1, RecordRepairResult.CODE_VERSION_MISSING_ERROR);
-                    ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS - 1);
-                    ValidationTestUtils.assertInvalidResults(
-                            invalidResults,
-                            NUM_RECORDS - 1,
-                            result -> (!result.isValid()) && result.getErrorCode().equals(RecordRepairResult.CODE_VERSION_MISSING_ERROR));
-                }
-            }
-        } else {
-            final String expectedError = (splitNumber == 3) ? RecordRepairResult.CODE_DESERIALIZE_ERROR : RecordRepairResult.CODE_SPLIT_ERROR;
-            if (storeVersions) {
-                // record split missing
-                ValidationTestUtils.assertRepairStats(repairStats, NUM_RECORDS - 1, 1, expectedError);
-                ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS);
-                ValidationTestUtils.assertInvalidResults(
-                        invalidResults,
-                        1,
-                        result -> result.equals(RecordRepairResult.invalid(primaryKey, expectedError, "any")));
-            } else {
-                if (validationKind.equals(RecordRepairRunner.ValidationKind.RECORD_VALUE)) {
-                    // not storing and not checking versions - one split missing
+                final String expectedError = (splitNumber == 3) ? RecordRepairResult.CODE_DESERIALIZE_ERROR : RecordRepairResult.CODE_SPLIT_ERROR;
+                if (storeVersions) {
+                    // record split missing
                     ValidationTestUtils.assertRepairStats(repairStats, NUM_RECORDS - 1, 1, expectedError);
                     ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS);
                     ValidationTestUtils.assertInvalidResults(
@@ -222,14 +218,24 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
                             1,
                             result -> result.equals(RecordRepairResult.invalid(primaryKey, expectedError, "any")));
                 } else {
-                    // not storing but checking version (one record with split missing)
-                    ValidationTestUtils.assertRepairStats(repairStats, 0, 1, expectedError, NUM_RECORDS - 1, RecordRepairResult.CODE_VERSION_MISSING_ERROR);
-                    ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS);
-                    ValidationTestUtils.assertInvalidResults(
-                            invalidResults,
-                            NUM_RECORDS,
-                            result -> result.equals(RecordRepairResult.invalid(primaryKey, expectedError, "Blah")) ||
-                                    (!result.isValid() && result.getErrorCode().equals(RecordRepairResult.CODE_VERSION_MISSING_ERROR)));
+                    if (validationKind.equals(RecordRepair.ValidationKind.RECORD_VALUE)) {
+                        // not storing and not checking versions - one split missing
+                        ValidationTestUtils.assertRepairStats(repairStats, NUM_RECORDS - 1, 1, expectedError);
+                        ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS);
+                        ValidationTestUtils.assertInvalidResults(
+                                invalidResults,
+                                1,
+                                result -> result.equals(RecordRepairResult.invalid(primaryKey, expectedError, "any")));
+                    } else {
+                        // not storing but checking version (one record with split missing)
+                        ValidationTestUtils.assertRepairStats(repairStats, 0, 1, expectedError, NUM_RECORDS - 1, RecordRepairResult.CODE_VERSION_MISSING_ERROR);
+                        ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS);
+                        ValidationTestUtils.assertInvalidResults(
+                                invalidResults,
+                                NUM_RECORDS,
+                                result -> result.equals(RecordRepairResult.invalid(primaryKey, expectedError, "Blah")) ||
+                                        (!result.isValid() && result.getErrorCode().equals(RecordRepairResult.CODE_VERSION_MISSING_ERROR)));
+                    }
                 }
             }
         }
@@ -237,7 +243,7 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
 
     @MethodSource("splitFormatVersion")
     @ParameterizedTest
-    void testValidateRecordsMissingVersion(boolean splitLongRecords, FormatVersion formatVersion, boolean storeVersions, RecordRepairRunner.ValidationKind validationKind) throws Exception {
+    void testValidateRecordsMissingVersion(boolean splitLongRecords, FormatVersion formatVersion, boolean storeVersions, RecordRepair.ValidationKind validationKind) throws Exception {
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(splitLongRecords, storeVersions);
         List<FDBStoredRecord<Message>> savedRecords = saveRecords(splitLongRecords, formatVersion, hook);
         // Delete the versions for the first 20 records
@@ -250,20 +256,23 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
-        RecordValidationStatsResult repairStats;
-        RepairResults repairResults;
+        RepirStatsResults repairStats;
+        RepairValidationResults repairResults;
         List<RecordRepairResult> invalidResults;
 
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-            RecordRepairRunner runner = RecordRepairRunner.builder(fdb).build();
-            repairStats = runner.runValidationStats(store.asBuilder(), validationKind);
-            repairResults = runner.runValidationAndRepair(store.asBuilder(), validationKind, false);
-            invalidResults = repairResults.getInvalidResults();
+            RecordRepair.Builder builder = RecordRepair.builder(fdb, store.asBuilder()).withValidationKind(validationKind);
+            try (RecordRepairStatsRunner statsRunner = builder.buildStatsRunner();
+                    RecordRepairValidateRunner repairRunner = builder.buildRepairRunner(false)) {
+                repairStats = statsRunner.run().join();
+                repairResults = repairRunner.run().join();
+                invalidResults = repairResults.getInvalidResults();
+            }
         }
 
         ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS);
-        if (validationKind.equals(RecordRepairRunner.ValidationKind.RECORD_VALUE)) {
+        if (validationKind.equals(RecordRepair.ValidationKind.RECORD_VALUE)) {
             // not validating versions
             ValidationTestUtils.assertRepairStats(repairStats, NUM_RECORDS);
             ValidationTestUtils.assertInvalidResults(invalidResults, 0, null);
@@ -293,12 +302,12 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
     public static Stream<Arguments> formatVersion() {
         return ParameterizedTestUtils.cartesianProduct(
                 ValidationTestUtils.formatVersions(),
-                Arrays.stream(RecordRepairRunner.ValidationKind.values()));
+                Arrays.stream(RecordRepair.ValidationKind.values()));
     }
 
     @MethodSource("formatVersion")
     @ParameterizedTest
-    void testValidateRecordsCorruptRecord(FormatVersion formatVersion, RecordRepairRunner.ValidationKind validationKind) throws Exception {
+    void testValidateRecordsCorruptRecord(FormatVersion formatVersion, RecordRepair.ValidationKind validationKind) throws Exception {
         boolean splitLongRecords = true;
         boolean storeVersions = true;
 
@@ -314,22 +323,23 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
-        RecordValidationStatsResult repairStats;
-        RepairResults repairResults;
-        List<RecordRepairResult> invalidResults;
+        RepirStatsResults repairStats;
+        RepairValidationResults repairResults;
 
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
-            RecordRepairRunner runner = RecordRepairRunner.builder(fdb).build();
-            repairStats = runner.runValidationStats(store.asBuilder(), validationKind);
-            repairResults = runner.runValidationAndRepair(store.asBuilder(), validationKind, false);
-            invalidResults = repairResults.getInvalidResults();
+            RecordRepair.Builder builder = RecordRepair.builder(fdb, store.asBuilder()).withValidationKind(validationKind);
+            try (RecordRepairStatsRunner statsRunner = builder.buildStatsRunner();
+                    RecordRepairValidateRunner repairRunner = builder.buildRepairRunner(false)) {
+                repairStats = statsRunner.run().join();
+                repairResults = repairRunner.run().join();
+            }
         }
 
         ValidationTestUtils.assertRepairStats(repairStats, NUM_RECORDS - 1, 1, RecordRepairResult.CODE_DESERIALIZE_ERROR);
         ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS);
         ValidationTestUtils.assertInvalidResults(
-                invalidResults,
+                repairResults.getInvalidResults(),
                 1,
                 result -> result.equals(RecordRepairResult.invalid(primaryKey, RecordRepairResult.CODE_DESERIALIZE_ERROR, "any")));
     }
@@ -340,7 +350,7 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
      */
     @MethodSource("formatVersion")
     @ParameterizedTest
-    void testValidateRecordsCorruptVersion(FormatVersion formatVersion, RecordRepairRunner.ValidationKind validationKind) throws Exception {
+    void testValidateRecordsCorruptVersion(FormatVersion formatVersion, RecordRepair.ValidationKind validationKind) throws Exception {
         boolean splitLongRecords = true;
         boolean storeVersions = true;
 
@@ -361,17 +371,21 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
             storeBuilder = store.asBuilder();
         }
 
-        RecordRepairRunner runner = RecordRepairRunner.builder(fdb).withNumOfRetries(0).build();
+        RecordRepair.Builder builder = RecordRepair.builder(fdb, storeBuilder).withNumOfRetries(0).withValidationKind(validationKind);
         // We don't currently support detecting this king of error
-        RecordValidationStatsResult repairStats = runner.runValidationStats(storeBuilder, validationKind);
-        RepairResults repairResults = runner.runValidationAndRepair(storeBuilder, validationKind, false);
-
-        Assertions.assertThat(repairStats.getExceptionCaught().getCause()).isInstanceOf(UnknownValidationException.class);
-        Assertions.assertThat(repairStats.getStats().get(RecordRepairResult.CODE_VALID)).isEqualTo(ValidationTestUtils.RECORD_INDEX_WITH_THREE_SPLITS);
-        Assertions.assertThat(repairResults.isComplete()).isFalse();
-        Assertions.assertThat(repairResults.getCaughtException().getCause()).isInstanceOf(UnknownValidationException.class);
-        Assertions.assertThat(repairResults.getValidResultCount()).isEqualTo(ValidationTestUtils.RECORD_INDEX_WITH_THREE_SPLITS);
-        // TODO: This should change to 0 once fixed issue with failed transaction
+        try (RecordRepairStatsRunner statsRunner = builder.buildStatsRunner();
+                RecordRepairValidateRunner repairRunner = builder.buildRepairRunner(false)) {
+            RepirStatsResults repairStats = statsRunner.run().join();
+            RepairValidationResults repairResults = repairRunner.run().join();
+            // Iteration stopped short of the full scan
+            Assertions.assertThat(repairStats.getExceptionCaught().getCause()).isInstanceOf(UnknownValidationException.class);
+            Assertions.assertThat(repairStats.getStats().get(RecordRepairResult.CODE_VALID)).isEqualTo(ValidationTestUtils.RECORD_INDEX_WITH_THREE_SPLITS);
+            Assertions.assertThat(repairStats.getStats()).hasSize(1);
+            Assertions.assertThat(repairResults.isComplete()).isFalse();
+            Assertions.assertThat(repairResults.getCaughtException().getCause()).isInstanceOf(UnknownValidationException.class);
+            Assertions.assertThat(repairResults.getValidResultCount()).isEqualTo(ValidationTestUtils.RECORD_INDEX_WITH_THREE_SPLITS);
+            Assertions.assertThat(repairResults.getInvalidResults()).hasSize(0);
+        }
     }
 
     // list of arguments for version and a bitset that has all the combinations of 4 bits set (except all unset)
@@ -393,7 +407,7 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
         final FormatVersion maximumSupportedVersion = FormatVersion.getMaximumSupportedVersion();
         saveRecords(true, maximumSupportedVersion, hook);
 
-        RecordRepairRunner.ValidationKind validationKind = RecordRepairRunner.ValidationKind.RECORD_VALUE_AND_VERSION;
+        RecordRepair.ValidationKind validationKind = RecordRepair.ValidationKind.RECORD_VALUE_AND_VERSION;
         FDBRecordStore.Builder storeBuilder;
 
         try (FDBRecordContext context = openContext()) {
@@ -416,17 +430,21 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
                 break;
         }
 
-        RecordRepairRunner runner = RecordRepairRunner.builder(fdb)
+        RecordRepair.Builder builder = RecordRepair.builder(fdb, storeBuilder)
                 .withMaxResultsReturned(maxResultSize)
-                .build();
-        RecordValidationStatsResult repairStats = runner.runValidationStats(storeBuilder, validationKind);
-        RepairResults repairResults = runner.runValidationAndRepair(storeBuilder, validationKind, false);
+                .withValidationKind(validationKind);
+        try (RecordRepairStatsRunner statsRunner = builder.buildStatsRunner();
+             RecordRepairValidateRunner repairRunner = builder.buildRepairRunner(false)) {
 
-        ValidationTestUtils.assertRepairStats(repairStats, 0, NUM_RECORDS, RecordRepairResult.CODE_VERSION_MISSING_ERROR);
-        Assertions.assertThat(repairResults.isComplete()).isEqualTo(isComplete);
-        Assertions.assertThat(repairResults.getValidResultCount() + repairResults.getInvalidResults().size()).isEqualTo(expectedResultSize);
-        Assertions.assertThat(repairResults.getCaughtException()).isNull();
-        ValidationTestUtils.assertInvalidResults(repairResults.getInvalidResults(), expectedResultSize, result -> result.getErrorCode().equals(RecordRepairResult.CODE_VERSION_MISSING_ERROR));
+            RepirStatsResults repairStats = statsRunner.run().join();
+            RepairValidationResults repairResults = repairRunner.run().join();
+
+            ValidationTestUtils.assertRepairStats(repairStats, 0, NUM_RECORDS, RecordRepairResult.CODE_VERSION_MISSING_ERROR);
+            Assertions.assertThat(repairResults.isComplete()).isEqualTo(isComplete);
+            Assertions.assertThat(repairResults.getValidResultCount() + repairResults.getInvalidResults().size()).isEqualTo(expectedResultSize);
+            Assertions.assertThat(repairResults.getCaughtException()).isNull();
+            ValidationTestUtils.assertInvalidResults(repairResults.getInvalidResults(), expectedResultSize, result -> result.getErrorCode().equals(RecordRepairResult.CODE_VERSION_MISSING_ERROR));
+        }
     }
 
     /**
@@ -441,31 +459,33 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
         final int maxRecordScannedPerSec = 100;
         saveRecords(1, totalRecords, true, maximumSupportedVersion, simpleMetaData(hook));
 
-        RecordRepairRunner.ValidationKind validationKind = RecordRepairRunner.ValidationKind.RECORD_VALUE_AND_VERSION;
+        RecordRepair.ValidationKind validationKind = RecordRepair.ValidationKind.RECORD_VALUE_AND_VERSION;
         FDBRecordStore.Builder storeBuilder;
 
         try (FDBRecordContext context = openContext()) {
             final FDBRecordStore store = openSimpleRecordStore(context, hook, maximumSupportedVersion);
             storeBuilder = store.asBuilder();
         }
-        RecordRepairRunner runner = RecordRepairRunner.builder(fdb)
+        RecordRepair.Builder builder = RecordRepair.builder(fdb, storeBuilder)
                 // 200 records at 100 records / sec should average out to 2 seconds (actual scanning time is minimal)
                 .withMaxRecordScannedPerSec(maxRecordScannedPerSec)
                 // have transaction as short as we can since the per-sec calculation only kicks in when transaction is done
                 .withTransactionTimeQuotaMillis(1)
-                .build();
+                .withValidationKind(validationKind);
 
-        long start = System.currentTimeMillis();
-        RecordValidationStatsResult repairStats = runner.runValidationStats(storeBuilder, validationKind);
-        long mid = System.currentTimeMillis();
-        RepairResults repairResults = runner.runValidationAndRepair(storeBuilder, validationKind, false);
-        long end = System.currentTimeMillis();
+        try (RecordRepairStatsRunner statsRunner = builder.buildStatsRunner();
+             RecordRepairValidateRunner repairRunner = builder.buildRepairRunner(false)) {
+            long start = System.currentTimeMillis();
+            RepirStatsResults repairStats = statsRunner.run().join();
+            long mid = System.currentTimeMillis();
+            RepairValidationResults repairResults = repairRunner.run().join();
+            long end = System.currentTimeMillis();
 
-        // Total time to run the scan. Add some slack (300 ms) to allow for test to be less flaky
-        Assertions.assertThat(mid - start).isGreaterThan(totalRecords / maxRecordScannedPerSec * 1000 - 300);
-        Assertions.assertThat(end - mid).isGreaterThan(totalRecords / maxRecordScannedPerSec * 1000 - 300);
+            // Total time to run the scan. Add some slack (300 ms) to allow for test to be less flaky
+            Assertions.assertThat(mid - start).isGreaterThan(totalRecords / maxRecordScannedPerSec * 1000 - 300);
+            Assertions.assertThat(end - mid).isGreaterThan(totalRecords / maxRecordScannedPerSec * 1000 - 300);
+        }
     }
-
 
     private List<FDBStoredRecord<Message>> saveRecords(final boolean splitLongRecords, FormatVersion formatVersion, final RecordMetaDataHook hook) throws Exception {
         return saveRecords(1, NUM_RECORDS, splitLongRecords, formatVersion, simpleMetaData(hook));

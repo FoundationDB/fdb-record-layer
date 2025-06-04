@@ -207,21 +207,21 @@ public class ValidationTestUtils {
         }
     }
 
-    public static void assertCompleteResults(final RepairResults repairResults, int numRecords) {
+    public static void assertCompleteResults(final RepairValidationResults repairResults, int numRecords) {
         Assertions.assertThat(repairResults.isComplete()).isTrue();
         Assertions.assertThat(repairResults.getCaughtException()).isNull();
         Assertions.assertThat(repairResults.getInvalidResults().size() + repairResults.getValidResultCount()).isEqualTo(numRecords);
     }
 
-    public static void assertRepairStats(RecordValidationStatsResult stats, int numValidResults) {
+    public static void assertRepairStats(RepirStatsResults stats, int numValidResults) {
         assertRepairStats(stats, numValidResults, 0, null, 0, null);
     }
 
-    public static void assertRepairStats(RecordValidationStatsResult stats, int numValidResults, int numResults1, String codeResults1) {
+    public static void assertRepairStats(RepirStatsResults stats, int numValidResults, int numResults1, String codeResults1) {
         assertRepairStats(stats, numValidResults, numResults1, codeResults1, 0, null);
     }
 
-    public static void assertRepairStats(RecordValidationStatsResult stats, int numValidResults, int numResults1, String codeResults1, int numResults2, String codeResults2) {
+    public static void assertRepairStats(RepirStatsResults stats, int numValidResults, int numResults1, String codeResults1, int numResults2, String codeResults2) {
         int numEntries = 0;
         if (numValidResults > 0) {
             Assertions.assertThat(stats.getStats().get(RecordRepairResult.CODE_VALID)).isEqualTo(numValidResults);

@@ -1,5 +1,5 @@
 /*
- * RepairResults.java
+ * RepairValidationResults.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -28,23 +28,23 @@ import javax.annotation.Nullable;
 import java.util.List;
 
 /**
- * Repair results for the call to {@link RecordRepairRunner#runValidationAndRepair(FDBRecordStore.Builder, RecordRepairRunner.ValidationKind, boolean)}.
+ * Repair results for the call to {@link RecordRepair#runValidationAndRepair(FDBRecordStore.Builder, RecordRepair.ValidationKind, boolean)}.
  * Holds the results of the execution of the validation and repair operation.
  * Note that the result may be incomplete: If the call to runValidationAndRepair restricted the number of results returned
- * (via {@link RecordRepairRunner.Builder#withMaxResultsReturned(int)} - e.g. to control the size of the list returned)
+ * (via {@link RecordRepair.Builder#withMaxResultsReturned(int)} - e.g. to control the size of the list returned)
  * then this list would contain at most that many results and another call may be necessary to continue iterating through
  * the records.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RepairResults {
+public class RepairValidationResults {
     private final boolean isComplete;
     @Nullable
-    private final Exception caughtException;
+    private final Throwable caughtException;
     @Nonnull
     private final List<RecordRepairResult> invalidResults;
     private final int validResultCount;
 
-    public RepairResults(final boolean isComplete, @Nullable final Exception caughtException, @Nonnull final List<RecordRepairResult> invalidResults, final int validResultCount) {
+    public RepairValidationResults(final boolean isComplete, @Nullable final Throwable caughtException, @Nonnull final List<RecordRepairResult> invalidResults, final int validResultCount) {
         this.isComplete = isComplete;
         this.caughtException = caughtException;
         this.invalidResults = invalidResults;
@@ -66,13 +66,13 @@ public class RepairResults {
      * @return the throwable caught by the operation, if any.
      */
     @Nullable
-    public Exception getCaughtException() {
+    public Throwable getCaughtException() {
         return caughtException;
     }
 
     /**
      * The list of validation and repair results for all records that results in non-valid validation code.
-     * Note that this list can be limited in size by calling {@link RecordRepairRunner.Builder#withMaxResultsReturned(int)}
+     * Note that this list can be limited in size by calling {@link RecordRepair.Builder#withMaxResultsReturned(int)}
      * @return the list of record validation results that ended up with non-valid code.
      */
     @Nonnull

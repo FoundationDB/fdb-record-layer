@@ -1,5 +1,5 @@
 /*
- * RecordValidationResult.java
+ * RecordRepairResult.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -30,7 +30,7 @@ import java.util.Objects;
 
 /**
  * A record validation and repair result.
- * This would be returned from a {@link RecordRepairRunner#runValidationAndRepair(FDBRecordStore.Builder, RecordRepairRunner.ValidationKind, boolean)} call with the results of the validation
+ * This would be returned from a {@link RecordRepair#runValidationAndRepair(FDBRecordStore.Builder, RecordRepair.ValidationKind, boolean)} call with the results of the validation
  * operation. The results should have the following fields populated:
  * <ul>
  *     <li>primaryKey: The key of the record validated</li>

@@ -1,5 +1,5 @@
 /*
- * RecordValidationStatsResult.java
+ * RepirStatsResults.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,18 +20,21 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.recordrepair;
 
+import com.apple.foundationdb.annotation.API;
+
 import javax.annotation.Nonnull;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-public class RecordValidationStatsResult {
+@API(API.Status.EXPERIMENTAL)
+public class RepirStatsResults {
     @Nonnull
     private final Map<String, AtomicInteger> stats;
-    private Exception exceptionCaught;
+    private Throwable exceptionCaught;
 
-    public RecordValidationStatsResult() {
+    public RepirStatsResults() {
         this.stats = new HashMap<>();
     }
 
@@ -48,7 +51,7 @@ public class RecordValidationStatsResult {
         return exceptionCaught;
     }
 
-    void setExceptionCaught(final Exception ex) {
+    void setExceptionCaught(final Throwable ex) {
         this.exceptionCaught = ex;
     }
 }

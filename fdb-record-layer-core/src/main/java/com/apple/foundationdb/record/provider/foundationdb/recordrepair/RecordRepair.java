@@ -1,5 +1,5 @@
 /*
- * RecordRepairRunner.java
+ * RecordRepair.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -36,12 +36,8 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * A class that iterates through all records in a given store and validates (and optionally repairs) them.
@@ -80,82 +76,50 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Repairing missing version would normally mean creating a new version for the record.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RecordRepairRunner {
+public abstract class RecordRepair implements AutoCloseable {
     /**
      * The type of validation to perform.
      */
     public enum ValidationKind { RECORD_VALUE, RECORD_VALUE_AND_VERSION }
 
-    private static final Logger logger = LoggerFactory.getLogger(RecordRepairRunner.class);
+    private static final Logger logger = LoggerFactory.getLogger(RecordRepair.class);
 
     @Nonnull
     private final FDBDatabase database;
-    private final int maxResultsReturned;
-    private final int transactionTimeQuotaMillis;
-    private final int maxRecordDeletesPerTransaction;
-    private final int maxRecordScannedPerSec;
-    private final int maxRecordDeletesPerSec;
-    private final int numOfRetries;
+    @Nonnull
+    private final FDBRecordStore.Builder storeBuilder;
+    @Nonnull
+    private final ValidationKind validationKind;
+    @Nonnull
+    private final ThrottledRetryingIterator<Tuple> throttledIterator;
 
-    private RecordRepairRunner(@Nonnull final Builder config) {
+    protected RecordRepair(@Nonnull final Builder config) {
         this.database = config.database;
-        this.maxResultsReturned = config.getMaxResultsReturned();
-        this.transactionTimeQuotaMillis = config.getTransactionTimeQuotaMillis();
-        this.maxRecordDeletesPerTransaction = config.getMaxRecordDeletesPerTransaction();
-        this.maxRecordScannedPerSec = config.getMaxRecordScannedPerSec();
-        this.maxRecordDeletesPerSec = config.getMaxRecordDeletesPerSec();
-        this.numOfRetries = config.getNumOfRetries();
+        this.storeBuilder = config.getStoreBuilder();
+        this.validationKind = config.getValidationKind();
+        ThrottledRetryingIterator.Builder<Tuple> iteratorBuilder = ThrottledRetryingIterator.builder(database, cursorFactory(), getItemHandler());
+        throttledIterator = configureThrottlingIterator(iteratorBuilder, config).build();
     }
 
     /**
      * Create a builder for the runner.
      * @param database the FDB database to use to create new transactions
+     * @param storeBuilder
      * @return the builder instance
      */
-    public static Builder builder(@Nonnull FDBDatabase database) {
-        return new Builder(database);
+    public static Builder builder(@Nonnull FDBDatabase database, final FDBRecordStore.Builder storeBuilder) {
+        return new Builder(database, storeBuilder);
     }
 
-    /**
-     * Run a validation of the store and return an aggregated summary of the results.
-     * @param recordStoreBuilder the store builder to use
-     * @param validationKind which validation to run
-     * @return an aggregated result set of all the found issues
-     */
-    public RecordValidationStatsResult runValidationStats(@Nonnull FDBRecordStore.Builder recordStoreBuilder, @Nonnull ValidationKind validationKind) {
-        RecordValidationStatsResult statsResult = new RecordValidationStatsResult();
-        ThrottledRetryingIterator.Builder<Tuple> iteratorBuilder =
-                ThrottledRetryingIterator.builder(database, cursorFactory(), countResultsHandler(statsResult, validationKind));
-        iteratorBuilder = configureThrottlingIterator(iteratorBuilder);
-        try (ThrottledRetryingIterator<Tuple> iterator = iteratorBuilder.build()) {
-            iterator.iterateAll(recordStoreBuilder).join();
-        } catch (Exception ex) {
-            statsResult.setExceptionCaught(ex);
-        }
-        return statsResult;
+    @Override
+    public void close() {
+        throttledIterator.close();
     }
 
-    /**
-     * Run a validation of the store and return a list of specific issues found.
-     * @param recordStoreBuilder the store builder to use
-     * @param validationKind which validation to run
-     * @param allowRepair whether to allow repair on the issues found
-     * @return The {@link RepairResults} containing the result of the operation
-     */
-    public RepairResults runValidationAndRepair(@Nonnull FDBRecordStore.Builder recordStoreBuilder, @Nonnull ValidationKind validationKind, boolean allowRepair) {
-        List<RecordRepairResult> invalidResults = new ArrayList<>();
-        AtomicInteger validResultCount = new AtomicInteger(0);
-        AtomicBoolean earlyReturn = new AtomicBoolean(false);
+    protected abstract ItemHandler<Tuple> getItemHandler();
 
-        ThrottledRetryingIterator.Builder<Tuple> iteratorBuilder =
-                ThrottledRetryingIterator.builder(database, cursorFactory(), validateAndRepairHandler(invalidResults, validResultCount, earlyReturn, validationKind, allowRepair));
-        iteratorBuilder = configureThrottlingIterator(iteratorBuilder);
-        try (ThrottledRetryingIterator<Tuple> iterator = iteratorBuilder.build()) {
-            iterator.iterateAll(recordStoreBuilder).join();
-        } catch (Exception ex) {
-            return new RepairResults(false, ex, invalidResults, validResultCount.get());
-        }
-        return new RepairResults(!earlyReturn.get(), null, invalidResults, validResultCount.get());
+    protected CompletableFuture<Void> iterateAll() {
+        return throttledIterator.iterateAll(storeBuilder);
     }
 
     private CursorFactory<Tuple> cursorFactory() {
@@ -166,38 +130,9 @@ public class RecordRepairRunner {
         };
     }
 
-    private ItemHandler<Tuple> countResultsHandler(RecordValidationStatsResult statsResult, final ValidationKind validationKind) {
-        return (FDBRecordStore store, RecordCursorResult<Tuple> lastResult, ThrottledRetryingIterator.QuotaManager quotaManager) -> {
-            return validateInternal(lastResult, store, validationKind, false).thenAccept(result -> {
-                statsResult.increment(result.getErrorCode());
-            });
-        };
-    }
-
-    private ItemHandler<Tuple> validateAndRepairHandler(@Nonnull List<RecordRepairResult> invalidResults, @Nonnull AtomicInteger validResultCount, @Nonnull AtomicBoolean earlyReturn, final ValidationKind validationKind, boolean allowRepair) {
-        return (FDBRecordStore store, RecordCursorResult<Tuple> primaryKey, ThrottledRetryingIterator.QuotaManager quotaManager) -> {
-            return validateInternal(primaryKey, store, validationKind, allowRepair).thenAccept(result -> {
-                if (result.isValid()) {
-                    validResultCount.incrementAndGet();
-                } else {
-                    invalidResults.add(result);
-                    if ((maxResultsReturned > 0) && (invalidResults.size() >= maxResultsReturned)) {
-                        quotaManager.markExhausted();
-                        earlyReturn.set(true);
-                    }
-                    // Mark record as deleted
-                    if (result.isRepaired() && RecordRepairResult.REPAIR_RECORD_DELETED.equals(result.getRepairCode())) {
-                        quotaManager.deleteCountAdd(1);
-                    }
-                }
-            });
-        };
-    }
-
-    private static CompletableFuture<RecordRepairResult> validateInternal(@Nonnull final RecordCursorResult<Tuple> primaryKey,
-                                                                          @Nonnull final FDBRecordStore store,
-                                                                          @Nonnull final ValidationKind validationKind,
-                                                                          boolean allowRepair) {
+    protected CompletableFuture<RecordRepairResult> validateInternal(@Nonnull final RecordCursorResult<Tuple> primaryKey,
+                                                                     @Nonnull final FDBRecordStore store,
+                                                                     boolean allowRepair) {
         RecordValueValidator valueValidator = new RecordValueValidator(store);
         // The following is dependent on the semantics of value and version repairs. A more elaborate scheme
         // to introduce flow control and abort/continue mechanisms would make this more generic but is yet unnecessary.
@@ -223,15 +158,15 @@ public class RecordRepairRunner {
         });
     }
 
-    private ThrottledRetryingIterator.Builder<Tuple> configureThrottlingIterator(ThrottledRetryingIterator.Builder<Tuple> builder) {
+    private ThrottledRetryingIterator.Builder<Tuple> configureThrottlingIterator(ThrottledRetryingIterator.Builder<Tuple> builder, Builder config) {
         return builder
                 .withTransactionInitNotification(this::logStartTransaction)
                 .withTransactionSuccessNotification(this::logCommitTransaction)
-                .withTransactionTimeQuotaMillis(transactionTimeQuotaMillis)
-                .withMaxRecordsDeletesPerTransaction(maxRecordDeletesPerTransaction)
-                .withMaxRecordsScannedPerSec(maxRecordScannedPerSec)
-                .withMaxRecordsDeletesPerSec(maxRecordDeletesPerSec)
-                .withNumOfRetries(numOfRetries);
+                .withTransactionTimeQuotaMillis(config.getTransactionTimeQuotaMillis())
+                .withMaxRecordsDeletesPerTransaction(config.getMaxRecordDeletesPerTransaction())
+                .withMaxRecordsScannedPerSec(config.getMaxRecordScannedPerSec())
+                .withMaxRecordsDeletesPerSec(config.getMaxRecordDeletesPerSec())
+                .withNumOfRetries(config.getNumOfRetries());
     }
 
     @SuppressWarnings("PMD.UnusedFormalParameter")
@@ -250,12 +185,17 @@ public class RecordRepairRunner {
     }
 
     /**
-     * A builder to configure and create a {@link RecordRepairRunner}.
+     * A builder to configure and create a {@link RecordRepair}.
      */
     public static class Builder {
         @Nonnull
         private final FDBDatabase database;
+        @Nonnull
+        private final FDBRecordStore.Builder storeBuilder;
+
         private int maxResultsReturned = 10_000;
+        @Nonnull
+        private ValidationKind validationKind = ValidationKind.RECORD_VALUE_AND_VERSION;
 
         private int transactionTimeQuotaMillis = (int)TimeUnit.SECONDS.toMillis(4);
         private int maxRecordDeletesPerTransaction = 0;
@@ -267,16 +207,21 @@ public class RecordRepairRunner {
          * Constructor.
          * @param database the FDB database to use
          */
-        public Builder(@Nonnull final FDBDatabase database) {
+        public Builder(@Nonnull final FDBDatabase database, @Nonnull final FDBRecordStore.Builder storeBuilder) {
             this.database = database;
+            this.storeBuilder = storeBuilder;
         }
 
         /**
          * Finalize the build and create a runner.
          * @return the newly created runner
          */
-        public RecordRepairRunner build() {
-            return new RecordRepairRunner(this);
+        public RecordRepairStatsRunner buildStatsRunner() {
+            return new RecordRepairStatsRunner(this);
+        }
+
+        public RecordRepairValidateRunner buildRepairRunner(boolean allowRepair) {
+            return new RecordRepairValidateRunner(this, allowRepair);
         }
 
         /**
@@ -289,6 +234,11 @@ public class RecordRepairRunner {
          */
         public Builder withMaxResultsReturned(int maxResultsReturned) {
             this.maxResultsReturned = maxResultsReturned;
+            return this;
+        }
+
+        public Builder withValidationKind(ValidationKind validationKind) {
+            this.validationKind = validationKind;
             return this;
         }
 
@@ -358,6 +308,15 @@ public class RecordRepairRunner {
         @Nonnull
         public FDBDatabase getDatabase() {
             return database;
+        }
+
+        @Nonnull
+        public FDBRecordStore.Builder getStoreBuilder() {
+            return storeBuilder;
+        }
+
+        public ValidationKind getValidationKind() {
+            return validationKind;
         }
 
         public int getMaxResultsReturned() {
