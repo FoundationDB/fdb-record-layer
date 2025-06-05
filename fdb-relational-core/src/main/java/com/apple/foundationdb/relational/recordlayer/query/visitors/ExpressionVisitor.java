@@ -25,13 +25,11 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConditionSelectorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ExistsValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.PickValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -311,20 +309,25 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitCaseFunctionCall(@Nonnull RelationalParser.CaseFunctionCallContext ctx) {
-        final ImmutableList.Builder<BooleanValue> implications = ImmutableList.builder();
-        final ImmutableList.Builder<Value> pickerValues = ImmutableList.builder();
+        final ImmutableList.Builder<Value> implications = ImmutableList.builder();
+        final ImmutableList.Builder<Expression> pickerValues = ImmutableList.builder();
         for (final var caseAlternative : ctx.caseFuncAlternative()) {
             final var condition = visitFunctionArg(caseAlternative.condition);
+            Assert.thatUnchecked(condition.getDataType().getCode().equals(DataType.Code.BOOLEAN), ErrorCode.DATATYPE_MISMATCH,
+                    "argument of case when must be of boolean type");
             final var consequent = visitFunctionArg(caseAlternative.consequent);
-            implications.add(Assert.castUnchecked(condition.getUnderlying(), BooleanValue.class));
-            pickerValues.add(consequent.getUnderlying());
+            implications.add(condition.getUnderlying());
+            pickerValues.add(consequent);
         }
         if (ctx.ELSE() != null) {
             implications.add(TautologicalValue.getInstance());
             final var defaultConsequent = visitFunctionArg(ctx.functionArg());
-            pickerValues.add(defaultConsequent.getUnderlying());
+            pickerValues.add(defaultConsequent);
         }
-        return Expression.ofUnnamed(new PickValue(new ConditionSelectorValue(implications.build()), pickerValues.build()));
+        final var arguments = ImmutableList.<Expression>builder();
+        arguments.add(Expression.ofUnnamed(new ConditionSelectorValue(implications.build())));
+        arguments.addAll(pickerValues.build());
+        return getDelegate().resolveFunction("__pick_value", arguments.build().toArray(new Expression[0]));
     }
 
     @Nonnull
@@ -547,6 +550,23 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final var left = Assert.castUnchecked(ctx.left.accept(this), Expression.class);
         final var right = Assert.castUnchecked(ctx.right.accept(this), Expression.class);
         return getDelegate().resolveFunction(ctx.comparisonOperator().getText(), left, right);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitBetweenComparisonPredicate(@Nonnull RelationalParser.BetweenComparisonPredicateContext ctx) {
+        final var operand = Assert.castUnchecked(ctx.operand.accept(this), Expression.class);
+        final var left = Assert.castUnchecked(ctx.left.accept(this), Expression.class);
+        final var right = Assert.castUnchecked(ctx.right.accept(this), Expression.class);
+        if (ctx.NOT() == null) {
+            return getDelegate().resolveFunction("and",
+                    getDelegate().resolveFunction("<=", left, operand),
+                    getDelegate().resolveFunction("<=", operand, right));
+        } else {
+            return getDelegate().resolveFunction("or",
+                    getDelegate().resolveFunction("<", operand, left),
+                    getDelegate().resolveFunction(">", operand, right));
+        }
     }
 
     @Nonnull
