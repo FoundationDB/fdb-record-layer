@@ -78,8 +78,8 @@ public class ImplementDistinctUnionRule extends ImplementationCascadesRule<Logic
 
     @Nonnull
     private static final BindingMatcher<Reference> unionLegReferenceMatcher =
-            planPartitions(filterPartition(planPartition -> planPartition.getGroupingPropertyValue(StoredRecordProperty.storedRecord()) &&
-                                                  planPartition.getGroupingPropertyValue(PrimaryKeyProperty.primaryKey()).isPresent(),
+            planPartitions(filterPartition(planPartition -> planPartition.getPartitionPropertyValue(StoredRecordProperty.storedRecord()) &&
+                                                  planPartition.getPartitionPropertyValue(PrimaryKeyProperty.primaryKey()).isPresent(),
                     rollUpPartitionsTo(unionLegPlanPartitionsMatcher, allAttributesExcept(DistinctRecordsProperty.distinctRecords()))));
 
     private static final CollectionMatcher<Quantifier.ForEach> allForEachQuantifiersMatcher =
@@ -150,7 +150,7 @@ public class ImplementDistinctUnionRule extends ImplementationCascadesRule<Logic
 
                 final var commonPrimaryKeyValuesMaybe =
                         PrimaryKeyProperty.commonPrimaryKeyValuesMaybeFromOptionals(partitions.stream()
-                                .map(partition -> partition.getGroupingPropertyValue(PrimaryKeyProperty.primaryKey()))
+                                .map(partition -> partition.getPartitionPropertyValue(PrimaryKeyProperty.primaryKey()))
                                 .collect(ImmutableList.toImmutableList()));
 
                 if (commonPrimaryKeyValuesMaybe.isEmpty()) {
@@ -161,7 +161,7 @@ public class ImplementDistinctUnionRule extends ImplementationCascadesRule<Logic
                 final ImmutableList<Ordering> orderings =
                         partitions
                                 .stream()
-                                .map(planPartition -> planPartition.getGroupingPropertyValue(OrderingProperty.ordering()))
+                                .map(planPartition -> planPartition.getPartitionPropertyValue(OrderingProperty.ordering()))
                                 .collect(ImmutableList.toImmutableList());
                 pushInterestingOrders(call, unionForEachQuantifier, orderings, requestedOrdering);
 

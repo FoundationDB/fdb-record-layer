@@ -37,50 +37,50 @@ public class ExpressionPartition<E extends RelationalExpression> {
      * defining the partition.
      */
     @Nonnull
-    private final Map<ExpressionProperty<?>, ?> groupingPropertyMap;
+    private final Map<ExpressionProperty<?>, ?> partitionPropertiesMap;
     /**
      * Grouped property map which is a map from each individual plan in the partition to properties and their values
      * for properties that are not defining the partition.
      */
     @Nonnull
-    private final Map<E, Map<ExpressionProperty<?>, ?>> groupedPropertyMap;
+    private final Map<E, Map<ExpressionProperty<?>, ?>> nonPartitioningPropertiesMap;
 
     /**
      * Constructor. Note that we do not defensively copy here as it is dependent on the use case if we need a copy or
      * not. The caller needs to ensure that the maps being passed in are either immutable or owned.
-     * @param groupingPropertyMap grouping property map
-     * @param groupedPropertyMap grouped property map
+     * @param partitionPropertiesMap property map common to the entire partition
+     * @param nonPartitioningPropertiesMap expression property map for expression-specific properties
      */
-    public ExpressionPartition(@Nonnull final Map<ExpressionProperty<?>, ?> groupingPropertyMap,
-                               @Nonnull final Map<E, Map<ExpressionProperty<?>, ?>> groupedPropertyMap) {
-        this.groupingPropertyMap = groupingPropertyMap;
-        this.groupedPropertyMap = groupedPropertyMap;
+    public ExpressionPartition(@Nonnull final Map<ExpressionProperty<?>, ?> partitionPropertiesMap,
+                               @Nonnull final Map<E, Map<ExpressionProperty<?>, ?>> nonPartitioningPropertiesMap) {
+        this.partitionPropertiesMap = partitionPropertiesMap;
+        this.nonPartitioningPropertiesMap = nonPartitioningPropertiesMap;
     }
 
     @Nonnull
-    public Map<ExpressionProperty<?>, ?> getGroupingPropertyMap() {
-        return groupingPropertyMap;
+    public Map<ExpressionProperty<?>, ?> getPartitionPropertiesMap() {
+        return partitionPropertiesMap;
     }
 
     @Nonnull
-    public Map<E, Map<ExpressionProperty<?>, ?>> getGroupedPropertyMap() {
-        return groupedPropertyMap;
+    public Map<E, Map<ExpressionProperty<?>, ?>> getNonPartitioningPropertiesMap() {
+        return nonPartitioningPropertiesMap;
     }
 
     @Nonnull
-    public <A> A getGroupingPropertyValue(@Nonnull final ExpressionProperty<A> expressionProperty) {
-        return expressionProperty.narrowAttribute(Objects.requireNonNull(groupingPropertyMap.get(expressionProperty)));
+    public <A> A getPartitionPropertyValue(@Nonnull final ExpressionProperty<A> expressionProperty) {
+        return expressionProperty.narrowAttribute(Objects.requireNonNull(partitionPropertiesMap.get(expressionProperty)));
     }
 
     @Nonnull
-    public <A> A getGroupedPropertyValue(@Nonnull final E expression,
-                                         @Nonnull final ExpressionProperty<A> expressionProperty) {
-        final var propertyMapForExpression = groupedPropertyMap.get(expression);
+    public <A> A getExpressionPropertyValue(@Nonnull final E expression,
+                                            @Nonnull final ExpressionProperty<A> expressionProperty) {
+        final var propertyMapForExpression = nonPartitioningPropertiesMap.get(expression);
         return expressionProperty.narrowAttribute(Objects.requireNonNull(propertyMapForExpression.get(expressionProperty)));
     }
 
     @Nonnull
     public Set<E> getExpressions() {
-        return groupedPropertyMap.keySet();
+        return nonPartitioningPropertiesMap.keySet();
     }
 }

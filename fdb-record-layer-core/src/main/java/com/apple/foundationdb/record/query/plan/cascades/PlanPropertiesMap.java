@@ -69,7 +69,7 @@ public class PlanPropertiesMap extends ExpressionPropertiesMap<RecordQueryPlan> 
     @Nonnull
     @Override
     public Map<Map<ExpressionProperty<?>, ?>, Set<RecordQueryPlan>> getGroupingPropertiesPlansMap() {
-        return getGroupingPropertiesExpressionsMap();
+        return getPartitioningPropertiesExpressionsMap();
     }
 
     @Nonnull

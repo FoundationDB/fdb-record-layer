@@ -64,15 +64,17 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
 
     /**
      * This set works a bit like an enumeration; it defines the domain of {@link ExpressionProperty}s that are being
-     * maintained by the properties map as part of the grouping properties.
+     * maintained by the properties map as part of the partitioning properties, i.e. the property value that together
+     * define the finest level of {@link ExpressionPartition}s.
      */
-    private final Set<ExpressionProperty<?>> trackedGroupingProperties;
+    private final Set<ExpressionProperty<?>> trackedPartitioningProperties;
 
     /**
      * This set works a bit like an enumeration; it defines the domain of {@link ExpressionProperty}s that are being
-     * maintained by the properties map as part of the grouped properties.
+     * maintained by the properties map as part of the individual properties whose values do not partake in defining
+     * partitions.
      */
-    private final Set<ExpressionProperty<?>> trackedGroupedProperties;
+    private final Set<ExpressionProperty<?>> trackedNonPartitioningProperties;
 
     /**
      * A queue with expressions whose properties have not been computed yet.
@@ -90,18 +92,18 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
      * {@link SetMultimap} from a map of computed properties to {@code E}s.
      */
     @Nonnull
-    private final SetMultimap<Map<ExpressionProperty<?>, ?>, E> groupingPropertiesExpressionsMap;
+    private final SetMultimap<Map<ExpressionProperty<?>, ?>, E> partitioningPropertiesExpressionsMap;
 
     public ExpressionPropertiesMap(@Nonnull final Class<E> expressionClass,
-                                   @Nonnull final Set<ExpressionProperty<?>> trackedGroupingProperties,
-                                   @Nonnull final Set<ExpressionProperty<?>> trackedGroupedProperties,
+                                   @Nonnull final Set<ExpressionProperty<?>> trackedPartitioningProperties,
+                                   @Nonnull final Set<ExpressionProperty<?>> trackedNonPartitioningProperties,
                                    @Nonnull final Collection<? extends RelationalExpression> expressions) {
         this.expressionClass = expressionClass;
-        this.trackedGroupingProperties = ImmutableSet.copyOf(trackedGroupingProperties);
-        this.trackedGroupedProperties = ImmutableSet.copyOf(trackedGroupedProperties);
+        this.trackedPartitioningProperties = ImmutableSet.copyOf(trackedPartitioningProperties);
+        this.trackedNonPartitioningProperties = ImmutableSet.copyOf(trackedNonPartitioningProperties);
         this.toBeInsertedExpressions = new ArrayDeque<>();
         this.propertiesMap = new LinkedIdentityMap<>();
-        this.groupingPropertiesExpressionsMap = Multimaps.newSetMultimap(Maps.newLinkedHashMap(), LinkedIdentitySet::new);
+        this.partitioningPropertiesExpressionsMap = Multimaps.newSetMultimap(Maps.newLinkedHashMap(), LinkedIdentitySet::new);
         expressions.forEach(this::add);
     }
 
@@ -121,12 +123,12 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
         while (!toBeInsertedExpressions.isEmpty()) {
             final var expression = toBeInsertedExpressions.pop();
             final var groupingPropertyMapBuilder = ImmutableMap.<ExpressionProperty<?>, Object>builder();
-            for (final var expressionProperty : trackedGroupingProperties) {
+            for (final var expressionProperty : trackedPartitioningProperties) {
                 groupingPropertyMapBuilder.put(expressionProperty, computePropertyValue(expressionProperty, expression));
             }
             final var groupingPropertyMap = groupingPropertyMapBuilder.build();
             final var groupedPropertyMapBuilder = ImmutableMap.<ExpressionProperty<?>, Object>builder();
-            for (final var expressionProperty : trackedGroupedProperties) {
+            for (final var expressionProperty : trackedNonPartitioningProperties) {
                 groupedPropertyMapBuilder.put(expressionProperty, computePropertyValue(expressionProperty, expression));
             }
             final var groupedPropertyMap = groupedPropertyMapBuilder.build();
@@ -140,10 +142,10 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
     }
 
     @Nonnull
-    public Map<E, Map<ExpressionProperty<?>, ?>> computeNonGroupingPropertiesMap() {
+    public Map<E, Map<ExpressionProperty<?>, ?>> computeNonPartitioningPropertiesMap() {
         return Maps.transformValues(propertiesMap,
                 propertyMap ->
-                        Maps.filterKeys(propertyMap, trackedGroupedProperties::contains));
+                        Maps.filterKeys(propertyMap, trackedNonPartitioningProperties::contains));
     }
 
     /**
@@ -189,42 +191,38 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
      */
     public void add(@Nonnull final RelationalExpression expression,
                     @Nonnull final Map<ExpressionProperty<?>, ?> propertyMap) {
-        final var groupingPropertyMapBuilder = ImmutableMap.<ExpressionProperty<?>, Object>builder();
-        for (final var expressionProperty : trackedGroupingProperties) {
+        final var partitioningPropertyMapBuilder = ImmutableMap.<ExpressionProperty<?>, Object>builder();
+        for (final var expressionProperty : trackedPartitioningProperties) {
             final var propertyValue = propertyMap.get(expressionProperty);
             Verify.verify(propertyValue != null);
-            groupingPropertyMapBuilder.put(expressionProperty, propertyMap.get(expressionProperty));
+            partitioningPropertyMapBuilder.put(expressionProperty, propertyMap.get(expressionProperty));
         }
-        final var groupingPropertyMap = groupingPropertyMapBuilder.build();
-        final var groupedPropertyMapBuilder = ImmutableMap.<ExpressionProperty<?>, Object>builder();
-        for (final var expressionProperty : trackedGroupedProperties) {
-            final var propertyValue = propertyMap.get(expressionProperty);
-            Verify.verify(propertyValue != null);
-            groupedPropertyMapBuilder.put(expressionProperty, propertyMap.get(expressionProperty));
-        }
-        final var groupedPropertyMap = groupedPropertyMapBuilder.build();
-        add(expression, groupingPropertyMap, groupedPropertyMap);
+        final var partitioningPropertyMap = partitioningPropertyMapBuilder.build();
+        final E typedExpression = narrow(expression);
+        Verify.verify(!propertiesMap.containsKey(typedExpression));
+        propertiesMap.put(typedExpression, propertyMap);
+        partitioningPropertiesExpressionsMap.put(partitioningPropertyMap, typedExpression);
     }
 
     /**
      * Method to add a new {@link RecordQueryPlan} to this property map using precomputed properties. That is
      * useful when the caller retrieved the plan from some other reference.
      * @param expression new record query plan to be added
-     * @param groupingPropertyMap a map containing all grouping properties for the expression passed in
-     * @param groupedPropertyMap a map containing all grouped properties for the expression passed in
+     * @param partitioningPropertyMap a map containing all partitioning properties for the expression passed in
+     * @param nonPartitioningPropertyMap a map containing all non-partitioning properties for the expression passed in
      */
     public void add(@Nonnull final RelationalExpression expression,
-                    @Nonnull final Map<ExpressionProperty<?>, ?> groupingPropertyMap,
-                    @Nonnull final Map<ExpressionProperty<?>, ?> groupedPropertyMap) {
+                    @Nonnull final Map<ExpressionProperty<?>, ?> partitioningPropertyMap,
+                    @Nonnull final Map<ExpressionProperty<?>, ?> nonPartitioningPropertyMap) {
         final E typedExpression = narrow(expression);
         Verify.verify(!propertiesMap.containsKey(typedExpression));
         final var combinedPropertyMap =
                 ImmutableMap.<ExpressionProperty<?>, Object>builder()
-                        .putAll(groupingPropertyMap)
-                        .putAll(groupedPropertyMap)
+                        .putAll(partitioningPropertyMap)
+                        .putAll(nonPartitioningPropertyMap)
                         .build();
         propertiesMap.put(typedExpression, combinedPropertyMap);
-        groupingPropertiesExpressionsMap.put(groupingPropertyMap, typedExpression);
+        partitioningPropertiesExpressionsMap.put(partitioningPropertyMap, typedExpression);
     }
 
     @Nonnull
@@ -237,7 +235,7 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
     public void clear() {
         toBeInsertedExpressions.clear();
         propertiesMap.clear();
-        groupingPropertiesExpressionsMap.clear();
+        partitioningPropertiesExpressionsMap.clear();
     }
 
     /**
@@ -259,9 +257,9 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
     }
 
     @Nonnull
-    public Map<Map<ExpressionProperty<?>, ?>, Set<E>> getGroupingPropertiesExpressionsMap() {
+    public Map<Map<ExpressionProperty<?>, ?>, Set<E>> getPartitioningPropertiesExpressionsMap() {
         update();
-        return Multimaps.asMap(groupingPropertiesExpressionsMap);
+        return Multimaps.asMap(partitioningPropertiesExpressionsMap);
     }
 
     @Nonnull

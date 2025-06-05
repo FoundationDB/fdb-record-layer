@@ -144,7 +144,7 @@ public class ImplementInJoinRule extends ImplementationCascadesRule<SelectExpres
         final var planPartitions = PlanPartitions.rollUpTo(innerReference.toPlanPartitions(), OrderingProperty.ordering());
 
         for (final var planPartition  : planPartitions) {
-            final var providedOrdering = planPartition.getGroupingPropertyValue(OrderingProperty.ordering());
+            final var providedOrdering = planPartition.getPartitionPropertyValue(OrderingProperty.ordering());
 
             for (final RequestedOrdering requestedOrdering : requestedOrderings) {
                 final var sourcesStream =

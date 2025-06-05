@@ -65,7 +65,7 @@ public class ImplementDistinctRule extends ImplementationCascadesRule<LogicalDis
 
     @Nonnull
     private static final BindingMatcher<Reference> innerReferenceMatcher =
-            planPartitions(filterPartition(planPartition -> planPartition.getGroupingPropertyValue(StoredRecordProperty.storedRecord()),
+            planPartitions(filterPartition(planPartition -> planPartition.getPartitionPropertyValue(StoredRecordProperty.storedRecord()),
                     any(innerPlanPartitionMatcher)));
 
     @Nonnull
@@ -81,7 +81,7 @@ public class ImplementDistinctRule extends ImplementationCascadesRule<LogicalDis
         final var innerPlanPartition = call.get(innerPlanPartitionMatcher);
         final var innerReference = call.get(innerReferenceMatcher);
 
-        if (innerPlanPartition.getGroupingPropertyValue(DistinctRecordsProperty.distinctRecords())) {
+        if (innerPlanPartition.getPartitionPropertyValue(DistinctRecordsProperty.distinctRecords())) {
             call.yieldPlans(innerPlanPartition.getPlans());
         } else {
             // these create duplicates
