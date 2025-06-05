@@ -508,9 +508,10 @@ public class Quantifiers {
 
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public static List<? extends Quantifier> translateCorrelations(@Nonnull final Iterable<? extends Quantifier> quantifiers,
-                                                                   @Nonnull final TranslationMap translationMap,
-                                                                   final boolean shouldSimplifyValues) {
+    public static List<? extends Quantifier> translateGraphs(@Nonnull final Iterable<? extends Quantifier> quantifiers,
+                                                             @Nonnull final Memoizer memoizer,
+                                                             @Nonnull final TranslationMap translationMap,
+                                                             final boolean shouldSimplifyValues) {
         //
         // Take care of the case that two distinct quantifiers range over the same ref (CSE).
         //
@@ -529,7 +530,8 @@ public class Quantifiers {
                     translatedQuantifiersBuilder.add(quantifier.overNewReference(newRef));
                 }
             } else {
-                final var translatedQuantifier = quantifier.translateCorrelations(translationMap, shouldSimplifyValues);
+                final var translatedQuantifier =
+                        quantifier.translateGraph(memoizer, translationMap, shouldSimplifyValues);
                 oldToNewRefMap.put(quantifier.getRangesOver(), translatedQuantifier.getRangesOver());
                 translatedQuantifiersBuilder.add(translatedQuantifier);
             }

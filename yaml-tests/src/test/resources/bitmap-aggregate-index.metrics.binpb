@@ -1,7 +1,7 @@
 ¯
 Ø
 bitmap-agg-index-testsîEXPLAIN SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap, bitmap_bucket_offset(id) as offset FROM T1 GROUP BY bitmap_bucket_offset(id)√
-”Ê≤®á ”√®(40Âª^8%@hAISCAN(BITMAPINDEX1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS BITMAP, _._0 AS OFFSET)∫
+”áí¿á Â∑Ù(40˝ (8%@hAISCAN(BITMAPINDEX1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS BITMAP, _._0 AS OFFSET)∫
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -14,8 +14,7 @@ digraph G {
 }¡
 √
 bitmap-agg-index-tests®EXPLAIN SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap, category, bitmap_bucket_offset(id) as offset FROM T1 GROUP BY category, bitmap_bucket_offset(id)¯
-”˙™ﬂá ‰Ø≠
-(40Ü§g8%@áAISCAN(BITMAPINDEX2 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._2 AS BITMAP, _._0 AS CATEGORY, _._1 AS OFFSET)œ
+”⁄Ê‚á ¸åì(40â˚E8%@áAISCAN(BITMAPINDEX2 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._2 AS BITMAP, _._0 AS CATEGORY, _._1 AS OFFSET)œ
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -28,8 +27,8 @@ digraph G {
 }¨
 „
 bitmap-agg-index-tests»EXPLAIN SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap, bitmap_bucket_offset(id) as offset FROM T1 GROUP BY bitmap_bucket_offset(id), bitmap_bucket_offset(id), bitmap_bucket_offset(id)√
-”ƒµ˚á ùÄ¿
-(40ü≈=8%@hAISCAN(BITMAPINDEX1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS BITMAP, _._0 AS OFFSET)∫
+”¡ª¥á ‹∂’
+(40ÌÈ;8%@hAISCAN(BITMAPINDEX1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS BITMAP, _._0 AS OFFSET)∫
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -42,7 +41,8 @@ digraph G {
 }€
 ›
 bitmap-agg-index-tests¬EXPLAIN SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap, category, bitmap_bucket_offset(id) as offset FROM T1 GROUP BY bitmap_bucket_offset(id), category, bitmap_bucket_offset(id)¯
-”Æó›á ‚æﬂ(40–ªR8%@áAISCAN(BITMAPINDEX2 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._2 AS BITMAP, _._0 AS CATEGORY, _._1 AS OFFSET)œ
+”‡≥Æá êñ’
+(40æó78%@áAISCAN(BITMAPINDEX2 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: VALUE:[0]]) | MAP (_._2 AS BITMAP, _._0 AS CATEGORY, _._1 AS OFFSET)œ
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -55,7 +55,7 @@ digraph G {
 }Ô
 Ø
 bitmap-agg-index-testsîEXPLAIN SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap, bitmap_bucket_offset(id) as offset FROM T2 GROUP BY bitmap_bucket_offset(id)∫
-π˛–√P ˜•‚( 0Ó÷/8@”ISCAN(AGG_INDEX_1 <,>) | MAP (_ AS _0) | AGG (bitmap_construct_agg_l((_._0.ID) bitmap_bit_position 10000) AS _0) GROUP BY ((_._0.ID) bitmap_bucket_offset 10000 AS _0) | MAP (_._1._0 AS BITMAP, _._0._0 AS OFFSET)∆digraph G {
+πÁ…ÉP ÜÑÒ( 0î—(8@”ISCAN(AGG_INDEX_1 <,>) | MAP (_ AS _0) | AGG (bitmap_construct_agg_l((_._0.ID) bitmap_bit_position 10000) AS _0) GROUP BY ((_._0.ID) bitmap_bucket_offset 10000 AS _0) | MAP (_._1._0 AS BITMAP, _._0._0 AS OFFSET)∆digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -71,7 +71,7 @@ digraph G {
 }ﬁ
 √
 bitmap-agg-index-tests®EXPLAIN SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap, category, bitmap_bucket_offset(id) as offset FROM T2 GROUP BY category, bitmap_bucket_offset(id)ï
-π¥∑›P ˆÛÄ( 0ïÓ,8@˝ISCAN(AGG_INDEX_2 <,>) | MAP (_ AS _0) | AGG (bitmap_construct_agg_l((_._0.ID) bitmap_bit_position 10000) AS _0) GROUP BY (_._0.CATEGORY AS _0, (_._0.ID) bitmap_bucket_offset 10000 AS _1) | MAP (_._1._0 AS BITMAP, _._0._0 AS CATEGORY, _._0._1 AS OFFSET)˜digraph G {
+πÏº´P ˇ…à( 0£≈&8@˝ISCAN(AGG_INDEX_2 <,>) | MAP (_ AS _0) | AGG (bitmap_construct_agg_l((_._0.ID) bitmap_bit_position 10000) AS _0) GROUP BY (_._0.CATEGORY AS _0, (_._0.ID) bitmap_bucket_offset 10000 AS _1) | MAP (_._1._0 AS BITMAP, _._0._0 AS CATEGORY, _._0._1 AS OFFSET)˜digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

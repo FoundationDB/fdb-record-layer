@@ -301,6 +301,18 @@ public class ConstraintsMap {
         return ++currentTick;
     }
 
+    /**
+     * Method to inherit all state from another constraints map.
+     * @param otherConstraintsMap the other constraints map
+     */
+    public void inheritFromOther(@Nonnull final ConstraintsMap otherConstraintsMap) {
+        this.currentTick = otherConstraintsMap.currentTick;
+        this.watermarkGoalTick = otherConstraintsMap.watermarkGoalTick;
+        this.watermarkCommittedTick = otherConstraintsMap.watermarkCommittedTick;
+        attributeToConstraintMap.clear();
+        attributeToConstraintMap.putAll(otherConstraintsMap.attributeToConstraintMap);
+    }
+
     private class ConstraintEntry {
         private long lastUpdatedTick;
         @Nonnull

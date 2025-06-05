@@ -476,10 +476,11 @@ public class Reference implements Correlated<Reference>, Typed {
     }
 
     @Nonnull
-    public Reference translateCorrelations(@Nonnull final TranslationMap translationMap,
-                                           final boolean shouldSimplifyValues) {
+    public Reference translateGraph(@Nonnull final Memoizer memoizer,
+                                    @Nonnull final TranslationMap translationMap,
+                                    final boolean shouldSimplifyValues) {
         final var translatedRefs =
-                References.translateCorrelations(ImmutableList.of(this), translationMap, shouldSimplifyValues);
+                References.translateCorrelationsInGraphs(ImmutableList.of(this), memoizer, translationMap, shouldSimplifyValues);
         return Iterables.getOnlyElement(translatedRefs);
     }
 
@@ -533,8 +534,16 @@ public class Reference implements Correlated<Reference>, Typed {
         return constraintsMap.isExploredForAttributes(dependencies);
     }
 
+    public boolean isExplored() {
+        return constraintsMap.isExplored();
+    }
+
     public void setExplored() {
         constraintsMap.setExplored();
+    }
+
+    public void inheritConstraintsFromOther(@Nonnull final Reference otherReference) {
+        constraintsMap.inheritFromOther(otherReference.getConstraintsMap());
     }
 
     @Nonnull

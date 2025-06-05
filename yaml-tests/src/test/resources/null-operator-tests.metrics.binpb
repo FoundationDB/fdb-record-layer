@@ -1,7 +1,7 @@
 â
 v
 null-operator-tests_EXPLAIN select count(*) from (select * from (select * from T1) as x where ID is not null) as y;ç
-äÙÂûŽ Êƒƒ(&0¬Ë'8C@
+äÖËÚŽ ƒ¼ž(&0ÖüS8=@
 ÃCOVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.ID NOT_NULL | FETCH | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)‚digraph G {
   fontname=courier;
   rankdir=BT;

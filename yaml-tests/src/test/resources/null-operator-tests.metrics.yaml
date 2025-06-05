@@ -5,10 +5,10 @@ null-operator-tests:
         | FETCH | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP
         (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
     task_count: 612
-    task_total_time_ms: 6
+    task_total_time_ms: 18
     transform_count: 142
-    transform_time_ms: 2
+    transform_time_ms: 4
     transform_yield_count: 38
-    insert_time_ms: 0
-    insert_new_count: 67
+    insert_time_ms: 1
+    insert_new_count: 61
     insert_reused_count: 10
