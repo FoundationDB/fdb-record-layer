@@ -510,7 +510,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             semanticAnalyzer.validateInListItems(inListItems);
             final var arrayType = semanticAnalyzer.resolveArrayTypeFromValues(inListItems);
             result = Expression.ofUnnamed(getDelegate().getPlanGenerationContext()
-                    .processComplexLiteral(QueryExecutionContext.OrderedLiteral.constantId(tokenIndex), arrayType));
+                    .processComplexLiteral(tokenIndex, arrayType));
         } else {
             final var inListItems = visitExpressions(ctx.expressions());
             result = getDelegate().resolveFunction("__internal_array", inListItems.asList().toArray(new Expression[0]));

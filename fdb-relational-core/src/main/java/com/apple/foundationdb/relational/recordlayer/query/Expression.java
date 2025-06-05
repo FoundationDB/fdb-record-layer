@@ -219,7 +219,7 @@ public class Expression {
      * instead of any {@link ConstantObjectValue}s.
      */
     @Nonnull
-    public Expressions dereferenced(@Nonnull QueryExecutionContext.Literals literals) {
+    public Expressions dereferenced(@Nonnull Literals literals) {
         return Expressions.ofSingle(withUnderlying(Assert.notNullUnchecked(underlying.get().replace(value -> {
             if (value instanceof ConstantObjectValue) {
                 final ConstantObjectValue constantObjectValue = (ConstantObjectValue) value;

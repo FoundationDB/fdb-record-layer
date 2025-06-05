@@ -37,6 +37,7 @@ import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.serde.RecordMetadataDeserializer;
+import com.apple.foundationdb.relational.recordlayer.query.Literals;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
@@ -498,7 +499,7 @@ public class SchemaTemplateSerDeTests {
     private static final class CompiledFunctionStub extends CompiledSqlFunction {
         @SuppressWarnings("DataFlowIssue") // only for test.
         CompiledFunctionStub() {
-            super("something", ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty(), null);
+            super("something", ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty(), null, Literals.empty());
         }
     }
 

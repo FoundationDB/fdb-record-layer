@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
@@ -34,6 +35,8 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
 import java.sql.SQLException;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * This is for testing different aspects of temporary SQL functions. This test suite can migrate to YAML once we have
@@ -215,6 +218,33 @@ public class TemporaryFunctionTests {
         }
     }
 
+    @Test
+    void createTemporaryFunctionWithPreparedParametersWorks() throws Exception {
+        final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
+            }
+            final var connection = ddl.getConnection();
+            connection.setAutoCommit(false);
+            try (var statement = connection.prepareStatement("create temporary function sq1(in x bigint) on commit drop function as select * from t1 where a < ?param + x")) {
+                statement.setLong("param", 40);
+                statement.execute();
+            }
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                invokeAndVerifyTempFunction(statement);
+            }
+            invokeAndVerifyTempFunction(sql -> {
+                try {
+                    return ddl.setSchemaAndGetConnection().prepareStatement(sql);
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            connection.rollback();
+        }
+    }
+
     private static void invokeAndVerifyTempFunction(final RelationalStatement statement) throws SQLException {
         Assertions.assertTrue(statement.execute("select * from sq1(x => 2)"));
         try (var resultSet = statement.getResultSet()) {
@@ -227,6 +257,20 @@ public class TemporaryFunctionTests {
                     .hasNextRow()
                     .isRowExactly(4L, 40L)
                     .hasNoNextRow();
+        }
+    }
+
+    private static void invokeAndVerifyTempFunction(final Function<String, RelationalPreparedStatement> preparedStatementFunction) throws SQLException {
+        try (var preparedStatement = preparedStatementFunction.apply("select * from sq1(x => 2) where a > ?param2")) {
+            preparedStatement.setLong("param2", 25L);
+            try (var resultSet = preparedStatement.executeQuery()) {
+                ResultSetAssert.assertThat(resultSet).hasNextRow()
+                        .isRowExactly(3L, 30L)
+                        .hasNextRow()
+                        .isRowExactly(4L, 40L)
+                        .hasNoNextRow();
+            }
+
         }
     }
 }

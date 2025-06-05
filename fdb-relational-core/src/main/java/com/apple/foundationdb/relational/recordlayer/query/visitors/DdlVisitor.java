@@ -41,7 +41,6 @@ import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.IndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
-import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryParser;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
@@ -332,26 +331,23 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var start = functionCtx.start.getStartIndex();
         final var stop = functionCtx.stop.getStopIndex() + 1; // inclusive.
         final var functionDefinition = (isTemporary ? "" : "CREATE ") + queryString.substring(start, stop);
-        final String unpreparedFunctionDefinition;
         if (isTemporary) {
-            unpreparedFunctionDefinition = QueryParser.replacePreparedParams(functionCtx,
-                    PreparedParams.copyOf(getDelegate().getPlanGenerationContext().getPreparedParams()));
+            getDelegate().getPlanGenerationContext().getLiteralsBuilder().setScope(functionName);
         } else {
             // prepared non-temporary SQL functions are not supported.
             QueryParser.validateNoPreparedParams(functionCtx);
-            unpreparedFunctionDefinition = functionDefinition;
         }
 
         // 3. visit the SQL string to generate (compile) the corresponding SQL plan.
-        final var function = visitSqlInvokedFunction(functionSpecCtx, bodyCtx);
+        final var function = visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary);
 
         // 4. Return it.
         return RecordLayerInvokedRoutine.newBuilder()
                 .setName(functionName)
                 .setDescription(functionDefinition)
-                .setNonPreparedDescription(unpreparedFunctionDefinition)
                 .withCompilableRoutine(() -> function)
                 .setTemporary(isTemporary)
+                .setLiterals(getDelegate().getPlanGenerationContext().getLiterals())
                 .build();
     }
 
@@ -371,16 +367,17 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Override
     public CompiledSqlFunction visitTempSqlInvokedFunction(@Nonnull RelationalParser.TempSqlInvokedFunctionContext ctx) {
-        return visitSqlInvokedFunction(ctx.functionSpecification(), ctx.routineBody());
+        return visitSqlInvokedFunction(ctx.functionSpecification(), ctx.routineBody(), true);
     }
 
     @Override
     public CompiledSqlFunction visitSqlInvokedFunction(@Nonnull RelationalParser.SqlInvokedFunctionContext ctx) {
-        return visitSqlInvokedFunction(ctx.functionSpecification(), ctx.routineBody());
+        return visitSqlInvokedFunction(ctx.functionSpecification(), ctx.routineBody(), false);
     }
 
     private CompiledSqlFunction visitSqlInvokedFunction(@Nonnull final RelationalParser.FunctionSpecificationContext functionSpecCtx,
-                                                        @Nonnull final RelationalParser.RoutineBodyContext bodyCtx) {
+                                                        @Nonnull final RelationalParser.RoutineBodyContext bodyCtx,
+                                                        boolean isTemporary) {
         // get the function name.
         final var functionName = visitFullId(functionSpecCtx.schemaQualifiedRoutineName).toString();
 
@@ -417,17 +414,17 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         //    during its plan generation.
         final var fragment = getDelegate().pushPlanFragment();
 
-        if (parametersCorrelation.isPresent()) {
-            fragment.addOperator(LogicalOperator.newUnnamedOperator(Expressions.fromQuantifier(parametersCorrelation.get()),
-                    parametersCorrelation.get()));
-            body = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
-                    Assert.castUnchecked(visit(bodyCtx), LogicalOperator.class));
+        parametersCorrelation.ifPresent(quantifier -> fragment.addOperator(LogicalOperator.newUnnamedOperator(
+                Expressions.fromQuantifier(quantifier), quantifier)));
+        if (isTemporary) {
+            body = Assert.castUnchecked(visit(bodyCtx), LogicalOperator.class);
         } else {
             body = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
                     Assert.castUnchecked(visit(bodyCtx), LogicalOperator.class));
         }
         getDelegate().popPlanFragment();
-        sqlFunctionBuilder.setBody(body.getQuantifier().getRangesOver().get());
+        sqlFunctionBuilder.setBody(body.getQuantifier().getRangesOver().get())
+                .setLiterals(getDelegate().mutablePlanGenerationContext.getLiterals());
         return sqlFunctionBuilder.build();
     }
 

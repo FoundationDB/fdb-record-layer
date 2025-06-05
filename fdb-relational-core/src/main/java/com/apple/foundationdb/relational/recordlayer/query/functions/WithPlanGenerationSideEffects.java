@@ -1,5 +1,5 @@
 /*
- * SqlFunction.java
+ * WithPlanGenerationSideEffects.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,33 +18,23 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.api.metadata;
+package com.apple.foundationdb.relational.recordlayer.query.functions;
+
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
+import com.apple.foundationdb.relational.recordlayer.query.Literals;
 
 import javax.annotation.Nonnull;
 
 /**
- * Base interface for all invoked routines, such as SQL functions.
+ * Trait used by functions that has plan generation side effects, such as resulting in the generation
+ * of extra plan constraints, or extra literals, e.g. if the functions DDL were allowed to be prepared such as
+ * temporary SQL functions.
  */
-public interface InvokedRoutine extends Metadata {
+public interface WithPlanGenerationSideEffects {
 
-    enum Language {
-        SQL,
-        JAVA
-    }
-
-    /**
-     * Returns the description of the routine, in case of SQL functions, this would be the actual
-     * SQL definition of the function.
-     *
-     * @return The description of the routine.
-     */
     @Nonnull
-    String getDescription();
+    Literals getAuxiliaryLiterals();
 
-    boolean isTemporary();
-
-    @Override
-    default void accept(@Nonnull final Visitor visitor) {
-        visitor.visit(this);
-    }
+    @Nonnull
+    QueryPlanConstraint getAuxiliaryConstraints();
 }

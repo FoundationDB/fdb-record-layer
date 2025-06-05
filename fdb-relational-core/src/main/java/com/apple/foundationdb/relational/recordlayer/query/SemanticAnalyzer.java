@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInTableFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
@@ -57,6 +58,7 @@ import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalog;
+import com.apple.foundationdb.relational.recordlayer.query.functions.WithPlanGenerationSideEffects;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.QueryVisitor;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Equivalence;
@@ -85,31 +87,43 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 /**
- * Performs basic semantic analysis and resolution legwork.
+ * This class is responsible for performing a number of tasks revolving around semantic checks and resolution. For example,
+ * it assists in looking up an {@link Identifier} within a chain of {@link LogicalPlanFragment}(s), expanding a {@link Star}
+ * expression into its individual fields, resolving an alias, and so on.
+ * <br/>
+ * In addition to that, this class performs metadata resolution tasks, such as resolving tables, validating indexes, and
+ * resolving built-in and user-defined functions, which arguably, should be handled in a separate catalog component.
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
 public class SemanticAnalyzer {
 
     private static final int BITMAP_DEFAULT_ENTRY_SIZE = 10_000;
+
     private static final Set<String> BITMAP_SCALAR_FUNCTIONS = ImmutableSet.of("bitmap_bucket_offset", "bitmap_bit_position");
+
     @Nonnull
     private final SchemaTemplate metadataCatalog;
 
     @Nonnull
     private final SqlFunctionCatalog functionCatalog;
 
+    @Nonnull
+    private final MutablePlanGenerationContext mutablePlanGenerationContext;
+
     public SemanticAnalyzer(@Nonnull SchemaTemplate metadataCatalog,
-                            @Nonnull SqlFunctionCatalog functionCatalog) {
+                            @Nonnull SqlFunctionCatalog functionCatalog,
+                            @Nonnull MutablePlanGenerationContext mutablePlanGenerationContext) {
         this.metadataCatalog = metadataCatalog;
         this.functionCatalog = functionCatalog;
+        this.mutablePlanGenerationContext = mutablePlanGenerationContext;
     }
 
     /**
      * If a string is single- or double-quoted, removes the quotation, otherwise, upper-case it.
      *
-     * @param string                       The input string
-     * @param caseSensitive String is taken as is if true, upper-cased otherwise
+     * @param string The input string
+     * @param caseSensitive if {@code true}, the input string is taken as-is, upper-cased otherwise
      * @return the normalized string
      */
     @Nullable
@@ -136,14 +150,22 @@ public class SemanticAnalyzer {
         return str.startsWith(quotationMark) && str.endsWith(quotationMark);
     }
 
+    /**
+     * Looks up a common table expression (CTE) in a chain of {@link LogicalPlanFragment}.
+     * @param identifier The name of the CTE.
+     * @param logicalPlanFragment The plan fragments chain.
+     * @return Optional with {@link LogicalOperator} whose name matches the given identifier, if found.
+     */
     @Nonnull
-    public Optional<LogicalOperator> findCteMaybe(@Nonnull final Identifier identifier, @Nonnull final LogicalPlanFragment logicalPlanFragment) {
+    public Optional<LogicalOperator> findCteMaybe(@Nonnull final Identifier identifier,
+                                                  @Nonnull final LogicalPlanFragment logicalPlanFragment) {
         var currentFragment = Optional.of(logicalPlanFragment);
         while (currentFragment.isPresent()) {
             final var logicalOperators = currentFragment.get().getLogicalOperators();
             final var matches = logicalOperators.stream().filter(logicalOperator -> logicalOperator.getName().isPresent() &&
                     logicalOperator.getName().get().equals(identifier)).collect(ImmutableList.toImmutableList());
-            Assert.thatUnchecked(matches.size() <= 1, ErrorCode.DUPLICATE_ALIAS, () -> String.format(Locale.ROOT, "found '%s' more than once", identifier.getName()));
+            Assert.thatUnchecked(matches.size() <= 1, ErrorCode.DUPLICATE_ALIAS,
+                    () -> String.format(Locale.ROOT, "found '%s' more than once", identifier.getName()));
             if (!matches.isEmpty()) {
                 return Optional.of(matches.get(0));
             }
@@ -479,7 +501,7 @@ public class SemanticAnalyzer {
     @Nonnull
     public DataType lookupType(@Nonnull Identifier typeIdentifier, boolean isNullable, boolean isRepeated,
                                @Nonnull Function<String, Optional<DataType>> dataTypeProvider) {
-        DataType type = null;
+        DataType type;
         final var typeName = typeIdentifier.getName();
         switch (typeName.toUpperCase(Locale.ROOT)) {
             case "STRING":
@@ -562,7 +584,7 @@ public class SemanticAnalyzer {
      * <ul>
      *     <li>each leg must project the same number of columns</li>
      *     <li>the ith columns of each union leg have either the same type or have a common type promotion, in other
-     *     words, their maximum type is well defined.
+     *     words, their maximum type is well-defined.
      * </ul>
      * @param unionLegs The logical operators representing the legs of the union.
      * @return If all union legs have the same type, returns {@code Optional.empty()}, otherwise, returns a {@code Type.Record}
@@ -747,6 +769,7 @@ public class SemanticAnalyzer {
         Assert.thatUnchecked(functionCatalog.containsFunction(functionName), ErrorCode.UNSUPPORTED_QUERY,
                 () -> String.format(Locale.ROOT, "Unsupported operator %s", functionName));
         final var builtInFunction = functionCatalog.lookupFunction(functionName, arguments);
+        processFunctionSideEffects(builtInFunction);
         final var argumentList = ImmutableList.<Expression>builderWithExpectedSize(arguments.size() + 1).addAll(arguments);
         if (BITMAP_SCALAR_FUNCTIONS.contains(functionName.toLowerCase(Locale.ROOT))) {
             argumentList.add(Expression.ofUnnamed(new LiteralValue<>(BITMAP_DEFAULT_ENTRY_SIZE)));
@@ -756,6 +779,14 @@ public class SemanticAnalyzer {
                 .collect(ImmutableList.toImmutableList());
         final var resultingValue = Assert.castUnchecked(builtInFunction.encapsulate(valueArgs), Value.class);
         return Expression.ofUnnamed(DataTypeUtils.toRelationalType(resultingValue.getResultType()), resultingValue);
+    }
+
+    private void processFunctionSideEffects(@Nonnull final CatalogedFunction builtInFunction) {
+        if (!(builtInFunction instanceof WithPlanGenerationSideEffects)) {
+            return;
+        }
+        mutablePlanGenerationContext.processAuxiliaryLiterals(Assert.castUnchecked(builtInFunction,
+                WithPlanGenerationSideEffects.class).getAuxiliaryLiterals());
     }
 
     /**
@@ -784,6 +815,7 @@ public class SemanticAnalyzer {
         if (tableFunction instanceof BuiltInFunction) {
             Assert.thatUnchecked(tableFunction instanceof BuiltInTableFunction, functionName + " is not a table-valued function");
         }
+        processFunctionSideEffects(tableFunction);
         final List<? extends Typed> valueArgs = Streams.stream(arguments.underlying().iterator())
                 .map(v -> flattenSingleItemRecords ? SqlFunctionCatalog.flattenRecordWithOneField(v) : v)
                 .collect(ImmutableList.toImmutableList());

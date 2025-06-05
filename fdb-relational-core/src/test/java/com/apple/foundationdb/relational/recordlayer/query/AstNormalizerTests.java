@@ -60,7 +60,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.apple.foundationdb.relational.recordlayer.query.QueryExecutionContext.OrderedLiteral.constantId;
+import static com.apple.foundationdb.relational.recordlayer.query.OrderedLiteral.constantId;
 
 /**
  * This tests different aspects of quick AST hashing of {@link AstNormalizer}. Namely:
@@ -396,7 +396,7 @@ public class AstNormalizerTests {
                         .setNonPreparedDescription(functionDdl)
                         // invoking the compiled routine should only happen during plan generation.
                         .withCompilableRoutine(() -> new CompiledSqlFunction("", ImmutableList.of(), ImmutableList.of(),
-                                ImmutableList.of(), Optional.empty(), null) {
+                                ImmutableList.of(), Optional.empty(), null, Literals.empty()) {
                             @Nonnull
                             @Override
                             public RecordMetaDataProto.PUserDefinedFunction toProto(@Nonnull final PlanSerializationContext serializationContext) {

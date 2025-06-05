@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.relational.util.Assert;
@@ -67,7 +66,7 @@ public final class QueryHasherContext implements QueryExecutionContext {
 
     @Nonnull
     @Override
-    public Literals getLiteralsBuilder() {
+    public Literals getLiterals() {
         return literals;
     }
 
@@ -114,7 +113,7 @@ public final class QueryHasherContext implements QueryExecutionContext {
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     public static class Builder {
         @Nonnull
-        private final LiteralsBuilder literals;
+        private final Literals.Builder literalsBuilder;
 
         private boolean isForExplain;
 
@@ -127,7 +126,7 @@ public final class QueryHasherContext implements QueryExecutionContext {
         private PlanHashable.PlanHashMode planHashMode;
 
         public Builder() {
-            this.literals = LiteralsBuilder.newBuilder();
+            this.literalsBuilder = Literals.newBuilder();
             this.isForExplain = false;
             this.continuation = null;
             this.planHashMode = null;
@@ -153,29 +152,9 @@ public final class QueryHasherContext implements QueryExecutionContext {
             return this;
         }
 
-        public void addLiteral(@Nonnull OrderedLiteral orderedLiteral) {
-            literals.addLiteral(orderedLiteral);
-        }
-
-        public void startArrayLiteral() {
-            literals.startArrayLiteral();
-        }
-
-        public void finishArrayLiteral(@Nullable Integer unnamedParameterIndex,
-                                       @Nullable String parameterName,
-                                       int tokenIndex) {
-            literals.finishArrayLiteral(unnamedParameterIndex, parameterName, true, tokenIndex);
-        }
-
-        public void startStructLiteral() {
-            literals.startStructLiteral();
-        }
-
-        public void finishStructLiteral(@Nonnull Type.Record type,
-                                        @Nullable final Integer unnamedParameterIndex,
-                                        @Nullable final String parameterName,
-                                        final int tokenIndex) {
-            literals.finishStructLiteral(type, unnamedParameterIndex, parameterName, tokenIndex);
+        @Nonnull
+        public Literals.Builder getLiteralsBuilder() {
+            return literalsBuilder;
         }
 
         @Nonnull
@@ -192,7 +171,7 @@ public final class QueryHasherContext implements QueryExecutionContext {
 
         @Nonnull
         public QueryHasherContext build() {
-            return new QueryHasherContext(literals.build(), continuation,
+            return new QueryHasherContext(literalsBuilder.build(), continuation,
                     parameterHash, isForExplain,
                     Objects.requireNonNull(planHashMode));
         }

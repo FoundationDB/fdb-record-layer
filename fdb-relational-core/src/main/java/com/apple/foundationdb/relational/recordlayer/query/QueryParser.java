@@ -157,76 +157,12 @@ public class QueryParser {
         return result;
     }
 
-    @SuppressWarnings("PMD.AvoidStringBufferField") // the lifetime of this object is very short, and it is scoped to processing DDLs of temp functions only.
-    private static final class PreparedParamsReplacer extends RelationalParserBaseVisitor<Void> {
-
-        @Nonnull
-        private final StringBuilder unpreparedSqlBuilder;
-
-        @Nonnull
-        private final StringBuilder sqlBuilder;
-
-        @Nonnull
-        private final PreparedParams preparedStatementParameters;
-
-        private PreparedParamsReplacer(@Nonnull final PreparedParams preparedStatementParameters) {
-            this.preparedStatementParameters = preparedStatementParameters;
-            unpreparedSqlBuilder = new StringBuilder();
-            sqlBuilder = new StringBuilder();
-        }
-
-        @Override
-        public Void visitPreparedStatementParameter(@Nonnull RelationalParser.PreparedStatementParameterContext ctx) {
-            Object param;
-            if (ctx.QUESTION() != null) {
-                param = preparedStatementParameters.nextUnnamedParamValue();
-            } else {
-                final var namedParameterContext = ctx.NAMED_PARAMETER();
-                final var parameterName = namedParameterContext.getText().substring(1);
-                param = preparedStatementParameters.namedParamValue(parameterName);
-            }
-            unpreparedSqlBuilder.append(PreparedParams.prettyPrintParam(param)).append(" ");
-            return null;
-        }
-
-        @Override
-        public Void visitTerminal(@Nonnull TerminalNode node) {
-            if (node.getSymbol().getType() != Token.EOF) {
-                unpreparedSqlBuilder.append(node.getText()).append(" ");
-                sqlBuilder.append(node.getText()).append(" ");
-            }
-            return null;
-        }
-
-        @Nonnull
-        String getQuery() {
-            return unpreparedSqlBuilder.toString();
-        }
-    }
-
     private static final class PreparedParamsValidator extends RelationalParserBaseVisitor<Void> {
         @Override
         public Void visitPreparedStatementParameter(final RelationalParser.PreparedStatementParameterContext ctx) {
             Assert.failUnchecked(ErrorCode.SYNTAX_ERROR, "found prepared parameter(s) in SQL statement");
             return null;
         }
-    }
-
-    /**
-     * Replaces the prepared parameters with their corresponding literals, note that the resulting query is not necessarily
-     * parsable, this is due to the lack of support for non-prepared objects of complex types. However, the resulting
-     * representation can be used for distinguishing prepared queries by including their literals in the query string
-     * itself, which is useful e.g. in the context of caching plans.
-     * @param context The parse tree of the query.
-     * @param preparedParams The prepared parameters list.
-     * @return A pseudo query string where the prepared parameters are replaced with their literals.
-     */
-    @Nonnull
-    public static String replacePreparedParams(@Nonnull final ParseTree context,
-                                               @Nonnull final PreparedParams preparedParams) {
-        final var replacer = new PreparedParamsReplacer(preparedParams);
-        replacer.visit(context);
-        return replacer.getQuery();
     }
 
     /**
