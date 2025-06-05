@@ -476,7 +476,7 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
         }
         long end = System.currentTimeMillis();
 
-        Assertions.assertThat(end - start).isGreaterThan(2000);
+        Assertions.assertThat(end - start).isGreaterThan(2000).isLessThan(3000);
 
         // There should be 200 records left
         validateNormalScan(hook, maximumSupportedVersion, 200, true);
@@ -527,6 +527,7 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
             Assertions.assertThat(repairResults.isComplete()).isFalse();
             Assertions.assertThat(repairResults.getCaughtException()).hasCauseInstanceOf(UnknownValidationException.class);
             Assertions.assertThat(repairResults.getValidResultCount()).isZero();
+            // We still count the uncommitted deletes though
             Assertions.assertThat(repairResults.getInvalidResults()).hasSize(ValidationTestUtils.RECORD_INDEX_WITH_THREE_SPLITS);
         }
 
