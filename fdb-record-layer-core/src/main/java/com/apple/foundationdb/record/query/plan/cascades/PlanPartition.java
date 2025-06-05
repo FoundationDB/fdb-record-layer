@@ -28,6 +28,7 @@ import com.google.common.base.Verify;
 import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * A plan partition used for matching.
@@ -41,6 +42,19 @@ public class PlanPartition extends ExpressionPartition<RecordQueryPlan> {
     @Nonnull
     public Set<RecordQueryPlan> getPlans() {
         return getExpressions();
+    }
+
+    @Nonnull
+    @Override
+    public PlanPartition filter(@Nonnull final Predicate<RecordQueryPlan> expressionPredicate) {
+        return with(getGroupingPropertyMap(), filterGroupedPropertyMap(expressionPredicate));
+    }
+
+    @Nonnull
+    @Override
+    protected PlanPartition with(@Nonnull final Map<ExpressionProperty<?>, ?> groupingPropertyMap,
+                                 @Nonnull final Map<RecordQueryPlan, Map<ExpressionProperty<?>, ?>> groupedPropertyMap) {
+        return new PlanPartition(groupingPropertyMap, groupedPropertyMap);
     }
 
     @Nonnull

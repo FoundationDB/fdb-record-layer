@@ -501,6 +501,10 @@ public class Reference implements Correlated<Reference>, Typed {
                 .orElseThrow(() -> new RecordCoreException("unable to resolve result values"));
     }
 
+    public void clearExploratoryExpressions() {
+        exploratoryMembers.clear();
+    }
+
     public void clearFinalExpressions() {
         propertiesMap.clear();
         finalMembers.clear();

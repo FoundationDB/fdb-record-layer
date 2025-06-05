@@ -93,16 +93,26 @@ public class ExpressionsPartitionMatchers {
 
     @Nonnull
     @SuppressWarnings("unchecked")
+    public static <E extends RelationalExpression, P extends ExpressionPartition<E>> BindingMatcher<P> filterExpressions(@Nonnull final Predicate<E> predicate,
+                                                                                                                         @Nonnull final BindingMatcher<P> downstream) {
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<P>)(Class<?>)ExpressionPartition.class,
+                Extractor.of(expressionPartition -> expressionPartition.filter(predicate),
+                        name -> "filtered expressions(" + name + ")"),
+                downstream);
+    }
+
+    @Nonnull
+    @SuppressWarnings("unchecked")
     public static <P extends Comparable<P>> BindingMatcher<ExpressionPartition<RelationalExpression>> argmin(@Nonnull final ExpressionProperty<P> expressionProperty,
-                                                                                                             @Nonnull final BindingMatcher<RelationalExpression> downstream) {
+                                                                                                             @Nonnull final BindingMatcher<? extends RelationalExpression> downstream) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream(
-                (Class<ExpressionPartition<RelationalExpression>>)(Class<?>)Collection.class,
+                (Class<ExpressionPartition<RelationalExpression>>)(Class<?>)ExpressionPartition.class,
                 Extractor.of(partition ->
                                 partition.getExpressions()
                                         .stream()
                                         .min(Comparator.comparing(
                                                 expression ->
-                                                        partition.getNonPartitioningPropertyValue(expression,
+                                                        partition.getGroupedPropertyValue(expression,
                                                                 expressionProperty))),
                         name -> "argmin(" + name + ")"),
                 OptionalIfPresentMatcher.present(downstream));
@@ -111,7 +121,7 @@ public class ExpressionsPartitionMatchers {
     @Nonnull
     @SuppressWarnings("unchecked")
     public static <P extends Comparable<P>> BindingMatcher<ExpressionPartition<RelationalExpression>> argmax(@Nonnull final ExpressionProperty<P> expressionProperty,
-                                                                                                             @Nonnull final BindingMatcher<RelationalExpression> downstream) {
+                                                                                                             @Nonnull final BindingMatcher<? extends RelationalExpression> downstream) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream(
                 (Class<ExpressionPartition<RelationalExpression>>)(Class<?>)Collection.class,
                 Extractor.of(partition ->
@@ -119,7 +129,7 @@ public class ExpressionsPartitionMatchers {
                                         .stream()
                                         .max(Comparator.comparing(
                                                 expression ->
-                                                        partition.getNonPartitioningPropertyValue(expression,
+                                                        partition.getGroupedPropertyValue(expression,
                                                                 expressionProperty))),
                         name -> "argmax(" + name + ")"),
                 OptionalIfPresentMatcher.present(downstream));

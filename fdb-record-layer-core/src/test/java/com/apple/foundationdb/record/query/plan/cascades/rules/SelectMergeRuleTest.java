@@ -155,7 +155,7 @@ class SelectMergeRuleTest {
         );
 
         SelectExpression newUpper = selectWithPredicates(
-                baseQun, ImmutableList.of("d"),
+                baseT(), ImmutableList.of("d"),
                 fieldPredicate(baseQun, "a", EQUALS_42),
                 fieldPredicate(baseQun, "b", EQUALS_PARAM),
                 fieldPredicate(baseQun, "c", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, constantBytes))

@@ -22,11 +22,14 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -46,6 +49,7 @@ import org.assertj.core.api.AutoCloseableSoftAssertions;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.forEach;
@@ -139,6 +143,7 @@ public class RuleTestHelper {
     @Nonnull
     private TestRuleExecution run(RelationalExpression original) {
         ensureStage(PlannerStage.CANONICAL, original);
+        preExploreForRule(original, false);
         Reference ref = Reference.ofExploratoryExpression(PlannerStage.CANONICAL, original);
         PlanContext planContext = new FakePlanContext();
         return TestRuleExecution.applyRule(planContext, rule, ref, EvaluationContext.EMPTY);
@@ -156,11 +161,48 @@ public class RuleTestHelper {
         }
     }
 
+    public void preExploreForRule(@Nonnull final RelationalExpression expression,
+                                  final boolean isClearExploratoryExpressions) {
+        for (Quantifier qun : expression.getQuantifiers()) {
+            Reference ref = qun.getRangesOver();
+            for (RelationalExpression refMember : ref.getAllMemberExpressions()) {
+                preExploreForRule(refMember, isClearExploratoryExpressions);
+            }
+            PlanContext planContext = new FakePlanContext();
+            TestRuleExecution.applyRule(planContext, new FinalizeExpressionsRule(), ref, EvaluationContext.EMPTY);
+            final var bestFinalExpression = costModel(ref);
+            ref.pruneWith(Objects.requireNonNull(bestFinalExpression));
+            if (isClearExploratoryExpressions) {
+                ref.clearExploratoryExpressions();
+            }
+        }
+    }
+
+    @Nonnull
+    private static RelationalExpression costModel(final Reference ref) {
+        ref.setExplored();
+        final var costModel =
+                PlannerPhase.PLANNING.createCostModel(RecordQueryPlannerConfiguration.defaultPlannerConfiguration());
+        RelationalExpression bestFinalExpression = null;
+        for (final var finalExpression : ref.getFinalExpressions()) {
+            if (bestFinalExpression == null || costModel.compare(finalExpression, bestFinalExpression) < 0) {
+                bestFinalExpression = finalExpression;
+            }
+        }
+        return Objects.requireNonNull(bestFinalExpression);
+    }
+
     @Nonnull
     public TestRuleExecution assertYields(RelationalExpression original, RelationalExpression... expected) {
         for (RelationalExpression expression : expected) {
             ensureStage(PlannerStage.CANONICAL, expression);
         }
+        if (rule instanceof ImplementationCascadesRule) {
+            for (RelationalExpression expression : expected) {
+                preExploreForRule(expression, true);
+            }
+        }
+
         TestRuleExecution execution = run(original);
         try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
             softly.assertThat(execution.getResult().getAllMemberExpressions())
