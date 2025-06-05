@@ -52,7 +52,7 @@ public class ImplementUpdateRule extends ImplementationCascadesRule<UpdateExpres
 
     @Nonnull
     private static final BindingMatcher<Reference> innerReferenceMatcher =
-            planPartitions(filterPartition(planPartition -> planPartition.getGroupingPropertyValue(StoredRecordProperty.storedRecord()),
+            planPartitions(filterPartition(planPartition -> planPartition.getPartitionPropertyValue(StoredRecordProperty.storedRecord()),
                     any(innerPlanPartitionMatcher)));
 
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher =

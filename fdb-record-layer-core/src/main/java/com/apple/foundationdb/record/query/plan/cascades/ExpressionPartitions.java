@@ -69,7 +69,7 @@ public class ExpressionPartitions {
         final Map<Map<ExpressionProperty<?>, ?>, Map<E, Map<ExpressionProperty<?>, ?>>> rolledUpMap =
                 new LinkedHashMap<>();
         for (final P partition : partitions) {
-            final var groupingPropertyMap = partition.getGroupingPropertyMap();
+            final var groupingPropertyMap = partition.getPartitionPropertiesMap();
             final Map<ExpressionProperty<?>, ?> filteredPropertiesMap =
                     groupingPropertyMap
                             .entrySet()
@@ -79,9 +79,9 @@ public class ExpressionPartitions {
                             .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
             rolledUpMap.compute(filteredPropertiesMap, (key, oldValue) -> {
                 if (oldValue == null) {
-                    return partition.getGroupedPropertyMap();
+                    return partition.getNonPartitioningPropertiesMap();
                 }
-                oldValue.putAll(partition.getGroupedPropertyMap());
+                oldValue.putAll(partition.getNonPartitioningPropertiesMap());
                 return oldValue;
             });
         }
@@ -101,8 +101,8 @@ public class ExpressionPartitions {
     @Nonnull
     protected static <E extends RelationalExpression, P extends ExpressionPartition<E>> List<P> toPartitions(@Nonnull final ExpressionPropertiesMap<E> propertiesMap,
                                                                                                              @Nonnull final PartitionCreator<E, P> partitionCreator) {
-        return toPartitions(propertiesMap.getGroupingPropertiesExpressionsMap(),
-                propertiesMap.computeNonGroupingPropertiesMap(), partitionCreator);
+        return toPartitions(propertiesMap.getPartitioningPropertiesExpressionsMap(),
+                propertiesMap.computeNonPartitioningPropertiesMap(), partitionCreator);
     }
 
     @Nonnull
