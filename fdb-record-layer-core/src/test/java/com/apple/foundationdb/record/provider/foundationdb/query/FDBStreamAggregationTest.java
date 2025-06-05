@@ -740,6 +740,9 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
                     }
                 }
             }
+            RecordCursorResult<QueryResult> last = currentCursor.getNext();
+            Assertions.assertFalse(last.hasNext());
+
             if (expectedResult == null) {
                 Assertions.assertTrue(queryResults.isEmpty());
             } else {
