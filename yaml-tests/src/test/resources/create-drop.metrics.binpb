@@ -1,7 +1,7 @@
 ÿ
 S
 	unnamed-4FEXPLAIN select count(*) from "TEMPLATES" where template_name = 'TEMP1'Ä
-Ëè∂”V ´†n(0»™8!@ÀSCAN(<,>) | TFILTER TEMPLATES | FILTER _.TEMPLATE_NAME EQUALS promote(@c11 AS STRING) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)ïdigraph G {
+Ëíé∂V ıˆN(0ÎÖ8!@ÀSCAN(<,>) | TFILTER TEMPLATES | FILTER _.TEMPLATE_NAME EQUALS promote(@c11 AS STRING) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)ïdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -24,7 +24,7 @@ S
 T
 
 unnamed-10FEXPLAIN select count(*) from "DATABASES" where database_id = '/FRL/DB'
-Ùè°‰] º∞}(0≠Ò8!@…SCAN(<,>) | TFILTER DATABASES | FILTER _.DATABASE_ID EQUALS promote(@c11 AS STRING) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)ádigraph G {
+ÙÚü–] À≈y(0áµ8!@…SCAN(<,>) | TFILTER DATABASES | FILTER _.DATABASE_ID EQUALS promote(@c11 AS STRING) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)ádigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -47,7 +47,7 @@ unnamed-10FEXPLAIN select count(*) from "DATABASES" where database_id = '/FRL/D
 R
 
 unnamed-20DEXPLAIN select count(*) from "SCHEMAS" where database_id = '/FRL/DB'¿
-Ç¥–⁄ö ƒÅï(*0Ìê8L@∂COVERING(TEMPLATES_VALUE_INDEX <,> -> [DATABASE_ID: KEY[2], SCHEMA_NAME: KEY[3], TEMPLATE_NAME: KEY[0], TEMPLATE_VERSION: KEY[1]]) | FILTER _.DATABASE_ID EQUALS promote(@c11 AS STRING) | FETCH | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)Ëdigraph G {
+Çª˙⁄ö ‹Áí(*0©˚8B@∂COVERING(TEMPLATES_VALUE_INDEX <,> -> [DATABASE_ID: KEY[2], SCHEMA_NAME: KEY[3], TEMPLATE_NAME: KEY[0], TEMPLATE_VERSION: KEY[1]]) | FILTER _.DATABASE_ID EQUALS promote(@c11 AS STRING) | FETCH | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)Ëdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

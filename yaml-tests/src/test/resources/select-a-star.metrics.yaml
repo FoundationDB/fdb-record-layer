@@ -5,12 +5,12 @@ select-star-tests:
         (_._0._0 AS A1, _._0._1 AS A2, _._0._2 AS A3, q0.B1 AS B1) | DEFAULT NULL
         | FILTER _ NOT_NULL AS q0 RETURN (q0.B1 AS B1) }
     task_count: 567
-    task_total_time_ms: 19
+    task_total_time_ms: 22
     transform_count: 156
-    transform_time_ms: 6
+    transform_time_ms: 7
     transform_yield_count: 45
-    insert_time_ms: 0
-    insert_new_count: 57
+    insert_time_ms: 1
+    insert_new_count: 55
     insert_reused_count: 5
 -   query: EXPLAIN select B1 from B where exists (select A.*, B1 from A group by A1,A2,A3);
     explain: SCAN(<,>) | TFILTER B | FLATMAP q0 -> { ISCAN(A_IDX <,>) | MAP (_ AS
@@ -18,12 +18,12 @@ select-star-tests:
         (_._0._0 AS A1, _._0._1 AS A2, _._0._2 AS A3, q0.B1 AS B1) | DEFAULT NULL
         | FILTER _ NOT_NULL AS q0 RETURN (q0.B1 AS B1) }
     task_count: 567
-    task_total_time_ms: 19
+    task_total_time_ms: 22
     transform_count: 156
-    transform_time_ms: 6
+    transform_time_ms: 7
     transform_yield_count: 45
-    insert_time_ms: 0
-    insert_new_count: 57
+    insert_time_ms: 1
+    insert_new_count: 55
     insert_reused_count: 5
 -   query: EXPLAIN select B.* from B where exists (select A.*, B.* from A group by
         A1,A2,A3);
@@ -34,8 +34,8 @@ select-star-tests:
     task_count: 567
     task_total_time_ms: 16
     transform_count: 156
-    transform_time_ms: 6
+    transform_time_ms: 5
     transform_yield_count: 45
     insert_time_ms: 0
-    insert_new_count: 57
+    insert_new_count: 55
     insert_reused_count: 5

@@ -31,7 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSort
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.InferredTranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.ToUniqueAliasesTranslationMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import org.junit.jupiter.api.Assertions;
@@ -92,7 +92,7 @@ public class TranslateGraphTest extends FDBRecordStoreQueryTestBase {
         final var qun = Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelect()));
         final var expression = LogicalSortExpression.unsorted(qun);
         final var reference = Reference.initialOf(expression);
-        final var translationMap = new InferredTranslationMap();
+        final var translationMap = new ToUniqueAliasesTranslationMap();
         final var translatedReferences =
                 References.rebaseGraphs(ImmutableList.of(reference),
                         Memoizer.noMemoization(PlannerStage.INITIAL),
@@ -159,7 +159,7 @@ public class TranslateGraphTest extends FDBRecordStoreQueryTestBase {
         final var qun = Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelect()));
         final var expression = LogicalSortExpression.unsorted(qun);
         final var reference = Reference.initialOf(expression);
-        final var translationMap = new InferredTranslationMap();
+        final var translationMap = new ToUniqueAliasesTranslationMap();
         final var translatedReferences =
                 References.rebaseGraphs(ImmutableList.of(reference),
                         Memoizer.noMemoization(PlannerStage.INITIAL),

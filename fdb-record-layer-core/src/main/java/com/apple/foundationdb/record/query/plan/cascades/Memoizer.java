@@ -47,9 +47,29 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 public interface Memoizer extends ExploratoryMemoizer, FinalMemoizer {
 
+    /**
+     * Memoize the given two collections of {@link RelationalExpression}s, one for exploratory and one for final
+     * expressions. A new reference is created and returned to the caller.
+     *
+     * @param exploratoryExpressions the collection of exploratory expressions to memoize
+     * @param finalExpressions the collection of exploratory expressions to memoize
+     * @return a new or reused reference
+     * @see #memoizeExploratoryExpression(RelationalExpression)
+     * */
+    @Nonnull
+    Reference memoizeExpressions(@Nonnull Collection<? extends RelationalExpression> exploratoryExpressions,
+                                 @Nonnull Collection<? extends RelationalExpression> finalExpressions);
+
     @Nonnull
     static Memoizer noMemoization(@Nonnull final PlannerStage plannerStage) {
         return new Memoizer() {
+            @Nonnull
+            @Override
+            public Reference memoizeExpressions(@Nonnull final Collection<? extends RelationalExpression> exploratoryExpressions,
+                                                @Nonnull final Collection<? extends RelationalExpression> finalExpressions) {
+                return Reference.of(plannerStage, exploratoryExpressions, finalExpressions);
+            }
+
             @Nonnull
             @Override
             public Reference memoizeExploratoryExpression(@Nonnull final RelationalExpression expression) {

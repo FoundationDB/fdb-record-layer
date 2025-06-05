@@ -216,9 +216,10 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         @Nonnull
         public ForEach overNewReference(@Nonnull final Reference reference,
                                         @Nonnull final CorrelationIdentifier newAlias) {
+
             return Quantifier.forEachBuilder()
+                    .from(this)
                     .withAlias(newAlias)
-                    .setNullOnEmpty(isNullOnEmpty())
                     .build(reference);
         }
 
@@ -391,6 +392,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         public Existential overNewReference(@Nonnull final Reference reference,
                                             @Nonnull final CorrelationIdentifier newAlias) {
             return Quantifier.existentialBuilder()
+                    .from(this)
                     .withAlias(newAlias)
                     .build(reference);
         }
@@ -543,6 +545,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         public Physical overNewReference(@Nonnull final Reference reference,
                                          @Nonnull final CorrelationIdentifier newAlias) {
             return Quantifier.physicalBuilder()
+                    .from(this)
                     .withAlias(newAlias)
                     .build(reference);
         }

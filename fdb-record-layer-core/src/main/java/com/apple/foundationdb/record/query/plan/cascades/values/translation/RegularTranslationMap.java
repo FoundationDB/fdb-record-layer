@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values.translation;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.LeafValue;
@@ -65,6 +66,14 @@ public class RegularTranslationMap implements TranslationMap {
     @Override
     public boolean containsSourceAlias(@Nullable CorrelationIdentifier sourceAlias) {
         return aliasToFunctionMap.containsKey(sourceAlias);
+    }
+
+    @Nullable
+    @Override
+    public CorrelationIdentifier getTarget(@Nonnull final CorrelationIdentifier sourceAlias) {
+        return getAliasMapMaybe()
+                .map(aliasMap -> aliasMap.getTarget(sourceAlias))
+                .orElseThrow(() -> new RecordCoreException("translation map is not backed by an alias map"));
     }
 
     @Nonnull

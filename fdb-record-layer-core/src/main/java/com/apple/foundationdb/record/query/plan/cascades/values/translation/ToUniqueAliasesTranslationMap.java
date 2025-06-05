@@ -1,5 +1,5 @@
 /*
- * InferredTranslationMap.java
+ * ToUniqueAliasesTranslationMap.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -39,11 +39,11 @@ import java.util.Optional;
  * The logic adds a unique source to target mapping when a source is seen for the first time. When the same source is
  * then mapped again, the previously fixed target is returned.
  */
-public class InferredTranslationMap implements TranslationMap {
+public class ToUniqueAliasesTranslationMap implements TranslationMap {
     @Nonnull
     private final Map<CorrelationIdentifier, CorrelationIdentifier> sourceToTargetMap;
 
-    public InferredTranslationMap() {
+    public ToUniqueAliasesTranslationMap() {
         this.sourceToTargetMap = new LinkedHashMap<>();
     }
 

@@ -1,7 +1,7 @@
 Ä
 5
 	unnamed-2(EXPLAIN select * from t where b + c > 7;Š
-é§ı‹— èÂä(O0îëô8q@4ISCAN(BPLUSC [[GREATER_THAN promote(@c10 AS LONG)]])´digraph G {
+éªŒ¬— ÜÍó(O0²ğ¿8c@4ISCAN(BPLUSC [[GREATER_THAN promote(@c10 AS LONG)]])´digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -11,7 +11,7 @@
 }Ü
 T
 	unnamed-2GEXPLAIN select a, b + c AS sum from t where e = 'alpha' order by b + c;ƒ
-›×˜‡q ÓÇ‚(/0±¸;8+@TISCAN(BPLUSCBYE [EQUALS promote(@c14 AS STRING)]) | MAP (_.A AS A, _.B + _.C AS SUM)
+›ÁÃ¿q ¹Âö(/0„¯18%@TISCAN(BPLUSCBYE [EQUALS promote(@c14 AS STRING)]) | MAP (_.A AS A, _.B + _.C AS SUM)
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -24,7 +24,7 @@ digraph G {
 }´
 5
 	unnamed-2(EXPLAIN select * from t where d & 1 = 0;ú
-éÆï‹˜ Ç˜ï(O0Ïæ¡8q@,ISCAN(DMASK1 [EQUALS promote(@c10 AS LONG)])¬digraph G {
+é÷…ê˜ ¼äÛ(O0ùÓœ8c@,ISCAN(DMASK1 [EQUALS promote(@c10 AS LONG)])¬digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -34,8 +34,7 @@ digraph G {
 }´
 5
 	unnamed-2(EXPLAIN select * from t where d & 2 = 0;ú
-é¸€À˜ äóÏ
-(O0Ù’8q@,ISCAN(DMASK2 [EQUALS promote(@c10 AS LONG)])¬digraph G {
+é«öĞ˜ ¡âî(O0Â¶°8c@,ISCAN(DMASK2 [EQUALS promote(@c10 AS LONG)])¬digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

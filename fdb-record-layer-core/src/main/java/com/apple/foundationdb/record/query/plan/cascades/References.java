@@ -84,7 +84,8 @@ public class References {
             if (reference.getCorrelatedTo().stream().anyMatch(translationMap::containsSourceAlias)) {
                 rebaseGraph(memoizer, translationMap, shouldSimplifyValues, reference, translationsCache,
                         alias -> {
-                            Verify.verify(!translationMap.containsSourceAlias(alias), "illegal translate");
+                            Verify.verify(!translationMap.containsSourceAlias(alias),
+                                    "internal quantifiers cannot be re-aliased");
                             return alias;
                         });
             } else {
@@ -132,7 +133,7 @@ public class References {
 
         for (final var reference : references) {
             rebaseGraph(memoizer, translationMap, shouldSimplifyValues, reference, translationsCache,
-                    translationMap::getTarget);
+                    sourceAlias -> translationMap.getTargetOrDefault(sourceAlias, sourceAlias));
         }
 
         return refs.stream()
@@ -154,7 +155,6 @@ public class References {
             for (final var quantifier : expression.getQuantifiers()) {
                 final var childReference = quantifier.getRangesOver();
 
-                // these must exist
                 final var translatedChildReference =
                         translationsCache.getOrDefault(childReference, childReference);
 
@@ -212,13 +212,18 @@ public class References {
                     translatedFinalExpressionsBuilder.build();
 
             final Reference translatedReference;
-            if (!translatedExploratoryExpressions.isEmpty()) {
+            if (translatedExploratoryExpressions.isEmpty()) {
+                // no exploratory expressions; just final ones
+                translatedReference = memoizer.memoizeFinalExpressions(translatedFinalExpressions);
+            } else if (translatedFinalExpressions.isEmpty()) {
+                // no final expressions; just exploratory ones
                 translatedReference = memoizer.memoizeExploratoryExpressions(translatedExploratoryExpressions);
             } else {
-                translatedReference = memoizer.memoizeFinalExpressions(translatedFinalExpressions);
+                // mix
+                translatedReference = memoizer.memoizeExpressions(translatedExploratoryExpressions, translatedFinalExpressions);
             }
             translatedReference.inheritConstraintsFromOther(reference);
-
+            
             translationsCache.put(reference, translatedReference);
         }
     }
