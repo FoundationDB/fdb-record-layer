@@ -42,7 +42,7 @@ public interface StoreCatalog {
     SchemaTemplateCatalog getSchemaTemplateCatalog();
 
     /**
-     * Returns a Schema object of a table.
+     * Returns the {@link Schema} associated with a given database URI.
      *
      * @param txn        a Transaction
      * @param databaseId id of the database

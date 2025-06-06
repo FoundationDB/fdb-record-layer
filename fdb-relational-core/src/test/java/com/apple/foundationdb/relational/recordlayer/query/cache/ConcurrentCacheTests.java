@@ -44,7 +44,7 @@ import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
-import static com.apple.foundationdb.relational.recordlayer.query.QueryExecutionContext.OrderedLiteral.constantId;
+import static com.apple.foundationdb.relational.recordlayer.query.OrderedLiteral.constantId;
 
 /**
  * This tests concurrent behavior of the tertiary cache.

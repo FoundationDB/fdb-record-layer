@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.StableSelectorCostModel;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
@@ -48,7 +47,6 @@ import com.apple.foundationdb.relational.continuation.CompiledStatement;
 import com.apple.foundationdb.relational.continuation.TypedQueryArgument;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.query.QueryExecutionContext.OrderedLiteral;
 import com.apple.foundationdb.relational.recordlayer.query.cache.PhysicalPlanEquivalence;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor;
@@ -232,8 +230,9 @@ public final class PlanGenerator {
         // The hash value used accounts for the values that identify the query and not part of the execution context (e.g.
         // literal and parameter values without LIMIT and CONTINUATION)
         final var parameterHash = ast.getQueryExecutionParameters().getParameterHash();
+
         final var planGenerationContext = new MutablePlanGenerationContext(planContext.getPreparedStatementParameters(),
-                currentPlanHashMode, ast.getQuery(), parameterHash);
+                currentPlanHashMode, ast.getQuery(), ast.getQueryCacheKey().getCanonicalQueryString(), parameterHash);
         final var metadata = Assert.castUnchecked(planContext.getSchemaTemplate(), RecordLayerSchemaTemplate.class);
         try {
             final var maybePlan = planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.GENERATE_LOGICAL_PLAN, () ->
@@ -310,8 +309,7 @@ public final class PlanGenerator {
 
         for (int i = 0; i < typedQueryArguments.length; i++) {
             final TypedQueryArgument typedQueryArgument = typedQueryArguments[i];
-            orderedLiterals[i] = deserializeTypedQueryArgument(serializationContext, typeRepository,
-                    typedQueryArgument);
+            orderedLiterals[i] = OrderedLiteral.fromProto(serializationContext, typeRepository, typedQueryArgument);
         }
 
         final var preparedStatementParameters =
@@ -320,7 +318,7 @@ public final class PlanGenerator {
         final var planGenerationContext = new MutablePlanGenerationContext(preparedStatementParameters,
                 currentPlanHashMode,
                 ast.getQuery(),
-                Objects.requireNonNull(continuation.getBindingHash()));
+                ast.getQueryCacheKey().getCanonicalQueryString(), Objects.requireNonNull(continuation.getBindingHash()));
         planGenerationContext.setForExplain(ast.getQueryExecutionParameters().isForExplain());
         Arrays.stream(orderedLiterals).forEach(planGenerationContext::addStrippedLiteralOrParameter);
         planGenerationContext.setContinuation(continuationProto);
@@ -348,26 +346,6 @@ public final class PlanGenerator {
 
     private long totalTimeMicros() {
         return TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - beginTime);
-    }
-
-    @Nonnull
-    private static OrderedLiteral deserializeTypedQueryArgument(@Nonnull PlanSerializationContext serializationContext,
-                                                                @Nonnull TypeRepository typeRepository,
-                                                                @Nonnull TypedQueryArgument argumentProto) {
-        final var argumentType = Type.fromTypeProto(serializationContext, argumentProto.getType());
-        if (argumentProto.hasUnnamedParameterIndex()) {
-            return OrderedLiteral.forUnnamedParameter(argumentType,
-                    LiteralsUtils.objectFromLiteralObjectProto(typeRepository, argumentType, argumentProto.getObject()),
-                    argumentProto.getUnnamedParameterIndex(), argumentProto.getTokenIndex());
-        } else if (argumentProto.hasParameterName()) {
-            return OrderedLiteral.forNamedParameter(argumentType,
-                    LiteralsUtils.objectFromLiteralObjectProto(typeRepository, argumentType, argumentProto.getObject()),
-                    argumentProto.getParameterName(), argumentProto.getTokenIndex());
-        } else {
-            return OrderedLiteral.forQueryLiteral(argumentType,
-                    LiteralsUtils.objectFromLiteralObjectProto(typeRepository, argumentType, argumentProto.getObject()),
-                    argumentProto.getTokenIndex());
-        }
     }
 
     @Nonnull

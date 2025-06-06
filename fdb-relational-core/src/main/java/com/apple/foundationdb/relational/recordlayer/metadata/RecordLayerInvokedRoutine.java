@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.metadata;
 
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
+import com.apple.foundationdb.relational.recordlayer.query.Literals;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Supplier;
@@ -35,16 +36,31 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     private final String description;
 
     @Nonnull
+    private final String normalizedDescription;
+
+    @Nonnull
     private final String name;
+
+    private final boolean isTemporary;
+
+    @Nonnull
+    private final Literals literals;
 
     @Nonnull
     private final Supplier<CompiledSqlFunction> compilableSqlFunctionSupplier;
 
     public RecordLayerInvokedRoutine(@Nonnull final String description,
+                                     @Nonnull final String normalizedDescription,
                                      @Nonnull final String name,
+                                     boolean isTemporary,
+                                     @Nonnull final Literals literals,
                                      @Nonnull final Supplier<CompiledSqlFunction> compilableSqlFunctionSupplier) {
+        Assert.thatUnchecked(isTemporary || literals.isEmpty(), "unexpected non-temporary function with prepared parameters!");
         this.description = description;
+        this.normalizedDescription = normalizedDescription;
         this.name = name;
+        this.isTemporary = isTemporary;
+        this.literals = literals;
         // TODO this used to be memoized
         this.compilableSqlFunctionSupplier = compilableSqlFunctionSupplier;
     }
@@ -53,6 +69,12 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     @Override
     public String getDescription() {
         return description;
+    }
+
+    @Nonnull
+    @Override
+    public String getNormalizedDescription() {
+        return normalizedDescription;
     }
 
     @Nonnull
@@ -77,6 +99,16 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     }
 
     @Override
+    public boolean isTemporary() {
+        return isTemporary;
+    }
+
+    @Nonnull
+    public Literals getLiterals() {
+        return literals;
+    }
+
+    @Override
     public boolean equals(final Object o) {
         if (o == null) {
             return false;
@@ -85,7 +117,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
             return false;
         }
         final RecordLayerInvokedRoutine that = (RecordLayerInvokedRoutine)o;
-        return Objects.equals(description, that.description) && Objects.equals(name, that.name);
+        return Objects.equals(description, that.description) && Objects.equals(name, that.name) && literals.equals(that.literals);
     }
 
     @Override
@@ -100,12 +132,25 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
 
     public static final class Builder {
         private String description;
+        private String normalizedDescription;
         private String name;
         private Supplier<CompiledSqlFunction> compilableSqlFunctionSupplier;
+        private boolean isTemporary;
+        private Literals literals;
+
+        private Builder() {
+            this.literals = Literals.empty();
+        }
 
         @Nonnull
         public Builder setDescription(@Nonnull final String description) {
             this.description = description;
+            return this;
+        }
+
+        @Nonnull
+        public Builder setNormalizedDescription(@Nonnull final String normalizedDescription) {
+            this.normalizedDescription = normalizedDescription;
             return this;
         }
 
@@ -122,11 +167,25 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         }
 
         @Nonnull
+        public Builder setTemporary(boolean isTemporary) {
+            this.isTemporary = isTemporary;
+            return this;
+        }
+
+        @Nonnull
+        public Builder setLiterals(@Nonnull final Literals literals) {
+            this.literals = literals;
+            return this;
+        }
+
+        @Nonnull
         public RecordLayerInvokedRoutine build() {
+            Assert.thatUnchecked(isTemporary || literals.isEmpty());
             Assert.notNullUnchecked(name);
             Assert.notNullUnchecked(description);
             Assert.notNullUnchecked(compilableSqlFunctionSupplier);
-            return new RecordLayerInvokedRoutine(description, name, compilableSqlFunctionSupplier);
+            return new RecordLayerInvokedRoutine(description, normalizedDescription, name, isTemporary, literals,
+                    compilableSqlFunctionSupplier);
         }
     }
 }

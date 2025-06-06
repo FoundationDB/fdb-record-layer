@@ -337,7 +337,7 @@ public class LogicalOperator {
                                                   @Nonnull Expressions outputExpressions,
                                                   @Nonnull Optional<Expression> havingPredicate,
                                                   @Nonnull Set<CorrelationIdentifier> outerCorrelations,
-                                                  @Nonnull QueryExecutionContext.Literals literals) {
+                                                  @Nonnull Literals literals) {
         final var aliasMap = AliasMap.identitiesFor(logicalOperators.getCorrelations());
         final var aggregates = Expressions.of(havingPredicate.map(outputExpressions::concat).orElse(outputExpressions)
                 .collectAggregateValues().stream().map(Expression::fromUnderlying).collect(ImmutableSet.toImmutableSet()));

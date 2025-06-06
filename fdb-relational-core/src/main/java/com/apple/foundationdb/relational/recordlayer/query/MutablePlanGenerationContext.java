@@ -70,7 +70,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     private final PreparedParams preparedParams;
 
     @Nonnull
-    private final LiteralsBuilder literalsBuilder;
+    private final Literals.Builder literalsBuilder;
 
     private final int parameterHash;
 
@@ -79,6 +79,9 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
 
     @Nonnull
     private final String query;
+
+    @Nonnull
+    private final String canonicalQueryString;
 
     @Nonnull
     private final List<ConstantObjectValue> constantObjectValues;
@@ -96,12 +99,14 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     public MutablePlanGenerationContext(@Nonnull PreparedParams preparedParams,
                                         @Nonnull PlanHashable.PlanHashMode planHashMode,
                                         @Nonnull String query,
+                                        @Nonnull String canonicalQueryString,
                                         int parameterHash) {
         this.preparedParams = preparedParams;
         this.planHashMode = planHashMode;
         this.query = query;
+        this.canonicalQueryString = canonicalQueryString;
         this.parameterHash = parameterHash;
-        literalsBuilder = LiteralsBuilder.newBuilder();
+        literalsBuilder = Literals.newBuilder();
         constantObjectValues = new LinkedList<>();
         shouldProcessLiteral = true;
         forExplain = false;
@@ -146,7 +151,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         if (orderedLiteralMaybe.isEmpty()) {
             return Optional.empty();
         }
-        addEqualityConstraint(requestedTokenIndex, orderedLiteralMaybe.get().getTokenIndex(), type);
+        addEqualityConstraint(literalsBuilder.constructConstantId(requestedTokenIndex), orderedLiteralMaybe.get().getConstantId(), type);
         return orderedLiteralMaybe;
     }
 
@@ -161,10 +166,6 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         return firstDuplicateMaybe;
     }
 
-    private void addEqualityConstraint(int leftTokenIndex, int rightTokenIndex, @Nonnull Type type) {
-        addEqualityConstraint(OrderedLiteral.constantId(leftTokenIndex), OrderedLiteral.constantId(rightTokenIndex), type);
-    }
-
     private void addEqualityConstraint(@Nonnull String leftTokenId, @Nonnull String rightTokenId, @Nonnull Type type) {
         if (leftTokenId.equals(rightTokenId)) {
             return;
@@ -177,8 +178,14 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
 
     @Nonnull
     @Override
-    public Literals getLiteralsBuilder() {
+    public Literals getLiterals() {
+        // todo: this should be more efficient, we just need an immutable view over the elements of the builder.
         return literalsBuilder.build();
+    }
+
+    @Nonnull
+    public Literals.Builder getLiteralsBuilder() {
+        return literalsBuilder;
     }
 
     @Nonnull
@@ -190,6 +197,11 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     @Nonnull
     public String getQuery() {
         return query;
+    }
+
+    @Nonnull
+    public String getCanonicalQueryString() {
+        return canonicalQueryString;
     }
 
     // this is temporary until we have a proper clean up.
@@ -204,7 +216,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
             return EvaluationContext.forTypeRepository(typeRepository);
         }
         final var builder = EvaluationContext.newBuilder();
-        builder.setConstant(Quantifier.constant(), getLiteralsBuilder().asMap());
+        builder.setConstant(Quantifier.constant(), getLiterals().asMap());
         return builder.build(typeRepository);
     }
 
@@ -289,23 +301,25 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         if (!shouldProcessLiteral()) {
             return literalValue;
         } else {
-            final var orderedLiteral = new OrderedLiteral(type, literal, unnamedParameterIndex, parameterName, tokenIndex);
-            addStrippedLiteralOrParameter(orderedLiteral);
+            final var orderedLiteral = literalsBuilder.addLiteral(type, literal, unnamedParameterIndex, parameterName, tokenIndex);
             final var result = ConstantObjectValue.of(Quantifier.constant(), orderedLiteral.getConstantId(),
                     literalValue.getResultType());
             addLiteralReference(result);
-            return ConstantObjectValue.of(Quantifier.constant(), getFirstCovReference(literal, tokenIndex, type).map(OrderedLiteral::getConstantId).orElse(orderedLiteral.getConstantId()),
+            return ConstantObjectValue.of(Quantifier.constant(), getFirstCovReference(literal, tokenIndex, type)
+                            .map(OrderedLiteral::getConstantId).orElse(orderedLiteral.getConstantId()),
                     literalValue.getResultType());
         }
     }
 
     @Nonnull
-    public ConstantObjectValue processComplexLiteral(@Nonnull String constantId, @Nonnull Type type) {
+    public ConstantObjectValue processComplexLiteral(int tokenIndex, @Nonnull Type type) {
+        final var constantId = literalsBuilder.constructConstantId(tokenIndex);
         final var result = ConstantObjectValue.of(Quantifier.constant(), constantId, type);
         if (shouldProcessLiteral()) {
             addLiteralReference(result);
         }
-        return ConstantObjectValue.of(Quantifier.constant(), getFirstDuplicate(constantId).map(OrderedLiteral::getConstantId).orElse(constantId), type);
+        return ConstantObjectValue.of(Quantifier.constant(),
+                getFirstDuplicate(constantId).map(OrderedLiteral::getConstantId).orElse(constantId), type);
     }
 
     @Nonnull
@@ -338,7 +352,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
             processPreparedStatementParameter(o, resolvedType.getElementType(), unnamedParameterIndex, parameterName, i);
         }
         finishArrayLiteral(unnamedParameterIndex, parameterName, tokenIndex);
-        return processComplexLiteral(OrderedLiteral.constantId(tokenIndex), resolvedType);
+        return processComplexLiteral(tokenIndex, resolvedType);
     }
 
     @Nonnull
@@ -364,7 +378,11 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
                     unnamedParameterIndex, parameterName, i);
         }
         finishStructLiteral(resolvedType, unnamedParameterIndex, parameterName, tokenIndex);
-        return processComplexLiteral(OrderedLiteral.constantId(tokenIndex), resolvedType);
+        return processComplexLiteral(tokenIndex, resolvedType);
+    }
+
+    public void processAuxiliaryLiterals(@Nonnull final Literals literals) {
+        literalsBuilder.absorb(literals);
     }
 
     @Nonnull

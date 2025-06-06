@@ -145,7 +145,7 @@ public final class Expressions implements Iterable<Expression> {
     }
 
     @Nonnull
-    public Expressions dereferenced(@Nonnull QueryExecutionContext.Literals literals) {
+    public Expressions dereferenced(@Nonnull Literals literals) {
         return Expressions.of(this.stream().flatMap(e -> e.dereferenced(literals).stream()).collect(ImmutableList.toImmutableList()));
     }
 

@@ -67,7 +67,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.apple.foundationdb.relational.recordlayer.query.QueryExecutionContext.OrderedLiteral.constantId;
+import static com.apple.foundationdb.relational.recordlayer.query.OrderedLiteral.constantId;
 
 /**
  * This contains a set of tests for {@link RelationalPlanCache} and {@link PlanGenerator}. Similar to {@link MultiStageCacheTests},

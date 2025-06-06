@@ -1489,6 +1489,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      */
     @SuppressWarnings("unchecked")
     @API(API.Status.EXPERIMENTAL)
+    @Nullable
     public synchronized <T> T getInSession(@Nonnull Object key, @Nonnull Class<T> clazz) {
         return (T) session.get(key);
     }

@@ -226,7 +226,7 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                 where = Optional.ofNullable(simpleTableContext.havingClause() == null ? null : visitHavingClause(simpleTableContext.havingClause()));
             }
             outerCorrelations = getDelegate().getCurrentPlanFragment().getOuterCorrelations();
-            final var literals = getDelegate().getPlanGenerationContext().getLiteralsBuilder();
+            final var literals = getDelegate().getPlanGenerationContext().getLiterals();
             final var groupBy = LogicalOperator.generateGroupBy(getDelegate().getLogicalOperators(), groupByExpressions,
                     selectExpressions, where, outerCorrelations, literals);
             if (groupByExpressions.isEmpty() && !getDelegate().isForDdl()) {

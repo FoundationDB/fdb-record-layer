@@ -411,7 +411,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
                 final var serializationContext = new PlanSerializationContext(new DefaultPlanSerializationRegistry(), currentPlanHashMode);
 
-                final var literals = queryExecutionParameters.getLiteralsBuilder();
+                final var literals = queryExecutionParameters.getLiterals();
                 final var compiledStatementBuilder = CompiledStatement.newBuilder()
                         .setPlanSerializationMode(queryExecutionParameters.getPlanHashMode().name());
 
@@ -419,25 +419,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
                 int i = 0;
                 for (final var orderedLiteral : literals.getOrderedLiterals()) {
-                    final var type = orderedLiteral.getType();
-                    final var argumentBuilder = TypedQueryArgument.newBuilder()
-                            .setType(type.toTypeProto(serializationContext))
-                            .setLiteralsTableIndex(i)
-                            .setTokenIndex(orderedLiteral.getTokenIndex());
-                    argumentBuilder.setObject(LiteralsUtils.objectToLiteralObjectProto(type, orderedLiteral.getLiteralObject()));
-                    if (orderedLiteral.isQueryLiteral()) {
-                        // literal
-                        compiledStatementBuilder.addExtractedLiterals(argumentBuilder.build());
-                    } else {
-                        // actual parameter
-                        Verify.verify(orderedLiteral.isNamedParameter() || orderedLiteral.isUnnamedParameter());
-                        if (orderedLiteral.isNamedParameter()) {
-                            argumentBuilder.setParameterName(Objects.requireNonNull(orderedLiteral.getParameterName()));
-                        } else {
-                            argumentBuilder.setUnnamedParameterIndex(Objects.requireNonNull(orderedLiteral.getUnnamedParameterIndex()));
-                        }
-                        compiledStatementBuilder.addArguments(argumentBuilder.build());
-                    }
+                    final var argument = orderedLiteral.toProto(serializationContext, i);
+                    compiledStatementBuilder.addArguments(argument);
                     i++;
                 }
 
