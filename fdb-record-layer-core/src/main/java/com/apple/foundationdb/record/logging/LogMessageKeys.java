@@ -339,7 +339,12 @@ public enum LogMessageKeys {
 
     // Record context properties
     PROPERTY_NAME,
-    PROPERTY_TYPE;
+    PROPERTY_TYPE,
+
+    // Store Lock State
+    STORE_LOCK_STATE_REASON,
+    STORE_LOCK_STATE_TIMESTAMP_MILLIS,
+    ;
 
     private final String logKey;
 
