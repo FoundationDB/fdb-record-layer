@@ -353,6 +353,29 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
     @Nonnull
     public RangeConstraints translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                   final boolean shouldSimplifyValues) {
+        //
+        // Translating correlations can sometimes change whether a comparison is compilable
+        // or not. Re-build the range constraints to ensure that the comparisons get sorted
+        // properly
+        //
+        var constraintsBuilder = RangeConstraints.newBuilder();
+        boolean allAdded = true;
+        if (evaluableRange != null) {
+            allAdded = evaluableRange.compilableComparisons.stream()
+                    .map(c -> c.translateCorrelations(translationMap, shouldSimplifyValues))
+                    .allMatch(constraintsBuilder::addComparisonMaybe);
+        }
+        allAdded = allAdded && deferredRanges.stream()
+                .map(c -> c.translateCorrelations(translationMap, shouldSimplifyValues))
+                .allMatch(constraintsBuilder::addComparisonMaybe);
+        Optional<RangeConstraints> maybeNewRange = allAdded ? constraintsBuilder.build() : Optional.empty();
+        if (maybeNewRange.isPresent()) {
+            return maybeNewRange.get();
+        }
+
+        //
+        // As a fallback, translate the individual ranges
+        //
         if (evaluableRange == null) {
             if (deferredRanges.isEmpty()) {
                 return this;
@@ -376,26 +399,20 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
 
     @Nonnull
     public Optional<RangeConstraints> translateRanges(@Nonnull final Function<Comparisons.Comparison, Optional<Comparisons.Comparison>> comparisonTranslator) {
-        final CompilableRange newEvaluableRange;
-
+        var constraintsBuilder = RangeConstraints.newBuilder();
+        boolean allAdded = true;
         if (evaluableRange != null) {
-            final var newEvaluableRangeOptional = evaluableRange.translateRange(comparisonTranslator);
-            if (newEvaluableRangeOptional.isEmpty()) {
-                return Optional.empty();
-            }
-            newEvaluableRange = newEvaluableRangeOptional.get();
-        } else {
-            newEvaluableRange = null;
+            allAdded = evaluableRange.compilableComparisons.stream()
+                    .map(comparisonTranslator)
+                    .map(maybeComparison -> maybeComparison.map(constraintsBuilder::addComparisonMaybe))
+                    .allMatch(maybeAdded -> maybeAdded.orElse(false));
         }
-        final var newDeferredRangesBuilder = ImmutableSet.<Comparisons.Comparison>builder();
-        for (final var deferredRange : deferredRanges) {
-            final var newDeferredRangeOptional = comparisonTranslator.apply(deferredRange);
-            if (newDeferredRangeOptional.isEmpty()) {
-                return Optional.empty();
-            }
-            newDeferredRangesBuilder.add(newDeferredRangeOptional.get());
-        }
-        return Optional.of(new RangeConstraints(newEvaluableRange, newDeferredRangesBuilder.build()));
+        allAdded = allAdded && deferredRanges.stream()
+                .map(comparisonTranslator)
+                .map(maybeComparison -> maybeComparison.map(constraintsBuilder::addComparisonMaybe))
+                .allMatch(maybeAdded -> maybeAdded.orElse(false));
+
+        return allAdded ? constraintsBuilder.build() : Optional.empty();
     }
 
     @Override
