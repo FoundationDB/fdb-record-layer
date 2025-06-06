@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
-import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 
@@ -35,8 +34,8 @@ import java.util.Set;
  */
 public class PlanPartition extends ExpressionPartition<RecordQueryPlan> {
     private PlanPartition(@Nonnull final Map<ExpressionProperty<?>, ?> propertyValuesMap,
-                          @Nonnull final Collection<RecordQueryPlan> plans) {
-        super(propertyValuesMap, plans);
+                          @Nonnull final Map<RecordQueryPlan, Map<ExpressionProperty<?>, ?>> planPropertyMap) {
+        super(propertyValuesMap, planPropertyMap);
     }
 
     @Nonnull
@@ -46,16 +45,18 @@ public class PlanPartition extends ExpressionPartition<RecordQueryPlan> {
 
     @Nonnull
     public static PlanPartition ofPlans(@Nonnull final Map<ExpressionProperty<?>, ?> propertyValuesMap,
-                                        @Nonnull final Collection<RecordQueryPlan> plans) {
-        return new PlanPartition(propertyValuesMap, plans);
+                                        @Nonnull final Map<RecordQueryPlan, Map<ExpressionProperty<?>, ?>> planPropertyMap) {
+        return new PlanPartition(propertyValuesMap, planPropertyMap);
     }
 
     @Nonnull
     @SuppressWarnings("unchecked")
     public static PlanPartition ofExpressions(@Nonnull final Map<ExpressionProperty<?>, ?> propertyValuesMap,
-                                              @Nonnull final Collection<? extends RelationalExpression> expressions) {
+                                              @Nonnull final Map<? extends RelationalExpression, Map<ExpressionProperty<?>, ?>> expressionPropertyMap) {
         Debugger.sanityCheck(() ->
-                Verify.verify(expressions.stream().allMatch(plan -> plan instanceof RecordQueryPlan)));
-        return new PlanPartition(propertyValuesMap, (Collection<RecordQueryPlan>)expressions);
+                Verify.verify(expressionPropertyMap.keySet()
+                        .stream()
+                        .allMatch(plan -> plan instanceof RecordQueryPlan)));
+        return new PlanPartition(propertyValuesMap, (Map<RecordQueryPlan, Map<ExpressionProperty<?>, ?>>)expressionPropertyMap);
     }
 }
