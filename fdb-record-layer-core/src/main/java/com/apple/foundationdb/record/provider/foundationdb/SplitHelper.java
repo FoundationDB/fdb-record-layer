@@ -1176,7 +1176,7 @@ public class SplitHelper {
     /**
      * Exception thrown when only part of a split record is found.
      */
-    @SuppressWarnings("serial")
+    @SuppressWarnings({"serial", "this-escape"})
     public static class FoundSplitWithoutStartException extends RecordCoreException {
         public FoundSplitWithoutStartException(long nextIndex, boolean reverse) {
             super("Found split record without start");
