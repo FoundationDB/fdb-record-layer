@@ -346,6 +346,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 .setName(functionName)
                 .setDescription(functionDefinition)
                 .withCompilableRoutine(() -> function)
+                .setNormalizedDescription(getDelegate().getPlanGenerationContext().getCanonicalQueryString())
                 .setTemporary(isTemporary)
                 .setLiterals(getDelegate().getPlanGenerationContext().getLiterals())
                 .build();

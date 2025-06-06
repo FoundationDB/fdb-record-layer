@@ -60,7 +60,7 @@ public interface RoutineParser {
                 throw e.toUncheckedWrappedException();
             }
             final var planGenerationContext = new MutablePlanGenerationContext(PreparedParams.empty(),
-                    PlanHashable.PlanHashMode.VC0, routineString, 0);
+                    PlanHashable.PlanHashMode.VC0, routineString, routineString, 0);
             final var visitor = new BaseVisitor(planGenerationContext, metaData, new NoOpQueryFactory(),
                     NoOpMetadataOperationsFactory.INSTANCE, URI.create(""), false);
             return visitor.visitSqlInvokedFunction(parsed);

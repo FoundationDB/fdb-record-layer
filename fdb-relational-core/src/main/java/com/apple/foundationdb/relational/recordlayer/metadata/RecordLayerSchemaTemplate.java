@@ -329,7 +329,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     @Nonnull
     private String computeTransactionBoundMetadata() {
-        return getTemporaryInvokedRoutines().stream().map(InvokedRoutine::getDescription)
+        return getTemporaryInvokedRoutines().stream().map(InvokedRoutine::getNormalizedDescription)
                 .collect(Collectors.joining("||"));
     }
 

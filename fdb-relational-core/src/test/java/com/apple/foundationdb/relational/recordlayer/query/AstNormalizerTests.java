@@ -43,6 +43,7 @@ import com.apple.foundationdb.relational.recordlayer.util.Hex;
 import com.apple.foundationdb.relational.util.Assert;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import org.apache.commons.lang3.NotImplementedException;
 import org.assertj.core.api.Assertions;
@@ -73,6 +74,10 @@ import static com.apple.foundationdb.relational.recordlayer.query.OrderedLiteral
  *     <li>documentation of expected failures, e.g. hashing syntactically incorrect query</li>
  *     <li>documentation of expected behaviors, e.g. not doing constant folding</li>
  *     <li>documentation of handling IN predicate with all-const in-list and  some-const in-list</li>
+ *     <li>documentation of how compilable, temporary SQL functions are accumulated to become part of the cache key auxiliary
+ *     metadata of the normalized result of any subsequent SQL statement</li>
+ *     <li>documentation of handling compilable, temporary SQL functions, and how literal stripping is scoped to the
+ *     name of the function</li>
  * </ul>
  */
 public class AstNormalizerTests {
@@ -386,14 +391,22 @@ public class AstNormalizerTests {
     private static RecordLayerSchemaTemplate schemaTemplateWithFunction(@Nonnull final RecordLayerSchemaTemplate schemaTemplate,
                                                                         @Nonnull final String name,
                                                                         @Nonnull final String functionDdl,
-                                                                        boolean isTemporary) {
-        //noinspection DataFlowIssue
+                                                                        boolean isTemporary) throws RelationalException {
+        final String canonicalFunctionDdl;
+        if (isTemporary) {
+            final var normalizer = AstNormalizer.normalizeAst(schemaTemplate, QueryParser.parse(functionDdl).getRootContext(), PreparedParams.empty(),
+                    0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0, functionDdl);
+            canonicalFunctionDdl = normalizer.getQueryCacheKey().getCanonicalQueryString();
+        } else {
+            canonicalFunctionDdl = functionDdl;
+        }
+
         return Assert.castUnchecked(schemaTemplate, RecordLayerSchemaTemplate.class).toBuilder()
                 .addInvokedRoutine(RecordLayerInvokedRoutine.newBuilder()
                         .setName(name)
                         .setTemporary(isTemporary)
                         .setDescription(functionDdl)
-                        .setNonPreparedDescription(functionDdl)
+                        .setNormalizedDescription(canonicalFunctionDdl)
                         // invoking the compiled routine should only happen during plan generation.
                         .withCompilableRoutine(() -> new CompiledSqlFunction("", ImmutableList.of(), ImmutableList.of(),
                                 ImmutableList.of(), Optional.empty(), null, Literals.empty()) {
@@ -1095,7 +1108,7 @@ public class AstNormalizerTests {
                 -1,
                 EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT),
                 Map.of(Options.Name.LOG_QUERY, false),
-                List.of(schemaTemplate1), tempFunctionDefinition);
+                List.of(schemaTemplate1), normalizeQuery(tempFunctionDefinition));
     }
 
     @Test
@@ -1132,7 +1145,8 @@ public class AstNormalizerTests {
                 -1,
                 EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT),
                 Map.of(Options.Name.LOG_QUERY, false),
-                List.of(schemaTemplate), tmpFunction1 + "||" + tmpFunction2 + "||" + tmpFunction3 + "||" + tmpFunction4);
+                List.of(schemaTemplate), normalizeQuery(tmpFunction1) + "||" + normalizeQuery(tmpFunction2) + "||" +
+                        normalizeQuery(tmpFunction3) + "||" + normalizeQuery(tmpFunction4));
     }
 
     @Test
@@ -1158,7 +1172,8 @@ public class AstNormalizerTests {
                 -1,
                 EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT),
                 Map.of(Options.Name.LOG_QUERY, false),
-                List.of(schemaTemplate), tmpFunction1 + "||" + tmpFunction2 + "||" + tmpFunction3 + "||" + tmpFunction4);
+                List.of(schemaTemplate), normalizeQuery(tmpFunction1) + "||" + normalizeQuery(tmpFunction2)
+                        + "||" + normalizeQuery(tmpFunction3) + "||" + normalizeQuery(tmpFunction4));
     }
 
     @Test
@@ -1186,7 +1201,8 @@ public class AstNormalizerTests {
                 -1,
                 EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT),
                 Map.of(Options.Name.LOG_QUERY, false),
-                List.of(schemaTemplate1, schemaTemplate2), tmpFunction1 + "||" + tmpFunction2 + "||" + tmpFunction3);
+                List.of(schemaTemplate1, schemaTemplate2), normalizeQuery(tmpFunction1) + "||" +
+                        normalizeQuery(tmpFunction2) + "||" + normalizeQuery(tmpFunction3));
     }
 
 
@@ -1206,7 +1222,7 @@ public class AstNormalizerTests {
                 -1,
                 EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT),
                 Map.of(Options.Name.LOG_QUERY, false),
-                List.of(schemaTemplate), tmpFunctionA + "||" + tmpFunctionZ);
+                List.of(schemaTemplate), normalizeQuery(tmpFunctionA) + "||" + normalizeQuery(tmpFunctionZ));
     }
 
     @Test
@@ -1221,5 +1237,59 @@ public class AstNormalizerTests {
         // cache key structures
         final var query = "select * from t1 where col1 > 42";
         validateNotEqual(query, schemaTemplate1, query, schemaTemplate2, PreparedParams.empty());
+    }
+
+    @Test
+    void normalizeTemporarySqlFunctionStripsLiterals() throws Exception {
+        validate(List.of("create temporary function tmpFunction1(in x bigint) on commit drop function as select * from t1 where a < 40 + x "),
+                PreparedParams.empty(),
+                "create temporary function \"TMPFUNCTION1\" ( in \"X\" bigint ) on commit drop function as select * from \"T1\" where \"A\" < ? + \"X\" ",
+                List.of(Map.of(constantId(21, Optional.of("tmpFunction1")), 40)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DDL_STATEMENT),
+                Map.of(Options.Name.LOG_QUERY, false));
+    }
+
+    @Test
+    void normalizeTemporarySqlFunctionStripsLiteralsAndPreparedParameters() throws Exception {
+        validate(List.of("create temporary function tmpFunction1(in x bigint) " +
+                        "on commit drop function as select * from t1 where a < 40 + x and b > ?param1 and c < ?param2"),
+                PreparedParams.ofNamed(ImmutableMap.of("param1", "bla", "param2", 500)),
+                "create temporary function \"TMPFUNCTION1\" ( in \"X\" bigint ) " +
+                        "on commit drop function as select * from \"T1\" where \"A\" < ? + \"X\" and \"B\" > ?param1 and \"C\" < ?param2 ",
+                List.of(Map.of(constantId(21, Optional.of("tmpFunction1")), 40,
+                        constantId(27, Optional.of("tmpFunction1")), "bla",
+                        constantId(31, Optional.of("tmpFunction1")), 500)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DDL_STATEMENT),
+                Map.of(Options.Name.LOG_QUERY, false));
+    }
+
+    @Test
+    void normalizeTemporarySqlFunctionStripsDefaultParameterLiterals() throws Exception {
+        validate(List.of("create temporary function tmpFunction1(in x bigint default 1000, in y string default 'bla') " +
+                        "on commit drop function as select * from t1 where a < 40 + x and b > ?param1 and c < ?param2"),
+                PreparedParams.ofNamed(ImmutableMap.of("param1", "bla", "param2", 500)),
+                "create temporary function \"TMPFUNCTION1\" ( in \"X\" bigint default ? , in \"Y\" string default ? ) " +
+                        "on commit drop function as select * from \"T1\" where \"A\" < ? + \"X\" and \"B\" > ?param1 and \"C\" < ?param2 ",
+                List.of(Map.of(constantId(9, Optional.of("tmpFunction1")), 1000,
+                        constantId(15, Optional.of("tmpFunction1")), "bla",
+                        constantId(29, Optional.of("tmpFunction1")), 40,
+                        constantId(35, Optional.of("tmpFunction1")), "bla",
+                        constantId(39, Optional.of("tmpFunction1")), 500)),
+                null,
+                -1,
+                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DDL_STATEMENT),
+                Map.of(Options.Name.LOG_QUERY, false));
+    }
+
+    @Nonnull
+    private String normalizeQuery(@Nonnull final String functionDdl) throws RelationalException {
+        final var normalizer = AstNormalizer.normalizeAst(fakeSchemaTemplate,
+                QueryParser.parse(functionDdl).getRootContext(), PreparedParams.empty(),
+                0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0, functionDdl);
+        return normalizer.getQueryCacheKey().getCanonicalQueryString();
     }
 }

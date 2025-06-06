@@ -41,6 +41,9 @@ public interface InvokedRoutine extends Metadata {
     @Nonnull
     String getDescription();
 
+    @Nonnull
+    String getNormalizedDescription();
+
     boolean isTemporary();
 
     @Override

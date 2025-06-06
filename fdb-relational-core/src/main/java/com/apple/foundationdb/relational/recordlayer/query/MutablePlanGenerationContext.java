@@ -81,6 +81,9 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     private final String query;
 
     @Nonnull
+    private final String canonicalQueryString;
+
+    @Nonnull
     private final List<ConstantObjectValue> constantObjectValues;
 
     private boolean shouldProcessLiteral;
@@ -96,10 +99,12 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     public MutablePlanGenerationContext(@Nonnull PreparedParams preparedParams,
                                         @Nonnull PlanHashable.PlanHashMode planHashMode,
                                         @Nonnull String query,
+                                        @Nonnull String canonicalQueryString,
                                         int parameterHash) {
         this.preparedParams = preparedParams;
         this.planHashMode = planHashMode;
         this.query = query;
+        this.canonicalQueryString = canonicalQueryString;
         this.parameterHash = parameterHash;
         literalsBuilder = Literals.newBuilder();
         constantObjectValues = new LinkedList<>();
@@ -192,6 +197,11 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     @Nonnull
     public String getQuery() {
         return query;
+    }
+
+    @Nonnull
+    public String getCanonicalQueryString() {
+        return canonicalQueryString;
     }
 
     // this is temporary until we have a proper clean up.
@@ -295,7 +305,8 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
             final var result = ConstantObjectValue.of(Quantifier.constant(), orderedLiteral.getConstantId(),
                     literalValue.getResultType());
             addLiteralReference(result);
-            return ConstantObjectValue.of(Quantifier.constant(), getFirstCovReference(literal, tokenIndex, type).map(OrderedLiteral::getConstantId).orElse(orderedLiteral.getConstantId()),
+            return ConstantObjectValue.of(Quantifier.constant(), getFirstCovReference(literal, tokenIndex, type)
+                            .map(OrderedLiteral::getConstantId).orElse(orderedLiteral.getConstantId()),
                     literalValue.getResultType());
         }
     }

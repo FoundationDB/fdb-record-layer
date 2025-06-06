@@ -36,7 +36,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 /**
  * This is for testing different aspects of temporary SQL functions. This test suite can migrate to YAML once we have
@@ -270,7 +269,6 @@ public class TemporaryFunctionTests {
                         .isRowExactly(4L, 40L)
                         .hasNoNextRow();
             }
-
         }
     }
 }

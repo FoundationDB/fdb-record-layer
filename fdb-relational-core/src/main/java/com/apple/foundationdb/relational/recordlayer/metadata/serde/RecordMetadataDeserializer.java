@@ -163,7 +163,6 @@ public class RecordMetadataDeserializer {
         return RecordLayerInvokedRoutine.newBuilder()
                 .setName(name)
                 .setDescription(body)
-                .setNonPreparedDescription(body)
                 .setTemporary(false)
                 .withCompilableRoutine(getSqlFunctionCompiler(name, metadata, body));
     }

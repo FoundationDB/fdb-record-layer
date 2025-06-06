@@ -35,8 +35,11 @@ import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
+import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
+import com.apple.foundationdb.relational.recordlayer.query.functions.WithPlanGenerationSideEffects;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 
@@ -606,12 +609,18 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                                       @Nonnull final String query) {
         final var astNormalizer = new AstNormalizer(preparedStatementParameters, caseSensitive, currentPlanHashMode);
         astNormalizer.visit(context);
+        final var recordLayerSchemaTemplate = Assert.castUnchecked(schemaTemplate, RecordLayerSchemaTemplate.class);
+        recordLayerSchemaTemplate.getTemporaryInvokedRoutines().stream().filter(r -> r instanceof RecordLayerInvokedRoutine)
+                .map(r -> (RecordLayerInvokedRoutine)r)
+                .filter(r -> r.getCompilableSqlFunctionSupplier().get() != null)
+                .filter(r -> r.getCompilableSqlFunctionSupplier().get() != null && r.getCompilableSqlFunctionSupplier().get() instanceof WithPlanGenerationSideEffects)
+                .map(r -> (WithPlanGenerationSideEffects)(r.getCompilableSqlFunctionSupplier().get()))
+                .forEach(w -> astNormalizer.queryHasherContextBuilder.getLiteralsBuilder().absorb(((CompiledSqlFunction)w).getLiterals()));
         return new Result(
-                schemaTemplate.getName(),
+                recordLayerSchemaTemplate.getName(),
                 QueryCacheKey.of(astNormalizer.getCanonicalSqlString(), astNormalizer.getHash(),
-                        schemaTemplate.getVersion(), readableIndexes, userVersion,
-                        Assert.castUnchecked(schemaTemplate, RecordLayerSchemaTemplate.class)
-                                .getTransactionBoundMetadataAsString()),
+                        recordLayerSchemaTemplate.getVersion(), readableIndexes, userVersion,
+                        recordLayerSchemaTemplate.getTransactionBoundMetadataAsString()),
                 astNormalizer.getQueryExecutionParameters(),
                 context,
                 astNormalizer.getQueryCachingFlags(),
