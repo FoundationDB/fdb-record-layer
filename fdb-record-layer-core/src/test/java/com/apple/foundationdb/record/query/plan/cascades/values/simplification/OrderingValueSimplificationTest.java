@@ -215,7 +215,6 @@ class OrderingValueSimplificationTest {
     @Test
     void testDeriveOrderingValues2() {
         final var someCurrentValue = ObjectValue.of(Quantifier.current(), someRecordType());
-        final var type = someRecordType();
 
         final var _a_aa_aaa = FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("a", "aa", "aaa"));
         final var tob = new ToOrderedBytesValue(_a_aa_aaa, TupleOrdering.Direction.DESC_NULLS_LAST);
@@ -258,6 +257,7 @@ class OrderingValueSimplificationTest {
     @Nonnull
     private static Value simplifyOrderingValue(@Nonnull final Value toBeSimplified) {
         return Simplification.simplify(toBeSimplified, EvaluationContext.empty(), AliasMap.emptyMap(),
-                ImmutableSet.of(), RequestedOrderingValueSimplificationRuleSet.ofRequestedOrderSimplificationRules());
+                        ImmutableSet.of(), RequestedOrderingValueSimplificationRuleSet.ofRequestedOrderSimplificationRules())
+                .get();
     }
 }

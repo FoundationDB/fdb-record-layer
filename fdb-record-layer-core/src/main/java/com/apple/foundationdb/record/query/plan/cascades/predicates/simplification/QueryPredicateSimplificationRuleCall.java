@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.predicates.simplificat
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
@@ -31,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 
 import javax.annotation.Nonnull;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * A rule call implementation for the simplification of {@link QueryPredicate} trees. This rule call implements the
@@ -46,7 +48,9 @@ public class QueryPredicateSimplificationRuleCall extends AbstractQueryPredicate
                                                 @Nonnull final EvaluationContext evaluationContext,
                                                 @Nonnull final PlannerBindings bindings,
                                                 @Nonnull final AliasMap aliasMap,
-                                                @Nonnull final Set<CorrelationIdentifier> constantAliases) {
-        super(rule, root, current, evaluationContext, bindings, aliasMap, constantAliases);
+                                                @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                                @Nonnull final Function<QueryPredicate, QueryPlanConstraint> retrieveQueryPlanConstraintFunction) {
+        super(rule, root, current, evaluationContext, bindings, aliasMap, constantAliases,
+                retrieveQueryPlanConstraintFunction);
     }
 }

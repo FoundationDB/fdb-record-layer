@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
@@ -56,8 +57,10 @@ public class ValueComputationRuleCall<ARGUMENT, RESULT> extends AbstractValueRul
                                     @Nonnull final PlannerBindings bindings,
                                     @Nonnull final AliasMap aliasMap,
                                     @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                    @Nonnull final Function<Value, QueryPlanConstraint> retrieveQueryPlanConstraintFunction,
                                     @Nonnull final Function<Value, NonnullPair<Value, RESULT>> retrieveResultFunction) {
-        super(rule, root, current, evaluationContext, bindings, aliasMap, constantAliases);
+        super(rule, root, current, evaluationContext, bindings, aliasMap, constantAliases,
+                retrieveQueryPlanConstraintFunction);
         this.argument = argument;
         this.retrieveResultFunction = retrieveResultFunction;
     }
@@ -79,6 +82,6 @@ public class ValueComputationRuleCall<ARGUMENT, RESULT> extends AbstractValueRul
     @Nonnull
     public ValueSimplificationRuleCall toValueSimplificationRuleCall(@Nonnull final AbstractRule<Value, ValueSimplificationRuleCall, Value, ? extends Value> rule) {
         return new ValueSimplificationRuleCall(rule, getRoot(), getCurrent(), getEvaluationContext(), getBindings(),
-                getEquivalenceMap(), getConstantAliases());
+                getEquivalenceMap(), getConstantAliases(), getRetrieveQueryPlanConstraintFunction());
     }
 }

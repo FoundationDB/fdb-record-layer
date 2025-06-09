@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.predicates.simplificat
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
@@ -57,8 +58,10 @@ public class QueryPredicateComputationRuleCall<ARGUMENT, RESULT> extends Abstrac
                                              @Nonnull final PlannerBindings bindings,
                                              @Nonnull final AliasMap aliasMap,
                                              @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                             @Nonnull final Function<QueryPredicate, QueryPlanConstraint> retrieveQueryPlanConstraintFunction,
                                              @Nonnull final Function<QueryPredicate, NonnullPair<QueryPredicate, RESULT>> retrieveResultFunction) {
-        super(rule, root, current, evaluationContext, bindings, aliasMap, constantAliases);
+        super(rule, root, current, evaluationContext, bindings, aliasMap, constantAliases,
+                retrieveQueryPlanConstraintFunction);
         this.argument = argument;
         this.retrieveResultFunction = retrieveResultFunction;
     }

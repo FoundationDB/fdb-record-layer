@@ -458,7 +458,8 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
                            @Nonnull final EvaluationContext evaluationContext,
                            @Nonnull final AliasMap aliasMap,
                            @Nonnull final Set<CorrelationIdentifier> constantAliases) {
-        return Simplification.simplify(this, evaluationContext, aliasMap, constantAliases, ruleSet);
+        return Simplification.simplify(this, evaluationContext, aliasMap, constantAliases, ruleSet)
+                .getUnconstrained();
     }
 
     /**
@@ -473,7 +474,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
                            @Nonnull final AliasMap aliasMap,
                            @Nonnull final Set<CorrelationIdentifier> constantAliases) {
         return Simplification.simplify(this, evaluationContext, aliasMap, constantAliases,
-                DefaultValueSimplificationRuleSet.instance());
+                DefaultValueSimplificationRuleSet.instance()).getUnconstrained();
     }
 
     /**
