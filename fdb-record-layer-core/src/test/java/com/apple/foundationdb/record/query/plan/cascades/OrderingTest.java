@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
@@ -222,7 +223,8 @@ class OrderingTest {
                         c, ProvidedSortOrder.ASCENDING), innerOrderedSet, false);
 
         final var rcv2 = select("a", "b", "c");
-        final var pulledUpOrdering = innerOrdering.pullUp(rcv2, AliasMap.emptyMap(), Set.of());
+        final var pulledUpOrdering =
+                innerOrdering.pullUp(rcv2, EvaluationContext.empty(), AliasMap.emptyMap(), Set.of());
 
         final var qovCurrent = QuantifiedObjectValue.of(Quantifier.current(), rcv2.getResultType());
         final var ap = ValueTestHelpers.field(qovCurrent, "ap");
@@ -255,7 +257,8 @@ class OrderingTest {
                         d, ProvidedSortOrder.ASCENDING), innerOrderedSet, false);
 
         final var rcv2 = select("a", "b", "c");
-        final var pulledUpOrdering = innerOrdering.pullUp(rcv2, AliasMap.emptyMap(), Set.of());
+        final var pulledUpOrdering =
+                innerOrdering.pullUp(rcv2, EvaluationContext.empty(), AliasMap.emptyMap(), Set.of());
 
         final var qovCurrent = QuantifiedObjectValue.of(Quantifier.current(), rcv2.getResultType());
         final var ap = ValueTestHelpers.field(qovCurrent, "ap");
@@ -285,7 +288,8 @@ class OrderingTest {
                         c, ProvidedSortOrder.ASCENDING), innerOrderedSet, false);
 
         final var rcv2 = select("b", "c");
-        final var pulledUpOrdering = innerOrdering.pullUp(rcv2, AliasMap.emptyMap(), Set.of());
+        final var pulledUpOrdering =
+                innerOrdering.pullUp(rcv2, EvaluationContext.empty(), AliasMap.emptyMap(), Set.of());
 
         assertEquals(Ordering.empty(), pulledUpOrdering);
     }
@@ -308,7 +312,8 @@ class OrderingTest {
                         d, ProvidedSortOrder.ASCENDING), innerOrderedSet, false);
 
         final var rcv2 = select("a", "d");
-        final var pulledUpOrdering = innerOrdering.pullUp(rcv2, AliasMap.emptyMap(), Set.of());
+        final var pulledUpOrdering =
+                innerOrdering.pullUp(rcv2, EvaluationContext.empty(), AliasMap.emptyMap(), Set.of());
 
         final var qovCurrent = QuantifiedObjectValue.of(Quantifier.current(), rcv2.getResultType());
         final var ap = ValueTestHelpers.field(qovCurrent, "ap");

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
@@ -50,12 +51,13 @@ public class ValueComputationRuleCall<ARGUMENT, RESULT> extends AbstractValueRul
     public ValueComputationRuleCall(@Nonnull final PlannerRule<ValueComputationRuleCall<ARGUMENT, RESULT>, ? extends Value> rule,
                                     @Nonnull final Value root,
                                     @Nonnull final Value current,
+                                    @Nonnull final EvaluationContext evaluationContext,
                                     @Nullable final ARGUMENT argument,
                                     @Nonnull final PlannerBindings bindings,
                                     @Nonnull final AliasMap aliasMap,
                                     @Nonnull final Set<CorrelationIdentifier> constantAliases,
                                     @Nonnull final Function<Value, NonnullPair<Value, RESULT>> retrieveResultFunction) {
-        super(rule, root, current, bindings, aliasMap, constantAliases);
+        super(rule, root, current, evaluationContext, bindings, aliasMap, constantAliases);
         this.argument = argument;
         this.retrieveResultFunction = retrieveResultFunction;
     }
@@ -76,7 +78,7 @@ public class ValueComputationRuleCall<ARGUMENT, RESULT> extends AbstractValueRul
 
     @Nonnull
     public ValueSimplificationRuleCall toValueSimplificationRuleCall(@Nonnull final AbstractRule<Value, ValueSimplificationRuleCall, Value, ? extends Value> rule) {
-        return new ValueSimplificationRuleCall(rule, getRoot(), getCurrent(), getBindings(), getEquivalenceMap(),
-                getConstantAliases());
+        return new ValueSimplificationRuleCall(rule, getRoot(), getCurrent(), getEvaluationContext(), getBindings(),
+                getEquivalenceMap(), getConstantAliases());
     }
 }

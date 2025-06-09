@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -74,7 +75,6 @@ public final class Expressions implements Iterable<Expression> {
                         Stream.of(item)).collect(ImmutableList.toImmutableList()));
     }
 
-    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     @Nonnull
     public Expressions rewireQov(@Nonnull Value value) {
         final ImmutableList.Builder<Expression> pulledUpOutputBuilder = ImmutableList.builder();
@@ -92,12 +92,14 @@ public final class Expressions implements Iterable<Expression> {
                               @Nonnull Set<CorrelationIdentifier> constantAliases) {
         final ImmutableList.Builder<Expression> pulledUpOutputBuilder = ImmutableList.builder();
         final var aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
-        final var simplifiedValue = value.simplify(aliasMap, constantAliases);
+        final var simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
         for (final var expression : this) {
             final var underlying = expression.getUnderlying();
             final var pulledUpUnderlying = Assert.notNullUnchecked(underlying.replace(
                     subExpression -> {
-                        final var pulledUpExpressionMap = simplifiedValue.pullUp(List.of(subExpression), aliasMap, constantAliases, correlationIdentifier);
+                        final var pulledUpExpressionMap =
+                                simplifiedValue.pullUp(List.of(subExpression), EvaluationContext.empty(), aliasMap,
+                                        constantAliases, correlationIdentifier);
                         if (pulledUpExpressionMap.containsKey(subExpression)) {
                             return pulledUpExpressionMap.get(subExpression);
                         }

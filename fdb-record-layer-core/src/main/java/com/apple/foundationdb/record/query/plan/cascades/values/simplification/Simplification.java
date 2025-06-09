@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
@@ -57,6 +58,7 @@ public class Simplification {
     /**
      * Main function that simplifies the given value using the {@link AbstractValueRuleSet} passed in.
      * @param root the {@link Value} to be simplified
+     * @param evaluationContext the evaluation context
      * @param aliasMap an alias map of equalities
      * @param constantAliases a set of aliases that are considered to be constant
      * @param ruleSet the rule set used to simplify the {@link Value} that is passed in
@@ -64,6 +66,7 @@ public class Simplification {
      */
     @Nonnull
     public static Value simplify(@Nonnull final Value root,
+                                 @Nonnull final EvaluationContext evaluationContext,
                                  @Nonnull final AliasMap aliasMap,
                                  @Nonnull final Set<CorrelationIdentifier> constantAliases,
                                  @Nonnull final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> ruleSet) {
@@ -96,8 +99,9 @@ public class Simplification {
             final var executionResult = executeRuleSetIteratively(isRoot ? current : root,
                     current,
                     ruleSet,
-                    (rule, r, c, plannerBindings) -> new ValueSimplificationRuleCall(rule, r, c, plannerBindings,
-                            aliasMap, constantAliases),
+                    (rule, r, c, plannerBindings) ->
+                            new ValueSimplificationRuleCall(rule, r, c, evaluationContext, plannerBindings, aliasMap,
+                                    constantAliases),
                     Iterables::getOnlyElement);
             Verify.verify(!executionResult.shouldReExplore());
             return executionResult.getBase();
@@ -107,6 +111,7 @@ public class Simplification {
     /**
      * Main function that simplifies the given value using the {@link AbstractValueRuleSet} passed in.
      * @param current the {@link Value} to be simplified
+     * @param evaluationContext the evaluation context
      * @param aliasMap an alias map of equalities
      * @param constantAliases a set of aliases that are considered to be constant
      * @param ruleSet the rule set used to simplify the {@link Value} that is passed in
@@ -114,6 +119,7 @@ public class Simplification {
      */
     @Nonnull
     public static List<Value> simplifyCurrent(@Nonnull final Value current,
+                                              @Nonnull final EvaluationContext evaluationContext,
                                               @Nonnull final AliasMap aliasMap,
                                               @Nonnull final Set<CorrelationIdentifier> constantAliases,
                                               @Nonnull final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> ruleSet) {
@@ -124,7 +130,8 @@ public class Simplification {
                 executeRuleSet(current,
                         current,
                         ruleSet,
-                        (rule, r, c, plannerBindings) -> new ValueSimplificationRuleCall(rule, r, c, plannerBindings,
+                        (rule, r, c, plannerBindings) ->
+                                new ValueSimplificationRuleCall(rule, r, c, evaluationContext, plannerBindings,
                                 aliasMap, constantAliases),
                         Iterables::getOnlyElement);
         return executionResults.stream()
@@ -202,12 +209,13 @@ public class Simplification {
 
     /**
      * Main function that simplifies the given value using the {@link ValueComputationRuleSet} passed in. In addition to
-     * the regular {@link #simplify(Value, AliasMap, Set, AbstractValueRuleSet)}, this method uses a computation rule set
-     * that is passed in to derive useful information from the value tree. In particular, this is currently used to
-     * track matches of subtrees and their compensation.
+     * the regular {@link #simplify(Value, EvaluationContext, AliasMap, Set, AbstractValueRuleSet)}, this method uses a
+     * computation rule set that is passed in to derive useful information from the value tree. In particular, this is
+     * currently used to track matches of subtrees and their compensation.
      * @param <ARGUMENT> type parameter of the argument
      * @param <RESULT> type parameter of the result
      * @param root the {@link Value} to be simplified
+     * @param evaluationContext the evaluation context
      * @param argument argument to the computations (of type {@code R})
      * @param aliasMap an alias map of equalities
      * @param constantAliases a set of aliases that are considered to be constant
@@ -217,6 +225,7 @@ public class Simplification {
      */
     @Nullable
     public static <ARGUMENT, RESULT> NonnullPair<Value, RESULT> compute(@Nonnull final Value root,
+                                                                        @Nonnull final EvaluationContext evaluationContext,
                                                                         @Nonnull final ARGUMENT argument,
                                                                         @Nonnull final AliasMap aliasMap,
                                                                         @Nonnull final Set<CorrelationIdentifier> constantAliases,
@@ -253,8 +262,8 @@ public class Simplification {
                             current,
                             ruleSet,
                             (rule, r, c, plannerBindings) ->
-                                    new ValueComputationRuleCall<>(rule, r, c, argument, plannerBindings, aliasMap,
-                                            constantAliases, resultsMap::get),
+                                    new ValueComputationRuleCall<>(rule, r, c, evaluationContext, argument,
+                                            plannerBindings, aliasMap, constantAliases, resultsMap::get),
                             results -> onResultsFunction(resultsMap, results));
             Verify.verify(!executionResult.shouldReExplore());
             return executionResult.getBase();
@@ -405,6 +414,7 @@ public class Simplification {
      * Main function that simplifies the given value using the {@link QueryPredicateComputationRuleSet} passed in.
      * @param <ARGUMENT> type parameter of the argument
      * @param root the {@link Value} to be simplified
+     * @param evaluationContext the evaluation context
      * @param argument argument to the computations (of type {@code R})
      * @param aliasMap an alias map of equalities
      * @param constantAliases a set of aliases that are considered to be constant
@@ -414,6 +424,7 @@ public class Simplification {
      */
     @Nonnull
     public static <ARGUMENT> NonnullPair<QueryPredicate, List<QueryPlanConstraint>> optimize(@Nonnull final QueryPredicate root,
+                                                                                             @Nonnull final EvaluationContext evaluationContext,
                                                                                              @Nonnull final ARGUMENT argument,
                                                                                              @Nonnull final AliasMap aliasMap,
                                                                                              @Nonnull final Set<CorrelationIdentifier> constantAliases,
@@ -424,7 +435,9 @@ public class Simplification {
                         root,
                         resultsMap,
                         ruleSet,
-                        (rule, r, c, plannerBindings) -> new QueryPredicateComputationRuleCall<>(rule, r, c, argument, plannerBindings, aliasMap, constantAliases, resultsMap::get));
+                        (rule, r, c, plannerBindings) ->
+                                new QueryPredicateComputationRuleCall<>(rule, r, c, evaluationContext, argument,
+                                        plannerBindings, aliasMap, constantAliases, resultsMap::get));
         return simplifiedPredicate == root
                ? NonnullPair.of(root, ImmutableList.of(QueryPlanConstraint.tautology()))
                : Verify.verifyNotNull(resultsMap.get(simplifiedPredicate));

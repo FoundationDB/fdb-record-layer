@@ -299,6 +299,7 @@ public class QueryPredicateTest {
 
         final var result = Simplification.optimize(predicate,
                 EvaluationContext.empty(),
+                EvaluationContext.empty(),
                 AliasMap.emptyMap(),
                 ImmutableSet.of(),
                 DefaultQueryPredicateRuleSet.ofComputationRules());
@@ -317,6 +318,7 @@ public class QueryPredicateTest {
         final var predicate = not(OrPredicate.or(p1, p2));
 
         final var result = Simplification.optimize(predicate,
+                EvaluationContext.empty(),
                 EvaluationContext.empty(),
                 AliasMap.emptyMap(),
                 ImmutableSet.of(),
@@ -343,8 +345,13 @@ public class QueryPredicateTest {
 
         final var predicate = OrPredicate.or(p1, AndPredicate.and(p2, p22), AndPredicate.and(p3, p32));
 
-        final var cnfPredicatePair = Simplification.optimize(predicate, EvaluationContext.empty(), AliasMap.emptyMap(), ImmutableSet.of(), QueryPredicateWithCnfRuleSet.ofComputationRules());
-        final var dnfPredicatePair = Simplification.optimize(cnfPredicatePair.getLeft(), EvaluationContext.empty(), AliasMap.emptyMap(), ImmutableSet.of(), QueryPredicateWithDnfRuleSet.ofComputationRules());
+        final var cnfPredicatePair =
+                Simplification.optimize(predicate, EvaluationContext.empty(), EvaluationContext.empty(),
+                        AliasMap.emptyMap(), ImmutableSet.of(), QueryPredicateWithCnfRuleSet.ofComputationRules());
+        final var dnfPredicatePair =
+                Simplification.optimize(cnfPredicatePair.getLeft(), EvaluationContext.empty(),
+                        EvaluationContext.empty(), AliasMap.emptyMap(), ImmutableSet.of(),
+                        QueryPredicateWithDnfRuleSet.ofComputationRules());
         assertTrue(dnfPredicatePair.getLeft().equals(predicate));
     }
 
@@ -363,8 +370,9 @@ public class QueryPredicateTest {
         final var predicate = or(and(restnoGtC1PlusC2, restnoGtC1PlusC2), nameEqFoo);
         final var expectedSimplifiedPredicate = or(restnoGtC1PlusC2, nameEqFoo);
         final var simplifiedPredicate =
-                Simplification.optimize(predicate, EvaluationContext.empty(), AliasMap.emptyMap(),
-                        ImmutableSet.of(), QueryPredicateWithDnfRuleSet.ofComputationRules()).getLeft();
+                Simplification.optimize(predicate, EvaluationContext.empty(), EvaluationContext.empty(),
+                        AliasMap.emptyMap(), ImmutableSet.of(),
+                        QueryPredicateWithDnfRuleSet.ofComputationRules()).getLeft();
         assertEquals(expectedSimplifiedPredicate, simplifiedPredicate);
     }
 
@@ -388,8 +396,9 @@ public class QueryPredicateTest {
         final var expectedSimplifiedPredicate = or(and(restnoGtC1, restnoGtC1PlusC2, restnoGtC2), and(restnoGtC1, nameEqFoo, restnoGtC2));
 
         final var simplifiedPredicate =
-                Simplification.optimize(predicate, EvaluationContext.empty(), AliasMap.emptyMap(),
-                        ImmutableSet.of(), QueryPredicateWithDnfRuleSet.ofComputationRules()).getLeft();
+                Simplification.optimize(predicate, EvaluationContext.empty(), EvaluationContext.empty(),
+                        AliasMap.emptyMap(), ImmutableSet.of(),
+                        QueryPredicateWithDnfRuleSet.ofComputationRules()).getLeft();
         assertEquals(expectedSimplifiedPredicate, simplifiedPredicate);
     }
 }

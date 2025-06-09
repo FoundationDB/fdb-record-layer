@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values.translation;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -237,6 +238,7 @@ public class MaxMatchMap {
         final var candidateValue = getCandidateValue();
         final var pulledUpCandidateValueMap =
                 candidateValue.pullUp(ImmutableSet.copyOf(mapping.values()), // values may contain duplicates
+                        EvaluationContext.empty(),
                         AliasMap.emptyMap(),
                         ImmutableSet.of(), candidateAlias);
         //
@@ -642,7 +644,8 @@ public class MaxMatchMap {
                 expandedValues.add(currentQueryValue);
                 final var expandedCurrentQueryValues =
                         Simplification.simplifyCurrent(currentQueryValue,
-                                AliasMap.emptyMap(), rangedOverAliases, MaxMatchMapSimplificationRuleSet.instance());
+                                EvaluationContext.empty(), AliasMap.emptyMap(), rangedOverAliases,
+                                MaxMatchMapSimplificationRuleSet.instance());
                 for (final var expandedCurrentQueryValue : expandedCurrentQueryValues) {
                     final var currentMaxDepthBound =
                             anyParentsMatching
