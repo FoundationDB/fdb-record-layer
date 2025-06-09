@@ -5694,6 +5694,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          *             The {@link #setStateCacheability stateCacheability} will be disabled, and the associated
          *             MetaDataVersion will be bumped, ensuring that any other potential instances stop using the cache.
          *         </li>
+         *         <li>
+         *             Any Store Lock State (see {@link #setStoreLockStateAsync(RecordMetaDataProto.DataStoreInfo.StoreLockState.State, String)}).<br/>
+         *             Unless restored by the user, any previous store lock state will be cleared.
+         *         </li>
          *     </ul>
          * </p>
          *
@@ -5741,8 +5745,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     .setUserVersion(userVersion)
                     // record count key is set below
                     .setLastUpdateTime(System.currentTimeMillis());
-            // No need to set user_field here, also we have no idea what it could be; users can set after repairing as
-            // they see fit, transactionally before doing anything else
+            // These values cannot be repaired automatically:
+            //     * user_field
+            //     * Store lock state
+            // users can set after repairing as they see fit, transactionally before doing anything else.
 
             // We cannot tell whether the recordCountKey had changed since the last time we did checkVersion, so
             // we can't guarantee that it is correct. With FormatVersion.RECORD_COUNT_STATE though, we can mark it as

@@ -89,7 +89,9 @@ public class FDBRecordStoreRepairHeaderTest extends FDBRecordStoreTestBase {
         assertThat(FormatVersion.getMaximumSupportedVersion())
                 .as("The behavior of repairMissingHeader needs to be validated with the new format version")
                 // This should only fail when a new format version is added. If this test fails, the developer should
-                // make any modifications to repairMissingHeader to accommodate the new version, and then update this
+                // make any modifications to repairMissingHeader to accommodate the new version.
+                // If this new format version is adding additional items to the store header, make sure to update the
+                // comments as to how it is being reset in the repair, even if it is not. Then update this
                 // to the new value
                 .isEqualTo(FormatVersion.STORE_LOCK_STATE);
     }
