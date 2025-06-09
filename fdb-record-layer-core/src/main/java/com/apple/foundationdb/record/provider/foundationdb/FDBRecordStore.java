@@ -274,7 +274,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     private volatile boolean versionChanged;
 
     @Nonnull
-    protected final AtomicReference<MutableRecordStoreState> recordStoreStateRef = new AtomicReference<>();
+    protected final LazyAtomicReference<MutableRecordStoreState> recordStoreStateRef = new LazyAtomicReference<>();
 
     @Nonnull
     protected final RecordSerializer<Message> serializer;
@@ -2402,7 +2402,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         CompletableFuture<Void> subspacePreloadFuture = preloadSubspaceAsync();
         CompletableFuture<RecordMetaDataProto.DataStoreInfo> storeHeaderFuture = getStoreStateCache().get(this, existenceCheck).thenApply(storeInfo -> {
             if (recordStoreStateRef.get() == null) {
-                recordStoreStateRef.compareAndSet(null, storeInfo.getRecordStoreState().toMutable());
+                recordStoreStateRef.initialize(storeInfo.getRecordStoreState().toMutable());
             }
             return recordStoreStateRef.get().getStoreHeader();
         });
@@ -2760,31 +2760,19 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         // the atomic reference level) will retry the update on the new record store state, so the operation always
         // does what's expected (i.e., update the "in flight reads" value while leaving the record store state otherwise
         // in tact).
-        recordStoreStateRef.updateAndGet(state -> {
-            state.beginRead();
-            return state;
-        });
+        recordStoreStateRef.update(MutableRecordStoreState::beginRead);
     }
 
     private void endRecordStoreStateRead() {
-        recordStoreStateRef.updateAndGet(state -> {
-            state.endRead();
-            return state;
-        });
+        recordStoreStateRef.update(MutableRecordStoreState::endRead);
     }
 
     private void beginRecordStoreStateWrite() {
-        recordStoreStateRef.updateAndGet(state -> {
-            state.beginWrite();
-            return state;
-        });
+        recordStoreStateRef.update(MutableRecordStoreState::beginWrite);
     }
 
     private void endRecordStoreStateWrite() {
-        recordStoreStateRef.updateAndGet(state -> {
-            state.endWrite();
-            return state;
-        });
+        recordStoreStateRef.update(MutableRecordStoreState::endWrite);
     }
 
     @Nonnull
@@ -2801,9 +2789,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         try {
             context.setDirtyStoreState(true);
             synchronized (this) {
-                recordStoreStateRef.updateAndGet(state -> {
+                recordStoreStateRef.update(state -> {
                     state.setStoreHeader(storeHeader);
-                    return state;
                 });
                 ensureContextActive().set(getSubspace().pack(STORE_INFO_KEY), storeHeader.toByteArray());
             }
@@ -2823,7 +2810,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         try {
             context.setDirtyStoreState(true);
             synchronized (this) {
-                recordStoreStateRef.updateAndGet(state -> {
+                recordStoreStateRef.update(state -> {
                     RecordMetaDataProto.DataStoreInfo oldStoreHeader = state.getStoreHeader();
                     oldStoreHeaderRef.set(oldStoreHeader);
                     RecordMetaDataProto.DataStoreInfo.Builder storeHeaderBuilder = oldStoreHeader.toBuilder();
@@ -2832,7 +2819,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     RecordMetaDataProto.DataStoreInfo newStoreHeader = storeHeaderBuilder.build();
                     newStoreHeaderRef.set(newStoreHeader);
                     state.setStoreHeader(newStoreHeader);
-                    return state;
                 });
                 ensureContextActive().set(getSubspace().pack(STORE_INFO_KEY), newStoreHeaderRef.get().toByteArray());
             }
@@ -3344,10 +3330,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             } else {
                 tr.set(indexKey, Tuple.from(indexState.code()).pack());
             }
-            recordStoreStateRef.updateAndGet(state -> {
+            recordStoreStateRef.update(state -> {
                 // See beginRecordStoreStateRead() on why setting state is done in updateAndGet().
                 state.setState(indexName, indexState);
-                return state;
             });
         } finally {
             endRecordStoreStateWrite();
@@ -3741,7 +3726,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return loadRecordStoreStateAsync(existenceCheck, storeHeaderIsolationLevel, indexStateIsolationLevel)
                 .thenAccept(state -> {
                     if (this.recordStoreStateRef.get() == null) {
-                        recordStoreStateRef.compareAndSet(null, state.toMutable());
+                        recordStoreStateRef.initialize(state.toMutable());
                     }
                 });
     }
@@ -4641,33 +4626,35 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                       @Nullable RecordType singleRecordTypeWithPrefixKey) {
         // Do this with the new indexes in write-only mode to avoid using one of them
         // when evaluating the snapshot record count.
-        MutableRecordStoreState writeOnlyState = recordStoreStateRef.get().withWriteOnlyIndexes(indexes.keySet().stream().map(Index::getName).collect(Collectors.toList()));
+        final IndexQueryabilityFilter indexQueryabilityFilter = new IndexQueryabilityFilter() {
+            @Override
+            public boolean isQueryable(@Nonnull final Index index) {
+                return !indexes.containsKey(index);
+            }
+
+            @Override
+            public int queryHash(@Nonnull final QueryHashKind hashKind) {
+                return indexes.hashCode();
+            }
+        };
         if (singleRecordTypeWithPrefixKey != null) {
             // Get a count for just those records, either from a COUNT index on just that type or from a universal COUNT index grouped by record type.
-            MutableRecordStoreState saveState = recordStoreStateRef.get();
             try {
-                recordStoreStateRef.set(writeOnlyState);
-                return getSnapshotRecordCountForRecordType(singleRecordTypeWithPrefixKey.getName());
+                return getSnapshotRecordCountForRecordType(singleRecordTypeWithPrefixKey.getName(), indexQueryabilityFilter);
             } catch (RecordCoreException ex) {
                 // No such index; have to use total record count.
-            } finally {
-                recordStoreStateRef.set(saveState);
             }
         }
         if (!rebuildRecordCounts) {
-            MutableRecordStoreState saveState = recordStoreStateRef.get();
             try {
-                recordStoreStateRef.set(writeOnlyState);
                 // Note the call below can time out if the count index group cardinality is too high. Users can avoid it by
                 // setting a custom UserVersionChecker that looks at the size estimate rather than the count, but we should
                 // consider checking the size by default or otherwise making the ergonomics around hitting that limitation
                 // better in the future
                 // See: FDBRecordStoreBase.checkPossiblyRebuild() could take a long time if the record count index is split into many groups (https://github.com/FoundationDB/fdb-record-layer/issues/7)
-                return getSnapshotRecordCount();
+                return getSnapshotRecordCount(EmptyKeyExpression.EMPTY, Key.Evaluated.EMPTY, indexQueryabilityFilter);
             } catch (RecordCoreException ex) {
                 // Probably this was from the lack of appropriate index on count; treat like rebuildRecordCounts = true.
-            } finally {
-                recordStoreStateRef.set(saveState);
             }
         }
         // Do a scan (limited to a single record) to see if the store is empty.
