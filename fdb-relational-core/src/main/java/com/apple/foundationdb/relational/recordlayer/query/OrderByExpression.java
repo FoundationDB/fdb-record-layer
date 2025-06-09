@@ -70,10 +70,11 @@ public final class OrderByExpression {
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     @Nonnull
-    public static Stream<OrderByExpression> pullUp(@Nonnull Stream<OrderByExpression> orderBys,
-                                                   @Nonnull Value value, @Nonnull CorrelationIdentifier correlationIdentifier,
-                                                   @Nonnull Set<CorrelationIdentifier> constantAliases,
-                                                   @Nonnull Optional<Identifier> qualifier) {
+    public static Stream<OrderByExpression> pullUp(@Nonnull final Stream<OrderByExpression> orderBys,
+                                                   @Nonnull final Value value,
+                                                   @Nonnull final CorrelationIdentifier correlationIdentifier,
+                                                   @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                                   @Nonnull final Optional<Identifier> qualifier) {
         final var aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
         final var simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
         return orderBys

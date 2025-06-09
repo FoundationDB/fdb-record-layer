@@ -40,7 +40,7 @@ import java.util.function.Predicate;
  *         evaluates to {@code true}.
  *     </li>
  * </ul>
- * Note that the {@link QueryPlanConstraint} can be {@link QueryPlanConstraint#tautology()} which means that this
+ * Note that the {@link QueryPlanConstraint} can be {@link QueryPlanConstraint#noConstraint()} which means that this
  * boolean is effectively unconditionally true. {@link QueryPlanConstraint}s are usually proven to be true for this
  * invocation of the planner but refer to an external environment that may change if a plan were to be re-executed in
  * a different environment.
@@ -50,7 +50,7 @@ import java.util.function.Predicate;
  */
 public class BooleanWithConstraint {
     private static final BooleanWithConstraint FALSE = new BooleanWithConstraint(null);
-    private static final BooleanWithConstraint ALWAYS_TRUE = new BooleanWithConstraint(QueryPlanConstraint.tautology());
+    private static final BooleanWithConstraint ALWAYS_TRUE = new BooleanWithConstraint(QueryPlanConstraint.noConstraint());
 
     /**
      * The query plan constraint recorded for this boolean. By convention, if this field is equal to {@code null} this
@@ -186,7 +186,7 @@ public class BooleanWithConstraint {
     /**
      * Factory method to create an unconditional {@code true}.
      * @return a {@link BooleanWithConstraint} that is unconditionally {@code true}, i.e. that is {@code true} using
-     *         a {@link QueryPlanConstraint#tautology()}
+     *         a {@link QueryPlanConstraint#noConstraint()}
      */
     @Nonnull
     public static BooleanWithConstraint alwaysTrue() {

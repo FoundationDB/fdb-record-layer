@@ -77,6 +77,6 @@ public class NotOverComparisonRule extends QueryPredicateComputationRule<Evaluat
             return;
         }
 
-        call.yieldPredicate(new ValuePredicate(value, comparison.withType(invertedComparisonType)), ImmutableList.of(QueryPlanConstraint.tautology()));
+        call.yieldPredicate(new ValuePredicate(value, comparison.withType(invertedComparisonType)), ImmutableList.of(QueryPlanConstraint.noConstraint()));
     }
 }

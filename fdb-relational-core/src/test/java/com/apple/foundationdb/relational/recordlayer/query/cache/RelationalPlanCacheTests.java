@@ -277,7 +277,7 @@ public class RelationalPlanCacheTests {
     }
 
     @Nonnull
-    private static final QueryPlanConstraint tautology = QueryPlanConstraint.tautology();
+    private static final QueryPlanConstraint tautology = QueryPlanConstraint.noConstraint();
 
     @Nonnull
     private static final String i1970 = "IDX_1970";

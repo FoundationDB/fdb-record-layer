@@ -373,7 +373,7 @@ public class MaxMatchMap {
 
             if (bestMaxMatchMap == null) {
                 bestMaxMatchMap = new MaxMatchMap(ImmutableMap.of(), queryValue, candidateValue, rangedOverAliases,
-                        QueryPlanConstraint.tautology(), valueEquivalence);
+                        QueryPlanConstraint.noConstraint(), valueEquivalence);
             }
         } finally {
             if (logger.isDebugEnabled()) {
@@ -417,7 +417,7 @@ public class MaxMatchMap {
         }
 
         return Optional.of(new MaxMatchMap(ImmutableMap.of(candidateValue, candidateValue),
-                queryValue, candidateValue, rangedOverAliases, QueryPlanConstraint.tautology(),
+                queryValue, candidateValue, rangedOverAliases, QueryPlanConstraint.noConstraint(),
                 valueEquivalence));
     }
 
@@ -718,7 +718,7 @@ public class MaxMatchMap {
                             Objects.requireNonNull(matchingPair.getRight())), 0, isFound.getConstraint());
         }
 
-        var childrenConstraint = QueryPlanConstraint.tautology();
+        var childrenConstraint = QueryPlanConstraint.noConstraint();
         final var childrenResultsMap = new LinkedHashMap<Value, Value>();
         int childrenMaxDepth = -1;
         for (final var childrenResultsEntry : childrenResultEntries) {
@@ -987,7 +987,7 @@ public class MaxMatchMap {
                                 if (candidateValue == candidateRootValue) {
                                     if (getCurrentQueryValue() instanceof QuantifiedRecordValue) {
                                         return Stream.of(NonnullPair.<Value, QueryPlanConstraint>of(candidateValue,
-                                                QueryPlanConstraint.tautology()));
+                                                QueryPlanConstraint.noConstraint()));
                                     }
                                 }
                                 return getCurrentQueryValue().equalsWithoutChildren(candidateValue)
@@ -1014,7 +1014,7 @@ public class MaxMatchMap {
      */
     private static class MatchResult {
         private static final MatchResult NOT_MATCHED =
-                new MatchResult(ImmutableMap.of(), Integer.MAX_VALUE, QueryPlanConstraint.tautology());
+                new MatchResult(ImmutableMap.of(), Integer.MAX_VALUE, QueryPlanConstraint.noConstraint());
 
         @Nonnull
         private final Map<Value, Value> valueMap;
