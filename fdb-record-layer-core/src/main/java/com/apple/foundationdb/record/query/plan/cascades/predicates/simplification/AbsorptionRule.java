@@ -99,7 +99,7 @@ public class AbsorptionRule<P extends AndOrPredicate> extends QueryPredicateComp
                             .stream()
                             .map(minor -> with(minorClass, minor))
                             .collect(Collectors.toList()));
-            call.yieldPredicate(simplifiedPredicate, ImmutableList.of(QueryPlanConstraint.tautology()));
+            call.yieldPredicate(simplifiedPredicate, ImmutableList.of(QueryPlanConstraint.noConstraint()));
         }
     }
 

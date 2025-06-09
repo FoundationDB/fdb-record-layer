@@ -41,6 +41,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -48,7 +49,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 
 /**
  * Main class of a mini rewrite engine to simplify (or to compute over)
@@ -76,6 +77,9 @@ public class Simplification {
         // duplicate subtrees by detecting changes made to children using object identity.
         //
 
+        final var constraintsMap =
+                Maps.<Value, QueryPlanConstraint>newLinkedHashMap();
+
         //
         // Use mapMaybe() to apply a lambda in post-fix bottom up fashion.
         //
@@ -102,7 +106,8 @@ public class Simplification {
                     (rule, r, c, plannerBindings) ->
                             new ValueSimplificationRuleCall(rule, r, c, evaluationContext, plannerBindings, aliasMap,
                                     constantAliases),
-                    Iterables::getOnlyElement);
+                    (results, queryPlanConstraint) ->
+                            onResultsFunctionForSimplification(constraintsMap, results, queryPlanConstraint));
             Verify.verify(!executionResult.shouldReExplore());
             return executionResult.getBase();
         }).orElseThrow(() -> new RecordCoreException("expected a mapped tree"));
@@ -123,6 +128,9 @@ public class Simplification {
                                               @Nonnull final AliasMap aliasMap,
                                               @Nonnull final Set<CorrelationIdentifier> constantAliases,
                                               @Nonnull final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> ruleSet) {
+        final var constraintsMap =
+                Maps.<Value, QueryPlanConstraint>newLinkedHashMap();
+
         //
         // Run the entire given rule set for current.
         //
@@ -133,7 +141,8 @@ public class Simplification {
                         (rule, r, c, plannerBindings) ->
                                 new ValueSimplificationRuleCall(rule, r, c, evaluationContext, plannerBindings,
                                 aliasMap, constantAliases),
-                        Iterables::getOnlyElement);
+                        (results, queryPlanConstraint) ->
+                                onResultsFunctionForSimplification(constraintsMap, results, queryPlanConstraint));
         return executionResults.stream()
                 .map(ExecutionResult::getBase)
                 .collect(ImmutableList.toImmutableList());
@@ -145,7 +154,7 @@ public class Simplification {
      * underneath the current value. Similar to {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner}
      * which creates new variations for yielded new expressions, the logic in this method applies the rule set to the
      * current value. Unlike
-     * {@link #executeRuleSetIteratively(Object, Object, AbstractRuleSet, RuleCallCreator, Function)} which iterates
+     * {@link #executeRuleSetIteratively(Object, Object, AbstractRuleSet, RuleCallCreator, BiFunction)} which iterates
      * starting from {code current} it attempts to exhaustively apply the rules over this {@code current}.
      * @param <RESULT> type parameter for results
      * @param <CALL> type parameter for the rule call object to be used
@@ -166,7 +175,7 @@ public class Simplification {
                                                                                                                                 @Nonnull BASE current,
                                                                                                                                 @Nonnull final AbstractRuleSet<CALL, BASE> ruleSet,
                                                                                                                                 @Nonnull final RuleCallCreator<RESULT, CALL, BASE> ruleCallCreator,
-                                                                                                                                @Nonnull final Function<Collection<RESULT>, BASE> onResultsFunction) {
+                                                                                                                                @Nonnull final BiFunction<Collection<RESULT>, QueryPlanConstraint, BASE> onResultsFunction) {
         final boolean isRoot = current == root;
 
         final var resultsBuilder = ImmutableList.<ExecutionResult<BASE>>builder();
@@ -190,9 +199,10 @@ public class Simplification {
                 //
                 rule.onMatch(ruleCall);
                 final var results = ruleCall.getResults();
+                final var queryPlanConstraint = ruleCall.getQueryPlanConstraint();
 
                 if (!results.isEmpty()) {
-                    final var newCurrent = onResultsFunction.apply(results);
+                    final var newCurrent = onResultsFunction.apply(results, queryPlanConstraint);
 
                     if (current != newCurrent) {
                         //
@@ -236,6 +246,7 @@ public class Simplification {
         // duplicate subtrees by detecting changes made to children using object identity.
         //
 
+        final var constraintsMap = Maps.<Value, QueryPlanConstraint>newLinkedHashMap();
         //
         // Computation results are returned by individual rules and kept in a results map. This map is heavily modified
         // by rules matching and executing on a given Value for that value.
@@ -264,7 +275,9 @@ public class Simplification {
                             (rule, r, c, plannerBindings) ->
                                     new ValueComputationRuleCall<>(rule, r, c, evaluationContext, argument,
                                             plannerBindings, aliasMap, constantAliases, resultsMap::get),
-                            results -> onResultsFunction(resultsMap, results));
+                            (results, queryPlanConstraint) ->
+                                    onResultsFunctionForComputation(constraintsMap, resultsMap, results,
+                                            queryPlanConstraint));
             Verify.verify(!executionResult.shouldReExplore());
             return executionResult.getBase();
         }).orElseThrow(() -> new RecordCoreException("expected a mapped tree"));
@@ -315,12 +328,26 @@ public class Simplification {
     }
 
     @Nonnull
-    private static <BASE, R> BASE onResultsFunction(@Nonnull final Map<BASE, NonnullPair<BASE, R>> resultsMap,
-                                                    @Nonnull final Collection<NonnullPair<BASE, R>> results) {
+    private static <BASE> BASE onResultsFunctionForSimplification(@Nonnull final Map<BASE, QueryPlanConstraint> constrainstsMap,
+                                                                  @Nonnull final Collection<BASE> results,
+                                                                  @Nonnull final QueryPlanConstraint queryPlanConstraint) {
+        Verify.verify(results.size() <= 1);
+
+        final var result = Iterables.getOnlyElement(results);
+        constrainstsMap.put(result, queryPlanConstraint);
+        return result;
+    }
+
+    @Nonnull
+    private static <BASE, R> BASE onResultsFunctionForComputation(@Nonnull final Map<BASE, QueryPlanConstraint> constrainstsMap,
+                                                                  @Nonnull final Map<BASE, NonnullPair<BASE, R>> resultsMap,
+                                                                  @Nonnull final Collection<NonnullPair<BASE, R>> results,
+                                                                  @Nonnull final QueryPlanConstraint queryPlanConstraint) {
         Verify.verify(results.size() <= 1);
 
         final var resultPair = Iterables.getOnlyElement(results);
         final var value = resultPair.getLeft();
+        constrainstsMap.put(value, queryPlanConstraint);
         resultsMap.put(value, resultPair);
         return value;
     }
@@ -352,7 +379,7 @@ public class Simplification {
                                                                                                                                      @Nonnull BASE current,
                                                                                                                                      @Nonnull final AbstractRuleSet<CALL, BASE> ruleSet,
                                                                                                                                      @Nonnull final RuleCallCreator<RESULT, CALL, BASE> ruleCallCreator,
-                                                                                                                                     @Nonnull final Function<Collection<RESULT>, BASE> onResultsFunction) {
+                                                                                                                                     @Nonnull final BiFunction<Collection<RESULT>, QueryPlanConstraint, BASE> onResultsFunction) {
         final boolean isRoot = current == root;
         BASE newCurrent = current;
         do {
@@ -377,9 +404,10 @@ public class Simplification {
                     //
                     rule.onMatch(ruleCall);
                     final var results = ruleCall.getResults();
+                    final var queryPlanConstraint = ruleCall.getQueryPlanConstraint();
 
                     if (!results.isEmpty()) {
-                        newCurrent = onResultsFunction.apply(results);
+                        newCurrent = onResultsFunction.apply(results, queryPlanConstraint);
 
                         if (current != newCurrent) {
                             //
@@ -429,17 +457,19 @@ public class Simplification {
                                                                                              @Nonnull final AliasMap aliasMap,
                                                                                              @Nonnull final Set<CorrelationIdentifier> constantAliases,
                                                                                              @Nonnull final QueryPredicateComputationRuleSet<ARGUMENT, List<QueryPlanConstraint>> ruleSet) {
+        final var constraintsMap = Maps.<QueryPredicate, QueryPlanConstraint>newLinkedHashMap();
         final var resultsMap = new LinkedIdentityMap<QueryPredicate, NonnullPair<QueryPredicate, List<QueryPlanConstraint>>>();
         final var simplifiedPredicate =
                 simplifyWithReExploration(root,
                         root,
+                        constraintsMap,
                         resultsMap,
                         ruleSet,
                         (rule, r, c, plannerBindings) ->
                                 new QueryPredicateComputationRuleCall<>(rule, r, c, evaluationContext, argument,
                                         plannerBindings, aliasMap, constantAliases, resultsMap::get));
         return simplifiedPredicate == root
-               ? NonnullPair.of(root, ImmutableList.of(QueryPlanConstraint.tautology()))
+               ? NonnullPair.of(root, ImmutableList.of(QueryPlanConstraint.noConstraint()))
                : Verify.verifyNotNull(resultsMap.get(simplifiedPredicate));
     }
 
@@ -459,6 +489,7 @@ public class Simplification {
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private static <ELEMENT, CALL extends AbstractRuleCall<NonnullPair<BASE, List<ELEMENT>>, CALL, BASE>, BASE extends TreeLike<BASE>> BASE simplifyWithReExploration(@Nonnull final BASE root,
                                                                                                                                                                       @Nonnull BASE current,
+                                                                                                                                                                      @Nonnull final Map<BASE, QueryPlanConstraint> constraintsMap,
                                                                                                                                                                       @Nonnull final Map<BASE, NonnullPair<BASE, List<ELEMENT>>> resultsMap,
                                                                                                                                                                       @Nonnull final AbstractRuleSet<CALL, BASE> ruleSet,
                                                                                                                                                                       @Nonnull final RuleCallCreator<NonnullPair<BASE, List<ELEMENT>>, CALL, BASE> ruleCallCreator) {
@@ -467,7 +498,7 @@ public class Simplification {
         do {
             final var simplifiedChildren = Lists.<BASE>newArrayList();
             for (final var child : current.getChildren()) {
-                simplifiedChildren.add(simplifyWithReExploration(isRoot ? current : root, child, resultsMap, ruleSet, ruleCallCreator));
+                simplifiedChildren.add(simplifyWithReExploration(isRoot ? current : root, child, constraintsMap, resultsMap, ruleSet, ruleCallCreator));
             }
 
             final var computedCurrent = computeCurrent(current, simplifiedChildren);
@@ -488,7 +519,8 @@ public class Simplification {
                             current,
                             ruleSet,
                             ruleCallCreator,
-                            results -> onResultsFunction(resultsMap, results));
+                            (results, queryPlanConstraint) ->
+                                    onResultsFunctionForComputation(constraintsMap, resultsMap, results, queryPlanConstraint));
 
             final var newCurrent = executionResult.getBase();
             Verify.verify(newCurrent != current || !executionResult.shouldReExplore());

@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
@@ -69,6 +70,8 @@ public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL
     @Nonnull
     private final Set<CorrelationIdentifier> constantAliases;
     @Nonnull
+    private QueryPlanConstraint queryPlanConstraint;
+    @Nonnull
     private final LinkedIdentitySet<RESULT> results;
     private boolean shouldReExplore;
 
@@ -85,6 +88,7 @@ public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL
         this.evaluationContext = evaluationContext;
         this.bindings = bindings;
         this.equivalenceMap = equivalenceMap;
+        this.queryPlanConstraint = QueryPlanConstraint.noConstraint();
         this.results = new LinkedIdentitySet<>();
         this.constantAliases = ImmutableSet.copyOf(constantAliases);
         this.shouldReExplore = false;
@@ -133,19 +137,42 @@ public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals") // deliberate use of == equality check for short-circuit condition
-    public void yieldResult(@Nonnull RESULT value) {
+    public void yieldResult(@Nonnull final RESULT value) {
+        yieldResult(value, QueryPlanConstraint.noConstraint());
+    }
+
+    @SuppressWarnings("PMD.CompareObjectsWithEquals") // deliberate use of == equality check for short-circuit condition
+    public void yieldResult(@Nonnull final RESULT value,
+                            @Nonnull final QueryPlanConstraint additionalQueryPlanConstraint) {
         if (value == current) {
             return;
         }
-
+        if (queryPlanConstraint.isConstrained()) {
+            this.queryPlanConstraint = queryPlanConstraint.compose(additionalQueryPlanConstraint);
+        }
         results.add(value);
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public void yieldAndReExplore(@Nonnull RESULT value) {
+    public void yieldAndReExplore(@Nonnull final RESULT value) {
+        yieldAndReExplore(value, QueryPlanConstraint.noConstraint());
+    }
+
+
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public void yieldAndReExplore(@Nonnull RESULT value,
+                                  @Nonnull final QueryPlanConstraint additionalQueryPlanConstraint) {
         Verify.verify(value != current);
+        if (queryPlanConstraint.isConstrained()) {
+            this.queryPlanConstraint = queryPlanConstraint.compose(additionalQueryPlanConstraint);
+        }
         results.add(value);
         shouldReExplore = true;
+    }
+
+    @Nonnull
+    public QueryPlanConstraint getQueryPlanConstraint() {
+        return queryPlanConstraint;
     }
 
     @Nonnull

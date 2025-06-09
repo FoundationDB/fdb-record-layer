@@ -409,7 +409,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                                 false,
                                 partialMatch.getMatchCandidate(),
                                 baseRecordType,
-                                QueryPlanConstraint.tautology()));
+                                QueryPlanConstraint.noConstraint()));
     }
 
     @Nonnull
@@ -435,7 +435,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                         false,
                         partialMatch.getMatchCandidate(),
                         baseRecordType,
-                        QueryPlanConstraint.tautology());
+                        QueryPlanConstraint.noConstraint());
 
         final var coveringIndexPlan = new RecordQueryCoveringIndexPlan(indexPlan,
                 indexEntryToLogicalRecord.getQueriedRecordType().getName(),
