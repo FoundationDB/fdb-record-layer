@@ -92,11 +92,6 @@ public class CompiledSqlFunction extends UserDefinedFunction implements  WithPla
     }
 
     @Nonnull
-    public Literals getLiterals() {
-        return literals;
-    }
-
-    @Nonnull
     @Override
     public RelationalExpression encapsulate(@Nonnull final List<? extends Typed> arguments) {
         if (parametersCorrelation.isEmpty()) {
@@ -172,6 +167,20 @@ public class CompiledSqlFunction extends UserDefinedFunction implements  WithPla
         return selectBuilder.build().buildSelect();
     }
 
+    @Nonnull
+    @Override
+    public Literals getAuxiliaryLiterals() {
+        return literals;
+    }
+
+    @Nonnull
+    @Override
+    public QueryPlanConstraint getAuxiliaryConstraints() {
+        // we want to generate planning constraints that understand
+        return QueryPlanConstraint.tautology(); // for now, TODO: wait for a confirmation from Normen
+        // whether he wants to do this in the QueryPredicate simplification.
+    }
+
     /**
      * Creates a quantifier over a logical expression that is {@code range(0,1]}.
      *
@@ -194,20 +203,6 @@ public class CompiledSqlFunction extends UserDefinedFunction implements  WithPla
     @Nonnull
     public static StepBuilder newBuilder() {
         return new StepBuilder();
-    }
-
-    @Nonnull
-    @Override
-    public Literals getAuxiliaryLiterals() {
-        return literals;
-    }
-
-    @Nonnull
-    @Override
-    public QueryPlanConstraint getAuxiliaryConstraints() {
-        // we want to generate planning constraints that understand
-        return QueryPlanConstraint.tautology(); // for now, TODO: wait for a confirmation from Normen
-                                                // whether he wants to do this in the QueryPredicate simplification.
     }
 
     public static final class StepBuilder {

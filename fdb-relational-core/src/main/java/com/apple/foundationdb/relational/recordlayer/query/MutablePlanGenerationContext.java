@@ -381,8 +381,8 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         return processComplexLiteral(tokenIndex, resolvedType);
     }
 
-    public void processAuxiliaryLiterals(@Nonnull final Literals literals) {
-        literalsBuilder.absorb(literals);
+    public void processAuxiliaryLiterals(@Nonnull final Literals auxiliaryLiterals) {
+        literalsBuilder.absorb(auxiliaryLiterals);
     }
 
     @Nonnull

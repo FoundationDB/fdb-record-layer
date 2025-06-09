@@ -44,23 +44,17 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     private final boolean isTemporary;
 
     @Nonnull
-    private final Literals literals;
-
-    @Nonnull
     private final Supplier<CompiledSqlFunction> compilableSqlFunctionSupplier;
 
     public RecordLayerInvokedRoutine(@Nonnull final String description,
                                      @Nonnull final String normalizedDescription,
                                      @Nonnull final String name,
                                      boolean isTemporary,
-                                     @Nonnull final Literals literals,
                                      @Nonnull final Supplier<CompiledSqlFunction> compilableSqlFunctionSupplier) {
-        Assert.thatUnchecked(isTemporary || literals.isEmpty(), "unexpected non-temporary function with prepared parameters!");
         this.description = description;
         this.normalizedDescription = normalizedDescription;
         this.name = name;
         this.isTemporary = isTemporary;
-        this.literals = literals;
         // TODO this used to be memoized
         this.compilableSqlFunctionSupplier = compilableSqlFunctionSupplier;
     }
@@ -103,11 +97,6 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         return isTemporary;
     }
 
-    @Nonnull
-    public Literals getLiterals() {
-        return literals;
-    }
-
     @Override
     public boolean equals(final Object o) {
         if (o == null) {
@@ -117,7 +106,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
             return false;
         }
         final RecordLayerInvokedRoutine that = (RecordLayerInvokedRoutine)o;
-        return Objects.equals(description, that.description) && Objects.equals(name, that.name) && literals.equals(that.literals);
+        return Objects.equals(description, that.description) && Objects.equals(name, that.name);
     }
 
     @Override
@@ -180,11 +169,10 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
 
         @Nonnull
         public RecordLayerInvokedRoutine build() {
-            Assert.thatUnchecked(isTemporary || literals.isEmpty());
             Assert.notNullUnchecked(name);
             Assert.notNullUnchecked(description);
             Assert.notNullUnchecked(compilableSqlFunctionSupplier);
-            return new RecordLayerInvokedRoutine(description, normalizedDescription, name, isTemporary, literals,
+            return new RecordLayerInvokedRoutine(description, normalizedDescription, name, isTemporary,
                     compilableSqlFunctionSupplier);
         }
     }

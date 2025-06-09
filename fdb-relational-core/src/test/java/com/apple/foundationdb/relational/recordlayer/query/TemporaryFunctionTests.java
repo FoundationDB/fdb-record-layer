@@ -20,14 +20,16 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
-import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
+import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
+import com.apple.foundationdb.relational.recordlayer.LogAppenderRule;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
+import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -35,7 +37,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
 import java.sql.SQLException;
-import java.util.function.Function;
 
 /**
  * This is for testing different aspects of temporary SQL functions. This test suite can migrate to YAML once we have
@@ -46,6 +47,10 @@ public class TemporaryFunctionTests {
     @RegisterExtension
     @Order(0)
     public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
+
+    @RegisterExtension
+    @Order(1)
+    public final LogAppenderRule logAppender = new LogAppenderRule("TemporaryFunctionTests", PlanGenerator.class, Level.INFO);
 
     @Test
     void createTemporaryFunctionWorks() throws Exception {
@@ -233,42 +238,179 @@ public class TemporaryFunctionTests {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 invokeAndVerifyTempFunction(statement);
             }
-            invokeAndVerifyTempFunction(sql -> {
-                try {
-                    return ddl.setSchemaAndGetConnection().prepareStatement(sql);
-                } catch (SQLException e) {
-                    throw new RuntimeException(e);
-                }
-            });
+            final var preparedStatement = ddl.setSchemaAndGetConnection().prepareStatement("select * from sq1(x => 2) where a > ?param2");
+            preparedStatement.setLong("param2", 25L);
+            invokeAndVerify(preparedStatement::executeQuery, 3L, 30L, 4L, 40L);
             connection.rollback();
         }
     }
 
-    private static void invokeAndVerifyTempFunction(final RelationalStatement statement) throws SQLException {
-        Assertions.assertTrue(statement.execute("select * from sq1(x => 2)"));
-        try (var resultSet = statement.getResultSet()) {
-            ResultSetAssert.assertThat(resultSet).hasNextRow()
-                    .isRowExactly(1L, 10L)
-                    .hasNextRow()
-                    .isRowExactly(2L, 20L)
-                    .hasNextRow()
-                    .isRowExactly(3L, 30L)
-                    .hasNextRow()
-                    .isRowExactly(4L, 40L)
-                    .hasNoNextRow();
+    @Test
+    void createNestedTemporaryFunctionsWithPreparedParameters() throws Exception {
+        final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1(pk, a) values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
+            }
+            final var connection = ddl.getConnection();
+            connection.setAutoCommit(false);
+            // create parent function (sq0)
+            try (var statement = connection.prepareStatement("create temporary function sq0(in x bigint) " +
+                    "on commit drop function as select * from t1 where a < ?param + x + 3")) {
+                statement.setLong("param", 40);
+                statement.execute();
+            }
+            // create child function (sq1) referencing parent function (sq0), using similar literal identifiers.
+            try (var statement = connection.prepareStatement("create temporary function sq1(in x bigint) " +
+                    "on commit drop function as select * from sq0(3) where a > ?param + x + 3")) {
+                statement.setLong("param", 5);
+                statement.execute();
+            }
+            // call the function (sq1) now, again, using the same literal identifiers.
+            // expansion should result in the following query:
+            // select * from t1 where a < 40 + 3 + 3 and a > 5 + 3 + 3 and a > 5
+            //                        ^                  ^                 ^
+            //                        |                  |                 |
+            //                        |                  |                 |
+            //                    from sq0           from sq1           from the query
+            try (var statement = connection.prepareStatement("select * from sq1(x => 3) where a > ?param options (log query)")) {
+                statement.setLong("param", 5);
+                invokeAndVerify(statement::executeQuery, CheckPlanCache.SHOULD_MISS, 2L, 20L, 3L, 30L, 4L, 40L);
+            }
+            connection.rollback();
+
+            // try with a different query, we should get a cache hit now.
+            connection.unwrap(EmbeddedRelationalConnection.class).createNewTransaction();
+            connection.setAutoCommit(false);
+            // re-create parent function (sq0)
+            try (var statement = connection.prepareStatement("create temporary function sq0(in x bigint) " +
+                    "on commit drop function as select * from t1 where a < ?param + x + 3")) {
+                statement.setLong("param", 40);
+                statement.execute();
+            }
+            // re-create child function (sq1) referencing parent function (sq0), using similar literal identifiers.
+            try (var statement = connection.prepareStatement("create temporary function sq1(in x bigint) " +
+                    "on commit drop function as select * from sq0(3) where a > ?param + x + 3")) {
+                statement.setLong("param", 5);
+                statement.execute();
+            }
+            try (var statement = connection.prepareStatement("select * from sq1(x => 3) where a > ?param options (log query)")) {
+                statement.setLong("param", 5);
+                invokeAndVerify(statement::executeQuery, CheckPlanCache.SHOULD_HIT, 2L, 20L, 3L, 30L, 4L, 40L);
+            }
+            connection.rollback();
         }
     }
 
-    private static void invokeAndVerifyTempFunction(final Function<String, RelationalPreparedStatement> preparedStatementFunction) throws SQLException {
-        try (var preparedStatement = preparedStatementFunction.apply("select * from sq1(x => 2) where a > ?param2")) {
-            preparedStatement.setLong("param2", 25L);
-            try (var resultSet = preparedStatement.executeQuery()) {
-                ResultSetAssert.assertThat(resultSet).hasNextRow()
-                        .isRowExactly(3L, 30L)
-                        .hasNextRow()
-                        .isRowExactly(4L, 40L)
-                        .hasNoNextRow();
+    @Test
+    void createNestedTemporaryFunctionsWithPreparedParametersOptimizationConstraintPertainingNestedFunction() throws Exception {
+        final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk)) create index indexOnA as select a from t1 where a < 35";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1(pk, a) values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
             }
+            final var connection = ddl.getConnection();
+            connection.setAutoCommit(false);
+            // create parent function (sq0)
+            try (var statement = connection.prepareStatement("create temporary function sq0(in x bigint) " +
+                    "on commit drop function as select a + x as a, pk from t1 where a < ?param")) {
+                statement.setLong("param", 20);
+                statement.execute();
+            }
+            // create child function (sq1) referencing parent function (sq0), using similar literal identifiers.
+            try (var statement = connection.prepareStatement("create temporary function sq1(in x bigint) " +
+                    "on commit drop function as select * from sq0(3) where a > ?param + x + 3")) {
+                statement.setLong("param", 2);
+                statement.execute();
+            }
+            // call the function (sq1) now, again, using the same literal identifiers.
+            // expansion should result in the following query:
+            // select a + 3, pk from t1 where a < 20 and a > 2 + 3 + 3 and a > 5
+            //            ^                   ^          ^                 ^
+            //            |                   |          |                 |
+            //            |                   |          |                 |
+            //         from sq0             from sq0    from sq1         from the query
+            // this predicate leverages the index indexOnA, therefore, we must a plan constraint on sq0's bound prepared
+            // parameter 'param' fixing its value to 20.
+            try (var statement = connection.prepareStatement("select * from sq1(x => 3) where a > ?param options (log query)")) {
+                statement.setLong("param", 5);
+                invokeAndVerify(statement::executeQuery, CheckPlanCache.SHOULD_MISS, 13L, 1L);
+            }
+            connection.rollback();
+
+            // try with a different query, BUT with a different binding of SQ0's param this time.
+            // the cache must NOT be hit because it violates the generated plan constraint.
+            connection.unwrap(EmbeddedRelationalConnection.class).createNewTransaction();
+            connection.setAutoCommit(false);
+            // re-create parent function (sq0)
+            // create parent function (sq0)
+            try (var statement = connection.prepareStatement("create temporary function sq0(in x bigint) " +
+                    "on commit drop function as select a + x as a, pk from t1 where a < ?param")) {
+                statement.setLong("param", 40); // <----------- THIS violates the plan cache constraint
+                statement.execute();
+            }
+            // create child function (sq1) referencing parent function (sq0), using similar literal identifiers.
+            try (var statement = connection.prepareStatement("create temporary function sq1(in x bigint) " +
+                    "on commit drop function as select * from sq0(3) where a > ?param + x + 3")) {
+                statement.setLong("param", 2);
+                statement.execute();
+            }
+            // call the function (sq1) now, again, using the same literal identifiers.
+            // expansion should result in the following query:
+            // select a + 3, pk from t1 where a < 40 and a > 2 + 3 + 3 and a > 5
+            //            ^                   ^          ^                 ^
+            //            |                   |          |                 |
+            //            |                   |          |                 |
+            //         from sq0             from sq0    from sq1         from the query
+            // the predicate can NOT leverage the index indexOnA because it is not implied by the index predicate
+            try (var statement = connection.prepareStatement("select * from sq1(x => 3) where a > ?param options (log query)")) {
+                statement.setLong("param", 5);
+                invokeAndVerify(statement::executeQuery, CheckPlanCache.SHOULD_MISS, 13L, 1L, 23L, 2L, 33L, 3L);
+            }
+            connection.rollback();
         }
+    }
+
+    private void invokeAndVerifyTempFunction(final RelationalStatement statement) throws SQLException {
+        Assertions.assertTrue(statement.execute("select * from sq1(x => 2)"));
+        invokeAndVerify(statement::getResultSet, 1L, 10L, 2L, 20L, 3L, 30L, 4L, 40L);
+    }
+
+    private void invokeAndVerify(Supplier<RelationalResultSet> resultSupplier, Object... expectedResults) throws SQLException {
+        invokeAndVerify(resultSupplier, CheckPlanCache.DO_NOT_CARE, expectedResults);
+    }
+
+    private void invokeAndVerify(Supplier<RelationalResultSet> resultSupplier, CheckPlanCache checkPlanCache,
+                                        Object... expectedResults) throws SQLException {
+        assert (expectedResults.length > 0 && expectedResults.length % 2 == 0);
+        var resultSet = resultSupplier.get();
+        switch (checkPlanCache) {
+            case SHOULD_HIT:
+                Assertions.assertTrue(logAppender.lastMessageIsCacheHit());
+                break;
+            case SHOULD_MISS:
+                Assertions.assertTrue(logAppender.lastMessageIsCacheMiss());
+                break;
+            case DO_NOT_CARE: // fallthrough
+            default:
+                break;
+        }
+        for (int row = 0; row <= expectedResults.length - 2; row += 2) {
+            ResultSetAssert.assertThat(resultSet)
+                    .hasNextRow()
+                    .isRowExactly(expectedResults[row], expectedResults[row + 1]);
+        }
+        ResultSetAssert.assertThat(resultSet).hasNoNextRow();
+    }
+
+    private enum CheckPlanCache {
+        SHOULD_HIT,
+        SHOULD_MISS,
+        DO_NOT_CARE
+    }
+
+    @FunctionalInterface
+    private interface Supplier<T> {
+        T get() throws SQLException;
     }
 }

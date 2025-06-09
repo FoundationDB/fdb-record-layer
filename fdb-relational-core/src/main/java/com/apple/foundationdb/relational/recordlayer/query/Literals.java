@@ -126,21 +126,41 @@ public class Literals {
         }
 
         public void absorb(@Nonnull final Literals other) {
-            other.getOrderedLiterals().forEach(this::addLiteral);
+            other.getOrderedLiterals().forEach(literal -> addLiteral(literal, false));
         }
 
         public void addLiteral(@Nonnull final OrderedLiteral orderedLiteral) {
+            addLiteral(orderedLiteral, true);
+        }
+
+        private void addLiteral(@Nonnull final OrderedLiteral orderedLiteral, boolean verifyNotExists) {
+            final var currentLiterals = current.peek();
             if (orderedLiteral.getLiteralObject() instanceof byte[]) {
                 final var byteOrderedLiteral = new OrderedLiteral(orderedLiteral.getType(),
                         ByteString.copyFrom(((byte[])orderedLiteral.getLiteralObject())),
                         orderedLiteral.getUnnamedParameterIndex(), orderedLiteral.getParameterName(),
                         orderedLiteral.getTokenIndex(), orderedLiteral.getScopeMaybe());
                 literalReverseLookup.putIfAbsent(byteOrderedLiteral.getLiteralObject(), byteOrderedLiteral);
-                current.peek().add(byteOrderedLiteral);
+                currentLiterals.add(byteOrderedLiteral);
             } else {
-                Verify.verify(!current.peek().contains(orderedLiteral));
+                if (verifyNotExists) {
+                    Assert.thatUnchecked(!currentLiterals.contains(orderedLiteral));
+                } else {
+                    if (currentLiterals.contains(orderedLiteral)) {
+                        // verify that the actual literal objects are identical.
+                        final var duplicate = currentLiterals.elementSet().stream()
+                                .filter(element -> element.equals(orderedLiteral)).findFirst().orElseThrow()
+                                .getLiteralObject();
+                        if (duplicate == null) {
+                            Assert.isNullUnchecked(orderedLiteral.getLiteralObject());
+                        } else {
+                            Assert.thatUnchecked(duplicate.equals(orderedLiteral.getLiteralObject()));
+                        }
+                        return;
+                    }
+                }
                 literalReverseLookup.putIfAbsent(orderedLiteral.getLiteralObject(), orderedLiteral);
-                current.peek().add(orderedLiteral);
+                currentLiterals.add(orderedLiteral);
             }
         }
 
@@ -184,7 +204,8 @@ public class Literals {
             if (current.size() > 1) {
                 return Optional.empty();
             }
-            return Optional.of(literalReverseLookup.get(literals.stream().filter(l -> l.getConstantId().equals(tokenId)).findFirst().orElseThrow().getLiteralObject()));
+            return Optional.of(literalReverseLookup.get(literals.stream().filter(l ->
+                    l.getConstantId().equals(tokenId)).findFirst().orElseThrow().getLiteralObject()));
         }
 
         void finishArrayLiteral(@Nullable final Integer unnamedParameterIndex,

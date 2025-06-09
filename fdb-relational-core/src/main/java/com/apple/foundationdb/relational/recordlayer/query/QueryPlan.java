@@ -419,8 +419,12 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
                 int i = 0;
                 for (final var orderedLiteral : literals.getOrderedLiterals()) {
-                    final var argument = orderedLiteral.toProto(serializationContext, i);
-                    compiledStatementBuilder.addArguments(argument);
+                    final var orderedLiteralProto = orderedLiteral.toProto(serializationContext, i);
+                    if (orderedLiteral.isQueryLiteral()) {
+                        compiledStatementBuilder.addExtractedLiterals(orderedLiteralProto);
+                    } else {
+                        compiledStatementBuilder.addArguments(orderedLiteralProto);
+                    }
                     i++;
                 }
 
