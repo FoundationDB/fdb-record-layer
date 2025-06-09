@@ -44,7 +44,9 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
@@ -525,6 +527,69 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
             expectedCounts.forEach((bucketNum, expected) ->
                     assertEquals(expectedCounts.get(bucketNum).longValue(),
                             recordStore.getSnapshotRecordUpdateCount(key, Key.Evaluated.scalar(bucketNum)).join().longValue()));
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource("useIndex")
+    void rebuildBasedOnRecordCounts(boolean useIndex) {
+        final RecordMetaDataBuilder builder;
+        if (useIndex) {
+            builder = simpleMetaDataBuilder();
+            addCountIndex(builder, EmptyKeyExpression.EMPTY);
+        } else {
+            builder = addRecordCountKey(simpleMetaDataBuilder(), EmptyKeyExpression.EMPTY);
+        }
+        final RecordMetaData initialMetaData = builder.build();
+        saveRecords(initialMetaData, 0, 100,
+                () -> assertUngroupedCount(0),
+                () -> assertUngroupedCount(100));
+
+        final Index index = new Index("OnNum", "num_value_2");
+        builder.addIndex("MySimpleRecord", index);
+        final RecordMetaData newMetaData = builder.build();
+
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore store = getStoreBuilder(context, newMetaData, path).setUserVersionChecker(
+                    new FDBRecordStoreBase.UserVersionChecker() {
+                        @Override
+                        @SuppressWarnings("deprecation")
+                        public CompletableFuture<Integer> checkUserVersion(final int oldUserVersion, final int oldMetaDataVersion, final RecordMetaDataProvider metaData) {
+                            assertEquals(0, oldUserVersion);
+                            assertEquals(initialMetaData.getVersion(), oldMetaDataVersion);
+                            assertEquals(newMetaData, metaData);
+                            return CompletableFuture.completedFuture(1);
+                        }
+
+                        @Override
+                        public IndexState needRebuildIndex(final Index indexToRebuild, final long recordCount, final boolean indexOnNewRecordTypes) {
+                            assertEquals(100, recordCount);
+                            assertEquals(index, indexToRebuild);
+                            return IndexState.DISABLED;
+                        }
+                    }
+            ).createOrOpen();
+            recordStore = Pair.of(store, setupPlanner(store, null)).getLeft();
+            assertEquals(IndexState.DISABLED, recordStore.getAllIndexStates().get(index));
+            commit(context);
+        }
+    }
+
+    @Test
+    void addRecordCountIndexAndOtherIndexes() {
+        final RecordMetaDataBuilder builder = simpleMetaDataBuilder();
+        final RecordMetaData initialMetaData = builder.build();
+        saveRecords(initialMetaData, 0, 3, () -> { }, () -> { });
+
+        final Index index = new Index("OnNum", "num_value_2");
+        builder.addIndex("MySimpleRecord", index);
+        addCountIndex(builder, EmptyKeyExpression.EMPTY);
+        final RecordMetaData newMetaData = builder.build();
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, newMetaData);
+            assertEquals(IndexState.DISABLED, recordStore.getAllIndexStates().get(index));
+            commit(context);
         }
     }
 
