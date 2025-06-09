@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 
@@ -34,6 +35,13 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public interface PlannerRuleCall {
+    /**
+     * Method that returns the current {@link EvaluationContext}.
+     * @return the current {@link EvaluationContext}
+     */
+    @Nonnull
+    EvaluationContext getEvaluationContext();
+
     /**
      * Return the map of bindings that this rule's matcher expression produced, which includes (by contract) all of the
      * bindings specified by the rule associated with this call.

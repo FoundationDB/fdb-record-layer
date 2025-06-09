@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
@@ -75,7 +76,8 @@ public class BitmapAggregateIndexExpansionVisitor extends AggregateIndexExpansio
             final var aliasMap = AliasMap.identitiesFor(Sets.union(selectWhereQun.getCorrelatedTo(),
                     groupedValue.getCorrelatedTo()));
             final var result = selectWhereQun.getRangesOver().get().getResultValue()
-                    .pullUp(List.of(groupedValue), aliasMap, ImmutableSet.of(), selectWhereQun.getAlias());
+                    .pullUp(List.of(groupedValue), EvaluationContext.empty(), aliasMap, ImmutableSet.of(),
+                            selectWhereQun.getAlias());
             if (!result.containsKey(groupedValue)) {
                 throw new RecordCoreException("could not pull grouped value " + groupedValue)
                         .addLogInfo(LogMessageKeys.VALUE, groupedValue);
@@ -107,7 +109,8 @@ public class BitmapAggregateIndexExpansionVisitor extends AggregateIndexExpansio
 
         final var selectQunValue = selectWhereQun.getRangesOver().get().getResultValue();
         final var aliasMap = AliasMap.identitiesFor(Sets.union(selectQunValue.getCorrelatedTo(), groupingValues.stream().flatMap(v -> v.getCorrelatedTo().stream()).collect(ImmutableSet.toImmutableSet())));
-        final var pulledUpGroupingValuesMap = selectQunValue.pullUp(groupingValues, aliasMap, ImmutableSet.of(), selectWhereQun.getAlias());
+        final var pulledUpGroupingValuesMap = selectQunValue.pullUp(groupingValues,
+                EvaluationContext.empty(), aliasMap, ImmutableSet.of(), selectWhereQun.getAlias());
         final var explicitPulledUpGroupingValues = groupingValues.stream().map(groupingValue -> {
             if (!pulledUpGroupingValuesMap.containsKey(groupingValue)) {
                 throw new RecordCoreException("could not pull grouping value " + groupingValue)

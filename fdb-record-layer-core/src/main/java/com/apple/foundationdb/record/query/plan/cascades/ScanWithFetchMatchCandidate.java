@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
@@ -172,8 +173,8 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
             final Value keyValue = indexKeyValues.get(i);
 
             final var extractFromIndexEntryPairOptional =
-                    keyValue.extractFromIndexEntryMaybe(baseObjectValue, AliasMap.emptyMap(), ImmutableSet.of(),
-                            IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(i));
+                    keyValue.extractFromIndexEntryMaybe(baseObjectValue, EvaluationContext.empty(), AliasMap.emptyMap(),
+                            ImmutableSet.of(), IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(i));
             if (extractFromIndexEntryPairOptional.isPresent()) {
                 final var extractFromIndexEntryPair = extractFromIndexEntryPairOptional.get();
 
@@ -201,8 +202,9 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
         for (int i = 0; i < indexValueValues.size(); i++) {
             final Value valueValue = indexValueValues.get(i);
             final var extractFromIndexEntryPairOptional =
-                    valueValue.extractFromIndexEntryMaybe(baseObjectValue, AliasMap.emptyMap(), ImmutableSet.of(),
-                            IndexKeyValueToPartialRecord.TupleSource.VALUE, ImmutableIntArray.of(i));
+                    valueValue.extractFromIndexEntryMaybe(baseObjectValue, EvaluationContext.empty(),
+                            AliasMap.emptyMap(), ImmutableSet.of(), IndexKeyValueToPartialRecord.TupleSource.VALUE,
+                            ImmutableIntArray.of(i));
             if (extractFromIndexEntryPairOptional.isPresent()) {
                 final var extractFromIndexEntryPair = extractFromIndexEntryPairOptional.get();
                 // TODO begin remove -- https://github.com/FoundationDB/fdb-record-layer/issues/2905

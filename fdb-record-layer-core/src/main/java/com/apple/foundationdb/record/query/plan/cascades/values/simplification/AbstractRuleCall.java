@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
@@ -60,6 +61,8 @@ public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL
     @Nonnull
     private final BASE current;
     @Nonnull
+    private final EvaluationContext evaluationContext;
+    @Nonnull
     private final PlannerBindings bindings;
     @Nonnull
     private final AliasMap equivalenceMap;
@@ -72,12 +75,14 @@ public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL
     public AbstractRuleCall(@Nonnull final PlannerRule<CALL, ? extends BASE> rule,
                             @Nonnull final BASE root,
                             @Nonnull final BASE current,
+                            @Nonnull final EvaluationContext evaluationContext,
                             @Nonnull final PlannerBindings bindings,
                             @Nonnull final AliasMap equivalenceMap,
                             @Nonnull final Set<CorrelationIdentifier> constantAliases) {
         this.rule = rule;
         this.root = root;
         this.current = current;
+        this.evaluationContext = evaluationContext;
         this.bindings = bindings;
         this.equivalenceMap = equivalenceMap;
         this.results = new LinkedIdentitySet<>();
@@ -93,6 +98,12 @@ public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL
     @Nonnull
     public BASE getCurrent() {
         return current;
+    }
+
+    @Nonnull
+    @Override
+    public EvaluationContext getEvaluationContext() {
+        return evaluationContext;
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")

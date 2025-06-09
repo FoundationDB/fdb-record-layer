@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -200,7 +201,8 @@ class OrderingValueSimplificationTest {
         final var _a_aa_aaa = FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("a", "aa", "aaa"));
 
         final var orderingPart =
-                _a_aa_aaa.deriveOrderingPart(AliasMap.emptyMap(), ImmutableSet.of(), OrderingPart.ProvidedOrderingPart::new,
+                _a_aa_aaa.deriveOrderingPart(EvaluationContext.empty(), AliasMap.emptyMap(), ImmutableSet.of(),
+                        OrderingPart.ProvidedOrderingPart::new,
                         OrderingValueComputationRuleSet.usingProvidedOrderingParts());
 
         final var expectedResult =
@@ -219,7 +221,8 @@ class OrderingValueSimplificationTest {
         final var tob = new ToOrderedBytesValue(_a_aa_aaa, TupleOrdering.Direction.DESC_NULLS_LAST);
 
         final var orderingPart =
-                tob.deriveOrderingPart(AliasMap.emptyMap(), ImmutableSet.of(), OrderingPart.ProvidedOrderingPart::new,
+                tob.deriveOrderingPart(EvaluationContext.empty(), AliasMap.emptyMap(), ImmutableSet.of(),
+                        OrderingPart.ProvidedOrderingPart::new,
                         OrderingValueComputationRuleSet.usingProvidedOrderingParts());
 
         final var expectedResult =
@@ -254,7 +257,7 @@ class OrderingValueSimplificationTest {
 
     @Nonnull
     private static Value simplifyOrderingValue(@Nonnull final Value toBeSimplified) {
-        return Simplification.simplify(toBeSimplified, AliasMap.emptyMap(), ImmutableSet.of(),
-                RequestedOrderingValueSimplificationRuleSet.ofRequestedOrderSimplificationRules());
+        return Simplification.simplify(toBeSimplified, EvaluationContext.empty(), AliasMap.emptyMap(),
+                ImmutableSet.of(), RequestedOrderingValueSimplificationRuleSet.ofRequestedOrderSimplificationRules());
     }
 }
