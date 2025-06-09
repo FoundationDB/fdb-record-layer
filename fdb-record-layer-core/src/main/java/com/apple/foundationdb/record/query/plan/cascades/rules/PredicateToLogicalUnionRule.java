@@ -215,9 +215,8 @@ public class PredicateToLogicalUnionRule extends CascadesRule<MatchPartition> {
                 Quantifiers.aliases(selectExpression.getQuantifiers()));
 
         final var dnfPredicate =
-                Simplification.optimize(conjunctedPredicate, EvaluationContext.empty(), EvaluationContext.empty(),
-                        AliasMap.emptyMap(), constantAliases,
-                        QueryPredicateWithDnfRuleSet.ofComputationRules()).getLeft();
+                Simplification.optimize(conjunctedPredicate, EvaluationContext.empty(), AliasMap.emptyMap(),
+                        constantAliases, QueryPredicateWithDnfRuleSet.ofComputationRules()).getUnconstrained();
         if (dnfPredicate.isAtomic() || !(dnfPredicate instanceof OrPredicate)) {
             // it can be that the dnf-predicate is trivial, i.e. it is only an AND of boolean variables
             return;

@@ -84,11 +84,14 @@ public class ComposeFieldValueOverRecordConstructorRule extends ValueSimplificat
         final var column = findColumn(recordConstructor, firstFieldOrdinal, fieldFieldType);
 
         final var root = bindings.get(rootMatcher);
+        final var constraint =
+                call.getQueryPlanConstraint(root)
+                        .compose(call.getQueryPlanConstraint(recordConstructor));
         if (fieldPathOrdinals.size() == 1) {
             // just return the child
-            call.yieldResult(column.getValue());
+            call.yieldResult(column.getValue(), constraint);
         } else {
-            call.yieldResult(FieldValue.ofFields(column.getValue(), root.getFieldPath().subList(1)));
+            call.yieldResult(FieldValue.ofFields(column.getValue(), root.getFieldPath().subList(1)), constraint);
         }
     }
 

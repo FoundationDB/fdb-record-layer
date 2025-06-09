@@ -48,7 +48,7 @@ import java.util.function.Predicate;
  * This class is a monad which conceptually wraps around a boolean and a {@link QueryPlanConstraint}. There are two
  * combinators {@link #composeWithOther(BooleanWithConstraint)} and {@link #filter(Predicate)}.
  */
-public class BooleanWithConstraint {
+public class BooleanWithConstraint implements Constrained<Boolean> {
     private static final BooleanWithConstraint FALSE = new BooleanWithConstraint(null);
     private static final BooleanWithConstraint ALWAYS_TRUE = new BooleanWithConstraint(QueryPlanConstraint.noConstraint());
 
@@ -83,6 +83,18 @@ public class BooleanWithConstraint {
     }
 
     @Nonnull
+    @Override
+    public Boolean get() {
+        return isTrue();
+    }
+
+    @Override
+    public boolean hasConstraint() {
+        return queryPlanConstraint != null;
+    }
+
+    @Nonnull
+    @Override
     public QueryPlanConstraint getConstraint() {
         return Objects.requireNonNull(queryPlanConstraint);
     }
@@ -199,7 +211,7 @@ public class BooleanWithConstraint {
      * @return the appropriate unconditional {@link BooleanWithConstraint}
      */
     @Nonnull
-    public static BooleanWithConstraint fromBoolean(final boolean isTrue) {
+    public static BooleanWithConstraint ofBoolean(final boolean isTrue) {
         return isTrue ? alwaysTrue() : falseValue();
     }
 

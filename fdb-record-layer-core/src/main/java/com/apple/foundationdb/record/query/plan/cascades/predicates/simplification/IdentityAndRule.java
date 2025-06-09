@@ -21,8 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.predicates.simplification;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
@@ -30,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
@@ -42,7 +39,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class IdentityAndRule extends QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, AndPredicate> {
+public class IdentityAndRule extends QueryPredicateSimplificationRule<AndPredicate> {
     @Nonnull
     private static final BindingMatcher<QueryPredicate> andTermMatcher = anyPredicate();
 
@@ -60,7 +57,7 @@ public class IdentityAndRule extends QueryPredicateComputationRule<EvaluationCon
     }
 
     @Override
-    public void onMatch(@Nonnull final QueryPredicateComputationRuleCall<EvaluationContext, List<QueryPlanConstraint>> call) {
+    public void onMatch(@Nonnull final QueryPredicateSimplificationRuleCall call) {
         final var bindings = call.getBindings();
         final var terms = bindings.getAll(andTermMatcher);
 
@@ -79,6 +76,6 @@ public class IdentityAndRule extends QueryPredicateComputationRule<EvaluationCon
         }
         final var resultTerms = resultTermsBuilder.build();
         final var simplifiedPredicate = AndPredicate.and(resultTerms);
-        call.yieldPredicate(simplifiedPredicate, ImmutableList.of());
+        call.yieldResult(simplifiedPredicate);
     }
 }

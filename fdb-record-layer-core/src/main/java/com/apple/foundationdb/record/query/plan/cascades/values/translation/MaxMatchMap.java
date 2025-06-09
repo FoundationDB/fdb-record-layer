@@ -642,11 +642,14 @@ public class MaxMatchMap {
                 !expandedValues.contains(currentQueryValue)) {
             try {
                 expandedValues.add(currentQueryValue);
-                final var expandedCurrentQueryValues =
+                final var constrainedExpandedCurrentQueryValues =
                         Simplification.simplifyCurrent(currentQueryValue,
                                 EvaluationContext.empty(), AliasMap.emptyMap(), rangedOverAliases,
                                 MaxMatchMapSimplificationRuleSet.instance());
-                for (final var expandedCurrentQueryValue : expandedCurrentQueryValues) {
+                for (final var constrainedExpandedCurrentQueryValue : constrainedExpandedCurrentQueryValues) {
+                    // there should never be any actual constraints on the result
+                    final var expandedCurrentQueryValue =
+                            constrainedExpandedCurrentQueryValue.getUnconstrained();
                     final var currentMaxDepthBound =
                             anyParentsMatching
                             ? Integer.MAX_VALUE

@@ -37,6 +37,7 @@ import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * A rule call implementation for the simplification of {@link Value} trees. This rule call implements the logic for
@@ -70,10 +71,12 @@ public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL
     @Nonnull
     private final Set<CorrelationIdentifier> constantAliases;
     @Nonnull
-    private QueryPlanConstraint queryPlanConstraint;
+    private QueryPlanConstraint resultQueryPlanConstraint;
     @Nonnull
     private final LinkedIdentitySet<RESULT> results;
     private boolean shouldReExplore;
+    @Nonnull
+    private final Function<BASE, QueryPlanConstraint> retrieveQueryPlanConstraintFunction;
 
     public AbstractRuleCall(@Nonnull final PlannerRule<CALL, ? extends BASE> rule,
                             @Nonnull final BASE root,
@@ -81,17 +84,19 @@ public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL
                             @Nonnull final EvaluationContext evaluationContext,
                             @Nonnull final PlannerBindings bindings,
                             @Nonnull final AliasMap equivalenceMap,
-                            @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+                            @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                            @Nonnull final Function<BASE, QueryPlanConstraint> retrieveQueryPlanConstraintFunction) {
         this.rule = rule;
         this.root = root;
         this.current = current;
         this.evaluationContext = evaluationContext;
         this.bindings = bindings;
         this.equivalenceMap = equivalenceMap;
-        this.queryPlanConstraint = QueryPlanConstraint.noConstraint();
+        this.resultQueryPlanConstraint = QueryPlanConstraint.noConstraint();
         this.results = new LinkedIdentitySet<>();
         this.constantAliases = ImmutableSet.copyOf(constantAliases);
         this.shouldReExplore = false;
+        this.retrieveQueryPlanConstraintFunction = retrieveQueryPlanConstraintFunction;
     }
 
     @Nonnull
@@ -108,6 +113,17 @@ public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL
     @Override
     public EvaluationContext getEvaluationContext() {
         return evaluationContext;
+    }
+
+    @Nonnull
+    protected Function<BASE, QueryPlanConstraint> getRetrieveQueryPlanConstraintFunction() {
+        return retrieveQueryPlanConstraintFunction;
+    }
+
+    @Nonnull
+    public QueryPlanConstraint getQueryPlanConstraint(@Nonnull final BASE base) {
+        final var constraintFromFunction = retrieveQueryPlanConstraintFunction.apply(base);
+        return constraintFromFunction == null ? QueryPlanConstraint.noConstraint() : constraintFromFunction;
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
@@ -147,8 +163,8 @@ public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL
         if (value == current) {
             return;
         }
-        if (queryPlanConstraint.isConstrained()) {
-            this.queryPlanConstraint = queryPlanConstraint.compose(additionalQueryPlanConstraint);
+        if (resultQueryPlanConstraint.isConstrained()) {
+            this.resultQueryPlanConstraint = resultQueryPlanConstraint.compose(additionalQueryPlanConstraint);
         }
         results.add(value);
     }
@@ -163,16 +179,16 @@ public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL
     public void yieldAndReExplore(@Nonnull RESULT value,
                                   @Nonnull final QueryPlanConstraint additionalQueryPlanConstraint) {
         Verify.verify(value != current);
-        if (queryPlanConstraint.isConstrained()) {
-            this.queryPlanConstraint = queryPlanConstraint.compose(additionalQueryPlanConstraint);
+        if (resultQueryPlanConstraint.isConstrained()) {
+            this.resultQueryPlanConstraint = resultQueryPlanConstraint.compose(additionalQueryPlanConstraint);
         }
         results.add(value);
         shouldReExplore = true;
     }
 
     @Nonnull
-    public QueryPlanConstraint getQueryPlanConstraint() {
-        return queryPlanConstraint;
+    public QueryPlanConstraint getResultQueryPlanConstraint() {
+        return resultQueryPlanConstraint;
     }
 
     @Nonnull

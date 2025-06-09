@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
@@ -31,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * A rule call implementation for the simplification of {@link Value} trees. This rule call implements the logic for
@@ -39,14 +41,15 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public class ValueSimplificationRuleCall extends AbstractValueRuleCall<Value, ValueSimplificationRuleCall> {
-
     public ValueSimplificationRuleCall(@Nonnull final PlannerRule<ValueSimplificationRuleCall, ? extends Value> rule,
                                        @Nonnull final Value root,
                                        @Nonnull final Value current,
                                        @Nonnull final EvaluationContext evaluationContext,
                                        @Nonnull final PlannerBindings bindings,
                                        @Nonnull final AliasMap aliasMap,
-                                       @Nonnull final Set<CorrelationIdentifier> constantAliases) {
-        super(rule, root, current, evaluationContext, bindings, aliasMap, constantAliases);
+                                       @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                       @Nonnull final Function<Value, QueryPlanConstraint> retrieveQueryPlanConstraintFunction) {
+        super(rule, root, current, evaluationContext, bindings, aliasMap, constantAliases,
+                retrieveQueryPlanConstraintFunction);
     }
 }

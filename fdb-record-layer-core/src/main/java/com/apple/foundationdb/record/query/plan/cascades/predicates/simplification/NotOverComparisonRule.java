@@ -21,18 +21,14 @@
 package com.apple.foundationdb.record.query.plan.cascades.predicates.simplification;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyComparison;
@@ -46,7 +42,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class NotOverComparisonRule extends QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, NotPredicate> {
+public class NotOverComparisonRule extends QueryPredicateSimplificationRule<NotPredicate> {
     @Nonnull
     private static final BindingMatcher<Value> anyValueMatcher = anyValue();
     @Nonnull
@@ -67,7 +63,7 @@ public class NotOverComparisonRule extends QueryPredicateComputationRule<Evaluat
     }
 
     @Override
-    public void onMatch(@Nonnull final QueryPredicateComputationRuleCall<EvaluationContext, List<QueryPlanConstraint>> call) {
+    public void onMatch(@Nonnull final QueryPredicateSimplificationRuleCall call) {
         final var bindings = call.getBindings();
         final var value = bindings.get(anyValueMatcher);
         final var comparison = bindings.get(anyComparisonMatcher);
@@ -77,6 +73,6 @@ public class NotOverComparisonRule extends QueryPredicateComputationRule<Evaluat
             return;
         }
 
-        call.yieldPredicate(new ValuePredicate(value, comparison.withType(invertedComparisonType)), ImmutableList.of(QueryPlanConstraint.noConstraint()));
+        call.yieldResult(new ValuePredicate(value, comparison.withType(invertedComparisonType)));
     }
 }

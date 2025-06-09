@@ -21,19 +21,15 @@
 package com.apple.foundationdb.record.query.plan.cascades.predicates.simplification;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -41,17 +37,17 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
-public class DefaultQueryPredicateRuleSet extends QueryPredicateComputationRuleSet<EvaluationContext, List<QueryPlanConstraint>> {
-    protected static final QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, OrPredicate> identityOrRule = new IdentityOrRule();
-    protected static final QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, OrPredicate> annulmentOrRule = new AnnulmentOrRule();
-    protected static final QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, AndPredicate> identityAndRule = new IdentityAndRule();
-    protected static final QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, AndPredicate> annulmentAndRule = new AnnulmentAndRule();
-    protected static final QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, AndPredicate> absorptionAndRule = AbsorptionRule.withMajor(AndPredicate.class);
-    protected static final QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, OrPredicate> absorptionOrRule = AbsorptionRule.withMajor(OrPredicate.class);
-    protected static final QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, NotPredicate> notOverComparisonRule = new NotOverComparisonRule();
-    protected static final QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, NotPredicate> deMorganNotOverAndRule = DeMorgansTheoremRule.withMajor(AndPredicate.class);
-    protected static final QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, NotPredicate> deMorganNotOverOrRule = DeMorgansTheoremRule.withMajor(OrPredicate.class);
-    protected static final Set<QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, ? extends QueryPredicate>> COMPUTATION_RULES =
+public class DefaultQueryPredicateRuleSet extends AbstractQueryPredicateRuleSet<QueryPredicate, QueryPredicateSimplificationRuleCall> {
+    protected static final QueryPredicateSimplificationRule<OrPredicate> identityOrRule = new IdentityOrRule();
+    protected static final QueryPredicateSimplificationRule<OrPredicate> annulmentOrRule = new AnnulmentOrRule();
+    protected static final QueryPredicateSimplificationRule<AndPredicate> identityAndRule = new IdentityAndRule();
+    protected static final QueryPredicateSimplificationRule<AndPredicate> annulmentAndRule = new AnnulmentAndRule();
+    protected static final QueryPredicateSimplificationRule<AndPredicate> absorptionAndRule = AbsorptionRule.withMajor(AndPredicate.class);
+    protected static final QueryPredicateSimplificationRule<OrPredicate> absorptionOrRule = AbsorptionRule.withMajor(OrPredicate.class);
+    protected static final QueryPredicateSimplificationRule<NotPredicate> notOverComparisonRule = new NotOverComparisonRule();
+    protected static final QueryPredicateSimplificationRule<NotPredicate> deMorganNotOverAndRule = DeMorgansTheoremRule.withMajor(AndPredicate.class);
+    protected static final QueryPredicateSimplificationRule<NotPredicate> deMorganNotOverOrRule = DeMorgansTheoremRule.withMajor(OrPredicate.class);
+    protected static final Set<QueryPredicateSimplificationRule<? extends QueryPredicate>> COMPUTATION_RULES =
             ImmutableSet.of(identityOrRule,
                     annulmentOrRule,
                     identityAndRule,
@@ -62,15 +58,15 @@ public class DefaultQueryPredicateRuleSet extends QueryPredicateComputationRuleS
                     deMorganNotOverAndRule,
                     deMorganNotOverOrRule);
 
-    protected static final SetMultimap<QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, ? extends QueryPredicate>, QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, ? extends QueryPredicate>> COMPUTATION_DEPENDS_ON =
+    protected static final SetMultimap<QueryPredicateSimplificationRule<? extends QueryPredicate>, QueryPredicateSimplificationRule<? extends QueryPredicate>> COMPUTATION_DEPENDS_ON =
             ImmutableSetMultimap.of();
 
     public DefaultQueryPredicateRuleSet() {
         this(COMPUTATION_RULES, COMPUTATION_DEPENDS_ON);
     }
 
-    public DefaultQueryPredicateRuleSet(@Nonnull final Set<? extends AbstractQueryPredicateRule<NonnullPair<QueryPredicate, List<QueryPlanConstraint>>, QueryPredicateComputationRuleCall<EvaluationContext, List<QueryPlanConstraint>>, ? extends QueryPredicate>> abstractQueryPredicateRules,
-                                        @Nonnull final SetMultimap<? extends AbstractQueryPredicateRule<NonnullPair<QueryPredicate, List<QueryPlanConstraint>>, QueryPredicateComputationRuleCall<EvaluationContext, List<QueryPlanConstraint>>, ? extends QueryPredicate>, ? extends AbstractQueryPredicateRule<NonnullPair<QueryPredicate, List<QueryPlanConstraint>>, QueryPredicateComputationRuleCall<EvaluationContext, List<QueryPlanConstraint>>, ? extends QueryPredicate>> dependsOn) {
+    public DefaultQueryPredicateRuleSet(@Nonnull final Set<? extends AbstractQueryPredicateRule<QueryPredicate, QueryPredicateSimplificationRuleCall, ? extends QueryPredicate>> abstractQueryPredicateRules,
+                                        @Nonnull final SetMultimap<? extends AbstractQueryPredicateRule<QueryPredicate, QueryPredicateSimplificationRuleCall, ? extends QueryPredicate>, ? extends AbstractQueryPredicateRule<QueryPredicate, QueryPredicateSimplificationRuleCall, ? extends QueryPredicate>> dependsOn) {
         super(abstractQueryPredicateRules, dependsOn);
     }
 
