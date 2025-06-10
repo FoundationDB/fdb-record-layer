@@ -79,7 +79,7 @@ public class ExpressionPartitions {
                             .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
             rolledUpMap.compute(filteredPropertiesMap, (key, oldValue) -> {
                 if (oldValue == null) {
-                    return partition.getNonPartitioningPropertiesMap();
+                    return new LinkedIdentityMap<>(partition.getNonPartitioningPropertiesMap());
                 }
                 oldValue.putAll(partition.getNonPartitioningPropertiesMap());
                 return oldValue;
@@ -106,20 +106,20 @@ public class ExpressionPartitions {
     }
 
     @Nonnull
-    private static <E extends RelationalExpression, P extends ExpressionPartition<E>> List<P> toPartitions(@Nonnull final Map<Map<ExpressionProperty<?>, ?>, ? extends Set<E>> groupingPropertiesMap,
-                                                                                                           @Nonnull Map<E, Map<ExpressionProperty<?>, ?>> nonGroupingPropertiesMap,
+    private static <E extends RelationalExpression, P extends ExpressionPartition<E>> List<P> toPartitions(@Nonnull final Map<Map<ExpressionProperty<?>, ?>, ? extends Set<E>> partitioningPropertiesMap,
+                                                                                                           @Nonnull Map<E, Map<ExpressionProperty<?>, ?>> nonPartitioningPropertiesMap,
                                                                                                            @Nonnull final PartitionCreator<E, P> partitionCreator) {
-        return groupingPropertiesMap
+        return partitioningPropertiesMap
                 .entrySet()
                 .stream()
                 .map(entry -> {
-                    final var groupingPropertyMap = entry.getKey();
+                    final var partitioningPropertyMap = entry.getKey();
                     final var expressions = entry.getValue();
-                    final var groupedPropertyMap = new LinkedIdentityMap<E, Map<ExpressionProperty<?>, ?>>();
+                    final var nonPartitioningPropertyMap = new LinkedIdentityMap<E, Map<ExpressionProperty<?>, ?>>();
                     for (final var expression : expressions) {
                         final var propertiesMapForExpression =
-                                nonGroupingPropertiesMap.get(expression);
-                        groupedPropertyMap.put(expression, ImmutableMap.copyOf(propertiesMapForExpression));
+                                nonPartitioningPropertiesMap.get(expression);
+                        nonPartitioningPropertyMap.put(expression, ImmutableMap.copyOf(propertiesMapForExpression));
                     }
 
                     //
@@ -127,7 +127,7 @@ public class ExpressionPartitions {
                     // needs to own these maps. The grouping property map is not necessarily immutable nor is it owned
                     // by the partition. We need to defensively copy that map.
                     //
-                    return partitionCreator.create(ImmutableMap.copyOf(groupingPropertyMap), groupedPropertyMap);
+                    return partitionCreator.create(ImmutableMap.copyOf(partitioningPropertyMap), nonPartitioningPropertyMap);
                 })
                 .collect(ImmutableList.toImmutableList());
     }
