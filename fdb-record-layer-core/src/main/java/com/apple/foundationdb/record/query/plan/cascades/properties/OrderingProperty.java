@@ -708,7 +708,7 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
         @Nonnull
         private Ordering evaluateForReference(@Nonnull Reference reference) {
             final var memberOrderings =
-                    reference.getProperty(ORDERING).values();
+                    reference.getPropertyForPlans(ORDERING).values();
             final var allAreDistinct =
                     memberOrderings
                             .stream()
