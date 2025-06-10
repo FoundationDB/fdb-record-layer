@@ -149,22 +149,22 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
         final SelectExpression selectExpression = call.get(root);
         final List<? extends Quantifier.ForEach> valueQunCandidates = call.getBindings().getAll(forEach);
 
-        final Set<CorrelationIdentifier> selectChildQunIds = selectExpression.getQuantifiers().stream().map(Quantifier::getAlias).collect(ImmutableSet.toImmutableSet());
-        ImmutableMap.Builder<CorrelationIdentifier, SelectExpression> valuesByIdBuilder = ImmutableMap.builderWithExpectedSize(valueQunCandidates.size());
-        ImmutableMap.Builder<CorrelationIdentifier, Quantifier> qunsByIdBuilder = ImmutableMap.builderWithExpectedSize(valueQunCandidates.size());
+        final Set<CorrelationIdentifier> selectChildAliases = selectExpression.getQuantifiers().stream().map(Quantifier::getAlias).collect(ImmutableSet.toImmutableSet());
+        ImmutableMap.Builder<CorrelationIdentifier, SelectExpression> valuesByAliasBuilder = ImmutableMap.builderWithExpectedSize(valueQunCandidates.size());
+        ImmutableMap.Builder<CorrelationIdentifier, Quantifier> qunsByAliasBuilder = ImmutableMap.builderWithExpectedSize(valueQunCandidates.size());
         for (Quantifier.ForEach qun : valueQunCandidates) {
-            @Nullable SelectExpression childSelect = findSelectForQuantifier(qun, selectChildQunIds);
+            @Nullable SelectExpression childSelect = findSelectForQuantifier(qun, selectChildAliases);
             if (childSelect != null) {
-                valuesByIdBuilder.put(qun.getAlias(), childSelect);
-                qunsByIdBuilder.put(qun.getAlias(), qun);
+                valuesByAliasBuilder.put(qun.getAlias(), childSelect);
+                qunsByAliasBuilder.put(qun.getAlias(), qun);
             }
         }
-        final Map<CorrelationIdentifier, SelectExpression> valuesById = valuesByIdBuilder.build();
-        if (valuesById.isEmpty()) {
+        final Map<CorrelationIdentifier, SelectExpression> valuesByAlias = valuesByAliasBuilder.build();
+        if (valuesByAlias.isEmpty()) {
             // No actual values boxes here. Exit now
             return;
         }
-        if (valuesById.size() == selectExpression.getQuantifiers().size()) {
+        if (valuesByAlias.size() == selectExpression.getQuantifiers().size()) {
             // All the quantifiers are values boxes. We can't push them around as this would
             // leave no children at all. So we exit here.
             return;
@@ -173,7 +173,7 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
         //
         // Create a translation map, and use it to translate the result value of this select as well as any predicates
         //
-        final TranslationMap translationMap = createTranslationMapFromSelects(valuesById);
+        final TranslationMap translationMap = createTranslationMapFromSelects(valuesByAlias);
         final Value newResultValue = selectExpression.getResultValue().translateCorrelations(translationMap, true);
         final List<QueryPredicate> newPredicates = selectExpression.getPredicates().stream()
                 .map(predicate -> predicate.translateCorrelations(translationMap, true))
@@ -182,10 +182,10 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
         //
         // Push the values box into each child for which it is relevant.
         //
-        final PushValuesIntoVisitor visitor = new PushValuesIntoVisitor(qunsByIdBuilder.build(), translationMap, call);
-        ImmutableList.Builder<Quantifier> newQuantifiersBuilder = ImmutableList.builderWithExpectedSize(selectExpression.getQuantifiers().size() - valuesById.size());
+        final PushValuesIntoVisitor visitor = new PushValuesIntoVisitor(qunsByAliasBuilder.build(), translationMap, call);
+        ImmutableList.Builder<Quantifier> newQuantifiersBuilder = ImmutableList.builderWithExpectedSize(selectExpression.getQuantifiers().size() - valuesByAlias.size());
         for (Quantifier qun : selectExpression.getQuantifiers()) {
-            if (valuesById.containsKey(qun.getAlias())) {
+            if (valuesByAlias.containsKey(qun.getAlias())) {
                 //
                 // This is one of the values boxes that we're pushing down. Omit this box entirely from the top-level select
                 //
@@ -195,7 +195,7 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
             boolean anyChanged = false;
             ImmutableList.Builder<RelationalExpression> newExpressionsBuilder = ImmutableList.builderWithExpectedSize(qun.getRangesOver().getExploratoryExpressions().size());
             for (RelationalExpression lowerExpression : qun.getRangesOver().getExploratoryExpressions()) {
-                if (correlatedToNone(lowerExpression, valuesById.keySet())) {
+                if (correlatedToNone(lowerExpression, valuesByAlias.keySet())) {
                     newExpressionsBuilder.add(lowerExpression);
                 } else {
                     anyChanged = true;
