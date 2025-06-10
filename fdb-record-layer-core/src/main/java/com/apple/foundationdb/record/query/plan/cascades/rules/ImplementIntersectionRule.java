@@ -63,7 +63,7 @@ public class ImplementIntersectionRule extends ImplementationCascadesRule<Logica
 
     @Nonnull
     private static final BindingMatcher<Reference> intersectionLegReferenceMatcher =
-            planPartitions(filterPlanPartitions(planPartition -> planPartition.getGroupingPropertyValue(StoredRecordProperty.storedRecord()),
+            planPartitions(filterPlanPartitions(planPartition -> planPartition.getPartitionPropertyValue(StoredRecordProperty.storedRecord()),
                     rollUpPartitionsTo(any(intersectionLegPlanPartitionMatcher), PlanPropertiesMap.allAttributesExcept(DistinctRecordsProperty.distinctRecords(), OrderingProperty.ordering()))));
     @Nonnull
     private static final CollectionMatcher<Quantifier.ForEach> allForEachQuantifiersMatcher =

@@ -116,7 +116,7 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
         // Merge the quantifiers and predicates from each mergeable child expression
         final var newQuantifiers = ImmutableList.<Quantifier>builder();
         final var newPredicates = ImmutableList.<QueryPredicate>builder();
-        final var translationBuilder = TranslationMap.builder();
+        final var translationBuilder = TranslationMap.regularBuilder();
         for (final var quantifier : selectExpression.getQuantifiers()) {
             final var alias = quantifier.getAlias();
             final var childSelectExpression = mergeableChildren.get(alias);

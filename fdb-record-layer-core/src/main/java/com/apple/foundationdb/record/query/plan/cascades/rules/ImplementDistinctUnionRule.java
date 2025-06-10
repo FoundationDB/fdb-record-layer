@@ -78,8 +78,8 @@ public class ImplementDistinctUnionRule extends ImplementationCascadesRule<Logic
 
     @Nonnull
     private static final BindingMatcher<Reference> unionLegReferenceMatcher =
-            planPartitions(filterPlanPartitions(planPartition -> planPartition.getGroupingPropertyValue(StoredRecordProperty.storedRecord()) &&
-                                                  planPartition.getGroupingPropertyValue(PrimaryKeyProperty.primaryKey()).isPresent(),
+            planPartitions(filterPlanPartitions(planPartition -> planPartition.getPartitionPropertyValue(StoredRecordProperty.storedRecord()) &&
+                                                  planPartition.getPartitionPropertyValue(PrimaryKeyProperty.primaryKey()).isPresent(),
                     rollUpPartitionsTo(unionLegPlanPartitionsMatcher, allAttributesExcept(DistinctRecordsProperty.distinctRecords()))));
 
     private static final CollectionMatcher<Quantifier.ForEach> allForEachQuantifiersMatcher =

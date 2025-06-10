@@ -65,7 +65,7 @@ public class ImplementDistinctRule extends ImplementationCascadesRule<LogicalDis
 
     @Nonnull
     private static final BindingMatcher<Reference> innerReferenceMatcher =
-            planPartitions(filterPlanPartitions(planPartition -> planPartition.getGroupingPropertyValue(StoredRecordProperty.storedRecord()),
+            planPartitions(filterPlanPartitions(planPartition -> planPartition.getPartitionPropertyValue(StoredRecordProperty.storedRecord()),
                     any(innerPlanPartitionMatcher)));
 
     @Nonnull

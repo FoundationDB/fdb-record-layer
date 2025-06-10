@@ -112,7 +112,7 @@ public class ExpressionsPartitionMatchers {
                                         .stream()
                                         .min(Comparator.comparing(
                                                 expression ->
-                                                        partition.getGroupedPropertyValue(expression,
+                                                        partition.getNonPartitioningPropertyValue(expression,
                                                                 expressionProperty))),
                         name -> "argmin(" + name + ")"),
                 OptionalIfPresentMatcher.present(downstream));
@@ -129,7 +129,7 @@ public class ExpressionsPartitionMatchers {
                                         .stream()
                                         .max(Comparator.comparing(
                                                 expression ->
-                                                        partition.getGroupedPropertyValue(expression,
+                                                        partition.getNonPartitioningPropertyValue(expression,
                                                                 expressionProperty))),
                         name -> "argmax(" + name + ")"),
                 OptionalIfPresentMatcher.present(downstream));

@@ -47,7 +47,7 @@ public class PlanPartition extends ExpressionPartition<RecordQueryPlan> {
     @Nonnull
     @Override
     public PlanPartition filter(@Nonnull final Predicate<RecordQueryPlan> expressionPredicate) {
-        return with(getGroupingPropertyMap(), filterGroupedPropertyMap(expressionPredicate));
+        return with(getPartitionPropertiesMap(), filterGroupedPropertyMap(expressionPredicate));
     }
 
     @Nonnull
