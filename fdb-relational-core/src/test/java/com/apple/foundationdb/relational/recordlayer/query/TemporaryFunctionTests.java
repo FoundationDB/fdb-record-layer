@@ -31,7 +31,6 @@ import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -89,6 +88,23 @@ public class TemporaryFunctionTests {
             try (var statement = connection.createStatement()) {
                 statement.execute("create temporary function sq1(in x bigint) on commit drop function as select * from t1 where a < 40 + x ");
                 invokeAndVerifyTempFunction(statement);
+            }
+            connection.rollback();
+        }
+    }
+
+    @Test
+    void createTemporaryFunctionWithNameCollisionsThrows() throws Exception {
+        final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk)) " +
+                "create function foo() as select * from t1 where a < 43"; // add non-temporary function called foo
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            connection.setAutoCommit(false);
+            try (var statement = connection.createStatement()) {
+                RelationalAssertions.assertThrowsSqlException(() -> statement.execute("create temporary function foo(in x bigint) " + // attempt to create function with the same name.
+                        "on commit drop function as select * from t1 where a < 40 + x "))
+                        .hasErrorCode(ErrorCode.DUPLICATE_FUNCTION);
+
             }
             connection.rollback();
         }
