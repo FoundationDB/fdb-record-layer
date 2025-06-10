@@ -263,7 +263,7 @@ public class AstNormalizerTests {
                     PreparedParams.copyOf(preparedParameters), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0, query);
             Assertions.assertThat(hashResults.getQueryCacheKey().getCanonicalQueryString()).isEqualTo(expectedCanonicalRepresentation);
             Assertions.assertThat(hashResults.getQueryCacheKey().getAuxiliaryMetadata()).isEqualTo(auxiliaryMetadata);
-            final var execParams = hashResults.getQueryExecutionParameters();
+            final var execParams = hashResults.getQueryExecutionContext();
             final var evaluationContext = execParams.getEvaluationContext();
             final var constantBindingName = Bindings.Internal.CONSTANT.bindingName(Quantifier.constant().getId());
             if (evaluationContext.getBindings().containsBinding(constantBindingName)) {

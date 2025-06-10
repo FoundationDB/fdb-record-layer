@@ -22,22 +22,19 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
 
-import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
-import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
-import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
-import java.util.Optional;
 
+/**
+ * This context is populated during query normalization. It contains all the information required to execute a cached physical query plan.
+ */
 @API(API.Status.EXPERIMENTAL)
-public final class QueryHasherContext implements QueryExecutionContext {
+public final class NormalizedQueryExecutionContext implements QueryExecutionContext {
 
     @Nonnull
     private final Literals literals;
@@ -52,11 +49,11 @@ public final class QueryHasherContext implements QueryExecutionContext {
     @Nonnull
     private final PlanHashable.PlanHashMode planHashMode;
 
-    private QueryHasherContext(@Nonnull Literals literals,
-                               @Nullable byte[] continuation,
-                               int parameterHash,
-                               boolean isForExplain,
-                               @Nonnull final PlanHashable.PlanHashMode planHashMode) {
+    private NormalizedQueryExecutionContext(@Nonnull Literals literals,
+                                            @Nullable byte[] continuation,
+                                            int parameterHash,
+                                            boolean isForExplain,
+                                            @Nonnull final PlanHashable.PlanHashMode planHashMode) {
         this.literals = literals;
         this.continuation = continuation;
         this.isForExplain = isForExplain;
@@ -68,17 +65,6 @@ public final class QueryHasherContext implements QueryExecutionContext {
     @Override
     public Literals getLiterals() {
         return literals;
-    }
-
-    @Nonnull
-    @Override
-    public EvaluationContext getEvaluationContext(@Nonnull TypeRepository typeRepository) {
-        if (literals.isEmpty()) {
-            return EvaluationContext.forTypeRepository(typeRepository);
-        }
-        final var builder = EvaluationContext.newBuilder();
-        builder.setConstant(Quantifier.constant(), literals.asMap());
-        return builder.build(typeRepository);
     }
 
     @Nonnull
@@ -110,8 +96,12 @@ public final class QueryHasherContext implements QueryExecutionContext {
         return planHashMode;
     }
 
-    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    public static class Builder {
+    @Nonnull
+    public static Builder newBuilder() {
+        return new Builder();
+    }
+
+    public static final class Builder {
         @Nonnull
         private final Literals.Builder literalsBuilder;
 
@@ -125,7 +115,7 @@ public final class QueryHasherContext implements QueryExecutionContext {
         @Nullable
         private PlanHashable.PlanHashMode planHashMode;
 
-        public Builder() {
+        private Builder() {
             this.literalsBuilder = Literals.newBuilder();
             this.isForExplain = false;
             this.continuation = null;
@@ -135,13 +125,6 @@ public final class QueryHasherContext implements QueryExecutionContext {
         @Nonnull
         public Builder setParameterHash(int parameterHash) {
             this.parameterHash = parameterHash;
-            return this;
-        }
-
-        @Nonnull
-        public Builder setOffset(@Nonnull Optional<ConstantObjectValue> offset) {
-            // TODO
-            Assert.thatUnchecked(offset.isEmpty(), "OFFSET clause is not supported.");
             return this;
         }
 
@@ -170,15 +153,10 @@ public final class QueryHasherContext implements QueryExecutionContext {
         }
 
         @Nonnull
-        public QueryHasherContext build() {
-            return new QueryHasherContext(literalsBuilder.build(), continuation,
+        public NormalizedQueryExecutionContext build() {
+            return new NormalizedQueryExecutionContext(literalsBuilder.build(), continuation,
                     parameterHash, isForExplain,
                     Objects.requireNonNull(planHashMode));
         }
-    }
-
-    @Nonnull
-    public static Builder newBuilder() {
-        return new Builder();
     }
 }

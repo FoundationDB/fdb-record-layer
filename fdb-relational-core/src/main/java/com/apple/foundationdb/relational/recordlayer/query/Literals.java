@@ -54,7 +54,7 @@ public class Literals {
     @Nonnull
     private final Supplier<Map<String, Object>> asMapSupplier;
 
-    public Literals(@Nonnull final List<OrderedLiteral> orderedLiterals) {
+    private Literals(@Nonnull final List<OrderedLiteral> orderedLiterals) {
         this.orderedLiterals = ImmutableList.copyOf(orderedLiterals);
         this.asMapSupplier = Suppliers.memoize(() ->
                 this.orderedLiterals
@@ -117,7 +117,7 @@ public class Literals {
          * Sets a scope for all newly created literals, i.e. all newly added literals will have their id
          * comprising the scope in addition to their token index.
          * @param scope the scope.
-         * @return {@link this} builder.
+         * @return {@code this} builder.
          */
         @Nonnull
         public Builder setScope(@Nonnull final String scope) {

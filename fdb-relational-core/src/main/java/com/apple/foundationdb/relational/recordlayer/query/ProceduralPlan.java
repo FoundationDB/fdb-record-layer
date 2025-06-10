@@ -65,7 +65,7 @@ public final class ProceduralPlan extends Plan<Void> {
 
     @Nonnull
     @Override
-    public Plan<Void> withQueryExecutionParameters(@Nonnull final QueryExecutionContext parameters) {
+    public Plan<Void> withExecutionContext(@Nonnull final QueryExecutionContext queryExecutionContext) {
         return this;
     }
 

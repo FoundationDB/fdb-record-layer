@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 
 import javax.annotation.Nonnull;
@@ -31,7 +32,15 @@ import javax.annotation.Nullable;
 public interface QueryExecutionContext {
 
     @Nonnull
-    EvaluationContext getEvaluationContext(@Nonnull TypeRepository typeRepository);
+    default EvaluationContext getEvaluationContext(@Nonnull TypeRepository typeRepository) {
+        final var literals = getLiterals();
+        if (literals.isEmpty()) {
+            return EvaluationContext.forTypeRepository(typeRepository);
+        }
+        final var builder = EvaluationContext.newBuilder();
+        builder.setConstant(Quantifier.constant(), literals.asMap());
+        return builder.build(typeRepository);
+    }
 
     @Nonnull
     default EvaluationContext getEvaluationContext() {

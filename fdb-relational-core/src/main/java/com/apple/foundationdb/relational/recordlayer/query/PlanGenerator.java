@@ -166,7 +166,7 @@ public final class PlanGenerator {
             RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.HIT, -1, cache.get().getStats().numEntries());
 
             // otherwise, lookup the query in the cache
-            final var planEquivalence = PhysicalPlanEquivalence.of(astHashResult.getQueryExecutionParameters().getEvaluationContext());
+            final var planEquivalence = PhysicalPlanEquivalence.of(astHashResult.getQueryExecutionContext().getEvaluationContext());
             return planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.CACHE_LOOKUP, () ->
                     cache.get().reduce(
                             astHashResult.getSchemaTemplateName(),
@@ -182,7 +182,7 @@ public final class PlanGenerator {
                                 RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.MISS, stepTimeMicros(), cache.get().getStats().numEntries());
                                 return NonnullPair.of(planEquivalence.withConstraint(physicalPlan.getConstraint()), physicalPlan);
                             },
-                            value -> value.withQueryExecutionParameters(astHashResult.getQueryExecutionParameters()),
+                            value -> value.withExecutionContext(astHashResult.getQueryExecutionContext()),
                             plans -> plans.reduce(null, (acc, candidate) -> {
                                 if (candidate instanceof QueryPlan.PhysicalQueryPlan) {
                                     final var result = (QueryPlan.PhysicalQueryPlan) candidate;
@@ -229,7 +229,7 @@ public final class PlanGenerator {
                                                                @Nonnull PlanHashable.PlanHashMode currentPlanHashMode) {
         // The hash value used accounts for the values that identify the query and not part of the execution context (e.g.
         // literal and parameter values without LIMIT and CONTINUATION)
-        final var parameterHash = ast.getQueryExecutionParameters().getParameterHash();
+        final var parameterHash = ast.getQueryExecutionContext().getParameterHash();
 
         final var planGenerationContext = new MutablePlanGenerationContext(planContext.getPreparedStatementParameters(),
                 currentPlanHashMode, ast.getQuery(), ast.getQueryCacheKey().getCanonicalQueryString(), parameterHash);
@@ -255,7 +255,7 @@ public final class PlanGenerator {
                                                                                    @Nonnull Set<PlanHashable.PlanHashMode> validPlanHashModes,
                                                                                    @Nonnull PlanHashable.PlanHashMode currentPlanHashMode)
             throws RelationalException {
-        final var queryHasherContext = ast.getQueryExecutionParameters();
+        final var queryHasherContext = ast.getQueryExecutionContext();
         final var continuationProto = queryHasherContext.getContinuation();
         final ContinuationImpl continuation;
         try {
@@ -319,7 +319,7 @@ public final class PlanGenerator {
                 currentPlanHashMode,
                 ast.getQuery(),
                 ast.getQueryCacheKey().getCanonicalQueryString(), Objects.requireNonNull(continuation.getBindingHash()));
-        planGenerationContext.setForExplain(ast.getQueryExecutionParameters().isForExplain());
+        planGenerationContext.setForExplain(ast.getQueryExecutionContext().isForExplain());
         Arrays.stream(orderedLiterals).forEach(planGenerationContext::addStrippedLiteralOrParameter);
         planGenerationContext.setContinuation(continuationProto);
         final var continuationPlanConstraint =

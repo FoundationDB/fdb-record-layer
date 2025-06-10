@@ -38,8 +38,6 @@ import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
-import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
-import com.apple.foundationdb.relational.recordlayer.query.functions.WithPlanGenerationSideEffects;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 
@@ -131,7 +129,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     private boolean allowLiteralAddition;
 
     @Nonnull
-    private final QueryHasherContext.Builder queryHasherContextBuilder;
+    private final NormalizedQueryExecutionContext.Builder queryHasherContextBuilder;
 
     @Nonnull
     private final PreparedParams preparedStatementParameters;
@@ -163,7 +161,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         parameterHashSupplier = Suppliers.memoize(() -> parameterHash.hash().asInt())::get;
         sqlCanonicalizer = new StringBuilder();
         // needed to collect information that guide query execution (explain flag, continuation string, offset int, and limit int).
-        queryHasherContextBuilder = QueryHasherContext.newBuilder().setPlanHashMode(currentPlanHashMode);
+        queryHasherContextBuilder = NormalizedQueryExecutionContext.newBuilder().setPlanHashMode(currentPlanHashMode);
         this.preparedStatementParameters = preparedStatementParameters;
         allowTokenAddition = true;
         allowLiteralAddition = true;
@@ -629,7 +627,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             }
             final var recordLayerRoutine = (RecordLayerInvokedRoutine)temporaryRoutine;
             // immediate materialization of temporary function, this is required to collect any auxiliary literals discovered
-            // during plan generation of the temporary function.
+            // during plan generation of the temporary function. The literals and combined with query literals and provided
+            // for the execution of a (cached) physical plan.
             final var compiledFunction = recordLayerRoutine.getCompilableSqlFunctionSupplier().get();
             astNormalizer.queryHasherContextBuilder.getLiteralsBuilder().absorb(compiledFunction.getAuxiliaryLiterals());
         }
@@ -674,7 +673,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         private final QueryCacheKey queryCacheKey;
 
         @Nonnull
-        private final QueryExecutionContext queryExecutionParameters;
+        private final QueryExecutionContext queryExecutionContext;
 
         @Nonnull
         private final ParseTree parseTree;
@@ -690,14 +689,14 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
         public Result(@Nonnull final String schemaTemplateName,
                       @Nonnull final QueryCacheKey queryCacheKey,
-                      @Nonnull final QueryExecutionContext queryExecutionParameters,
+                      @Nonnull final QueryExecutionContext queryExecutionContext,
                       @Nonnull final ParseTree parseTree,
                       @Nonnull final Set<QueryCachingFlags> queryCachingFlags,
                       @Nonnull final Options queryOptions,
                       @Nonnull final String query) {
             this.schemaTemplateName = schemaTemplateName;
             this.queryCacheKey = queryCacheKey;
-            this.queryExecutionParameters = queryExecutionParameters;
+            this.queryExecutionContext = queryExecutionContext;
             this.parseTree = parseTree;
             this.queryCachingFlags = queryCachingFlags;
             this.queryOptions = queryOptions;
@@ -714,8 +713,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         }
 
         @Nonnull
-        public QueryExecutionContext getQueryExecutionParameters() {
-            return queryExecutionParameters;
+        public QueryExecutionContext getQueryExecutionContext() {
+            return queryExecutionContext;
         }
 
         @Nonnull

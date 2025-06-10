@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.recordlayer.query.functions;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
@@ -171,14 +170,6 @@ public class CompiledSqlFunction extends UserDefinedFunction implements  WithPla
     @Override
     public Literals getAuxiliaryLiterals() {
         return literals;
-    }
-
-    @Nonnull
-    @Override
-    public QueryPlanConstraint getAuxiliaryConstraints() {
-        // we want to generate planning constraints that understand
-        return QueryPlanConstraint.tautology(); // for now, TODO: wait for a confirmation from Normen
-        // whether he wants to do this in the QueryPredicate simplification.
     }
 
     /**

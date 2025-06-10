@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
-import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.ImmutableRowStruct;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
@@ -32,20 +31,13 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-import org.assertj.core.api.Assertions;
-import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.ArgumentsProvider;
-import org.junit.jupiter.params.provider.ArgumentsSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
 import java.sql.DatabaseMetaData;
 import java.sql.Types;
 import java.util.BitSet;
-import java.util.TreeMap;
-import java.util.stream.Stream;
 
 public class QueryParserTests {
 

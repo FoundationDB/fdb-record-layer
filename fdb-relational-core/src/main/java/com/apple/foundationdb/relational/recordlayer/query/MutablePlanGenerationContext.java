@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
 
-import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -31,7 +30,6 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.OfTypeValue;
@@ -207,17 +205,6 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     // this is temporary until we have a proper clean up.
     public boolean isForDdl() {
         return !shouldProcessLiteral;
-    }
-
-    @Nonnull
-    @Override
-    public EvaluationContext getEvaluationContext(@Nonnull TypeRepository typeRepository) {
-        if (literalsBuilder.isEmpty()) {
-            return EvaluationContext.forTypeRepository(typeRepository);
-        }
-        final var builder = EvaluationContext.newBuilder();
-        builder.setConstant(Quantifier.constant(), getLiterals().asMap());
-        return builder.build(typeRepository);
     }
 
     @Nonnull

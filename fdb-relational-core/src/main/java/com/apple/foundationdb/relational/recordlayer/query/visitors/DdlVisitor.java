@@ -425,7 +425,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         }
         getDelegate().popPlanFragment();
         sqlFunctionBuilder.setBody(body.getQuantifier().getRangesOver().get())
-                .setLiterals(getDelegate().mutablePlanGenerationContext.getLiterals());
+                .setLiterals(getDelegate().getPlanGenerationContext().getLiterals());
         return sqlFunctionBuilder.build();
     }
 

@@ -20,21 +20,22 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.functions;
 
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.relational.recordlayer.query.Literals;
 
 import javax.annotation.Nonnull;
 
 /**
- * Trait used by functions that has plan generation side effects, such as resulting in the generation
- * of extra plan constraints, or extra literals, e.g. if the functions DDL were allowed to be prepared such as
- * temporary SQL functions.
+ Trait used by functions with plan generation side effects. Currently, functions can only have side effects of providing
+ extra {@link com.apple.foundationdb.relational.recordlayer.query.OrderedLiteral}s that fix the state of the generated
+ plan, saving it for subsequent expansion of the function. It is important check if a function has literals during plan
+ generation. If so, combine them with the query’s literals.
  */
 public interface WithPlanGenerationSideEffects {
 
+    /**
+     * Retrieve any extra literals that might have been either extracted away, or provided as a prepared parameter.
+     * @return any extra function literals.
+     */
     @Nonnull
     Literals getAuxiliaryLiterals();
-
-    @Nonnull
-    QueryPlanConstraint getAuxiliaryConstraints();
 }

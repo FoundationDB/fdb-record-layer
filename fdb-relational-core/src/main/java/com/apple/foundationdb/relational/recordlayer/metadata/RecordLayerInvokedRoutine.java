@@ -125,10 +125,8 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         private String name;
         private Supplier<CompiledSqlFunction> compilableSqlFunctionSupplier;
         private boolean isTemporary;
-        private Literals literals;
 
         private Builder() {
-            this.literals = Literals.empty();
         }
 
         @Nonnull
@@ -163,7 +161,6 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
 
         @Nonnull
         public Builder setLiterals(@Nonnull final Literals literals) {
-            this.literals = literals;
             return this;
         }
 

@@ -67,7 +67,6 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.continuation.CompiledStatement;
-import com.apple.foundationdb.relational.continuation.TypedQueryArgument;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
@@ -133,7 +132,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         private final QueryPlanConstraint continuationConstraint;
 
         @Nonnull
-        private final QueryExecutionContext queryExecutionParameters;
+        private final QueryExecutionContext queryExecutionContext;
 
         public PhysicalQueryPlan(@Nonnull final RecordQueryPlan recordQueryPlan,
                                  @Nullable final StatsMaps plannerStatsMaps,
@@ -149,7 +148,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             this.typeRepository = typeRepository;
             this.constraint = constraint;
             this.continuationConstraint = continuationConstraint;
-            this.queryExecutionParameters = queryExecutionParameters;
+            this.queryExecutionContext = queryExecutionParameters;
             this.currentPlanHashMode = currentPlanHashMode;
             this.planHashSupplier = Suppliers.memoize(() -> recordQueryPlan.planHash(currentPlanHashMode));
         }
@@ -182,8 +181,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         }
 
         @Nonnull
-        public QueryExecutionContext getQueryExecutionParameters() {
-            return queryExecutionParameters;
+        public QueryExecutionContext getQueryExecutionContext() {
+            return queryExecutionContext;
         }
 
         @Nonnull
@@ -194,18 +193,18 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
         @Override
         @Nonnull
-        public PhysicalQueryPlan withQueryExecutionParameters(@Nonnull final QueryExecutionContext parameters) {
-            if (parameters == this.queryExecutionParameters) {
+        public PhysicalQueryPlan withExecutionContext(@Nonnull final QueryExecutionContext queryExecutionContext) {
+            if (queryExecutionContext == this.queryExecutionContext) {
                 return this;
             }
             return new PhysicalQueryPlan(recordQueryPlan, plannerStatsMaps, typeRepository, constraint,
-                    continuationConstraint, parameters, query, parameters.getPlanHashMode());
+                    continuationConstraint, queryExecutionContext, query, queryExecutionContext.getPlanHashMode());
         }
 
         @Nonnull
         @Override
         public String explain() {
-            final var executeProperties = queryExecutionParameters.getExecutionPropertiesBuilder();
+            final var executeProperties = queryExecutionContext.getExecutionPropertiesBuilder();
             List<String> explainComponents = new ArrayList<>();
             explainComponents.add(ExplainPlanVisitor.toStringForExternalExplain(recordQueryPlan));
             if (executeProperties.getReturnedRowLimit() != ReadTransaction.ROW_LIMIT_UNLIMITED) {
@@ -219,7 +218,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
         @Override
         public boolean isUpdatePlan() {
-            if (this.queryExecutionParameters.isForExplain()) {
+            if (this.queryExecutionContext.isForExplain()) {
                 return false;
             } else {
                 //TODO(bfines) there may be a better way to do this, but I couldn't find it easily
@@ -248,16 +247,16 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             try {
                 final String schemaName = conn.getSchema();
                 try (RecordLayerSchema recordLayerSchema = conn.getRecordLayerDatabase().loadSchema(schemaName)) {
-                    final var evaluationContext = queryExecutionParameters.getEvaluationContext();
+                    final var evaluationContext = queryExecutionContext.getEvaluationContext();
                     final var typedEvaluationContext = EvaluationContext.forBindingsAndTypeRepository(evaluationContext.getBindings(), typeRepository);
                     final ContinuationImpl parsedContinuation;
                     try {
-                        parsedContinuation = ContinuationImpl.parseContinuation(queryExecutionParameters.getContinuation());
+                        parsedContinuation = ContinuationImpl.parseContinuation(queryExecutionContext.getContinuation());
                     } catch (final InvalidProtocolBufferException ipbe) {
                         executionContext.metricCollector.increment(RelationalMetric.RelationalCount.CONTINUATION_REJECTED);
                         throw ExceptionUtil.toRelationalException(ipbe);
                     }
-                    if (queryExecutionParameters.isForExplain()) {
+                    if (queryExecutionContext.isForExplain()) {
                         return executeExplain(parsedContinuation);
                     } else {
                         return executePhysicalPlan(recordLayerSchema, typedEvaluationContext, executionContext, parsedContinuation);
@@ -273,7 +272,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                                                                           @Nonnull final ExecutionContext executionContext,
                                                                           @Nonnull final Set<PlanHashMode> validPlanHashModes) throws RelationalException {
             PlanValidator.validateHashes(parsedContinuation, executionContext.metricCollector,
-                    recordQueryPlan, queryExecutionParameters, currentPlanHashMode, validPlanHashModes);
+                    recordQueryPlan, queryExecutionContext, currentPlanHashMode, validPlanHashModes);
 
             final var options = executionContext.getOptions();
             final var continuationsContainCompiledStatements = getContinuationsContainsCompiledStatements(options);
@@ -396,7 +395,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                                                 @Nonnull final Continuation.Reason reason,
                                                 final boolean serializeCompiledStatement) throws RelationalException {
             final var continuationBuilder =  ContinuationImpl.copyOf(continuation).asBuilder()
-                    .withBindingHash(queryExecutionParameters.getParameterHash())
+                    .withBindingHash(queryExecutionContext.getParameterHash())
                     .withPlanHash(planHashSupplier.get())
                     .withReason(reason);
             // Do not send the serialized plan unless we can continue with this continuation.
@@ -411,9 +410,9 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
                 final var serializationContext = new PlanSerializationContext(new DefaultPlanSerializationRegistry(), currentPlanHashMode);
 
-                final var literals = queryExecutionParameters.getLiterals();
+                final var literals = queryExecutionContext.getLiterals();
                 final var compiledStatementBuilder = CompiledStatement.newBuilder()
-                        .setPlanSerializationMode(queryExecutionParameters.getPlanHashMode().name());
+                        .setPlanSerializationMode(queryExecutionContext.getPlanHashMode().name());
 
                 compiledStatementBuilder.setPlan(recordQueryPlan.toRecordQueryPlanProto(serializationContext));
 
@@ -488,12 +487,12 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
         @Override
         @Nonnull
-        public PhysicalQueryPlan withQueryExecutionParameters(@Nonnull final QueryExecutionContext parameters) {
-            if (parameters == this.getQueryExecutionParameters()) {
+        public PhysicalQueryPlan withExecutionContext(@Nonnull final QueryExecutionContext queryExecutionContext) {
+            if (queryExecutionContext == this.getQueryExecutionContext()) {
                 return this;
             }
             return new ContinuedPhysicalQueryPlan(getRecordQueryPlan(), getTypeRepository(), getContinuationConstraint(),
-                    parameters, query, parameters.getPlanHashMode(), getSerializedPlanHashMode());
+                    queryExecutionContext, query, queryExecutionContext.getPlanHashMode(), getSerializedPlanHashMode());
         }
 
         @Override
@@ -607,7 +606,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
         @Nonnull
         @Override
-        public Plan<RelationalResultSet> withQueryExecutionParameters(@Nonnull final QueryExecutionContext parameters) {
+        public Plan<RelationalResultSet> withExecutionContext(@Nonnull final QueryExecutionContext queryExecutionContext) {
             return this;
         }
 
@@ -703,7 +702,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
         @Nonnull
         @Override
-        public Plan<RelationalResultSet> withQueryExecutionParameters(@Nonnull QueryExecutionContext parameters) {
+        public Plan<RelationalResultSet> withExecutionContext(@Nonnull QueryExecutionContext queryExecutionContext) {
             return this;
         }
 

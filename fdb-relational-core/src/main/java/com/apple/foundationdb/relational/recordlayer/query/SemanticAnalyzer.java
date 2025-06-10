@@ -768,12 +768,15 @@ public class SemanticAnalyzer {
                                             boolean flattenSingleItemRecords) {
         Assert.thatUnchecked(functionCatalog.containsFunction(functionName), ErrorCode.UNSUPPORTED_QUERY,
                 () -> String.format(Locale.ROOT, "Unsupported operator %s", functionName));
+
         final var builtInFunction = functionCatalog.lookupFunction(functionName, arguments);
         processFunctionSideEffects(builtInFunction);
+
         final var argumentList = ImmutableList.<Expression>builderWithExpectedSize(arguments.size() + 1).addAll(arguments);
         if (BITMAP_SCALAR_FUNCTIONS.contains(functionName.toLowerCase(Locale.ROOT))) {
             argumentList.add(Expression.ofUnnamed(new LiteralValue<>(BITMAP_DEFAULT_ENTRY_SIZE)));
         }
+
         final List<? extends Typed> valueArgs = argumentList.build().stream().map(Expression::getUnderlying)
                 .map(v -> flattenSingleItemRecords ? SqlFunctionCatalog.flattenRecordWithOneField(v) : v)
                 .collect(ImmutableList.toImmutableList());
@@ -785,6 +788,7 @@ public class SemanticAnalyzer {
         if (!(builtInFunction instanceof WithPlanGenerationSideEffects)) {
             return;
         }
+        // combine the expanded function's literals (if any) with the currently built list of query literals.
         mutablePlanGenerationContext.processAuxiliaryLiterals(Assert.castUnchecked(builtInFunction,
                 WithPlanGenerationSideEffects.class).getAuxiliaryLiterals());
     }
@@ -816,6 +820,7 @@ public class SemanticAnalyzer {
             Assert.thatUnchecked(tableFunction instanceof BuiltInTableFunction, functionName + " is not a table-valued function");
         }
         processFunctionSideEffects(tableFunction);
+
         final List<? extends Typed> valueArgs = Streams.stream(arguments.underlying().iterator())
                 .map(v -> flattenSingleItemRecords ? SqlFunctionCatalog.flattenRecordWithOneField(v) : v)
                 .collect(ImmutableList.toImmutableList());
