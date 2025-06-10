@@ -4639,8 +4639,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     protected CompletableFuture<Long> getRecordCountForRebuildIndexes(boolean newStore, boolean rebuildRecordCounts,
                                                                       @Nonnull Map<Index, List<RecordType>> indexes,
                                                                       @Nullable RecordType singleRecordTypeWithPrefixKey) {
-        // Do this with the new indexes in write-only mode to avoid using one of them
-        // when evaluating the snapshot record count.
+        // Do this with the new indexes filtered out to avoid using one of them when evaluating the snapshot record count.
+        // At this point we won't have written that any new indexes are disabled
         final IndexQueryabilityFilter indexQueryabilityFilter = new IndexQueryabilityFilter() {
             @Override
             public boolean isQueryable(@Nonnull final Index index) {
