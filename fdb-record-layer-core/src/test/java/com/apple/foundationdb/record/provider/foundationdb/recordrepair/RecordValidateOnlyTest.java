@@ -80,7 +80,7 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
             // If we are storing versions, they will all be there
             // If we are not storing versions, verifying them is a no-op, so none will be flagged
             ValidationTestUtils.assertRepairStats(repairStats, NUM_RECORDS);
-            ValidationTestUtils.assertInvalidResults(repairResults.getInvalidResults(), 0, null);
+            ValidationTestUtils.assertNoInvalidResults(repairResults.getInvalidResults());
         }
     }
 
@@ -133,18 +133,20 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
                         ValidationTestUtils.assertInvalidResults(
                                 invalidResults,
                                 1,
-                                result -> result.equals(RecordRepairResult.invalid(primaryKey, RecordRepairResult.CODE_SPLIT_ERROR, "any")));
+                                result -> !result.isValid() &&
+                                        result.getErrorCode().equals(RecordRepairResult.CODE_SPLIT_ERROR));
+                        Assertions.assertThat((Object)primaryKey).isEqualTo(invalidResults.get(0).getPrimaryKey());
                     } else {
                         // record split gone and version elsewhere - record looks gone
                         ValidationTestUtils.assertRepairStats(repairStats, NUM_RECORDS - 1);
                         ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS - 1);
-                        ValidationTestUtils.assertInvalidResults(invalidResults, 0, null);
+                        ValidationTestUtils.assertNoInvalidResults(invalidResults);
                     }
                 } else {
                     // Not storing versions - record looks gone
                     ValidationTestUtils.assertRepairStats(repairStats, NUM_RECORDS - 1);
                     ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS - 1);
-                    ValidationTestUtils.assertInvalidResults(invalidResults, 0, null);
+                    ValidationTestUtils.assertNoInvalidResults(invalidResults);
                 }
             } else {
                 final String expectedError = (splitNumber == 3) ? RecordRepairResult.CODE_DESERIALIZE_ERROR : RecordRepairResult.CODE_SPLIT_ERROR;
@@ -154,8 +156,9 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
                 ValidationTestUtils.assertInvalidResults(
                         invalidResults,
                         1,
-                        result -> result.equals(RecordRepairResult
-                                .invalid(primaryKey, expectedError, "any")));
+                        result -> !result.isValid() &&
+                                result.getErrorCode().equals(expectedError));
+                Assertions.assertThat((Object)primaryKey).isEqualTo(repairResults.getInvalidResults().get(0).getPrimaryKey());
             }
         }
     }
@@ -196,7 +199,7 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
                 validationKind.equals(RecordRepair.ValidationKind.RECORD_VALUE)) {
             // if there are no versions or they are stored elsewhere, all looks OK
             ValidationTestUtils.assertRepairStats(repairStats, NUM_RECORDS);
-            ValidationTestUtils.assertInvalidResults(invalidResults, 0, null);
+            ValidationTestUtils.assertNoInvalidResults(invalidResults);
         } else {
             // versions stored with records, 20 are deleted
             ValidationTestUtils.assertRepairStats(repairStats, NUM_RECORDS - 20, 20, RecordRepairResult.CODE_VERSION_MISSING_ERROR);
@@ -248,7 +251,9 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
         ValidationTestUtils.assertInvalidResults(
                 repairResults.getInvalidResults(),
                 1,
-                result -> result.equals(RecordRepairResult.invalid(primaryKey, RecordRepairResult.CODE_DESERIALIZE_ERROR, "any")));
+                result -> !result.isValid() &&
+                        result.getErrorCode().equals(RecordRepairResult.CODE_DESERIALIZE_ERROR));
+        Assertions.assertThat((Object)primaryKey).isEqualTo(repairResults.getInvalidResults().get(0).getPrimaryKey());
     }
 
     /**
@@ -301,7 +306,7 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
      * Validate the max number of results.
      * @param maxResultSize the max result size to return
      */
-    @CsvSource({"-1", "0", "1", "10", "100"})
+    @CsvSource({"-1", "0", "1", "10", "49", "100"})
     @ParameterizedTest
     void testValidateMaxResultsReturned(int maxResultSize) throws Exception {
         final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(true, true);

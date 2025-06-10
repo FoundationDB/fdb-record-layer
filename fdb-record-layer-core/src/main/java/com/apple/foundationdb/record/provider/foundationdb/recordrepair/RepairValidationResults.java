@@ -81,7 +81,7 @@ public class RepairValidationResults {
 
     /**
      * Return the number of record validation results that had a valid return code during the repair run.
-     * This returns the count only. Under normal circumstances, this number will be much greater that the number of non-valid
+     * This returns the valid count only. Under normal circumstances, this number will be much greater than the number of non-valid
      * results, and a count only will reduce resource usage.
      * @return the number of records that returned a valid results during the repair run.
      */

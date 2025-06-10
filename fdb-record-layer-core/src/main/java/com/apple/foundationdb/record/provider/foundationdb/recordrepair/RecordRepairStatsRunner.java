@@ -57,11 +57,9 @@ public class RecordRepairStatsRunner extends RecordRepair {
     }
 
     @Override
-    protected ItemHandler<Tuple> getItemHandler() {
-        return (FDBRecordStore store, RecordCursorResult<Tuple> lastResult, ThrottledRetryingIterator.QuotaManager quotaManager) -> {
-            return validateInternal(lastResult, store, false).thenAccept(result -> {
-                statsResult.increment(result.getErrorCode());
-            });
-        };
+    protected CompletableFuture<Void> handleOneItem(FDBRecordStore store, RecordCursorResult<Tuple> lastResult, ThrottledRetryingIterator.QuotaManager quotaManager) {
+        return validateInternal(lastResult, store, false).thenAccept(result -> {
+            statsResult.increment(result.getErrorCode());
+        });
     }
 }

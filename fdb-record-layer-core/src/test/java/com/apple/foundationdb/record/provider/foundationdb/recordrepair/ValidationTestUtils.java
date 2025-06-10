@@ -201,10 +201,13 @@ public class ValidationTestUtils {
     }
 
     public static void assertInvalidResults(List<RecordRepairResult> invalidResults, int expectedResults, @Nullable Predicate<RecordRepairResult> predicate) {
-        Assertions.assertThat(invalidResults).hasSize(expectedResults);
-        if (expectedResults > 0) {
-            Assertions.assertThat(invalidResults).allMatch(predicate);
-        }
+        Assertions.assertThat(invalidResults)
+                .hasSize(expectedResults)
+                .allMatch(predicate);
+    }
+
+    public static void assertNoInvalidResults(List<RecordRepairResult> invalidResults) {
+        Assertions.assertThat(invalidResults).isEmpty();
     }
 
     public static void assertCompleteResults(final RepairValidationResults repairResults, int numRecords) {

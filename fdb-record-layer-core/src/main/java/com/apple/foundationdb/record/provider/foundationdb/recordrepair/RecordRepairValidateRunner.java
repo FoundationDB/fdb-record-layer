@@ -73,23 +73,21 @@ public class RecordRepairValidateRunner extends RecordRepair {
     }
 
     @Override
-    protected ItemHandler<Tuple> getItemHandler() {
-        return (FDBRecordStore store, RecordCursorResult<Tuple> primaryKey, ThrottledRetryingIterator.QuotaManager quotaManager) -> {
-            return validateInternal(primaryKey, store, allowRepair).thenAccept(result -> {
-                if (result.isValid()) {
-                    validResultCount.incrementAndGet();
-                } else {
-                    invalidResults.add(result);
-                    if ((maxResultsReturned > 0) && (invalidResults.size() >= maxResultsReturned)) {
-                        quotaManager.markExhausted();
-                        earlyReturn.set(true);
-                    }
-                    // Mark record as deleted
-                    if (result.isRepaired() && RecordRepairResult.REPAIR_RECORD_DELETED.equals(result.getRepairCode())) {
-                        quotaManager.deleteCountAdd(1);
-                    }
+    protected CompletableFuture<Void> handleOneItem(FDBRecordStore store, RecordCursorResult<Tuple> primaryKey, ThrottledRetryingIterator.QuotaManager quotaManager) {
+        return validateInternal(primaryKey, store, allowRepair).thenAccept(result -> {
+            if (result.isValid()) {
+                validResultCount.incrementAndGet();
+            } else {
+                invalidResults.add(result);
+                if ((maxResultsReturned > 0) && (invalidResults.size() >= maxResultsReturned)) {
+                    quotaManager.markExhausted();
+                    earlyReturn.set(true);
                 }
-            });
-        };
+                // Mark record as deleted
+                if (result.isRepaired() && RecordRepairResult.REPAIR_RECORD_DELETED.equals(result.getRepairCode())) {
+                    quotaManager.deleteCountAdd(1);
+                }
+            }
+        });
     }
 }

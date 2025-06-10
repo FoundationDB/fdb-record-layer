@@ -100,7 +100,7 @@ public abstract class RecordRepair implements AutoCloseable {
         this.database = config.database;
         this.storeBuilder = config.getStoreBuilder();
         this.validationKind = config.getValidationKind();
-        ThrottledRetryingIterator.Builder<Tuple> iteratorBuilder = ThrottledRetryingIterator.builder(database, cursorFactory(), getItemHandler());
+        ThrottledRetryingIterator.Builder<Tuple> iteratorBuilder = ThrottledRetryingIterator.builder(database, cursorFactory(), this::handleOneItem);
         throttledIterator = configureThrottlingIterator(iteratorBuilder, config).build();
     }
 
@@ -119,7 +119,10 @@ public abstract class RecordRepair implements AutoCloseable {
         throttledIterator.close();
     }
 
-    protected abstract ItemHandler<Tuple> getItemHandler();
+    @Nonnull
+    protected abstract CompletableFuture<Void> handleOneItem(@Nonnull FDBRecordStore store,
+                                                             @Nonnull RecordCursorResult<Tuple> lastResult,
+                                                             @Nonnull ThrottledRetryingIterator.QuotaManager quotaManager);
 
     /**
      * Internal utility ot start the iteration with the underlying iterator.
@@ -239,7 +242,7 @@ public abstract class RecordRepair implements AutoCloseable {
         /**
          * Limit the number of issues found.
          * This parameter is intended to stop the iteration once a number of issues has been found, as a means of controlling
-         * the size of the list returned. Note that thisa is only relevant for a repair runner.
+         * the size of the list returned. Note that this is only relevant for a repair runner.
          * @param maxResultsReturned the maximum number of issues to be returned from the {@link RecordRepairValidateRunner#run} method.
          * Default: 10,000. Use 0 for Unlimited.
          * @return this builder
