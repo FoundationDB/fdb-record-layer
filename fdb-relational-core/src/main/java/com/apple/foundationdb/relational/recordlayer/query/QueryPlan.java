@@ -139,7 +139,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                                  @Nonnull final TypeRepository typeRepository,
                                  @Nonnull final QueryPlanConstraint constraint,
                                  @Nonnull final QueryPlanConstraint continuationConstraint,
-                                 @Nonnull final QueryExecutionContext queryExecutionParameters,
+                                 @Nonnull final QueryExecutionContext queryExecutionContext,
                                  @Nonnull final String query,
                                  @Nonnull final PlanHashMode currentPlanHashMode) {
             super(query);
@@ -148,7 +148,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             this.typeRepository = typeRepository;
             this.constraint = constraint;
             this.continuationConstraint = continuationConstraint;
-            this.queryExecutionContext = queryExecutionParameters;
+            this.queryExecutionContext = queryExecutionContext;
             this.currentPlanHashMode = currentPlanHashMode;
             this.planHashSupplier = Suppliers.memoize(() -> recordQueryPlan.planHash(currentPlanHashMode));
         }
@@ -601,7 +601,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         @Nonnull
         @Override
         public QueryPlanConstraint getConstraint() {
-            return context.getLiteralReferencesConstraint();
+            return context.getPlanConstraintsForLiterals();
         }
 
         @Nonnull

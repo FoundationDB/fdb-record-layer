@@ -226,7 +226,9 @@ public class ResultSetAssert extends AbstractAssert<ResultSetAssert, RelationalR
     public ResultSetAssert isRowExactly(Object... colValues) {
         try {
             final RelationalResultSetMetaData metaData = actual.getMetaData();
-            Assertions.assertThat(metaData.getColumnCount()).isEqualTo(colValues.length);
+            Assertions.assertThat(metaData.getColumnCount())
+                    .withFailMessage("mismatch in result set column count: expected %s columns, got %s instead!",
+                    metaData.getColumnCount(), colValues.length).isEqualTo(colValues.length);
             for (int i = 0; i < colValues.length; i++) {
                 Object o = actual.getObject(i + 1);
                 Object expected = colValues[i];

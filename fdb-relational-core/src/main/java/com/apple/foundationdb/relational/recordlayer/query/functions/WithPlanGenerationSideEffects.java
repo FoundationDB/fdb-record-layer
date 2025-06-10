@@ -25,10 +25,13 @@ import com.apple.foundationdb.relational.recordlayer.query.Literals;
 import javax.annotation.Nonnull;
 
 /**
- Trait used by functions with plan generation side effects. Currently, functions can only have side effects of providing
- extra {@link com.apple.foundationdb.relational.recordlayer.query.OrderedLiteral}s that fix the state of the generated
- plan, saving it for subsequent expansion of the function. It is important check if a function has literals during plan
- generation. If so, combine them with the query’s literals.
+ * Trait used to capture side effects resulting from the integration of a
+ * {@link com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction} into a query plan.
+ * <br>
+ * These side effects necessitate processing to ensure proper query plan construction and optimization.
+ * Currently, the only side effect to consider is the set of {@link com.apple.foundationdb.relational.recordlayer.query.OrderedLiteral}
+ * instances.  These literals represent either extracted constant values or prepared parameters encountered during
+ * the function's processing.
  */
 public interface WithPlanGenerationSideEffects {
 
@@ -38,4 +41,5 @@ public interface WithPlanGenerationSideEffects {
      */
     @Nonnull
     Literals getAuxiliaryLiterals();
+
 }

@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -484,6 +485,22 @@ public class TemporaryFunctionTests {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
                     .isRowExactly(expectedResults[row], expectedResults[row + 1]);
+        }
+        ResultSetAssert.assertThat(resultSet).hasNoNextRow();
+    }
+
+    private void invokeAndVerifyEmpty(Supplier<RelationalResultSet> resultSupplier, CheckPlanCache checkPlanCache) throws SQLException {
+        var resultSet = resultSupplier.get();
+        switch (checkPlanCache) {
+            case SHOULD_HIT:
+                Assertions.assertTrue(logAppender.lastMessageIsCacheHit());
+                break;
+            case SHOULD_MISS:
+                Assertions.assertTrue(logAppender.lastMessageIsCacheMiss());
+                break;
+            case DO_NOT_CARE: // fallthrough
+            default:
+                break;
         }
         ResultSetAssert.assertThat(resultSet).hasNoNextRow();
     }

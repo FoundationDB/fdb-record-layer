@@ -113,6 +113,10 @@ public class Literals {
             scope = Optional.empty();
         }
 
+        private void startComplexLiteral() {
+            current.push(TreeMultiset.create(OrderedLiteral.COMPARATOR));
+        }
+
         /**
          * Sets a scope for all newly created literals, i.e. all newly added literals will have their id
          * comprising the scope in addition to their token index.
@@ -125,17 +129,24 @@ public class Literals {
             return this;
         }
 
-        public void absorb(@Nonnull final Literals other) {
-            other.getOrderedLiterals().forEach(literal -> addLiteral(literal, false));
+        public List<OrderedLiteral> importLiteralsRetrieveNewLiterals(@Nonnull final Literals other) {
+            return other.getOrderedLiterals().stream().filter(literal -> addLiteral(literal, false))
+                    .collect(ImmutableList.toImmutableList());
+        }
+
+        public void importLiterals(@Nonnull final Literals other) {
+            other.getOrderedLiterals().forEach(literalToImport -> addLiteral(literalToImport, false));
         }
 
         public void addLiteral(@Nonnull final OrderedLiteral orderedLiteral) {
             addLiteral(orderedLiteral, true);
         }
 
-        private void addLiteral(@Nonnull final OrderedLiteral orderedLiteral, boolean verifyNotExists) {
+        private boolean addLiteral(@Nonnull final OrderedLiteral orderedLiteral, boolean verifyNotExists) {
             final var currentLiterals = current.peek();
             if (orderedLiteral.getLiteralObject() instanceof byte[]) {
+                // it is not clear why there is a special code path for array literal that avoids the
+                // assertion below that makes sure each token index appears at most once in the literals map.
                 final var byteOrderedLiteral = new OrderedLiteral(orderedLiteral.getType(),
                         ByteString.copyFrom(((byte[])orderedLiteral.getLiteralObject())),
                         orderedLiteral.getUnnamedParameterIndex(), orderedLiteral.getParameterName(),
@@ -149,19 +160,15 @@ public class Literals {
                     if (currentLiterals.contains(orderedLiteral)) {
                         // verify that the actual literal objects are identical.
                         final var duplicate = currentLiterals.elementSet().stream()
-                                .filter(element -> element.equals(orderedLiteral)).findFirst().orElseThrow()
-                                .getLiteralObject();
-                        if (duplicate == null) {
-                            Assert.isNullUnchecked(orderedLiteral.getLiteralObject());
-                        } else {
-                            Assert.thatUnchecked(duplicate.equals(orderedLiteral.getLiteralObject()));
-                        }
-                        return;
+                                .filter(element -> element.equals(orderedLiteral)).findFirst().orElseThrow();
+                        Assert.thatUnchecked(orderedLiteral.deepEquals(duplicate));
+                        return false;
                     }
                 }
                 literalReverseLookup.putIfAbsent(orderedLiteral.getLiteralObject(), orderedLiteral);
                 currentLiterals.add(orderedLiteral);
             }
+            return true;
         }
 
         @Nonnull
@@ -173,19 +180,16 @@ public class Literals {
             return literal;
         }
 
-        void startArrayLiteral() {
+        public void startArrayLiteral() {
             arrayLiteralScopeCount++;
             startComplexLiteral();
         }
 
-        void startStructLiteral() {
+        public void startStructLiteral() {
             structLiteralScopeCount++;
             startComplexLiteral();
         }
 
-        private void startComplexLiteral() {
-            current.push(TreeMultiset.create(OrderedLiteral.COMPARATOR));
-        }
 
         @Nonnull
         public Optional<OrderedLiteral> getFirstValueDuplicateMaybe(@Nullable Object value) {
@@ -198,20 +202,20 @@ public class Literals {
         }
 
         @Nonnull
-        public Optional<OrderedLiteral> getFirstDuplicateOfTokenIdMaybe(@Nonnull String tokenId) {
+        public Optional<OrderedLiteral> getFirstDuplicateOfConstantIdMaybe(@Nonnull String constantId) {
             // if this is called while building a complex literal, bail out, since we do not support
             // non-linear reference graphs at the moment.
             if (current.size() > 1) {
                 return Optional.empty();
             }
             return Optional.of(literalReverseLookup.get(literals.stream().filter(l ->
-                    l.getConstantId().equals(tokenId)).findFirst().orElseThrow().getLiteralObject()));
+                    l.getConstantId().equals(constantId)).findFirst().orElseThrow().getLiteralObject()));
         }
 
-        void finishArrayLiteral(@Nullable final Integer unnamedParameterIndex,
-                                @Nullable final String parameterName,
-                                final boolean shouldProcessLiterals,
-                                final int tokenIndex) {
+        public void finishArrayLiteral(@Nullable final Integer unnamedParameterIndex,
+                                       @Nullable final String parameterName,
+                                       final boolean shouldProcessLiterals,
+                                       final int tokenIndex) {
             Assert.thatUnchecked(!current.empty());
             Assert.thatUnchecked(arrayLiteralScopeCount > 0);
             final var nestedArrayLiterals = current.pop();
@@ -238,10 +242,10 @@ public class Literals {
             arrayLiteralScopeCount--;
         }
 
-        void finishStructLiteral(@Nonnull final Type.Record type,
-                                 @Nullable final Integer unnamedParameterIndex,
-                                 @Nullable final String parameterName,
-                                 final int tokenIndex) {
+        public void finishStructLiteral(@Nonnull final Type.Record type,
+                                        @Nullable final Integer unnamedParameterIndex,
+                                        @Nullable final String parameterName,
+                                        final int tokenIndex) {
             Assert.thatUnchecked(!current.empty());
             Assert.thatUnchecked(structLiteralScopeCount > 0);
             final var fields = current.pop();
@@ -266,7 +270,7 @@ public class Literals {
             structLiteralScopeCount--;
         }
 
-        boolean isAddingComplexLiteral() {
+        public boolean isAddingComplexLiteral() {
             return arrayLiteralScopeCount + structLiteralScopeCount != 0;
         }
 

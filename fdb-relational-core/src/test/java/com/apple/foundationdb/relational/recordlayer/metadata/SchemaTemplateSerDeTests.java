@@ -499,7 +499,8 @@ public class SchemaTemplateSerDeTests {
     private static final class CompiledFunctionStub extends CompiledSqlFunction {
         @SuppressWarnings("DataFlowIssue") // only for test.
         CompiledFunctionStub() {
-            super("something", ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty(), null, Literals.empty());
+            super("something", ImmutableList.of(), ImmutableList.of(), ImmutableList.of(),
+                    Optional.empty(), null, Literals.empty());
         }
     }
 

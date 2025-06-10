@@ -157,6 +157,13 @@ public class OrderedLiteral {
         return Objects.hash(tokenIndex);
     }
 
+    public boolean deepEquals(@Nonnull final OrderedLiteral other) {
+        return this.equals(other)
+                && Objects.equals(parameterName, other.parameterName)
+                && Objects.equals(unnamedParameterIndex, other.unnamedParameterIndex)
+                && Objects.equals(literalObject, other.literalObject);
+    }
+
     @Override
     public String toString() {
         return parameterName != null ?

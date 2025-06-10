@@ -67,10 +67,10 @@ public class CompiledSqlFunction extends UserDefinedFunction implements  WithPla
     private final RelationalExpression body;
 
     @Nonnull
-    private final Literals literals;
+    private final Optional<CorrelationIdentifier> parametersCorrelation;
 
     @Nonnull
-    private final Optional<CorrelationIdentifier> parametersCorrelation;
+    private final Literals literals;
 
     protected CompiledSqlFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
                                   @Nonnull final List<Type> parameterTypes,

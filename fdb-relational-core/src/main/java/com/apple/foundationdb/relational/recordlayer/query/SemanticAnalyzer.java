@@ -789,7 +789,7 @@ public class SemanticAnalyzer {
             return;
         }
         // combine the expanded function's literals (if any) with the currently built list of query literals.
-        mutablePlanGenerationContext.processAuxiliaryLiterals(Assert.castUnchecked(builtInFunction,
+        mutablePlanGenerationContext.importAuxiliaryLiterals(Assert.castUnchecked(builtInFunction,
                 WithPlanGenerationSideEffects.class).getAuxiliaryLiterals());
     }
 
