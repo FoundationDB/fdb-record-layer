@@ -1047,8 +1047,14 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
         } else {
             builder = addRecordCountKey(simpleMetaDataBuilder(), EmptyKeyExpression.EMPTY);
         }
-        final RecordMetaData initialMetaData = builder.build();
-        saveRecords(initialMetaData, 0, 100, () -> { }, () -> { });
+        // Note: RecordMetaDataBuilder.build() does not copy structures, so `initialMetaData` will be modified by
+        // calls below, but not correctly, that's why I put it in a block to ensure it is not reused
+        final int initialVersion;
+        {
+            final RecordMetaData initialMetaData = builder.build();
+            initialVersion = initialMetaData.getVersion();
+            saveRecords(initialMetaData, 0, 100, () -> { }, () -> { });
+        }
 
         final Index index = new Index("OnNum", "num_value_2");
         builder.addIndex("MySimpleRecord", index);
@@ -1062,7 +1068,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
                         @SuppressWarnings("deprecation")
                         public CompletableFuture<Integer> checkUserVersion(final int oldUserVersion, final int oldMetaDataVersion, final RecordMetaDataProvider metaData) {
                             assertEquals(0, oldUserVersion);
-                            assertEquals(initialMetaData.getVersion(), oldMetaDataVersion);
+                            assertEquals(initialVersion, oldMetaDataVersion);
                             assertEquals(newMetaData, metaData);
                             return CompletableFuture.completedFuture(1);
                         }
@@ -1092,9 +1098,14 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
     void addRecordCountIndexAndOtherIndexes() {
         final RecordMetaDataBuilder builder = simpleMetaDataBuilder();
         String countIndexName = addCountIndex(builder, EmptyKeyExpression.EMPTY);
-        final RecordMetaData initialMetaData = builder.build();
-        saveRecords(initialMetaData, 0, 3, () -> { }, () -> { });
-
+        // Note: RecordMetaDataBuilder.build() does not copy structures, so `initialMetaData` will be modified by
+        // calls below, but not correctly, that's why I put it in a block to ensure it is not reused
+        final int initialVersion;
+        {
+            final RecordMetaData initialMetaData = builder.build();
+            initialVersion = initialMetaData.getVersion();
+            saveRecords(initialMetaData, 0, 3, () -> { }, () -> { });
+        }
         final Index index = new Index("OnNum", "num_value_2");
         builder.addIndex("MySimpleRecord", index);
         builder.removeIndex(countIndexName);
@@ -1111,7 +1122,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
                                 @SuppressWarnings("deprecation")
                                 public CompletableFuture<Integer> checkUserVersion(final int oldUserVersion, final int oldMetaDataVersion, final RecordMetaDataProvider metaData) {
                                     assertEquals(0, oldUserVersion);
-                                    assertEquals(initialMetaData.getVersion(), oldMetaDataVersion);
+                                    assertEquals(initialVersion, oldMetaDataVersion);
                                     assertEquals(newMetaData, metaData);
                                     return CompletableFuture.completedFuture(1);
                                 }
