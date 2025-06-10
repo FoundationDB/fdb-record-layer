@@ -43,8 +43,10 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingRangeSet;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.test.TestKeySpace;
+import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.ByteString;
@@ -1033,6 +1035,70 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @ParameterizedTest
+    @BooleanSource("useIndex")
+    void rebuildBasedOnRecordCounts(boolean useIndex) {
+        final RecordMetaDataBuilder builder;
+        if (useIndex) {
+            builder = simpleMetaDataBuilder();
+            addCountIndex(builder, EmptyKeyExpression.EMPTY);
+        } else {
+            builder = addRecordCountKey(simpleMetaDataBuilder(), EmptyKeyExpression.EMPTY);
+        }
+        final RecordMetaData initialMetaData = builder.build();
+        saveRecords(initialMetaData, 0, 100,
+                () -> { },
+                () -> { });
+
+        final Index index = new Index("OnNum", "num_value_2");
+        builder.addIndex("MySimpleRecord", index);
+        final RecordMetaData newMetaData = builder.build();
+
+        try (FDBRecordContext context = openContext()) {
+            FDBRecordStore store = getStoreBuilder(context, newMetaData, path).setUserVersionChecker(
+                    new FDBRecordStoreBase.UserVersionChecker() {
+                        @Override
+                        @SuppressWarnings("deprecation")
+                        public CompletableFuture<Integer> checkUserVersion(final int oldUserVersion, final int oldMetaDataVersion, final RecordMetaDataProvider metaData) {
+                            assertEquals(0, oldUserVersion);
+                            assertEquals(initialMetaData.getVersion(), oldMetaDataVersion);
+                            assertEquals(newMetaData, metaData);
+                            return CompletableFuture.completedFuture(1);
+                        }
+
+                        @Override
+                        public IndexState needRebuildIndex(final Index indexToRebuild, final long recordCount, final boolean indexOnNewRecordTypes) {
+                            assertEquals(100, recordCount);
+                            assertEquals(index, indexToRebuild);
+                            return IndexState.DISABLED;
+                        }
+                    }
+            ).createOrOpen();
+            recordStore = Pair.of(store, setupPlanner(store, null)).getLeft();
+            assertEquals(IndexState.DISABLED, recordStore.getAllIndexStates().get(index));
+            commit(context);
+        }
+    }
+
+    @Test
+    void addRecordCountIndexAndOtherIndexes() {
+        final RecordMetaDataBuilder builder = simpleMetaDataBuilder();
+        final RecordMetaData initialMetaData = builder.build();
+        saveRecords(initialMetaData, 0, 3, () -> { }, () -> { });
+
+        final Index index = new Index("OnNum", "num_value_2");
+        builder.addIndex("MySimpleRecord", index);
+        addCountIndex(builder, EmptyKeyExpression.EMPTY);
+        final RecordMetaData newMetaData = builder.build();
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, newMetaData);
+            assertEquals(IndexState.DISABLED, recordStore.getAllIndexStates().get(index));
+            commit(context);
+        }
+    }
+
+
     @Nonnull
     private FDBMetaDataStore createMetaDataStore(@Nonnull FDBRecordContext context, @Nonnull KeySpacePath metaDataPath,
                                                  @Nonnull Subspace metaDataSubspace,
@@ -1055,5 +1121,60 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
     private static byte[] getStoreInfoKey(@Nonnull FDBRecordStore store) {
         return store.getSubspace().pack(FDBRecordStoreKeyspace.STORE_INFO.key());
     }
+
+    @Nonnull
+    private static RecordMetaDataBuilder simpleMetaDataBuilder() {
+        return RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+    }
+
+    @SuppressWarnings("deprecation")
+    private static RecordMetaDataBuilder addRecordCountKey(@Nonnull final RecordMetaDataBuilder recordMetaDataBuilder,
+                                                           @Nonnull final KeyExpression keyExpression) {
+        recordMetaDataBuilder.setRecordCountKey(keyExpression);
+        return recordMetaDataBuilder;
+    }
+
+    private static void addCountIndex(@Nonnull final RecordMetaDataBuilder recordMetaDataBuilder,
+                                      @Nonnull final KeyExpression keyExpression) {
+        addIndex("record_count", keyExpression, IndexTypes.COUNT, recordMetaDataBuilder);
+    }
+
+    private static void addIndex(final String indexName, final KeyExpression key, final String indexType,
+                                 final RecordMetaDataBuilder metaData) {
+        Index index = new Index(indexName, new GroupingKeyExpression(key, 0), indexType);
+        index.setLastModifiedVersion(-1);
+        metaData.addUniversalIndex(index);
+    }
+
+    private void saveRecords(final RecordMetaData metaData, final int start, final int end,
+                             final Runnable beforeHook, final Runnable afterHook) {
+        saveRecords(metaData, start, end, beforeHook, afterHook, FormatVersion.getMaximumSupportedVersion());
+    }
+
+    private void saveRecords(final RecordMetaData metaData, final int start, final int end,
+                             final Runnable beforeHook, final Runnable afterHook, final FormatVersion formatVersion) {
+        try (FDBRecordContext context = openContext()) {
+            this.recordStore = createOrOpenRecordStore(context, metaData, path, formatVersion);
+
+            beforeHook.run();
+
+            for (int i = start; i < end; i++) {
+                int numBucket = i % 5;
+                recordStore.saveRecord(makeRecord(i, 0, numBucket));
+            }
+
+            afterHook.run();
+            commit(context);
+        }
+    }
+
+    private TestRecords1Proto.MySimpleRecord makeRecord(long recordNo, int numValue2, int numValue3Indexed) {
+        TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
+        recBuilder.setRecNo(recordNo);
+        recBuilder.setNumValue2(numValue2);
+        recBuilder.setNumValue3Indexed(numValue3Indexed);
+        return recBuilder.build();
+    }
+
 
 }
