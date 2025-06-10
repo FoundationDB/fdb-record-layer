@@ -62,6 +62,7 @@ public class IdentityAndRule extends QueryPredicateSimplificationRule<AndPredica
         final var terms = bindings.getAll(andTermMatcher);
 
         final var resultTermsBuilder = ImmutableList.<QueryPredicate>builder();
+        final var removedTermsBuilder = ImmutableList.<QueryPredicate>builder();
         int count = 0;
         for (final var term : terms) {
             if (!term.isTautology()) {
@@ -72,10 +73,15 @@ public class IdentityAndRule extends QueryPredicateSimplificationRule<AndPredica
 
                 // term is still needed
                 resultTermsBuilder.add(term);
+            } else {
+                removedTermsBuilder.add(term);
             }
         }
         final var resultTerms = resultTermsBuilder.build();
         final var simplifiedPredicate = AndPredicate.and(resultTerms);
-        call.yieldResult(simplifiedPredicate);
+        call.yieldResultBuilder()
+                .addConstraintsFrom(bindings.get(rootMatcher))
+                .addConstraintsFrom(removedTermsBuilder.build())
+                .yieldResult(simplifiedPredicate);
     }
 }

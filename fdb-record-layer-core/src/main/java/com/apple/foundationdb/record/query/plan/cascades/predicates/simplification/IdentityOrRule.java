@@ -62,6 +62,8 @@ public class IdentityOrRule extends QueryPredicateSimplificationRule<OrPredicate
         final var terms = bindings.getAll(orTermMatcher);
 
         final var resultTermsBuilder = ImmutableList.<QueryPredicate>builder();
+        final var removedTermsBuilder = ImmutableList.<QueryPredicate>builder();
+
         int count = 0;
         for (final var term : terms) {
             if (!term.isContradiction()) {
@@ -72,10 +74,15 @@ public class IdentityOrRule extends QueryPredicateSimplificationRule<OrPredicate
 
                 // term is still needed
                 resultTermsBuilder.add(term);
+            } else {
+                removedTermsBuilder.add(term);
             }
         }
         final var resultTerms = resultTermsBuilder.build();
         final var simplifiedPredicate = OrPredicate.orOrFalse(resultTerms);
-        call.yieldResult(simplifiedPredicate);
+        call.yieldResultBuilder()
+                .addConstraintsFrom(bindings.get(rootMatcher))
+                .addConstraintsFrom(removedTermsBuilder.build())
+                .yieldResult(simplifiedPredicate);
     }
 }

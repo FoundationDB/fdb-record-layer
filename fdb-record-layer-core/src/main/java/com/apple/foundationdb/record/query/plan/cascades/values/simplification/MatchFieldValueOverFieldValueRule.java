@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
@@ -80,6 +81,8 @@ public class MatchFieldValueOverFieldValueRule extends ValueComputationRule<Valu
 
         final var newMatchedValuesMap = new LinkedIdentityMap<Value, ValueCompensation>();
         newMatchedValuesMap.put(fusedFieldValue, ValueCompensation.noCompensation());
-        call.yieldValue(fusedFieldValue, newMatchedValuesMap);
+        call.yieldResultBuilder()
+                .addConstraintsFrom(rootValue)
+                .yieldResult(NonnullPair.of(fusedFieldValue, newMatchedValuesMap));
     }
 }

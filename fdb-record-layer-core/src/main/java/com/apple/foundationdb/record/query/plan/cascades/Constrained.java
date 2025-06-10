@@ -57,7 +57,7 @@ public interface Constrained<T> {
      *         the {@code constraint}
      */
     @Nonnull
-    Constrained<T> composeWithConstraint(@Nonnull final QueryPlanConstraint constraint);
+    Constrained<T> composeWithConstraint(@Nonnull QueryPlanConstraint constraint);
 
     /**
      * Helper method to create an unconstrained wrapper.

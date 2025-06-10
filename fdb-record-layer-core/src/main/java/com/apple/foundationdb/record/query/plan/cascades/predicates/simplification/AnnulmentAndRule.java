@@ -59,10 +59,13 @@ public class AnnulmentAndRule extends QueryPredicateSimplificationRule<AndPredic
     @Override
     public void onMatch(@Nonnull final QueryPredicateSimplificationRuleCall call) {
         final var bindings = call.getBindings();
-        final var terms = bindings.getAll(andTermMatcher);
+        final var andTerms = bindings.getAll(andTermMatcher);
 
-        if (terms.stream().anyMatch(QueryPredicate::isContradiction)) {
-            call.yieldResult(new ConstantPredicate(false));
+        if (andTerms.stream().anyMatch(QueryPredicate::isContradiction)) {
+            call.yieldResultBuilder()
+                    .addConstraintsFrom(bindings.get(rootMatcher))
+                    .addConstraintsFrom(andTerms)
+                    .yieldResult(new ConstantPredicate(false));
         }
     }
 }

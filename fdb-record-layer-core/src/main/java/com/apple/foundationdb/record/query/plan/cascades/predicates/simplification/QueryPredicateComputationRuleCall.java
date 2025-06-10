@@ -75,12 +75,4 @@ public class QueryPredicateComputationRuleCall<ARGUMENT, RESULT> extends Abstrac
     public Pair<QueryPredicate, RESULT> getResult(@Nonnull final QueryPredicate predicate) {
         return retrieveResultFunction.apply(predicate);
     }
-
-    public void yieldPredicate(@Nonnull final QueryPredicate predicate, @Nonnull final RESULT result) {
-        super.yieldResult(NonnullPair.of(predicate, result));
-    }
-
-    public void yieldPredicateAndReExplore(@Nonnull final QueryPredicate predicate, @Nonnull final RESULT result) {
-        super.yieldAndReExplore(NonnullPair.of(predicate, result));
-    }
 }

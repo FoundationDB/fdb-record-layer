@@ -73,6 +73,9 @@ public class NotOverComparisonRule extends QueryPredicateSimplificationRule<NotP
             return;
         }
 
-        call.yieldResult(new ValuePredicate(value, comparison.withType(invertedComparisonType)));
+        call.yieldResultBuilder()
+                .addConstraintsFrom(bindings.get(rootMatcher))
+                .addConstraintsFrom(bindings.getAll(anyValuePredicateMatcher))
+                .yieldResult(new ValuePredicate(value, comparison.withType(invertedComparisonType)));
     }
 }
