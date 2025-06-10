@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb.recordrepair;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
-import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.ItemHandler;
 import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.ThrottledRetryingIterator;
 import com.apple.foundationdb.tuple.Tuple;
 
@@ -72,8 +71,9 @@ public class RecordRepairValidateRunner extends RecordRepair {
         });
     }
 
+    @Nonnull
     @Override
-    protected CompletableFuture<Void> handleOneItem(FDBRecordStore store, RecordCursorResult<Tuple> primaryKey, ThrottledRetryingIterator.QuotaManager quotaManager) {
+    protected CompletableFuture<Void> handleOneItem(@Nonnull FDBRecordStore store, @Nonnull RecordCursorResult<Tuple> primaryKey, @Nonnull ThrottledRetryingIterator.QuotaManager quotaManager) {
         return validateInternal(primaryKey, store, allowRepair).thenAccept(result -> {
             if (result.isValid()) {
                 validResultCount.incrementAndGet();
