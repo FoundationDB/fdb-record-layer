@@ -331,7 +331,7 @@ public class TemporaryFunctionTests {
             //            |                   |          |                 |
             //         from sq0             from sq0    from sq1         from the query
             // this predicate leverages the index indexOnA, therefore, we must a plan constraint on sq0's bound prepared
-            // parameter 'param' fixing its value to 20.
+            // parameter 'param' requiring its value to be less than 35.
             try (var statement = connection.prepareStatement("select * from sq1(x => 3) where a > ?param options (log query)")) {
                 statement.setLong("param", 5);
                 invokeAndVerify(statement::executeQuery, CheckPlanCache.SHOULD_MISS, 13L, 1L);
@@ -343,13 +343,12 @@ public class TemporaryFunctionTests {
             connection.unwrap(EmbeddedRelationalConnection.class).createNewTransaction();
             connection.setAutoCommit(false);
             // re-create parent function (sq0)
-            // create parent function (sq0)
             try (var statement = connection.prepareStatement("create temporary function sq0(in x bigint) " +
                     "on commit drop function as select a + x as a, pk from t1 where a < ?param")) {
                 statement.setLong("param", 40); // <----------- THIS violates the plan cache constraint
                 statement.execute();
             }
-            // create child function (sq1) referencing parent function (sq0), using similar literal identifiers.
+            // re-create child function (sq1) referencing parent function (sq0), using similar literal identifiers.
             try (var statement = connection.prepareStatement("create temporary function sq1(in x bigint) " +
                     "on commit drop function as select * from sq0(3) where a > ?param + x + 3")) {
                 statement.setLong("param", 2);
@@ -366,6 +365,92 @@ public class TemporaryFunctionTests {
             try (var statement = connection.prepareStatement("select * from sq1(x => 3) where a > ?param options (log query)")) {
                 statement.setLong("param", 5);
                 invokeAndVerify(statement::executeQuery, CheckPlanCache.SHOULD_MISS, 13L, 1L, 23L, 2L, 33L, 3L);
+            }
+            connection.rollback();
+        }
+    }
+
+    @Test
+    void useMultipleReferencesOfTemporaryFunctionsWithPreparedParameters() throws Exception {
+        final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk)) create index indexOnA as select a from t1 where a < 35";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1(pk, a) values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
+            }
+            final var connection = ddl.getConnection();
+            connection.setAutoCommit(false);
+            // create parent function (sq0)
+            try (var statement = connection.prepareStatement("create temporary function sq0(in x bigint) " +
+                    "on commit drop function as select a + x as a, pk from t1 where a < ?param")) {
+                // the preparation of this parameter is fixed regardless how many times the function sq0 is referenced
+                // in the future.
+                statement.setLong("param", 20);
+                statement.execute();
+            }
+            // create child function (sq1) referencing parent function (sq0) two times, using similar literal identifiers.
+            try (var statement = connection.prepareStatement("create temporary function sq1(in x bigint) " +
+                    "on commit drop function as select Y.a, Y.pk from sq0(3) as Y, sq0(3) as Z where Y.a > ?param + x + 3")) {
+                statement.setLong("param", 2);
+                statement.execute();
+            }
+            // call the function (sq1) now, again, using the same literal identifiers.
+            // expansion should result in the following, relatively complex, rewrite:
+            // select Q.a, Q.pk from                                                        <---- the query
+            //               (select Y.a, Y.pk from                                         <---- sq1(3) expansion
+            //                           (select a + 3 as a, pk from t1 where a < 20) as Y,   <---- sq0(3) expansion
+            //                           (select a + 3 as a, pk from t1 where a < 20) as Z    <---- sq0(3) expansion
+            //                where Y.a > 2 + 3 + 3) as Q
+            // union all
+            //               (select Y.a, Y.pk from                                         <---- sq1(3)
+            //                           (select a + 3 as a, pk from t1 where a < 20) as Y,   <---- sq0(3) expansion
+            //                           (select a + 3 as a, pk from t1 where a < 20) as Z    <---- sq0(3) expansion
+            //                where Y.a > 2 + 3 + 3) as R
+            // where Q.a > 5 options (log query)
+            // this predicate leverages the index indexOnA, therefore, we must a plan constraint on sq0's bound prepared
+            // parameter 'param' requiring its value to be less than 35.
+            try (var statement = connection.prepareStatement("select * from sq1(x => 3) as Q union all select * from sq1(x => 3) as R where a > ?param options (log query)")) {
+                statement.setLong("param", 5);
+                invokeAndVerify(statement::executeQuery, CheckPlanCache.SHOULD_MISS, 13L, 1L, 13L, 1L);
+            }
+            connection.rollback();
+
+            // try with a different query, BUT with a different binding of SQ0's param this time.
+            // the cache must be hit now, because the value of the prepared parameter of the parent function
+            // imply the plan constraint.
+            connection.unwrap(EmbeddedRelationalConnection.class).createNewTransaction();
+            connection.setAutoCommit(false);
+            // re-create parent function (sq0)
+            try (var statement = connection.prepareStatement("create temporary function sq0(in x bigint) " +
+                    "on commit drop function as select a + x as a, pk from t1 where a < ?param")) {
+                // the preparation of this parameter is fixed regardless how many times the function sq0 is referenced
+                // in the future.
+                statement.setLong("param", 15); // <---- satisfies the plan cache constraint coming from the filtered index.
+                statement.execute();
+            }
+            // re-create child function (sq1) referencing the re-recreated parent function (sq0) two times, using similar literal identifiers.
+            try (var statement = connection.prepareStatement("create temporary function sq1(in x bigint) " +
+                    "on commit drop function as select Y.a, Y.pk from sq0(3) as Y, sq0(3) as Z where Y.a > ?param + x + 3")) {
+                statement.setLong("param", 2);
+                statement.execute();
+            }
+            // call the function (sq1) now, again, using the same literal identifiers.
+            // expansion should result in the following, relatively complex, rewrite:
+            // select Q.a, Q.pk from                                                        <---- the query
+            //               (select Y.a, Y.pk from                                         <---- sq1(3) expansion
+            //                           (select a + 3 as a, pk from t1 where a < 20) as Y,   <---- sq0(3) expansion
+            //                           (select a + 3 as a, pk from t1 where a < 20) as Z    <---- sq0(3) expansion
+            //                where Y.a > 2 + 3 + 3) as Q
+            // union all
+            //               (select Y.a, Y.pk from                                         <---- sq1(3)
+            //                           (select a + 3 as a, pk from t1 where a < 20) as Y,   <---- sq0(3) expansion
+            //                           (select a + 3 as a, pk from t1 where a < 20) as Z    <---- sq0(3) expansion
+            //                where Y.a > 2 + 3 + 3) as R
+            // where Q.a > 5 options (log query)
+            // this predicate leverages the index indexOnA, therefore, we must a plan constraint on sq0's bound prepared
+            // parameter 'param' requiring its value to be less than 35.
+            try (var statement = connection.prepareStatement("select * from sq1(x => 3) as Q union all select * from sq1(x => 3) as R where a > ?param options (log query)")) {
+                statement.setLong("param", 5);
+                invokeAndVerify(statement::executeQuery, CheckPlanCache.SHOULD_HIT, 13L, 1L, 13L, 1L);
             }
             connection.rollback();
         }
