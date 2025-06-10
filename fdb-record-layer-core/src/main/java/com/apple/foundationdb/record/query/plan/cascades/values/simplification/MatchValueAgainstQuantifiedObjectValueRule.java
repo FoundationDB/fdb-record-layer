@@ -84,7 +84,7 @@ public class MatchValueAgainstQuantifiedObjectValueRule extends ValueComputation
 
             newMatchedValuesMap.put(toBePulledUpValue,
                     ((value) -> {
-                        final var translationMapBuilder = TranslationMap.builder();
+                        final var translationMapBuilder = TranslationMap.regularBuilder();
                         translationMapBuilder.when(alias).then(((sourceAlias, leafValue) -> value));
                         return toBePulledUpValue.translateCorrelations(translationMapBuilder.build());
                     }));

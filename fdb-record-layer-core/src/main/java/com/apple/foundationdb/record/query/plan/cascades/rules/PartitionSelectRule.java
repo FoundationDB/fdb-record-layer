@@ -281,7 +281,7 @@ public class PartitionSelectRule extends ExplorationCascadesRule<SelectExpressio
             final var lowerSelectExpression = lowerGraphExpansionBuilder.build().buildSelectWithResultValue(joinedResultValue);
             final var newUpperQuantifier = Quantifier.forEachBuilder().withAlias(lowerAliasCorrelatedToByUpperAliases).build(call.memoizeExploratoryExpression(lowerSelectExpression));
 
-            final var translationMapBuilder = TranslationMap.builder();
+            final var translationMapBuilder = TranslationMap.regularBuilder();
             for (int i = 0; i < lowerResultColumns.size(); i++) {
                 final Column<? extends Value> lowerResultColumn = lowerResultColumns.get(i);
                 final var lowerAlias = ((QuantifiedObjectValue)lowerResultColumn.getValue()).getAlias();
