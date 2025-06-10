@@ -124,6 +124,7 @@ public class BooleanWithConstraint implements Constrained<Boolean> {
      *         the {@code constraint}
      */
     @Nonnull
+    @Override
     public BooleanWithConstraint composeWithConstraint(@Nonnull final QueryPlanConstraint constraint) {
         if (!this.isTrue()) {
             return falseValue();

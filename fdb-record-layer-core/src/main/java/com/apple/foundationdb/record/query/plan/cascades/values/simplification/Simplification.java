@@ -302,7 +302,7 @@ public class Simplification {
         }).orElseThrow(() -> new RecordCoreException("expected a mapped tree"));
         final var simplifiedPair = resultsMap.get(newRoot);
         return simplifiedPair == null ? null :
-               NonnullPair.of(Constrained.ofConstrainedObject(newRoot, constraintsMap.get(newRoot)),
+               NonnullPair.of(Constrained.ofConstrainedObject(newRoot, collectAndComposeConstraints(newRoot, constraintsMap)),
                        simplifiedPair.getRight());
     }
 
@@ -473,7 +473,8 @@ public class Simplification {
                                         aliasMap, constantAliases, constraintsMap::get));
         return simplifiedPredicate == root
                ? Constrained.unconstrained(root)
-               : Constrained.ofConstrainedObject(simplifiedPredicate, constraintsMap.get(simplifiedPredicate));
+               : Constrained.ofConstrainedObject(simplifiedPredicate,
+                collectAndComposeConstraints(simplifiedPredicate, constraintsMap));
     }
 
     /**

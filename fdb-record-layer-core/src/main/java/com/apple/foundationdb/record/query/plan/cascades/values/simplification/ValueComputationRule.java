@@ -82,6 +82,7 @@ public abstract class ValueComputationRule<A, R, T extends Value> extends Abstra
                 final var results = simplificationRuleCall.getResults();
                 results.forEach(resultValue -> call.yieldValue(resultValue,
                         onMatchComputationFunction.apply(call.getArgument(), resultValue, childrenResults)));
+                call.composeAdditionalConstraint(simplificationRuleCall.getResultQueryPlanConstraint());
             }
         };
     }

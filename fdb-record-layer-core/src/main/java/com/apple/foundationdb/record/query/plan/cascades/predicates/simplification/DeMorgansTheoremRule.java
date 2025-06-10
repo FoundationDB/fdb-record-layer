@@ -52,12 +52,16 @@ public class DeMorgansTheoremRule<P extends AndOrPredicate> extends QueryPredica
     private final Class<P> majorClass;
     @Nonnull
     private final BindingMatcher<QueryPredicate> termMatcher;
+    @Nonnull
+    private final BindingMatcher<P> andOrPredicateMatcher;
 
     public DeMorgansTheoremRule(@Nonnull final Class<P> majorClass,
                                 @Nonnull final BindingMatcher<QueryPredicate> termMatcher,
+                                @Nonnull final BindingMatcher<P> andOrPredicateMatcher,
                                 @Nonnull final BindingMatcher<NotPredicate> rootMatcher) {
         super(rootMatcher);
         this.majorClass = majorClass;
+        this.andOrPredicateMatcher = andOrPredicateMatcher;
         this.termMatcher = termMatcher;
     }
 
@@ -77,7 +81,9 @@ public class DeMorgansTheoremRule<P extends AndOrPredicate> extends QueryPredica
                         .map(NotPredicate::not)
                         .collect(ImmutableList.toImmutableList());
 
-        call.yieldAndReExplore(minorWith(minorTerms));
+        call.yieldResultBuilder()
+                .addConstraintsFrom(bindings.get(getMatcher()), bindings.get(andOrPredicateMatcher))
+                .yieldResultAndReExplore(minorWith(minorTerms));
     }
 
     private QueryPredicate minorWith(@Nonnull final Collection<? extends QueryPredicate> terms) {
@@ -94,6 +100,7 @@ public class DeMorgansTheoremRule<P extends AndOrPredicate> extends QueryPredica
         final var andOrPredicateMatcher = ofTypeWithChildren(majorClass, all(termMatcher));
         return new DeMorgansTheoremRule<>(majorClass,
                 termMatcher,
+                andOrPredicateMatcher,
                 notPredicate(ListMatcher.exactly(andOrPredicateMatcher)));
     }
 }

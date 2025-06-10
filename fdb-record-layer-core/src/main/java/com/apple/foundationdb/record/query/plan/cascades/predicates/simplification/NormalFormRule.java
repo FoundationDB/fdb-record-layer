@@ -64,6 +64,7 @@ public class NormalFormRule extends QueryPredicateSimplificationRule<QueryPredic
 
         final var normalizedPredicateMaybe = normalizer.normalize(predicate, false);
         normalizedPredicateMaybe.ifPresent(normalizedPredicate ->
-                call.yieldAndReExplore(normalizedPredicateMaybe.get()));
+                // note that dues to the nature of this rule and it being run first we won't use constraints here
+                call.yieldResultAndReExplore(normalizedPredicateMaybe.get()));
     }
 }
