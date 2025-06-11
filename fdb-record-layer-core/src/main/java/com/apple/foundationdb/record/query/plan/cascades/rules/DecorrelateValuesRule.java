@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
-import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
@@ -33,9 +32,8 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilt
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.AllOfMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcherWithPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty;
@@ -51,8 +49,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Stream;
 
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher.empty;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifier;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
@@ -131,36 +130,32 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
     private static final BindingMatcher<RelationalExpression> baseExpressionMatcher = TypedMatcherWithPredicate.typedMatcherWithPredicate(RelationalExpression.class,
             expr -> CardinalitiesProperty.Cardinalities.exactlyOne().equals(CardinalitiesProperty.cardinalities().evaluate(expr)));
 
+    // Conditions for a "values box":
+    //  1. Select expression over a single for each quantifier with no predicates.
+    //      -> Validated by the first matcher's structure
+    //  2. The child for each has a cardinality of exactly 1
+    //      -> Validated by the downstream baseExpressionMatcher
+    //  3. The select's result value is not correlated to its input
+    //      -> Validated by the predicate in the matcher below
     @Nonnull
-    private static final BindingMatcher<Quantifier.ForEach> childForEachMatcher = forEachQuantifier(baseExpressionMatcher);
-
-    @Nonnull
-    private static final BindingMatcher<SelectExpression> valuesExpressionMatcher = new TypedMatcher<>(SelectExpression.class) {
-        @Nonnull
-        @Override
-        public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration, @Nonnull final PlannerBindings outerBindings, @Nonnull final SelectExpression in) {
-            if (in.getQuantifiers().size() != 1 || !in.getPredicates().isEmpty()) {
-                // Values boxes should be over only a single child and should have no predicates
-                return Stream.of();
-            }
-            final Quantifier childQun = Iterables.getOnlyElement(in.getQuantifiers());
-            final Value resultValue = in.getResultValue();
-            if (resultValue.isCorrelatedTo(childQun.getAlias())) {
-                // Values boxes should not be correlated to their own child expression
-                return Stream.of();
-            }
-            // Note: we can only _really_ pick an expression here if we are un-correlated to our
-            // siblings. However, that's hard to check at this point, so we'll have to check that later
-            // in onMatch
-            final PlannerBindings selectBoundBindings = PlannerBindings.from(this, in);
-            return childForEachMatcher.bindMatches(plannerConfiguration, outerBindings, childQun)
-                    .map(selectBoundBindings::mergedWith);
-        }
-    };
+    private static final BindingMatcher<SelectExpression> valuesExpressionMatcher = AllOfMatcher.matchingAllOf(SelectExpression.class,
+            selectExpression(empty(), exactly(forEachQuantifier(baseExpressionMatcher))),
+            TypedMatcherWithPredicate.typedMatcherWithPredicate(
+                    SelectExpression.class,
+                    expr -> {
+                        // Values boxes' return value should not be correlated to its own child expression
+                        final Quantifier childQun = Iterables.getOnlyElement(expr.getQuantifiers());
+                        final Value resultValue = expr.getResultValue();
+                        return !resultValue.isCorrelatedTo(childQun.getAlias());
+                    })
+    );
 
     @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> valuesQunMatcher = forEachQuantifier(valuesExpressionMatcher);
 
+    // Match a select expression over the values boxes. Ideally, we'd also check each box's correlation sets to validate that
+    // we don't match any that have references out to sibling quantifiers in the SelectExpression's root. However,
+    // that's difficult to express with quantifiers, so in onMatch, we'll only select the subset without such correlations
     @Nonnull
     private static final BindingMatcher<SelectExpression> root = selectExpression(some(valuesQunMatcher));
 
