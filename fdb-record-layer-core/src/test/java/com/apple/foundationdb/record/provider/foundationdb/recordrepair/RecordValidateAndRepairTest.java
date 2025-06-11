@@ -144,7 +144,7 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
                                         result.getErrorCode().equals(RecordRepairResult.CODE_SPLIT_ERROR) &&
                                         result.isRepaired() &&
                                         result.getRepairCode().equals(RecordRepairResult.REPAIR_RECORD_DELETED));
-                        Assertions.assertThat((Object)primaryKey).isEqualTo(invalidResults.get(0).getPrimaryKey());
+                        Assertions.assertThat((Object)invalidResults.get(0).getPrimaryKey()).isEqualTo(primaryKey);
                     } else {
                         // record split gone and version elsewhere - record looks gone
                         ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS - 1);
@@ -166,7 +166,7 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
                                 result.getErrorCode().equals(expectedError) &&
                                 result.isRepaired() &&
                                 result.getRepairCode().equals(RecordRepairResult.REPAIR_RECORD_DELETED));
-                Assertions.assertThat((Object)primaryKey).isEqualTo(invalidResults.get(0).getPrimaryKey());
+                Assertions.assertThat((Object)invalidResults.get(0).getPrimaryKey()).isEqualTo(primaryKey);
             }
         }
 
@@ -375,7 +375,7 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
                             result.getErrorCode().equals(RecordRepairResult.CODE_DESERIALIZE_ERROR) &&
                             result.isRepaired() &&
                             result.getRepairCode().equals(RecordRepairResult.REPAIR_RECORD_DELETED));
-            Assertions.assertThat((Object)primaryKey).isEqualTo(repairResults.getInvalidResults().get(0).getPrimaryKey());
+            Assertions.assertThat((Object)repairResults.getInvalidResults().get(0).getPrimaryKey()).isEqualTo(primaryKey);
         }
 
         // Run validation again

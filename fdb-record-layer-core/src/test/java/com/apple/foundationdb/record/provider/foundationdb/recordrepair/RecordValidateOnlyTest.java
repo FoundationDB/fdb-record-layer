@@ -135,7 +135,7 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
                                 1,
                                 result -> !result.isValid() &&
                                         result.getErrorCode().equals(RecordRepairResult.CODE_SPLIT_ERROR));
-                        Assertions.assertThat((Object)primaryKey).isEqualTo(invalidResults.get(0).getPrimaryKey());
+                        Assertions.assertThat((Object)invalidResults.get(0).getPrimaryKey()).isEqualTo(primaryKey);
                     } else {
                         // record split gone and version elsewhere - record looks gone
                         ValidationTestUtils.assertRepairStats(repairStats, NUM_RECORDS - 1);
@@ -158,7 +158,7 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
                         1,
                         result -> !result.isValid() &&
                                 result.getErrorCode().equals(expectedError));
-                Assertions.assertThat((Object)primaryKey).isEqualTo(repairResults.getInvalidResults().get(0).getPrimaryKey());
+                Assertions.assertThat((Object)repairResults.getInvalidResults().get(0).getPrimaryKey()).isEqualTo(primaryKey);
             }
         }
     }
@@ -253,7 +253,7 @@ public class RecordValidateOnlyTest extends FDBRecordStoreTestBase {
                 1,
                 result -> !result.isValid() &&
                         result.getErrorCode().equals(RecordRepairResult.CODE_DESERIALIZE_ERROR));
-        Assertions.assertThat((Object)primaryKey).isEqualTo(repairResults.getInvalidResults().get(0).getPrimaryKey());
+        Assertions.assertThat((Object)repairResults.getInvalidResults().get(0).getPrimaryKey()).isEqualTo(primaryKey);
     }
 
     /**
