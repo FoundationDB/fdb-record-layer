@@ -4649,7 +4649,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
             @Override
             public int queryHash(@Nonnull final QueryHashKind hashKind) {
-                return indexes.hashCode();
+                // the query is not preserved in any way, so prevent usage of the hash
+                throw new RecordCoreException("queryHash for getRecordCountForRebuildIndexes should not be used");
             }
         };
         if (singleRecordTypeWithPrefixKey != null) {
