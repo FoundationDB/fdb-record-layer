@@ -125,6 +125,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *   WHERE a = 42 AND b = 'hello' AND c IS NULL
  * }</pre>
  */
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpression> {
     // TODO: This could use filtered expression partitions, but we have to make modifications to the test infrastructure to ensure there are final children
     @Nonnull
