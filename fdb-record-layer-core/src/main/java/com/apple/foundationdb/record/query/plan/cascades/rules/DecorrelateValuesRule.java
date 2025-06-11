@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Type
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.RegularTranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -267,7 +268,7 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
 
     @Nonnull
     private TranslationMap createTranslationMapFromSelects(@Nonnull Map<CorrelationIdentifier, SelectExpression> valuesById) {
-        TranslationMap.Builder translationBuilder = TranslationMap.builder();
+        RegularTranslationMap.Builder translationBuilder = TranslationMap.regularBuilder();
         valuesById.forEach((id, childSelect) ->
                 translationBuilder
                         .when(id)
