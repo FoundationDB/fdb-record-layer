@@ -854,6 +854,105 @@ class DecorrelateValuesRuleTest {
     }
 
     /**
+     * If we have correlations between values boxes, ensure that they are de-correlated in stages. In the first pass,
+     * values without correlations pointing in should be pushed down, including pushing into the referencing values
+     * box(es). Then another application of the rule on the rewritten values box should yield an appropriate new
+     * values box. Finally, applying the rule to the top expression should simplify this fully.
+     *
+     * <p>
+     * The exact sequence here is something like:
+     * </p>
+     * <pre>{@code
+     *    SELECT T.a, T.b, T.c
+     *       FROM T, values(x = @0, y = @1) AS v1, values(z = v1.y + 1) AS v2
+     *       WHERE T.d = v1.x AND T.a > v2.z
+     * }</pre>
+     * <p>
+     * The first stage pushes the {@code v1} down:
+     * </p>
+     * <pre>{@code
+     *    SELECT T.a, T.b, T.c
+     *       FROM T, (SELECT v1.y + 1 AS z FROM values(x = @0, y = @1) AS v1, range(1)) AS v2
+     *       WHERE T.d = @0 AND T.a > v2.z
+     * }</pre>
+     * <p>
+     * Then we re-write {@code v2}:
+     * </p>
+     * <pre>{@code
+     *    SELECT T.a, T.b, T.c
+     *       FROM T, values(z = @1 + 1) AS v2
+     *       WHERE T.d = @0 AND T.a > v2.z
+     * }</pre>
+     * <p>
+     * Which lets us rewrite the final expression as:
+     * </p>
+     * <pre>{@code
+     *    SELECT T.a, T.b, T.c
+     *       FROM T
+     *       WHERE T.d = @0 AND T.a > (@1 + 1)
+     * }</pre>
+     */
+    @Test
+    void translateInterCorrelatedValuesBoxesInSequence() {
+        final ConstantObjectValue cov1 = ConstantObjectValue.of(Quantifier.constant(), "0", Type.primitiveType(Type.TypeCode.STRING, false));
+        final ConstantObjectValue cov2 = ConstantObjectValue.of(Quantifier.constant(), "1", Type.primitiveType(Type.TypeCode.INT, false));
+        final Quantifier base = baseT();
+
+        final Quantifier range1 = rangeOneQun();
+        final Quantifier valuesBox1 = forEach(GraphExpansion.builder()
+                .addQuantifier(range1)
+                .addResultColumn(Column.of(Optional.of("x"), cov1))
+                .addResultColumn(Column.of(Optional.of("y"), cov2))
+                .build().buildSelect());
+        final Quantifier range2 = rangeOneQun();
+        final Quantifier valuesBox2 = forEach(GraphExpansion.builder()
+                .addQuantifier(range2)
+                .addResultColumn(Column.of(Optional.of("z"), (Value) new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(fieldValue(valuesBox1, "y"), LiteralValue.ofScalar(1L)))))
+                .build().buildSelect());
+
+        // Original select
+        final SelectExpression selectExpression = join(valuesBox1, valuesBox2, base)
+                .addResultColumn(projectColumn(base, "a"))
+                .addResultColumn(projectColumn(base, "b"))
+                .addResultColumn(projectColumn(base, "c"))
+                .addPredicate(fieldPredicate(base, "d", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(valuesBox1, "x"))))
+                .addPredicate(fieldPredicate(base, "a", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, fieldValue(valuesBox2, "z"))))
+                .build().buildSelect();
+
+        // Push down values box 1
+        final SelectExpression newValuesBox2Expr = join(valuesBox1, range2)
+                .addResultColumn(Column.of(Optional.of("z"), (Value) new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(fieldValue(valuesBox1, "y"), LiteralValue.ofScalar(1L)))))
+                .build().buildSelect();
+        final Quantifier newValuesBox2 = forEach(newValuesBox2Expr);
+
+        final SelectExpression expected1 = join(newValuesBox2, base)
+                .addResultColumn(projectColumn(base, "a"))
+                .addResultColumn(projectColumn(base, "b"))
+                .addResultColumn(projectColumn(base, "c"))
+                .addPredicate(fieldPredicate(base, "d", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, cov1)))
+                .addPredicate(fieldPredicate(base, "a", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, fieldValue(newValuesBox2, "z"))))
+                .build().buildSelect();
+        testHelper.assertYields(selectExpression, expected1);
+
+        // Push values box1 into values box 2
+        final SelectExpression finalValuesBox2 = GraphExpansion.builder()
+                .addQuantifier(range2)
+                .addResultColumn(Column.of(Optional.of("z"), (Value) new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(cov2, LiteralValue.ofScalar(1L)))))
+                .build().buildSelect();
+        testHelper.assertYields(newValuesBox2Expr, finalValuesBox2);
+
+        // Simulate the rule having yielded the simplified values box 2 by inserting the expression back into expected1,
+        // and then re-run the rule on the outer select
+        newValuesBox2.getRangesOver().insertExploratoryExpression(finalValuesBox2);
+        final SelectExpression expected2 = selectWithPredicates(base,
+                ImmutableList.of("a", "b", "c"),
+                fieldPredicate(base, "d", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, cov1)),
+                fieldPredicate(base, "a", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, (Value) new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(cov2, LiteralValue.ofScalar(1L)))))
+        );
+        testHelper.assertYields(expected1, expected2);
+    }
+
+    /**
      * If we have an existential quantifier over a values box, we should not
      * attempt to push it down. This is because the existential quantifier does
      * not forward along its values in a way that is useful.
