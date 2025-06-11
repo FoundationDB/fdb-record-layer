@@ -23,13 +23,11 @@ package com.apple.foundationdb.record.query;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.ObjectPlanHash;
-import com.apple.foundationdb.record.QueryHashable;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
-import com.apple.foundationdb.record.util.HashUtils;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -53,7 +51,7 @@ import java.util.Objects;
  * @see com.apple.foundationdb.record.query.plan.RecordQueryPlanner#plan(RecordQuery)
  */
 @API(API.Status.UNSTABLE)
-public class RecordQuery implements QueryHashable {
+public class RecordQuery {
     public static final Collection<String> ALL_TYPES = Collections.emptyList();
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query");
 
@@ -195,11 +193,6 @@ public class RecordQuery implements QueryHashable {
     @Override
     public int hashCode() {
         return Objects.hash(getRecordTypes(), getAllowedIndexes(), queryabilityFilter, getFilter(), getSort(), isSortReverse(), removeDuplicates, getRequiredResults());
-    }
-
-    @Override
-    public int queryHash(@Nonnull final QueryHashable.QueryHashKind hashKind) {
-        return HashUtils.queryHash(hashKind, BASE_HASH, recordTypes, allowedIndexes, queryabilityFilter, filter, sort, sortReverse, removeDuplicates);
     }
 
     public BoundRecordQuery bind(@Nonnull final FDBRecordStore store, @Nonnull final Bindings preBoundParameters) {

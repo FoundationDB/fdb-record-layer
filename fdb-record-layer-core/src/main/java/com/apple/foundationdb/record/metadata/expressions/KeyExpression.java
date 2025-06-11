@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.metadata.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.QueryHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.Key;
@@ -50,7 +49,7 @@ import java.util.List;
  * the interfaces Key.AtomExpression and Key.ExpressionWithChildren.
  */
 @API(API.Status.UNSTABLE)
-public interface KeyExpression extends PlanHashable, QueryHashable {
+public interface KeyExpression extends PlanHashable {
     /**
      * Evaluate against a given record producing a list of evaluated keys. These are extracted from the
      * fields within the record according to the rules of each implementing class.

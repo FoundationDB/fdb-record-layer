@@ -141,11 +141,6 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
             return super.basePlanHash(mode, BASE_HASH);
         }
 
-        @Override
-        public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            return super.baseQueryHash(hashKind, BASE_HASH);
-        }
-
         @Nonnull
         @Override
         public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
@@ -189,11 +184,6 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
         @Override
         public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
             return super.basePlanHash(mode, BASE_HASH);
-        }
-
-        @Override
-        public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            return super.baseQueryHash(hashKind, BASE_HASH);
         }
 
         @Nonnull
@@ -242,11 +232,6 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
             return super.basePlanHash(mode, BASE_HASH);
         }
 
-        @Override
-        public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            return super.baseQueryHash(hashKind, BASE_HASH);
-        }
-
         @Nonnull
         @Override
         public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
@@ -291,11 +276,6 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
         @Override
         public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
             return super.basePlanHash(mode, BASE_HASH);
-        }
-
-        @Override
-        public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            return super.baseQueryHash(hashKind, BASE_HASH);
         }
 
         @Nonnull

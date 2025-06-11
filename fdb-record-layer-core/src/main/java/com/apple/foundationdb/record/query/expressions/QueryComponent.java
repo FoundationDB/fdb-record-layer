@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.QueryHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
@@ -48,7 +47,7 @@ import java.util.function.Supplier;
  * things may happen.
  */
 @API(API.Status.UNSTABLE)
-public interface QueryComponent extends PlanHashable, QueryHashable {
+public interface QueryComponent extends PlanHashable {
     /**
      * Return whether or not the given record matches this component.
      * This may return true or false, but it may also return null. Generally a component should return null if some

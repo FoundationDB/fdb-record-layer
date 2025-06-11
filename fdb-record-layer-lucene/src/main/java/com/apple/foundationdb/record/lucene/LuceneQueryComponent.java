@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.expressions.ComponentWithNoChildren;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.util.HashUtils;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -229,8 +228,4 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChil
         return "LuceneQuery(" + query + ")";
     }
 
-    @Override
-    public int queryHash(@Nonnull final QueryHashKind hashKind) {
-        return HashUtils.queryHash(hashKind, BASE_HASH, type, query);
-    }
 }
