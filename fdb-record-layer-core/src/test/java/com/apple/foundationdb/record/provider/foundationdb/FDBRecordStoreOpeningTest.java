@@ -1049,10 +1049,10 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
         }
         // Note: RecordMetaDataBuilder.build() does not copy structures, so `initialMetaData` will be modified by
         // calls below, but not correctly, that's why I put it in a block to ensure it is not reused
-        final int initialVersion;
+        final int initialMetaDataVersion;
         {
             final RecordMetaData initialMetaData = builder.build();
-            initialVersion = initialMetaData.getVersion();
+            initialMetaDataVersion = initialMetaData.getVersion();
             saveRecords(initialMetaData, 0, 100, () -> { }, () -> { });
         }
 
@@ -1061,30 +1061,16 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
         final RecordMetaData newMetaData = builder.build();
 
         try (FDBRecordContext context = openContext()) {
-            final Map<String, Long> needRebuildIndexes = new ConcurrentHashMap<>();
-            FDBRecordStore store = getStoreBuilder(context, newMetaData, path).setUserVersionChecker(
-                    new FDBRecordStoreBase.UserVersionChecker() {
-                        @Override
-                        @SuppressWarnings("deprecation")
-                        public CompletableFuture<Integer> checkUserVersion(final int oldUserVersion, final int oldMetaDataVersion, final RecordMetaDataProvider metaData) {
-                            assertEquals(0, oldUserVersion);
-                            assertEquals(initialVersion, oldMetaDataVersion);
-                            assertEquals(newMetaData, metaData);
-                            return CompletableFuture.completedFuture(1);
-                        }
+            final IndexState newIndexState = rebuild ? IndexState.READABLE : IndexState.DISABLED;
+            final CountBasedUserVersionChecker userVersionChecker = new CountBasedUserVersionChecker(
+                    initialMetaDataVersion, newMetaData, newIndexState);
+            FDBRecordStore store = getStoreBuilder(context, newMetaData, path)
+                    .setUserVersionChecker(userVersionChecker)
+                    .createOrOpen();
 
-                        @Override
-                        public IndexState needRebuildIndex(final Index indexToRebuild, final long recordCount, final boolean indexOnNewRecordTypes) {
-                            // if this throws an error it just gets swallowed and the index is marked disabled
-                            needRebuildIndexes.put(index.getName(), recordCount);
-                            return rebuild ? IndexState.READABLE : IndexState.DISABLED;
-                        }
-                    }
-            ).createOrOpen();
-
-            assertEquals(needRebuildIndexes, Map.of(index.getName(), 100L));
+            assertEquals(userVersionChecker.needRebuildIndexes, Map.of(index.getName(), 100L));
             recordStore = Pair.of(store, setupPlanner(store, null)).getLeft();
-            assertEquals(rebuild ? IndexState.READABLE : IndexState.DISABLED, recordStore.getAllIndexStates().get(index));
+            assertEquals(newIndexState, recordStore.getAllIndexStates().get(index));
             commit(context);
         }
     }
@@ -1114,29 +1100,13 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
         final RecordMetaData newMetaData = builder.build();
 
         try (FDBRecordContext context = openContext()) {
-            final Map<String, Long> needRebuildIndexes = new ConcurrentHashMap<>();
+            final CountBasedUserVersionChecker userVersionChecker = new CountBasedUserVersionChecker(
+                    initialVersion, newMetaData, IndexState.DISABLED);
             recordStore = getStoreBuilder(context, newMetaData, path)
-                    .setUserVersionChecker(
-                            new FDBRecordStoreBase.UserVersionChecker() {
-                                @Override
-                                @SuppressWarnings("deprecation")
-                                public CompletableFuture<Integer> checkUserVersion(final int oldUserVersion, final int oldMetaDataVersion, final RecordMetaDataProvider metaData) {
-                                    assertEquals(0, oldUserVersion);
-                                    assertEquals(initialVersion, oldMetaDataVersion);
-                                    assertEquals(newMetaData, metaData);
-                                    return CompletableFuture.completedFuture(1);
-                                }
-
-                                @Override
-                                public IndexState needRebuildIndex(final Index indexToRebuild, final long recordCount, final boolean indexOnNewRecordTypes) {
-                                    // if this throws an error it just gets swallowed and the index is marked disabled
-                                    needRebuildIndexes.put(indexToRebuild.getName(), recordCount);
-                                    return IndexState.DISABLED;
-                                }
-                            }
-                    )
+                    .setUserVersionChecker(userVersionChecker)
                     .createOrOpen();
-            assertEquals(Map.of(index.getName(), Long.MAX_VALUE, countIndexName, Long.MAX_VALUE), needRebuildIndexes);
+            assertEquals(Map.of(index.getName(), Long.MAX_VALUE, countIndexName, Long.MAX_VALUE),
+                    userVersionChecker.needRebuildIndexes);
             assertEquals(IndexState.DISABLED, recordStore.getAllIndexStates().get(index));
             assertTrue(recordStore.isIndexDisabled(countIndexName));
             commit(context);
@@ -1224,4 +1194,41 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
     }
 
 
+    private static class CountBasedUserVersionChecker implements FDBRecordStoreBase.UserVersionChecker {
+        private final int initialVersion;
+        private final RecordMetaData newMetaData;
+        private final Map<String, Long> needRebuildIndexes = new ConcurrentHashMap<>();
+        private final IndexState newIndexState;
+
+        public CountBasedUserVersionChecker(final int expectedOldMetaDataVersion,
+                                            final RecordMetaData expectedNewMetaData,
+                                            final IndexState newIndexState) {
+            this.initialVersion = expectedOldMetaDataVersion;
+            this.newMetaData = expectedNewMetaData;
+            this.newIndexState = newIndexState;
+        }
+
+        @Override
+        @SuppressWarnings("deprecation")
+        public CompletableFuture<Integer> checkUserVersion(final int oldUserVersion, final int oldMetaDataVersion,
+                                                           final RecordMetaDataProvider metaData) {
+            assertEquals(0, oldUserVersion);
+            assertEquals(initialVersion, oldMetaDataVersion);
+            assertEquals(newMetaData, metaData);
+            return CompletableFuture.completedFuture(1);
+        }
+
+        @Nonnull
+        @Override
+        public CompletableFuture<IndexState> needRebuildIndex(final Index indexToRebuild,
+                                                              final Supplier<CompletableFuture<Long>> lazyRecordCount,
+                                                              final Supplier<CompletableFuture<Long>> lazyEstimatedSize,
+                                                              final boolean indexOnNewRecordTypes) {
+            return lazyRecordCount.get()
+                    .thenApply(recordCount -> {
+                        needRebuildIndexes.put(indexToRebuild.getName(), recordCount);
+                        return newIndexState;
+                    });
+        }
+    }
 }
