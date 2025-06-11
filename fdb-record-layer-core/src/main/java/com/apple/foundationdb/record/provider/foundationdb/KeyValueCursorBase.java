@@ -186,6 +186,8 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
                 }
                 return Arrays.copyOfRange(lastKey, prefixLength, lastKey.length);
             } else {
+                byte[] result = toProto().toByteArray();
+                System.out.println("result:" + result);
                 return toProto().toByteArray();
             }
         }
@@ -262,7 +264,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         private KeySelector begin;
         private KeySelector end;
         // default to be old now
-        protected SerializationMode serializationMode = SerializationMode.TO_NEW;
+        protected SerializationMode serializationMode = SerializationMode.TO_OLD;
 
         protected Builder(@Nonnull Subspace subspace) {
             this.subspace = subspace;

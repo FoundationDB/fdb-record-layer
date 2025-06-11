@@ -8,12 +8,12 @@ union-tests:
         promote(0l AS LONG)) AS B) | MAP (_ AS _0) | AGG (sum_l(_._0.A) AS _0, sum_l(_._0.B)
         AS _1) | ON EMPTY NULL | MAP (_._0._0 AS A, _._0._1 AS B)
     task_count: 835
-    task_total_time_ms: 24
+    task_total_time_ms: 11
     transform_count: 201
-    transform_time_ms: 5
+    transform_time_ms: 4
     transform_yield_count: 57
-    insert_time_ms: 1
-    insert_new_count: 90
+    insert_time_ms: 0
+    insert_new_count: 86
     insert_reused_count: 7
 -   query: EXPLAIN select sum(Y) as S from (select count(*) as Y from t3 where a <
         10 group by a union all select count(*) from t4) as X
@@ -23,12 +23,12 @@ union-tests:
         promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) |
         ON EMPTY NULL | MAP (_._0._0 AS S)'
     task_count: 831
-    task_total_time_ms: 28
+    task_total_time_ms: 22
     transform_count: 207
-    transform_time_ms: 8
+    transform_time_ms: 7
     transform_yield_count: 56
     insert_time_ms: 1
-    insert_new_count: 75
+    insert_new_count: 73
     insert_reused_count: 5
 -   query: EXPLAIN select sum(Y) as S from (select count(*) as Y from t3 union all
         select count(*) from t1) as X
@@ -39,12 +39,12 @@ union-tests:
         MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS
         S)
     task_count: 912
-    task_total_time_ms: 21
+    task_total_time_ms: 22
     transform_count: 220
-    transform_time_ms: 6
+    transform_time_ms: 5
     transform_yield_count: 64
     insert_time_ms: 1
-    insert_new_count: 94
+    insert_new_count: 90
     insert_reused_count: 7
 -   query: EXPLAIN select sum(Y) as S from (select count(*) as Y from t6 union all
         select count(*) from t7) as X
@@ -54,10 +54,10 @@ union-tests:
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS
         _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)'
     task_count: 1208
-    task_total_time_ms: 28
+    task_total_time_ms: 20
     transform_count: 318
-    transform_time_ms: 9
+    transform_time_ms: 7
     transform_yield_count: 76
     insert_time_ms: 1
-    insert_new_count: 124
+    insert_new_count: 112
     insert_reused_count: 10

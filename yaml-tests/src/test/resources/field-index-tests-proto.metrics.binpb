@@ -1,7 +1,7 @@
 à
 è
 field-index-tests-prototEXPLAIN select count(*) from (select * from (select * from (select * from "MyTable"  where ID = 5) as x) as y) as z;Û
-˜æÇÇ Ö±ö(0ÍÁ!8*@öSCAN([EQUALS promote(@c23 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)∑digraph G {
+˜ñ…ÁÇ ‘‡Å(0ﬂü?8(@öSCAN([EQUALS promote(@c23 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)∑digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -16,10 +16,10 @@
   5 -> 4 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q12> label="q12" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}≈
+}ƒ
 C
-field-index-tests-proto(EXPLAIN select sum(COL1) from "MyTable";˝
-âŒ∏ÁC ó¬Ä(0∆…8@^SCAN(<,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)ˇdigraph G {
+field-index-tests-proto(EXPLAIN select sum(COL1) from "MyTable";¸
+â∆ÔœC º≥\(0Ω™8@^SCAN(<,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)ˇdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -37,7 +37,7 @@ C
 }è
 E
 field-index-tests-proto*EXPLAIN select count(COL1) from "MyTable";≈
-âı¸√C œög(0Ï‰8@ÇSCAN(<,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)£digraph G {
+â˚√¥C “Ú\(0˜å8@ÇSCAN(<,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)£digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

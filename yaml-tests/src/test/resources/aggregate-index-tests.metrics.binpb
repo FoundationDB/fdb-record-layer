@@ -1,7 +1,7 @@
 Ô
 H
 agg-index-tests5EXPLAIN select col1, sum(col2) from T1 group by col1;¢
-–ﬂóç¶ ‹ÇÒ(F0ÿÓ%8@@YAISCAN(MV1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 AS _1)®
+º÷»æ¢ ƒ¢≤(D0äÏA88@YAISCAN(MV1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 AS _1)®
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -11,10 +11,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ö
+}Ñ
 =
-agg-index-tests*EXPLAIN select col1 from T1 group by col1;√
-›Ó–—	Ç £∆É(<0Ü‰683@ZISCAN(VI1 <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.COL1 AS _0) | MAP (_._0._0 AS COL1)»digraph G {
+agg-index-tests*EXPLAIN select col1 from T1 group by col1;¬
+…”Í∆	~ é„ˆ(:0»ñ68-@ZISCAN(VI1 <,>) | MAP (_ AS _0) | AGG () GROUP BY (_._0.COL1 AS _0) | MAP (_._0._0 AS COL1)»digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -30,7 +30,7 @@ digraph G {
 }»
 B
 agg-index-tests/EXPLAIN select sum(col2) from T1 group by col1;Å
-–åíˆ• ‘ö˙(F0èÁK8@@KAISCAN(MV1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)ï
+ºº≠Ñ¢ ÚŸÿ(D0´˝X88@KAISCAN(MV1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)ï
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -43,7 +43,7 @@ digraph G {
 }Å
 Z
 agg-index-testsGEXPLAIN select col1, sum(col2) from T1 group by col1 order by col1 asc;¢
-–∂ò£¶ ®¯†(F0ßH8@@YAISCAN(MV1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 AS _1)®
+ºÑò≠¢ ëúˆ(D0∂¬<88@YAISCAN(MV1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 AS _1)®
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -53,10 +53,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}º
+}Ω
 [
-agg-index-testsHEXPLAIN select col1, sum(col2) from T1 group by col1 order by col1 desc;‹
-–Ï´∏¶ ‰Ö®(F0Ã´K8@@aAISCAN(MV1 <,> BY_GROUP REVERSE -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 AS _1)⁄
+agg-index-testsHEXPLAIN select col1, sum(col2) from T1 group by col1 order by col1 desc;›
+ºÄ√„¢ „ö«(D0±ıª88@aAISCAN(MV1 <,> BY_GROUP REVERSE -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 AS _1)⁄
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -69,7 +69,7 @@ digraph G {
 }˚
 L
 agg-index-tests9EXPLAIN select col1, sum(col2) + 1 from T1 group by col1;™
-–ü˙÷¶ ò¸(F0ı‚O8@@]AISCAN(MV1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 + 1 AS _1)¨
+º†¿À¢ ÚÉœ(D0ˇ⁄C88@]AISCAN(MV1 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 + 1 AS _1)¨
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -82,7 +82,7 @@ digraph G {
 }Ì
 H
 agg-index-tests5EXPLAIN select col1, max(col2) from T1 group by col1;†
-‰ÎÖ©™ ùºÎ(H0’≥P8@@WAISCAN(MV8 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS COL1, _._1 AS _1)®
+–¸°É¶ É›(F0ûﬁH8:@WAISCAN(MV8 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS COL1, _._1 AS _1)®
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -95,7 +95,7 @@ digraph G {
 }˚
 V
 agg-index-testsCEXPLAIN select col1, max(col2) from T1 group by col1 order by col1;†
-‰∂¿∆	™ ÛäÎ(H0Üö78@@WAISCAN(MV8 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS COL1, _._1 AS _1)®
+–ﬂ ≥¶ œ‚∫(F0ï¡I8:@WAISCAN(MV8 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS COL1, _._1 AS _1)®
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -108,7 +108,7 @@ digraph G {
 }∫
 [
 agg-index-testsHEXPLAIN select col1, max(col2) from T1 group by col1 order by col1 desc;⁄
-‰•Â§™ ∑ÃÔ(H0÷∞C8@@_AISCAN(MV8 <,> BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS COL1, _._1 AS _1)⁄
+–éŒ–¶ Êç´(F0ÑˆG8:@_AISCAN(MV8 <,> BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS COL1, _._1 AS _1)⁄
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -121,7 +121,7 @@ digraph G {
 }´
 X
 agg-index-testsEEXPLAIN select col1, max(col2) from T1 where col1 = 10 group by col1;Œ
-æØ∫˘‹ ˙Â›(P0”‚X8\@rAISCAN(MV8 [EQUALS promote(@c13 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS COL1, _._1 AS _1)ª
+™˘ü¸ÿ ‰Ó¬(N0ÖêR8N@rAISCAN(MV8 [EQUALS promote(@c13 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS COL1, _._1 AS _1)ª
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -134,7 +134,7 @@ digraph G {
 }≥
 D
 agg-index-tests1EXPLAIN select max(col2) from T1 use index (mv8);Í
-≥ì©◊N ‘≤“(0„√8 @cISCAN(MV8 <,>) | MAP (_ AS _0) | AGG (max_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)Ádigraph G {
+≥∑∫©N ¥–◊(0¯©8@cISCAN(MV8 <,>) | MAP (_ AS _0) | AGG (max_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)Ádigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -152,7 +152,7 @@ D
 }›
 ?
 agg-index-tests,EXPLAIN select col2 from T1 where col1 = 10;ô
-∫ï≈¢– …∂˚(J0î™h8W@nCOVERING(MV8 [EQUALS promote(@c8 AS LONG)] -> [COL1: KEY[0], COL2: KEY[1], ID: KEY[3]]) | MAP (_.COL2 AS COL2)ä
+∫Ë‡ø– ÑæÄ(J0¢ˆm8O@nCOVERING(MV8 [EQUALS promote(@c8 AS LONG)] -> [COL1: KEY[0], COL2: KEY[1], ID: KEY[3]]) | MAP (_.COL2 AS COL2)ä
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -165,7 +165,7 @@ digraph G {
 }¶
 R
 agg-index-tests?EXPLAIN select col2 from T1 where col1 = 10 order by col2 desc;œ
-ä÷ÁµP ô«“(00Ú£8@ vCOVERING(MV8 [EQUALS promote(@c8 AS LONG)] REVERSE -> [COL1: KEY[0], COL2: KEY[1], ID: KEY[3]]) | MAP (_.COL2 AS COL2)π
+ä»†ÈP Ç€ÿ(00à¢8@ vCOVERING(MV8 [EQUALS promote(@c8 AS LONG)] REVERSE -> [COL1: KEY[0], COL2: KEY[1], ID: KEY[3]]) | MAP (_.COL2 AS COL2)π
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -178,7 +178,7 @@ digraph G {
 }⁄
 H
 agg-index-tests5EXPLAIN select min(col3) from T2 group by col1, col2;ç
-Â¥√∂d ¡‡˚(60âû8@ISCAN(MV2 <,>) | MAP (_ AS _0) | AGG (min_l(_._0.COL3) AS _0) GROUP BY (_._0.COL1 AS _0, _._0.COL2 AS _1) | MAP (_._1._0 AS _0)Ódigraph G {
+ÂÇŒ d ò⁄æ(60ÃÀ8@ISCAN(MV2 <,>) | MAP (_ AS _0) | AGG (min_l(_._0.COL3) AS _0) GROUP BY (_._0.COL1 AS _0, _._0.COL2 AS _1) | MAP (_._1._0 AS _0)Ódigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -191,10 +191,10 @@ H
   4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ß
+}®
 4
-agg-index-tests!EXPLAIN select max(col2) from t2;Ó
-ïøî¶≠ ¢î”(F0ˇ⁄v8]@cISCAN(MV3 <,>) | MAP (_ AS _0) | AGG (max_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)Ídigraph G {
+agg-index-tests!EXPLAIN select max(col2) from t2;Ô
+ïÓ‹Â≠ ®â≠(F0Áëå8K@cISCAN(MV3 <,>) | MAP (_ AS _0) | AGG (max_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)Ídigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -212,7 +212,7 @@ H
 }Î
 X
 agg-index-testsEEXPLAIN select col1, sum(col2) from T1 USE INDEX (vi1) group by col1;é
-°ã∂ŒH ç–ã(0¨±8@ISCAN(VI1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._0._0 AS COL1, _._1._0 AS _1)Ôdigraph G {
+°Ø’ãH µò«(0™ 8@ISCAN(VI1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._0._0 AS COL1, _._1._0 AS _1)Ôdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -228,7 +228,7 @@ X
 }Ÿ
 H
 agg-index-tests5EXPLAIN select max(col2) from t2 group by col1, col3;å
-Ë‘Æ¿® ¶πÏ(J0åµJ8@@VAISCAN(MV9 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._2 AS _0)ï
+‘¯Ä“• ¶º¨(H0≠áL8:@VAISCAN(MV9 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._2 AS _0)ï
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -241,7 +241,7 @@ digraph G {
 }£
 T
 agg-index-testsAEXPLAIN select col1, col3, max(col2) from t2 group by col1, col3; 
-ËˆÁ£™ “›–	(J0£¬Z8@@rAISCAN(MV9 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._0 AS COL1, _._1 AS COL3, _._2 AS _2)∑
+‘¥å∑¶ Óﬂ±	(H0ΩìK8:@rAISCAN(MV9 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._0 AS COL1, _._1 AS COL3, _._2 AS _2)∑
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -254,7 +254,8 @@ digraph G {
 }Ω
 ]
 agg-index-testsJEXPLAIN select col3, max(col2) from t2 where col1 = 2 group by col1, col3;€
-¬”õÌ‹ ÷ö¥	(R0π„Z8\@AISCAN(MV9 [EQUALS promote(@c13 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS _1)ª
+Æï∆¸ÿ ’¢Ø
+(P0ÂΩ]8N@AISCAN(MV9 [EQUALS promote(@c13 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS _1)ª
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -267,7 +268,8 @@ digraph G {
 }è
 u
 agg-index-testsbEXPLAIN select col3, max(col2) from t2 where col1 = 1 group by col1, col3 order by max(col2) desc;ï
-ÔÅı∫n Æœæ(:0Ú¨8@áAISCAN(MV9 [EQUALS promote(@c13 AS LONG)] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS _1)Ì
+Ô∏ÚÊ
+n Ú‹à(:0ëå8@áAISCAN(MV9 [EQUALS promote(@c13 AS LONG)] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS _1)Ì
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -280,7 +282,7 @@ digraph G {
 }Î
 ä
 agg-index-testswEXPLAIN select col3, max(col2) from t2 where col1 = 1 group by col1, col3 having max(col2) < 2 order by max(col2) desc;€
-˙ÉÏî	o ã≤Ñ(:0È∏8@™AISCAN(MV9 [EQUALS promote(@c13 AS LONG), [LESS_THAN promote(@c25 AS LONG)]] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS _1)êdigraph G {
+˙®¡˚o ÉÔÔ(:0…â8@™AISCAN(MV9 [EQUALS promote(@c13 AS LONG), [LESS_THAN promote(@c25 AS LONG)]] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS _1)êdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -292,7 +294,7 @@ digraph G {
 }Á
 û
 agg-index-testsäEXPLAIN select col3, max(col2) from t2 where col1 = 1 group by col1, col3 having max(col2) < 2 and max(col2) >= 1 order by max(col2) desc;√
-˙◊‚·o  ¢Ô(:0Ôª!8@⁄AISCAN(MV9 [EQUALS promote(@c13 AS LONG), [GREATER_THAN_OR_EQUALS promote(@c13 AS LONG) && LESS_THAN promote(@c25 AS LONG)]] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS _1)»digraph G {
+˙Ìí’o ¸àí(:0è«8@⁄AISCAN(MV9 [EQUALS promote(@c13 AS LONG), [GREATER_THAN_OR_EQUALS promote(@c13 AS LONG) && LESS_THAN promote(@c25 AS LONG)]] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS _1)»digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -304,7 +306,7 @@ digraph G {
 }√
 ñ
 agg-index-testsÇEXPLAIN select t.* from (select col3, max(col2) as m from t2 where col1 = 1 group by col1, col3) as t where m < 2 order by m desc;ß
-ƒÖÎ‚	 »ƒ…(;0Ùé+8 @≥AISCAN(MV9 [EQUALS promote(@c21 AS LONG)] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS M) | FILTER _.M LESS_THAN promote(@c33 AS LONG)”digraph G {
+ƒÏ˝† Î¡∏(;0„◊'8@≥AISCAN(MV9 [EQUALS promote(@c21 AS LONG)] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS M) | FILTER _.M LESS_THAN promote(@c33 AS LONG)”digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -318,7 +320,7 @@ digraph G {
 }•
 ç
 agg-index-testszEXPLAIN select col3, m from (select col3, max(col2) as m from t2 where col1 = 1 group by col1, col3) as t order by m desc;í
-ƒ€ÓÙ §‚˛(;0∏Ù+8 @ßAISCAN(MV9 [EQUALS promote(@c21 AS LONG)] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS M) | MAP (_.COL3 AS COL3, _.M AS M) digraph G {
+ƒ®ƒó ﬂ¨Ñ(;0∏π(8@ßAISCAN(MV9 [EQUALS promote(@c21 AS LONG)] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS M) | MAP (_.COL3 AS COL3, _.M AS M) digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -332,7 +334,7 @@ digraph G {
 }•
 V
 agg-index-testsCEXPLAIN select col3, col2 from t2 where col1 = 1 order by col3 asc; 
-—å˘Ûe ‹ë¢(60‰˘8@ çCOVERING(MV9 [EQUALS promote(@c10 AS LONG)] -> [COL1: KEY[0], COL2: KEY[2], COL3: KEY[1], ID: KEY[4]]) | MAP (_.COL3 AS COL3, _.COL2 AS COL2)ú
+—Ø◊‘e ‰ŸØ(60◊◊8@ çCOVERING(MV9 [EQUALS promote(@c10 AS LONG)] -> [COL1: KEY[0], COL2: KEY[2], COL3: KEY[1], ID: KEY[4]]) | MAP (_.COL3 AS COL3, _.COL2 AS COL2)ú
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -345,7 +347,7 @@ digraph G {
 }‡
 W
 agg-index-testsDEXPLAIN select col3, col2 from t2 where col1 = 1 order by col3 desc;Ñ
-—ºõ«e ·Öﬂ(60Ò∞8@ ïCOVERING(MV9 [EQUALS promote(@c10 AS LONG)] REVERSE -> [COL1: KEY[0], COL2: KEY[2], COL3: KEY[1], ID: KEY[4]]) | MAP (_.COL3 AS COL3, _.COL2 AS COL2)Œ
+—†˜◊e îÑÆ(60™≈8@ ïCOVERING(MV9 [EQUALS promote(@c10 AS LONG)] REVERSE -> [COL1: KEY[0], COL2: KEY[2], COL3: KEY[1], ID: KEY[4]]) | MAP (_.COL3 AS COL3, _.COL2 AS COL2)Œ
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -358,7 +360,7 @@ digraph G {
 }Î
 Ñ
 agg-index-testsqEXPLAIN select col3, sum(col2) as s from t2 use index (mv9) where col1 = 1 group by col1, col3 order by col3 asc;·
-âÈ†¨F ÕÌ˜(0π¿8@ ™ISCAN(MV9 [EQUALS promote(@c20 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP (_._0._1 AS COL3, _._1._0 AS S)ñdigraph G {
+â√«F Øè÷(0ÿﬂ8@ ™ISCAN(MV9 [EQUALS promote(@c20 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP (_._0._1 AS COL3, _._1._0 AS S)ñdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -374,7 +376,7 @@ digraph G {
 }¶
 Ö
 agg-index-testsrEXPLAIN select col3, sum(col2) as s from t2 use index (mv9) where col1 = 1 group by col1, col3 order by col3 desc;õ
-â·ïõF ·Èç(0ø›8@ ≤ISCAN(MV9 [EQUALS promote(@c20 AS LONG)] REVERSE) | MAP (_ AS _0) | AGG (sum_l(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP (_._0._1 AS COL3, _._1._0 AS S)»digraph G {
+âöé—F  äö(0¬º8@ ≤ISCAN(MV9 [EQUALS promote(@c20 AS LONG)] REVERSE) | MAP (_ AS _0) | AGG (sum_l(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP (_._0._1 AS COL3, _._1._0 AS S)»digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -387,10 +389,10 @@ digraph G {
   4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‡
+}ﬂ
 H
-agg-index-tests5EXPLAIN select max(col3) from t2 group by col1, col3;ì
-·íº˘Å éÒÎ(>0‹⁄983@ISCAN(MV3 <,>) | MAP (_ AS _0) | AGG (max_l(_._0.COL3) AS _0) GROUP BY (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP (_._1._0 AS _0)Ûdigraph G {
+agg-index-tests5EXPLAIN select max(col3) from t2 group by col1, col3;í
+Õµ±á~ µË∞(<0Á¢*8-@ISCAN(MV3 <,>) | MAP (_ AS _0) | AGG (max_l(_._0.COL3) AS _0) GROUP BY (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP (_._1._0 AS _0)Ûdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -403,10 +405,10 @@ H
   4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ô
+}Ó
 8
-agg-index-tests%EXPLAIN select min_ever(col3) from t2≤
-Èÿßû‡ √•Ô(J0˘çÉ8S@aAISCAN(MV7 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)Ødigraph G {
+agg-index-tests%EXPLAIN select min_ever(col3) from t2±
+Èœê¶‡ ˝ ‡(J0–Èm8M@aAISCAN(MV7 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)Ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -422,7 +424,7 @@ H
 }Ù
 M
 agg-index-tests:EXPLAIN select col1, max_ever(col2) from T1 group by col1;¢
-ﬂ¬ó∏‹ µ©ü(P0ÖJ8U@YAISCAN(MV6 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 AS _1)®
+ë‘ﬁô¿ ∫Â˘(L0ÄÖm8=@YAISCAN(MV6 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 AS _1)®
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -435,7 +437,7 @@ digraph G {
 }ˆ
 M
 agg-index-tests:EXPLAIN select col1, min_ever(col2) from T1 group by col1;§
-û£≈◊ü ⁄í≤(B0ŸÇD86@ZAISCAN(MV12 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 AS _1)©
+û Ïﬂü “ö¨(B0ÒÊ<82@ZAISCAN(MV12 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 AS _1)©
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -448,7 +450,7 @@ digraph G {
 }ı
 M
 agg-index-tests:EXPLAIN select col2, max_ever(col1) from T4 group by col2;£
-ºÒÍÚY Ÿ„ü( 0Ã¿8@ZAISCAN(MV15 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL2, _._1 AS _1)©
+ºùŒÇY °Ó¨( 0¥´8@ZAISCAN(MV15 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL2, _._1 AS _1)©
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -461,7 +463,7 @@ digraph G {
 }ı
 M
 agg-index-tests:EXPLAIN select col2, min_ever(col1) from T4 group by col2;£
-º˜”£Y î§ ( 0ò‰8@ZAISCAN(MV14 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL2, _._1 AS _1)©
+º•æïY ˜œ€( 0Ëã8@ZAISCAN(MV14 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL2, _._1 AS _1)©
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -474,7 +476,7 @@ digraph G {
 }Ω
 X
 agg-index-testsEEXPLAIN select col1, sum(col2) from T1 where col1 > 15 group by col1;‡
-™ÍùÚÿ ‚πÈ(N0«œV8\@|AISCAN(MV1 [[GREATER_THAN promote(@c13 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 AS _1)√
+ñ «ê‘ ’·‹(L0˜∞i8L@|AISCAN(MV1 [[GREATER_THAN promote(@c13 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._0 AS COL1, _._1 AS _1)√
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -487,7 +489,7 @@ digraph G {
 }Ü
 R
 agg-index-tests?EXPLAIN select sum(col2) from T1 where col1  = 10 group by col1Ø
-™‡ä¥ÿ ∞£ù(N0ﬁﬂ.8\@fAISCAN(MV1 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)®
+ñ§ÏÂ‘ Æáä(L0ßÏP8L@fAISCAN(MV1 [EQUALS promote(@c11 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)®
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -500,7 +502,7 @@ digraph G {
 }ä
 c
 agg-index-testsPEXPLAIN select sum(col2) from T1 where col1 <= 10 group by col1 having col1 > 0;¢
-¿Ü∏⁄Ÿ Û¢±(N0≥∞^8^@õAISCAN(MV1 [[GREATER_THAN promote(@c19 AS LONG) && LESS_THAN_OR_EQUALS promote(@c12 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)Â
+°ˆá¯’ Ã˚¿(L0“ØW8M@õAISCAN(MV1 [[GREATER_THAN promote(@c19 AS LONG) && LESS_THAN_OR_EQUALS promote(@c12 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)Â
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -513,8 +515,8 @@ digraph G {
 }Ô
 O
 agg-index-tests<EXPLAIN select max(b) as x1, a+3 as x2 from t3 group by a+3;õ
-≠’í¥
-{ çÛó(10üã,8'@VAISCAN(MV10 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._1 AS X1, _._0 AS X2)•
+≠ﬁÏï
+{ ∂Ç∞(10Âó$8%@VAISCAN(MV10 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._1 AS X1, _._0 AS X2)•
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -527,8 +529,7 @@ digraph G {
 }Ô
 O
 agg-index-tests<EXPLAIN select a+3 as x1, max(b) as x2 from t3 group by a+3;õ
-≠ö’…
-{ ∂óõ(10ä¡*8'@VAISCAN(MV10 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS X1, _._1 AS X2)•
+≠ö√Ù	{ Ã£‹(10∏‰#8%@VAISCAN(MV10 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._0 AS X1, _._1 AS X2)•
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -541,7 +542,7 @@ digraph G {
 }Ç
 U
 agg-index-testsBEXPLAIN select a+b as x1, min(b) as x2 from t3 group by a+b, b+10;®
-≠∏ÏÊ{ Ê√Â(10°´/8'@cAISCAN(MV11 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2]]) | MAP (_._0 AS X1, _._2 AS X2)•
+≠˝ œ{ …ü∫(10˜‡&8%@cAISCAN(MV11 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2]]) | MAP (_._0 AS X1, _._2 AS X2)•
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -554,7 +555,7 @@ digraph G {
 }Ö
 X
 agg-index-testsEEXPLAIN select M as x1, min(b) as x2 from t3 group by a+b as M, b+10;®
-≠É≤’{ €„¸(10≤£+8'@cAISCAN(MV11 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2]]) | MAP (_._0 AS X1, _._2 AS X2)•
+≠óÜÙ{ Ë≈÷(10íæ&8%@cAISCAN(MV11 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2]]) | MAP (_._0 AS X1, _._2 AS X2)•
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -567,7 +568,7 @@ digraph G {
 }ä
 ]
 agg-index-testsJEXPLAIN select M as x1, min(b) as x2 from t3 group by a+b as M, b+10 as N;®
-≠⁄ﬂÿ{ ä“ú(10ÿç.8'@cAISCAN(MV11 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2]]) | MAP (_._0 AS X1, _._2 AS X2)•
+≠ê˙©{ »“ç(10Ã©&8%@cAISCAN(MV11 <,> BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2]]) | MAP (_._0 AS X1, _._2 AS X2)•
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -580,7 +581,7 @@ digraph G {
 }º
 c
 agg-index-testsPEXPLAIN select max(b) as x1, a+3 as x2 from t3 where a + 3 < 10000 group by a+3;‘
-˝ÑöÀè ﬂùû(40ì˝:8/@vAISCAN(MV10 [[LESS_THAN promote(@c21 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._1 AS X1, _._0 AS X2)Ω
+˝«óËè ˙‡Ö(40Ÿ…(8+@vAISCAN(MV10 [[LESS_THAN promote(@c21 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1]]) | MAP (_._1 AS X1, _._0 AS X2)Ω
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -590,4 +591,367 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV10</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}¬
+{
+agg-index-testshEXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e order by b, max(x), c, d, e¬
+Ö´∞Éu óπ’(E0”À8@≈AISCAN(MV16 [EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4)‹
+digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1 AS B, q6._2 AS C, q6._3 AS D, q6._4 AS E, q6._5 AS _4)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c19 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV16</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}π
+r
+agg-index-tests_EXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e order by b, max(x)¬
+ÖÉòãu äËŒ(E0˙ª8@≈AISCAN(MV16 [EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4)‹
+digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1 AS B, q6._2 AS C, q6._3 AS D, q6._4 AS E, q6._5 AS _4)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c19 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV16</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}¬
+{
+agg-index-testshEXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e order by b, min(x), c, d, e¬
+Öü˚»u ¸®√(E0ñ–8@≈AISCAN(MV17 [EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4)‹
+digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1 AS B, q6._2 AS C, q6._3 AS D, q6._4 AS E, q6._5 AS _4)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c19 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV17</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}π
+r
+agg-index-tests_EXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e order by b, min(x)¬
+Ö©Æîu ˛≥é(E0âÏ8@≈AISCAN(MV17 [EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4)‹
+digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1 AS B, q6._2 AS C, q6._3 AS D, q6._4 AS E, q6._5 AS _4)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c19 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV17</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}¬
+{
+agg-index-testshEXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e order by b, c, max(x), d, e¬
+Öœò…u Õ◊ü(E0ú®8@≈AISCAN(MV18 [EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4)‹
+digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1 AS B, q6._2 AS C, q6._3 AS D, q6._4 AS E, q6._5 AS _4)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c19 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV18</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}º
+u
+agg-index-testsbEXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e order by b, c, max(x)¬
+ÖäÇÓu ∑÷∆(E0ßñ8@≈AISCAN(MV18 [EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4)‹
+digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1 AS B, q6._2 AS C, q6._3 AS D, q6._4 AS E, q6._5 AS _4)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c19 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV18</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}¬
+{
+agg-index-testshEXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e order by b, c, min(x), d, e¬
+ÖÕÔ≠u ÙÅê(E0á‰8@≈AISCAN(MV19 [EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4)‹
+digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1 AS B, q6._2 AS C, q6._3 AS D, q6._4 AS E, q6._5 AS _4)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c19 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV19</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}º
+u
+agg-index-testsbEXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e order by b, c, min(x)¬
+ÖŸã¢u Üá·
+(E0´±8@≈AISCAN(MV19 [EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4)‹
+digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1 AS B, q6._2 AS C, q6._3 AS D, q6._4 AS E, q6._5 AS _4)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c19 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV19</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Û
+ç
+agg-index-testszEXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') order by max(x), c‡
+÷ôÖ‚!÷ ê°É(U0◊≠-8'@ í[IN @c34] INUNION q0 -> { AISCAN(MV16 [EQUALS promote(@c19 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)¨digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">In Union</td></tr><tr><td align="left">COMPARE BY (_._4, _.C, _.B, _.D, _.E)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1 AS B, q6._2 AS C, q6._3 AS D, q6._4 AS E, q6._5 AS _4)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c19 AS LONG), EQUALS q87]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV16</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q87 IN @c34]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    5 -> 2 [ color="red" style="invis" ];
+  }
+}Û
+ç
+agg-index-testszEXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') order by min(x), c‡
+÷≥û¢$÷ ì˜√(U0ÎØX8'@ í[IN @c34] INUNION q0 -> { AISCAN(MV17 [EQUALS promote(@c19 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)¨digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">In Union</td></tr><tr><td align="left">COMPARE BY (_._4, _.C, _.B, _.D, _.E)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1 AS B, q6._2 AS C, q6._3 AS D, q6._4 AS E, q6._5 AS _4)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c19 AS LONG), EQUALS q87]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV17</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q87 IN @c34]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    5 -> 2 [ color="red" style="invis" ];
+  }
+}å
+ò
+agg-index-testsÑEXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d = 1 order by max(x), cÓ
+¶¨Ê¢Ê Åœ∏(\0 Û%83@ Ω[IN @c34] INUNION q0 -> { AISCAN(MV16 [EQUALS promote(@c19 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS promote(@c42 AS LONG) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)èdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">In Union</td></tr><tr><td align="left">COMPARE BY (_._4, _.C, _.B, _.D, _.E)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1 AS B, q6._2 AS C, q6._3 AS D, q6._4 AS E, q6._5 AS _4)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q6._3 EQUALS promote(@c42 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c19 AS LONG), EQUALS q87]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV16</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q87 IN @c34]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    6 -> 2 [ color="red" style="invis" ];
+  }
+}å
+ò
+agg-index-testsÑEXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d = 1 order by min(x), cÓ
+¶Ì†§(Ê ˙ë»(\0Õ∑=83@ Ω[IN @c34] INUNION q0 -> { AISCAN(MV17 [EQUALS promote(@c19 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS promote(@c42 AS LONG) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)èdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">In Union</td></tr><tr><td align="left">COMPARE BY (_._4, _.C, _.B, _.D, _.E)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1 AS B, q6._2 AS C, q6._3 AS D, q6._4 AS E, q6._5 AS _4)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q6._3 EQUALS promote(@c42 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c19 AS LONG), EQUALS q87]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV17</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q87 IN @c34]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    6 -> 2 [ color="red" style="invis" ];
+  }
+}í"
+û
+agg-index-testsäEXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d IN (1, 2) order by max(x), cÓ 
+≥—ËŒ_ª ”óŸ!(ï0ﬂ∂˛8ò@˙[IN @c34] INUNION q0 -> { [IN promote(@c42 AS ARRAY(LONG))] INUNION q1 -> { AISCAN(MV16 [EQUALS promote(@c19 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.D, _.E) } COMPARE BY (_._4, _.C, _.B, _.E)œdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">In Union</td></tr><tr><td align="left">COMPARE BY (_._4, _.C, _.B, _.E)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">In Union</td></tr><tr><td align="left">COMPARE BY (_._4, _.C, _.D, _.E)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q89 IN promote(@c42 AS ARRAY(LONG))]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1 AS B, q6._2 AS C, q6._3 AS D, q6._4 AS E, q6._5 AS _4)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q6._3 EQUALS q89</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c19 AS LONG), EQUALS q87]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV16</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q87 IN @c34]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    3 -> 4 [ color="red" style="invis" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    8 -> 2 [ color="red" style="invis" ];
+  }
+}í"
+û
+agg-index-testsäEXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d IN (1, 2) order by min(x), cÓ 
+≥”€‡`ª ‘€Ë!(ï0ìÍå8ò@˙[IN @c34] INUNION q0 -> { [IN promote(@c42 AS ARRAY(LONG))] INUNION q1 -> { AISCAN(MV17 [EQUALS promote(@c19 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.D, _.E) } COMPARE BY (_._4, _.C, _.B, _.E)œdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">In Union</td></tr><tr><td align="left">COMPARE BY (_._4, _.C, _.B, _.E)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">In Union</td></tr><tr><td align="left">COMPARE BY (_._4, _.C, _.D, _.E)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q89 IN promote(@c42 AS ARRAY(LONG))]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1 AS B, q6._2 AS C, q6._3 AS D, q6._4 AS E, q6._5 AS _4)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q6._3 EQUALS q89</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c19 AS LONG), EQUALS q87]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV17</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q87 IN @c34]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    8 -> 2 [ color="red" style="invis" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    3 -> 4 [ color="red" style="invis" ];
+  }
+}ï"
+°
+agg-index-testsçEXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d IN (1, 2) order by max(x), c, eÓ 
+È“¬ßXß ‡¥ı#(á0≥¿Ä8Ç@˙[IN @c34] INUNION q0 -> { [IN promote(@c42 AS ARRAY(LONG))] INUNION q1 -> { AISCAN(MV16 [EQUALS promote(@c19 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.E, _.D) } COMPARE BY (_._4, _.C, _.E, _.B)œdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">In Union</td></tr><tr><td align="left">COMPARE BY (_._4, _.C, _.E, _.B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">In Union</td></tr><tr><td align="left">COMPARE BY (_._4, _.C, _.E, _.D)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1 AS B, q6._2 AS C, q6._3 AS D, q6._4 AS E, q6._5 AS _4)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q89 IN promote(@c42 AS ARRAY(LONG))]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q6._3 EQUALS q89</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c19 AS LONG), EQUALS q87]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV16</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q87 IN @c34]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    4 -> 3 [ color="red" style="invis" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    8 -> 2 [ color="red" style="invis" ];
+  }
+}ï"
+°
+agg-index-testsçEXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d IN (1, 2) order by min(x), c, eÓ 
+Èÿ∆ Mß •≤‰(á0Ü« 8Ç@˙[IN @c34] INUNION q0 -> { [IN promote(@c42 AS ARRAY(LONG))] INUNION q1 -> { AISCAN(MV17 [EQUALS promote(@c19 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.E, _.D) } COMPARE BY (_._4, _.C, _.E, _.B)œdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">In Union</td></tr><tr><td align="left">COMPARE BY (_._4, _.C, _.E, _.B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">In Union</td></tr><tr><td align="left">COMPARE BY (_._4, _.C, _.E, _.D)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q89 IN promote(@c42 AS ARRAY(LONG))]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1 AS B, q6._2 AS C, q6._3 AS D, q6._4 AS E, q6._5 AS _4)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q6._3 EQUALS q89</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c19 AS LONG), EQUALS q87]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV17</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q87 IN @c34]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    8 -> 2 [ color="red" style="invis" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    3 -> 4 [ color="red" style="invis" ];
+  }
+}∫
+ò
+agg-index-testsÑEXPLAIN select b, c, d, e, max(x) from t5 where a = 0 and c = 0 group by a, b, c, d, e having b IN ('foo', 'bar') order by max(x), dú
+í÷’Î-‚ ¢Õ‚([0‘ﬂ880@ ∞[IN @c38] INUNION q0 -> { AISCAN(MV18 [EQUALS promote(@c19 AS LONG), EQUALS q0, EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.D, _.B, _.C, _.E) digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">In Union</td></tr><tr><td align="left">COMPARE BY (_._4, _.D, _.B, _.C, _.E)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1 AS B, q6._2 AS C, q6._3 AS D, q6._4 AS E, q6._5 AS _4)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c19 AS LONG), EQUALS q87, EQUALS promote(@c19 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV18</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q87 IN @c38]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    5 -> 2 [ color="red" style="invis" ];
+  }
+}∫
+ò
+agg-index-testsÑEXPLAIN select b, c, d, e, min(x) from t5 where a = 0 and c = 0 group by a, b, c, d, e having b IN ('foo', 'bar') order by min(x), dú
+íˇã√,‚ ¡ À([0·˚;80@ ∞[IN @c38] INUNION q0 -> { AISCAN(MV19 [EQUALS promote(@c19 AS LONG), EQUALS q0, EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.D, _.B, _.C, _.E) digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">In Union</td></tr><tr><td align="left">COMPARE BY (_._4, _.D, _.B, _.C, _.E)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1 AS B, q6._2 AS C, q6._3 AS D, q6._4 AS E, q6._5 AS _4)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">scan type: BY_GROUP</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c19 AS LONG), EQUALS q87, EQUALS promote(@c19 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MV19</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q87 IN @c38]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS B, )" ];
+  3 -> 2 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    rank=same;
+    rankDir=LR;
+    5 -> 2 [ color="red" style="invis" ];
+  }
 }
