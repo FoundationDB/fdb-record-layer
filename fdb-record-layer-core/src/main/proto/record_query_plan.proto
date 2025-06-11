@@ -1405,6 +1405,7 @@ message PRecordQueryPlan {
     PTempTableInsertPlan temp_table_insert_plan = 35;
     PRecursiveUnionQueryPlan recursive_union_query_plan = 36;
     PRecordQueryTableFunctionPlan table_function_plan = 37;
+    PRecordQueryStreamingAggregationPlan2 streaming_aggregation_plan2 = 38;
   }
 }
 
@@ -1893,6 +1894,15 @@ message PRecordQueryStreamingAggregationPlan {
     optional string aggregate_alias = 5;
     optional PValue complete_result_value = 6;
     optional bool is_create_default_on_empty = 7;
+}
+
+message PRecordQueryStreamingAggregationPlan2 {
+    optional PPhysicalQuantifier inner = 1;
+    optional PValue aggregate_value = 2;
+    optional PValue grouping_key_value = 3;
+    optional string grouping_key_alias = 4;
+    optional string aggregate_alias = 5;
+    optional PValue complete_result_value = 6;
 }
 
 //

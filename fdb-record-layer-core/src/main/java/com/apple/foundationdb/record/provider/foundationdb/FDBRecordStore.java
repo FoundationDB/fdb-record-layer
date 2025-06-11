@@ -96,11 +96,13 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.StoreIsLockedForRecordUpdates;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerializationRegistry;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
@@ -445,6 +447,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return recordStoreStateRef.get();
     }
 
+    private CompletableFuture<RecordStoreState> getRecordStoreStateAsync() {
+        final MutableRecordStoreState localStoreState = recordStoreStateRef.get();
+        if (localStoreState != null) {
+            return CompletableFuture.completedFuture(localStoreState);
+        }
+        return preloadRecordStoreStateAsync()
+                .thenApply(ignore -> Objects.requireNonNull(recordStoreStateRef.get()));
+    }
+
     @Override
     @Nonnull
     public RecordSerializer<Message> getSerializer() {
@@ -542,7 +553,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (isDryRun) {
                 final FDBStoredRecord<M> newRecord = dryRunSetSizeInfo(typedSerializer, recordBuilder, metaData);
                 return CompletableFuture.completedFuture(newRecord);
-            } else {
+            }
+            return getRecordStoreStateAsync().thenCompose(recordStoreState -> {
+                validateRecordUpdateAllowed(recordStoreState);
                 final FDBStoredRecord<M> newRecord = serializeAndSaveRecord(typedSerializer, recordBuilder, metaData, oldRecord);
                 if (oldRecord == null) {
                     addRecordCount(metaData, newRecord, LITTLE_ENDIAN_INT64_ONE);
@@ -552,7 +565,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     }
                 }
                 return updateSecondaryIndexes(oldRecord, newRecord).thenApply(v -> newRecord);
-            }
+            });
         });
         return context.instrument(FDBStoreTimer.Events.SAVE_RECORD, result);
     }
@@ -1643,29 +1656,32 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (oldRecord == null) {
                 return AsyncUtil.READY_FALSE;
             }
-            SplitHelper.deleteSplit(getRecordContext(), recordsSubspace(), primaryKey, metaData.isSplitLongRecords(), omitUnsplitRecordSuffix, true, oldRecord);
-            countKeysAndValues(FDBStoreTimer.Counts.DELETE_RECORD_KEY, FDBStoreTimer.Counts.DELETE_RECORD_KEY_BYTES, FDBStoreTimer.Counts.DELETE_RECORD_VALUE_BYTES,
-                    oldRecord);
-            addRecordCount(metaData, oldRecord, LITTLE_ENDIAN_INT64_MINUS_ONE);
-            final boolean oldHasIncompleteVersion = oldRecord.hasVersion() && !oldRecord.getVersion().isComplete();
-            if (useOldVersionFormat()) {
-                byte[] versionKey = getSubspace().pack(recordVersionKey(primaryKey));
-                if (oldHasIncompleteVersion) {
-                    context.removeVersionMutation(versionKey);
-                } else if (metaData.isStoreRecordVersions()) {
-                    ensureContextActive().clear(versionKey);
-                }
-            }
-            CompletableFuture<Void> updateIndexesFuture = updateSecondaryIndexes(oldRecord, null);
-            if (oldHasIncompleteVersion) {
-                return updateIndexesFuture.thenApply(vignore -> {
+            return getRecordStoreStateAsync().thenCompose(recordStoreState -> {
+                validateRecordUpdateAllowed(recordStoreState);
+                SplitHelper.deleteSplit(getRecordContext(), recordsSubspace(), primaryKey, metaData.isSplitLongRecords(), omitUnsplitRecordSuffix, true, oldRecord);
+                countKeysAndValues(FDBStoreTimer.Counts.DELETE_RECORD_KEY, FDBStoreTimer.Counts.DELETE_RECORD_KEY_BYTES, FDBStoreTimer.Counts.DELETE_RECORD_VALUE_BYTES,
+                        oldRecord);
+                addRecordCount(metaData, oldRecord, LITTLE_ENDIAN_INT64_MINUS_ONE);
+                final boolean oldHasIncompleteVersion = oldRecord.hasVersion() && !oldRecord.getVersion().isComplete();
+                if (useOldVersionFormat()) {
                     byte[] versionKey = getSubspace().pack(recordVersionKey(primaryKey));
-                    context.removeLocalVersion(versionKey);
-                    return true;
-                });
-            } else {
-                return updateIndexesFuture.thenApply(vignore -> true);
-            }
+                    if (oldHasIncompleteVersion) {
+                        context.removeVersionMutation(versionKey);
+                    } else if (metaData.isStoreRecordVersions()) {
+                        ensureContextActive().clear(versionKey);
+                    }
+                }
+                CompletableFuture<Void> updateIndexesFuture = updateSecondaryIndexes(oldRecord, null);
+                if (oldHasIncompleteVersion) {
+                    return updateIndexesFuture.thenApply(vignore -> {
+                        byte[] versionKey = getSubspace().pack(recordVersionKey(primaryKey));
+                        context.removeLocalVersion(versionKey);
+                        return true;
+                    });
+                } else {
+                    return updateIndexesFuture.thenApply(vignore -> true);
+                }
+            });
         });
         return context.instrument(FDBStoreTimer.Events.DELETE_RECORD, result);
     }
@@ -1718,6 +1734,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         // Clear out all data except for the store header key and the index state space.
         // Those two subspaces are determined by the configuration of the record store rather then
         // the records.
+        final RecordStoreState localRecordStoreState = recordStoreStateRef.get();
+        if (localRecordStoreState == null) {
+            throw new RecordCoreException("checkVersion must be called before calling deleteAllRecords");
+        }
+        validateRecordUpdateAllowed(localRecordStoreState);
         Range indexStateRange = indexStateSubspace().range();
         context.clear(new Range(recordsSubspace().getKey(), indexStateRange.begin));
         context.clear(new Range(indexStateRange.end, getSubspace().range().end));
@@ -1728,7 +1749,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (recordStoreStateRef.get() == null) {
             return preloadRecordStoreStateAsync().thenCompose(ignore -> deleteRecordsWhereAsync(component));
         }
-
+        validateRecordUpdateAllowed(recordStoreStateRef.get());
         preloadCache.invalidateAll();
         recordStoreStateRef.get().beginRead();
         boolean async = false;
@@ -1740,6 +1761,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (!async) {
                 recordStoreStateRef.get().endRead();
             }
+        }
+    }
+
+    private static void validateRecordUpdateAllowed(@Nonnull RecordStoreState state) {
+        if (!state.isRecordUpdateAllowed()) {
+            throw new StoreIsLockedForRecordUpdates(state);
         }
     }
 
@@ -3314,6 +3341,37 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         });
     }
 
+    /**
+     * Set a store lock state. If done for recovery, note that setting a lock state requires a valid store header. If the header is
+     * corrupted, it should be recovered before any lock state usage. See {@link Builder#repairMissingHeader}.
+     * @param state the new lock state
+     * @param reason a free text message that can hint future observers about the reasons for setting this state.
+     * @return a future that sets this state
+     */
+    public CompletableFuture<Void> setStoreLockStateAsync(@Nonnull RecordMetaDataProto.DataStoreInfo.StoreLockState.State state, @Nonnull String reason) {
+        if (!getFormatVersionEnum().isAtLeast(FormatVersion.STORE_LOCK_STATE)) {
+            throw new RecordCoreException("Store does not support setting a store lock state")
+                    .addLogInfo(LogMessageKeys.FORMAT_VERSION, getFormatVersionEnum());
+        }
+        return updateStoreHeaderAsync(builder ->
+                builder.setStoreLockState(RecordMetaDataProto.DataStoreInfo.StoreLockState.newBuilder()
+                        .setLockState(state)
+                        .setReason(reason)
+                        .setTimestamp(System.currentTimeMillis())));
+    }
+
+    /**
+     * Clear the store lock state, if exists.
+     * @return a future that clears this lock state
+     */
+    public CompletableFuture<Void> clearStoreLockStateAsync() {
+        if (!getFormatVersionEnum().isAtLeast(FormatVersion.STORE_LOCK_STATE)) {
+            throw new RecordCoreException("Store does not support setting a store lock state")
+                    .addLogInfo(LogMessageKeys.FORMAT_VERSION, getFormatVersionEnum());
+        }
+        return updateStoreHeaderAsync(RecordMetaDataProto.DataStoreInfo.Builder::clearStoreLockState);
+    }
+
     // Actually (1) writes the index state to the database and (2) updates the cached state with the new state
     @SuppressWarnings("PMD.CloseResource")
     private void updateIndexState(@Nonnull String indexName, byte[] indexKey, @Nonnull IndexState indexState) {
@@ -4878,6 +4936,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             LOGGER.debug(msg.toString());
         }
         final long startTime = System.nanoTime();
+        // This won't clear an ungrouped aggregate index: https://github.com/FoundationDB/fdb-record-layer/issues/3337
+        // It also won't clear some of the secondary state from TimeWindowLeaderboard indexes.
         context.clear(getSubspace().range(Tuple.from(INDEX_KEY, formerIndex.getSubspaceTupleKey())));
         context.clear(getSubspace().range(Tuple.from(INDEX_SECONDARY_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
         context.clear(getSubspace().range(Tuple.from(INDEX_RANGE_SPACE_KEY, formerIndex.getSubspaceTupleKey())));
@@ -5600,6 +5660,158 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             } else {
                 return AsyncUtil.DONE;
             }
+        }
+
+        /**
+         * In the event that a store has been corrupted, and the header has been lost, this method can be used to open
+         * the store, and fill in the missing header.
+         * <p>
+         * If it is possible that multiple different instances have a different idea of any of the versions
+         * ({@linkplain #setFormatVersion format version}, {@linkplain RecordMetaData#getVersion() metaData version}, or
+         * {@linkplain #getUserVersion() user version}), ensure that this builder is created with the maximal option for each.
+         * </p>
+         * <p>
+         *     In addition to setting the formatVersion, userVersion and metaDataVersion, this will:
+         *     <ul>
+         *         <li>
+         *             Disable all indexes, since we cannot universally determine whether they have been added or
+         *             changed since the store was last opened. In theory there are some situations where we could
+         *             determine that the index can be marked readable for free, but this is not supported.
+         *         </li>
+         *         <li>
+         *             Disable the {@link RecordMetaData#getRecordCountKey()} if there is one on the metadata, because
+         *             we cannot determine whether it's definition has changed since the last time this store was
+         *             opened. In theory, we could try rebuilding it, but the RecordCountKey has been deprecated for a
+         *             long time, so it does not seem prudent to build out infrastructure to do so.
+         *         </li>
+         *     </ul>
+         *     However, it will not set the following, though they can be set transactionally on the returned store.
+         *     <ul>
+         *         <li>
+         *             Any header {@linkplain #setHeaderUserField user fields}.
+         *         </li>
+         *         <li>
+         *             The {@link #setStateCacheability stateCacheability} will be disabled, and the associated
+         *             MetaDataVersion will be bumped, ensuring that any other potential instances stop using the cache.
+         *         </li>
+         *         <li>
+         *             Any Store Lock State (see {@link #setStoreLockStateAsync(RecordMetaDataProto.DataStoreInfo.StoreLockState.State, String)}).<br/>
+         *             Unless restored by the user, any previous store lock state will be cleared.
+         *         </li>
+         *     </ul>
+         * </p>
+         *
+         * @param userVersion the user version to set in the store header
+         * @param minimumPossibleFormatVersion the minimum {@link FormatVersion} that this store could have possibly
+         * had. Notably, upgrading to {@link FormatVersion#SAVE_VERSION_WITH_RECORD} requires moving data, and upgrading
+         * to {@link FormatVersion#SAVE_UNSPLIT_WITH_SUFFIX} requires storing whether the store should have the unsplit
+         * suffix or not. It is probably possible for {@code repairMissingHeader} to determine what to do based on the
+         * rest of the data in the store, but to keep this simple, upgrading across those versions is not supported.
+         *
+         * @return a boolean indicating whether a repair needed to be done ({@code true}) or not ({@code false}) and
+         * the opened store.
+         */
+        @API(API.Status.INTERNAL)
+        public CompletableFuture<NonnullPair<Boolean, FDBRecordStore>> repairMissingHeader(final int userVersion, FormatVersion minimumPossibleFormatVersion) {
+            if (!formatVersion.isAtLeast(minimumPossibleFormatVersion)) {
+                throw new RecordCoreArgumentException("minimumPossibleFormatVersion is greater than the target formatVerson")
+                        .addLogInfo(LogMessageKeys.FORMAT_VERSION, minimumPossibleFormatVersion)
+                        .addLogInfo(LogMessageKeys.NEW_FORMAT_VERSION, formatVersion);
+            }
+            if (!minimumPossibleFormatVersion.isAtLeast(FormatVersion.SAVE_VERSION_WITH_RECORD)
+                    && formatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX)) {
+                throw new RecordCoreArgumentException("minimumPossibleFormatVersion is not supported for target FormatVersion")
+                        .addLogInfo(LogMessageKeys.FORMAT_VERSION, minimumPossibleFormatVersion);
+            }
+            return uncheckedOpenAsync()
+                    .thenCompose(store ->
+                            store.getStoreStateCache().get(store, StoreExistenceCheck.NONE)
+                                    .thenCompose(storeStateCacheEntry ->
+                                            repairMissingHeader(userVersion, store,
+                                                    storeStateCacheEntry.getRecordStoreState().getStoreHeader())));
+        }
+
+        private CompletableFuture<NonnullPair<Boolean, FDBRecordStore>> repairMissingHeader(final int userVersion,
+                                                                                     @Nonnull final FDBRecordStore store,
+                                                                                     @Nonnull final RecordMetaDataProto.DataStoreInfo existing) {
+            if (!existing.equals(RecordMetaDataProto.DataStoreInfo.getDefaultInstance())) {
+                return store.checkVersion(userVersionChecker, StoreExistenceCheck.ERROR_IF_NOT_EXISTS)
+                        .thenApply(checkVersionDidSomething -> NonnullPair.of(false, store));
+            }
+            final RecordMetaData recordMetaData = metaDataProvider.getRecordMetaData();
+            final RecordMetaDataProto.DataStoreInfo.Builder dataStoreInfo = RecordMetaDataProto.DataStoreInfo.newBuilder()
+                    .setFormatVersion(formatVersion.getValueForSerialization())
+                    .setMetaDataversion(recordMetaData.getVersion())
+                    .setUserVersion(userVersion)
+                    // record count key is set below
+                    .setLastUpdateTime(System.currentTimeMillis());
+            // These values cannot be repaired automatically:
+            //     * user_field
+            //     * Store lock state
+            // users can set after repairing as they see fit, transactionally before doing anything else.
+
+            // We cannot tell whether the recordCountKey had changed since the last time we did checkVersion, so
+            // we can't guarantee that it is correct. With FormatVersion.RECORD_COUNT_STATE though, we can mark it as
+            // disabled.
+            if (recordMetaData.getRecordCountKey() != null) {
+                if (formatVersion.isAtLeast(FormatVersion.RECORD_COUNT_KEY_ADDED)) {
+                    dataStoreInfo.setRecordCountKey(recordMetaData.getRecordCountKey().toKeyExpression());
+                }
+                if (!formatVersion.isAtLeast(FormatVersion.RECORD_COUNT_STATE)) {
+                    throw new RecordCoreException("Repair is not supported if the metadata has a RecordCountKey until FormatVersion.RECORD_COUNT_STATE")
+                            .addLogInfo(LogMessageKeys.FORMAT_VERSION, formatVersion);
+                }
+            }
+            store.saveStoreHeader(dataStoreInfo.build());
+
+            // We want to make sure all former indexes have been cleared, since we have no way of knowing whether
+            // it has done a checkVersion since the index was removed, and there's something to clear up
+            recordMetaData.getFormerIndexes().forEach(store::removeFormerIndex);
+            // If there is a record count key, we want to mark it as disabled
+            CompletableFuture<Void> updateRecordCountState;
+            if (recordMetaData.getRecordCountKey() != null) {
+                updateRecordCountState = store.updateRecordCountStateAsync(RecordMetaDataProto.DataStoreInfo.RecordCountState.DISABLED);
+            } else {
+                updateRecordCountState = AsyncUtil.DONE;
+            }
+            // It's possible that the old store header was cacheable, in which case, another store may
+            // still have a cached version, even though we don't. We need to make sure that the other
+            // instance refreshes its cached version after we generate a new missing store header.
+            // Obviously, being able to recover from the cached version would be ideal, but that
+            // is a limited use case, as you wouldn't notice it was missing until after caches started
+            // expiring, and you would have to repair before they all expired.
+
+            // Since another instance may still have a cached version of the store header, we need to make
+            // sure that the cache is invalidated
+            final CompletableFuture<Void> bumpMetaDataVersionStamp = updateRecordCountState.thenCompose(vignore ->
+                    context.getMetaDataVersionStampAsync(IsolationLevel.SNAPSHOT)
+                            .thenAccept(metaDataVersionStamp -> {
+                                // If the metaDataVersionStamp was null before than nothing was cached based on
+                                // the metaDataVersionStamp, so we don't need to set the stamp.
+                                if (metaDataVersionStamp != null) {
+                                    context.setMetaDataVersionStamp();
+                                }
+                            }));
+            // The handling of indexes could be improved with any of the following, but we're keeping it simple:
+            // 1. If the index was added in the same metadata version that added the type, and has not been
+            //    modified, we could mark that as readable, because they either do not have any records of
+            //    that type, or the index was built when the type was originally added, and maintained since
+            //    then.
+            // 2. If the index has never been modified, and it has an index state, we could leave it. But
+            //    this would basically just allow WriteOnly indexes or ReadableUniquePending to stay, as we
+            //    do not store anything for Readable indexes.
+            // 3. We could give the users an option to leave them as-is and use IndexScrubbing to repair the
+            //    indexes, but (at least right now) scrubbing can only repair value indexes.
+            // In the general case, we have no idea whether the index should be readable or not because:
+            // 1. We don't store that the index should be readable, so it could be that the index was readable
+            //    or that the store was on a metadata version that didn't have the index, or
+            //    had an older version of the index. If it wasn't readable on the current version, then
+            //    leaving the index would leave it in a corrupted state.
+            return bumpMetaDataVersionStamp.thenCompose(vignore -> AsyncUtil.whenAll(
+                            recordMetaData.getAllIndexes().stream()
+                                    .map(store::markIndexDisabled)
+                                    .collect(Collectors.toList()))
+                    .thenApply(ignored -> NonnullPair.of(true, store)));
         }
     }
 
