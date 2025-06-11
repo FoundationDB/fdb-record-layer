@@ -295,7 +295,8 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         }
 
         final var translationMapOptional =
-                RelationalExpression.pullUpAndComposeTranslationMapsMaybe(candidateExpression, bindingAliasMap, partialMatchMap);
+                RelationalExpression.pullUpAndComposeTranslationMapsMaybe(candidateExpression, bindingAliasMap,
+                        partialMatchMap);
         if (translationMapOptional.isEmpty()) {
             return ImmutableList.of();
         }
@@ -314,8 +315,8 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         final var translatedAggregateValues =
                 Values.primitiveAccessorsForType(translatedAggregateValue.getResultType(),
                                 () -> translatedAggregateValue).stream()
-                        .map(primitiveGroupingValue -> primitiveGroupingValue.simplify(AliasMap.emptyMap(),
-                                ImmutableSet.of()))
+                        .map(primitiveGroupingValue -> primitiveGroupingValue.simplify(evaluationContext,
+                                AliasMap.emptyMap(), ImmutableSet.of()))
                         .collect(ImmutableSet.toImmutableSet());
         if (translatedAggregateValues.size() != 1) {
             return ImmutableList.of();
@@ -324,8 +325,8 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         final var otherAggregateValues =
                 Values.primitiveAccessorsForType(otherAggregateValue.getResultType(),
                                 () -> otherAggregateValue).stream()
-                        .map(primitiveAggregateValue -> primitiveAggregateValue.simplify(AliasMap.emptyMap(),
-                                ImmutableSet.of()))
+                        .map(primitiveAggregateValue -> primitiveAggregateValue.simplify(evaluationContext,
+                                AliasMap.emptyMap(), ImmutableSet.of()))
                         .collect(ImmutableSet.toImmutableSet());
         if (translatedAggregateValues.size() != 1) {
             return ImmutableList.of();
@@ -341,8 +342,8 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         final var subsumedGroupings =
                 subsumedAggregations
                         .compose(ignored -> groupingSubsumedBy(candidateInnerQuantifier,
-                                Objects.requireNonNull(partialMatchMap.getUnwrapped(innerQuantifier)), candidateGroupingValue,
-                                translationMap, valueEquivalence));
+                                Objects.requireNonNull(partialMatchMap.getUnwrapped(innerQuantifier)),
+                                candidateGroupingValue, translationMap, valueEquivalence, evaluationContext));
 
         if (subsumedGroupings.isFalse()) {
             return ImmutableList.of();
@@ -366,7 +367,8 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                                                      @Nonnull final PartialMatch childMatch,
                                                      @Nullable final Value candidateGroupingValue,
                                                      @Nonnull final TranslationMap translationMap,
-                                                     @Nonnull final ValueEquivalence valueEquivalence) {
+                                                     @Nonnull final ValueEquivalence valueEquivalence,
+                                                     @Nonnull final EvaluationContext evaluationContext) {
         if (groupingValue == null && candidateGroupingValue == null) {
             return alwaysTrue();
         }
@@ -380,8 +382,8 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
             translatedGroupingValues =
                     Values.primitiveAccessorsForType(translatedGroupingValue.getResultType(),
                                     () -> translatedGroupingValue).stream()
-                            .map(primitiveGroupingValue -> primitiveGroupingValue.simplify(AliasMap.emptyMap(),
-                                    ImmutableSet.of()))
+                            .map(primitiveGroupingValue -> primitiveGroupingValue.simplify(evaluationContext,
+                                    AliasMap.emptyMap(), ImmutableSet.of()))
                             .collect(ImmutableSet.toImmutableSet());
         } else {
             translatedGroupingValues = ImmutableSet.of();
@@ -390,8 +392,8 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         final var candidateGroupingValues =
                 Values.primitiveAccessorsForType(candidateGroupingValue.getResultType(),
                                 () -> candidateGroupingValue).stream()
-                        .map(primitiveGroupingValue -> primitiveGroupingValue.simplify(AliasMap.emptyMap(),
-                                ImmutableSet.of()))
+                        .map(primitiveGroupingValue -> primitiveGroupingValue.simplify(evaluationContext,
+                                AliasMap.emptyMap(), ImmutableSet.of()))
                         .collect(ImmutableSet.toImmutableSet());
 
         //
@@ -633,6 +635,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         }
 
         final var rcv = RecordConstructorValue.ofUnnamed(valuesBuilder.build());
-        return rcv.simplify(AliasMap.identitiesFor(rcv.getCorrelatedTo()), ImmutableSet.of());
+        return rcv.simplify(EvaluationContext.empty(),
+                AliasMap.identitiesFor(rcv.getCorrelatedTo()), ImmutableSet.of());
     }
 }

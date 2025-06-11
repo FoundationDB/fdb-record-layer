@@ -40,7 +40,7 @@ import java.util.function.Predicate;
  *         evaluates to {@code true}.
  *     </li>
  * </ul>
- * Note that the {@link QueryPlanConstraint} can be {@link QueryPlanConstraint#tautology()} which means that this
+ * Note that the {@link QueryPlanConstraint} can be {@link QueryPlanConstraint#noConstraint()} which means that this
  * boolean is effectively unconditionally true. {@link QueryPlanConstraint}s are usually proven to be true for this
  * invocation of the planner but refer to an external environment that may change if a plan were to be re-executed in
  * a different environment.
@@ -48,9 +48,9 @@ import java.util.function.Predicate;
  * This class is a monad which conceptually wraps around a boolean and a {@link QueryPlanConstraint}. There are two
  * combinators {@link #composeWithOther(BooleanWithConstraint)} and {@link #filter(Predicate)}.
  */
-public class BooleanWithConstraint {
+public class BooleanWithConstraint implements Constrained<Boolean> {
     private static final BooleanWithConstraint FALSE = new BooleanWithConstraint(null);
-    private static final BooleanWithConstraint ALWAYS_TRUE = new BooleanWithConstraint(QueryPlanConstraint.tautology());
+    private static final BooleanWithConstraint ALWAYS_TRUE = new BooleanWithConstraint(QueryPlanConstraint.noConstraint());
 
     /**
      * The query plan constraint recorded for this boolean. By convention, if this field is equal to {@code null} this
@@ -83,6 +83,18 @@ public class BooleanWithConstraint {
     }
 
     @Nonnull
+    @Override
+    public Boolean get() {
+        return isTrue();
+    }
+
+    @Override
+    public boolean hasConstraint() {
+        return queryPlanConstraint != null;
+    }
+
+    @Nonnull
+    @Override
     public QueryPlanConstraint getConstraint() {
         return Objects.requireNonNull(queryPlanConstraint);
     }
@@ -112,6 +124,7 @@ public class BooleanWithConstraint {
      *         the {@code constraint}
      */
     @Nonnull
+    @Override
     public BooleanWithConstraint composeWithConstraint(@Nonnull final QueryPlanConstraint constraint) {
         if (!this.isTrue()) {
             return falseValue();
@@ -186,7 +199,7 @@ public class BooleanWithConstraint {
     /**
      * Factory method to create an unconditional {@code true}.
      * @return a {@link BooleanWithConstraint} that is unconditionally {@code true}, i.e. that is {@code true} using
-     *         a {@link QueryPlanConstraint#tautology()}
+     *         a {@link QueryPlanConstraint#noConstraint()}
      */
     @Nonnull
     public static BooleanWithConstraint alwaysTrue() {
@@ -199,7 +212,7 @@ public class BooleanWithConstraint {
      * @return the appropriate unconditional {@link BooleanWithConstraint}
      */
     @Nonnull
-    public static BooleanWithConstraint fromBoolean(final boolean isTrue) {
+    public static BooleanWithConstraint ofBoolean(final boolean isTrue) {
         return isTrue ? alwaysTrue() : falseValue();
     }
 

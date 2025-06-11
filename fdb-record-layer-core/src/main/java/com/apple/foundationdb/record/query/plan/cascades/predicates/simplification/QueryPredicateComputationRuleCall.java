@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.query.plan.cascades.predicates.simplification;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
@@ -51,12 +53,15 @@ public class QueryPredicateComputationRuleCall<ARGUMENT, RESULT> extends Abstrac
     public QueryPredicateComputationRuleCall(@Nonnull final PlannerRule<QueryPredicateComputationRuleCall<ARGUMENT, RESULT>, ? extends QueryPredicate> rule,
                                              @Nonnull final QueryPredicate root,
                                              @Nonnull final QueryPredicate current,
+                                             @Nonnull final EvaluationContext evaluationContext,
                                              @Nullable final ARGUMENT argument,
                                              @Nonnull final PlannerBindings bindings,
                                              @Nonnull final AliasMap aliasMap,
                                              @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                             @Nonnull final Function<QueryPredicate, QueryPlanConstraint> retrieveQueryPlanConstraintFunction,
                                              @Nonnull final Function<QueryPredicate, NonnullPair<QueryPredicate, RESULT>> retrieveResultFunction) {
-        super(rule, root, current, bindings, aliasMap, constantAliases);
+        super(rule, root, current, evaluationContext, bindings, aliasMap, constantAliases,
+                retrieveQueryPlanConstraintFunction);
         this.argument = argument;
         this.retrieveResultFunction = retrieveResultFunction;
     }
@@ -69,13 +74,5 @@ public class QueryPredicateComputationRuleCall<ARGUMENT, RESULT> extends Abstrac
     @Nullable
     public Pair<QueryPredicate, RESULT> getResult(@Nonnull final QueryPredicate predicate) {
         return retrieveResultFunction.apply(predicate);
-    }
-
-    public void yieldPredicate(@Nonnull final QueryPredicate predicate, @Nonnull final RESULT result) {
-        super.yieldResult(NonnullPair.of(predicate, result));
-    }
-
-    public void yieldPredicateAndReExplore(@Nonnull final QueryPredicate predicate, @Nonnull final RESULT result) {
-        super.yieldAndReExplore(NonnullPair.of(predicate, result));
     }
 }

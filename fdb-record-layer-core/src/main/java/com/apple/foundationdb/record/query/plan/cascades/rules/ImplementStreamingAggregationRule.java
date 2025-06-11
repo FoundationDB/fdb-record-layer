@@ -88,7 +88,7 @@ public class ImplementStreamingAggregationRule extends ImplementationCascadesRul
                         Values.simplify(Values.primitiveAccessorsForType(currentGroupingValue.getResultType(),
                                 () -> currentGroupingValue),
                                 DefaultValueSimplificationRuleSet.instance(),
-                                AliasMap.emptyMap(), correlatedTo));
+                                call.getEvaluationContext(), AliasMap.emptyMap(), correlatedTo));
 
         final var innerReference = innerQuantifier.getRangesOver();
         final var planPartitions = PlanPartitions.rollUpTo(innerReference.toPlanPartitions(), OrderingProperty.ordering());

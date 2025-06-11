@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -83,7 +84,8 @@ class ValueComputationTest {
         // The following pulls (_.x.xa, _.z) through (_.x, _.z) to form (outer._0.xa, outer._1).
         //
 
-        final var resultsMap = pulledThroughValue.pullUp(toBePulledUpValues, AliasMap.emptyMap(), ImmutableSet.of(), ALIAS);
+        final var resultsMap = pulledThroughValue.pullUp(toBePulledUpValues,
+                EvaluationContext.empty(), AliasMap.emptyMap(), ImmutableSet.of(), ALIAS);
 
         final var upperCurrentValue = QuantifiedObjectValue.of(ALIAS, pulledThroughValue.getResultType());
 
@@ -114,7 +116,8 @@ class ValueComputationTest {
                                 FieldValue.ofOrdinalNumber(groupingValue, 1),
                                 FieldValue.ofFieldName(someCurrentValue, "a")));
         
-        final var resultsMap = completeResultValue.pullUp(toBePulledUpValues, AliasMap.emptyMap(), ImmutableSet.of(), ALIAS);
+        final var resultsMap = completeResultValue.pullUp(toBePulledUpValues,
+                EvaluationContext.empty(), AliasMap.emptyMap(), ImmutableSet.of(), ALIAS);
 
         // _
         final var someNewCurrentValue = QuantifiedObjectValue.of(ALIAS, completeResultValue.getResultType());
@@ -140,7 +143,8 @@ class ValueComputationTest {
         final var _a_ab__plus__x_xb = (Value)new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(_a_b, _x_b));
         final var toBePulledUpValues = ImmutableList.of(record_type, _a_ab__plus__x_xb);
 
-        final var resultsMap = pulledThroughValue.pullUp(toBePulledUpValues, AliasMap.emptyMap(), ImmutableSet.of(), UPPER_ALIAS);
+        final var resultsMap = pulledThroughValue.pullUp(toBePulledUpValues,
+                EvaluationContext.empty(), AliasMap.emptyMap(), ImmutableSet.of(), UPPER_ALIAS);
         final var upperCurrentValue = QuantifiedObjectValue.of(UPPER_ALIAS, pulledThroughValue.getResultType());
 
         final var new_a_b = FieldValue.ofFieldNames(upperCurrentValue, ImmutableList.of("a", "ab"));
@@ -167,7 +171,8 @@ class ValueComputationTest {
         final var _a_ab__plus__x_xb = (Value)new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(_a_b, _x_b));
         final var toBePulledUpValues = ImmutableList.of(record_type, _a_ab__plus__x_xb);
 
-        final var resultsMap = pulledThroughValue.pullUp(toBePulledUpValues, AliasMap.emptyMap(), ImmutableSet.of(), UPPER_ALIAS);
+        final var resultsMap = pulledThroughValue.pullUp(toBePulledUpValues,
+                EvaluationContext.empty(), AliasMap.emptyMap(), ImmutableSet.of(), UPPER_ALIAS);
         final var upperCurrentValue = QuantifiedObjectValue.of(UPPER_ALIAS, pulledThroughValue.getResultType());
 
         final var new_a_b = FieldValue.ofFieldNames(upperCurrentValue, ImmutableList.of("_1", "a", "ab"));

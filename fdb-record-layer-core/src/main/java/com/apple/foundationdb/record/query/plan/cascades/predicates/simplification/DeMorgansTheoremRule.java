@@ -21,9 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.predicates.simplification;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndOrPredicate;
@@ -35,7 +33,6 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
-import java.util.List;
 import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
@@ -50,17 +47,21 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class DeMorgansTheoremRule<P extends AndOrPredicate> extends QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, NotPredicate> {
+public class DeMorgansTheoremRule<P extends AndOrPredicate> extends QueryPredicateSimplificationRule<NotPredicate> {
     @Nonnull
     private final Class<P> majorClass;
     @Nonnull
     private final BindingMatcher<QueryPredicate> termMatcher;
+    @Nonnull
+    private final BindingMatcher<P> andOrPredicateMatcher;
 
     public DeMorgansTheoremRule(@Nonnull final Class<P> majorClass,
                                 @Nonnull final BindingMatcher<QueryPredicate> termMatcher,
+                                @Nonnull final BindingMatcher<P> andOrPredicateMatcher,
                                 @Nonnull final BindingMatcher<NotPredicate> rootMatcher) {
         super(rootMatcher);
         this.majorClass = majorClass;
+        this.andOrPredicateMatcher = andOrPredicateMatcher;
         this.termMatcher = termMatcher;
     }
 
@@ -71,7 +72,7 @@ public class DeMorgansTheoremRule<P extends AndOrPredicate> extends QueryPredica
     }
 
     @Override
-    public void onMatch(@Nonnull final QueryPredicateComputationRuleCall<EvaluationContext, List<QueryPlanConstraint>> call) {
+    public void onMatch(@Nonnull final QueryPredicateSimplificationRuleCall call) {
         final var bindings = call.getBindings();
         final var majorTerms = bindings.getAll(termMatcher);
 
@@ -80,7 +81,9 @@ public class DeMorgansTheoremRule<P extends AndOrPredicate> extends QueryPredica
                         .map(NotPredicate::not)
                         .collect(ImmutableList.toImmutableList());
 
-        call.yieldPredicateAndReExplore(minorWith(minorTerms), ImmutableList.of(QueryPlanConstraint.tautology()));
+        call.yieldResultBuilder()
+                .addConstraintsFrom(bindings.get(getMatcher()), bindings.get(andOrPredicateMatcher))
+                .yieldResultAndReExplore(minorWith(minorTerms));
     }
 
     private QueryPredicate minorWith(@Nonnull final Collection<? extends QueryPredicate> terms) {
@@ -97,6 +100,7 @@ public class DeMorgansTheoremRule<P extends AndOrPredicate> extends QueryPredica
         final var andOrPredicateMatcher = ofTypeWithChildren(majorClass, all(termMatcher));
         return new DeMorgansTheoremRule<>(majorClass,
                 termMatcher,
+                andOrPredicateMatcher,
                 notPredicate(ListMatcher.exactly(andOrPredicateMatcher)));
     }
 }

@@ -129,7 +129,9 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
             //
             final var pushedRequestedOrderings =
                     requestedOrderings.stream()
-                            .map(requestedOrdering -> requestedOrdering.pushDown(expression.getResultValue(), matchedAlias, AliasMap.emptyMap(), correlatedTo))
+                            .map(requestedOrdering ->
+                                    requestedOrdering.pushDown(expression.getResultValue(), matchedAlias,
+                                            call.getEvaluationContext(), AliasMap.emptyMap(), correlatedTo))
                             .collect(ImmutableSet.toImmutableSet());
 
             //

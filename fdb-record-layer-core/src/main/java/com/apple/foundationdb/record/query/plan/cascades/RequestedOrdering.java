@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
@@ -183,16 +184,18 @@ public class RequestedOrdering {
      * </pre>
      * @param value the value this requested value should be pushed down through
      * @param lowerBaseAlias the alias that the new values should be referring to
+     * @param evaluationContext the evaluation context
      * @param aliasMap an {@link AliasMap} of equalities
      * @param constantAliases a set of aliases that can be considered constant for the purpose of this push down
      * @return a new requested ordering whose constituent values are expressed in terms of quantifiers prior to the
      *         computation of the {@link Value} passed in.
      */
     @Nonnull
-    public RequestedOrdering pushDown(@Nonnull Value value,
-                                      @Nonnull CorrelationIdentifier lowerBaseAlias,
-                                      @Nonnull AliasMap aliasMap,
-                                      @Nonnull Set<CorrelationIdentifier> constantAliases) {
+    public RequestedOrdering pushDown(@Nonnull final Value value,
+                                      @Nonnull final CorrelationIdentifier lowerBaseAlias,
+                                      @Nonnull final EvaluationContext evaluationContext,
+                                      @Nonnull final AliasMap aliasMap,
+                                      @Nonnull final Set<CorrelationIdentifier> constantAliases) {
         //
         // Need to push every participating value of this requested ordering through the value.
         //
@@ -203,8 +206,9 @@ public class RequestedOrdering {
                         .collect(ImmutableList.toImmutableList());
 
         final var pushedDownOrderingValues =
-                value.pushDown(orderingKeyValues, RequestedOrderingValueSimplificationRuleSet.ofRequestedOrderSimplificationRules(),
-                        aliasMap, constantAliases, Quantifier.current());
+                value.pushDown(orderingKeyValues,
+                        RequestedOrderingValueSimplificationRuleSet.ofRequestedOrderSimplificationRules(),
+                        evaluationContext, aliasMap, constantAliases, Quantifier.current());
 
         final var translationMap = AliasMap.ofAliases(lowerBaseAlias, Quantifier.current());
 
@@ -269,7 +273,8 @@ public class RequestedOrdering {
             for (final var primitiveValue : primitivesValues) {
                 final var simplifiedRequestedOrderingPart =
                         primitiveValue.deriveOrderingPart(
-                                AliasMap.emptyMap(), constantAliases, RequestedOrderingPart::new,
+                                EvaluationContext.empty(), AliasMap.emptyMap(), constantAliases,
+                                RequestedOrderingPart::new,
                                 OrderingValueComputationRuleSet.usingRequestedOrderingParts(requestedOrderingPart.getSortOrder()));
                 primitiveRequestedOrderingParts.add(simplifiedRequestedOrderingPart);
             }

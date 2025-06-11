@@ -433,7 +433,7 @@ public class PredicateMultiMap {
                         (partialMatch, boundPrefixMap, pullUp) -> PredicateCompensationFunction.noCompensationNeeded();
                 this.parameterAliasOptional = Optional.empty();
                 this.comparisonRangeOptional = Optional.empty();
-                this.constraint = QueryPlanConstraint.tautology();
+                this.constraint = QueryPlanConstraint.noConstraint();
             }
 
             @Nonnull

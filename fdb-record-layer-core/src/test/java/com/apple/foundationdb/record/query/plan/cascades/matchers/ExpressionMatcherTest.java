@@ -234,7 +234,7 @@ public class ExpressionMatcherTest {
                         Type.Record.fromFields(false,
                                 ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("field1")),
                                         Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("field2")))),
-                        QueryPlanConstraint.tautology()));
+                        QueryPlanConstraint.noConstraint()));
         final Quantifier.ForEach quantifier = Quantifier.forEach(baseRef);
         LogicalFilterExpression filterPlan =
                 new LogicalFilterExpression(Query.and(andBranch1, andBranch2).expand(quantifier, () -> Quantifier.forEach(baseRef)).getPredicates(),

@@ -78,6 +78,7 @@ public class PushRequestedOrderingThroughInsertRule extends CascadesRule<InsertE
                 pushedRequestedOrderingsBuilder.add(
                         requestedOrdering.pushDown(QuantifiedObjectValue.of(innerQuantifier),
                                 innerQuantifier.getAlias(),
+                                call.getEvaluationContext(),
                                 AliasMap.emptyMap(),
                                 insertExpression.getCorrelatedTo()));
             }

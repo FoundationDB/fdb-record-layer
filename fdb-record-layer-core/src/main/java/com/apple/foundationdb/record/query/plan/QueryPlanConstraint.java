@@ -62,6 +62,10 @@ public class QueryPlanConstraint implements PlanHashable, PlanSerializable {
         return predicate;
     }
 
+    public boolean isConstrained() {
+        return !getPredicate().isTautology();
+    }
+
     @Override
     public boolean equals(final Object o) {
         if (this == o) {
@@ -92,7 +96,7 @@ public class QueryPlanConstraint implements PlanHashable, PlanSerializable {
     @Nonnull
     public QueryPlanConstraint compose(@Nonnull final QueryPlanConstraint otherQueryPlanConstraint) {
         if (this == TAUTOLOGY && otherQueryPlanConstraint == TAUTOLOGY) {
-            return tautology();
+            return noConstraint();
         }
         if (this == TAUTOLOGY) {
             return otherQueryPlanConstraint;
@@ -132,7 +136,7 @@ public class QueryPlanConstraint implements PlanHashable, PlanSerializable {
     }
 
     @Nonnull
-    public static QueryPlanConstraint tautology() {
+    public static QueryPlanConstraint noConstraint() {
         return TAUTOLOGY;
     }
 
@@ -155,7 +159,7 @@ public class QueryPlanConstraint implements PlanHashable, PlanSerializable {
         @Nonnull
         @Override
         public QueryPlanConstraint visitDefault(@Nonnull final RecordQueryPlan element) {
-            QueryPlanConstraint constraint = QueryPlanConstraint.tautology();
+            QueryPlanConstraint constraint = QueryPlanConstraint.noConstraint();
             if (element instanceof RecordQueryPlanWithConstraint) {
                 constraint = constraint.compose(((RecordQueryPlanWithConstraint)element).getConstraint());
             }

@@ -77,6 +77,7 @@ public class PushRequestedOrderingThroughUpdateRule extends CascadesRule<UpdateE
                 pushedRequestedOrderingsBuilder.add(
                         requestedOrdering.pushDown(UpdateExpression.makeComputationValue(innerQuantifier, updateExpression.getTargetType()),
                                 innerQuantifier.getAlias(),
+                                call.getEvaluationContext(),
                                 AliasMap.emptyMap(),
                                 updateExpression.getCorrelatedTo()));
             }

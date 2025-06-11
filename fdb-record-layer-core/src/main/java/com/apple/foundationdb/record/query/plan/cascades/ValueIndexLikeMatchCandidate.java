@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering.Binding;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
@@ -100,8 +101,10 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
                             getBaseType());
             if (normalizedValues.add(value)) {
                 final var matchedOrderingPart =
-                        value.<MatchedSortOrder, MatchedOrderingPart>deriveOrderingPart(AliasMap.emptyMap(), ImmutableSet.of(),
-                                (v, sortOrder) -> MatchedOrderingPart.of(parameterId, v, comparisonRange, sortOrder),
+                        value.<MatchedSortOrder, MatchedOrderingPart>deriveOrderingPart(EvaluationContext.empty(),
+                                AliasMap.emptyMap(), ImmutableSet.of(),
+                                (v, sortOrder) ->
+                                        MatchedOrderingPart.of(parameterId, v, comparisonRange, sortOrder),
                                 OrderingValueComputationRuleSet.usingMatchedOrderingParts());
                 builder.add(matchedOrderingPart);
             }
@@ -164,7 +167,8 @@ public interface ValueIndexLikeMatchCandidate extends MatchCandidate, WithBaseQu
                             getBaseType());
 
             final var providedOrderingPart =
-                    normalizedValue.deriveOrderingPart(AliasMap.emptyMap(), ImmutableSet.of(), OrderingPart.ProvidedOrderingPart::new,
+                    normalizedValue.deriveOrderingPart(EvaluationContext.empty(), AliasMap.emptyMap(),
+                            ImmutableSet.of(), OrderingPart.ProvidedOrderingPart::new,
                             OrderingValueComputationRuleSet.usingProvidedOrderingParts());
 
             final var providedOrderingValue = providedOrderingPart.getValue();
