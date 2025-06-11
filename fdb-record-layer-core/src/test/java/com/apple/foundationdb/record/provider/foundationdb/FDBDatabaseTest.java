@@ -373,7 +373,7 @@ class FDBDatabaseTest {
                     .setMetaDataProvider(metaData)
                     .setContext(context)
                     .setKeySpacePath(path)
-                    .build();
+                    .createOrOpen();
             store.deleteAllRecords();
             store.saveRecord(simpleRecord);
             return null;

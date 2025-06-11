@@ -476,10 +476,11 @@ public class Reference implements Correlated<Reference>, Typed {
     }
 
     @Nonnull
-    public Reference translateCorrelations(@Nonnull final TranslationMap translationMap,
-                                           final boolean shouldSimplifyValues) {
+    public Reference translateGraph(@Nonnull final Memoizer memoizer,
+                                    @Nonnull final TranslationMap translationMap,
+                                    final boolean shouldSimplifyValues) {
         final var translatedRefs =
-                References.translateCorrelations(ImmutableList.of(this), translationMap, shouldSimplifyValues);
+                References.translateCorrelationsInGraphs(ImmutableList.of(this), memoizer, translationMap, shouldSimplifyValues);
         return Iterables.getOnlyElement(translatedRefs);
     }
 
@@ -533,8 +534,16 @@ public class Reference implements Correlated<Reference>, Typed {
         return constraintsMap.isExploredForAttributes(dependencies);
     }
 
+    public boolean isExplored() {
+        return constraintsMap.isExplored();
+    }
+
     public void setExplored() {
         constraintsMap.setExplored();
+    }
+
+    public void inheritConstraintsFromOther(@Nonnull final Reference otherReference) {
+        constraintsMap.inheritFromOther(otherReference.getConstraintsMap());
     }
 
     @Nonnull
@@ -570,18 +579,23 @@ public class Reference implements Correlated<Reference>, Typed {
     }
 
     @Nonnull
-    public <A> Map<RecordQueryPlan, A> getProperty(@Nonnull final ExpressionProperty<A> expressionProperty) {
+    public <A> Map<? extends RelationalExpression, A> getPropertyForExpressions(@Nonnull final ExpressionProperty<A> expressionProperty) {
+        return propertiesMap.propertyValueForExpressions(expressionProperty);
+    }
+
+    @Nonnull
+    public <A> Map<RecordQueryPlan, A> getPropertyForPlans(@Nonnull final ExpressionProperty<A> expressionProperty) {
         return propertiesMap.propertyValueForPlans(expressionProperty);
     }
 
     @Nonnull
     public List<? extends ExpressionPartition<? extends RelationalExpression>> toExpressionPartitions() {
-        return propertiesMap.toExpressionPartitions();
+        return ExpressionPartitions.toPartitions(propertiesMap);
     }
 
     @Nonnull
     public List<PlanPartition> toPlanPartitions() {
-        return propertiesMap.toPlanPartitions();
+        return PlanPartitions.toPartitions((PlanPropertiesMap)propertiesMap);
     }
 
     @Nullable

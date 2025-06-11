@@ -56,7 +56,7 @@ public class FinalizeExpressionsRule extends ImplementationCascadesRule<Relation
     @Nonnull
     private static final BindingMatcher<ExpressionPartition<RelationalExpression>> childPartitionsMatcher =
             anyExpressionPartition();
-
+    
     @Nonnull
     private static final BindingMatcher<Reference> childReferenceMatcher =
             expressionPartitions(rollUpPartitions(any(childPartitionsMatcher)));

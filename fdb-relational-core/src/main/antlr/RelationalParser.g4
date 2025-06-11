@@ -1134,9 +1134,10 @@ expression
     ;
 
 predicate
-    : expressionAtom IN inList                                      #inPredicate // done
-    | left=predicate comparisonOperator right=predicate             #binaryComparisonPredicate // done
-    | expressionAtom                                                #expressionAtomPredicate // done
+    : expressionAtom IN inList                                          #inPredicate // done
+    | left=predicate comparisonOperator right=predicate                 #binaryComparisonPredicate // done
+    | operand=predicate NOT? BETWEEN left=predicate AND right=predicate #betweenComparisonPredicate // done
+    | expressionAtom                                                    #expressionAtomPredicate // done
     ;
 
 inList

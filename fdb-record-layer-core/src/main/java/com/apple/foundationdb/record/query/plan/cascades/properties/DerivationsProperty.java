@@ -162,14 +162,14 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             localValuesBuilder.addAll(childDerivations.getLocalValues());
             for (final var childResultValue : childResultValues) {
                 if (transformationsTrie != null) {
-                    final var translationMap = TranslationMap.builder()
+                    final var translationMap = TranslationMap.regularBuilder()
                             .when(rangesOver.getAlias()).then(((sourceAlias, leafValue) -> childResultValue))
                             .build();
                     transformationsTrie.values()
                             .forEach(updateValue -> localValuesBuilder.add(updateValue.translateCorrelations(translationMap, true)));
                 }
 
-                final var resultsTranslationMap = TranslationMap.builder()
+                final var resultsTranslationMap = TranslationMap.regularBuilder()
                         .when(rangesOver.getAlias()).then(((sourceAlias, leafValue) -> childResultValue))
                         .when(Quantifier.current()).then((sourceAlias, leafValue) -> new QueriedValue(leafValue.getResultType(), ImmutableList.of(updatePlan.getTargetRecordType())))
                         .build();
@@ -191,7 +191,7 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
                 final var valuesFromPredicate = predicate.fold(valuesInPredicate(), combineValuesInChildren());
 
                 for (final var childResultValue : childResultValues) {
-                    final var translationMap = TranslationMap.builder()
+                    final var translationMap = TranslationMap.regularBuilder()
                             .when(rangesOver.getAlias())
                             .then(((sourceAlias, leafValue) -> childResultValue))
                             .build();
@@ -287,7 +287,7 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             final var localValuesBuilder = ImmutableList.<Value>builder();
             localValuesBuilder.addAll(childDerivations.getLocalValues());
             for (final var childResultValue : childResultValues) {
-                final var resultsTranslationMap = TranslationMap.builder()
+                final var resultsTranslationMap = TranslationMap.regularBuilder()
                         .when(rangesOver.getAlias()).then(((sourceAlias, leafValue) -> childResultValue))
                         .build();
                 resultValuesBuilder.add(resultValue.translateCorrelations(resultsTranslationMap, true));
@@ -349,7 +349,7 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             final var localValuesBuilder = ImmutableList.<Value>builder();
             localValuesBuilder.addAll(childDerivations.getLocalValues());
             for (final var childResultValue : childResultValues) {
-                final var resultsTranslationMap = TranslationMap.builder()
+                final var resultsTranslationMap = TranslationMap.regularBuilder()
                         .when(rangesOver.getAlias()).then(((sourceAlias, leafValue) -> childResultValue))
                         .when(Quantifier.current()).then((sourceAlias, leafValue) -> new QueriedValue(leafValue.getResultType(), ImmutableList.of(insertPlan.getTargetRecordType())))
                         .build();
@@ -422,7 +422,7 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             final var localValuesBuilder = ImmutableList.<Value>builder();
             localValuesBuilder.addAll(childDerivations.getLocalValues());
             for (final var childResultValue : childResultValues) {
-                final var resultsTranslationMap = TranslationMap.builder()
+                final var resultsTranslationMap = TranslationMap.regularBuilder()
                         .when(rangesOver.getAlias()).then(((sourceAlias, leafValue) -> childResultValue))
                         .build();
                 localValuesBuilder.add(onEmptyResultValue.translateCorrelations(resultsTranslationMap, true));
@@ -440,7 +440,7 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             final var localValuesBuilder = ImmutableList.<Value>builder();
             localValuesBuilder.addAll(childDerivations.getLocalValues());
             for (final var childResultValue : childResultValues) {
-                final var resultsTranslationMap = TranslationMap.builder()
+                final var resultsTranslationMap = TranslationMap.regularBuilder()
                         .when(rangesOver.getAlias()).then(((sourceAlias, leafValue) -> childResultValue))
                         .build();
                 localValuesBuilder.add(onEmptyResultValue.translateCorrelations(resultsTranslationMap, true));
@@ -462,7 +462,7 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             final var innerDecorrelatedLocalValuesBuilder = ImmutableList.<Value>builder();
             for (final var innerValue : innerDerivations.getLocalValues()) {
                 if (innerValue.isCorrelatedTo(outerAlias)) {
-                    final var translationMap = TranslationMap.builder()
+                    final var translationMap = TranslationMap.regularBuilder()
                             .when(outerAlias)
                             .then(((sourceAlias, leafValue) -> new QueriedValue(leafValue.getResultType())))
                             .build();
@@ -475,7 +475,7 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             final var innerDecorrelatedResultValuesBuilder = ImmutableList.<Value>builder();
             for (final var innerValue : innerDerivations.getResultValues()) {
                 if (innerValue.isCorrelatedTo(outerAlias)) {
-                    final var translationMap = TranslationMap.builder()
+                    final var translationMap = TranslationMap.regularBuilder()
                             .when(outerAlias)
                             .then(((sourceAlias, leafValue) -> new QueriedValue(leafValue.getResultType())))
                             .build();
@@ -577,7 +577,7 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             for (final var innerValue : innerDerivations.getLocalValues()) {
                 if (innerValue.isCorrelatedTo(outerQuantifier.getAlias())) {
                     for (final var outerResultValue : outerDerivations.getResultValues()) {
-                        final var translationMap = TranslationMap.builder()
+                        final var translationMap = TranslationMap.regularBuilder()
                                 .when(outerQuantifier.getAlias())
                                 .then(((sourceAlias, leafValue) -> outerResultValue))
                                 .build();
@@ -592,12 +592,12 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             final var decorrelatedResultValuesBuilder = ImmutableList.<Value>builder();
             for (final var outerResultValue : outerDerivations.getResultValues()) {
                 for (final var innerResultValue : innerDerivations.getResultValues()) {
-                    final var translationMap = TranslationMap.builder()
+                    final var translationMap = TranslationMap.regularBuilder()
                             .when(outerQuantifier.getAlias()).then((sourceAlias, leafValue) -> outerResultValue)
                             .build();
                     final var innerDecorrelatedValue = innerResultValue.translateCorrelations(translationMap, true);
 
-                    final var resultsTranslationMap = TranslationMap.builder()
+                    final var resultsTranslationMap = TranslationMap.regularBuilder()
                             .when(outerQuantifier.getAlias()).then((sourceAlias, leafValue) -> outerResultValue)
                             .when(innerQuantifier.getAlias()).then((sourceAlias, leafValue) -> innerDecorrelatedValue)
                             .build();
@@ -633,7 +633,7 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             // get the result value and translate the groupings and aggregations into it
             //
             final var resultValue = streamingAggregationPlan.getResultValue();
-            final var resultTranslationMap = TranslationMap.builder();
+            final var resultTranslationMap = TranslationMap.regularBuilder();
 
             final var groupingValue = streamingAggregationPlan.getGroupingValue();
             if (groupingValue != null) {
@@ -650,7 +650,7 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             final var innerQuantifier = streamingAggregationPlan.getInner();
             final var decorrelatedResultValuesBuilder = ImmutableList.<Value>builder();
             for (final var childResultValue : childDerivations.getResultValues()) {
-                final var translationMap = TranslationMap.builder()
+                final var translationMap = TranslationMap.regularBuilder()
                         .when(innerQuantifier.getAlias()).then((sourceAlias, leafValue) -> childResultValue)
                         .build();
                 final var decorrelatedExpandedResultValue = expandedResultValue.translateCorrelations(translationMap, true);
@@ -689,7 +689,7 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             if (setPlan instanceof RecordQueryPlanWithComparisonKeyValues) {
                 for (final var comparisonKeyValue : ((RecordQueryPlanWithComparisonKeyValues)setPlan).getComparisonKeyValues()) {
                     for (final var resultValue : resultValues) {
-                        final var translationMap = TranslationMap.builder()
+                        final var translationMap = TranslationMap.regularBuilder()
                                 .when(Quantifier.current()).then((sourceAlias, leafValue) -> resultValue)
                                 .build();
                         localValuesBuilder.add(comparisonKeyValue.translateCorrelations(translationMap, true));
@@ -730,7 +730,7 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             for (final var innerValue : innerDerivations.getLocalValues()) {
                 final var innerCorrelatedTo = innerValue.getCorrelatedTo();
                 if (outerAliases.stream().anyMatch(innerCorrelatedTo::contains)) {
-                    var translationMap = TranslationMap.builder()
+                    var translationMap = TranslationMap.regularBuilder()
                             .whenAny(outerAliases)
                             .then(((sourceAlias, leafValue) -> new QueriedValue(leafValue.getResultType())))
                             .build();
@@ -744,7 +744,7 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             for (final var innerValue : innerDerivations.getResultValues()) {
                 final var innerCorrelatedTo = innerValue.getCorrelatedTo();
                 if (outerAliases.stream().anyMatch(innerCorrelatedTo::contains)) {
-                    final var translationMap = TranslationMap.builder()
+                    final var translationMap = TranslationMap.regularBuilder()
                             .whenAny(outerAliases)
                             .then(((sourceAlias, leafValue) -> new QueriedValue(leafValue.getResultType())))
                             .build();
@@ -758,7 +758,7 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
 
             for (final var comparisonKeyValue : inUnionOnValuePlan.getComparisonKeyValues()) {
                 for (final var resultValue : innerDecorrelatedResultValues) {
-                    final var translationMap = TranslationMap.builder()
+                    final var translationMap = TranslationMap.regularBuilder()
                             .when(Quantifier.current()).then((sourceAlias, leafValue) -> resultValue)
                             .build();
                     innerDecorrelatedLocalValuesBuilder.add(comparisonKeyValue.translateCorrelations(translationMap, true));

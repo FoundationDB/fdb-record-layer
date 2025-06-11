@@ -138,6 +138,30 @@ message RecursiveCursorContinuation {
     optional bytes activeStateContinuation = 3;
 }
 
+message AggregateCursorContinuation {
+    optional bytes continuation = 1;
+    optional PartialAggregationResult partial_aggregation_results = 2;
+}
+
+message PartialAggregationResult {
+  optional bytes group_key = 1;
+  repeated AccumulatorState accumulator_states = 2;
+}
+
+message AccumulatorState {
+  repeated OneOfTypedState state = 1; // 2 for avg
+}
+
+message OneOfTypedState {
+  oneof state {
+    int32 int32_state = 1;
+    int64 int64_state = 2;
+    float float_state = 3;
+    double double_state = 4;
+    bytes bytes_state = 5;
+  }
+}
+
 message RangeCursorContinuation {
     optional int64 nextPosition = 1;
 }
