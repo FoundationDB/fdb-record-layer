@@ -601,7 +601,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         @Nonnull
         @Override
         public QueryPlanConstraint getConstraint() {
-            return context.getPlanConstraintsForLiterals();
+            return context.getPlanConstraintsForLiteralReferences();
         }
 
         @Nonnull
