@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.Bindings;
-import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -53,7 +52,6 @@ import java.util.Objects;
 @API(API.Status.UNSTABLE)
 public class RecordQuery {
     public static final Collection<String> ALL_TYPES = Collections.emptyList();
-    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query");
 
     @Nonnull
     private final Collection<String> recordTypes;

@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
@@ -50,7 +49,6 @@ import java.util.function.Supplier;
  */
 @API(API.Status.EXPERIMENTAL)
 public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChildren {
-    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Lucene-Query");
 
     @Nonnull
     private final LuceneQueryType type;
