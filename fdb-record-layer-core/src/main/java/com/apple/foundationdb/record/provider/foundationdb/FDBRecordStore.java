@@ -4696,35 +4696,38 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     protected CompletableFuture<Long> getRecordCountForRebuildIndexes(boolean newStore, boolean rebuildRecordCounts,
                                                                       @Nonnull Map<Index, List<RecordType>> indexes,
                                                                       @Nullable RecordType singleRecordTypeWithPrefixKey) {
-        // Do this with the new indexes in write-only mode to avoid using one of them
-        // when evaluating the snapshot record count.
-        MutableRecordStoreState writeOnlyState = recordStoreStateRef.get().withWriteOnlyIndexes(indexes.keySet().stream().map(Index::getName).collect(Collectors.toList()));
+        // Do this with the new indexes filtered out to avoid using one of them when evaluating the snapshot record count.
+        // At this point we won't have written that any new indexes are disabled
+        final IndexQueryabilityFilter indexQueryabilityFilter = new IndexQueryabilityFilter() {
+            @Override
+            public boolean isQueryable(@Nonnull final Index index) {
+                return !indexes.containsKey(index);
+            }
+
+            @Override
+            public int queryHash(@Nonnull final QueryHashKind hashKind) {
+                // the query is not preserved in any way, so prevent usage of the hash
+                throw new RecordCoreException("queryHash for getRecordCountForRebuildIndexes should not be used");
+            }
+        };
         if (singleRecordTypeWithPrefixKey != null) {
             // Get a count for just those records, either from a COUNT index on just that type or from a universal COUNT index grouped by record type.
-            MutableRecordStoreState saveState = recordStoreStateRef.get();
             try {
-                recordStoreStateRef.set(writeOnlyState);
-                return getSnapshotRecordCountForRecordType(singleRecordTypeWithPrefixKey.getName());
+                return getSnapshotRecordCountForRecordType(singleRecordTypeWithPrefixKey.getName(), indexQueryabilityFilter);
             } catch (RecordCoreException ex) {
                 // No such index; have to use total record count.
-            } finally {
-                recordStoreStateRef.set(saveState);
             }
         }
         if (!rebuildRecordCounts) {
-            MutableRecordStoreState saveState = recordStoreStateRef.get();
             try {
-                recordStoreStateRef.set(writeOnlyState);
                 // Note the call below can time out if the count index group cardinality is too high. Users can avoid it by
                 // setting a custom UserVersionChecker that looks at the size estimate rather than the count, but we should
                 // consider checking the size by default or otherwise making the ergonomics around hitting that limitation
                 // better in the future
                 // See: FDBRecordStoreBase.checkPossiblyRebuild() could take a long time if the record count index is split into many groups (https://github.com/FoundationDB/fdb-record-layer/issues/7)
-                return getSnapshotRecordCount();
+                return getSnapshotRecordCount(EmptyKeyExpression.EMPTY, Key.Evaluated.EMPTY, indexQueryabilityFilter);
             } catch (RecordCoreException ex) {
                 // Probably this was from the lack of appropriate index on count; treat like rebuildRecordCounts = true.
-            } finally {
-                recordStoreStateRef.set(saveState);
             }
         }
         // Do a scan (limited to a single record) to see if the store is empty.
