@@ -462,7 +462,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 .stream()
                 .filter( p -> p.getValue() > 1 )
                 .collect(ImmutableList.toImmutableList());
-        Assert.thatUnchecked(duplicateParameters.isEmpty(), ErrorCode.DUPLICATE_PARAMETER, () ->
+        Assert.thatUnchecked(duplicateParameters.isEmpty(), ErrorCode.INVALID_FUNCTION_DEFINITION, () ->
                 "unexpected duplicate parameter(s) " + duplicateParameters.stream().map(Object::toString).collect(Collectors.joining(",")));
         return Expressions.of(ctx.sqlParameterDeclaration().stream().map(this::visitSqlParameterDeclaration).collect(ImmutableList.toImmutableList()));
     }

@@ -455,7 +455,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         @Nonnull
         public Builder replaceInvokedRoutine(@Nonnull final RecordLayerInvokedRoutine invokedRoutine) {
             if (invokedRoutines.containsKey(invokedRoutine.getName())) {
-                Assert.thatUnchecked(invokedRoutines.get(invokedRoutine.getName()).isTemporary(), ErrorCode.INTERNAL_ERROR,
+                Assert.thatUnchecked(invokedRoutines.get(invokedRoutine.getName()).isTemporary(), ErrorCode.INVALID_FUNCTION_DEFINITION,
                         "attempt to replace non-temporary invoked routine!");
             }
             invokedRoutines.put(invokedRoutine.getName(), invokedRoutine);

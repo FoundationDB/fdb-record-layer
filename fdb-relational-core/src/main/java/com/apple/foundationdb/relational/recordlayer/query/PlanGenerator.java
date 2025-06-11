@@ -156,9 +156,9 @@ public final class PlanGenerator {
 
             // shortcut plan cache if the query is determined not-cacheable or the cache is not set (disabled).
             if (shouldNotCache(astHashResult.getQueryCachingFlags()) || cache.isEmpty()) {
-                Plan<?> plan = generatePhysicalPlan(astHashResult, validPlanHashModes,
-                        currentPlanHashMode);
-                RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.SKIP, stepTimeMicros(), 0);
+                Plan<?> plan = generatePhysicalPlan(astHashResult, validPlanHashModes, currentPlanHashMode);
+                RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.SKIP,
+                        stepTimeMicros(), 0);
                 return plan;
             }
 

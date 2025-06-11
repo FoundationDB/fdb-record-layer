@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectVa
 import com.apple.foundationdb.record.query.plan.cascades.values.OfTypeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
@@ -45,8 +46,10 @@ import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
+import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
+import com.google.common.collect.ImmutableList;
 import com.google.common.testing.FakeTicker;
 import org.apache.commons.lang3.tuple.Pair;
 import org.assertj.core.groups.Tuple;
@@ -62,6 +65,7 @@ import java.util.AbstractMap;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -147,6 +151,7 @@ public class RelationalPlanCacheTests {
                 constantId(tokenIndex), Type.primitiveType(Type.TypeCode.INT, false)), Type.primitiveType(Type.TypeCode.INT), null), Set.of(builder.build().get()));
     }
 
+    // todo (yhatem) clean this up.
     @Nonnull
     private static QueryPredicate ofTypeIntp0(final int tokenIndex) {
         return new ValuePredicate(OfTypeValue.of(ConstantObjectValue.of(Quantifier.constant(),
@@ -156,9 +161,74 @@ public class RelationalPlanCacheTests {
 
     @Nonnull
     private static QueryPredicate ofTypeIntp1(final int tokenIndex) {
+        return ofTypeInt(tokenIndex, Optional.empty());
+    }
+
+    @Nonnull
+    private static QueryPredicate strEq(final int tokenIndex1, final String scope1, final int tokenIndex2, final String scope2) {
+        return strEq(tokenIndex1, Optional.of(scope1), tokenIndex2, Optional.of(scope2));
+    }
+
+    @Nonnull
+    private static QueryPredicate strEq(final int tokenIndex1, final int tokenIndex2) {
+        return strEq(tokenIndex1, Optional.empty(), tokenIndex2, Optional.empty());
+    }
+
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+    @Nonnull
+    private static QueryPredicate strEq(final int tokenIndex1, final Optional<String> scope1, final int tokenIndex2, final Optional<String> scope2) {
+        return new ValuePredicate(ConstantObjectValue.of(Quantifier.constant(),
+                constantId(tokenIndex1, scope1), Type.primitiveType(Type.TypeCode.STRING)),
+                new Comparisons.ValueComparison(Comparisons.Type.EQUALS, ConstantObjectValue.of(Quantifier.constant(),
+                        constantId(tokenIndex2, scope2), Type.primitiveType(Type.TypeCode.STRING))));
+    }
+
+    @Nonnull
+    private static QueryPlanConstraint strEqCon(final int tokenIndex1, final String scope1, final int tokenIndex2, final String scope2) {
+        return QueryPlanConstraint.ofPredicate(strEq(tokenIndex1, scope1, tokenIndex2, scope2));
+    }
+
+    @Nonnull
+    private static QueryPlanConstraint strEqCon(final int tokenIndex1, final int tokenIndex2) {
+        return QueryPlanConstraint.ofPredicate(strEq(tokenIndex1, tokenIndex2));
+    }
+
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+    @Nonnull
+    private static QueryPlanConstraint strEqCon(final int tokenIndex1, final Optional<String> scope1, final int tokenIndex2,
+                                                final Optional<String> scope2) {
+        return QueryPlanConstraint.ofPredicate(strEq(tokenIndex1, scope1, tokenIndex2, scope2));
+    }
+
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+    @Nonnull
+    private static QueryPredicate ofTypeInt(final int tokenIndex, final Optional<String> scope) {
         return new ValuePredicate(OfTypeValue.of(ConstantObjectValue.of(Quantifier.constant(),
-                        constantId(tokenIndex), Type.primitiveType(Type.TypeCode.INT)), Type.primitiveType(Type.TypeCode.INT, false)),
+                constantId(tokenIndex, scope), Type.primitiveType(Type.TypeCode.INT)), Type.primitiveType(Type.TypeCode.INT, false)),
                 new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true));
+    }
+
+    @Nonnull
+    private static QueryPredicate ofTypeString(final int tokenIndex, final String scope) {
+        return ofTypeString(tokenIndex, Optional.of(scope));
+    }
+
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+    @Nonnull
+    private static QueryPredicate ofTypeString(final int tokenIndex, final Optional<String> scope) {
+        return new ValuePredicate(OfTypeValue.of(ConstantObjectValue.of(Quantifier.constant(),
+                constantId(tokenIndex, scope), Type.primitiveType(Type.TypeCode.STRING)), Type.primitiveType(Type.TypeCode.STRING, false)),
+                new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true));
+    }
+
+    @Nonnull
+    private static QueryPlanConstraint ofTypeStringCons(final int tokenIndex) {
+        return QueryPlanConstraint.ofPredicate(ofTypeString(tokenIndex, Optional.empty()));
+    }
+
+    @Nonnull
+    private static QueryPlanConstraint ofTypeStringCons(final int tokenIndex, final String scope) {
+        return QueryPlanConstraint.ofPredicate(ofTypeString(tokenIndex, scope));
     }
 
     @Nonnull
@@ -202,6 +272,11 @@ public class RelationalPlanCacheTests {
     }
 
     @Nonnull
+    private static QueryPlanConstraint ofTypeIntCons(final int tokenIndex, String scope) {
+        return QueryPlanConstraint.ofPredicate(ofTypeInt(tokenIndex, Optional.of(scope)));
+    }
+
+    @Nonnull
     private static final QueryPlanConstraint tautology = QueryPlanConstraint.tautology();
 
     @Nonnull
@@ -226,7 +301,7 @@ public class RelationalPlanCacheTests {
                                                          int userVersion,
                                                          @Nonnull final Set<String> readableIndexes) throws Exception {
         final var schemaName = connection.getSchema();
-        final var embeddedConnection = connection.getUnderlyingEmbeddedConnection().unwrap(EmbeddedRelationalConnection.class);
+        final var embeddedConnection = Assert.castUnchecked(connection.getUnderlyingEmbeddedConnection(), EmbeddedRelationalConnection.class);
         final var schemaTemplate = embeddedConnection.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toBuilder().setVersion(schemaTemplateVersion).setName(schemaTemplateName).build();
         final AbstractDatabase database = embeddedConnection.getRecordLayerDatabase();
         final var storeState = new RecordStoreState(null, readableIndexes.stream().map(index -> Pair.of(index, IndexState.READABLE)).collect(Collectors.toMap(Pair::getKey, Pair::getValue)));
@@ -235,14 +310,21 @@ public class RelationalPlanCacheTests {
                 .create()
                 .fromDatabase(database)
                 .fromRecordStore(store)
-                .withSchemaTemplate(schemaTemplate)
-                .withMetricsCollector(embeddedConnection.getMetricCollector())
+                .withSchemaTemplate(embeddedConnection.getTransaction().getBoundSchemaMaybe().orElse(schemaTemplate))
+                .withMetricsCollector(Assert.notNullUnchecked(embeddedConnection.getMetricCollector()))
                 .withPlannerConfiguration(PlannerConfiguration.from(Optional.of(readableIndexes)))
                 .withUserVersion(userVersion)
                 .build();
         return Pair.of(PlanGenerator.of(Optional.of(cache), planContext,
                         store.getRecordMetaData(), storeState, Options.builder().build()),
                 schemaTemplate.getIndexEntriesAsBitset(Optional.of(readableIndexes)));
+    }
+
+    @Nonnull
+    private Plan.ExecutionContext getExecutionContext() throws RelationalException {
+        final var embeddedConnection = Assert.castUnchecked(connection.getUnderlyingEmbeddedConnection(), EmbeddedRelationalConnection.class);
+        return Plan.ExecutionContext.of(embeddedConnection.getTransaction(),  Options.builder().build(),
+                embeddedConnection, Assert.notNullUnchecked(embeddedConnection.getMetricCollector()));
     }
 
     @Nonnull
@@ -278,7 +360,8 @@ public class RelationalPlanCacheTests {
                                 key,
                                 secondaryKey.getSchemaTemplateVersion(),
                                 secondaryKey.getUserVersion(),
-                                secondaryKey.getReadableIndexes()),
+                                secondaryKey.getReadableIndexes(),
+                                secondaryKey.getAuxiliaryMetadata()),
                         cache.getStats().getAllTertiaryMappings(key, secondaryKey)
                                 .entrySet()
                                 .stream()
@@ -313,18 +396,39 @@ public class RelationalPlanCacheTests {
         return PhysicalPlanEquivalence.of(QueryPlanConstraint.composeConstraints(Arrays.asList(constraints)));
     }
 
+    @Nonnull
     private BitSet planQuery(@Nonnull final RelationalPlanCache cache,
                              @Nonnull final String query,
                              @Nonnull final String schemaTemplateName,
-                             int schemaTemplateVerison,
+                             int schemaTemplateVersion,
                              int userVersion,
                              @Nonnull final Set<String> readableIndexes,
                              @Nonnull final String expectedPhysicalPlan) throws Exception {
+        return planQueryWithTemporaryFunctionsPreamble(cache, ImmutableList.of(), query, schemaTemplateName, schemaTemplateVersion,
+                userVersion, readableIndexes, expectedPhysicalPlan);
+    }
+
+    @Nonnull
+    private BitSet planQueryWithTemporaryFunctionsPreamble(@Nonnull final RelationalPlanCache cache,
+                                                           @Nonnull final List<String> temporaryFunctionsDefinitions,
+                                                           @Nonnull final String query,
+                                                           @Nonnull final String schemaTemplateName,
+                                                           int schemaTemplateVersion,
+                                                           int userVersion,
+                                                           @Nonnull final Set<String> readableIndexes,
+                                                           @Nonnull final String expectedPhysicalPlan) throws Exception {
         connection.setAutoCommit(false);
         connection.getUnderlyingEmbeddedConnection().createNewTransaction();
-        final var input = getPlanGenerator(cache, schemaTemplateName, schemaTemplateVerison, userVersion, readableIndexes);
-        final var planGenerator = input.getLeft();
-        final var readableIndexesBitset = input.getRight();
+        var input = getPlanGenerator(cache, schemaTemplateName, schemaTemplateVersion, userVersion, readableIndexes);
+        var planGenerator = input.getLeft();
+        var readableIndexesBitset = input.getRight();
+        for (var temporaryFunctionsDefinition : temporaryFunctionsDefinitions) {
+            final var plan = planGenerator.getPlan(temporaryFunctionsDefinition);
+            plan.execute(getExecutionContext());
+            input = getPlanGenerator(cache, schemaTemplateName, schemaTemplateVersion, userVersion, readableIndexes);
+            planGenerator = input.getLeft();
+            readableIndexesBitset = input.getRight();
+        }
         final var physicalPlan = planGenerator.getPlan(query);
         connection.rollback();
         connection.setAutoCommit(true);
@@ -339,13 +443,13 @@ public class RelationalPlanCacheTests {
 
         // adding an entry to the cache to warm it up.
         final var readableIndexesBitset = planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980), i1970);
-        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset),
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, ""),
                 Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970)));
 
         // let's add an identical query with different boundaries, so we can use a different index (i1980).
         // however, we end up with in the same primary cache bucket because the primary key is identical.
         final var readableIndexesBitset2 = planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1980 AND YEAR < 1985", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980), i1980);
-        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset2),
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset2, ""),
                 Map.of(
                         ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970,
                         ppe(cons(c1980Cp0(7), c1980Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1980)));
@@ -353,11 +457,11 @@ public class RelationalPlanCacheTests {
         // let's try another query, now the query itself is different -> must be a different entry in the _primary_ cache.
         final var readableIndexesBitset3 = planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1980 OR YEAR < 1985", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980), Scan);
         shouldBe(cache, Map.of(
-                new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset3),
+                new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset3, ""),
                 Map.of(
                         ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970,
                         ppe(cons(c1980Cp0(7), c1980Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1980),
-                new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? OR \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset3),
+                new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? OR \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset3, ""),
                 // tautology is expected since a primary scan accepts everything.
                 Map.of(ppe(tautology, cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), Scan)
         ));
@@ -370,16 +474,16 @@ public class RelationalPlanCacheTests {
 
         // customer 1 issues a query ...
         final var readableIndexesBitset = planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980), i1970);
-        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset),
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, ""),
                 Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970)));
 
         // customer 2 issues exactly the same query, the environment is identical to first query, but the schema template is different ...
         planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979", "SCHEMA_TEMPLATE_2", 10, 100, Set.of(i1970, i1980), i1970);
         shouldBe(cache, Map.of(
-                new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset),
+                new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, ""),
                 Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970),
                 // so it is added as a separate entry in the main cache
-                new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_2", 10, 100, readableIndexesBitset),
+                new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_2", 10, 100, readableIndexesBitset, ""),
                 Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970)));
     }
 
@@ -390,16 +494,16 @@ public class RelationalPlanCacheTests {
 
         // customer 1 issues a query ...
         final var readableIndexesBitset = planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980), i1970);
-        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset),
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, ""),
                 Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970)));
 
         // customer 2 issues exactly the same query, the environment is identical to first query, but the schema template version is different ...
         planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979", "SCHEMA_TEMPLATE_1", 11, 100, Set.of(i1970, i1980), i1970);
         shouldBe(cache, Map.of(
-                new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset),
+                new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, ""),
                 Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970),
                 // so it is added as a separate entry in the main cache
-                new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 11, 100, readableIndexesBitset),
+                new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 11, 100, readableIndexesBitset, ""),
                 Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970)));
     }
 
@@ -410,16 +514,16 @@ public class RelationalPlanCacheTests {
 
         // customer 1 issues a query ...
         final var readableIndexesBitset = planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980), i1970);
-        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset),
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, ""),
                 Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970)));
 
         // customer 2 issues exactly the same query, the environment is identical to first query, but the user version is different ...
         planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979", "SCHEMA_TEMPLATE_1", 10, 101, Set.of(i1970, i1980), i1970);
         shouldBe(cache, Map.of(
-                new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset),
+                new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, ""),
                 Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970),
                 // so it is added as a separate entry in the main cache
-                new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 101, readableIndexesBitset),
+                new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 101, readableIndexesBitset, ""),
                 Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970)));
     }
 
@@ -430,7 +534,7 @@ public class RelationalPlanCacheTests {
 
         // customer 1 issues a query ...
         final var readableIndexesBitset = planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980), i1970);
-        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset),
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, ""),
                 Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970)));
 
         // customer 2 issues exactly the same query, the environment is identical to first query, but the readable indexes set is different ...
@@ -438,10 +542,10 @@ public class RelationalPlanCacheTests {
         // in that case, we want to make sure that we re-plan the query giving the optimizer a chance to consider the newly created index for producing a better plan.
         final var readableIndexesBitset2 = planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980, i1990), i1970);
         shouldBe(cache, Map.of(
-                new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset),
+                new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, ""),
                 Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970),
                 // so it is added as a separate entry in the main cache
-                new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset2),
+                new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset2, ""),
                 Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970)));
     }
 
@@ -452,12 +556,12 @@ public class RelationalPlanCacheTests {
 
         // customer 1 issues a query ...
         final var readableIndexesBitset = planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980), i1970);
-        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset),
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, ""),
                 Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970)));
 
         // customer 2 issues exactly the same query, the environment is identical to first query, but which predicates that fall outside the ranges of the chosen index of the first query
         planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1980 AND YEAR < 1983", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980), i1980);
-        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset),
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, ""),
                 Map.of(
                         ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970,
                         ppe(cons(c1980Cp0(7), c1980Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1980)));
@@ -470,7 +574,7 @@ public class RelationalPlanCacheTests {
 
         // customer 1 issues a query ...
         final var readableIndexesBitset = planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980), i1970);
-        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset),
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, ""),
                 Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970)));
 
         // 10 MS TTL for primary cache, if we pass 11 -> item must be evicted from primary cache.
@@ -485,24 +589,24 @@ public class RelationalPlanCacheTests {
 
         // customer 1 issues a query ...
         final var readableIndexesBitset = planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980), i1970);
-        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset),
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, ""),
                 Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970)));
 
         // customer 2 issues a different query ...
         final var readableIndexesBitset2 = planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1970 OR YEAR < 1979", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980), Scan);
         shouldBe(cache, Map.of(
-                new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset),
+                new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, ""),
                 Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970),
                 // ... which is added as a separate entry in the main cache
-                new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? OR \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset2),
+                new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? OR \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset2, ""),
                 Map.of(ppe(tautology, cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), Scan)));
 
         // customer 3 issues yet a different query, cache size is two, evicts an item ...
         final var readableIndexesBitset3 = planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1970", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980), Scan);
         shouldBe(cache, Map.of(
-                new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset3),
+                new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset3, ""),
                 Map.of(ppe(tautology, cons(ofTypeIntCp0(7))), Scan),
-                new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset),
+                new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, ""),
                 Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970)));
     }
 
@@ -513,7 +617,7 @@ public class RelationalPlanCacheTests {
 
         // customer 1 issues a query ...
         final var readableIndexesBitset = planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980), i1970);
-        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset),
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, ""),
                 Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970)));
 
         // 10 MS TTL for primary cache, 5 MS TTL for secondary cache, if we pass 7 -> item must be evicted from secondary cache
@@ -534,7 +638,7 @@ public class RelationalPlanCacheTests {
 
         // customer 1 issues a query ...
         final var readableIndexesBitset = planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980), i1970);
-        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset),
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, ""),
                 Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970)));
 
         // pass some time, so we have some jitter between secondary cache items necessary for producing deterministic test results.
@@ -542,7 +646,7 @@ public class RelationalPlanCacheTests {
 
         // customer 2 issues a query ...
         planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1980 AND YEAR < 1985", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980), i1980);
-        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset),
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, ""),
                 Map.of(
                         ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970,
                         ppe(cons(c1980Cp0(7), c1980Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1980)));
@@ -550,7 +654,7 @@ public class RelationalPlanCacheTests {
         // 10 MS TTL for primary cache, 5 MS TTL for secondary cache, we already passed 2, now if pass 3 more we'll
         // evict the first cached item in the secondary cache, but _not_ the more recent one.
         ticker.advance(Duration.of(3, ChronoUnit.MILLIS));
-        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset),
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, ""),
                 Map.of(ppe(cons(c1980Cp0(7), c1980Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1980)));
     }
 
@@ -561,12 +665,12 @@ public class RelationalPlanCacheTests {
 
         // customer 1 issues a query ...
         final var readableIndexesBitset = planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980, i1990), i1970);
-        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset),
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, ""),
                 Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970)));
 
         // customer 2 issues a query ...
         planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1980 AND YEAR < 1985", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980, i1990), i1980);
-        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset),
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, ""),
                 Map.of(
                         ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970,
                         ppe(cons(c1980Cp0(7), c1980Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1980)));
@@ -574,7 +678,7 @@ public class RelationalPlanCacheTests {
         // secondary cache has capacity of two, attempting to add a third item causes an eviction (LRU).
         // customer 3 issues a query ...
         planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1990 AND YEAR < 1992", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980, i1990), i1990);
-        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset),
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, ""),
                 Map.of(
                         ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970,
                         ppe(cons(c1990Cp0(7), c1990Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1990)));
@@ -587,7 +691,7 @@ public class RelationalPlanCacheTests {
 
         // customer 1 issues a query ...
         var readableIndexesBitset = planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980), i1970);
-        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset),
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, ""),
                 Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970)));
 
         // 10 MS TTL for secondary cache, 5 MS TTL for tertiary cache, if we pass 7 -> item must be evicted from tertiary cache
@@ -601,7 +705,7 @@ public class RelationalPlanCacheTests {
         cache.cleanUp();
 
         // Only one secondary key, the first one was removed
-        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset),
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, ""),
                 Map.of(ppe(tautology, cons(ofTypeIntCp0(7))), Scan)));
     }
 
@@ -612,20 +716,92 @@ public class RelationalPlanCacheTests {
 
         // customer 1 issues a query ...
         final var readableIndexesBitset = planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980, i1990), i1970);
-        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset),
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, ""),
                 Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970)));
 
         // customer 2 issues a query that forces a "bad" plan within the same secondary cache entry of the plan above
         // because of scan boundaries that fall outside the range of the filtered index
         final var readableIndexesBitset2 = planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 2005 AND YEAR < 2010", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980, i1990), Scan);
-        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset2),
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset2, ""),
                 Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970,
                         ppe(tautology, cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), Scan)));
 
         // we should still get back the "good" plan (scanning i1970)
         final var readableIndexesBitset3 = planQuery(cache, "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980, i1990), i1970);
-        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset3),
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset3, ""),
                 Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), i1970,
                         ppe(tautology, cons(ofTypeIntCp0(7), ofTypeIntCp1(11))), Scan)));
+    }
+
+    @Test
+    void testConstraintsWithTemporaryFunction() throws Exception {
+        final var ticker = new FakeTicker();
+        final var cache = getCache(ticker);
+
+        final var readableIndexesBitset = planQueryWithTemporaryFunctionsPreamble(cache, ImmutableList.of(
+                "CREATE TEMPORARY FUNCTION SCI_FI_BOOKS() ON COMMIT DROP FUNCTION AS SELECT * FROM BOOKS WHERE TITLE LIKE 'SCIFI'",
+                "CREATE TEMPORARY FUNCTION SCI_FI_BOOKS_OF_80S() ON COMMIT DROP FUNCTION AS SELECT * FROM SCI_FI_BOOKS() WHERE YEAR > 1980 AND YEAR < 1989"),
+                "SELECT * FROM SCI_FI_BOOKS_OF_80S()", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980, i1990), Scan /*should be i1970 once the planner can perform predicate push down*/);
+
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"SCI_FI_BOOKS_OF_80S\" ( ) ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, "CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS\" ( ) " +
+                        "ON COMMIT DROP FUNCTION AS SELECT * FROM \"BOOKS\" WHERE \"TITLE\" LIKE 'SCIFI' ||CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS_OF_80S\" ( ) " +
+                        "ON COMMIT DROP FUNCTION AS SELECT * FROM \"SCI_FI_BOOKS\" ( ) WHERE \"YEAR\" > ? AND \"YEAR\" < ? "),
+                Map.of(ppe(cons(ofTypeStringCons(18, "SCI_FI_BOOKS")), ofTypeIntCons(20, "SCI_FI_BOOKS_OF_80S"), ofTypeIntCons(24, "SCI_FI_BOOKS_OF_80S")), Scan)));
+        // the fact that we generate a type constraint for like pattern, and we still keep it in the normalized query is related
+        // to an orthogonal bug: https://github.com/FoundationDB/fdb-record-layer/issues/3389
+    }
+
+    @Test
+    void testConstraintsWithTemporaryFunctionsIncludingUnusedOnes() throws Exception {
+        final var ticker = new FakeTicker();
+        final var cache = getCache(ticker);
+
+        final var readableIndexesBitset = planQueryWithTemporaryFunctionsPreamble(cache, ImmutableList.of(
+                        "CREATE TEMPORARY FUNCTION OTHER_BOOKS() ON COMMIT DROP FUNCTION AS SELECT * FROM BOOKS WHERE TITLE LIKE 'OTHER'",
+                        "CREATE TEMPORARY FUNCTION SCI_FI_BOOKS() ON COMMIT DROP FUNCTION AS SELECT * FROM BOOKS WHERE TITLE LIKE 'SCIFI'",
+                        "CREATE TEMPORARY FUNCTION SCI_FI_BOOKS_OF_80S() ON COMMIT DROP FUNCTION AS SELECT * FROM SCI_FI_BOOKS() WHERE YEAR > 1980 AND YEAR < 1989"),
+                "SELECT * FROM SCI_FI_BOOKS_OF_80S()", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980, i1990), Scan /*should be i1970 once the planner can perform predicate push down*/);
+
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"SCI_FI_BOOKS_OF_80S\" ( ) ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, "CREATE TEMPORARY FUNCTION \"OTHER_BOOKS\" ( ) " +
+                        "ON COMMIT DROP FUNCTION AS SELECT * FROM \"BOOKS\" WHERE \"TITLE\" LIKE 'OTHER' ||CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS\" ( ) " +
+                        "ON COMMIT DROP FUNCTION AS SELECT * FROM \"BOOKS\" WHERE \"TITLE\" LIKE 'SCIFI' ||CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS_OF_80S\" ( ) " +
+                        "ON COMMIT DROP FUNCTION AS SELECT * FROM \"SCI_FI_BOOKS\" ( ) WHERE \"YEAR\" > ? AND \"YEAR\" < ? "),
+                Map.of(ppe(cons(ofTypeStringCons(18, "SCI_FI_BOOKS")), ofTypeIntCons(20, "SCI_FI_BOOKS_OF_80S"), ofTypeIntCons(24, "SCI_FI_BOOKS_OF_80S")), Scan)));
+    }
+
+    @Test
+    void testConstraintsWithTemporaryFunctionsMultipleReferences() throws Exception {
+        final var ticker = new FakeTicker();
+        final var cache = getCache(ticker);
+
+        final var readableIndexesBitset = planQueryWithTemporaryFunctionsPreamble(cache, ImmutableList.of(
+                        "CREATE TEMPORARY FUNCTION SCI_FI_BOOKS() ON COMMIT DROP FUNCTION AS SELECT * FROM BOOKS WHERE TITLE LIKE 'SCIFI'",
+                        "CREATE TEMPORARY FUNCTION SCI_FI_BOOKS_OF_80S() ON COMMIT DROP FUNCTION AS SELECT * FROM SCI_FI_BOOKS() WHERE YEAR > 1980 AND YEAR < 1989"),
+                "SELECT * FROM SCI_FI_BOOKS_OF_80S(), SCI_FI_BOOKS_OF_80S()", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980, i1990), Scan /*should be i1970 once the planner can perform predicate push down*/);
+
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"SCI_FI_BOOKS_OF_80S\" ( ) , \"SCI_FI_BOOKS_OF_80S\" ( ) ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, "CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS\" ( ) " +
+                        "ON COMMIT DROP FUNCTION AS SELECT * FROM \"BOOKS\" WHERE \"TITLE\" LIKE 'SCIFI' ||CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS_OF_80S\" ( ) " +
+                        "ON COMMIT DROP FUNCTION AS SELECT * FROM \"SCI_FI_BOOKS\" ( ) WHERE \"YEAR\" > ? AND \"YEAR\" < ? "),
+                Map.of(ppe(cons(ofTypeStringCons(18, "SCI_FI_BOOKS")), ofTypeIntCons(20, "SCI_FI_BOOKS_OF_80S"), ofTypeIntCons(24, "SCI_FI_BOOKS_OF_80S")), Scan)));
+    }
+
+    @Test
+    void testConstraintsWithTemporaryFunctionsMultipleLiterals() throws Exception {
+        final var ticker = new FakeTicker();
+        final var cache = getCache(ticker);
+
+        final var readableIndexesBitset = planQueryWithTemporaryFunctionsPreamble(cache, ImmutableList.of(
+                        "CREATE TEMPORARY FUNCTION OTHER_BOOKS() ON COMMIT DROP FUNCTION AS SELECT * FROM BOOKS WHERE TITLE LIKE 'OTHER'",
+                        "CREATE TEMPORARY FUNCTION SCI_FI_BOOKS() ON COMMIT DROP FUNCTION AS SELECT * FROM BOOKS WHERE TITLE LIKE 'SCIFI'",
+                        "CREATE TEMPORARY FUNCTION SCI_FI_BOOKS_OF_80S() ON COMMIT DROP FUNCTION AS SELECT * FROM SCI_FI_BOOKS() WHERE YEAR > 1980 AND YEAR < 1989"),
+                "SELECT * FROM SCI_FI_BOOKS_OF_80S() AS A, OTHER_BOOKS() AS B WHERE A.YEAR > 1985 AND A.TITLE = 'OTHER'", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980, i1990), Scan /*should be i1970 once the planner can perform predicate push down*/);
+
+        shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"SCI_FI_BOOKS_OF_80S\" ( ) AS \"A\" , \"OTHER_BOOKS\" ( ) AS \"B\" WHERE \"A\" . \"YEAR\" > ? AND \"A\" . \"TITLE\" = ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, "CREATE TEMPORARY FUNCTION \"OTHER_BOOKS\" ( ) " +
+                        "ON COMMIT DROP FUNCTION AS SELECT * FROM \"BOOKS\" WHERE \"TITLE\" LIKE 'OTHER' ||CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS\" ( ) " +
+                        "ON COMMIT DROP FUNCTION AS SELECT * FROM \"BOOKS\" WHERE \"TITLE\" LIKE 'SCIFI' ||CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS_OF_80S\" ( ) " +
+                        "ON COMMIT DROP FUNCTION AS SELECT * FROM \"SCI_FI_BOOKS\" ( ) WHERE \"YEAR\" > ? AND \"YEAR\" < ? "),
+                Map.of(ppe(cons(ofTypeStringCons(18, "SCI_FI_BOOKS")), ofTypeIntCons(20, "SCI_FI_BOOKS_OF_80S"),
+                        ofTypeIntCons(24, "SCI_FI_BOOKS_OF_80S"), ofTypeStringCons(18, "OTHER_BOOKS"),
+                        ofTypeIntCp0(19), ofTypeStringCons(25), strEqCon(25, Optional.empty(), 18, Optional.of("OTHER_BOOKS"))), Scan)));
     }
 }

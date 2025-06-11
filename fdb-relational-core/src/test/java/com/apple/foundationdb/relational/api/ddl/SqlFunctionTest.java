@@ -279,7 +279,7 @@ public class SqlFunctionTest {
         assertThrows(() -> ddl("CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T(a BIGINT, b BIGINT, primary key(a)) " +
                 "CREATE FUNCTION SQ1(IN A BIGINT, IN A BIGINT) AS SELECT * FROM T WHERE b < 42 "))
-                .hasErrorCode(ErrorCode.DUPLICATE_PARAMETER);
+                .hasErrorCode(ErrorCode.INVALID_FUNCTION_DEFINITION);
     }
 
     @Test
@@ -287,7 +287,7 @@ public class SqlFunctionTest {
         assertThrows(() -> ddl("CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T(a BIGINT, b BIGINT, primary key(a)) " +
                 "CREATE FUNCTION SQ1(IN A BIGINT, IN B STRING, IN A BIGINT) AS SELECT * FROM T WHERE b < 42 "))
-                .hasErrorCode(ErrorCode.DUPLICATE_PARAMETER);
+                .hasErrorCode(ErrorCode.INVALID_FUNCTION_DEFINITION);
     }
 
     @Test
