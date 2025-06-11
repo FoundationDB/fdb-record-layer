@@ -31,11 +31,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.BiFunction;
-import java.util.stream.Collectors;
 
 /**
- * Helpers for collections of {@link ExpressionPartition}.
+ * Helpers for collections of {@link ExpressionPartition}s.
  */
 public class ExpressionPartitions {
     private ExpressionPartitions() {
@@ -47,65 +45,96 @@ public class ExpressionPartitions {
                                                                                          @Nonnull final ExpressionProperty<?> property) {
         return rollUpTo(expressionPartitions,
                 ImmutableSet.of(property),
-                ExpressionPartition::new);
+                (PartitionCreator<E, ExpressionPartition<E>>)ExpressionPartition::new);
     }
 
     @Nonnull
     protected static <E extends RelationalExpression, P extends ExpressionPartition<E>> List<P> rollUpTo(@Nonnull final Collection<P> expressionPartitions,
                                                                                                          @Nonnull final ExpressionProperty<?> property,
-                                                                                                         @Nonnull final BiFunction<Map<ExpressionProperty<?>, ?>, Collection<E>, P> partitionCreatorFunction) {
-        return rollUpTo(expressionPartitions, ImmutableSet.of(property), partitionCreatorFunction);
+                                                                                                         @Nonnull final PartitionCreator<E, P> partitionCreator) {
+        return rollUpTo(expressionPartitions, ImmutableSet.of(property), partitionCreator);
     }
 
     @Nonnull
     public static <E extends RelationalExpression> List<ExpressionPartition<E>> rollUpTo(@Nonnull final Collection<ExpressionPartition<E>> expressionPartitions,
                                                                                          @Nonnull final Set<ExpressionProperty<?>> rollupProperties) {
-        return rollUpTo(expressionPartitions, rollupProperties, ExpressionPartition::new);
+        return rollUpTo(expressionPartitions, rollupProperties,
+                (PartitionCreator<E, ExpressionPartition<E>>)ExpressionPartition::new);
     }
 
     @Nonnull
-    static <E extends RelationalExpression, P extends ExpressionPartition<E>> List<P> rollUpTo(@Nonnull final Collection<P> planPartitions,
+    static <E extends RelationalExpression, P extends ExpressionPartition<E>> List<P> rollUpTo(@Nonnull final Collection<P> partitions,
                                                                                                @Nonnull final Set<ExpressionProperty<?>> rollupProperties,
-                                                                                               @Nonnull final BiFunction<Map<ExpressionProperty<?>, ?>, Collection<E>, P> partitionCreatorFunction) {
-        final Map<Map<ExpressionProperty<?>, ?>, ? extends Set<E>> rolledUpAttributesMap =
-                planPartitions
-                        .stream()
-                        .map(planPartition -> {
-                            final var attributesMap = planPartition.getPropertyValuesMap();
-                            final Map<ExpressionProperty<?>, ?> filteredAttributesMap =
-                                    attributesMap
-                                            .entrySet()
-                                            .stream()
-                                            .filter(attributeEntry -> rollupProperties.contains(attributeEntry.getKey()))
-                                            .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+                                                                                               @Nonnull final PartitionCreator<E, P> partitionCreator) {
+        final Map<Map<ExpressionProperty<?>, ?>, Map<E, Map<ExpressionProperty<?>, ?>>> rolledUpMap =
+                new LinkedHashMap<>();
+        for (final P partition : partitions) {
+            final var groupingPropertyMap = partition.getPartitionPropertiesMap();
+            final Map<ExpressionProperty<?>, ?> filteredPropertiesMap =
+                    groupingPropertyMap
+                            .entrySet()
+                            .stream()
+                            .filter(attributeEntry ->
+                                    rollupProperties.contains(attributeEntry.getKey()))
+                            .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+            rolledUpMap.compute(filteredPropertiesMap, (key, oldValue) -> {
+                if (oldValue == null) {
+                    return new LinkedIdentityMap<>(partition.getNonPartitioningPropertiesMap());
+                }
+                oldValue.putAll(partition.getNonPartitioningPropertiesMap());
+                return oldValue;
+            });
+        }
 
-                            // create a new partition that uses only the rollup attributes
-                            return new ExpressionPartition<>(filteredAttributesMap, planPartition.getExpressions());
-                        })
-                        // group by the filtered attributes rolling up to form new sets of plans
-                        .collect(Collectors.groupingBy(ExpressionPartition::getPropertyValuesMap,
-                                LinkedHashMap::new,
-                                Collectors.flatMapping(planPartition -> planPartition.getExpressions().stream(), LinkedIdentitySet.toLinkedIdentitySet())));
-
-        return toPartitions(rolledUpAttributesMap, partitionCreatorFunction);
+        final var resultsBuilder = ImmutableList.<P>builder();
+        for (final var entry : rolledUpMap.entrySet()) {
+            resultsBuilder.add(partitionCreator.create(entry.getKey(), entry.getValue()));
+        }
+        return resultsBuilder.build();
     }
 
     @Nonnull
-    protected static <E extends RelationalExpression> List<ExpressionPartition<E>> toPartitions(@Nonnull final Map<Map<ExpressionProperty<?>, ?>, ? extends Set<E>> propertiesToExpressionsMap) {
-        return toPartitions(propertiesToExpressionsMap, ExpressionPartition::new);
+    protected static <E extends RelationalExpression> List<ExpressionPartition<E>> toPartitions(@Nonnull final ExpressionPropertiesMap<E> propertiesMap) {
+        return toPartitions(propertiesMap, (PartitionCreator<E, ExpressionPartition<E>>)ExpressionPartition::new);
     }
 
     @Nonnull
-    protected static <E extends RelationalExpression, P extends ExpressionPartition<E>> List<P> toPartitions(@Nonnull final Map<Map<ExpressionProperty<?>, ?>, ? extends Set<E>> propertiesToExpressionsMap,
-                                                                                                             @Nonnull final BiFunction<Map<ExpressionProperty<?>, ?>, Collection<E>, P> partitionCreatorFunction) {
-        return propertiesToExpressionsMap
+    protected static <E extends RelationalExpression, P extends ExpressionPartition<E>> List<P> toPartitions(@Nonnull final ExpressionPropertiesMap<E> propertiesMap,
+                                                                                                             @Nonnull final PartitionCreator<E, P> partitionCreator) {
+        return toPartitions(propertiesMap.getPartitioningPropertiesExpressionsMap(),
+                propertiesMap.computeNonPartitioningPropertiesMap(), partitionCreator);
+    }
+
+    @Nonnull
+    private static <E extends RelationalExpression, P extends ExpressionPartition<E>> List<P> toPartitions(@Nonnull final Map<Map<ExpressionProperty<?>, ?>, ? extends Set<E>> partitioningPropertiesMap,
+                                                                                                           @Nonnull Map<E, Map<ExpressionProperty<?>, ?>> nonPartitioningPropertiesMap,
+                                                                                                           @Nonnull final PartitionCreator<E, P> partitionCreator) {
+        return partitioningPropertiesMap
                 .entrySet()
                 .stream()
                 .map(entry -> {
-                    final var attributesMap = entry.getKey();
-                    final var plans = entry.getValue();
-                    return partitionCreatorFunction.apply(attributesMap, plans);
+                    final var partitioningPropertyMap = entry.getKey();
+                    final var expressions = entry.getValue();
+                    final var nonPartitioningPropertyMap = new LinkedIdentityMap<E, Map<ExpressionProperty<?>, ?>>();
+                    for (final var expression : expressions) {
+                        final var propertiesMapForExpression =
+                                nonPartitioningPropertiesMap.get(expression);
+                        nonPartitioningPropertyMap.put(expression, ImmutableMap.copyOf(propertiesMapForExpression));
+                    }
+
+                    //
+                    // Note that the creator is not expected to blindly copy the maps handed in, however, the partition
+                    // needs to own these maps. The grouping property map is not necessarily immutable nor is it owned
+                    // by the partition. We need to defensively copy that map.
+                    //
+                    return partitionCreator.create(ImmutableMap.copyOf(partitioningPropertyMap), nonPartitioningPropertyMap);
                 })
                 .collect(ImmutableList.toImmutableList());
+    }
+
+    @FunctionalInterface
+    protected interface PartitionCreator<E extends RelationalExpression, P extends ExpressionPartition<E>> {
+        P create(@Nonnull Map<ExpressionProperty<?>, ?> groupingPropertyMap,
+                 @Nonnull Map<E, Map<ExpressionProperty<?>, ?>> groupedPropertyMap);
     }
 }

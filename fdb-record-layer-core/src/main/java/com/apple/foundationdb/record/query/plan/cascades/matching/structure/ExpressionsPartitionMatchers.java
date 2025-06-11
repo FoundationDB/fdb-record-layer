@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Set;
 import java.util.function.Predicate;
 
@@ -88,5 +89,39 @@ public class ExpressionsPartitionMatchers {
     @SuppressWarnings("unchecked")
     public static BindingMatcher<ExpressionPartition<RelationalExpression>> anyExpressionPartition() {
         return typed((Class<ExpressionPartition<RelationalExpression>>)(Class<?>)ExpressionPartition.class);
+    }
+
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    public static <P extends Comparable<P>> BindingMatcher<ExpressionPartition<RelationalExpression>> argmin(@Nonnull final ExpressionProperty<P> expressionProperty,
+                                                                                                             @Nonnull final BindingMatcher<RelationalExpression> downstream) {
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(
+                (Class<ExpressionPartition<RelationalExpression>>)(Class<?>)Collection.class,
+                Extractor.of(partition ->
+                                partition.getExpressions()
+                                        .stream()
+                                        .min(Comparator.comparing(
+                                                expression ->
+                                                        partition.getNonPartitioningPropertyValue(expression,
+                                                                expressionProperty))),
+                        name -> "argmin(" + name + ")"),
+                OptionalIfPresentMatcher.present(downstream));
+    }
+
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    public static <P extends Comparable<P>> BindingMatcher<ExpressionPartition<RelationalExpression>> argmax(@Nonnull final ExpressionProperty<P> expressionProperty,
+                                                                                                             @Nonnull final BindingMatcher<RelationalExpression> downstream) {
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(
+                (Class<ExpressionPartition<RelationalExpression>>)(Class<?>)Collection.class,
+                Extractor.of(partition ->
+                                partition.getExpressions()
+                                        .stream()
+                                        .max(Comparator.comparing(
+                                                expression ->
+                                                        partition.getNonPartitioningPropertyValue(expression,
+                                                                expressionProperty))),
+                        name -> "argmax(" + name + ")"),
+                OptionalIfPresentMatcher.present(downstream));
     }
 }

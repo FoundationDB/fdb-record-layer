@@ -413,7 +413,7 @@ public class StoredRecordProperty implements ExpressionProperty<Boolean> {
 
         private boolean evaluateForReference(@Nonnull Reference reference) {
             final var memberStoredRecordsCollection =
-                    reference.getProperty(STORED_RECORD).values();
+                    reference.getPropertyForPlans(STORED_RECORD).values();
 
             return memberStoredRecordsCollection
                     .stream()

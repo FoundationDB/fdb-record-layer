@@ -348,6 +348,10 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
         }
     }
 
+    /**
+     * We want to test that if the record count index has been modified, and requires rebuilding itself, we don't
+     * see that it used to be readable, and try to scan it to determine if the new index can be built inline.
+     */
     @Test
     public void addCountIndex() throws Exception {
         RecordMetaDataHook removeCountHook = metaData -> metaData.removeIndex(COUNT_INDEX_NAME);

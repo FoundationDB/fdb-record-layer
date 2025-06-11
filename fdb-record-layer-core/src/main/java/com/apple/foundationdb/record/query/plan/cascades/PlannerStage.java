@@ -79,12 +79,12 @@ public enum PlannerStage {
      *     </li>
      * </ul>
      */
-    INITIAL(ExpressionPropertiesMap::defaultForExpressions),
+    INITIAL(ExpressionPropertiesMap::defaultForRewritePhase),
     /**
      * Canonical stage. The {@link Reference} is tagged with {@code CANONICAL} iff it was created by the Cascades
      * planner and is the direct result of the rewrite phase of a query graph.
      */
-    CANONICAL(ExpressionPropertiesMap::defaultForExpressions),
+    CANONICAL(ExpressionPropertiesMap::defaultForRewritePhase),
     /**
      * The {@link Reference} is tagged with {@code PLANNED} iff it was created by the Cascades planner and it
      * the direct result of the physical planning of a query. All final {@link RelationalExpression}s contained in

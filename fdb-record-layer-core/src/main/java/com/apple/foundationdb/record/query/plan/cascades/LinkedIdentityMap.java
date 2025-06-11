@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.google.common.base.Equivalence;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 
 import javax.annotation.Nonnull;
@@ -50,8 +51,13 @@ public class LinkedIdentityMap<K, V> extends AbstractMap<K, V> {
     private final Supplier<Set<Entry<K, V>>> entrySetSupplier;
 
     public LinkedIdentityMap() {
+        this(ImmutableMap.of());
+    }
+
+    public LinkedIdentityMap(@Nonnull final Map<K, V> sourceMap) {
         this.map = Maps.newLinkedHashMap();
         this.entrySetSupplier = Suppliers.memoize(this::computeEntrySet);
+        putAll(sourceMap);
     }
 
     @Nonnull
