@@ -828,8 +828,13 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
             if (quantifier instanceof Quantifier.Existential) {
                 return Cardinalities.exactlyOne();
             }
-            // Should this be adjusted to add .floor(1) to null-if-empty quantifiers?
-            return visit(quantifier.getRangesOver().get());
+            Cardinalities childCardinalities = visit(quantifier.getRangesOver().get());
+            if (quantifier instanceof Quantifier.ForEach
+                    && ((Quantifier.ForEach)quantifier).isNullOnEmpty()) {
+                return childCardinalities.floor(1L);
+            } else {
+                return childCardinalities;
+            }
         }
 
         @Nonnull
