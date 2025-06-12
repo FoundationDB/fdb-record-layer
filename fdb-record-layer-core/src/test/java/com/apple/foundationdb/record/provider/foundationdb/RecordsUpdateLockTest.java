@@ -59,6 +59,9 @@ class RecordsUpdateLockTest extends OnlineIndexerTest {
 
                 // Dry run should always succeed
                 recordStore.dryRunSaveRecordAsync(record, FDBRecordStoreBase.RecordExistenceCheck.NONE).join();
+
+                // Override locks should always succeed
+                recordStore.overrideLockSaveRecordAsync(record, FDBRecordStoreBase.RecordExistenceCheck.NONE, null, FDBRecordStoreBase.VersionstampSaveBehavior.DEFAULT).join();
             }
             context.commit();
         }
