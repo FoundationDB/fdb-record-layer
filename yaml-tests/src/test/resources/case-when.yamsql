@@ -50,12 +50,12 @@ test_block:
                   { A3: 30, 'foo' } ]
     -
       - query: select b2, case when b2 then 'foo' else 'bar' end from b;
-      - supported_version: !current_version
+      - supported_version: 4.3.5.0
       - result: [ { B2: true, 'foo' },
                   { B2: false, 'bar' } ]
     -
       - query: select a3, case when a3 > 15 then 10 else 3.14 end from A;
-      - supported_version: !current_version
+      - supported_version: 4.3.5.0
       - result: [ { A3: 10, 3.14 },
                   { A3: 20, 10.0 },
                   { A3: 30, 10.0 } ]
