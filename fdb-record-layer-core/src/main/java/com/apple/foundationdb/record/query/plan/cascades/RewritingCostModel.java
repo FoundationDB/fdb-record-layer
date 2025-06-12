@@ -27,9 +27,9 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 
 import javax.annotation.Nonnull;
 
-import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty.selectCount;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty.tableFunctionCount;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.PredicateHeightProperty.predicateHeight;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.SelectCountProperty.selectCount;
 
 /**
  * Cost model for {@link PlannerPhase#REWRITING}. TODO To be fleshed out whe we have actual rules.
@@ -52,8 +52,6 @@ public class RewritingCostModel implements CascadesCostModel {
 
     @Override
     public int compare(final RelationalExpression a, final RelationalExpression b) {
-        // TODO Implement this!
-
         //
         // Pick the expression where predicates have been pushed down as far as they can go
         //

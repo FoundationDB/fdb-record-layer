@@ -984,25 +984,19 @@ class SelectMergeRuleTest {
                 fieldPredicate(baseQun, "b", EQUALS_PARAM)));
         final LogicalDistinctExpression expr4 = new LogicalDistinctExpression(qunForDistinct);
 
-        final Reference lowerRef = Reference.ofExploratoryExpressions(PlannerStage.CANONICAL, ImmutableSet.of(expr1, expr2, expr3, expr4));
+        final Reference lowerRef = Reference.ofFinalExpressions(PlannerStage.INITIAL, ImmutableSet.of(expr1, expr2, expr3, expr4));
         final Quantifier lowerQun = Quantifier.forEach(lowerRef);
 
         // Select on top of the lower qun
         final SelectExpression upper = selectWithPredicates(lowerQun, ImmutableList.of("c", "d"),
                 fieldPredicate(lowerQun, "d", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, fieldValue(lowerQun, "b"))));
 
-        // From variants expr1 and expr2. The two expressions produce the same expression when merged which should then be collapsed by the memo structure
         final SelectExpression merged1 = selectWithPredicates(baseQun, ImmutableList.of("c", "d"),
                 fieldPredicate(baseQun, "a", EQUALS_42),
                 fieldPredicate(baseQun, "b", EQUALS_PARAM),
                 fieldPredicate(baseQun, "d", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, fieldValue(baseQun, "b"))));
-        // From variant expr3. It is distinct from the other one, so it _should_ appear in the final memo
-        final SelectExpression merged2 = selectWithPredicates(paramPredQun, ImmutableList.of("c", "d"),
-                fieldPredicate(paramPredQun, "a", EQUALS_42),
-                fieldPredicate(paramPredQun, "d", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, fieldValue(paramPredQun, "b"))));
-        // Variant expr4 should not yield anything
 
-        testHelper.assertYields(upper, merged1, merged2);
+        testHelper.assertYields(upper, merged1);
     }
 
     /**
@@ -1011,9 +1005,8 @@ class SelectMergeRuleTest {
      * creating a join between that base quantifier and a select on top of it. Merging attempts to
      * add the same quantifier multiple times to the upper select.
      */
-    //@Disabled
     @Test
-    void mergeWithSameDownstreamQuantifier() {
+    void mergeWithDiamond() {
         Quantifier baseQun = baseT();
 
         final Quantifier lowerQun1 = forEach(selectWithPredicates(
@@ -1028,8 +1021,17 @@ class SelectMergeRuleTest {
                 .addPredicate(fieldPredicate(lowerQun1, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(baseQun, "d"))))
                 .build().buildSelect();
 
-        // This currently fails with an IllegalArgumentException as the base quantifier is added to
-        // a new merged select box. It's unclear what the semantics of this even should be
-        testHelper.assertYieldsNothing(upper, true);
+        final Quantifier baseQun1 = baseT(); // 14
+        final Quantifier baseQun2 = baseT(); // 10
+
+        final SelectExpression merged = join(baseQun1, baseQun2)
+                .addResultColumn(projectColumn(baseQun1, "a"))
+                .addResultColumn(projectColumn(baseQun2, "b"))
+                .addResultColumn(projectColumn(baseQun2, "c"))
+                .addPredicate(fieldPredicate(baseQun2, "a", EQUALS_42))
+                .addPredicate(fieldPredicate(baseQun2, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(baseQun1, "d"))))
+                .build().buildSelect();
+
+        testHelper.assertYields(upper, merged);
     }
 }

@@ -35,6 +35,10 @@ import java.util.List;
 public class PredicateHeightProperty implements ExpressionProperty<PredicateHeightProperty.PredicateHeightInfo> {
     private static final PredicateHeightProperty PREDICATE_HEIGHT = new PredicateHeightProperty();
 
+    private PredicateHeightProperty() {
+        // prevent outside instantiation
+    }
+
     @Nonnull
     @Override
     public RelationalExpressionVisitor<PredicateHeightInfo> createVisitor() {

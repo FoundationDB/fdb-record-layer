@@ -48,6 +48,7 @@ import com.google.common.collect.Iterables;
 import org.assertj.core.api.AutoCloseableSoftAssertions;
 
 import javax.annotation.Nonnull;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -174,13 +175,28 @@ public class RuleTestHelper {
             for (RelationalExpression refMember : ref.getAllMemberExpressions()) {
                 preExploreForRule(refMember, isClearExploratoryExpressions);
             }
+            ref.setExplored();
             PlanContext planContext = new FakePlanContext();
             TestRuleExecution.applyRule(planContext, new FinalizeExpressionsRule(), ref, EvaluationContext.EMPTY);
-            final var bestFinalExpression = costModel(ref);
-            ref.pruneWith(Objects.requireNonNull(bestFinalExpression));
-            if (isClearExploratoryExpressions) {
-                ref.clearExploratoryExpressions();
+            pruneInputs(ref.getFinalExpressions(), isClearExploratoryExpressions);
+        }
+    }
+
+    public void pruneInputs(@Nonnull final Collection<? extends RelationalExpression> finalExpressions,
+                            final boolean isClearExploratoryExpressions) {
+        for (final var finalExpression : finalExpressions) {
+            for (final var quantifier : finalExpression.getQuantifiers()) {
+                pruneWithBest(quantifier.getRangesOver(), isClearExploratoryExpressions);
             }
+        }
+    }
+
+    private static void pruneWithBest(final Reference reference,
+                                      final boolean isClearExploratoryExpressions) {
+        final var bestFinalExpression = costModel(reference);
+        reference.pruneWith(Objects.requireNonNull(bestFinalExpression));
+        if (isClearExploratoryExpressions) {
+            reference.clearExploratoryExpressions();
         }
     }
 
@@ -212,6 +228,7 @@ public class RuleTestHelper {
         if (rule instanceof ImplementationCascadesRule) {
             for (RelationalExpression expression : expectedList) {
                 preExploreForRule(expression, true);
+                pruneInputs(ImmutableList.of(expression), true);
             }
         }
 

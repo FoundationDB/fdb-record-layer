@@ -222,6 +222,7 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
         if (other == this) {
             return BooleanWithConstraint.alwaysTrue();

@@ -23,10 +23,8 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitor;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.google.common.collect.ImmutableSet;
 
@@ -36,9 +34,6 @@ import java.util.Set;
 import java.util.function.Predicate;
 
 public final class ExpressionCountProperty implements ExpressionProperty<Integer> {
-    @Nonnull
-    private static final ExpressionCountProperty SELECT_COUNT = ExpressionCountProperty.ofTypes(
-            ImmutableSet.of(SelectExpression.class, LogicalFilterExpression.class));
     @Nonnull
     private static final ExpressionCountProperty TABLE_FUNCTION_COUNT = ExpressionCountProperty.ofTypes(
             ImmutableSet.of(TableFunctionExpression.class));
@@ -57,11 +52,6 @@ public final class ExpressionCountProperty implements ExpressionProperty<Integer
 
     public int evaluate(RelationalExpression expression) {
         return createVisitor().visit(expression);
-    }
-
-    @Nonnull
-    public static ExpressionCountProperty selectCount() {
-        return SELECT_COUNT;
     }
 
     @Nonnull

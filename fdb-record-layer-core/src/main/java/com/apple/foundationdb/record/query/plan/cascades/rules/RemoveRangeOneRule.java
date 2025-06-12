@@ -41,6 +41,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.tableFunctionExpression;
 
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class RemoveRangeOneRule extends ExplorationCascadesRule<SelectExpression> {
     @Nonnull
     private static final BindingMatcher<TableFunctionExpression> tfExpression = tableFunctionExpression();
