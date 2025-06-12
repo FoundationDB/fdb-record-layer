@@ -42,16 +42,22 @@ import java.util.Iterator;
  */
 public class TestRuleExecution {
     private final boolean ruleMatched;
+    private final boolean hasYielded;
     @Nonnull
     private final Reference result;
 
-    private TestRuleExecution(boolean ruleMatched, @Nonnull Reference result) {
+    private TestRuleExecution(boolean ruleMatched, boolean hasYielded, @Nonnull Reference result) {
         this.ruleMatched = ruleMatched;
+        this.hasYielded = hasYielded;
         this.result = result;
     }
 
     public boolean isRuleMatched() {
         return ruleMatched;
+    }
+
+    public boolean hasYielded() {
+        return hasYielded;
     }
 
     @Nonnull
@@ -75,6 +81,7 @@ public class TestRuleExecution {
                                               @Nonnull Reference group,
                                               @Nonnull final EvaluationContext evaluationContext) {
         boolean ruleMatched = false;
+        boolean hasYielded = false;
         for (RelationalExpression expression : group.getAllMemberExpressions()) {
             final Iterator<CascadesRuleCall> ruleCalls =
                     rule.getMatcher()
@@ -87,10 +94,13 @@ public class TestRuleExecution {
                                     Traversal.withRoot(group), new ArrayDeque<>(), bindings, evaluationContext))
                             .iterator();
             while (ruleCalls.hasNext()) {
-                ruleCalls.next().run();
+                final var ruleCall = ruleCalls.next();
+                ruleCall.run();
+                hasYielded |= !ruleCall.getNewExploratoryExpressions().isEmpty() ||
+                        !ruleCall.getNewFinalExpressions().isEmpty();
                 ruleMatched = true;
             }
         }
-        return new TestRuleExecution(ruleMatched, group);
+        return new TestRuleExecution(ruleMatched, hasYielded, group);
     }
 }

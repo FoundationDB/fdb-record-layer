@@ -388,7 +388,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
                 expressions.forEach(expr ->
                         Debugger.withDebugger(debugger ->
                                 debugger.onEvent(InsertIntoMemoEvent.reusedExpWithReferences(expr, existingRefs))));
-                // Verify.verify(existingReference != this.root);
+                Verify.verify(existingReference != this.root);
                 return existingReference;
             }
 

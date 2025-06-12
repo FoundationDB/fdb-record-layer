@@ -110,17 +110,18 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
             return;
         }
 
-
         // Collect up the mergeable children, grouping by which child they came from.
 
         // Merge the quantifiers and predicates from each mergeable child expression
         final var newQuantifiers = ImmutableList.<Quantifier>builder();
         final var newPredicates = ImmutableList.<QueryPredicate>builder();
         final var translationBuilder = TranslationMap.regularBuilder();
+        boolean atLeastOneQuantifierIsMergeable = false;
         for (final var quantifier : selectExpression.getQuantifiers()) {
             final var alias = quantifier.getAlias();
             final var childSelectExpression = mergeableChildren.get(alias);
-            if (childSelectExpression != null) {
+            if (childSelectExpression != null &&
+                    !quantifier.narrow(Quantifier.ForEach.class).isNullOnEmpty()) {
                 //
                 // Mergeable. Add the child quantifiers in the old one's place and scoop up any predicates.
                 //
@@ -129,12 +130,20 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
                 translationBuilder.when(alias)
                         .then((ignored1, ignored2) ->
                                 childSelectExpression.getResultValue());
+                atLeastOneQuantifierIsMergeable = true;
             } else {
                 //
-                // Not mergeable. Retain original quantifier
+                // Not mergeable. Grab all final expressions and create a new reference.
                 //
-                newQuantifiers.add(quantifier);
+                final var childReference = quantifier.getRangesOver();
+                final var newChildReference =
+                        call.memoizeFinalExpressionsFromOther(childReference, childReference.getFinalExpressions());
+                newQuantifiers.add(quantifier.overNewReference(newChildReference));
             }
+        }
+
+        if (!atLeastOneQuantifierIsMergeable) {
+            return;
         }
 
         //

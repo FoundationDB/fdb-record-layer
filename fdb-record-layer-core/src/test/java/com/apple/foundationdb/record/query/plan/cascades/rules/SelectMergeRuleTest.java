@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
@@ -41,7 +42,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
@@ -55,12 +55,12 @@ import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQuery
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.forEachWithNullOnEmpty;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.projectColumn;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.selectWithPredicates;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.EQUALS_42;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.EQUALS_PARAM;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.GREATER_THAN_HELLO;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.baseT;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.baseTau;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.join;
+import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.EQUALS_42;
+import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.EQUALS_PARAM;
+import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.GREATER_THAN_HELLO;
+import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.baseT;
+import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.baseTau;
+import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.join;
 
 /**
  * Tests of the {@link SelectMergeRule}.
@@ -84,7 +84,7 @@ class SelectMergeRuleTest {
      *   WHERE d = $param
      * }</pre>
      * <p>
-     * There aren't any cells that can be merged there. The rule may still visit the expression,
+     * There aren't any select expressions that can be merged there. The rule may still visit the expression,
      * but it will find there's nothing to do.
      * </p>
      */
@@ -155,7 +155,7 @@ class SelectMergeRuleTest {
         );
 
         SelectExpression newUpper = selectWithPredicates(
-                baseT(), ImmutableList.of("d"),
+                baseQun, ImmutableList.of("d"),
                 fieldPredicate(baseQun, "a", EQUALS_42),
                 fieldPredicate(baseQun, "b", EQUALS_PARAM),
                 fieldPredicate(baseQun, "c", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, constantBytes))
@@ -326,8 +326,7 @@ class SelectMergeRuleTest {
     @Test
     void mergeFilterOnNestedExplode() {
         Quantifier baseQun = baseT();
-
-        Quantifier explodeGQun = forEach(new ExplodeExpression(fieldValue(baseQun, "g")));
+        Quantifier explodeGQun = extractG(baseQun);
         Quantifier higherTwoValuesQun = forEach(selectWithPredicates(
                 explodeGQun, ImmutableList.of("one", "three"),
                 fieldPredicate(explodeGQun, "two", GREATER_THAN_HELLO)));
@@ -364,7 +363,7 @@ class SelectMergeRuleTest {
     void doNotMergeExistentialOnNested() {
         Quantifier baseQun = baseT();
 
-        Quantifier explodeGQun = forEach(new ExplodeExpression(fieldValue(baseQun, "g")));
+        Quantifier explodeGQun = extractG(baseQun);
         Quantifier existsHigherTwoQun = exists(selectWithPredicates(
                 explodeGQun, fieldPredicate(explodeGQun, "two", GREATER_THAN_HELLO)));
 
@@ -585,6 +584,11 @@ class SelectMergeRuleTest {
                 .build().buildSelect();
 
         testHelper.assertYields(select, merged);
+    }
+
+    @Nonnull
+    private static Quantifier extractG(final Quantifier t3) {
+        return forEach(new ExplodeExpression(fieldValue(t3, "g")));
     }
 
     /**
@@ -863,7 +867,7 @@ class SelectMergeRuleTest {
                 .addResultColumn(column(t4, "a", "a4"))
                 .addResultColumn(column(tau1, "alpha", "alpha1"))
                 .addResultColumn(column(sigma2, "alpha", "alpha2"))
-                .addResultColumn(column(tau1, "alpha", "alpha3"))
+                .addResultColumn(column(tau3, "alpha", "alpha3"))
                 .addResultColumn(column(tau4, "alpha", "alpha4"))
                 .addPredicate(fieldPredicate(l1, "d1", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(l1, "d2"))))
                 .addPredicate(fieldPredicate(tau1, "alpha", EQUALS_42))
@@ -890,7 +894,7 @@ class SelectMergeRuleTest {
                 .addResultColumn(column(t4, "a", "a4"))
                 .addResultColumn(column(tau1, "alpha", "alpha1"))
                 .addResultColumn(column(tau2, "alpha", "alpha2"))
-                .addResultColumn(column(tau1, "alpha", "alpha3"))
+                .addResultColumn(column(tau3, "alpha", "alpha3"))
                 .addResultColumn(column(tau4, "alpha", "alpha4"))
                 .addPredicate(fieldPredicate(t1, "a", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(t2, "a"))))
                 .addPredicate(fieldPredicate(t1, "b", EQUALS_PARAM))
@@ -923,7 +927,7 @@ class SelectMergeRuleTest {
                 .addResultColumn(column(t4, "a", "a4"))
                 .addResultColumn(column(tau1, "alpha", "alpha1"))
                 .addResultColumn(column(tau2, "alpha", "alpha2"))
-                .addResultColumn(column(tau1, "alpha", "alpha3"))
+                .addResultColumn(column(tau3, "alpha", "alpha3"))
                 .addResultColumn(column(tau4, "alpha", "alpha4"))
                 .addPredicate(fieldPredicate(t3, "a", EQUALS_42))
                 .addPredicate(fieldPredicate(t1, "a", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(t2, "a"))))
@@ -1007,15 +1011,16 @@ class SelectMergeRuleTest {
      * creating a join between that base quantifier and a select on top of it. Merging attempts to
      * add the same quantifier multiple times to the upper select.
      */
-    @Disabled
+    //@Disabled
     @Test
     void mergeWithSameDownstreamQuantifier() {
-        final Quantifier baseQun = baseT();
+        Quantifier baseQun = baseT();
 
         final Quantifier lowerQun1 = forEach(selectWithPredicates(
                 baseQun, ImmutableList.of("b", "c", "d"),
                 fieldPredicate(baseQun, "a", EQUALS_42)));
 
+        baseQun = Quantifier.forEach(baseQun.getRangesOver());
         final SelectExpression upper = join(lowerQun1, baseQun)
                 .addResultColumn(projectColumn(baseQun, "a"))
                 .addResultColumn(projectColumn(lowerQun1, "b"))

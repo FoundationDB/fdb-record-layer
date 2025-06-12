@@ -1,5 +1,5 @@
 /*
- * RuleTestHelpers.java
+ * RuleTestHelper.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades.rules;
+package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.RangeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import org.assertj.core.api.AutoCloseableSoftAssertions;
 
 import javax.annotation.Nonnull;
@@ -142,9 +143,14 @@ public class RuleTestHelper {
 
     @Nonnull
     private TestRuleExecution run(RelationalExpression original) {
-        ensureStage(PlannerStage.CANONICAL, original);
-        preExploreForRule(original, false);
-        Reference ref = Reference.ofExploratoryExpression(PlannerStage.CANONICAL, original);
+        final var copiedOriginal =
+                Iterables.getOnlyElement(References.rebaseGraphs(ImmutableList.of(Reference.initialOf(original)),
+                        Memoizer.noMemoization(PlannerStage.INITIAL), new ToUniqueAliasesTranslationMap(), false)).get();
+        ensureStage(PlannerStage.CANONICAL, copiedOriginal);
+        if (rule instanceof ImplementationCascadesRule) {
+            preExploreForRule(copiedOriginal, false);
+        }
+        Reference ref = Reference.ofExploratoryExpression(PlannerStage.CANONICAL, copiedOriginal);
         PlanContext planContext = new FakePlanContext();
         return TestRuleExecution.applyRule(planContext, rule, ref, EvaluationContext.EMPTY);
     }
@@ -153,7 +159,7 @@ public class RuleTestHelper {
         for (Quantifier qun : expression.getQuantifiers()) {
             Reference ref = qun.getRangesOver();
             if (ref.getPlannerStage() != plannerStage) {
-                ref.advancePlannerStage(plannerStage);
+                ref.advancePlannerStageUnchecked(plannerStage);
             }
             for (RelationalExpression refMember : ref.getAllMemberExpressions()) {
                 ensureStage(plannerStage, refMember);
@@ -194,11 +200,17 @@ public class RuleTestHelper {
 
     @Nonnull
     public TestRuleExecution assertYields(RelationalExpression original, RelationalExpression... expected) {
+        final ImmutableList.Builder<RelationalExpression> expectedListBuilder = ImmutableList.builder();
         for (RelationalExpression expression : expected) {
-            ensureStage(PlannerStage.CANONICAL, expression);
+            final var copiedExpected =
+                    Iterables.getOnlyElement(References.rebaseGraphs(ImmutableList.of(Reference.initialOf(expression)),
+                            Memoizer.noMemoization(PlannerStage.INITIAL), new ToUniqueAliasesTranslationMap(), false)).get();
+            ensureStage(PlannerStage.CANONICAL, copiedExpected);
+            expectedListBuilder.add(copiedExpected);
         }
+        final var expectedList = expectedListBuilder.build();
         if (rule instanceof ImplementationCascadesRule) {
-            for (RelationalExpression expression : expected) {
+            for (RelationalExpression expression : expectedList) {
                 preExploreForRule(expression, true);
             }
         }
@@ -206,8 +218,8 @@ public class RuleTestHelper {
         TestRuleExecution execution = run(original);
         try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
             softly.assertThat(execution.getResult().getAllMemberExpressions())
-                    .hasSize(1 + expected.length)
-                    .containsAll(List.of(expected));
+                    .hasSize(1 + expectedList.size())
+                    .containsAll(expectedList);
         }
         return execution;
     }
@@ -216,8 +228,9 @@ public class RuleTestHelper {
     public TestRuleExecution assertYieldsNothing(RelationalExpression original, boolean matched) {
         TestRuleExecution execution = run(original);
         try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
-            softly.assertThat(execution.getResult().getAllMemberExpressions())
-                    .containsExactly(original);
+            softly.assertThat(execution.hasYielded())
+                    .as("rule should not have yielded new expressions")
+                    .isFalse();
             softly.assertThat(execution.isRuleMatched())
                     .as("rule should %shave been matched", matched ? "" : "not ")
                     .isEqualTo(matched);

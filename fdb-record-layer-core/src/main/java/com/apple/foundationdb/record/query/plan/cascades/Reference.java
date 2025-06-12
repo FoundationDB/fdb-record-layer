@@ -205,11 +205,20 @@ public class Reference implements Correlated<Reference>, Typed {
     public void advancePlannerStage(@Nonnull final PlannerStage newStage) {
         Verify.verify(plannerStage.directlyPrecedes(newStage));
         Verify.verify(finalMembers.size() == 1);
+        advancePlannerStageUnchecked(newStage);
+    }
+
+    /**
+     * Advance the planner stage of this reference to the given one. This method cleans up internal state of this
+     * reference such that exploration in a new phase can start again.
+     * @param newStage the new stage we should advance to
+     */
+    void advancePlannerStageUnchecked(@Nonnull final PlannerStage newStage) {
         this.plannerStage = newStage;
         constraintsMap.advancePlannerStage();
         this.propertiesMap = newStage.createPropertiesMap();
         exploratoryMembers.clear();
-        exploratoryMembers.add(finalMembers.getOnlyElement());
+        exploratoryMembers.addAll(finalMembers);
         finalMembers.clear();
     }
 
@@ -955,6 +964,16 @@ public class Reference implements Correlated<Reference>, Typed {
         @CanIgnoreReturnValue
         public boolean add(@Nonnull final RelationalExpression expression) {
             return expressions.add(expression);
+        }
+
+        @CanIgnoreReturnValue
+        public boolean addAll(@Nonnull final Members members) {
+            return expressions.addAll(members.getExpressions());
+        }
+
+        @CanIgnoreReturnValue
+        public boolean addAll(@Nonnull final Collection<? extends RelationalExpression> newExpressions) {
+            return expressions.addAll(newExpressions);
         }
 
         public boolean containsInMemo(@Nonnull final RelationalExpression expression,
