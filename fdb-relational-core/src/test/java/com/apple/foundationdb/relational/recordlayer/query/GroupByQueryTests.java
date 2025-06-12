@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
-import com.apple.foundationdb.record.RecordCursorEndContinuation;
-import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;

@@ -28,6 +28,7 @@ import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.async.AsyncIterator;
+import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.CursorStreamingMode;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.KeyRange;
@@ -40,6 +41,8 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.AsyncIteratorCursor;
 import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
+import com.apple.foundationdb.record.cursors.aggregate.AggregateCursor;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
@@ -207,6 +210,18 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             }
             ByteString base = ZeroCopyByteString.wrap(lastKey);
             return base.substring(prefixLength, lastKey.length);
+        }
+
+        public static byte[] fromRawBytes(@Nonnull byte[] rawBytes, SerializationMode serializationMode) {
+            if (serializationMode == SerializationMode.TO_OLD) {
+                return rawBytes;
+            }
+            try {
+                RecordCursorProto.KeyValueCursorContinuation continuationProto = RecordCursorProto.KeyValueCursorContinuation.parseFrom(rawBytes);
+                return continuationProto.getContinuation().toByteArray();
+            } catch (InvalidProtocolBufferException ipbe) {
+                return rawBytes;
+            }
         }
 
         @Nonnull

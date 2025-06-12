@@ -111,27 +111,6 @@ class FDBStreamAggregationTest extends FDBRecordStoreQueryTestBase {
         populateDB(5);
     }
 
-    /*
-    @Test
-    void test() {
-        try (final var context = openContext()) {
-            openSimpleRecordStore(context, NO_HOOK);
-
-            // select col3, sum(col2) as s from t2 use index (mv9) where col1 = 1 group by col1, col3 order by col3 desc;
-            final var plan =
-                    new AggregationPlanBuilder(recordStore.getRecordMetaData(), "MySimpleRecord")
-                            .withAggregateValue("num_value_2", value -> new NumericAggregationValue.Sum(NumericAggregationValue.PhysicalOperator.SUM_I, value))
-                            .withGroupCriterion("num_value_3_indexed")
-                            .withGroupCriterion("str_value_indexed")
-                            .build(false);
-
-            final var result = executePlanWithRowLimit(plan, 1);
-            // assertResults(this::assertResultFlattened, result, resultOf(0, 1), resultOf(1, 5), resultOf(2, 9));
-        }
-    }
-
-     */
-
     @ParameterizedTest(name = "[{displayName}-{index}] {0}")
     @MethodSource("provideArguments")
     void noAggregateGroupByNone(final boolean useNestedResult, final RecordQueryStreamingAggregationPlan.SerializationMode serializationMode, final int rowLimit) {

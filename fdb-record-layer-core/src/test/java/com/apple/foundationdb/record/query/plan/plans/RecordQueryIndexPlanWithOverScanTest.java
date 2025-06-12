@@ -253,16 +253,14 @@ class RecordQueryIndexPlanWithOverScanTest extends FDBRecordStoreQueryTestBase {
                 indexResult = indexCursor.getNext();
                 overscanResult = overscanCursor.getNext();
 
-                System.out.println("indexResult continuation class:" + indexResult.getContinuation().getClass());
                 ByteString indexResultContinuationInByteString = indexResult.getContinuation() instanceof KeyValueCursorBase.Continuation ? ((KeyValueCursorBase.Continuation) indexResult.getContinuation()).getInnerContinuationInByteString() : indexResult.getContinuation().toByteString();
                 byte[] indexResultContinuationInBytes = indexResult.getContinuation() instanceof KeyValueCursorBase.Continuation ? ((KeyValueCursorBase.Continuation) indexResult.getContinuation()).getInnerContinuationInBytes() : indexResult.getContinuation().toBytes();
 
-               // assertEquals(indexResultContinuationInByteString, overscanResult.getContinuation().toByteString(), "Continuation byte strings should match");
-                //assertArrayEquals(indexResultContinuationInBytes, overscanResult.getContinuation().toBytes(), "Continuation byte arrays should match");
+                assertEquals(indexResultContinuationInByteString, overscanResult.getContinuation().toByteString(), "Continuation byte strings should match");
+                assertArrayEquals(indexResultContinuationInBytes, overscanResult.getContinuation().toBytes(), "Continuation byte arrays should match");
 
                 assertEquals(indexResult.hasNext(), overscanResult.hasNext(), "Overscan cursor should have next if index result has next");
                 if (indexResult.hasNext()) {
-                    System.out.println("index result:" + indexResult.get().getRecord() + " overscan result:" + overscanResult.get().getRecord());
                     assertEquals(indexResult.get().getRecord(), overscanResult.get().getRecord(), "Result returned via overscan cursor should match regular cursor");
                 } else {
                     assertEquals(indexResult.getNoNextReason(), overscanResult.getNoNextReason(), "Overscan cursor should have same no next reason as index result");

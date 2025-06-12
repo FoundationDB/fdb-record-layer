@@ -760,12 +760,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                 return null;
             }
             // Add the prefix back to the inner continuation
-            try {
-                RecordCursorProto.KeyValueCursorContinuation keyValueCursorContinuation = RecordCursorProto.KeyValueCursorContinuation.parseFrom(continuation);
-                return ByteArrayUtil.join(prefixBytes, keyValueCursorContinuation.getContinuation().toByteArray());
-            } catch (InvalidProtocolBufferException ex) {
-                return ByteArrayUtil.join(prefixBytes, continuation);
-            }
+            byte[] innerContinuation = KeyValueCursorBase.Continuation.fromRawBytes(continuation, KeyValueCursorBase.SerializationMode.TO_NEW);
+            return ByteArrayUtil.join(prefixBytes, innerContinuation);
         }
 
         @Override
