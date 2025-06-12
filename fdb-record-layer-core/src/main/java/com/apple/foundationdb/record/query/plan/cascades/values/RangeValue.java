@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -36,6 +37,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.planprotos.PRangeValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInTableFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
@@ -215,6 +217,18 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
         final var beginInclusive = Value.fromValueProto(serializationContext, rangeValueProto.getBeginInclusiveChild());
         final var step = Value.fromValueProto(serializationContext, rangeValueProto.getStepChild());
         return new RangeValue(endExclusive, beginInclusive, step);
+    }
+
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @SpotBugsSuppressWarnings("EQ_UNUSUAL")
+    @Override
+    public boolean equals(final Object other) {
+        return semanticEquals(other, AliasMap.emptyMap());
+    }
+
+    @Override
+    public int hashCode() {
+        return semanticHashCode();
     }
 
     /**

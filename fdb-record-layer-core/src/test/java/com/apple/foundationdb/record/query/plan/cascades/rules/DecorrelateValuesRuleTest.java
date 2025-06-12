@@ -953,6 +953,67 @@ class DecorrelateValuesRuleTest {
     }
 
     /**
+     * Handle a case where there is a values box with multiple variants, one of which is correlated to a sibling
+     * and another isn't. In theory, we could actually match the uncorrelated expression, but then we'd have to
+     * be diligent about copying over <em>only</em> the uncorrelated expression when we push the quantifier
+     * down. That's complicated by the memoizer, so long story shirt, we don't currently modify it.
+     */
+    @Test
+    void valueBoxWithCorrelatedAndUncorrelatedVariants() {
+        // Start with valuesBox2 correlated to valuesBox1, and then add a variant that is not correlated
+        final Quantifier valuesBox1 = valuesQun(ImmutableMap.of("x", LiteralValue.ofScalar(42L), "y", LiteralValue.ofScalar("hello")));
+        final Quantifier valuesBox2 = valuesQun(ImmutableMap.of("z", fieldValue(valuesBox1, "y")));
+        valuesBox2.getRangesOver().advancePlannerStage(PlannerStage.CANONICAL);
+        final SelectExpression uncorrelatedValueBox2Expr = GraphExpansion.builder()
+                .addQuantifier(rangeOneQun())
+                .addResultColumn(Column.of(Optional.of("z"), LiteralValue.ofScalar("hello")))
+                .build().buildSelect();
+        valuesBox2.getRangesOver().insertExploratoryExpression(uncorrelatedValueBox2Expr);
+
+        final Quantifier base = baseT();
+        final Quantifier lowerSelectQun = forEach(selectWithPredicates(base,
+                ImmutableList.of("a", "b", "c", "d"),
+                fieldPredicate(base, "b", new Comparisons.ValueComparison(Comparisons.Type.STARTS_WITH, fieldValue(valuesBox2, "z")))));
+
+        final SelectExpression selectExpression = join(valuesBox1, valuesBox2, lowerSelectQun)
+                .addResultColumn(projectColumn(valuesBox1, "x"))
+                .addResultColumn(projectColumn(valuesBox2, "z"))
+                .addResultColumn(projectColumn(lowerSelectQun, "a"))
+                .addResultColumn(projectColumn(lowerSelectQun, "b"))
+                .addResultColumn(projectColumn(lowerSelectQun, "c"))
+                .addPredicate(fieldPredicate(lowerSelectQun, "a", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, fieldValue(valuesBox1, "x"))))
+                .addPredicate(fieldPredicate(lowerSelectQun, "d", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(valuesBox2, "z"))))
+                .build().buildSelect();
+
+        //
+        // Only match values box 1, as values box 2 has an expression with a correlation.
+        // In theory, we could also match the non-correlated expression directly, but
+        // we have to be more careful with memoization
+        //
+        final Quantifier valuesBox2WithExtraChild = Quantifier.forEach(
+                Reference.initialOf(
+                        join(valuesBox1, rangeOneQun())
+                                .addResultColumn(Column.of(Optional.of("z"), fieldValue(valuesBox1, "y")))
+                                .build().buildSelect()),
+                // Copy the alias over to ensure correlations from lower select are preserved
+                valuesBox2.getAlias());
+        // The uncorrelated variant also gets copied over (un-modified)
+        valuesBox2WithExtraChild.getRangesOver().advancePlannerStage(PlannerStage.CANONICAL);
+        valuesBox2WithExtraChild.getRangesOver().insertExploratoryExpression(uncorrelatedValueBox2Expr);
+
+        final SelectExpression expected2 = join(valuesBox2WithExtraChild, lowerSelectQun)
+                .addResultColumn(Column.of(Optional.of("x"), LiteralValue.ofScalar(42L)))
+                .addResultColumn(projectColumn(valuesBox2WithExtraChild, "z"))
+                .addResultColumn(projectColumn(lowerSelectQun, "a"))
+                .addResultColumn(projectColumn(lowerSelectQun, "b"))
+                .addResultColumn(projectColumn(lowerSelectQun, "c"))
+                .addPredicate(fieldPredicate(lowerSelectQun, "a", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, LiteralValue.ofScalar(42L))))
+                .addPredicate(fieldPredicate(lowerSelectQun, "d", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(valuesBox2WithExtraChild, "z"))))
+                .build().buildSelect();
+        testHelper.assertYields(selectExpression, expected2);
+    }
+
+    /**
      * If we have an existential quantifier over a values box, we should not
      * attempt to push it down. This is because the existential quantifier does
      * not forward along its values in a way that is useful.

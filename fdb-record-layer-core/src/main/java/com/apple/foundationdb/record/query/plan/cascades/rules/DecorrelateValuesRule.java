@@ -52,7 +52,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher.empty;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifier;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
@@ -141,7 +141,7 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
     //      -> Validated by the predicate in the matcher below
     @Nonnull
     private static final BindingMatcher<SelectExpression> valuesExpressionMatcher = AllOfMatcher.matchingAllOf(SelectExpression.class,
-            selectExpression(empty(), exactly(forEachQuantifier(baseExpressionMatcher))),
+            selectExpression(empty(), only(forEachQuantifier(baseExpressionMatcher))),
             TypedMatcherWithPredicate.typedMatcherWithPredicate(
                     SelectExpression.class,
                     expr -> {
@@ -193,17 +193,21 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
             if (!correlatedToNone(valueQunCandidate, childAliases)) {
                 //
                 // Reject any quantifiers here that have correlations to their siblings
+                // In theory, we could check the _expressions_, rather than the quantifier,
+                // but then we'd have to be careful not to carry along any expressions
+                // with correlations (which may be invalidated) when we pushed the quantifier down.
+                //
+                // Note: simply re-creating a trimmed down reference without the correlated expressions
+                // leads to problems with the memoizer as it tries to re-use the reference with correlations
                 //
                 continue;
             }
             for (RelationalExpression expr : valueQunCandidate.getRangesOver().getAllMemberExpressions()) {
                 //
                 // Find the matched select expression(s) that correspond to this matched quantifier.
-                // Pick the first one found that doesn't improperly correlate to one of the sibling quantifiers
                 //
                 if (expr instanceof SelectExpression
-                        && valueExpressionSet.contains(expr)
-                        && correlatedToNone(selectExpression, childAliases)) {
+                        && valueExpressionSet.contains(expr)) {
                     valuesByAlias.putIfAbsent(valueQunCandidate.getAlias(), (SelectExpression) expr);
                     qunsToPushDownBuilder.put(valueQunCandidate.getAlias(), valueQunCandidate);
                     break;
@@ -247,7 +251,7 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
             boolean anyChanged = false;
             ImmutableList.Builder<RelationalExpression> newExpressionsBuilder = ImmutableList.builderWithExpectedSize(qun.getRangesOver().getExploratoryExpressions().size());
             for (RelationalExpression lowerExpression : qun.getRangesOver().getExploratoryExpressions()) {
-                if (correlatedToNone(lowerExpression, valuesByAlias.keySet())) {
+                if (correlatedToNone(lowerExpression, qunsToPushDownByAlias.keySet())) {
                     newExpressionsBuilder.add(lowerExpression);
                 } else {
                     anyChanged = true;
@@ -264,7 +268,8 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
                 newQuantifiersBuilder.add(qun);
             }
         }
-        call.yieldExploratoryExpression(new SelectExpression(newResultValue, newQuantifiersBuilder.build(), newPredicates));
+        SelectExpression exprToYield = new SelectExpression(newResultValue, newQuantifiersBuilder.build(), newPredicates);
+        call.yieldExploratoryExpression(exprToYield);
     }
 
     @Nonnull
