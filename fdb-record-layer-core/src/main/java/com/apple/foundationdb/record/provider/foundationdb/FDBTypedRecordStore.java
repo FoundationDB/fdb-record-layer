@@ -140,7 +140,7 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
     @Nonnull
     @Override
     public CompletableFuture<FDBStoredRecord<M>> dryRunSaveRecordAsync(@Nonnull M rec, @Nonnull RecordExistenceCheck existenceCheck, @Nullable FDBRecordVersion version, @Nonnull VersionstampSaveBehavior behavior) {
-        return untypedStore.saveTypedRecord(typedSerializer, rec, existenceCheck, version, behavior, true);
+        return untypedStore.saveTypedRecord(typedSerializer, rec, existenceCheck, version, behavior, true, false);
     }
 
     @Nonnull
