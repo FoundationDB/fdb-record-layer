@@ -7,6 +7,69 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.3
 
+### 4.3.5.0
+
+
+
+**[Full Changelog (4.3.4.0...4.3.5.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.3.4.0...4.3.5.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.2.2.0`, ✅`4.2.2.1`, ❌`4.2.3.0`, ❌`4.2.4.0`, ✅`4.2.5.0`, ✅`4.2.6.0`, ✅`4.2.8.0`, ✅`4.3.2.0`, ✅`4.3.3.0`, ✅`4.3.3.1`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/15615358088)
+
+
+
+### 4.3.4.0
+
+<h4> Breaking Changes </h4>
+
+* Index scrubbing: eliminate legacy mode - [PR #3343](https://github.com/FoundationDB/fdb-record-layer/pull/3343)
+<h4> New Features </h4>
+
+* Record repair: External Runner API and repair operations - [PR #3370](https://github.com/FoundationDB/fdb-record-layer/pull/3370)
+* Create a records update lock - [PR #3362](https://github.com/FoundationDB/fdb-record-layer/pull/3362)
+* (non)-partitioning properties for `Reference`s - [PR #3382](https://github.com/FoundationDB/fdb-record-layer/pull/3382)
+* Add partial result to AggregateCursor continuation - [PR #3254](https://github.com/FoundationDB/fdb-record-layer/pull/3254)
+* reimplementation of `rebase(...)` and `translateCorrelations(...)` for references - [PR #3368](https://github.com/FoundationDB/fdb-record-layer/pull/3368)
+* Add API for repairing a missing store header - [PR #3342](https://github.com/FoundationDB/fdb-record-layer/pull/3342)
+* Add BETWEEN SQL operator - [PR #3332](https://github.com/FoundationDB/fdb-record-layer/pull/3332)
+* Add NULL operand type to binary rel op map - [PR #3373](https://github.com/FoundationDB/fdb-record-layer/pull/3373)
+<h4> Bug Fixes </h4>
+
+* Fix issue with checkVersion getting record store state is being used for queries - [PR #3386](https://github.com/FoundationDB/fdb-record-layer/pull/3386)
+* Call Store.Builder.openAsync instead of build - [PR #3375](https://github.com/FoundationDB/fdb-record-layer/pull/3375)
+* Planner now uses correct calculation for ordering of aggregate scans over permuted min/max indexes - [PR #3333](https://github.com/FoundationDB/fdb-record-layer/pull/3333)
+* Allow `CASE` alternative implicit type promotions when feasible. - [PR #3379](https://github.com/FoundationDB/fdb-record-layer/pull/3379)
+* Relax restriction around case-when operand  - [PR #3376](https://github.com/FoundationDB/fdb-record-layer/pull/3376)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Add a test to verify setOption LOG_QUERY works per statement - [PR #3369](https://github.com/FoundationDB/fdb-record-layer/pull/3369)
+
+</details>
+
+
+**[Full Changelog (4.3.3.0...4.3.4.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.3.3.0...4.3.4.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.2.2.0`, ✅`4.2.2.1`, ❌`4.2.3.0`, ❌`4.2.4.0`, ✅`4.2.5.0`, ✅`4.2.6.0`, ✅`4.2.8.0`, ✅`4.3.2.0`, ✅`4.3.3.0`, ✅`4.3.3.1`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/15613193749)
+
+
+
 ### 4.3.3.0
 
 <h4> New Features </h4>

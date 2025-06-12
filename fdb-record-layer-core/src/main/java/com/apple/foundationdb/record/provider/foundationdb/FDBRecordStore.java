@@ -96,6 +96,7 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.StoreIsLockedForRecordUpdates;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerializationRegistry;
@@ -446,6 +447,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return recordStoreStateRef.get();
     }
 
+    private CompletableFuture<RecordStoreState> getRecordStoreStateAsync() {
+        final MutableRecordStoreState localStoreState = recordStoreStateRef.get();
+        if (localStoreState != null) {
+            return CompletableFuture.completedFuture(localStoreState);
+        }
+        return preloadRecordStoreStateAsync()
+                .thenApply(ignore -> Objects.requireNonNull(recordStoreStateRef.get()));
+    }
+
     @Override
     @Nonnull
     public RecordSerializer<Message> getSerializer() {
@@ -543,7 +553,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (isDryRun) {
                 final FDBStoredRecord<M> newRecord = dryRunSetSizeInfo(typedSerializer, recordBuilder, metaData);
                 return CompletableFuture.completedFuture(newRecord);
-            } else {
+            }
+            return getRecordStoreStateAsync().thenCompose(recordStoreState -> {
+                validateRecordUpdateAllowed(recordStoreState);
                 final FDBStoredRecord<M> newRecord = serializeAndSaveRecord(typedSerializer, recordBuilder, metaData, oldRecord);
                 if (oldRecord == null) {
                     addRecordCount(metaData, newRecord, LITTLE_ENDIAN_INT64_ONE);
@@ -553,7 +565,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     }
                 }
                 return updateSecondaryIndexes(oldRecord, newRecord).thenApply(v -> newRecord);
-            }
+            });
         });
         return context.instrument(FDBStoreTimer.Events.SAVE_RECORD, result);
     }
@@ -1644,31 +1656,39 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (oldRecord == null) {
                 return AsyncUtil.READY_FALSE;
             }
-            SplitHelper.deleteSplit(getRecordContext(), recordsSubspace(), primaryKey, metaData.isSplitLongRecords(), omitUnsplitRecordSuffix, true, oldRecord);
-            countKeysAndValues(FDBStoreTimer.Counts.DELETE_RECORD_KEY, FDBStoreTimer.Counts.DELETE_RECORD_KEY_BYTES, FDBStoreTimer.Counts.DELETE_RECORD_VALUE_BYTES,
-                    oldRecord);
-            addRecordCount(metaData, oldRecord, LITTLE_ENDIAN_INT64_MINUS_ONE);
-            final boolean oldHasIncompleteVersion = oldRecord.hasVersion() && !oldRecord.getVersion().isComplete();
-            if (useOldVersionFormat()) {
-                byte[] versionKey = getSubspace().pack(recordVersionKey(primaryKey));
-                if (oldHasIncompleteVersion) {
-                    context.removeVersionMutation(versionKey);
-                } else if (metaData.isStoreRecordVersions()) {
-                    ensureContextActive().clear(versionKey);
-                }
-            }
-            CompletableFuture<Void> updateIndexesFuture = updateSecondaryIndexes(oldRecord, null);
-            if (oldHasIncompleteVersion) {
-                return updateIndexesFuture.thenApply(vignore -> {
+            return getRecordStoreStateAsync().thenCompose(recordStoreState -> {
+                validateRecordUpdateAllowed(recordStoreState);
+                deleteRecordSplits(primaryKey, true, oldRecord, metaData);
+                countKeysAndValues(FDBStoreTimer.Counts.DELETE_RECORD_KEY, FDBStoreTimer.Counts.DELETE_RECORD_KEY_BYTES, FDBStoreTimer.Counts.DELETE_RECORD_VALUE_BYTES,
+                        oldRecord);
+                addRecordCount(metaData, oldRecord, LITTLE_ENDIAN_INT64_MINUS_ONE);
+                final boolean oldHasIncompleteVersion = oldRecord.hasVersion() && !oldRecord.getVersion().isComplete();
+                if (useOldVersionFormat()) {
                     byte[] versionKey = getSubspace().pack(recordVersionKey(primaryKey));
-                    context.removeLocalVersion(versionKey);
-                    return true;
-                });
-            } else {
-                return updateIndexesFuture.thenApply(vignore -> true);
-            }
+                    if (oldHasIncompleteVersion) {
+                        context.removeVersionMutation(versionKey);
+                    } else if (metaData.isStoreRecordVersions()) {
+                        ensureContextActive().clear(versionKey);
+                    }
+                }
+                CompletableFuture<Void> updateIndexesFuture = updateSecondaryIndexes(oldRecord, null);
+                if (oldHasIncompleteVersion) {
+                    return updateIndexesFuture.thenApply(vignore -> {
+                        byte[] versionKey = getSubspace().pack(recordVersionKey(primaryKey));
+                        context.removeLocalVersion(versionKey);
+                        return true;
+                    });
+                } else {
+                    return updateIndexesFuture.thenApply(vignore -> true);
+                }
+            });
         });
         return context.instrument(FDBStoreTimer.Events.DELETE_RECORD, result);
+    }
+
+    @API(API.Status.INTERNAL)
+    public <M extends Message> void deleteRecordSplits(final @Nonnull Tuple primaryKey, final boolean clearBasedOnPreviousSizeInfo, final @Nullable FDBStoredRecord<M> oldRecord, final @Nonnull RecordMetaData metaData) {
+        SplitHelper.deleteSplit(getRecordContext(), recordsSubspace(), primaryKey, metaData.isSplitLongRecords(), omitUnsplitRecordSuffix, clearBasedOnPreviousSizeInfo, oldRecord);
     }
 
     /**
@@ -1719,6 +1739,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         // Clear out all data except for the store header key and the index state space.
         // Those two subspaces are determined by the configuration of the record store rather then
         // the records.
+        final RecordStoreState localRecordStoreState = recordStoreStateRef.get();
+        if (localRecordStoreState == null) {
+            throw new RecordCoreException("checkVersion must be called before calling deleteAllRecords");
+        }
+        validateRecordUpdateAllowed(localRecordStoreState);
         Range indexStateRange = indexStateSubspace().range();
         context.clear(new Range(recordsSubspace().getKey(), indexStateRange.begin));
         context.clear(new Range(indexStateRange.end, getSubspace().range().end));
@@ -1729,7 +1754,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (recordStoreStateRef.get() == null) {
             return preloadRecordStoreStateAsync().thenCompose(ignore -> deleteRecordsWhereAsync(component));
         }
-
+        validateRecordUpdateAllowed(recordStoreStateRef.get());
         preloadCache.invalidateAll();
         recordStoreStateRef.get().beginRead();
         boolean async = false;
@@ -1741,6 +1766,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (!async) {
                 recordStoreStateRef.get().endRead();
             }
+        }
+    }
+
+    private static void validateRecordUpdateAllowed(@Nonnull RecordStoreState state) {
+        if (!state.isRecordUpdateAllowed()) {
+            throw new StoreIsLockedForRecordUpdates(state);
         }
     }
 
@@ -3315,6 +3346,37 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         });
     }
 
+    /**
+     * Set a store lock state. If done for recovery, note that setting a lock state requires a valid store header. If the header is
+     * corrupted, it should be recovered before any lock state usage. See {@link Builder#repairMissingHeader}.
+     * @param state the new lock state
+     * @param reason a free text message that can hint future observers about the reasons for setting this state.
+     * @return a future that sets this state
+     */
+    public CompletableFuture<Void> setStoreLockStateAsync(@Nonnull RecordMetaDataProto.DataStoreInfo.StoreLockState.State state, @Nonnull String reason) {
+        if (!getFormatVersionEnum().isAtLeast(FormatVersion.STORE_LOCK_STATE)) {
+            throw new RecordCoreException("Store does not support setting a store lock state")
+                    .addLogInfo(LogMessageKeys.FORMAT_VERSION, getFormatVersionEnum());
+        }
+        return updateStoreHeaderAsync(builder ->
+                builder.setStoreLockState(RecordMetaDataProto.DataStoreInfo.StoreLockState.newBuilder()
+                        .setLockState(state)
+                        .setReason(reason)
+                        .setTimestamp(System.currentTimeMillis())));
+    }
+
+    /**
+     * Clear the store lock state, if exists.
+     * @return a future that clears this lock state
+     */
+    public CompletableFuture<Void> clearStoreLockStateAsync() {
+        if (!getFormatVersionEnum().isAtLeast(FormatVersion.STORE_LOCK_STATE)) {
+            throw new RecordCoreException("Store does not support setting a store lock state")
+                    .addLogInfo(LogMessageKeys.FORMAT_VERSION, getFormatVersionEnum());
+        }
+        return updateStoreHeaderAsync(RecordMetaDataProto.DataStoreInfo.Builder::clearStoreLockState);
+    }
+
     // Actually (1) writes the index state to the database and (2) updates the cached state with the new state
     @SuppressWarnings("PMD.CloseResource")
     private void updateIndexState(@Nonnull String indexName, byte[] indexKey, @Nonnull IndexState indexState) {
@@ -4639,35 +4701,38 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     protected CompletableFuture<Long> getRecordCountForRebuildIndexes(boolean newStore, boolean rebuildRecordCounts,
                                                                       @Nonnull Map<Index, List<RecordType>> indexes,
                                                                       @Nullable RecordType singleRecordTypeWithPrefixKey) {
-        // Do this with the new indexes in write-only mode to avoid using one of them
-        // when evaluating the snapshot record count.
-        MutableRecordStoreState writeOnlyState = recordStoreStateRef.get().withWriteOnlyIndexes(indexes.keySet().stream().map(Index::getName).collect(Collectors.toList()));
+        // Do this with the new indexes filtered out to avoid using one of them when evaluating the snapshot record count.
+        // At this point we won't have written that any new indexes are disabled
+        final IndexQueryabilityFilter indexQueryabilityFilter = new IndexQueryabilityFilter() {
+            @Override
+            public boolean isQueryable(@Nonnull final Index index) {
+                return !indexes.containsKey(index);
+            }
+
+            @Override
+            public int queryHash(@Nonnull final QueryHashKind hashKind) {
+                // the query is not preserved in any way, so prevent usage of the hash
+                throw new RecordCoreException("queryHash for getRecordCountForRebuildIndexes should not be used");
+            }
+        };
         if (singleRecordTypeWithPrefixKey != null) {
             // Get a count for just those records, either from a COUNT index on just that type or from a universal COUNT index grouped by record type.
-            MutableRecordStoreState saveState = recordStoreStateRef.get();
             try {
-                recordStoreStateRef.set(writeOnlyState);
-                return getSnapshotRecordCountForRecordType(singleRecordTypeWithPrefixKey.getName());
+                return getSnapshotRecordCountForRecordType(singleRecordTypeWithPrefixKey.getName(), indexQueryabilityFilter);
             } catch (RecordCoreException ex) {
                 // No such index; have to use total record count.
-            } finally {
-                recordStoreStateRef.set(saveState);
             }
         }
         if (!rebuildRecordCounts) {
-            MutableRecordStoreState saveState = recordStoreStateRef.get();
             try {
-                recordStoreStateRef.set(writeOnlyState);
                 // Note the call below can time out if the count index group cardinality is too high. Users can avoid it by
                 // setting a custom UserVersionChecker that looks at the size estimate rather than the count, but we should
                 // consider checking the size by default or otherwise making the ergonomics around hitting that limitation
                 // better in the future
                 // See: FDBRecordStoreBase.checkPossiblyRebuild() could take a long time if the record count index is split into many groups (https://github.com/FoundationDB/fdb-record-layer/issues/7)
-                return getSnapshotRecordCount();
+                return getSnapshotRecordCount(EmptyKeyExpression.EMPTY, Key.Evaluated.EMPTY, indexQueryabilityFilter);
             } catch (RecordCoreException ex) {
                 // Probably this was from the lack of appropriate index on count; treat like rebuildRecordCounts = true.
-            } finally {
-                recordStoreStateRef.set(saveState);
             }
         }
         // Do a scan (limited to a single record) to see if the store is empty.
@@ -5637,6 +5702,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
          *             The {@link #setStateCacheability stateCacheability} will be disabled, and the associated
          *             MetaDataVersion will be bumped, ensuring that any other potential instances stop using the cache.
          *         </li>
+         *         <li>
+         *             Any Store Lock State (see {@link #setStoreLockStateAsync(RecordMetaDataProto.DataStoreInfo.StoreLockState.State, String)}).<br/>
+         *             Unless restored by the user, any previous store lock state will be cleared.
+         *         </li>
          *     </ul>
          * </p>
          *
@@ -5684,8 +5753,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     .setUserVersion(userVersion)
                     // record count key is set below
                     .setLastUpdateTime(System.currentTimeMillis());
-            // No need to set user_field here, also we have no idea what it could be; users can set after repairing as
-            // they see fit, transactionally before doing anything else
+            // These values cannot be repaired automatically:
+            //     * user_field
+            //     * Store lock state
+            // users can set after repairing as they see fit, transactionally before doing anything else.
 
             // We cannot tell whether the recordCountKey had changed since the last time we did checkVersion, so
             // we can't guarantee that it is correct. With FormatVersion.RECORD_COUNT_STATE though, we can mark it as
