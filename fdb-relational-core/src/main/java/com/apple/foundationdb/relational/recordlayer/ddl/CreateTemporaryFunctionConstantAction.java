@@ -27,6 +27,8 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.metadata.serde.RoutineParser;
+import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.util.Assert;
 
 import javax.annotation.Nonnull;
@@ -41,23 +43,38 @@ public class CreateTemporaryFunctionConstantAction implements ConstantAction  {
     @Nonnull
     private final SchemaTemplate template;
 
+    @Nonnull
+    private final PreparedParams preparedParams;
+
     public CreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template,
                                                  boolean throwIfExists,
-                                                 @Nonnull final RecordLayerInvokedRoutine invokedRoutine) {
+                                                 @Nonnull final RecordLayerInvokedRoutine invokedRoutine,
+                                                 @Nonnull PreparedParams preparedParams) {
         this.template = template;
         this.throwIfExists = throwIfExists;
         this.invokedRoutine = invokedRoutine;
+        this.preparedParams = preparedParams;
     }
 
     @Override
     public void execute(final Transaction txn) throws RelationalException {
-        var transactionBoundSchemaTemplate = Assert.castUnchecked(txn.getBoundSchemaMaybe().orElse(template), RecordLayerSchemaTemplate.class);
+        final var transactionBoundSchemaTemplate = Assert.castUnchecked(txn.getBoundSchemaMaybe().orElse(template), RecordLayerSchemaTemplate.class);
         if (throwIfExists) {
             Assert.thatUnchecked(transactionBoundSchemaTemplate.getInvokedRoutines().stream()
                                     .noneMatch(r -> r.getName().equals(invokedRoutine.getName())),
                     ErrorCode.DUPLICATE_FUNCTION, () -> "function '" + invokedRoutine.getName() + "' already exists");
         }
-        transactionBoundSchemaTemplate = transactionBoundSchemaTemplate.toBuilder().replaceInvokedRoutine(invokedRoutine).build();
-        txn.setBoundSchema(transactionBoundSchemaTemplate);
+
+        // this is to make the temporary function logical plan recreated upon every invocation within the same
+        // transaction.
+        // this should be simplified once https://github.com/FoundationDB/fdb-record-layer/issues/3394 is fixed.
+        final var routineBuilder = invokedRoutine.toBuilder();
+        routineBuilder.withCompilableRoutine(() ->
+                RoutineParser.sqlFunctionParser(transactionBoundSchemaTemplate)
+                        .parseTemporaryFunction(invokedRoutine.getName(), invokedRoutine.getDescription(),
+                                PreparedParams.copyOf(preparedParams)));
+        final var schemaTemplateWithTempFunction = transactionBoundSchemaTemplate.toBuilder()
+                .replaceInvokedRoutine(routineBuilder.build()).build();
+        txn.setBoundSchema(schemaTemplateWithTempFunction);
     }
 }

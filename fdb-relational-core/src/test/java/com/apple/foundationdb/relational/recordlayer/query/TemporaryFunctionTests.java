@@ -20,12 +20,14 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.LogAppenderRule;
+import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
@@ -37,6 +39,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
 import java.sql.SQLException;
+import java.util.Optional;
 
 /**
  * This is for testing different aspects of temporary SQL functions. This test suite can migrate to YAML once we have
@@ -51,6 +54,10 @@ public class TemporaryFunctionTests {
     @RegisterExtension
     @Order(1)
     public final LogAppenderRule logAppender = new LogAppenderRule("TemporaryFunctionTests", PlanGenerator.class, Level.INFO);
+
+    public TemporaryFunctionTests() {
+        Utils.enableCascadesDebugger();
+    }
 
     @Test
     void createTemporaryFunctionWorks() throws Exception {
@@ -640,6 +647,82 @@ public class TemporaryFunctionTests {
         }
     }
 
+    @Test
+    void useMultipleReferencesOfTemporaryFunctionsWithPreparedParametersAcrossContinuations() throws Exception {
+        final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk)) create index indexOnA as select a from t1 where a < 35";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1(pk, a) values (1, 10), (2, 15)");
+            }
+            final var connection = ddl.getConnection();
+            connection.setAutoCommit(false);
+            // create parent function (sq0)
+            try (var statement = connection.prepareStatement("create temporary function sq0(in x bigint) " +
+                    "on commit drop function as select a + x as a, pk from t1 where a < ?param")) {
+                // the preparation of this parameter is fixed regardless how many times the function sq0 is referenced
+                // in the future.
+                statement.setLong("param", 20);
+                statement.execute();
+            }
+            // create child function (sq1) referencing parent function (sq0) two times, using similar literal identifiers.
+            try (var statement = connection.prepareStatement("create temporary function sq1(in x bigint) " +
+                    "on commit drop function as select Y.a, Y.pk from sq0(3) as Y, sq0(3) as Z where Y.a > ?param + x + 3")) {
+                statement.setLong("param", 2);
+                statement.execute();
+            }
+            // call the function (sq1) now, again, using the same literal identifiers.
+            // expansion should result in the following, relatively complex, rewrite:
+            // select Q.a, Q.pk from                                                        <---- the query
+            //               (select Y.a, Y.pk from                                         <---- sq1(3) expansion
+            //                           (select a + 3 as a, pk from t1 where a < 20) as Y,   <---- sq0(3) expansion
+            //                           (select a + 3 as a, pk from t1 where a < 20) as Z    <---- sq0(3) expansion
+            //                where Y.a > 2 + 3 + 3) as Q
+            // options (log query)
+            try (var statement = connection.prepareStatement("select * from sq1(x => 3) as Q where a > ?param options (log query)")) {
+                statement.setLong("param", 5);
+                statement.setMaxRows(1);
+                invokeAndVerifyAcrossContinuations(statement::executeQuery, CheckPlanCache.SHOULD_MISS, connection, 13L, 1L, 18L, 2L, 13L, 1L, 18L, 2L);
+            }
+            connection.rollback();
+
+            // try with a different query, BUT with a different binding of SQ0's param this time.
+            // the cache must be hit now, because the value of the prepared parameter of the parent function
+            // imply the plan constraint.
+            connection.unwrap(EmbeddedRelationalConnection.class).createNewTransaction();
+            connection.setAutoCommit(false);
+            // re-create parent function (sq0)
+            try (var statement = connection.prepareStatement("create temporary function sq0(in x bigint) " +
+                    "on commit drop function as select a + x as a, pk from t1 where a < ?param")) {
+                // the preparation of this parameter is fixed regardless how many times the function sq0 is referenced
+                // in the future.
+                statement.setLong("param", 20);
+                statement.execute();
+            }
+            // re-create child function (sq1) referencing parent function (sq0) two times, using similar literal identifiers.
+            try (var statement = connection.prepareStatement("create temporary function sq1(in x bigint) " +
+                    "on commit drop function as select Y.a, Y.pk from sq0(3) as Y, sq0(3) as Z where Y.a > ?param + x + 3")) {
+                statement.setLong("param", 2);
+                statement.execute();
+            }
+            // re-call the function (sq1) now, again, using the same literal identifiers.
+            // expansion should result in the following, relatively complex, rewrite:
+            // select Q.a, Q.pk from                                                        <---- the query
+            //               (select Y.a, Y.pk from                                         <---- sq1(3) expansion
+            //                           (select a + 3 as a, pk from t1 where a < 20) as Y,   <---- sq0(3) expansion
+            //                           (select a + 3 as a, pk from t1 where a < 20) as Z    <---- sq0(3) expansion
+            //                where Y.a > 2 + 3 + 3) as Q
+            // options (log query)
+            try (var statement = connection.prepareStatement("select * from sq1(x => 3) as Q where a > ?param options (log query)")) {
+                statement.setLong("param", 5);
+                statement.setMaxRows(1);
+                invokeAndVerifyAcrossContinuations(statement::executeQuery, CheckPlanCache.SHOULD_HIT, connection, 13L, 1L, 18L, 2L, 13L, 1L, 18L, 2L);
+            }
+            connection.rollback();
+        }
+    }
+
+
+
     private void invokeAndVerifyTempFunction(final RelationalStatement statement) throws SQLException {
         Assertions.assertTrue(statement.execute("select * from sq1(x => 2)"));
         invokeAndVerify(statement::getResultSet, 1L, 10L, 2L, 20L, 3L, 30L, 4L, 40L);
@@ -651,6 +734,17 @@ public class TemporaryFunctionTests {
 
     private void invokeAndVerify(Supplier<RelationalResultSet> resultSupplier, CheckPlanCache checkPlanCache,
                                         Object... expectedResults) throws SQLException {
+        invokeAndVerify(resultSupplier, checkPlanCache, false, Optional.empty(), expectedResults);
+    }
+
+    private void invokeAndVerifyAcrossContinuations(Supplier<RelationalResultSet> resultSupplier, CheckPlanCache checkPlanCache,
+                                                    RelationalConnection connection, Object... expectedResults) throws SQLException {
+        invokeAndVerify(resultSupplier, checkPlanCache, true, Optional.of(connection), expectedResults);
+    }
+
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+    private void invokeAndVerify(Supplier<RelationalResultSet> resultSupplier, CheckPlanCache checkPlanCache,
+                                 boolean acrossContinuations, Optional<RelationalConnection> connection, Object... expectedResults) throws SQLException {
         assert (expectedResults.length > 0 && expectedResults.length % 2 == 0);
         var resultSet = resultSupplier.get();
         switch (checkPlanCache) {
@@ -664,10 +758,30 @@ public class TemporaryFunctionTests {
             default:
                 break;
         }
-        for (int row = 0; row <= expectedResults.length - 2; row += 2) {
-            ResultSetAssert.assertThat(resultSet)
-                    .hasNextRow()
-                    .isRowExactly(expectedResults[row], expectedResults[row + 1]);
+        if (!acrossContinuations) {
+            for (int row = 0; row <= expectedResults.length - 2; row += 2) {
+                ResultSetAssert.assertThat(resultSet)
+                        .hasNextRow()
+                        .isRowExactly(expectedResults[row], expectedResults[row + 1]);
+            }
+        } else {
+            Assertions.assertTrue(connection.isPresent());
+
+            try (var statement = connection.get().prepareStatement("EXECUTE CONTINUATION ?continuation")) {
+                statement.setMaxRows(1);
+                for (int row = 0; row <= expectedResults.length - 2; row += 2) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow()
+                            .isRowExactly(expectedResults[row], expectedResults[row + 1])
+                            .hasNoNextRow();
+                    var continuation = resultSet.getContinuation();
+                    if (row + 2 < expectedResults.length) {
+                        statement.setBytes("continuation", continuation.serialize());
+                        Assertions.assertTrue(statement.execute(), "Did not return a result set from a select statement!");
+                        resultSet = Assertions.assertInstanceOf(RelationalResultSet.class, statement.getResultSet());
+                    }
+                }
+            }
         }
         ResultSetAssert.assertThat(resultSet).hasNoNextRow();
     }

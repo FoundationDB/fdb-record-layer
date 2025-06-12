@@ -264,6 +264,11 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         equalityConstraints = ImmutableList.builder();
     }
 
+    @Nonnull
+    public PreparedParams getPreparedParams() {
+        return preparedParams;
+    }
+
     public void startArrayLiteral() {
         literalsBuilder.startArrayLiteral();
     }

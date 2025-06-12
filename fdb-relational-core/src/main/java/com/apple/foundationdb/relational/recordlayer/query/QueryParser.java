@@ -37,6 +37,7 @@ import org.antlr.v4.runtime.Parser;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.Token;
+import org.antlr.v4.runtime.TokenStream;
 import org.antlr.v4.runtime.atn.ATNConfigSet;
 import org.antlr.v4.runtime.atn.PredictionMode;
 import org.antlr.v4.runtime.dfa.DFA;
@@ -48,6 +49,7 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Function;
 
 /**
  * This parses a given SQL statement and returns an abstract syntax tree.
@@ -98,62 +100,70 @@ public class QueryParser {
             ambiguityErrors.add(String.format(Locale.ROOT, "Ambiguity: %s, Exact: %b",
                     recognizer.getInputStream().getText(Interval.of(startIndex, recognizer.getInputStream().size() - 1)), exact));
         }
+
+        static <T> T withParseErrorHandling(@Nonnull final Function<ErrorStringifier, T> parsingRoutine) throws RelationalException {
+            final var listener = new ErrorStringifier();
+            final var result = parsingRoutine.apply(listener);
+            if (Environment.isDebug() && !listener.getAmbiguityErrors().isEmpty()) {
+                var errorMessage = String.join(", ", listener.getAmbiguityErrors());
+                if (!listener.getSyntaxErrors().isEmpty()) {
+                    errorMessage = errorMessage.concat(listener.getAmbiguityErrors().get(0));
+                }
+                throw new RelationalException(errorMessage, ErrorCode.INTERNAL_ERROR);
+            }
+
+            if (!listener.getSyntaxErrors().isEmpty()) {
+                throw new RelationalException("syntax error:\n" + listener.getSyntaxErrors().get(0), ErrorCode.SYNTAX_ERROR);
+            }
+
+            return result;
+        }
     }
 
     @Nonnull
     public static ParseTreeInfoImpl parse(@Nonnull final String query) throws RelationalException {
         final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(query));
-        final var parser = new RelationalParser(new CommonTokenStream(tokenSource));
-        setInterpreterMode(parser);
-        parser.removeErrorListeners();
-        final var listener = new ErrorStringifier();
-        parser.addErrorListener(listener);
-        RelationalParser.RootContext rootContext = parser.root();
+        final var parser = getParserInstance(new CommonTokenStream(tokenSource));
 
-        if (Environment.isDebug() && !listener.getAmbiguityErrors().isEmpty()) {
-            var errorMessage = String.join(", ", listener.getAmbiguityErrors());
-            if (!listener.getSyntaxErrors().isEmpty()) {
-                errorMessage = errorMessage.concat(listener.getAmbiguityErrors().get(0));
-            }
-            throw new RelationalException(errorMessage, ErrorCode.INTERNAL_ERROR);
-        }
-
-        if (!listener.getSyntaxErrors().isEmpty()) {
-            throw new RelationalException("syntax error:\n" + listener.getSyntaxErrors().get(0), ErrorCode.SYNTAX_ERROR);
-        }
+        final var rootContext = ErrorStringifier.withParseErrorHandling(listener -> {
+            parser.removeErrorListeners();
+            parser.addErrorListener(listener);
+            return parser.root();
+        });
 
         return ParseTreeInfoImpl.from(rootContext);
     }
 
     @Nonnull
-    public static RelationalParser.SqlInvokedFunctionContext parseFunction(@Nonnull final String functionString) throws RelationalException {
+    public static RelationalParser.SqlInvokedFunctionContext parseFunction(@Nonnull final String functionString)
+            throws RelationalException {
         final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(functionString));
+        final var tokensStream = new CommonTokenStream(tokenSource);
         // the routine here is assumed to start with CREATE,
         // however due to how the parser rules are structured,
         // parsing invoked function starts immediately after CREATE
         // therefore, to trigger it correctly, we'll remove the first (CREATE) token.
-        final var tokensStream = new CommonTokenStream(tokenSource);
         tokensStream.consume();
-        final var parser = new RelationalParser(tokensStream);
-        setInterpreterMode(parser);
-        parser.removeErrorListeners();
-        final var listener = new QueryParser.ErrorStringifier();
-        parser.addErrorListener(listener);
-        var result = parser.sqlInvokedFunction();
+        final var parser = getParserInstance(tokensStream);
 
-        if (Environment.isDebug() && !listener.getAmbiguityErrors().isEmpty()) {
-            var errorMessage = String.join(", ", listener.getAmbiguityErrors());
-            if (!listener.getSyntaxErrors().isEmpty()) {
-                errorMessage = errorMessage.concat(listener.getAmbiguityErrors().get(0));
-            }
-            throw new RelationalException(errorMessage, ErrorCode.INTERNAL_ERROR);
-        }
+        return ErrorStringifier.withParseErrorHandling(listener -> {
+            parser.removeErrorListeners();
+            parser.addErrorListener(listener);
+            return parser.sqlInvokedFunction();
+        });
+    }
 
-        if (!listener.getSyntaxErrors().isEmpty()) {
-            throw new RelationalException("syntax error:\n" + listener.getSyntaxErrors().get(0), ErrorCode.SYNTAX_ERROR);
-        }
+    @Nonnull
+    public static RelationalParser.TempSqlInvokedFunctionContext parseTemporaryFunction(@Nonnull final String functionString)
+            throws RelationalException {
+        final var tokenSource = new RelationalLexer(new CaseInsensitiveCharStream(functionString));
+        final var parser = getParserInstance(new CommonTokenStream(tokenSource));
 
-        return result;
+        return ErrorStringifier.withParseErrorHandling(listener -> {
+            parser.removeErrorListeners();
+            parser.addErrorListener(listener);
+            return parser.createTempFunction().tempSqlInvokedFunction();
+        });
     }
 
     private static final class PreparedParamsValidator extends RelationalParserBaseVisitor<Void> {
@@ -173,11 +183,14 @@ public class QueryParser {
         validator.visit(context);
     }
 
-    private static void setInterpreterMode(@Nonnull final RelationalParser parser) {
+    @Nonnull
+    private static RelationalParser getParserInstance(@Nonnull final TokenStream tokenStream) {
+        final var parser = new RelationalParser(tokenStream);
         if (Environment.isDebug()) {
             parser.getInterpreter().setPredictionMode(PredictionMode.LL_EXACT_AMBIG_DETECTION);
         } else {
             parser.getInterpreter().setPredictionMode(PredictionMode.LL);
         }
+        return parser;
     }
 }

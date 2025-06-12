@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
+import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -72,7 +73,8 @@ public final class NoOpMetadataOperationsFactory implements MetadataOperationsFa
     @Nonnull
     @Override
     public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template, boolean throwIfNotExists,
-                                                                   @Nonnull final RecordLayerInvokedRoutine invokedRoutine) {
+                                                                   @Nonnull final RecordLayerInvokedRoutine invokedRoutine,
+                                                                   @Nonnull final PreparedParams preparedParams) {
         return NoOpConstantAction.INSTANCE;
     }
 

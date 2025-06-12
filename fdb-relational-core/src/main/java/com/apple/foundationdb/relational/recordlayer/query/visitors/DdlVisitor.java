@@ -41,6 +41,7 @@ import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.IndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
+import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryParser;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
@@ -339,16 +340,15 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         }
 
         // 3. visit the SQL string to generate (compile) the corresponding SQL plan.
-        final var function = visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary);
+        final var compiledSqlFunction = visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary);
 
         // 4. Return it.
         return RecordLayerInvokedRoutine.newBuilder()
                 .setName(functionName)
                 .setDescription(functionDefinition)
-                .withCompilableRoutine(() -> function)
+                .withCompilableRoutine(() -> compiledSqlFunction)
                 .setNormalizedDescription(getDelegate().getPlanGenerationContext().getCanonicalQueryString())
                 .setTemporary(isTemporary)
-                .setLiterals(getDelegate().getPlanGenerationContext().getLiterals())
                 .build();
     }
 
@@ -358,7 +358,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 ctx.tempSqlInvokedFunction().routineBody(), getDelegate().getSchemaTemplate());
         var throwIfExists = ctx.REPLACE() == null;
         return ProceduralPlan.of(metadataOperationsFactory.getCreateTemporaryFunctionConstantAction(getDelegate().getSchemaTemplate(),
-                throwIfExists, invokedRoutine));
+                throwIfExists, invokedRoutine, PreparedParams.copyOf(getDelegate().getPlanGenerationContext().getPreparedParams())));
     }
 
     @Override

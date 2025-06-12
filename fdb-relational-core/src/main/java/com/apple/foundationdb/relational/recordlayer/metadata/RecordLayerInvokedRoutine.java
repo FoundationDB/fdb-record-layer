@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer.metadata;
 
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
-import com.apple.foundationdb.relational.recordlayer.query.Literals;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Supplier;
@@ -119,6 +118,16 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         return "invoked routine (name '" + name + "', description '" + description + "')";
     }
 
+    @Nonnull
+    public Builder toBuilder() {
+        return newBuilder()
+                .setName(getName())
+                .setDescription(getDescription())
+                .setNormalizedDescription(getNormalizedDescription())
+                .setTemporary(isTemporary())
+                .withCompilableRoutine(getCompilableSqlFunctionSupplier());
+    }
+
     public static final class Builder {
         private String description;
         private String normalizedDescription;
@@ -156,11 +165,6 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         @Nonnull
         public Builder setTemporary(boolean isTemporary) {
             this.isTemporary = isTemporary;
-            return this;
-        }
-
-        @Nonnull
-        public Builder setLiterals(@Nonnull final Literals literals) {
             return this;
         }
 
