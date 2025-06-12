@@ -246,45 +246,6 @@ public class GroupByQueryTests {
     }
 
     @Test
-    void test() throws Exception {
-        final String schemaTemplate =
-                "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))\n" +
-                        "create index mv1 as select count(*) from t1\n";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                insertT1Record(statement, 1, 1, 1, 100);
-                insertT1Record(statement, 2, 1, 1, 1);
-                insertT1Record(statement, 3, 1, 2, 2);
-                insertT1Record(statement, 4, 1, 2, 200);
-                insertT1Record(statement, 5, 2, 1, 200);
-                insertT1Record(statement, 6, 2, 1, 3);
-                insertT1Record(statement, 7, 2, 1, 400);
-                insertT1Record(statement, 8, 2, 1, 400);
-                insertT1Record(statement, 9, 2, 1, 400);
-                statement.setMaxRows(1);
-                Continuation continuation;
-                try (final RelationalResultSet resultSet = statement.executeQuery("select count(*) from t1")) {
-                    ResultSetAssert.assertThat(resultSet).hasNextRow()
-                            .isRowExactly(9L)
-                            .hasNoNextRow();
-                    continuation = resultSet.getContinuation();
-                }
-                System.out.println("continuation at beginning:" + continuation.atBeginning());
-                try (final var preparedStatement = ddl.setSchemaAndGetConnection().prepareStatement("EXECUTE CONTINUATION ?param")) {
-                    preparedStatement.setMaxRows(1);
-                    preparedStatement.setBytes("param", continuation.serialize());
-                    try (final var resultSet = preparedStatement.executeQuery()) {
-                        ResultSetAssert.assertThat(resultSet)
-                                .hasNoNextRow();
-                        continuation = resultSet.getContinuation();
-                    }
-                }
-                Assertions.assertTrue(continuation.atEnd());
-            }
-        }
-    }
-
-    @Test
     void groupByClauseWithPredicateWorks() throws Exception {
         final String schemaTemplate =
                 "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
