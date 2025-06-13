@@ -71,14 +71,15 @@ public class RecordStoreAndRecordContextTransaction implements Transaction {
         transaction.abort();
     }
 
+    @Nonnull
     @Override
-    public Optional<SchemaTemplate> getBoundSchemaMaybe() {
-        return transaction.getBoundSchemaMaybe();
+    public Optional<SchemaTemplate> getBoundSchemaTemplateMaybe() {
+        return transaction.getBoundSchemaTemplateMaybe();
     }
 
     @Override
-    public void setBoundSchema(@Nonnull final SchemaTemplate schemaTemplate) {
-        transaction.setBoundSchema(schemaTemplate);
+    public void setBoundSchemaTemplate(@Nonnull final SchemaTemplate schemaTemplate) {
+        transaction.setBoundSchemaTemplate(schemaTemplate);
     }
 
     @Override

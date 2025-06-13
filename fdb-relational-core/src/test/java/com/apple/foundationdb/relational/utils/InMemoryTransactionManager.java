@@ -73,13 +73,14 @@ public class InMemoryTransactionManager implements TransactionManager {
             txnManager.abort(this);
         }
 
+        @Nonnull
         @Override
-        public Optional<SchemaTemplate> getBoundSchemaMaybe() {
+        public Optional<SchemaTemplate> getBoundSchemaTemplateMaybe() {
             throw new NotImplementedException("method is not implemented");
         }
 
         @Override
-        public void setBoundSchema(@Nonnull final SchemaTemplate schemaTemplate) {
+        public void setBoundSchemaTemplate(@Nonnull final SchemaTemplate schemaTemplate) {
             throw new NotImplementedException("method is not implemented");
         }
 

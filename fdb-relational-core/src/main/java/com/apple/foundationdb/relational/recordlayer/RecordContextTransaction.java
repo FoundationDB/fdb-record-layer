@@ -83,13 +83,14 @@ public class RecordContextTransaction implements Transaction {
         }
     }
 
+    @Nonnull
     @Override
-    public Optional<SchemaTemplate> getBoundSchemaMaybe() {
+    public Optional<SchemaTemplate> getBoundSchemaTemplateMaybe() {
         return Optional.ofNullable(context.getInSession(SchemaTemplate.class.toString(), SchemaTemplate.class));
     }
 
     @Override
-    public void setBoundSchema(@Nonnull final SchemaTemplate schemaTemplate) {
+    public void setBoundSchemaTemplate(@Nonnull final SchemaTemplate schemaTemplate) {
         context.removeFromSession(SchemaTemplate.class.toString(), SchemaTemplate.class);
         context.putInSessionIfAbsent(SchemaTemplate.class.toString(), schemaTemplate);
     }

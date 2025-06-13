@@ -310,7 +310,7 @@ public class RelationalPlanCacheTests {
                 .create()
                 .fromDatabase(database)
                 .fromRecordStore(store)
-                .withSchemaTemplate(embeddedConnection.getTransaction().getBoundSchemaMaybe().orElse(schemaTemplate))
+                .withSchemaTemplate(embeddedConnection.getTransaction().getBoundSchemaTemplateMaybe().orElse(schemaTemplate))
                 .withMetricsCollector(Assert.notNullUnchecked(embeddedConnection.getMetricCollector()))
                 .withPlannerConfiguration(PlannerConfiguration.from(Optional.of(readableIndexes)))
                 .withUserVersion(userVersion)
