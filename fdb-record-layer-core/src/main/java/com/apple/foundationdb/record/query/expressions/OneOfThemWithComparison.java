@@ -162,8 +162,4 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
         }
     }
 
-    @Override
-    public int queryHash(@Nonnull final QueryHashKind hashKind) {
-        return super.baseQueryHash(hashKind, BASE_HASH, comparison);
-    }
 }

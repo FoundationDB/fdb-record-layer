@@ -717,10 +717,6 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 return isQueryable.test(index);
             }
 
-            @Override
-            public int queryHash(@Nonnull final QueryHashKind hashKind) {
-                return queryHash;
-            }
         };
     }
 }

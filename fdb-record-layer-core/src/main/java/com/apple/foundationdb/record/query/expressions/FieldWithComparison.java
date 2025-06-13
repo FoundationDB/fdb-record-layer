@@ -142,11 +142,6 @@ public class FieldWithComparison extends BaseField implements ComponentWithCompa
     }
 
     @Override
-    public int queryHash(@Nonnull final QueryHashKind hashKind) {
-        return super.baseQueryHash(hashKind, BASE_HASH, getComparison());
-    }
-
-    @Override
     public QueryComponent withOtherComparison(Comparisons.Comparison comparison) {
         return new FieldWithComparison(getFieldName(), comparison);
     }
