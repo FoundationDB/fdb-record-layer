@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -721,7 +722,108 @@ public class TemporaryFunctionTests {
         }
     }
 
+    @Test
+    void useMultipleReferencesOfTemporaryFunctionsWithPreparedParametersContinuationsAcrossTransactions() throws Exception {
+        final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk)) create index indexOnA as select a from t1 where a < 35";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1(pk, a) values (1, 10), (2, 15)");
+            }
+            final var connection = ddl.getConnection();
+            connection.setAutoCommit(false);
+            // create parent function (sq0)
+            try (var statement = connection.prepareStatement("create temporary function sq0(in x bigint) " +
+                    "on commit drop function as select a + x as a, pk from t1 where a < ?param")) {
+                // the preparation of this parameter is fixed regardless how many times the function sq0 is referenced
+                // in the future.
+                statement.setLong("param", 20);
+                statement.execute();
+            }
+            // create child function (sq1) referencing parent function (sq0) two times, using similar literal identifiers.
+            try (var statement = connection.prepareStatement("create temporary function sq1(in x bigint) " +
+                    "on commit drop function as select Y.a, Y.pk from sq0(3) as Y, sq0(3) as Z where Y.a > ?param + x + 3")) {
+                statement.setLong("param", 2);
+                statement.execute();
+            }
+            // call the function (sq1) now, again, using the same literal identifiers.
+            // expansion should result in the following, relatively complex, rewrite:
+            // select Q.a, Q.pk from                                                        <---- the query
+            //               (select Y.a, Y.pk from                                         <---- sq1(3) expansion
+            //                           (select a + 3 as a, pk from t1 where a < 20) as Y,   <---- sq0(3) expansion
+            //                           (select a + 3 as a, pk from t1 where a < 20) as Z    <---- sq0(3) expansion
+            //                where Y.a > 2 + 3 + 3) as Q
+            // options (log query)
+            try (var statement = connection.prepareStatement("select * from sq1(x => 3) as Q where a > ?param options (log query)")) {
+                statement.setLong("param", 5);
+                statement.setMaxRows(1);
+                invokeAndVerifyAcrossContinuations(statement::executeQuery, CheckPlanCache.SHOULD_MISS, connection, 13L, 1L, 18L, 2L, 13L, 1L, 18L, 2L);
+            }
+            connection.rollback();
 
+            // try with a different query, BUT with a different binding of SQ0's param this time.
+            // the cache must be hit now, because the value of the prepared parameter of the parent function
+            // imply the plan constraint.
+            connection.unwrap(EmbeddedRelationalConnection.class).createNewTransaction();
+            connection.setAutoCommit(false);
+            // re-create parent function (sq0)
+            try (var statement = connection.prepareStatement("create temporary function sq0(in x bigint) " +
+                    "on commit drop function as select a + x as a, pk from t1 where a < ?param")) {
+                // the preparation of this parameter is fixed regardless how many times the function sq0 is referenced
+                // in the future.
+                statement.setLong("param", 20);
+                statement.execute();
+            }
+            // re-create child function (sq1) referencing parent function (sq0) two times, using similar literal identifiers.
+            try (var statement = connection.prepareStatement("create temporary function sq1(in x bigint) " +
+                    "on commit drop function as select Y.a, Y.pk from sq0(3) as Y, sq0(3) as Z where Y.a > ?param + x + 3")) {
+                statement.setLong("param", 2);
+                statement.execute();
+            }
+            // re-call the function (sq1) now, again, using the same literal identifiers.
+            // expansion should result in the following, relatively complex, rewrite:
+            // select Q.a, Q.pk from                                                        <---- the query
+            //               (select Y.a, Y.pk from                                         <---- sq1(3) expansion
+            //                           (select a + 3 as a, pk from t1 where a < 20) as Y,   <---- sq0(3) expansion
+            //                           (select a + 3 as a, pk from t1 where a < 20) as Z    <---- sq0(3) expansion
+            //                where Y.a > 2 + 3 + 3) as Q
+            // options (log query)
+            Continuation continuation = null;
+            try (var statement = connection.prepareStatement("select * from sq1(x => 3) as Q where a > ?param options (log query)")) {
+                statement.setLong("param", 5);
+                statement.setMaxRows(2);
+                try (var resultSet = statement.executeQuery()) {
+                    Assertions.assertTrue(resultSet.next());
+                    Assertions.assertEquals(13L, resultSet.getLong(1));
+                    Assertions.assertEquals(1L, resultSet.getLong(2));
+                    Assertions.assertTrue(resultSet.next());
+                    Assertions.assertEquals(18L, resultSet.getLong(1));
+                    Assertions.assertEquals(2L, resultSet.getLong(2));
+                    Assertions.assertFalse(resultSet.next());
+                    continuation = resultSet.getContinuation();
+                }
+            }
+            connection.rollback();
+
+            // resume the continuation in another transaction.
+            connection.unwrap(EmbeddedRelationalConnection.class).createNewTransaction();
+            connection.setAutoCommit(false);
+            try (var statement = connection.prepareStatement("EXECUTE CONTINUATION ?continuation")) {
+                statement.setBytes("continuation", continuation.serialize());
+                try (var resultSet = statement.executeQuery()) {
+                    Assertions.assertTrue(resultSet.next());
+                    Assertions.assertEquals(13L, resultSet.getLong(1));
+                    Assertions.assertEquals(1L, resultSet.getLong(2));
+                    Assertions.assertTrue(resultSet.next());
+                    Assertions.assertEquals(18L, resultSet.getLong(1));
+                    Assertions.assertEquals(2L, resultSet.getLong(2));
+                    Assertions.assertFalse(resultSet.next());
+                    continuation = resultSet.getContinuation();
+                }
+                Assertions.assertTrue(continuation.atEnd());
+            }
+            connection.rollback();
+        }
+    }
 
     private void invokeAndVerifyTempFunction(final RelationalStatement statement) throws SQLException {
         Assertions.assertTrue(statement.execute("select * from sq1(x => 2)"));
