@@ -257,7 +257,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     }
 
     @Nonnull
-    public Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
+    public final Set<CorrelationIdentifier> computeCorrelatedToWithoutChildren() {
         final var resultValueCorrelatedTo =
                 Sets.filter(computationValue.getCorrelatedTo(),
                         alias -> !alias.equals(getCurrentModifiedRecordAlias()));
@@ -347,7 +347,7 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     }
 
     @Nonnull
-    public RecordQueryPlan getInnerPlan() {
+    public final RecordQueryPlan getInnerPlan() {
         return getInner().getRangesOverPlan();
     }
 
@@ -396,12 +396,12 @@ public abstract class RecordQueryAbstractDataModificationPlan implements RecordQ
     }
 
     @Nonnull
-    Quantifier.Physical getInner() {
+    final Quantifier.Physical getInner() {
         return inner;
     }
 
     @Nonnull
-    CorrelationIdentifier getCurrentModifiedRecordAlias() {
+    final CorrelationIdentifier getCurrentModifiedRecordAlias() {
         return currentModifiedRecordAlias;
     }
 }

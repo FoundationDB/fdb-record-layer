@@ -281,6 +281,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
         ScrubbingPolicy scrubbingPolicy = null;
         ScrubbingPolicy.Builder scrubbingPolicyBuilder = null;
 
+        @SuppressWarnings("this-escape")
         protected Builder() {
             setLimit(2000);
         }
