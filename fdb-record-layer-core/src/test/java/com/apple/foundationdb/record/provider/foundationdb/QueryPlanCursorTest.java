@@ -154,7 +154,7 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
     private RecordQueryPlan indexPlanEquals(String indexName, Object value) {
         IndexScanParameters scan = IndexScanComparisons.byValue(new ScanComparisons(Arrays.asList(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, value)),
                         Collections.emptySet()));
-        return new RecordQueryIndexPlan(indexName, scan, false);
+        return new RecordQueryIndexPlan(indexName, scan, false, KeyValueCursorBase.SerializationMode.TO_OLD);
     }
 
     private KeyExpression primaryKey() {
@@ -190,7 +190,7 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
         final IndexScanParameters scan = IndexScanComparisons.byValue(new ScanComparisons(Collections.emptyList(), ImmutableSet.of(
                         new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 2),
                         new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 4))));
-        final RecordQueryPlan plan = new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", scan, false);
+        final RecordQueryPlan plan = new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", scan, false, KeyValueCursorBase.SerializationMode.TO_OLD);
         compareSkipsAndCursors(plan);
     }
 
@@ -199,7 +199,7 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
         final IndexScanParameters scan = IndexScanComparisons.byValue(new ScanComparisons(Collections.emptyList(), ImmutableSet.of(
                         new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 2),
                         new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 4))));
-        final RecordQueryPlan plan = new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", scan, true);
+        final RecordQueryPlan plan = new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", scan, true, KeyValueCursorBase.SerializationMode.TO_OLD);
         compareSkipsAndCursors(plan);
     }
 
@@ -207,7 +207,7 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
     public void in() throws Exception {
         final IndexScanParameters scan = IndexScanComparisons.byValue(new ScanComparisons(Arrays.asList(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, "in_num")), Collections.emptySet()));
         final RecordQueryPlan plan = new RecordQueryInValuesJoinPlan(
-                new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", scan, false),
+                new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", scan, false, KeyValueCursorBase.SerializationMode.TO_OLD),
                 "in_num",
                 Bindings.Internal.IN,
                 Arrays.asList(2, 4), false, false);

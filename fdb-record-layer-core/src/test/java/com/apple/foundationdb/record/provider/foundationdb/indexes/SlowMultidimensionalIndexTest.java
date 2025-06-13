@@ -24,6 +24,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursorBase;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
@@ -301,7 +302,8 @@ class SlowMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
                         new HypercubeScanParameters("business",
                                 (Long)null, null,
                                 null, null),
-                        false);
+                        false,
+                        KeyValueCursorBase.SerializationMode.TO_OLD);
         final var random = new Random(System.currentTimeMillis());
         final var expectedMessages = new HashSet<Message>();
         var writeNum = 0;
