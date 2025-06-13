@@ -32,7 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpre
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.properties.SelectCountProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.collect.ImmutableList;
@@ -66,7 +66,7 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
 
     @Nonnull
     private static final BindingMatcher<ExpressionPartition<RelationalExpression>> childPartitionsMatcher =
-            argmin(SelectCountProperty.selectCount(), childExpressionMatcher);
+            argmin(ExpressionCountProperty.selectCount(), childExpressionMatcher);
 
     @Nonnull
     private static final BindingMatcher<Reference> childReferenceMatcher =

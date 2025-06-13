@@ -27,9 +27,9 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 
 import javax.annotation.Nonnull;
 
-import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty.tableFunctionCount;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.PredicateHeightProperty.predicateHeight;
-import static com.apple.foundationdb.record.query.plan.cascades.properties.SelectCountProperty.selectCount;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty.selectCount;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty.tableFunctionCount;
 
 /**
  * Cost model for {@link PlannerPhase#REWRITING}. TODO To be fleshed out whe we have actual rules.

@@ -1,9 +1,9 @@
 /*
- * ExpressionCountProperty.java
+ * ExpressionDepthProperty.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,36 +22,58 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
+import java.util.Objects;
 import java.util.function.Predicate;
 
-public final class ExpressionCountProperty implements ExpressionProperty<Integer> {
+/**
+ * A property representing the minimum depth of any of a set of relational planner expression types in a relational
+ * planner expression: that is, the smallest integer such that one of those types is exactly that many relational
+ * planner expressions away from the root expression.
+ */
+public class ExpressionCountProperty implements ExpressionProperty<Integer> {
     @Nonnull
-    private static final ExpressionCountProperty TABLE_FUNCTION_COUNT = ExpressionCountProperty.ofTypes(
-            ImmutableSet.of(TableFunctionExpression.class));
+    private static final ExpressionCountProperty SELECT_COUNT = ofTrackedTypes(SelectExpression.class, LogicalFilterExpression.class);
+    @Nonnull
+    private static final ExpressionCountProperty TABLE_FUNCTION_COUNT = ofUntrackedTypes(TableFunctionExpression.class);
 
+    private final boolean isTracked;
     private final Predicate<? super RelationalExpression> filter;
 
-    private ExpressionCountProperty(@Nonnull Predicate<? super RelationalExpression> filter) {
+    private ExpressionCountProperty(@Nonnull final Predicate<? super RelationalExpression> filter,
+                                    final boolean isTracked) {
         this.filter = filter;
+        this.isTracked = isTracked;
     }
 
     @Nonnull
     @Override
-    public RelationalExpressionVisitor<Integer> createVisitor() {
-        return new ExpressionCountVisitor(filter);
+    public ExpressionCountVisitor createVisitor() {
+        return new ExpressionCountVisitor(filter, isTracked);
     }
 
-    public int evaluate(RelationalExpression expression) {
-        return createVisitor().visit(expression);
+    public int evaluate(@Nonnull final Reference reference) {
+        return evaluate(reference.get());
+    }
+
+    public int evaluate(@Nonnull final RelationalExpression expression) {
+        return Objects.requireNonNull(createVisitor().visit(expression));
+    }
+
+    @Nonnull
+    public static ExpressionCountProperty selectCount() {
+        return SELECT_COUNT;
     }
 
     @Nonnull
@@ -59,31 +81,62 @@ public final class ExpressionCountProperty implements ExpressionProperty<Integer
         return TABLE_FUNCTION_COUNT;
     }
 
-    private static final class ExpressionCountVisitor implements SimpleExpressionVisitor<Integer> {
+    public static class ExpressionCountVisitor implements RelationalExpressionVisitorWithDefaults<Integer> {
         @Nonnull
         private final Predicate<? super RelationalExpression> filter;
+        private final boolean isTracked;
 
-        private ExpressionCountVisitor(@Nonnull Predicate<? super RelationalExpression> filter) {
+        private ExpressionCountVisitor(@Nonnull Predicate<? super RelationalExpression> filter,
+                                       final boolean isTracked) {
             this.filter = filter;
+            this.isTracked = isTracked;
         }
 
         @Nonnull
         @Override
-        public Integer evaluateAtExpression(@Nonnull final RelationalExpression expression, @Nonnull final List<Integer> childResults) {
-            int fromCurrent = filter.test(expression) ? 1 : 0;
-            return fromCurrent + childResults.stream().mapToInt(Number::intValue).sum();
+        public Integer visitDefault(@Nonnull final RelationalExpression expression) {
+            return fromChildren(expression).stream().mapToInt(Integer::intValue).sum() +
+                    (filter.test(expression) ? 1 : 0);
         }
 
         @Nonnull
-        @Override
-        public Integer evaluateAtRef(@Nonnull final Reference ref, @Nonnull final List<Integer> memberResults) {
-            return memberResults.stream().mapToInt(Number::intValue).min().orElse(Integer.MAX_VALUE);
+        private List<Integer> fromChildren(@Nonnull final RelationalExpression expression) {
+            return expression.getQuantifiers()
+                    .stream()
+                    .map(quantifier -> forReference(quantifier.getRangesOver()))
+                    .collect(ImmutableList.toImmutableList());
         }
 
+        private int forReference(@Nonnull final Reference reference) {
+            final var finalExpressions = reference.getFinalExpressions();
+            Verify.verify(finalExpressions.size() == 1);
+            if (isTracked) {
+                final var memberResults =
+                        reference.getPropertyForExpressions(SELECT_COUNT).values();
+                return Iterables.getOnlyElement(memberResults);
+            }
+            return visit(Iterables.getOnlyElement(finalExpressions));
+        }
     }
 
     @Nonnull
-    private static ExpressionCountProperty ofTypes(Set<Class<? extends RelationalExpression>> expressionTypes) {
-        return new ExpressionCountProperty(expr -> expressionTypes.stream().anyMatch(type -> type.isInstance(expr)));
+    @SafeVarargs
+    private static ExpressionCountProperty ofTrackedTypes(Class<? extends RelationalExpression>... expressionTypes) {
+        return ofTypes(true, expressionTypes);
+    }
+
+    @Nonnull
+    @SafeVarargs
+    private static ExpressionCountProperty ofUntrackedTypes(Class<? extends RelationalExpression>... expressionTypes) {
+        return ofTypes(false, expressionTypes);
+    }
+
+    @Nonnull
+    @SafeVarargs
+    @SuppressWarnings("varargs")
+    private static ExpressionCountProperty ofTypes(final boolean isTracked,
+                                                   Class<? extends RelationalExpression>... expressionTypes) {
+        return new ExpressionCountProperty(expr -> Arrays.stream(expressionTypes)
+                .anyMatch(type -> type.isInstance(expr)), isTracked);
     }
 }
