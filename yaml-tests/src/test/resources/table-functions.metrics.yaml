@@ -18,7 +18,7 @@ table-functions:
         AS Y, @c19 AS Z) AS W), (@c24 AS B, @c26 AS C, (@c29 AS X, @c31 AS Y, @c33
         AS Z) AS W)) | MAP (_.B AS B, _.C AS C, _.W AS W)
     task_count: 108
-    task_total_time_ms: 0
+    task_total_time_ms: 1
     transform_count: 24
     transform_time_ms: 0
     transform_yield_count: 6
@@ -57,7 +57,7 @@ table-functions:
         AS Y, @c29 AS Z) AS W), (@c34 AS B, @c36 AS C, (@c39 AS X, @c41 AS Y, @c43
         AS Z) AS W)) | MAP (_.B AS B, _.C AS Q, _.W.X AS X)
     task_count: 163
-    task_total_time_ms: 5
+    task_total_time_ms: 0
     transform_count: 38
     transform_time_ms: 0
     transform_yield_count: 8
@@ -72,7 +72,7 @@ table-functions:
         AS Z) AS W)) | MAP (_.B AS B, _.C AS Q, _.W.X AS X) | FILTER _.B LESS_THAN
         @c68
     task_count: 172
-    task_total_time_ms: 0
+    task_total_time_ms: 1
     transform_count: 38
     transform_time_ms: 0
     transform_yield_count: 8
@@ -115,9 +115,9 @@ table-functions:
     explain: TF range(0l, promote(@c16 AS LONG), STEP 1l) | FLATMAP q0 -> { TF range(0l,
         promote(@c23 AS LONG), STEP 1l) AS q1 RETURN (q0.ID AS A, q1.ID AS B) }
     task_count: 149
-    task_total_time_ms: 1
+    task_total_time_ms: 3
     transform_count: 37
-    transform_time_ms: 0
+    transform_time_ms: 2
     transform_yield_count: 10
     insert_time_ms: 0
     insert_new_count: 17
@@ -129,7 +129,7 @@ table-functions:
     task_count: 181
     task_total_time_ms: 2
     transform_count: 54
-    transform_time_ms: 0
+    transform_time_ms: 1
     transform_yield_count: 14
     insert_time_ms: 0
     insert_new_count: 17

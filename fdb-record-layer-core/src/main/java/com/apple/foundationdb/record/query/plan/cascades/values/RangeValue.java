@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.planprotos.PRangeValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInTableFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
@@ -219,8 +220,24 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
         return new RangeValue(endExclusive, beginInclusive, step);
     }
 
-    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @Nonnull
+    @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+        if (other == this) {
+            return BooleanWithConstraint.alwaysTrue();
+        }
+        if (!(other instanceof RangeValue)) {
+            return BooleanWithConstraint.falseValue();
+        }
+        RangeValue otherRange = (RangeValue) other;
+        return beginInclusive.equalsWithoutChildren(otherRange.beginInclusive)
+                .composeWithOther(endExclusive.equalsWithoutChildren(otherRange.endExclusive))
+                .composeWithOther(step.equalsWithoutChildren(otherRange.step));
+    }
+
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.emptyMap());

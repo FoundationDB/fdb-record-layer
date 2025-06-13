@@ -1,5 +1,5 @@
 /*
- * RuleTestHelpers.java
+ * RuleTestHelper.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,36 +18,38 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.cascades.rules;
+package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.Column;
-import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
-import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
+import com.apple.foundationdb.record.query.plan.cascades.rules.FinalizeExpressionsRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.TestRuleExecution;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RangeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.ToUniqueAliasesTranslationMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.assertj.core.api.AutoCloseableSoftAssertions;
 
 import javax.annotation.Nonnull;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fieldValue;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.forEach;
 
 public class RuleTestHelper {
@@ -130,6 +132,11 @@ public class RuleTestHelper {
     }
 
     @Nonnull
+    public static Quantifier explodeField(@Nonnull final Quantifier t, @Nonnull final String fieldName) {
+        return forEach(new ExplodeExpression(fieldValue(t, fieldName)));
+    }
+
+    @Nonnull
     private final CascadesRule<? extends RelationalExpression> rule;
 
     public RuleTestHelper(@Nonnull CascadesRule<? extends RelationalExpression> rule) {
@@ -138,8 +145,26 @@ public class RuleTestHelper {
 
     @Nonnull
     private TestRuleExecution run(RelationalExpression original) {
-        ensureStage(PlannerStage.CANONICAL, original);
-        Reference ref = Reference.ofExploratoryExpression(PlannerStage.CANONICAL, original);
+        // copy the graph handed in so the caller can modify it at will afterwards and won't see the effects of
+        // rewriting and planning
+        final var copiedOriginal =
+                Iterables.getOnlyElement(References.rebaseGraphs(ImmutableList.of(Reference.initialOf(original)),
+                        Memoizer.noMemoization(PlannerStage.INITIAL), new ToUniqueAliasesTranslationMap(), false)).get();
+        ensureStage(PlannerStage.CANONICAL, copiedOriginal);
+        if (rule instanceof ImplementationCascadesRule) {
+            //
+            // Descend the copied original to:
+            // 1. apply FinalizeExpressionsRule for all children recursively bottom up
+            // 2. run the cost model for the children of the finalized expressions
+            // This simulates exactly what the planner does fo the children of this expression before the current
+            // rule is applied to the current expression. Note that this is only required for implementation rules
+            // as they depend on finalized children to work properly. In fact, we cannot call preExploreForRule(...)
+            // here for exploration rules as they attempt to share sub graphs which would then make the verification
+            // of the result of the rule difficult.
+            //
+            preExploreForRule(copiedOriginal, false);
+        }
+        Reference ref = Reference.ofExploratoryExpression(PlannerStage.CANONICAL, copiedOriginal);
         PlanContext planContext = new FakePlanContext();
         return TestRuleExecution.applyRule(planContext, rule, ref, EvaluationContext.EMPTY);
     }
@@ -148,7 +173,7 @@ public class RuleTestHelper {
         for (Quantifier qun : expression.getQuantifiers()) {
             Reference ref = qun.getRangesOver();
             if (ref.getPlannerStage() != plannerStage) {
-                ref.advancePlannerStage(plannerStage);
+                ref.advancePlannerStageUnchecked(plannerStage);
             }
             for (RelationalExpression refMember : ref.getAllMemberExpressions()) {
                 ensureStage(plannerStage, refMember);
@@ -156,26 +181,92 @@ public class RuleTestHelper {
         }
     }
 
+    public void preExploreForRule(@Nonnull final RelationalExpression expression,
+                                  final boolean isClearExploratoryExpressions) {
+        for (Quantifier qun : expression.getQuantifiers()) {
+            Reference ref = qun.getRangesOver();
+            for (RelationalExpression refMember : ref.getAllMemberExpressions()) {
+                preExploreForRule(refMember, isClearExploratoryExpressions);
+            }
+            ref.setExplored();
+            PlanContext planContext = new FakePlanContext();
+            TestRuleExecution.applyRule(planContext, new FinalizeExpressionsRule(), ref, EvaluationContext.EMPTY);
+            pruneInputs(ref.getFinalExpressions(), isClearExploratoryExpressions);
+        }
+    }
+
+    public void pruneInputs(@Nonnull final Collection<? extends RelationalExpression> finalExpressions,
+                            final boolean isClearExploratoryExpressions) {
+        for (final var finalExpression : finalExpressions) {
+            for (final var quantifier : finalExpression.getQuantifiers()) {
+                pruneWithBest(quantifier.getRangesOver(), isClearExploratoryExpressions);
+            }
+        }
+    }
+
+    private static void pruneWithBest(final Reference reference,
+                                      final boolean isClearExploratoryExpressions) {
+        final var bestFinalExpression = costModel(reference);
+        reference.pruneWith(Objects.requireNonNull(bestFinalExpression));
+        if (isClearExploratoryExpressions) {
+            reference.clearExploratoryExpressions();
+        }
+    }
+
+    @Nonnull
+    private static RelationalExpression costModel(final Reference reference) {
+        reference.setExplored();
+        final var costModel =
+                PlannerPhase.REWRITING.createCostModel(RecordQueryPlannerConfiguration.defaultPlannerConfiguration());
+        RelationalExpression bestFinalExpression = null;
+        for (final var finalExpression : reference.getFinalExpressions()) {
+            if (bestFinalExpression == null || costModel.compare(finalExpression, bestFinalExpression) < 0) {
+                bestFinalExpression = finalExpression;
+            }
+        }
+        return Objects.requireNonNull(bestFinalExpression);
+    }
+
+    @CanIgnoreReturnValue
     @Nonnull
     public TestRuleExecution assertYields(RelationalExpression original, RelationalExpression... expected) {
+        final ImmutableList.Builder<RelationalExpression> expectedListBuilder = ImmutableList.builder();
         for (RelationalExpression expression : expected) {
-            ensureStage(PlannerStage.CANONICAL, expression);
+            //
+            // Copy the expected as the caller can construct the expected from parts of the original.
+            // we just want to have our own unshared version of it.
+            //
+            final var copiedExpected =
+                    Iterables.getOnlyElement(References.rebaseGraphs(ImmutableList.of(Reference.initialOf(expression)),
+                            Memoizer.noMemoization(PlannerStage.INITIAL), new ToUniqueAliasesTranslationMap(), false)).get();
+            ensureStage(PlannerStage.CANONICAL, copiedExpected);
+            expectedListBuilder.add(copiedExpected);
         }
+        final var expectedList = expectedListBuilder.build();
+        if (rule instanceof ImplementationCascadesRule) {
+            for (RelationalExpression expression : expectedList) {
+                preExploreForRule(expression, true);
+                pruneInputs(ImmutableList.of(expression), true);
+            }
+        }
+
         TestRuleExecution execution = run(original);
         try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
             softly.assertThat(execution.getResult().getAllMemberExpressions())
-                    .hasSize(1 + expected.length)
-                    .containsAll(List.of(expected));
+                    .hasSize(1 + expectedList.size())
+                    .containsAll(expectedList);
         }
         return execution;
     }
 
+    @CanIgnoreReturnValue
     @Nonnull
     public TestRuleExecution assertYieldsNothing(RelationalExpression original, boolean matched) {
         TestRuleExecution execution = run(original);
         try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
-            softly.assertThat(execution.getResult().getAllMemberExpressions())
-                    .containsExactly(original);
+            softly.assertThat(execution.hasYielded())
+                    .as("rule should not have yielded new expressions")
+                    .isFalse();
             softly.assertThat(execution.isRuleMatched())
                     .as("rule should %shave been matched", matched ? "" : "not ")
                     .isEqualTo(matched);

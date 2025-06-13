@@ -21,11 +21,13 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.google.common.collect.Maps;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * A partition used for matching holding a set of {@link RelationalExpression}s.
@@ -82,5 +84,21 @@ public class ExpressionPartition<E extends RelationalExpression> {
     @Nonnull
     public Set<E> getExpressions() {
         return nonPartitioningPropertiesMap.keySet();
+    }
+
+    @Nonnull
+    public ExpressionPartition<E> filter(@Nonnull final Predicate<E> expressionPredicate) {
+        return with(partitionPropertiesMap, filterGroupedPropertyMap(expressionPredicate));
+    }
+
+    @Nonnull
+    protected Map<E, Map<ExpressionProperty<?>, ?>> filterGroupedPropertyMap(@Nonnull final Predicate<E> expressionPredicate) {
+        return Maps.filterKeys(nonPartitioningPropertiesMap, expressionPredicate::test);
+    }
+
+    @Nonnull
+    protected ExpressionPartition<E> with(@Nonnull final Map<ExpressionProperty<?>, ?> groupingPropertyMap,
+                                          @Nonnull final Map<E, Map<ExpressionProperty<?>, ?>> groupedPropertyMap) {
+        return new ExpressionPartition<>(groupingPropertyMap, groupedPropertyMap);
     }
 }

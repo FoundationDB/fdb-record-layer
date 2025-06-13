@@ -56,7 +56,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.PlanPropertiesMa
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.filterPartition;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.filterPlanPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.rollUpPartitionsTo;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifier;
@@ -78,7 +78,7 @@ public class ImplementDistinctUnionRule extends ImplementationCascadesRule<Logic
 
     @Nonnull
     private static final BindingMatcher<Reference> unionLegReferenceMatcher =
-            planPartitions(filterPartition(planPartition -> planPartition.getPartitionPropertyValue(StoredRecordProperty.storedRecord()) &&
+            planPartitions(filterPlanPartitions(planPartition -> planPartition.getPartitionPropertyValue(StoredRecordProperty.storedRecord()) &&
                                                   planPartition.getPartitionPropertyValue(PrimaryKeyProperty.primaryKey()).isPresent(),
                     rollUpPartitionsTo(unionLegPlanPartitionsMatcher, allAttributesExcept(DistinctRecordsProperty.distinctRecords()))));
 

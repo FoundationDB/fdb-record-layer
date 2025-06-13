@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
@@ -68,12 +69,12 @@ import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQuery
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.forEachWithNullOnEmpty;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.projectColumn;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.selectWithPredicates;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.EQUALS_42;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.baseT;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.baseTau;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.join;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.rangeOneQun;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.valuesQun;
+import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.EQUALS_42;
+import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.baseT;
+import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.baseTau;
+import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.join;
+import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.rangeOneQun;
+import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.valuesQun;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
@@ -131,7 +132,7 @@ class DecorrelateValuesRuleTest {
     }
 
     /**
-     * Decorrelate multiple values boxes at once. This is a similar set up to {@link #simpleDecorrelation()}, but
+     * Decorrelate multiple values boxes at once. This is a similar setup to {@link #simpleDecorrelation()}, but
      * we start with multiple values boxes. The rule should take all of those and operate on them at the same time.
      * In this case, that means in-lining the values in the result and predicates, after which the values can be
      * removed.
@@ -446,7 +447,7 @@ class DecorrelateValuesRuleTest {
         // Take the three expressions and treat them as variations of a single expression. Join this with the values
         // box
         //
-        final Quantifier lower = Quantifier.forEach(Reference.ofExploratoryExpressions(PlannerStage.CANONICAL, ImmutableList.of(selectBase, distinct, selectUncorrelated)));
+        final Quantifier lower = Quantifier.forEach(Reference.ofFinalExpressions(PlannerStage.INITIAL, ImmutableList.of(selectBase, distinct, selectUncorrelated)));
         final SelectExpression selectExpression = join(valuesBox, lower)
                 .addResultColumn(projectColumn(valuesBox, "x"))
                 .addResultColumn(projectColumn(valuesBox, "y"))
@@ -486,7 +487,7 @@ class DecorrelateValuesRuleTest {
         // Validate that we get a re-written child with the expected variations. Note that the values box
         // has also been applied to the result columns
         //
-        final Quantifier newLower = Quantifier.forEach(Reference.ofExploratoryExpressions(PlannerStage.CANONICAL, ImmutableList.of(newSelectBase, newDistinct, selectUncorrelated)));
+        final Quantifier newLower = Quantifier.forEach(Reference.ofFinalExpressions(PlannerStage.INITIAL, ImmutableList.of(newSelectBase, newDistinct, selectUncorrelated)));
         final SelectExpression expected = GraphExpansion.builder()
                 .addQuantifier(newLower)
                 .addResultColumn(Column.of(Optional.of("x"), LiteralValue.ofScalar(42L)))
@@ -1030,7 +1031,7 @@ class DecorrelateValuesRuleTest {
 
         // Simulate the rule having yielded the simplified values box 2 by inserting the expression back into expected1,
         // and then re-run the rule on the outer select
-        newValuesBox2.getRangesOver().insertExploratoryExpression(finalValuesBox2);
+        newValuesBox2.getRangesOver().insertFinalExpression(finalValuesBox2);
         final SelectExpression expected2 = selectWithPredicates(base,
                 ImmutableList.of("a", "b", "c"),
                 fieldPredicate(base, "d", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, cov1)),
@@ -1050,12 +1051,11 @@ class DecorrelateValuesRuleTest {
         // Start with valuesBox2 correlated to valuesBox1, and then add a variant that is not correlated
         final Quantifier valuesBox1 = valuesQun(ImmutableMap.of("x", LiteralValue.ofScalar(42L), "y", LiteralValue.ofScalar("hello")));
         final Quantifier valuesBox2 = valuesQun(ImmutableMap.of("z", fieldValue(valuesBox1, "y")));
-        valuesBox2.getRangesOver().advancePlannerStage(PlannerStage.CANONICAL);
         final SelectExpression uncorrelatedValueBox2Expr = GraphExpansion.builder()
                 .addQuantifier(rangeOneQun())
                 .addResultColumn(Column.of(Optional.of("z"), LiteralValue.ofScalar("hello")))
                 .build().buildSelect();
-        valuesBox2.getRangesOver().insertExploratoryExpression(uncorrelatedValueBox2Expr);
+        valuesBox2.getRangesOver().insertFinalExpression(uncorrelatedValueBox2Expr);
 
         final Quantifier base = baseT();
         final Quantifier lowerSelectQun = forEach(selectWithPredicates(base,
@@ -1085,8 +1085,7 @@ class DecorrelateValuesRuleTest {
                 // Copy the alias over to ensure correlations from lower select are preserved
                 valuesBox2.getAlias());
         // The uncorrelated variant also gets copied over (un-modified)
-        valuesBox2WithExtraChild.getRangesOver().advancePlannerStage(PlannerStage.CANONICAL);
-        valuesBox2WithExtraChild.getRangesOver().insertExploratoryExpression(uncorrelatedValueBox2Expr);
+        valuesBox2WithExtraChild.getRangesOver().insertFinalExpression(uncorrelatedValueBox2Expr);
 
         final SelectExpression expected2 = join(valuesBox2WithExtraChild, lowerSelectQun)
                 .addResultColumn(Column.of(Optional.of("x"), LiteralValue.ofScalar(42L)))

@@ -27,6 +27,10 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 
 import javax.annotation.Nonnull;
 
+import static com.apple.foundationdb.record.query.plan.cascades.properties.PredicateHeightProperty.predicateHeight;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty.selectCount;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty.tableFunctionCount;
+
 /**
  * Cost model for {@link PlannerPhase#REWRITING}. TODO To be fleshed out whe we have actual rules.
  */
@@ -48,7 +52,32 @@ public class RewritingCostModel implements CascadesCostModel {
 
     @Override
     public int compare(final RelationalExpression a, final RelationalExpression b) {
-        // TODO Implement this!
+        //
+        // Pick the expression where predicates have been pushed down as far as they can go
+        //
+        int aPredicateHeight = predicateHeight().evaluate(a);
+        int bPredicateHeight = predicateHeight().evaluate(b);
+        if (aPredicateHeight != bPredicateHeight) {
+            return Integer.compare(aPredicateHeight, bPredicateHeight);
+        }
+
+        //
+        // Choose the expression with the fewest select boxes
+        //
+        int aSelects = selectCount().evaluate(a);
+        int bSelects = selectCount().evaluate(b);
+        if (aSelects != bSelects) {
+            return Integer.compare(aSelects, bSelects);
+        }
+
+        //
+        // Choose the expression with the fewest TableFunction expressions
+        //
+        int aTableFunctions = tableFunctionCount().evaluate(a);
+        int bTableFunctions = tableFunctionCount().evaluate(b);
+        if (aTableFunctions != bTableFunctions) {
+            return Integer.compare(aTableFunctions, bTableFunctions);
+        }
 
         //
         // If expressions are indistinguishable from a cost perspective, select one by its semanticHash.

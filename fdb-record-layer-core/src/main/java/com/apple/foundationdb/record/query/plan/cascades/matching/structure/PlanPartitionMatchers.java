@@ -49,8 +49,8 @@ public class PlanPartitionMatchers {
 
     @Nonnull
     @SuppressWarnings("unchecked")
-    public static BindingMatcher<Collection<PlanPartition>> filterPartition(@Nonnull final Predicate<PlanPartition> predicate,
-                                                                            @Nonnull final BindingMatcher<? extends Iterable<PlanPartition>> downstream) {
+    public static BindingMatcher<Collection<PlanPartition>> filterPlanPartitions(@Nonnull final Predicate<PlanPartition> predicate,
+                                                                                 @Nonnull final BindingMatcher<? extends Iterable<PlanPartition>> downstream) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<Collection<PlanPartition>>)(Class<?>)Collection.class,
                 Extractor.of(planPartitions ->
                         planPartitions.stream()
