@@ -55,7 +55,6 @@ import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
@@ -981,7 +980,6 @@ class DecorrelateValuesRuleTest {
      *       WHERE T.d = @0 AND T.a > (@1 + 1)
      * }</pre>
      */
-    @Disabled
     @Test
     void translateInterCorrelatedValuesBoxesInSequence() {
         final ConstantObjectValue cov1 = ConstantObjectValue.of(Quantifier.constant(), "0", Type.primitiveType(Type.TypeCode.STRING, false));
@@ -1033,7 +1031,7 @@ class DecorrelateValuesRuleTest {
 
         // Simulate the rule having yielded the simplified values box 2 by inserting the expression back into expected1,
         // and then re-run the rule on the outer select
-        newValuesBox2.getRangesOver().insertExploratoryExpression(finalValuesBox2);
+        newValuesBox2.getRangesOver().insertFinalExpression(finalValuesBox2);
         final SelectExpression expected2 = selectWithPredicates(base,
                 ImmutableList.of("a", "b", "c"),
                 fieldPredicate(base, "d", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, cov1)),
@@ -1057,7 +1055,7 @@ class DecorrelateValuesRuleTest {
                 .addQuantifier(rangeOneQun())
                 .addResultColumn(Column.of(Optional.of("z"), LiteralValue.ofScalar("hello")))
                 .build().buildSelect();
-        valuesBox2.getRangesOver().insertExploratoryExpression(uncorrelatedValueBox2Expr);
+        valuesBox2.getRangesOver().insertFinalExpression(uncorrelatedValueBox2Expr);
 
         final Quantifier base = baseT();
         final Quantifier lowerSelectQun = forEach(selectWithPredicates(base,
@@ -1087,7 +1085,7 @@ class DecorrelateValuesRuleTest {
                 // Copy the alias over to ensure correlations from lower select are preserved
                 valuesBox2.getAlias());
         // The uncorrelated variant also gets copied over (un-modified)
-        valuesBox2WithExtraChild.getRangesOver().insertExploratoryExpression(uncorrelatedValueBox2Expr);
+        valuesBox2WithExtraChild.getRangesOver().insertFinalExpression(uncorrelatedValueBox2Expr);
 
         final SelectExpression expected2 = join(valuesBox2WithExtraChild, lowerSelectQun)
                 .addResultColumn(Column.of(Optional.of("x"), LiteralValue.ofScalar(42L)))

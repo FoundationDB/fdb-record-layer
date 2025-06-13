@@ -145,11 +145,23 @@ public class RuleTestHelper {
 
     @Nonnull
     private TestRuleExecution run(RelationalExpression original) {
+        // copy the graph handed in so the caller can modify it at will afterwards and won't see the effects of
+        // rewriting and planning
         final var copiedOriginal =
                 Iterables.getOnlyElement(References.rebaseGraphs(ImmutableList.of(Reference.initialOf(original)),
                         Memoizer.noMemoization(PlannerStage.INITIAL), new ToUniqueAliasesTranslationMap(), false)).get();
         ensureStage(PlannerStage.CANONICAL, copiedOriginal);
         if (rule instanceof ImplementationCascadesRule) {
+            //
+            // Descend the copied original to:
+            // 1. apply FinalizeExpressionsRule for all children recursively bottom up
+            // 2. run the cost model for the children of the finalized expressions
+            // This simulates exactly what the planner does fo the children of this expression before the current
+            // rule is applied to the current expression. Note that this is only required for implementation rules
+            // as they depend on finalized children to work properly. In fact, we cannot call preExploreForRule(...)
+            // here for exploration rules as they attempt to share sub graphs which would then make the verification
+            // of the result of the rule difficult.
+            //
             preExploreForRule(copiedOriginal, false);
         }
         Reference ref = Reference.ofExploratoryExpression(PlannerStage.CANONICAL, copiedOriginal);
@@ -202,12 +214,12 @@ public class RuleTestHelper {
     }
 
     @Nonnull
-    private static RelationalExpression costModel(final Reference ref) {
-        ref.setExplored();
+    private static RelationalExpression costModel(final Reference reference) {
+        reference.setExplored();
         final var costModel =
-                PlannerPhase.PLANNING.createCostModel(RecordQueryPlannerConfiguration.defaultPlannerConfiguration());
+                PlannerPhase.REWRITING.createCostModel(RecordQueryPlannerConfiguration.defaultPlannerConfiguration());
         RelationalExpression bestFinalExpression = null;
-        for (final var finalExpression : ref.getFinalExpressions()) {
+        for (final var finalExpression : reference.getFinalExpressions()) {
             if (bestFinalExpression == null || costModel.compare(finalExpression, bestFinalExpression) < 0) {
                 bestFinalExpression = finalExpression;
             }
@@ -220,6 +232,10 @@ public class RuleTestHelper {
     public TestRuleExecution assertYields(RelationalExpression original, RelationalExpression... expected) {
         final ImmutableList.Builder<RelationalExpression> expectedListBuilder = ImmutableList.builder();
         for (RelationalExpression expression : expected) {
+            //
+            // Copy the expected as the caller can construct the expected from parts of the original.
+            // we just want to have our own unshared version of it.
+            //
             final var copiedExpected =
                     Iterables.getOnlyElement(References.rebaseGraphs(ImmutableList.of(Reference.initialOf(expression)),
                             Memoizer.noMemoization(PlannerStage.INITIAL), new ToUniqueAliasesTranslationMap(), false)).get();
