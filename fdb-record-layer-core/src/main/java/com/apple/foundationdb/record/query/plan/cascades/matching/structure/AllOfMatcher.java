@@ -77,7 +77,9 @@ public class AllOfMatcher<T> implements BindingMatcher<T> {
                             .map(bindings::mergedWith));
         }
 
-        return bindingStream;
+        // For each planner binding where each child is bound, also mix in this all-of matcher
+        final PlannerBindings allOfBindings = PlannerBindings.from(this, in);
+        return bindingStream.map(allOfBindings::mergedWith);
     }
 
     @SuppressWarnings("UnstableApiUsage")

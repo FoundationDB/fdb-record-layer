@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -36,10 +37,12 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.planprotos.PRangeValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInTableFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
+import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
@@ -133,6 +136,21 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
                         new ExplainTokens().addKeyword("STEP").addWhitespace().addNested(stepExplainTokens))));
     }
 
+    @Nonnull
+    @Override
+    public CardinalitiesProperty.Cardinalities getCardinalities() {
+        try {
+            long beginLong = ((Number) beginInclusive.evalWithoutStore(EvaluationContext.EMPTY)).longValue();
+            long endLong = ((Number) endExclusive.evalWithoutStore(EvaluationContext.EMPTY)).longValue();
+            long stepLong = ((Number) step.evalWithoutStore(EvaluationContext.EMPTY)).longValue();
+
+            var cardinality = CardinalitiesProperty.Cardinality.ofCardinality(Math.floorDiv(endLong - beginLong, stepLong));
+            return new CardinalitiesProperty.Cardinalities(cardinality, cardinality);
+        } catch (RecordCoreException evalException) {
+            return CardinalitiesProperty.Cardinalities.unknownMaxCardinality();
+        }
+    }
+
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
@@ -199,6 +217,18 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
         final var beginInclusive = Value.fromValueProto(serializationContext, rangeValueProto.getBeginInclusiveChild());
         final var step = Value.fromValueProto(serializationContext, rangeValueProto.getStepChild());
         return new RangeValue(endExclusive, beginInclusive, step);
+    }
+
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @SpotBugsSuppressWarnings("EQ_UNUSUAL")
+    @Override
+    public boolean equals(final Object other) {
+        return semanticEquals(other, AliasMap.emptyMap());
+    }
+
+    @Override
+    public int hashCode() {
+        return semanticHashCode();
     }
 
     /**
