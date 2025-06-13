@@ -583,6 +583,93 @@ class DecorrelateValuesRuleTest {
     }
 
     /**
+     * Trim uncorrelated (that is, extraneous) values boxes. Here, we start with a query like:
+     * <pre>{@code
+     * SELECT s.d
+     *    FROM values(x = @0, y = 42) AS v,
+     *       (SELECT b, c, d FROM T WHERE a = 42) AS s
+     *    WHERE s.b = @0
+     * }</pre>
+     * <p>
+     * Note that nothing is actually correlated to the values box. We can therefore just remove it
+     * and get the semantically equivalent:
+     * </p>
+     * <pre>{@code
+     * SELECT s.d
+     *    FROM (SELECT b, c, d FROM T WHERE a = 42) AS s
+     *    WHERE s.b = @0
+     * }</pre>
+     */
+    @Test
+    void trimUncorrelatedValuesBoxes() {
+        final ConstantObjectValue cov = ConstantObjectValue.of(Quantifier.constant(), "0", Type.primitiveType(Type.TypeCode.BYTES, false));
+        final Quantifier valuesBox = valuesQun(ImmutableMap.of("x", cov, "y", LiteralValue.ofScalar(42L)));
+
+        final Quantifier base = baseT();
+        final Quantifier lowerSelect = forEach(selectWithPredicates(base,
+                ImmutableList.of("b", "c", "d"),
+                fieldPredicate(base, "a", EQUALS_42)));
+        final SelectExpression selectExpression = join(valuesBox, lowerSelect)
+                .addResultColumn(projectColumn(lowerSelect, "d"))
+                .addPredicate(fieldPredicate(lowerSelect, "c", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, cov)))
+                .build().buildSelect();
+
+        final SelectExpression expected = selectWithPredicates(lowerSelect,
+                ImmutableList.of("d"),
+                fieldPredicate(lowerSelect, "c", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, cov)));
+
+        testHelper.assertYields(selectExpression, expected);
+    }
+
+    /**
+     * Similar to {@link #trimUncorrelatedValuesBoxes()}, this also operates on an uncorrelated values box.
+     * In this case, however, the uncorrelated box is used only in predicates on the top value. So we still
+     * want to leave the child boxes the same, but we re-write the predicate at the top level.
+     * <p>
+     * In particular we start with a query like:
+     * </p>
+     * <pre>{@code
+     * SELECT v.y, s.d
+     *    FROM values(x = @0, y = 42) AS v,
+     *       (SELECT b, c, d FROM T WHERE a = 42) AS s
+     *    WHERE s.b = v.x
+     * }</pre>
+     * <p>
+     * The lower select should remain the same, as it is not correlated to the values box. However, the
+     * result value and predicates should be rewritten in response to the now removed values box:
+     * </p>
+     * <pre>{@code
+     * SELECT 42 AS y, s.d
+     *    FROM (SELECT b, c, d FROM T WHERE a = 42) AS s
+     *    WHERE s = @0
+     * }</pre>
+     */
+    @Test
+    void rewritePredicatesAndReturnValueOnUncorrelatedValuesBox() {
+        final ConstantObjectValue cov = ConstantObjectValue.of(Quantifier.constant(), "0", Type.primitiveType(Type.TypeCode.BYTES, false));
+        final Quantifier valuesBox = valuesQun(ImmutableMap.of("x", cov, "y", LiteralValue.ofScalar(42L)));
+
+        final Quantifier base = baseT();
+        final Quantifier lowerSelect = forEach(selectWithPredicates(base,
+                ImmutableList.of("b", "c", "d"),
+                fieldPredicate(base, "a", EQUALS_42)));
+        final SelectExpression selectExpression = join(valuesBox, lowerSelect)
+                .addResultColumn(projectColumn(valuesBox, "y"))
+                .addResultColumn(projectColumn(lowerSelect, "d"))
+                .addPredicate(fieldPredicate(lowerSelect, "c", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(valuesBox, "x"))))
+                .build().buildSelect();
+
+        final SelectExpression expected = GraphExpansion.builder()
+                .addQuantifier(lowerSelect)
+                .addResultColumn(Column.of(Optional.of("y"), LiteralValue.ofScalar(42L)))
+                .addResultColumn(projectColumn(lowerSelect, "d"))
+                .addPredicate(fieldPredicate(lowerSelect, "c", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, cov)))
+                .build().buildSelect();
+
+        testHelper.assertYields(selectExpression, expected);
+    }
+
+    /**
      * This pushes a values box into a {@link GroupByExpression}'s children. In this case the original query is
      * something like:
      * <pre>{@code
@@ -1057,12 +1144,11 @@ class DecorrelateValuesRuleTest {
     }
 
     /**
-     * Validate that if we had a select over just a values box, we do not attempt to
-     * push it down. This is not allowed as it would result in a select expression with
-     * no children.
+     * Validate that if we had a select over just a values box, we replace it with a
+     * single {@code range(1)} child.
      */
     @Test
-    void doNotPushDownIfOnlyChild() {
+    void removeValuesIfOnlyChild() {
         final Quantifier valuesBox = valuesQun(LiteralValue.ofScalar(true));
         final SelectExpression selectOnlyValue = new SelectExpression(
                 LiteralValue.ofScalar("hello"),
@@ -1070,17 +1156,23 @@ class DecorrelateValuesRuleTest {
                 ImmutableList.of(valuesBox.getFlowedObjectValue().withComparison(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true)))
         );
 
-        testHelper.assertYieldsNothing(selectOnlyValue, true);
+        final SelectExpression expected = new SelectExpression(
+                LiteralValue.ofScalar("hello"),
+                ImmutableList.of(rangeOneQun()),
+                ImmutableList.of(LiteralValue.ofScalar(true).withComparison(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true)))
+        );
+
+        testHelper.assertYields(selectOnlyValue, expected);
     }
 
     /**
-     * Validate that if we had a select over multiple values boxes, we do not attempt to
-     * push it down. This is not allowed as it would result in a select expression with
-     * no children. This is similar to {@link #doNotPushDownIfOnlyChild()}, but it validates
-     * things for cases where there are multiple children, not just one.
+     * Validate that if we had a select over multiple values boxes, we push it down by introducing
+     * a single {@code range(1)} child. This is similar to {@link #removeValuesIfOnlyChild()}, but it
+     * validates the behavior if there are multiple such children. In particular, note that both children
+     * are replaced with a single {@code range(1)} quantifier&mdash;not one for each child.
      */
     @Test
-    void doNotPushDownIfAllChildrenAreValues() {
+    void removeValuesIfAllChildren() {
         final Quantifier valuesBox1 = valuesQun(LiteralValue.ofScalar("hello"));
         final Quantifier valuesBox2 = valuesQun(LiteralValue.ofScalar("world"));
         final SelectExpression selectOnlyValue = new SelectExpression(
@@ -1089,6 +1181,12 @@ class DecorrelateValuesRuleTest {
                 ImmutableList.of(valuesBox1.getFlowedObjectValue().withComparison(new Comparisons.ValueComparison(Comparisons.Type.LESS_THAN, valuesBox2.getFlowedObjectValue())))
         );
 
-        testHelper.assertYieldsNothing(selectOnlyValue, true);
+        final SelectExpression expected = new SelectExpression(
+                LiteralValue.ofScalar(42L),
+                ImmutableList.of(rangeOneQun()),
+                ImmutableList.of(LiteralValue.ofScalar("hello").withComparison(new Comparisons.ValueComparison(Comparisons.Type.LESS_THAN, LiteralValue.ofScalar("world"))))
+        );
+
+        testHelper.assertYields(selectOnlyValue, expected);
     }
 }

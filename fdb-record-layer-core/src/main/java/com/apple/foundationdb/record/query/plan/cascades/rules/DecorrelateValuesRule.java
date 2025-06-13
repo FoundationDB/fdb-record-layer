@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExploratoryMemoizer;
-import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -32,21 +31,27 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilt
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.AllOfMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcherWithPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RangeValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.RegularTranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -169,12 +174,12 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
         return set1.stream().noneMatch(set2::contains);
     }
 
-    private static boolean correlatedToNone(@Nonnull RelationalExpression expression, @Nonnull Set<CorrelationIdentifier> ids) {
-        return emptyIntersection(expression.getCorrelatedTo(), ids);
+    private static boolean correlatedToNone(@Nonnull RelationalExpression expression, @Nonnull Set<CorrelationIdentifier> aliases) {
+        return emptyIntersection(expression.getCorrelatedTo(), aliases);
     }
 
-    private static boolean correlatedToNone(@Nonnull Quantifier qun, @Nonnull Set<CorrelationIdentifier> ids) {
-        return emptyIntersection(qun.getCorrelatedTo(), ids);
+    private static boolean correlatedToNone(@Nonnull Quantifier qun, @Nonnull Set<CorrelationIdentifier> aliases) {
+        return emptyIntersection(qun.getCorrelatedTo(), aliases);
     }
 
     @Override
@@ -186,50 +191,38 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
         final SelectExpression selectExpression = call.get(root);
         final Set<CorrelationIdentifier> childAliases = Quantifiers.aliases(selectExpression.getQuantifiers());
         final List<? extends SelectExpression> valuesExpressions = call.getBindings().getAll(valuesExpressionMatcher);
-        final Set<SelectExpression> valueExpressionSet = new LinkedIdentitySet<>(valuesExpressions);
-        final Map<CorrelationIdentifier, SelectExpression> valuesByAlias = new HashMap<>();
+
+        final ImmutableMap.Builder<CorrelationIdentifier, SelectExpression> valuesByAlias = ImmutableMap.builderWithExpectedSize(valuesExpressions.size());
         final ImmutableMap.Builder<CorrelationIdentifier, Quantifier> qunsToPushDownBuilder = ImmutableMap.builderWithExpectedSize(valueQunCandidates.size());
-        for (Quantifier.ForEach valueQunCandidate : valueQunCandidates) {
-            if (!correlatedToNone(valueQunCandidate, childAliases)) {
+        Streams.zip(valueQunCandidates.stream(), valuesExpressions.stream(), NonnullPair::of)
                 //
-                // Reject any quantifiers here that have correlations to their siblings
+                // Reject any quantifiers here that have correlations to their siblings.
                 // In theory, we could check the _expressions_, rather than the quantifier,
                 // but then we'd have to be careful not to carry along any expressions
-                // with correlations (which may be invalidated) when we pushed the quantifier down.
+                // with correlations (which may be invalidated) when we push the quantifier down.
                 //
                 // Note: simply re-creating a trimmed down reference without the correlated expressions
                 // leads to problems with the memoizer as it tries to re-use the reference with correlations
                 //
-                continue;
-            }
-            for (RelationalExpression expr : valueQunCandidate.getRangesOver().getAllMemberExpressions()) {
-                //
-                // Find the matched select expression(s) that correspond to this matched quantifier.
-                //
-                if (expr instanceof SelectExpression
-                        && valueExpressionSet.contains(expr)) {
-                    valuesByAlias.putIfAbsent(valueQunCandidate.getAlias(), (SelectExpression) expr);
-                    qunsToPushDownBuilder.put(valueQunCandidate.getAlias(), valueQunCandidate);
-                    break;
-                }
-            }
-        }
+                .filter(pair -> correlatedToNone(pair.getLeft(), childAliases))
+                .forEach(pair -> {
+                    Quantifier qun = pair.getLeft();
+                    SelectExpression valueExpression = pair.getRight();
+                    Verify.verify(qun.getRangesOver().containsExactly(valueExpression), "matched value box should be aligned with matched quantifier");
+                    valuesByAlias.put(qun.getAlias(), valueExpression);
+                    qunsToPushDownBuilder.put(qun.getAlias(), qun);
+                });
 
         final Map<CorrelationIdentifier, Quantifier> qunsToPushDownByAlias = qunsToPushDownBuilder.build();
         if (qunsToPushDownByAlias.isEmpty()) {
             // No actual values boxes here. Exit now
             return;
         }
-        if (qunsToPushDownByAlias.size() == selectExpression.getQuantifiers().size()) {
-            // All the quantifiers are values boxes. We can't push them around as this would
-            // leave no children at all. So we exit here.
-            return;
-        }
 
         //
         // Create a translation map, and use it to translate the result value of this select as well as any predicates
         //
-        final TranslationMap translationMap = createTranslationMapFromSelects(valuesByAlias);
+        final TranslationMap translationMap = createTranslationMapFromSelects(valuesByAlias.build());
         final Value newResultValue = selectExpression.getResultValue().translateCorrelations(translationMap, true);
         final List<QueryPredicate> newPredicates = selectExpression.getPredicates().stream()
                 .map(predicate -> predicate.translateCorrelations(translationMap, true))
@@ -239,7 +232,15 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
         // Push the values box into each child for which it is relevant.
         //
         final PushValuesIntoVisitor visitor = new PushValuesIntoVisitor(qunsToPushDownByAlias, translationMap, call);
-        ImmutableList.Builder<Quantifier> newQuantifiersBuilder = ImmutableList.builderWithExpectedSize(selectExpression.getQuantifiers().size() - qunsToPushDownByAlias.size());
+        ImmutableList.Builder<Quantifier> newQuantifiersBuilder = ImmutableList.builderWithExpectedSize(Math.max(1, selectExpression.getQuantifiers().size() - qunsToPushDownByAlias.size()));
+        if (selectExpression.getQuantifiers().size() == qunsToPushDownByAlias.size()) {
+            //
+            // We're about to push down all the quantifiers. Introduce a range(1) box here to avoid creating a Select with no children
+            //
+            TableFunctionExpression rangeOneExpr = new TableFunctionExpression((StreamingValue) new RangeValue.RangeFn().encapsulate(ImmutableList.of(LiteralValue.ofScalar(1L))));
+            Quantifier newRangeQun = Quantifier.forEach(call.memoizeExploratoryExpression(rangeOneExpr));
+            newQuantifiersBuilder.add(newRangeQun);
+        }
         for (Quantifier qun : selectExpression.getQuantifiers()) {
             if (qunsToPushDownByAlias.containsKey(qun.getAlias())) {
                 //
