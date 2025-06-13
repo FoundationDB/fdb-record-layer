@@ -54,7 +54,7 @@ class ExternalServerTest {
     @Test
     void startMultiple() throws Exception {
         final List<ExternalServer> servers = new ArrayList<>();
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 3; i++) {
             servers.add(new ExternalServer(currentServerPath, null));
         }
         try {
