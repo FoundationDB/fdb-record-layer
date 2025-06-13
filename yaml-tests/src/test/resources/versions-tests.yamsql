@@ -59,12 +59,12 @@ test_block:
     -
       # Get version column from sub-select
       - query: select s.version, s.col2 from (select "__ROW_VERSION" as version, t1.col2 as col2 from t1 where col1 = 10) AS s;
-      - explain: "ISCAN(I1 [EQUALS promote(@c26 AS LONG)]) | MAP (version([_]) AS VERSION, _.COL2 AS COL2)"
+      - explain: "ISCAN(I1 [EQUALS promote(@c26 AS LONG)]) | MAP (version([_]) AS VERSION, _.COL2 AS COL2) | MAP (_.VERSION AS VERSION, _.COL2 AS COL2)"
       - result: [{VERSION: !not_null _, COL2: 1}, {VERSION: !not_null _, COL2: 2}, {VERSION: !not_null _, COL2: 3}, {VERSION: !not_null _, COL2: 4}, {VERSION: !not_null _, COL2: 5}]
     -
       # In inner select, the pseudo-column is selected but not renamed. Then, in the outer select, the column is read and returned, and a new version(S) value is *not* created
       - query: select s."__ROW_VERSION", s.col2 from (select "__ROW_VERSION", t1.col2 from t1 where col1 = 10) AS s;
-      - explain: "ISCAN(I1 [EQUALS promote(@c22 AS LONG)]) | MAP (version([_]) AS __ROW_VERSION, _.COL2 AS COL2)"
+      - explain: "ISCAN(I1 [EQUALS promote(@c22 AS LONG)]) | MAP (version([_]) AS __ROW_VERSION, _.COL2 AS COL2) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.COL2 AS COL2)"
       - result: [{__ROW_VERSION: !not_null _, COL2: 1}, {__ROW_VERSION: !not_null _, COL2: 2}, {__ROW_VERSION: !not_null _, COL2: 3}, {__ROW_VERSION: !not_null _, COL2: 4}, {__ROW_VERSION: !not_null _, COL2: 5}]
     -
       - query: select "__ROW_VERSION" as version, t1.* from t1 where col1 = 20;
