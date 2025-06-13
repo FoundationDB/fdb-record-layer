@@ -195,6 +195,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    void distinctFrom(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("distinct-from.yamsql");
+    }
+
+    @TestTemplate
     void functions(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("functions.yamsql");
     }
