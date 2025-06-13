@@ -115,6 +115,59 @@ public class GroupByQueryTests {
     }
 
     @Test
+    void groupByForceContinuation() throws Exception {
+        final String schemaTemplate =
+                "create table t1(pk bigint, a bigint, b bigint, c bigint, primary key(pk))\n" +
+                        "create index mv1 as select count(*) from t1\n" +
+                        "create index mv8 as select a, max(b) from t1 group by a order by a";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var conn = ddl.setSchemaAndGetConnection()) {
+                conn.setOption(Options.Name.MAX_ROWS, 1);
+                conn.setOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
+                try (var statement = conn.createStatement()) {
+                    insertT1Record(statement, 1, 10, 1, 20);
+                    insertT1Record(statement, 2, 10, 2, 20);
+                    insertT1Record(statement, 3, 10, 3, 5);
+                    insertT1Record(statement, 4, 10, 4, 15);
+                    insertT1Record(statement, 5, 10, 5, 5);
+                    insertT1Record(statement, 6, 20, 6, 10);
+                    insertT1Record(statement, 7, 20, 7, 40);
+                    insertT1Record(statement, 8, 20, 8, 20);
+                    insertT1Record(statement, 9, 20, 9, 90);
+                    insertT1Record(statement, 10, 20, 10, 10);
+                    insertT1Record(statement, 11, 20, 11, 40);
+                    insertT1Record(statement, 12, 20, 12, 20);
+                    insertT1Record(statement, 13, 20, 13, 90);
+                }
+                Continuation continuation = null;
+                try (var statement = conn.createStatement()) {
+                    conn.setOption(Options.Name.MAX_ROWS, 1);
+                    conn.setOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
+                    String query = "select count(*) from t1";
+                    Assertions.assertTrue(statement.execute(query), "Did not return a result set from a select statement!");
+                    try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                        ResultSetAssert.assertThat(resultSet).hasNextRow()
+                                .isRowExactly(13L)
+                                .hasNoNextRow();
+                        continuation = resultSet.getContinuation();
+                    }
+                }
+                try (var statement = conn.prepareStatement("EXECUTE CONTINUATION ?param")) {
+                    conn.setOption(Options.Name.MAX_ROWS, 1);
+                    conn.setOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
+                    statement.setMaxRows(1);
+                    statement.setBytes("param", continuation.serialize());
+                    try (final RelationalResultSet resultSet = statement.executeQuery()) {
+                        ResultSetAssert.assertThat(resultSet).hasNoNextRow();
+                        continuation = resultSet.getContinuation();
+                        Assertions.assertTrue(continuation.getExecutionState().length == 0);
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
     void groupByWithRowLimit() throws Exception {
         final String schemaTemplate =
                 "create table t1(pk bigint, a bigint, b bigint, c bigint, primary key(pk))\n" +

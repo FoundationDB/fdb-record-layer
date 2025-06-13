@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PPlanReference;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
+import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursorBase;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -76,7 +77,8 @@ public class PlanSerializationTest {
                 Type.Record.fromFields(false,
                         ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("field1")),
                                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("field2")))),
-                QueryPlanConstraint.tautology());
+                QueryPlanConstraint.tautology(),
+                KeyValueCursorBase.SerializationMode.TO_OLD);
         PlanSerializationContext planSerializationContext = PlanSerializationContext.newForCurrentMode();
         final PPlanReference proto = planSerializationContext.toPlanReferenceProto(plan);
         final byte[] bytes = proto.toByteArray();
@@ -98,7 +100,8 @@ public class PlanSerializationTest {
                 false,
                 Optional.empty(),
                 Type.primitiveType(Type.TypeCode.INT, true),
-                QueryPlanConstraint.tautology());
+                QueryPlanConstraint.tautology(),
+                KeyValueCursorBase.SerializationMode.TO_OLD);
         final var plan = new RecordQueryDefaultOnEmptyPlan(Quantifier
                 .Physical.physicalBuilder().withAlias(CorrelationIdentifier.of("q42")).build(
                         Reference.plannedOf(indexPlan)

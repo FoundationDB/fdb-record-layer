@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
+import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursorBase;
 import com.apple.foundationdb.record.provider.foundationdb.MultidimensionalIndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
@@ -510,7 +511,8 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                         new HypercubeScanParameters("business",
                                 (Long)null, intervalEndInclusive,
                                 intervalStartInclusive, null),
-                        false);
+                        false,
+                        KeyValueCursorBase.SerializationMode.TO_OLD);
         Set<Message> actualResults = getResults(additionalIndexes, indexPlan);
 
         final QueryComponent filter =
@@ -562,7 +564,8 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                         new HypercubeScanParameters("business",
                                 (Long)null, intervalEndInclusive,
                                 intervalStartInclusive, null),
-                        false);
+                        false,
+                        KeyValueCursorBase.SerializationMode.TO_OLD);
         Set<Message> actualResults = getResults(additionalIndexes, indexPlan);
 
         final QueryComponent filter =
@@ -617,7 +620,8 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                         new HypercubeScanParameters("business",
                                 (Long)null, 0L,
                                 0L, null),
-                        false);
+                        false,
+                        KeyValueCursorBase.SerializationMode.TO_OLD);
         Set<Message> actualResults = getResults(additionalIndexes, indexPlan);
 
         final QueryComponent filter =
@@ -672,7 +676,8 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                         new HypercubeScanParameters("business",
                                 Long.MIN_VALUE, 0L,
                                 0L, null),
-                        false);
+                        false,
+                        KeyValueCursorBase.SerializationMode.TO_OLD);
         Set<Message> actualResults = getResults(additionalIndexes, indexPlan);
 
         final QueryComponent filter =
@@ -722,7 +727,8 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                         new HypercubeScanParameters("business",
                                 (Long)null, Long.MIN_VALUE,
                                 null, null),
-                        false);
+                        false,
+                        KeyValueCursorBase.SerializationMode.TO_OLD);
         final Set<Message> actualResults = getResults(additionalIndexes, indexPlan);
 
         final QueryComponent filter =
@@ -788,7 +794,8 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                 new RecordQueryIndexPlan("EventIntervals",
                         new CompositeScanParameters(
                                 new MultidimensionalIndexScanBounds(TupleRange.allOf(Tuple.from("business")), andBounds, TupleRange.ALL)),
-                        false);
+                        false,
+                        KeyValueCursorBase.SerializationMode.TO_OLD);
         final Set<Message> actualResults = getResults(additionalIndexes, indexPlan);
 
         final QueryComponent filter =
@@ -835,7 +842,8 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                         new HypercubeScanParameters("business",
                                 (Long)null, intervalEndInclusive,
                                 intervalStartInclusive, null),
-                        false);
+                        false,
+                        KeyValueCursorBase.SerializationMode.TO_OLD);
         final Set<Message> actualResults = getResults(additionalIndexes, indexPlan);
 
         final QueryComponent filter =
@@ -871,7 +879,8 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                         new HypercubeScanParameters("business", "private",
                                 null, intervalEndInclusive,
                                 intervalStartInclusive, null),
-                        false);
+                        false,
+                        KeyValueCursorBase.SerializationMode.TO_OLD);
         final Set<Message> actualResults = getResults(additionalIndexes, indexPlan);
 
         final QueryComponent filter =
@@ -916,7 +925,8 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                         new HypercubeScanParameters("business", "private",
                                 Long.MIN_VALUE, intervalEndInclusive,
                                 intervalStartInclusive, null),
-                        false);
+                        false,
+                        KeyValueCursorBase.SerializationMode.TO_OLD);
 
         Set<Message> actualResults = getResultsWithContinuations(additionalIndexes, indexPlan, 4);
 
@@ -989,7 +999,8 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                         new HypercubeScanParameters("business", "private",
                                 null, intervalEndInclusive,
                                 intervalStartInclusive, null),
-                        false);
+                        false,
+                        KeyValueCursorBase.SerializationMode.TO_OLD);
 
         final RecordType myMultidimensionalRecord = recordStore.getRecordMetaData().getRecordType("MyMultidimensionalRecord");
         final Index index = recordStore.getRecordMetaData().getIndex("EventIntervals");
@@ -1112,7 +1123,8 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                                 Long.MIN_VALUE, intervalEndInclusive,
                                 intervalStartInclusive, null,
                                 epochMean + expirationCutOff, null),
-                        false);
+                        false,
+                        KeyValueCursorBase.SerializationMode.TO_OLD);
         Set<Message> actualResults = getResults(additionalIndex, indexPlan);
 
         final QueryComponent filter =
@@ -1199,7 +1211,8 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                 new RecordQueryIndexPlan("EventIntervals",
                         new CompositeScanParameters(
                                 new MultidimensionalIndexScanBounds(TupleRange.allOf(Tuple.from(null, "business")), bounds, TupleRange.ALL)),
-                        false);
+                        false,
+                        KeyValueCursorBase.SerializationMode.TO_OLD);
 
         final Set<Message> actualResults = getResults(additionalIndexes, indexPlan);
         Assertions.assertTrue(actualResults.isEmpty());
@@ -1220,7 +1233,8 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                         new HypercubeScanParameters(null,
                                 (Long)null, intervalEndInclusive,
                                 intervalStartInclusive, null),
-                        false);
+                        false,
+                        KeyValueCursorBase.SerializationMode.TO_OLD);
         Set<Message> actualResults = getResults(additionalIndexes, indexPlan);
 
         final QueryComponent filter =

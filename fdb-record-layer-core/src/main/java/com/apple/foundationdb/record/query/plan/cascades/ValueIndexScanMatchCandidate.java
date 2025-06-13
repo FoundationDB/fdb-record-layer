@@ -245,7 +245,8 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                 false,
                                 partialMatch.getMatchCandidate(),
                                 baseRecordType,
-                                matchInfo.getConstraint()));
+                                matchInfo.getConstraint(),
+                                planContext.getPlannerConfiguration().getKeyValueCursorSerializationMode()));
     }
 
     @Nonnull
@@ -272,7 +273,8 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                         false,
                         partialMatch.getMatchCandidate(),
                         baseRecordType,
-                        partialMatch.getRegularMatchInfo().getConstraint());
+                        partialMatch.getRegularMatchInfo().getConstraint(),
+                        planContext.getPlannerConfiguration().getKeyValueCursorSerializationMode());
 
         final var coveringIndexPlan = new RecordQueryCoveringIndexPlan(indexPlan,
                 indexEntryToLogicalRecord.getQueriedRecordType().getName(),

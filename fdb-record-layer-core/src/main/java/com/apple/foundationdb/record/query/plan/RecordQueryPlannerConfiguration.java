@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.RecordPlannerConfigurationProto;
+import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursorBase;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
@@ -65,6 +66,7 @@ public class RecordQueryPlannerConfiguration {
     private static final long PLAN_OTHER_ATTEMPT_FULL_FILTER_MASK = 1L << 9;
     private static final long NORMALIZE_NESTED_FIELDS_MASK = 1L << 10;
     private static final long OMIT_PRIMARY_KEY_IN_ORDERING_KEY_FOR_IN_UNION_MASK = 1L << 11;
+    private static final long KEYVALUE_CURSOR_CONTINUATION_SERIALIZATION_MODE = 1L << 12;
 
     @Nonnull
     private final RecordPlannerConfigurationProto.PlannerConfiguration proto;
@@ -226,6 +228,10 @@ public class RecordQueryPlannerConfiguration {
      */
     public boolean shouldOptimizeForRequiredResults() {
         return flagSet(OPTIMIZE_FOR_REQUIRED_RESULTS_MASK);
+    }
+
+    public KeyValueCursorBase.SerializationMode getKeyValueCursorSerializationMode() {
+        return flagSet(KEYVALUE_CURSOR_CONTINUATION_SERIALIZATION_MODE) ? KeyValueCursorBase.SerializationMode.TO_NEW : KeyValueCursorBase.SerializationMode.TO_OLD;
     }
 
     /**
@@ -432,6 +438,18 @@ public class RecordQueryPlannerConfiguration {
 
         public Builder() {
             this.protoBuilder = RecordPlannerConfigurationProto.PlannerConfiguration.newBuilder();
+        }
+
+        @Nonnull
+        public Builder setKeyValueCursorContinuationSerializationMode(@Nonnull KeyValueCursorBase.SerializationMode serializationMode) {
+            if (serializationMode == KeyValueCursorBase.SerializationMode.TO_OLD) {
+                protoBuilder.setKeyValueCursorContinuationSerializationMode(RecordPlannerConfigurationProto.PlannerConfiguration.KeyValueCursorContinuationSerializationMode.TO_OLD);
+                updateFlags(false, KEYVALUE_CURSOR_CONTINUATION_SERIALIZATION_MODE);
+            } else {
+                protoBuilder.setKeyValueCursorContinuationSerializationMode(RecordPlannerConfigurationProto.PlannerConfiguration.KeyValueCursorContinuationSerializationMode.TO_NEW);
+                updateFlags(true, KEYVALUE_CURSOR_CONTINUATION_SERIALIZATION_MODE);
+            }
+            return this;
         }
 
         @Nonnull

@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
+import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursorBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
@@ -75,7 +76,7 @@ public class FDBRecordStoreLimitTestBase extends FDBRecordStoreTestBase {
     private static RecordQueryPlan indexPlanEquals(String indexName, Object value) {
         IndexScanParameters scan = IndexScanComparisons.byValue(new ScanComparisons(Arrays.asList(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, value)),
                         Collections.emptySet()));
-        return new RecordQueryIndexPlan(indexName, scan, false);
+        return new RecordQueryIndexPlan(indexName, scan, false, KeyValueCursorBase.SerializationMode.TO_OLD);
     }
 
     private static KeyExpression primaryKey() {
@@ -86,7 +87,7 @@ public class FDBRecordStoreLimitTestBase extends FDBRecordStoreTestBase {
         RecordQueryPlan scanPlan = new RecordQueryScanPlan(ScanComparisons.EMPTY, false);
         IndexScanParameters fullValueScan = IndexScanComparisons.byValue();
         RecordQueryPlan indexPlan = new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed",
-                fullValueScan, false);
+                fullValueScan, false, KeyValueCursorBase.SerializationMode.TO_OLD);
         QueryComponent filter = Query.field("str_value_indexed").equalsValue("odd");
         QueryComponent middleFilter = Query.and(
                 Query.field("rec_no").greaterThan(24L),
@@ -96,7 +97,7 @@ public class FDBRecordStoreLimitTestBase extends FDBRecordStoreTestBase {
         return Stream.of(
                 Arguments.of("full record scan", fail, scanPlan),
                 Arguments.of("simple index scan", fail, indexPlan),
-                Arguments.of("reverse index scan", fail, new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed", fullValueScan, true)),
+                Arguments.of("reverse index scan", fail, new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed", fullValueScan, true, KeyValueCursorBase.SerializationMode.TO_OLD)),
                 Arguments.of("filter on scan plan", fail, new RecordQueryFilterPlan(scanPlan, filter)),
                 Arguments.of("filter on index plan", fail, new RecordQueryFilterPlan(indexPlan, filter)),
                 Arguments.of("type filter on scan plan", fail, new RecordQueryTypeFilterPlan(scanPlan, Collections.singletonList("MySimpleRecord"))),

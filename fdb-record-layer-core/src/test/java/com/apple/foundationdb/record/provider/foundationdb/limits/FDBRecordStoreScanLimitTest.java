@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
+import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursorBase;
 import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.ProbableIntersectionCursor;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -352,7 +353,7 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
     public void testExecuteStateReset(int scanLimit) throws Exception {
         final IndexScanParameters fullValueScan = IndexScanComparisons.byValue();
         final RecordQueryPlan plan = new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed",
-                fullValueScan, false);
+                fullValueScan, false, KeyValueCursorBase.SerializationMode.TO_OLD);
         ExecuteProperties properties = ExecuteProperties.newBuilder().setScannedRecordsLimit(scanLimit).build();
 
         try (FDBRecordContext context = openContext()) {

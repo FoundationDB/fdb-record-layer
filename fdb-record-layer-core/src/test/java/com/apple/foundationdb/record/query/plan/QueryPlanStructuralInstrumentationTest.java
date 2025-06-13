@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
+import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursorBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
@@ -54,7 +55,7 @@ public class QueryPlanStructuralInstrumentationTest {
     private RecordQueryPlan indexPlanEquals(String indexName, Object value) {
         IndexScanParameters scan = IndexScanComparisons.byValue(new ScanComparisons(Arrays.asList(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, value)),
                         Collections.emptySet()));
-        return new RecordQueryIndexPlan(indexName, scan, false);
+        return new RecordQueryIndexPlan(indexName, scan, false, KeyValueCursorBase.SerializationMode.TO_OLD);
     }
 
     private void assertNoIndexes(RecordQueryPlan plan) {
@@ -93,7 +94,7 @@ public class QueryPlanStructuralInstrumentationTest {
         final String indexName = "a_field";
         final IndexScanParameters scan = IndexScanComparisons.byValue(new ScanComparisons(Arrays.asList(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, "another_field")), Collections.emptySet()));
         final RecordQueryPlan plan = new RecordQueryInValuesJoinPlan(
-                new RecordQueryIndexPlan(indexName, scan, false),
+                new RecordQueryIndexPlan(indexName, scan, false, KeyValueCursorBase.SerializationMode.TO_OLD),
                 "another_field",
                 Bindings.Internal.IN,
                 Arrays.asList(2, 4),

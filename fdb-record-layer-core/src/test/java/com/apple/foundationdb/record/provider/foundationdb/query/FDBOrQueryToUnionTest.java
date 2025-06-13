@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
+import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursorBase;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.OrComponent;
@@ -2346,8 +2347,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         final IndexScanParameters fullValueScan = IndexScanComparisons.byValue();
 
         RecordQueryPlan originalPlan1 = RecordQueryUnionPlan.from(
-                new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed", fullValueScan, false),
-                new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", fullValueScan, false),
+                new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed", fullValueScan, false, KeyValueCursorBase.SerializationMode.TO_OLD),
+                new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", fullValueScan, false, KeyValueCursorBase.SerializationMode.TO_OLD),
                 primaryKey("MySimpleRecord"), true);
 
         RecordQueryPlan modifiedPlan1 = RecordQueryPlannerSubstitutionVisitor.applyRegularVisitors(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(), originalPlan1, recordStore.getRecordMetaData(), PlannableIndexTypes.DEFAULT, primaryKey("MySimpleRecord"));
@@ -2362,8 +2363,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         assertMatchesExactly(modifiedPlan1, planMatcher);
 
         RecordQueryPlan originalPlan2 = RecordQueryUnionPlan.from(
-                new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed", fullValueScan, false),
-                new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", fullValueScan, false),
+                new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed", fullValueScan, false, KeyValueCursorBase.SerializationMode.TO_OLD),
+                new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", fullValueScan, false, KeyValueCursorBase.SerializationMode.TO_OLD),
                 concat(field("num_value_2"), primaryKey("MySimpleRecord")), true);
         RecordQueryPlan modifiedPlan2 = RecordQueryPlannerSubstitutionVisitor.applyRegularVisitors(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(), originalPlan2, recordStore.getRecordMetaData(), PlannableIndexTypes.DEFAULT, primaryKey("MySimpleRecord"));
         // Visitor should not perform transformation because of comparison key on num_value_unique

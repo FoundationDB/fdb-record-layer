@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
+import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursorBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
@@ -220,7 +221,7 @@ public class ExplainPlanVisitorTest {
         IndexScanParameters scanParameters = IndexScanComparisons.byValue(comparisons.getLeft(), scanType);
         String indexName = randomIndexName(r);
         boolean reverse = r.nextBoolean();
-        return NonnullPair.of(new RecordQueryIndexPlan(indexName, scanParameters, reverse),
+        return NonnullPair.of(new RecordQueryIndexPlan(indexName, scanParameters, reverse, KeyValueCursorBase.SerializationMode.TO_OLD),
                 String.format("%s %s%s%s", indexName, comparisons.getRight(), scanType == IndexScanType.BY_VALUE ? "" : (" " + scanType), reverse ? " REVERSE" : ""));
     }
 

@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursorBase;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -43,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Tag;
@@ -65,6 +67,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -78,6 +81,7 @@ class RecordQueryIndexPlanWithOverScanTest extends FDBRecordStoreQueryTestBase {
     private static final RecordQueryPlannerConfiguration plannerConfiguration = RecordQueryPlannerConfiguration.builder()
             .setIndexScanPreference(QueryPlanner.IndexScanPreference.PREFER_INDEX)
             .setAttemptFailedInJoinAsOr(true)
+            .setKeyValueCursorContinuationSerializationMode(KeyValueCursorBase.SerializationMode.TO_NEW)
             .setComplexityThreshold(RecordQueryPlanner.DEFAULT_COMPLEXITY_THRESHOLD)
             .addValueIndexOverScanNeeded("MySimpleRecord$str_value_indexed")
             .addValueIndexOverScanNeeded("compoundIndex")
@@ -248,8 +252,12 @@ class RecordQueryIndexPlanWithOverScanTest extends FDBRecordStoreQueryTestBase {
             do {
                 indexResult = indexCursor.getNext();
                 overscanResult = overscanCursor.getNext();
-                assertEquals(indexResult.getContinuation().toByteString(), overscanResult.getContinuation().toByteString(), "Continuation byte strings should match");
-                assertArrayEquals(indexResult.getContinuation().toBytes(), overscanResult.getContinuation().toBytes(), "Continuation byte arrays should match");
+
+                ByteString indexResultContinuationInByteString = indexResult.getContinuation() instanceof KeyValueCursorBase.Continuation ? ((KeyValueCursorBase.Continuation) indexResult.getContinuation()).getInnerContinuationInByteString() : indexResult.getContinuation().toByteString();
+                byte[] indexResultContinuationInBytes = indexResult.getContinuation() instanceof KeyValueCursorBase.Continuation ? ((KeyValueCursorBase.Continuation) indexResult.getContinuation()).getInnerContinuationInBytes() : indexResult.getContinuation().toBytes();
+
+                assertEquals(indexResultContinuationInByteString, overscanResult.getContinuation().toByteString(), "Continuation byte strings should match");
+                assertArrayEquals(indexResultContinuationInBytes, overscanResult.getContinuation().toBytes(), "Continuation byte arrays should match");
 
                 assertEquals(indexResult.hasNext(), overscanResult.hasNext(), "Overscan cursor should have next if index result has next");
                 if (indexResult.hasNext()) {
