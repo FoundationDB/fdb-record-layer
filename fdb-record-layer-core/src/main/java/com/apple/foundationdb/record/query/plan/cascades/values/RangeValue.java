@@ -236,8 +236,8 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
                 .composeWithOther(step.equalsWithoutChildren(otherRange.step));
     }
 
-    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.emptyMap());

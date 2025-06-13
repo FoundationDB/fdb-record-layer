@@ -213,6 +213,7 @@ public class Reference implements Correlated<Reference>, Typed {
      * reference such that exploration in a new phase can start again.
      * @param newStage the new stage we should advance to
      */
+    @VisibleForTesting
     void advancePlannerStageUnchecked(@Nonnull final PlannerStage newStage) {
         this.plannerStage = newStage;
         constraintsMap.advancePlannerStage();

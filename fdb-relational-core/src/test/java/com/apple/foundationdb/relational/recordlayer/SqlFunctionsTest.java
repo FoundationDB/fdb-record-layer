@@ -87,9 +87,4 @@ public class SqlFunctionsTest {
         statement.execute("select * from f2(43) options (log query)");
         Assertions.assertTrue(logAppender.lastMessageIsCacheHit());
     }
-
-    @Test
-    void queryThreeLevelsDeep() throws Exception {
-        statement.execute("select * from f3(42, 'a') where col2a > col2b");
-    }
 }

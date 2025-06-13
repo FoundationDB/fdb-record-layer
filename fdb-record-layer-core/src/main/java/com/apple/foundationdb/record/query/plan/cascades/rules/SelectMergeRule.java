@@ -47,7 +47,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.filterExpressions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.rollUpPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierWithoutDefaultOnEmptyOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.withPredicatesExpression;
 
@@ -76,7 +76,7 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
 
     @Nonnull
     private static final CollectionMatcher<Quantifier.ForEach> quantifiersMatcher =
-            some(forEachQuantifierOverRef(childReferenceMatcher));
+            some(forEachQuantifierWithoutDefaultOnEmptyOverRef(childReferenceMatcher));
 
     @Nonnull
     private static final BindingMatcher<SelectExpression> root = selectExpression(quantifiersMatcher);
@@ -121,8 +121,7 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
         for (final var quantifier : selectExpression.getQuantifiers()) {
             final var alias = quantifier.getAlias();
             final var childSelectExpression = mergeableChildren.get(alias);
-            if (childSelectExpression != null &&
-                    !quantifier.narrow(Quantifier.ForEach.class).isNullOnEmpty()) {
+            if (childSelectExpression != null) {
                 //
                 // Mergeable. Add the child quantifiers in the old one's place and scoop up any predicates.
                 //

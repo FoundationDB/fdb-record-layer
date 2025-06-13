@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -54,6 +55,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fieldValue;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.forEach;
 
 public class RuleTestHelper {
@@ -133,6 +135,11 @@ public class RuleTestHelper {
     @Nonnull
     public static Quantifier valuesQun(@Nonnull Value value) {
         return Quantifier.forEach(Reference.initialOf(new SelectExpression(value, ImmutableList.of(rangeOneQun()), ImmutableList.of())));
+    }
+
+    @Nonnull
+    public static Quantifier explodeField(@Nonnull final Quantifier t, @Nonnull final String fieldName) {
+        return forEach(new ExplodeExpression(fieldValue(t, fieldName)));
     }
 
     @Nonnull

@@ -60,6 +60,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.E
 import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.GREATER_THAN_HELLO;
 import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.baseT;
 import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.baseTau;
+import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.explodeField;
 import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.join;
 
 /**
@@ -326,7 +327,7 @@ class SelectMergeRuleTest {
     @Test
     void mergeFilterOnNestedExplode() {
         Quantifier baseQun = baseT();
-        Quantifier explodeGQun = extractG(baseQun);
+        Quantifier explodeGQun = explodeField(baseQun, "g");
         Quantifier higherTwoValuesQun = forEach(selectWithPredicates(
                 explodeGQun, ImmutableList.of("one", "three"),
                 fieldPredicate(explodeGQun, "two", GREATER_THAN_HELLO)));
@@ -363,7 +364,7 @@ class SelectMergeRuleTest {
     void doNotMergeExistentialOnNested() {
         Quantifier baseQun = baseT();
 
-        Quantifier explodeGQun = extractG(baseQun);
+        Quantifier explodeGQun = explodeField(baseQun, "g");
         Quantifier existsHigherTwoQun = exists(selectWithPredicates(
                 explodeGQun, fieldPredicate(explodeGQun, "two", GREATER_THAN_HELLO)));
 
@@ -584,11 +585,6 @@ class SelectMergeRuleTest {
                 .build().buildSelect();
 
         testHelper.assertYields(select, merged);
-    }
-
-    @Nonnull
-    private static Quantifier extractG(final Quantifier t3) {
-        return forEach(new ExplodeExpression(fieldValue(t3, "g")));
     }
 
     /**
@@ -958,8 +954,8 @@ class SelectMergeRuleTest {
     }
 
     /**
-     * Test the case where we have multiple variants underneath a reference. We create additional variants
-     * for each such element at a higher level.
+     * Test the case where we have multiple variants underneath a reference. We merge the variant with the fewest
+     * {@link SelectExpression}s.
      */
     @Test
     void combineWithVariants() {

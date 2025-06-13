@@ -260,7 +260,7 @@ public class PredicatePushDownRuleTest {
                 baseQun, List.of("a", "b", "c"),
                 new ConstantPredicate(true)
         );
-        Reference lowerRef = Reference.ofFinalExpressions(PlannerStage.CANONICAL, ImmutableSet.of(lower1, lower2));
+        Reference lowerRef = Reference.ofFinalExpressions(PlannerStage.INITIAL, ImmutableSet.of(lower1, lower2));
         Quantifier lowerQun = Quantifier.forEach(lowerRef);
 
         SelectExpression higher = selectWithPredicates(
