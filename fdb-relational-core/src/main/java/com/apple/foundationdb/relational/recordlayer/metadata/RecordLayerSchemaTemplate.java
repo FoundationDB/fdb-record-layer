@@ -39,9 +39,9 @@ import com.apple.foundationdb.relational.recordlayer.metadata.serde.RecordMetada
 import com.apple.foundationdb.relational.recordlayer.metadata.serde.RecordMetadataSerializer;
 import com.apple.foundationdb.relational.util.Assert;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -51,6 +51,7 @@ import com.google.protobuf.Descriptors;
 import javax.annotation.Nonnull;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -59,6 +60,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
 public final class RecordLayerSchemaTemplate implements SchemaTemplate {
@@ -87,6 +89,12 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     @Nonnull
     private final Supplier<Set<String>> indexesSupplier;
 
+    @Nonnull
+    private final Supplier<Collection<? extends InvokedRoutine>> temporaryInvokedRoutinesSupplier;
+
+    @Nonnull
+    private final Supplier<String> transactionBoundMetadataSupplier;
+
     private RecordLayerSchemaTemplate(@Nonnull final String name,
                                       @Nonnull final Set<RecordLayerTable> tables,
                                       @Nonnull final Set<RecordLayerInvokedRoutine> invokedRoutines,
@@ -102,6 +110,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         this.metaDataSupplier = Suppliers.memoize(this::buildRecordMetadata);
         this.tableIndexMappingSupplier = Suppliers.memoize(this::computeTableIndexMapping);
         this.indexesSupplier = Suppliers.memoize(this::computeIndexes);
+        this.temporaryInvokedRoutinesSupplier = Suppliers.memoize(this::computeTemporaryInvokedRoutines);
+        this.transactionBoundMetadataSupplier = Suppliers.memoize(this::computeTransactionBoundMetadata);
     }
 
     private RecordLayerSchemaTemplate(@Nonnull final String name,
@@ -120,6 +130,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         this.metaDataSupplier = Suppliers.memoize(() -> cachedMetadata);
         this.tableIndexMappingSupplier = Suppliers.memoize(this::computeTableIndexMapping);
         this.indexesSupplier = Suppliers.memoize(this::computeIndexes);
+        this.temporaryInvokedRoutinesSupplier = Suppliers.memoize(this::computeTemporaryInvokedRoutines);
+        this.transactionBoundMetadataSupplier = Suppliers.memoize(this::computeTransactionBoundMetadata);
     }
 
     @Nonnull
@@ -299,8 +311,32 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     @Nonnull
     @Override
-    public Optional<InvokedRoutine> findInvokedRoutineByName(@Nonnull final String routineName) throws RelationalException {
-        return Optional.empty();
+    public Optional<? extends InvokedRoutine> findInvokedRoutineByName(@Nonnull final String routineName) {
+        return invokedRoutines.stream().filter(routine -> routine.getName().equals(routineName)).findFirst();
+    }
+
+    @Nonnull
+    private Collection<? extends InvokedRoutine> computeTemporaryInvokedRoutines() {
+        return invokedRoutines.stream().filter(RecordLayerInvokedRoutine::isTemporary)
+                .sorted(Comparator.comparing(RecordLayerInvokedRoutine::getDescription)).collect(ImmutableList.toImmutableList());
+    }
+
+    @Nonnull
+    @Override
+    public Collection<? extends InvokedRoutine> getTemporaryInvokedRoutines() {
+        return temporaryInvokedRoutinesSupplier.get();
+    }
+
+    @Nonnull
+    private String computeTransactionBoundMetadata() {
+        return getTemporaryInvokedRoutines().stream().map(InvokedRoutine::getNormalizedDescription)
+                .collect(Collectors.joining("||"));
+    }
+
+    @Nonnull
+    @Override
+    public String getTransactionBoundMetadataAsString() {
+        return transactionBoundMetadataSupplier.get();
     }
 
     @Nonnull
@@ -413,6 +449,22 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             Assert.thatUnchecked(!invokedRoutines.containsKey(invokedRoutine.getName()), ErrorCode.INVALID_SCHEMA_TEMPLATE,
                     () -> "routine " + invokedRoutine.getName() + " is already defined");
             invokedRoutines.put(invokedRoutine.getName(), invokedRoutine);
+            return this;
+        }
+
+        @Nonnull
+        public Builder replaceInvokedRoutine(@Nonnull final RecordLayerInvokedRoutine invokedRoutine) {
+            if (invokedRoutines.containsKey(invokedRoutine.getName())) {
+                Assert.thatUnchecked(invokedRoutines.get(invokedRoutine.getName()).isTemporary(), ErrorCode.INVALID_FUNCTION_DEFINITION,
+                        "attempt to replace non-temporary invoked routine!");
+            }
+            invokedRoutines.put(invokedRoutine.getName(), invokedRoutine);
+            return this;
+        }
+
+        @Nonnull
+        public Builder addInvokedRoutines(@Nonnull final Collection<RecordLayerInvokedRoutine> invokedRoutines) {
+            invokedRoutines.forEach(this::addInvokedRoutine);
             return this;
         }
 
@@ -622,12 +674,12 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     }
 
     @Nonnull
-    @VisibleForTesting
     public Builder toBuilder() {
         return newBuilder()
                 .setName(name)
                 .setVersion(version)
                 .setEnableLongRows(enableLongRows)
-                .addTables(getTables());
+                .addTables(getTables())
+                .addInvokedRoutines(getInvokedRoutines());
     }
 }

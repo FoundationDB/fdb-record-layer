@@ -111,23 +111,28 @@ public final class QueryCacheKey {
 
     private final int userVersion;
 
+    @Nonnull
+    private final String auxiliaryMetadata;
+
     private final int memoizedHashCode;
 
     private QueryCacheKey(@Nonnull final String canonicalQueryString,
                           int hash,
                           int schemaTemplateVersion,
                           @Nonnull final BitSet readableIndexes,
-                          int userVersion) {
+                          int userVersion,
+                          @Nonnull final String auxiliaryMetadata) {
         this.canonicalQueryString = canonicalQueryString;
         this.hash = hash;
         this.schemaTemplateVersion = schemaTemplateVersion;
         this.readableIndexes = readableIndexes;
         this.userVersion = userVersion;
+        this.auxiliaryMetadata = auxiliaryMetadata;
 
         // Memoize the hash code. Because this object is used as a key in a hash map, it is important that
         // hashCode() be quick. Note that this includes information about the query (like the query hash),
         // the schema template version, and the schema (like the set of readable indexes)
-        this.memoizedHashCode = Objects.hash(hash, schemaTemplateVersion, readableIndexes, userVersion);
+        this.memoizedHashCode = Objects.hash(hash, schemaTemplateVersion, readableIndexes, userVersion, auxiliaryMetadata);
     }
 
     @Override
@@ -143,6 +148,7 @@ public final class QueryCacheKey {
                 schemaTemplateVersion == that.schemaTemplateVersion &&
                 userVersion == that.userVersion &&
                 Objects.equals(canonicalQueryString, that.canonicalQueryString) &&
+                Objects.equals(auxiliaryMetadata, that.auxiliaryMetadata) &&
                 Objects.equals(readableIndexes, that.readableIndexes);
     }
 
@@ -173,9 +179,14 @@ public final class QueryCacheKey {
         return userVersion;
     }
 
+    @Nonnull
+    public String getAuxiliaryMetadata() {
+        return auxiliaryMetadata;
+    }
+
     @Override
     public String toString() {
-        return "(" + schemaTemplateVersion + ")" + "||" + canonicalQueryString + "||" + hash;
+        return "(" + schemaTemplateVersion + " || " + auxiliaryMetadata + ")" + "||" + canonicalQueryString + "||" + hash;
     }
 
     @Nonnull
@@ -183,7 +194,8 @@ public final class QueryCacheKey {
                                    int hash,
                                    int schemaTemplateVersion,
                                    @Nonnull final BitSet readableIndexes,
-                                   int userVersion) {
-        return new QueryCacheKey(query, hash, schemaTemplateVersion, readableIndexes, userVersion);
+                                   int userVersion,
+                                   @Nonnull final String auxiliaryMetadata) {
+        return new QueryCacheKey(query, hash, schemaTemplateVersion, readableIndexes, userVersion, auxiliaryMetadata);
     }
 }

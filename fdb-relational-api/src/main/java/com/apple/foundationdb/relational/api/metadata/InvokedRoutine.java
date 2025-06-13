@@ -41,6 +41,11 @@ public interface InvokedRoutine extends Metadata {
     @Nonnull
     String getDescription();
 
+    @Nonnull
+    String getNormalizedDescription();
+
+    boolean isTemporary();
+
     @Override
     default void accept(@Nonnull final Visitor visitor) {
         visitor.visit(this);

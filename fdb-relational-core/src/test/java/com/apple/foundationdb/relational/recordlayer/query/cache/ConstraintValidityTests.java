@@ -63,7 +63,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.apple.foundationdb.relational.recordlayer.query.QueryExecutionContext.OrderedLiteral.constantId;
+import static com.apple.foundationdb.relational.recordlayer.query.OrderedLiteral.constantId;
 
 public class ConstraintValidityTests {
 
