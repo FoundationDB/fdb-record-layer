@@ -85,7 +85,8 @@ tasks.register('codeCoverageReport', JacocoReport) {
     def exclusions = [
         "**/*Proto.class", "**/*Proto\$*.class",
         "**/planprotos/*", "**/eventprotos/*",
-        "**/generated/*", "**/grpc/v1/**/*"
+        "**/generated/*", "**/grpc/v1/**/*",
+        "**/protogen/*"
     ]
 
     def compiledFiles = coverageSubprojects.collect { sp ->
