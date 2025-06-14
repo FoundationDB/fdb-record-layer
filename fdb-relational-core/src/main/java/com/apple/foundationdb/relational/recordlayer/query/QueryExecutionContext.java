@@ -23,11 +23,11 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -46,6 +46,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Stack;
+import java.util.UUID;
 import java.util.function.Supplier;
 
 public interface QueryExecutionContext {
@@ -218,8 +219,11 @@ public interface QueryExecutionContext {
             final var fieldDescriptors = messageBuilder.getDescriptorForType().getFields();
             int i = 0;
             for (final OrderedLiteral fieldOrderedLiteral : fields) {
-                final var fieldValue = fieldOrderedLiteral.getLiteralObject();
+                var fieldValue = fieldOrderedLiteral.getLiteralObject();
                 if (fieldValue != null) {
+                    if (type.getElementTypes().get(i).isUuid()) {
+                        fieldValue = TupleFieldsHelper.toProto((UUID) fieldValue);
+                    }
                     messageBuilder.setField(fieldDescriptors.get(i), fieldValue);
                 }
                 i++;

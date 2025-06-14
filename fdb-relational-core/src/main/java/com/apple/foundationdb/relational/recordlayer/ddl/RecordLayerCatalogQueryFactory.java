@@ -21,19 +21,17 @@
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.ImmutableRowStruct;
-import com.apple.foundationdb.relational.api.Row;
-import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.RelationalArrayMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
+import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.ddl.CatalogQueryFactory;
 import com.apple.foundationdb.relational.api.ddl.DdlQuery;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Metadata;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
@@ -42,8 +40,6 @@ import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
-import java.sql.DatabaseMetaData;
-import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -79,14 +75,13 @@ public class RecordLayerCatalogQueryFactory extends CatalogQueryFactory {
                         tableNames,
                         indexNames);
 
-                final FieldDescription[] fields = {
-                        FieldDescription.primitive("DATABASE_PATH", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
-                        FieldDescription.primitive("SCHEMA_NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                        FieldDescription.array("TABLES", DatabaseMetaData.columnNullable, RelationalArrayMetaData.ofPrimitive(Types.VARCHAR, DatabaseMetaData.columnNoNulls)),
-                        FieldDescription.array("INDEXES", DatabaseMetaData.columnNullable, RelationalArrayMetaData.ofPrimitive(Types.VARCHAR, DatabaseMetaData.columnNoNulls))
-                };
-                return new IteratorResultSet(new RelationalStructMetaData(fields),
-                        Collections.singleton(tuple).iterator(), 0);
+                final var describeSchemaStructType = DataType.StructType.from("DESCRIBE_SCHEMA", List.of(
+                        DataType.StructType.Field.from("DATABASE_PATH", DataType.Primitives.STRING.type(), 0),
+                        DataType.StructType.Field.from("SCHEMA_NAME", DataType.Primitives.NULLABLE_STRING.type(), 1),
+                        DataType.StructType.Field.from("TABLES", DataType.ArrayType.from(DataType.Primitives.STRING.type()), 2),
+                        DataType.StructType.Field.from("INDEXES", DataType.ArrayType.from(DataType.Primitives.STRING.type()), 3)
+                ), true);
+                return new IteratorResultSet(RelationalStructMetaData.of(describeSchemaStructType), Collections.singleton(tuple).iterator(), 0);
             }
         };
     }
@@ -103,27 +98,29 @@ public class RecordLayerCatalogQueryFactory extends CatalogQueryFactory {
             @Override
             public RelationalResultSet executeAction(Transaction txn) throws RelationalException {
                 final SchemaTemplate schemaTemplate = catalog.getSchemaTemplateCatalog().loadSchemaTemplate(txn, schemaId);
-                final var columnStructMetadata = new RelationalStructMetaData(
-                        FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
-                        FieldDescription.primitive("COLUMN_TYPE", Types.INTEGER, DatabaseMetaData.columnNoNulls));
-                final var tableStructMetadata = new RelationalStructMetaData(
-                        FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
-                        FieldDescription.array("COLUMNS", DatabaseMetaData.columnNoNulls, RelationalArrayMetaData.ofStruct(
-                                columnStructMetadata, DatabaseMetaData.columnNoNulls)));
-                final var schemaTemplateStructMetadata = new RelationalStructMetaData(
-                        FieldDescription.primitive("TEMPLATE_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
-                        FieldDescription.array("TABLES", DatabaseMetaData.columnNullable, RelationalArrayMetaData.ofStruct(
-                                tableStructMetadata, DatabaseMetaData.columnNoNulls)));
+                final var columnType = DataType.StructType.from("COLUMN", List.of(
+                        DataType.StructType.Field.from("COLUMN_NAME", DataType.Primitives.STRING.type(), 0),
+                                DataType.StructType.Field.from("COLUMN_TYPE", DataType.Primitives.INTEGER.type(), 1)),
+                        true);
+                final var tableType = DataType.StructType.from("TABLE", List.of(
+                        DataType.StructType.Field.from("TABLE_NAME", DataType.Primitives.STRING.type(), 0),
+                                DataType.StructType.Field.from("COLUMNS", DataType.ArrayType.from(columnType, true), 1)),
+                        true);
+                final var describeSchemaType = DataType.StructType.from("DESCRIBE_SCHEMA_TEMPLATE", List.of(
+                        DataType.StructType.Field.from("TEMPLATE_NAME", DataType.Primitives.STRING.type(), 0),
+                                DataType.StructType.Field.from("TABLES", DataType.ArrayType.from(tableType, true), 1)),
+                        true);
+
                 final var tableStructs = new ArrayList<>();
                 for (var table : schemaTemplate.getTables()) {
                     final var columnStructs = new ArrayList<>();
                     for (var col : table.getColumns()) {
-                        columnStructs.add(new ImmutableRowStruct(new ArrayRow(col.getName(), col.getDatatype().getJdbcSqlCode()), columnStructMetadata));
+                        columnStructs.add(new ImmutableRowStruct(new ArrayRow(col.getName(), col.getDatatype().getJdbcSqlCode()), RelationalStructMetaData.of(columnType)));
                     }
-                    tableStructs.add(new ImmutableRowStruct(new ArrayRow(table.getName(), columnStructs), tableStructMetadata));
+                    tableStructs.add(new ImmutableRowStruct(new ArrayRow(table.getName(), columnStructs), RelationalStructMetaData.of(tableType)));
                 }
                 final Row tuple = new ArrayRow(schemaTemplate.getName(), tableStructs);
-                return new IteratorResultSet(schemaTemplateStructMetadata, Collections.singleton(tuple).iterator(), 0);
+                return new IteratorResultSet(RelationalStructMetaData.of(describeSchemaType), Collections.singleton(tuple).iterator(), 0);
             }
         };
     }
