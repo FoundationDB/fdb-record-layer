@@ -77,8 +77,6 @@ public class ProtobufConversionTest {
     void testResultSetWithContinuation() throws Exception {
         MockContinuation continuation = new MockContinuation(Continuation.Reason.TRANSACTION_LIMIT_REACHED, null, false, false);
         RelationalResultSet resultSet = TestUtils.resultSet(
-                "TestType",
-                List.of(Types.INTEGER, Types.INTEGER, Types.INTEGER),
                 continuation,
                 TestUtils.row(1, 2, 3), TestUtils.row(4, 5, 6));
         ResultSet converted = TypeConversion.toProtobuf(resultSet);

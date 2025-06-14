@@ -21,12 +21,14 @@
 package com.apple.foundationdb.relational.jdbc;
 
 import com.apple.foundationdb.relational.api.ArrayMetaData;
+import com.apple.foundationdb.relational.api.RelationalArrayMetaData;
 import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalArrayBuilder;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSet;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSetMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array;
@@ -35,14 +37,18 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ColumnMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ListColumn;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ListColumnMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Struct;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Type;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.PositionalIndex;
+import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
+import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Types;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 /**
  * Facade over grpc protobuf objects that offers a {@link RelationalArray} view.
@@ -57,6 +63,7 @@ class RelationalArrayFacade implements RelationalArray {
      * Package-private so protobuf is available to serializer (in same package).
      */
     private final ColumnMetadata delegateMetadata;
+    private final Supplier<DataType.ArrayType> type;
 
     /**
      * Array data as protobuf.
@@ -67,7 +74,12 @@ class RelationalArrayFacade implements RelationalArray {
 
     RelationalArrayFacade(@Nonnull ColumnMetadata delegateMetadata, Array array) {
         this.delegateMetadata = delegateMetadata;
+        this.type = Suppliers.memoize(this::computeType);
         this.delegate = array;
+    }
+
+    private DataType.ArrayType computeType() {
+        return DataType.ArrayType.from(RelationalStructFacade.RelationalStructFacadeMetaData.getDataType(delegateMetadata.getType(), delegateMetadata, delegateMetadata.getNullable() == DatabaseMetaData.columnNullable));
     }
 
     /**
@@ -88,7 +100,7 @@ class RelationalArrayFacade implements RelationalArray {
 
     @Override
     public ArrayMetaData getMetaData() throws SQLException {
-        throw new SQLFeatureNotSupportedException("get Metadata not supported in JDBC Relational Arrays");
+        return RelationalArrayMetaData.of(type.get());
     }
 
     @Override
@@ -254,7 +266,7 @@ class RelationalArrayFacade implements RelationalArray {
 
         private void initOrCheckMetadata(ListColumnMetadata innerMetadata) {
             if (metadata == null) {
-                final var builder = ColumnMetadata.newBuilder().setName("ARRAY").setJavaSqlTypesCode(Types.STRUCT);
+                final var builder = ColumnMetadata.newBuilder().setName("ARRAY").setJavaSqlTypesCode(Types.STRUCT).setType(Type.STRUCT);
                 builder.setStructMetadata(innerMetadata);
                 metadata = builder.build();
             } else {

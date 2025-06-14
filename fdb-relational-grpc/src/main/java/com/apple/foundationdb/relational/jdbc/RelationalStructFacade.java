@@ -26,20 +26,24 @@ import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalStructBuilder;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Column;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ColumnMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ListColumn;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ListColumnMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Struct;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Type;
 import com.apple.foundationdb.relational.util.PositionalIndex;
 
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Suppliers;
 import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
@@ -47,6 +51,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 /**
  * Facade over grpc protobuf objects that offers a {@link RelationalStruct} view.
@@ -415,7 +420,7 @@ class RelationalStructFacade implements RelationalStruct {
         public RelationalStructBuilder addBoolean(String fieldName, boolean b) throws SQLException {
             // Add the metadata and get offset at where to insert data.
             int offset = addMetadata(ColumnMetadata.newBuilder()
-                    .setName(fieldName).setJavaSqlTypesCode(Types.BOOLEAN).build());
+                    .setName(fieldName).setJavaSqlTypesCode(Types.BOOLEAN).setType(Type.BOOLEAN).build());
             // Add field data.
             this.listColumnBuilder.addColumn(offset, Column.newBuilder().setBoolean(b).build());
             return this;
@@ -424,7 +429,7 @@ class RelationalStructFacade implements RelationalStruct {
         @Override
         public RelationalStructBuilder addLong(String fieldName, long l) throws SQLException {
             int offset = addMetadata(ColumnMetadata.newBuilder()
-                    .setName(fieldName).setJavaSqlTypesCode(Types.BIGINT).build());
+                    .setName(fieldName).setJavaSqlTypesCode(Types.BIGINT).setType(Type.LONG).build());
             this.listColumnBuilder.addColumn(offset, Column.newBuilder().setLong(l).build());
             return this;
         }
@@ -437,7 +442,7 @@ class RelationalStructFacade implements RelationalStruct {
         @Override
         public RelationalStructBuilder addDouble(String fieldName, double d) throws SQLException {
             int offset = addMetadata(ColumnMetadata.newBuilder()
-                    .setName(fieldName).setJavaSqlTypesCode(Types.DOUBLE).build());
+                    .setName(fieldName).setJavaSqlTypesCode(Types.DOUBLE).setType(Type.DOUBLE).build());
             this.listColumnBuilder.addColumn(offset, Column.newBuilder().setDouble(d).build());
             return this;
         }
@@ -445,7 +450,7 @@ class RelationalStructFacade implements RelationalStruct {
         @Override
         public RelationalStructBuilder addBytes(String fieldName, byte[] bytes) throws SQLException {
             int offset = addMetadata(ColumnMetadata.newBuilder()
-                    .setName(fieldName).setJavaSqlTypesCode(Types.BINARY).build());
+                    .setName(fieldName).setJavaSqlTypesCode(Types.BINARY).setType(Type.BYTES).build());
             this.listColumnBuilder.addColumn(offset, Column.newBuilder().setBinary(ByteString.copyFrom(bytes)).build());
             return this;
         }
@@ -454,7 +459,7 @@ class RelationalStructFacade implements RelationalStruct {
         @SpotBugsSuppressWarnings("NP")
         public RelationalStructBuilder addString(String fieldName, @Nullable String s) throws SQLException {
             int offset = addMetadata(ColumnMetadata.newBuilder()
-                    .setName(fieldName).setJavaSqlTypesCode(Types.VARCHAR).build());
+                    .setName(fieldName).setJavaSqlTypesCode(Types.VARCHAR).setType(Type.STRING).build());
             // TODO: setString requires a non-null string, but this method takes a nullable string
             this.listColumnBuilder.addColumn(offset, Column.newBuilder().setString(s).build());
             return this;
@@ -477,7 +482,7 @@ class RelationalStructFacade implements RelationalStruct {
             // Insert the data portion of RelationalStruct here.
             RelationalStructFacade relationalStructFacade = struct.unwrap(RelationalStructFacade.class);
             int offset = addMetadata(ColumnMetadata.newBuilder().setName(fieldName)
-                    .setJavaSqlTypesCode(Types.STRUCT).setStructMetadata(relationalStructFacade.delegateMetadata).build());
+                    .setJavaSqlTypesCode(Types.STRUCT).setType(Type.STRUCT).setStructMetadata(relationalStructFacade.delegateMetadata).build());
             this.listColumnBuilder
                     .addColumn(offset, Column.newBuilder().setStruct(relationalStructFacade.delegate).build());
             return this;
@@ -490,7 +495,7 @@ class RelationalStructFacade implements RelationalStruct {
             // Insert the data portion of RelationalStruct here.
             RelationalArrayFacade relationalArrayFacade = array.unwrap(RelationalArrayFacade.class);
             int offset = addMetadata(ColumnMetadata.newBuilder()
-                    .setName(fieldName).setJavaSqlTypesCode(Types.ARRAY)
+                    .setName(fieldName).setJavaSqlTypesCode(Types.ARRAY).setType(Type.ARRAY)
                     .setArrayMetadata(relationalArrayFacade.getDelegateMetadata())
                     .build());
             this.listColumnBuilder.addColumn(offset,
@@ -520,9 +525,52 @@ class RelationalStructFacade implements RelationalStruct {
      */
     static final class RelationalStructFacadeMetaData implements StructMetaData {
         private final ListColumnMetadata metadata;
+        private final Supplier<DataType.StructType> type;
 
         RelationalStructFacadeMetaData(ListColumnMetadata metadata) {
             this.metadata = metadata;
+            this.type = Suppliers.memoize(this::computeType);
+        }
+
+        private DataType.StructType computeType() {
+            return getStructDataType(metadata.getColumnMetadataList(), false);
+        }
+
+        private static DataType.StructType getStructDataType(@Nonnull List<ColumnMetadata> columnMetadataList, boolean nullable) {
+            final var fields = new ArrayList<DataType.StructType.Field>();
+            for (int i = 0; i < columnMetadataList.size(); i++) {
+                final var columnMetadata = columnMetadataList.get(i);
+                fields.add(DataType.StructType.Field.from(columnMetadata.getName(), getDataType(columnMetadata.getType(), columnMetadata, DatabaseMetaData.columnNullable == columnMetadata.getNullable()), i));
+            }
+            return DataType.StructType.from("ANONYMOUS_STRUCT", fields, nullable);
+        }
+
+        static DataType getDataType(@Nonnull Type type, @Nonnull ColumnMetadata columnMetadata, boolean nullable) {
+            switch (type) {
+                case LONG:
+                    return nullable ? DataType.Primitives.NULLABLE_LONG.type() : DataType.Primitives.LONG.type();
+                case INTEGER:
+                    return nullable ? DataType.Primitives.NULLABLE_INTEGER.type() : DataType.Primitives.INTEGER.type();
+                case DOUBLE:
+                    return nullable ? DataType.Primitives.NULLABLE_DOUBLE.type() : DataType.Primitives.DOUBLE.type();
+                case FLOAT:
+                    return nullable ? DataType.Primitives.NULLABLE_FLOAT.type() : DataType.Primitives.FLOAT.type();
+                case BOOLEAN:
+                    return nullable ? DataType.Primitives.NULLABLE_BOOLEAN.type() : DataType.Primitives.BOOLEAN.type();
+                case BYTES:
+                    return nullable ? DataType.Primitives.NULLABLE_BYTES.type() : DataType.Primitives.BYTES.type();
+                case UUID:
+                    return nullable ? DataType.Primitives.NULLABLE_UUID.type() : DataType.Primitives.UUID.type();
+                case STRING:
+                    return nullable ? DataType.Primitives.NULLABLE_STRING.type() : DataType.Primitives.STRING.type();
+                case STRUCT:
+                    return getStructDataType(columnMetadata.getStructMetadata().getColumnMetadataList(), nullable);
+                case ARRAY:
+                    final var arrayMetadata = columnMetadata.getArrayMetadata();
+                    return DataType.ArrayType.from(getDataType(arrayMetadata.getType(), arrayMetadata, arrayMetadata.getNullable() == DatabaseMetaData.columnNullable), nullable);
+                default:
+                    throw new RelationalException("Not implemeneted: " + type.name(), ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
+            }
         }
 
         @Override
@@ -592,7 +640,7 @@ class RelationalStructFacade implements RelationalStruct {
 
         @Override
         public DataType.StructType getRelationalDataType() throws SQLException {
-            throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+            return type.get();
         }
 
         @Override
