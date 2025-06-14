@@ -71,6 +71,7 @@ public abstract class DataType {
         typeCodeJdbcTypeMap.put(Code.ENUM, Types.OTHER);
         typeCodeJdbcTypeMap.put(Code.UUID, Types.OTHER);
         typeCodeJdbcTypeMap.put(Code.BYTES, Types.BINARY);
+        typeCodeJdbcTypeMap.put(Code.VERSION, Types.BINARY);
         typeCodeJdbcTypeMap.put(Code.STRUCT, Types.STRUCT);
         typeCodeJdbcTypeMap.put(Code.ARRAY, Types.ARRAY);
         typeCodeJdbcTypeMap.put(Code.NULL, Types.NULL);
@@ -199,7 +200,7 @@ public abstract class DataType {
             } else if (obj instanceof String) {
                 return Primitives.STRING.type();
             } else if (obj instanceof UUID) {
-                return Primitives.LONG.type();
+                return Primitives.UUID.type();
             } else if (obj instanceof RelationalStruct) {
                 return ((RelationalStruct) obj).getMetaData().getRelationalDataType();
             } else if (obj instanceof RelationalArray) {

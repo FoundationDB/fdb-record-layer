@@ -136,6 +136,9 @@ public class ParameterHelper {
     }
 
     public static Parameter ofObject(Object x) throws SQLException {
+        if (x instanceof JDBCArrayImpl) {
+            return ofArray((Array) x);
+        }
         final int typeCodeFromObject = DataType.getDataTypeFromObject(x).getJdbcSqlCode();
         switch (typeCodeFromObject) {
             case Types.BIGINT:
