@@ -32,7 +32,6 @@ import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.sql.Types;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
