@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalStructBuilder;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Column;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ColumnMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ListColumn;
@@ -421,11 +422,6 @@ class RelationalStructFacade implements RelationalStruct {
         }
 
         @Override
-        public RelationalStructBuilder addShort(String fieldName, short b) throws SQLException {
-            throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
-        }
-
-        @Override
         public RelationalStructBuilder addLong(String fieldName, long l) throws SQLException {
             int offset = addMetadata(ColumnMetadata.newBuilder()
                     .setName(fieldName).setJavaSqlTypesCode(Types.BIGINT).build());
@@ -465,7 +461,12 @@ class RelationalStructFacade implements RelationalStruct {
         }
 
         @Override
-        public RelationalStructBuilder addObject(String fieldName, @Nullable Object obj, int targetSqlType) throws SQLException {
+        public RelationalStructBuilder addUuid(final String fieldName, @Nullable final UUID uuid) throws SQLException {
+            throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
+        }
+
+        @Override
+        public RelationalStructBuilder addObject(final String fieldName, @Nullable final Object obj) throws SQLException {
             throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
         }
 
@@ -587,6 +588,11 @@ class RelationalStructFacade implements RelationalStruct {
         @Override
         public int getLeadingPhantomColumnCount() {
             return -1000;
+        }
+
+        @Override
+        public DataType.StructType getRelationalDataType() throws SQLException {
+            throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
         }
 
         @Override

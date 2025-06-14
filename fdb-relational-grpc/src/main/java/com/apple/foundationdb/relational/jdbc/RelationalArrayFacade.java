@@ -42,6 +42,7 @@ import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Types;
+import java.util.UUID;
 
 /**
  * Facade over grpc protobuf objects that offers a {@link RelationalArray} view.
@@ -235,6 +236,11 @@ class RelationalArrayFacade implements RelationalArray {
 
         @Override
         public RelationalArrayBuilder addLong(@Nonnull long value) throws SQLException {
+            throw new SQLFeatureNotSupportedException();
+        }
+
+        @Override
+        public RelationalArrayBuilder addUuid(@Nonnull final UUID value) throws SQLException {
             throw new SQLFeatureNotSupportedException();
         }
 

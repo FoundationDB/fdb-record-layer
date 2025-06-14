@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
-import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.Parameter;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Column;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Uuid;
@@ -136,7 +136,7 @@ public class ParameterHelper {
     }
 
     public static Parameter ofObject(Object x) throws SQLException {
-        final int typeCodeFromObject = SqlTypeNamesSupport.getSqlTypeCodeFromObject(x);
+        final int typeCodeFromObject = DataType.getDataTypeFromObject(x).getJdbcSqlCode();
         switch (typeCodeFromObject) {
             case Types.BIGINT:
                 return ofLong((Long)x);
