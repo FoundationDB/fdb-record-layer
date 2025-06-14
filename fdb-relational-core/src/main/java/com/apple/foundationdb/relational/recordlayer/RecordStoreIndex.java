@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.TupleRange;
@@ -31,14 +30,15 @@ import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpressio
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.Row;
-import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.storage.BackingStore;
-
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -74,7 +74,7 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
         final RecordType recType = table.loadRecordType(Options.NONE);
         final List<Descriptors.FieldDescriptor> fields = indexStruct.validate(recType.getDescriptor());
         final Type.Record record = ProtobufDdlUtil.recordFromFieldDescriptors(fields);
-        return SqlTypeSupport.recordToMetaData(record);
+        return RelationalStructMetaData.of((DataType.StructType) DataTypeUtils.toRelationalType(record));
     }
 
     @Override

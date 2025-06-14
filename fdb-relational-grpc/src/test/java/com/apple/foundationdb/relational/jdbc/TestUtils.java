@@ -27,9 +27,9 @@ import java.util.Arrays;
 import java.util.List;
 
 public class TestUtils {
-    public static RelationalResultSet resultSet(String typeName, List<Integer> columnTypes, Continuation continuation, MockResultSetRow... rows) {
+    public static RelationalResultSet resultSet(Continuation continuation, MockResultSetRow... rows) {
         return new MockResultSet(
-                new MockResultSetMetadata(typeName, columnTypes),
+                new MockResultSetMetadata(),
                 Arrays.stream(rows).iterator(),
                 continuation);
     }

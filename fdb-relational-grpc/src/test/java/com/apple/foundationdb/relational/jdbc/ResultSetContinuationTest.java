@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.jdbc;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSet;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -31,7 +30,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.sql.SQLException;
-import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
@@ -51,8 +49,6 @@ public class ResultSetContinuationTest {
     @MethodSource("continuationSource")
     void testResultSetWithContinuation(Continuation continuation) throws Exception {
         RelationalResultSet resultSet = TestUtils.resultSet(
-                "TestType",
-                List.of(Types.INTEGER, Types.INTEGER, Types.INTEGER),
                 continuation,
                 TestUtils.row(1, 2, 3), TestUtils.row(4, 5, 6));
         ResultSet rsProto = TypeConversion.toProtobuf(resultSet);
@@ -69,8 +65,6 @@ public class ResultSetContinuationTest {
     @MethodSource("continuationSource")
     void testContinuationRoundTrip(Continuation continuation) throws Exception {
         RelationalResultSet resultSet = TestUtils.resultSet(
-                "TestType",
-                List.of(Types.INTEGER, Types.INTEGER, Types.INTEGER),
                 continuation,
                 TestUtils.row(1, 2, 3), TestUtils.row(4, 5, 6));
         ResultSet rsProto = TypeConversion.toProtobuf(resultSet);
@@ -87,8 +81,6 @@ public class ResultSetContinuationTest {
     @Test
     void testMidContinuationFails() throws Exception {
         RelationalResultSet resultSet = TestUtils.resultSet(
-                "TestType",
-                List.of(Types.INTEGER, Types.INTEGER, Types.INTEGER),
                 MockContinuation.BEGIN,
                 TestUtils.row(1, 2, 3), TestUtils.row(4, 5, 6));
         ResultSet rsProto = TypeConversion.toProtobuf(resultSet);
@@ -115,8 +107,6 @@ public class ResultSetContinuationTest {
     @Test
     void testResultSetWithNullContinuationFails() throws Exception {
         RelationalResultSet resultSet = TestUtils.resultSet(
-                "TestType",
-                List.of(Types.INTEGER, Types.INTEGER, Types.INTEGER),
                 null,
                 TestUtils.row(1, 2, 3), TestUtils.row(4, 5, 6));
         Assertions.assertThrows(NullPointerException.class, () -> TypeConversion.toProtobuf(resultSet));
