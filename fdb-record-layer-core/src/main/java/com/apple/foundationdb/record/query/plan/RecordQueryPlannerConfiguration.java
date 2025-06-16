@@ -441,18 +441,6 @@ public class RecordQueryPlannerConfiguration {
         }
 
         @Nonnull
-        public Builder setKeyValueCursorContinuationSerializationMode(boolean toNew) {
-            if (toNew) {
-                protoBuilder.setKeyValueCursorContinuationSerializationMode(RecordPlannerConfigurationProto.PlannerConfiguration.KeyValueCursorContinuationSerializationMode.TO_NEW);
-                updateFlags(true, KEYVALUE_CURSOR_CONTINUATION_SERIALIZATION_MODE);
-            } else {
-                protoBuilder.setKeyValueCursorContinuationSerializationMode(RecordPlannerConfigurationProto.PlannerConfiguration.KeyValueCursorContinuationSerializationMode.TO_OLD);
-                updateFlags(false, KEYVALUE_CURSOR_CONTINUATION_SERIALIZATION_MODE);
-            }
-            return this;
-        }
-
-        @Nonnull
         public Builder setIndexScanPreference(@Nonnull QueryPlanner.IndexScanPreference indexScanPreference) {
             protoBuilder.setIndexScanPreference(SCAN_PREFERENCE_BI_MAP.get(indexScanPreference));
             return this;

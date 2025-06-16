@@ -169,6 +169,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         @Nonnull
         @Override
         public ByteString toByteString() {
+            System.out.println("Keyvaluecursor toByteString serialization mode:" + serializationMode.name());
             if (serializationMode == SerializationMode.TO_OLD) {
                 if (lastKey == null) {
                     return ByteString.EMPTY;
@@ -228,11 +229,11 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         private RecordCursorProto.KeyValueCursorContinuation toProto() {
             RecordCursorProto.KeyValueCursorContinuation.Builder builder = RecordCursorProto.KeyValueCursorContinuation.newBuilder();
             if (lastKey == null) {
-                builder.setIsEnd(true).setPrefixLength(prefixLength);
+                builder.setIsEnd(true);
             } else {
                 ByteString base = ZeroCopyByteString.wrap(lastKey);
                 builder.setContinuation(base.substring(prefixLength, lastKey.length))
-                        .setIsEnd(false).setPrefixLength(prefixLength);
+                        .setIsEnd(false);
             }
             return builder.build();
         }
@@ -333,7 +334,6 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
                             realContinuation = continuation;
                         }
                     } catch (InvalidProtocolBufferException ex) {
-                        System.out.println("InvalidProtocolBufferException hit");
                         realContinuation = continuation;
                     }
                 }

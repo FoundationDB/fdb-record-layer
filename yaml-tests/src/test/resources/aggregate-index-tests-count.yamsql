@@ -85,8 +85,6 @@ test_block:
     -
       - query: select count(*) from t2
       - explain: "ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
-      # Cannot run with FORCE_CONTINUATIONS due to: https://github.com/FoundationDB/fdb-record-layer/issues/3206
-      - maxRows: 0
       - result: [{4}]
     -
       - query: select count(*) from t2 group by col2
@@ -108,8 +106,6 @@ test_block:
     -
       - query: select count(col1) from t2
       - explain: "ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
-      # Cannot run with FORCE_CONTINUATIONS due to: https://github.com/FoundationDB/fdb-record-layer/issues/3206
-      - maxRows: 0
       - result: [{2}]
     -
       - query: select count(col1) from t2 group by col2

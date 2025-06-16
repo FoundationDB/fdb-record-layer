@@ -402,7 +402,6 @@ public final class PlanGenerator {
                 .setIndexScanPreference(QueryPlanner.IndexScanPreference.PREFER_INDEX)
                 .setIndexFetchMethod(toRecLayerIndexFetchMethod(indexFetchMethod))
                 .setAttemptFailedInJoinAsUnionMaxSize(24)
-                .setKeyValueCursorContinuationSerializationMode(kvCursorContinuationSerializeToNew)
                 .build();
         planner.setConfiguration(configuration);
         return planner;

@@ -768,9 +768,12 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
     private static class IndexScanContinuationConvertor implements RecordCursor.ContinuationConvertor {
         @Nonnull
         private final byte[] prefixBytes;
+        @Nonnull
+        private final KeyValueCursorBase.SerializationMode serializationMode;
 
-        public IndexScanContinuationConvertor(@Nonnull byte[] prefixBytes) {
+        public IndexScanContinuationConvertor(@Nonnull byte[] prefixBytes, @Nonnull final KeyValueCursorBase.SerializationMode serializationMode) {
             this.prefixBytes = prefixBytes;
+            this.serializationMode = serializationMode;
         }
 
         @Nullable
@@ -780,7 +783,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                 return null;
             }
             // Add the prefix back to the inner continuation
-            byte[] innerContinuation = KeyValueCursorBase.Continuation.fromRawBytes(continuation, KeyValueCursorBase.SerializationMode.TO_NEW);
+            byte[] innerContinuation = KeyValueCursorBase.Continuation.fromRawBytes(continuation, serializationMode);
             return ByteArrayUtil.join(prefixBytes, innerContinuation);
         }
 

@@ -67,7 +67,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -81,7 +80,6 @@ class RecordQueryIndexPlanWithOverScanTest extends FDBRecordStoreQueryTestBase {
     private static final RecordQueryPlannerConfiguration plannerConfiguration = RecordQueryPlannerConfiguration.builder()
             .setIndexScanPreference(QueryPlanner.IndexScanPreference.PREFER_INDEX)
             .setAttemptFailedInJoinAsOr(true)
-            .setKeyValueCursorContinuationSerializationMode(true)
             .setComplexityThreshold(RecordQueryPlanner.DEFAULT_COMPLEXITY_THRESHOLD)
             .addValueIndexOverScanNeeded("MySimpleRecord$str_value_indexed")
             .addValueIndexOverScanNeeded("compoundIndex")
