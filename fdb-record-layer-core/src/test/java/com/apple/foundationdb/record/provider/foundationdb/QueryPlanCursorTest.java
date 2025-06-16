@@ -46,6 +46,8 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -151,10 +153,10 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
         return new RecordQueryScanPlan(ScanComparisons.EMPTY, false);
     }
 
-    private RecordQueryPlan indexPlanEquals(String indexName, Object value) {
+    private RecordQueryPlan indexPlanEquals(String indexName, Object value, KeyValueCursorBase.SerializationMode serializationMode) {
         IndexScanParameters scan = IndexScanComparisons.byValue(new ScanComparisons(Arrays.asList(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, value)),
                         Collections.emptySet()));
-        return new RecordQueryIndexPlan(indexName, scan, false, KeyValueCursorBase.SerializationMode.TO_OLD);
+        return new RecordQueryIndexPlan(indexName, scan, false, serializationMode);
     }
 
     private KeyExpression primaryKey() {
@@ -179,9 +181,10 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
         compareSkipsAndCursors(plan);
     }
 
-    @Test
-    public void indexed() throws Exception {
-        final RecordQueryPlan plan = indexPlanEquals("MySimpleRecord$num_value_3_indexed", 2);
+    @ParameterizedTest
+    @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    public void indexed(KeyValueCursorBase.SerializationMode serializationMode) throws Exception {
+        final RecordQueryPlan plan = indexPlanEquals("MySimpleRecord$num_value_3_indexed", 2, serializationMode);
         compareSkipsAndCursors(plan);
     }
 
@@ -214,51 +217,55 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
         compareSkipsAndCursors(plan);
     }
 
-    @Test
-    public void union() throws Exception {
+    @ParameterizedTest
+    @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    public void union(KeyValueCursorBase.SerializationMode serializationMode) throws Exception {
         final RecordQueryPlan plan = RecordQueryUnionPlan.from(
-                indexPlanEquals("MySimpleRecord$num_value_3_indexed", 2),
-                indexPlanEquals("MySimpleRecord$num_value_3_indexed", 4),
+                indexPlanEquals("MySimpleRecord$num_value_3_indexed", 2, serializationMode),
+                indexPlanEquals("MySimpleRecord$num_value_3_indexed", 4, serializationMode),
                 primaryKey(), false);
         compareSkipsAndCursors(plan);
     }
 
-    @Test
-    public void unionOneSideAtATime() throws Exception {
+    @ParameterizedTest
+    @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    public void unionOneSideAtATime(KeyValueCursorBase.SerializationMode serializationMode) throws Exception {
         final RecordQueryPlan plan = RecordQueryUnionPlan.from(
-                indexPlanEquals("MySimpleRecord$num_value_3_indexed", 2),
-                indexPlanEquals("MySimpleRecord$num_value_3_indexed", 4),
+                indexPlanEquals("MySimpleRecord$num_value_3_indexed", 2, serializationMode),
+                indexPlanEquals("MySimpleRecord$num_value_3_indexed", 4, serializationMode),
                 Key.Expressions.concat(Key.Expressions.field("num_value_3_indexed"),
                         primaryKey()),
                 true);
         compareSkipsAndCursors(plan);
     }
 
-    @Test
-    public void intersection() throws Exception {
+    @ParameterizedTest
+    @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    public void intersection(KeyValueCursorBase.SerializationMode serializationMode) throws Exception {
         final RecordQueryPlan plan = RecordQueryIntersectionPlan.from(
-                indexPlanEquals("MySimpleRecord$num_value_3_indexed", 2),
-                indexPlanEquals("MySimpleRecord$str_value_indexed", "even"),
+                indexPlanEquals("MySimpleRecord$num_value_3_indexed", 2, serializationMode),
+                indexPlanEquals("MySimpleRecord$str_value_indexed", "even", serializationMode),
                 primaryKey());
         compareSkipsAndCursors(plan);
     }
 
-    @Test
-    public void filter() throws Exception {
+    @ParameterizedTest
+    @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    public void filter(KeyValueCursorBase.SerializationMode serializationMode) throws Exception {
         final RecordQueryPlan plan = new RecordQueryFilterPlan(
-                indexPlanEquals("MySimpleRecord$num_value_3_indexed", 2),
+                indexPlanEquals("MySimpleRecord$num_value_3_indexed", 2, serializationMode),
                 Query.field("str_value_indexed").equalsValue("even")
         );
         compareSkipsAndCursors(plan);
     }
 
-    private void filterKeyCount(int amount) throws Exception {
+    private void filterKeyCount(int amount, KeyValueCursorBase.SerializationMode serializationMode) throws Exception {
         final QueryComponent filter = Query.field("str_value_indexed").equalsValue("even");
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             recordStore.getTimer().reset();
 
-            final RecordQueryPlan plan = indexPlanEquals("MySimpleRecord$num_value_3_indexed", 2);
+            final RecordQueryPlan plan = indexPlanEquals("MySimpleRecord$num_value_3_indexed", 2, serializationMode);
             byte[] continuation = null;
             int unfilteredCount = 0;
 
@@ -300,10 +307,11 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    public void filterKeyCount() throws Exception {
+    @ParameterizedTest
+    @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    public void filterKeyCount(KeyValueCursorBase.SerializationMode serializationMode) throws Exception {
         for (int amount : amounts) {
-            filterKeyCount(amount);
+            filterKeyCount(amount, serializationMode);
         }
     }
 }

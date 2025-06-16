@@ -167,6 +167,7 @@ message RangeCursorContinuation {
 }
 
 message KeyValueCursorContinuation {
-    optional bytes continuation = 1;
-    optional bool isEnd = 2;
+    optional int32 prefixLength = 1;
+    optional bytes continuation = 2;
+    optional bool isEnd = 3;
 }

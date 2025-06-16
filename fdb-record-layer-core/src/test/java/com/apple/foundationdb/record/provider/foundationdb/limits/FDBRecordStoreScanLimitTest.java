@@ -351,9 +351,14 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
     @ParameterizedTest
     @ValueSource(ints = {2, 5, 10, 20}) // for this test, the scan limit must divide 100
     public void testExecuteStateReset(int scanLimit) throws Exception {
+        executeStateReset(scanLimit, KeyValueCursorBase.SerializationMode.TO_OLD);
+        executeStateReset(scanLimit, KeyValueCursorBase.SerializationMode.TO_NEW);
+    }
+
+    private void executeStateReset(int scanLimit, @Nonnull KeyValueCursorBase.SerializationMode serializationMode) throws Exception {
         final IndexScanParameters fullValueScan = IndexScanComparisons.byValue();
         final RecordQueryPlan plan = new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed",
-                fullValueScan, false, KeyValueCursorBase.SerializationMode.TO_OLD);
+                fullValueScan, false, serializationMode);
         ExecuteProperties properties = ExecuteProperties.newBuilder().setScannedRecordsLimit(scanLimit).build();
 
         try (FDBRecordContext context = openContext()) {

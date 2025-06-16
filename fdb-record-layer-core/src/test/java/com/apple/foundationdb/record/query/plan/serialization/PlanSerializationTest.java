@@ -43,7 +43,10 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
+import javax.annotation.Nonnull;
 import java.util.Optional;
 
 /**
@@ -64,8 +67,9 @@ public class PlanSerializationTest {
         Assertions.assertEquals(fieldValue, parsedValue);
     }
 
-    @Test
-    void simpleIndexScanTest() throws Exception {
+    @ParameterizedTest
+    @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    void simpleIndexScanTest(@Nonnull final KeyValueCursorBase.SerializationMode serializationMode) throws Exception {
         final RecordQueryIndexPlan plan = new RecordQueryIndexPlan("an_index",
                 null,
                 IndexScanComparisons.byValue(),
@@ -78,7 +82,7 @@ public class PlanSerializationTest {
                         ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("field1")),
                                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("field2")))),
                 QueryPlanConstraint.tautology(),
-                KeyValueCursorBase.SerializationMode.TO_OLD);
+                serializationMode);
         PlanSerializationContext planSerializationContext = PlanSerializationContext.newForCurrentMode();
         final PPlanReference proto = planSerializationContext.toPlanReferenceProto(plan);
         final byte[] bytes = proto.toByteArray();
@@ -89,8 +93,9 @@ public class PlanSerializationTest {
         Assertions.assertTrue(plan.semanticEquals(parsedPlan));
     }
 
-    @Test
-    void recordQueryDefaultOnEmptyPlanTest() throws Exception {
+    @ParameterizedTest
+    @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    void recordQueryDefaultOnEmptyPlanTest(@Nonnull final KeyValueCursorBase.SerializationMode serializationMode) throws Exception {
         final RecordQueryIndexPlan indexPlan = new RecordQueryIndexPlan("an_index",
                 null,
                 IndexScanComparisons.byValue(),
@@ -101,7 +106,7 @@ public class PlanSerializationTest {
                 Optional.empty(),
                 Type.primitiveType(Type.TypeCode.INT, true),
                 QueryPlanConstraint.tautology(),
-                KeyValueCursorBase.SerializationMode.TO_OLD);
+                serializationMode);
         final var plan = new RecordQueryDefaultOnEmptyPlan(Quantifier
                 .Physical.physicalBuilder().withAlias(CorrelationIdentifier.of("q42")).build(
                         Reference.plannedOf(indexPlan)

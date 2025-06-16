@@ -81,7 +81,7 @@ class RecordQueryIndexPlanWithOverScanTest extends FDBRecordStoreQueryTestBase {
     private static final RecordQueryPlannerConfiguration plannerConfiguration = RecordQueryPlannerConfiguration.builder()
             .setIndexScanPreference(QueryPlanner.IndexScanPreference.PREFER_INDEX)
             .setAttemptFailedInJoinAsOr(true)
-            .setKeyValueCursorContinuationSerializationMode(KeyValueCursorBase.SerializationMode.TO_NEW)
+            .setKeyValueCursorContinuationSerializationMode(true)
             .setComplexityThreshold(RecordQueryPlanner.DEFAULT_COMPLEXITY_THRESHOLD)
             .addValueIndexOverScanNeeded("MySimpleRecord$str_value_indexed")
             .addValueIndexOverScanNeeded("compoundIndex")

@@ -497,7 +497,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
     }
 
     void indexReadTest(final boolean useAsync, final long seed, final int numRecords, @Nonnull final String storage,
-                   final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
+                       final boolean storeHilbertValues, final boolean useNodeSlotIndex, @Nonnull final KeyValueCursorBase.SerializationMode serializationMode) throws Exception {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
                     addCalendarNameStartEpochIndex(metaDataBuilder);
@@ -512,7 +512,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                                 (Long)null, intervalEndInclusive,
                                 intervalStartInclusive, null),
                         false,
-                        KeyValueCursorBase.SerializationMode.TO_OLD);
+                        serializationMode);
         Set<Message> actualResults = getResults(additionalIndexes, indexPlan);
 
         final QueryComponent filter =
@@ -550,7 +550,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
     }
 
     void indexReadWithNullsTest(final boolean useAsync, final long seed, final int numRecords, @Nonnull final String storage,
-                            final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
+                            final boolean storeHilbertValues, final boolean useNodeSlotIndex, @Nonnull final KeyValueCursorBase.SerializationMode serializationMode) throws Exception {
         RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
                     addCalendarNameStartEpochIndex(metaDataBuilder);
@@ -565,7 +565,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                                 (Long)null, intervalEndInclusive,
                                 intervalStartInclusive, null),
                         false,
-                        KeyValueCursorBase.SerializationMode.TO_OLD);
+                        serializationMode);
         Set<Message> actualResults = getResults(additionalIndexes, indexPlan);
 
         final QueryComponent filter =
@@ -608,7 +608,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         Assertions.assertEquals(expectedResults, actualResults);
     }
 
-    void indexReadWithNullsAndMinsTest1(final boolean useAsync) throws Exception {
+    void indexReadWithNullsAndMinsTest1(final boolean useAsync, @Nonnull final KeyValueCursorBase.SerializationMode serializationMode) throws Exception {
         RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
                     addCalendarNameStartEpochIndex(metaDataBuilder);
@@ -621,7 +621,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                                 (Long)null, 0L,
                                 0L, null),
                         false,
-                        KeyValueCursorBase.SerializationMode.TO_OLD);
+                        serializationMode);
         Set<Message> actualResults = getResults(additionalIndexes, indexPlan);
 
         final QueryComponent filter =
@@ -664,7 +664,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         Assertions.assertEquals(expectedResults, actualResults);
     }
 
-    void indexReadWithNullsAndMinsTest2(final boolean useAsync) throws Exception {
+    void indexReadWithNullsAndMinsTest2(final boolean useAsync, @Nonnull final KeyValueCursorBase.SerializationMode serializationMode) throws Exception {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
                     addCalendarNameStartEpochIndex(metaDataBuilder);
@@ -677,7 +677,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                                 Long.MIN_VALUE, 0L,
                                 0L, null),
                         false,
-                        KeyValueCursorBase.SerializationMode.TO_OLD);
+                        serializationMode);
         Set<Message> actualResults = getResults(additionalIndexes, indexPlan);
 
         final QueryComponent filter =
@@ -715,7 +715,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
     }
 
     void indexReadIsNullTest(final boolean useAsync, final long seed, final int numRecords, @Nonnull final String storage,
-                         final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
+                         final boolean storeHilbertValues, final boolean useNodeSlotIndex, @Nonnull final KeyValueCursorBase.SerializationMode serializationMode) throws Exception {
         RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
                     addCalendarNameStartEpochIndex(metaDataBuilder);
@@ -728,7 +728,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                                 (Long)null, Long.MIN_VALUE,
                                 null, null),
                         false,
-                        KeyValueCursorBase.SerializationMode.TO_OLD);
+                        serializationMode);
         final Set<Message> actualResults = getResults(additionalIndexes, indexPlan);
 
         final QueryComponent filter =
@@ -755,7 +755,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         Assertions.assertTrue(plan2.hasIndexScan("calendarNameStartEpoch"));
     }
 
-    void indexReadWithIn(final boolean useAsync, final long seed, final int numRecords, final int numIns) throws Exception {
+    void indexReadWithIn(final boolean useAsync, final long seed, final int numRecords, final int numIns, @Nonnull final KeyValueCursorBase.SerializationMode serializationMode) throws Exception {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
                     addCalendarNameStartEpochIndex(metaDataBuilder);
@@ -795,7 +795,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                         new CompositeScanParameters(
                                 new MultidimensionalIndexScanBounds(TupleRange.allOf(Tuple.from("business")), andBounds, TupleRange.ALL)),
                         false,
-                        KeyValueCursorBase.SerializationMode.TO_OLD);
+                        serializationMode);
         final Set<Message> actualResults = getResults(additionalIndexes, indexPlan);
 
         final QueryComponent filter =
@@ -827,7 +827,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
 
     void indexReadsAfterDeletesTest(final boolean useAsync, final long seed, final int numRecords, final int numDeletes,
                                 @Nonnull final String storage, final boolean storeHilbertValues,
-                                final boolean useNodeSlotIndex) throws Exception {
+                                final boolean useNodeSlotIndex, @Nonnull final KeyValueCursorBase.SerializationMode serializationMode) throws Exception {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
                     addCalendarNameStartEpochIndex(metaDataBuilder);
@@ -843,7 +843,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                                 (Long)null, intervalEndInclusive,
                                 intervalStartInclusive, null),
                         false,
-                        KeyValueCursorBase.SerializationMode.TO_OLD);
+                        serializationMode);
         final Set<Message> actualResults = getResults(additionalIndexes, indexPlan);
 
         final QueryComponent filter =
@@ -864,7 +864,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
     }
 
     void indexSkipScanTest(final boolean useAsync, final long seed, final int numRecords, @Nonnull final String storage,
-                       final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
+                       final boolean storeHilbertValues, final boolean useNodeSlotIndex, @Nonnull final KeyValueCursorBase.SerializationMode serializationMode) throws Exception {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
                     addCalendarNameStartEpochIndex(metaDataBuilder);
@@ -880,7 +880,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                                 null, intervalEndInclusive,
                                 intervalStartInclusive, null),
                         false,
-                        KeyValueCursorBase.SerializationMode.TO_OLD);
+                        serializationMode);
         final Set<Message> actualResults = getResults(additionalIndexes, indexPlan);
 
         final QueryComponent filter =
@@ -910,7 +910,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         Assertions.assertTrue(plan2.hasRecordScan());
     }
 
-    void continuationTest(final boolean useAsync) throws Exception {
+    void continuationTest(final boolean useAsync, @Nonnull final KeyValueCursorBase.SerializationMode serializationMode) throws Exception {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
                     addCalendarNameStartEpochIndex(metaDataBuilder);
@@ -926,7 +926,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                                 Long.MIN_VALUE, intervalEndInclusive,
                                 intervalStartInclusive, null),
                         false,
-                        KeyValueCursorBase.SerializationMode.TO_OLD);
+                        serializationMode);
 
         Set<Message> actualResults = getResultsWithContinuations(additionalIndexes, indexPlan, 4);
 
@@ -984,7 +984,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
     }
 
     void coveringIndexScanWithFetchTest(final boolean useAsync, @Nonnull final String storage, final boolean storeHilbertValues,
-                                    final boolean useNodeSlotIndex) throws Exception {
+                                    final boolean useNodeSlotIndex, @Nonnull final KeyValueCursorBase.SerializationMode serializationMode) throws Exception {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
                     addCalendarNameStartEpochIndex(metaDataBuilder);
@@ -1000,7 +1000,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                                 null, intervalEndInclusive,
                                 intervalStartInclusive, null),
                         false,
-                        KeyValueCursorBase.SerializationMode.TO_OLD);
+                        serializationMode);
 
         final RecordType myMultidimensionalRecord = recordStore.getRecordMetaData().getRecordType("MyMultidimensionalRecord");
         final Index index = recordStore.getRecordMetaData().getIndex("EventIntervals");
@@ -1104,7 +1104,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
     }
 
     void indexScan3DTest(final boolean useAsync, final long seed, final int numRecords, @Nonnull final String storage,
-                     final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
+                     final boolean storeHilbertValues, final boolean useNodeSlotIndex, @Nonnull final KeyValueCursorBase.SerializationMode serializationMode) throws Exception {
         final RecordMetaDataHook additionalIndex = metaDataBuilder ->
                 metaDataBuilder.addIndex("MyMultidimensionalRecord",
                         new Index("EventIntervals3D", DimensionsKeyExpression.of(field("calendar_name"),
@@ -1124,7 +1124,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                                 intervalStartInclusive, null,
                                 epochMean + expirationCutOff, null),
                         false,
-                        KeyValueCursorBase.SerializationMode.TO_OLD);
+                        serializationMode);
         Set<Message> actualResults = getResults(additionalIndex, indexPlan);
 
         final QueryComponent filter =
@@ -1180,7 +1180,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
         Assertions.assertEquals(KeyExpression.InvalidExpressionException.class, cause.getClass());
     }
 
-    void deleteWhereTest(final boolean useAsync, @Nonnull final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
+    void deleteWhereTest(final boolean useAsync, @Nonnull final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex, @Nonnull final KeyValueCursorBase.SerializationMode serializationMode) throws Exception {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
                     metaDataBuilder.addIndex("MyMultidimensionalRecord",
@@ -1212,14 +1212,14 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                         new CompositeScanParameters(
                                 new MultidimensionalIndexScanBounds(TupleRange.allOf(Tuple.from(null, "business")), bounds, TupleRange.ALL)),
                         false,
-                        KeyValueCursorBase.SerializationMode.TO_OLD);
+                        serializationMode);
 
         final Set<Message> actualResults = getResults(additionalIndexes, indexPlan);
         Assertions.assertTrue(actualResults.isEmpty());
     }
 
     void unprefixedIndexReadTest(final boolean useAsync, final long seed, final int numRecords, @Nonnull final String storage,
-                             final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
+                             final boolean storeHilbertValues, final boolean useNodeSlotIndex, @Nonnull final KeyValueCursorBase.SerializationMode serializationMode) throws Exception {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
                     addCalendarNameStartEpochIndex(metaDataBuilder);
@@ -1234,7 +1234,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
                                 (Long)null, intervalEndInclusive,
                                 intervalStartInclusive, null),
                         false,
-                        KeyValueCursorBase.SerializationMode.TO_OLD);
+                        serializationMode);
         Set<Message> actualResults = getResults(additionalIndexes, indexPlan);
 
         final QueryComponent filter =

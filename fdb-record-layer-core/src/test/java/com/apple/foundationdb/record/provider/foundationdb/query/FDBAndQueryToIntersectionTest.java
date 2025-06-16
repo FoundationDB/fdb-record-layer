@@ -54,7 +54,9 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
+import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -964,15 +966,16 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
      * This sort of plan is never produced by the {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner},
      * so we have to test the visitor directly.
      */
-    @Test
-    public void intersectionVisitorOnComplexComparisonKey() throws Exception {
+    @ParameterizedTest
+    @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    public void intersectionVisitorOnComplexComparisonKey(@Nonnull final KeyValueCursorBase.SerializationMode serializationMode) throws Exception {
         complexQuerySetup(null);
 
         IndexScanParameters fullValueScan = IndexScanComparisons.byValue();
 
         RecordQueryPlan originalPlan1 = RecordQueryIntersectionPlan.from(
-                new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed", fullValueScan, false, KeyValueCursorBase.SerializationMode.TO_OLD),
-                new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", fullValueScan, false, KeyValueCursorBase.SerializationMode.TO_OLD),
+                new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed", fullValueScan, false, serializationMode),
+                new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", fullValueScan, false, serializationMode),
                 primaryKey("MySimpleRecord"));
 
         RecordQueryPlan modifiedPlan1 = RecordQueryPlannerSubstitutionVisitor.applyRegularVisitors(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(), originalPlan1, recordStore.getRecordMetaData(), PlannableIndexTypes.DEFAULT, primaryKey("MySimpleRecord"));
@@ -980,8 +983,8 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                 coveringIndexScan(indexScan("MySimpleRecord$str_value_indexed")), coveringIndexScan(indexScan("MySimpleRecord$num_value_3_indexed")))));
 
         RecordQueryPlan originalPlan2 = RecordQueryIntersectionPlan.from(
-                new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed", fullValueScan, false, KeyValueCursorBase.SerializationMode.TO_OLD),
-                new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", fullValueScan, false, KeyValueCursorBase.SerializationMode.TO_OLD),
+                new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed", fullValueScan, false, serializationMode),
+                new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", fullValueScan, false, serializationMode),
                 concat(field("num_value_2"), primaryKey("MySimpleRecord")));
         RecordQueryPlan modifiedPlan2 = RecordQueryPlannerSubstitutionVisitor.applyRegularVisitors(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(), originalPlan2, recordStore.getRecordMetaData(), PlannableIndexTypes.DEFAULT, primaryKey("MySimpleRecord"));
         // Visitor should not perform transformation because of comparison key on num_value_unique

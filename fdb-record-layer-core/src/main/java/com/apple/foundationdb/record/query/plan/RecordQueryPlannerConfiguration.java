@@ -441,13 +441,13 @@ public class RecordQueryPlannerConfiguration {
         }
 
         @Nonnull
-        public Builder setKeyValueCursorContinuationSerializationMode(@Nonnull KeyValueCursorBase.SerializationMode serializationMode) {
-            if (serializationMode == KeyValueCursorBase.SerializationMode.TO_OLD) {
-                protoBuilder.setKeyValueCursorContinuationSerializationMode(RecordPlannerConfigurationProto.PlannerConfiguration.KeyValueCursorContinuationSerializationMode.TO_OLD);
-                updateFlags(false, KEYVALUE_CURSOR_CONTINUATION_SERIALIZATION_MODE);
-            } else {
+        public Builder setKeyValueCursorContinuationSerializationMode(boolean toNew) {
+            if (toNew) {
                 protoBuilder.setKeyValueCursorContinuationSerializationMode(RecordPlannerConfigurationProto.PlannerConfiguration.KeyValueCursorContinuationSerializationMode.TO_NEW);
                 updateFlags(true, KEYVALUE_CURSOR_CONTINUATION_SERIALIZATION_MODE);
+            } else {
+                protoBuilder.setKeyValueCursorContinuationSerializationMode(RecordPlannerConfigurationProto.PlannerConfiguration.KeyValueCursorContinuationSerializationMode.TO_OLD);
+                updateFlags(false, KEYVALUE_CURSOR_CONTINUATION_SERIALIZATION_MODE);
             }
             return this;
         }

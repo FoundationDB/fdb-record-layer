@@ -74,6 +74,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
@@ -2340,15 +2341,16 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
      * This sort of plan is never produced by the {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner},
      * so we have to test the visitor directly.
      */
-    @Test
-    void unionVisitorOnComplexComparisonKey() throws Exception {
+    @ParameterizedTest
+    @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    void unionVisitorOnComplexComparisonKey(@Nonnull final KeyValueCursorBase.SerializationMode serializationMode) throws Exception {
         complexQuerySetup(null);
 
         final IndexScanParameters fullValueScan = IndexScanComparisons.byValue();
 
         RecordQueryPlan originalPlan1 = RecordQueryUnionPlan.from(
-                new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed", fullValueScan, false, KeyValueCursorBase.SerializationMode.TO_OLD),
-                new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", fullValueScan, false, KeyValueCursorBase.SerializationMode.TO_OLD),
+                new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed", fullValueScan, false, serializationMode),
+                new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", fullValueScan, false, serializationMode),
                 primaryKey("MySimpleRecord"), true);
 
         RecordQueryPlan modifiedPlan1 = RecordQueryPlannerSubstitutionVisitor.applyRegularVisitors(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(), originalPlan1, recordStore.getRecordMetaData(), PlannableIndexTypes.DEFAULT, primaryKey("MySimpleRecord"));
@@ -2363,8 +2365,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         assertMatchesExactly(modifiedPlan1, planMatcher);
 
         RecordQueryPlan originalPlan2 = RecordQueryUnionPlan.from(
-                new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed", fullValueScan, false, KeyValueCursorBase.SerializationMode.TO_OLD),
-                new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", fullValueScan, false, KeyValueCursorBase.SerializationMode.TO_OLD),
+                new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed", fullValueScan, false, serializationMode),
+                new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", fullValueScan, false, serializationMode),
                 concat(field("num_value_2"), primaryKey("MySimpleRecord")), true);
         RecordQueryPlan modifiedPlan2 = RecordQueryPlannerSubstitutionVisitor.applyRegularVisitors(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(), originalPlan2, recordStore.getRecordMetaData(), PlannableIndexTypes.DEFAULT, primaryKey("MySimpleRecord"));
         // Visitor should not perform transformation because of comparison key on num_value_unique

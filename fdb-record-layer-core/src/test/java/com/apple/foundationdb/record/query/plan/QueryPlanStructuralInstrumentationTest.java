@@ -36,7 +36,10 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.google.common.collect.Lists;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -52,10 +55,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class QueryPlanStructuralInstrumentationTest {
     private static int VALUE = 4;
 
-    private RecordQueryPlan indexPlanEquals(String indexName, Object value) {
+    private RecordQueryPlan indexPlanEquals(String indexName, Object value, KeyValueCursorBase.SerializationMode serializationMode) {
         IndexScanParameters scan = IndexScanComparisons.byValue(new ScanComparisons(Arrays.asList(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, value)),
                         Collections.emptySet()));
-        return new RecordQueryIndexPlan(indexName, scan, false, KeyValueCursorBase.SerializationMode.TO_OLD);
+        return new RecordQueryIndexPlan(indexName, scan, false, serializationMode);
     }
 
     private void assertNoIndexes(RecordQueryPlan plan) {
@@ -68,11 +71,12 @@ public class QueryPlanStructuralInstrumentationTest {
         assertTrue(used.containsAll(indexes));
     }
 
-    @Test
-    public void indexPlan() {
+    @ParameterizedTest
+    @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    public void indexPlan(@Nonnull final KeyValueCursorBase.SerializationMode serializationMode) {
         final String indexName = "an_index";
         StoreTimer timer = new FDBStoreTimer();
-        RecordQueryPlan plan = indexPlanEquals(indexName, VALUE);
+        RecordQueryPlan plan = indexPlanEquals(indexName, VALUE, serializationMode);
         plan.logPlanStructure(timer);
 
         assertUsesIndexes(plan, Lists.newArrayList(indexName));
@@ -89,12 +93,13 @@ public class QueryPlanStructuralInstrumentationTest {
         assertEquals(timer.getCount(FDBStoreTimer.Counts.PLAN_SCAN), 1);
     }
 
-    @Test
-    public void in() {
+    @ParameterizedTest
+    @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    public void in(@Nonnull final KeyValueCursorBase.SerializationMode serializationMode) {
         final String indexName = "a_field";
         final IndexScanParameters scan = IndexScanComparisons.byValue(new ScanComparisons(Arrays.asList(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, "another_field")), Collections.emptySet()));
         final RecordQueryPlan plan = new RecordQueryInValuesJoinPlan(
-                new RecordQueryIndexPlan(indexName, scan, false, KeyValueCursorBase.SerializationMode.TO_OLD),
+                new RecordQueryIndexPlan(indexName, scan, false, serializationMode),
                 "another_field",
                 Bindings.Internal.IN,
                 Arrays.asList(2, 4),
@@ -108,11 +113,12 @@ public class QueryPlanStructuralInstrumentationTest {
         assertEquals(timer.getCount(FDBStoreTimer.Counts.PLAN_INDEX), 1);
     }
 
-    @Test
-    public void unionSameIndex() {
+    @ParameterizedTest
+    @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    public void unionSameIndex(@Nonnull final KeyValueCursorBase.SerializationMode serializationMode) {
         final RecordQueryPlan plan = RecordQueryUnionPlan.from(
-                indexPlanEquals("index_1", 2),
-                indexPlanEquals("index_1", 4),
+                indexPlanEquals("index_1", 2, serializationMode),
+                indexPlanEquals("index_1", 4, serializationMode),
                 EmptyKeyExpression.EMPTY, false);
 
         assertUsesIndexes(plan, Lists.newArrayList("index_1"));
@@ -123,11 +129,12 @@ public class QueryPlanStructuralInstrumentationTest {
         assertEquals(timer.getCount(FDBStoreTimer.Counts.PLAN_INDEX), 2);
     }
 
-    @Test
-    public void unionDifferentIndex() {
+    @ParameterizedTest
+    @EnumSource(KeyValueCursorBase.SerializationMode.class)
+    public void unionDifferentIndex(@Nonnull final KeyValueCursorBase.SerializationMode serializationMode) {
         final RecordQueryPlan plan = RecordQueryUnionPlan.from(
-                indexPlanEquals("index_1", 2),
-                indexPlanEquals("index_2", 4),
+                indexPlanEquals("index_1", 2, serializationMode),
+                indexPlanEquals("index_2", 4, serializationMode),
                 EmptyKeyExpression.EMPTY, false);
 
         assertUsesIndexes(plan, Lists.newArrayList("index_1", "index_2"));
