@@ -47,11 +47,14 @@ import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -59,7 +62,9 @@ import java.util.Set;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher.empty;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifier;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierWithoutDefaultOnEmptyOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.exploratoryMember;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
@@ -146,7 +151,7 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
     //      -> Validated by the predicate in the matcher below
     @Nonnull
     private static final BindingMatcher<SelectExpression> valuesExpressionMatcher = AllOfMatcher.matchingAllOf(SelectExpression.class,
-            selectExpression(empty(), only(forEachQuantifier(baseExpressionMatcher))),
+            selectExpression(empty(), only(forEachQuantifierWithoutDefaultOnEmptyOverRef(exploratoryMember(baseExpressionMatcher)))),
             TypedMatcherWithPredicate.typedMatcherWithPredicate(
                     SelectExpression.class,
                     expr -> {
@@ -158,7 +163,7 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
     );
 
     @Nonnull
-    private static final BindingMatcher<Quantifier.ForEach> valuesQunMatcher = forEachQuantifier(valuesExpressionMatcher);
+    private static final BindingMatcher<Quantifier.ForEach> valuesQunMatcher = forEachQuantifierOverRef(exploratoryMember(valuesExpressionMatcher));
 
     // Match a select expression over the values boxes. Ideally, we'd also check each box's correlation sets to validate that
     // we don't match any that have references out to sibling quantifiers in the SelectExpression's root. However,
@@ -241,6 +246,7 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
             Quantifier newRangeQun = Quantifier.forEach(call.memoizeExploratoryExpression(rangeOneExpr));
             newQuantifiersBuilder.add(newRangeQun);
         }
+        final Set<CorrelationIdentifier> alreadyPushedDown = Collections.newSetFromMap(new LinkedHashMap<>());
         for (Quantifier qun : selectExpression.getQuantifiers()) {
             if (qunsToPushDownByAlias.containsKey(qun.getAlias())) {
                 //
@@ -252,7 +258,10 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
             boolean anyChanged = false;
             ImmutableList.Builder<RelationalExpression> newExpressionsBuilder = ImmutableList.builderWithExpectedSize(qun.getRangesOver().getExploratoryExpressions().size());
             for (RelationalExpression lowerExpression : qun.getRangesOver().getExploratoryExpressions()) {
-                if (correlatedToNone(lowerExpression, qunsToPushDownByAlias.keySet())) {
+                final Set<CorrelationIdentifier> lowerCorrelatedTo = qunsToPushDownByAlias.keySet().stream()
+                        .filter(lowerExpression::isCorrelatedTo)
+                        .collect(ImmutableSet.toImmutableSet());
+                if (lowerCorrelatedTo.isEmpty()) {
                     newExpressionsBuilder.add(lowerExpression);
                 } else {
                     anyChanged = true;

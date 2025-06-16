@@ -108,7 +108,13 @@ public class SqlFunctionsTest {
 
     @Test
     public void queryJoinOfFunctions() throws Exception {
-        statement.execute("select * from f4(103, 'b', 2, 2) options (log query)");
+        statement.execute("select * from f3(103, 'b') options (log query)");
+        Assertions.assertTrue(logAppender.lastMessageIsCacheMiss());
+    }
+
+    @Test
+    public void queryF3() throws Exception {
+        statement.execute("select * from f3(103, 'b', 4)");
         Assertions.assertTrue(logAppender.lastMessageIsCacheMiss());
     }
 }

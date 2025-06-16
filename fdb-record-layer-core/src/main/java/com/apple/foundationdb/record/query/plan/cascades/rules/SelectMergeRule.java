@@ -21,12 +21,15 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionPartition;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.References;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
@@ -44,6 +47,7 @@ import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
@@ -131,16 +135,35 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
                 //
                 // Mergeable. Add the child quantifiers in the old one's place and scoop up any predicates.
                 //
+                AliasMap.Builder remappedChildAliasBuilder = AliasMap.builder();
                 for (Quantifier childQun : childSelectExpression.getQuantifiers()) {
                     if (!newQunAliases.add(childQun.getAlias())) {
-                        throw new RecordCoreException("duplicated alias: " + childQun.getAlias());
+                        CorrelationIdentifier newAlias = Quantifier.uniqueID();
+                        remappedChildAliasBuilder.put(childQun.getAlias(), newAlias);
+                        newQunAliases.add(newAlias);
                     }
                 }
-                newQuantifiers.addAll(childSelectExpression.getQuantifiers());
-                newPredicates.addAll(childSelectExpression.getPredicates());
+                final TranslationMap remappedChildAliasTranslation = TranslationMap.rebaseWithAliasMap(remappedChildAliasBuilder.build());
+                if (remappedChildAliasTranslation.definesOnlyIdentities()) {
+                    newQuantifiers.addAll(childSelectExpression.getQuantifiers());
+                    newPredicates.addAll(childSelectExpression.getPredicates());
+                } else {
+                    final List<Reference> oldChildRefs = childSelectExpression.getQuantifiers().stream().map(Quantifier::getRangesOver).collect(ImmutableList.toImmutableList());
+                    final List<? extends Reference> newChildRefs = References.rebaseGraphs(oldChildRefs, (Memoizer) call, remappedChildAliasTranslation, false);
+                    Streams.zip(childSelectExpression.getQuantifiers().stream(), newChildRefs.stream(), NonnullPair::of)
+                            .map((pair) -> {
+                                Quantifier oldChildQun = pair.getLeft();
+                                CorrelationIdentifier targetAlias = remappedChildAliasTranslation.getTargetOrDefault(oldChildQun.getAlias(), oldChildQun.getAlias());
+                                return oldChildQun.overNewReference(pair.getRight(), targetAlias);
+                            })
+                            .forEach(newQuantifiers::add);
+                    childSelectExpression.getPredicates().stream()
+                            .map(predicate -> predicate.translateCorrelations(remappedChildAliasTranslation, false))
+                            .forEach(newPredicates::add);
+                }
                 translationBuilder.when(alias)
                         .then((ignored1, ignored2) ->
-                                childSelectExpression.getResultValue());
+                                childSelectExpression.getResultValue().translateCorrelations(remappedChildAliasTranslation));
                 atLeastOneQuantifierIsMergeable = true;
             } else {
                 //
