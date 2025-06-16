@@ -45,6 +45,24 @@ public class SqlFunctionsTest {
             "create function f4 (in x bigint, in y string)\n" +
             "as select col1a + col1b as s, col2a, col2b from f3(x, y)\n";
 
+    private static final String SCHEMA_TEMPLATE_2 =
+            "create table t1(col1 bigint, col2 string, col3 integer, primary key(col1))\n" +
+            "create table t2(x bigint, y bigint, z bigint, primary key(x))\n" +
+            "create index t1_idx1 as select col2, col1, col3 FROM t1 order by col2, col1, col3\n" +
+            "create index t1_idx2 as select col3, col2, col1 FROM t1 order by col3, col2, col1\n" +
+            "create index t1_idx3 as select count(col1) from t1 group by col2, col3\n" +
+            "create index t1_idx4 as select max(col3) from t1 group by col1, col2\n" +
+            "create index t2_idx1 as select y, x, z FROM t2 order by y, x, z\n" +
+            "create index t2_idx2 as select z, y, x FROM t2 order by z, y, x\n" +
+            "create function f1 ( in a bigint, in b string )\n" +
+            "   as select col1, col2 from t1 where col1 < a and col2 = b\n" +
+            "create function f2 ( k bigint )\n" +
+            "   as select col1, col2, col3 from t1 where col3 = k\n" +
+            "create function f3 ( in a bigint, in b string, in c bigint) as select A.col1, A.col2, B.col3 from f1(a, b) A, f2(c) B\n" +
+            "create function f4 ( in a bigint, in b string, in c bigint, in d bigint) as select * from f3(a, b, c + d)\n" +
+            "create function f5 ( in a bigint default 103, in b string default 'b' )\n" +
+            "   as select col1, col2 from t1 where col1 < a and col2 = b\n";
+
     @RegisterExtension
     @Order(0)
     public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
@@ -52,7 +70,7 @@ public class SqlFunctionsTest {
     @RegisterExtension
     @Order(1)
     public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, CaseSensitiveDbObjectsTest.class,
-            SCHEMA_TEMPLATE, new SchemaTemplateRule.SchemaTemplateOptions(true, true));
+            SCHEMA_TEMPLATE_2, new SchemaTemplateRule.SchemaTemplateOptions(true, true));
 
     @RegisterExtension
     @Order(2)
@@ -86,5 +104,11 @@ public class SqlFunctionsTest {
         Assertions.assertTrue(logAppender.lastMessageIsCacheMiss());
         statement.execute("select * from f2(43) options (log query)");
         Assertions.assertTrue(logAppender.lastMessageIsCacheHit());
+    }
+
+    @Test
+    public void queryJoinOfFunctions() throws Exception {
+        statement.execute("select * from f4(103, 'b', 2, 2) options (log query)");
+        Assertions.assertTrue(logAppender.lastMessageIsCacheMiss());
     }
 }

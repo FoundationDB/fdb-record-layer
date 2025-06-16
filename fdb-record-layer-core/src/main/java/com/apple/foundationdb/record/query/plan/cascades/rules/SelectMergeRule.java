@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionPartition;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
@@ -31,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
@@ -40,6 +43,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
+import java.util.HashSet;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.argmin;
@@ -66,7 +71,7 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
 
     @Nonnull
     private static final BindingMatcher<ExpressionPartition<RelationalExpression>> childPartitionsMatcher =
-            argmin(ExpressionCountProperty.selectCount(), childExpressionMatcher);
+            argmin(ExpressionsPartitionMatchers.<RelationalExpressionWithPredicates>comparisonByPropertyList(ExpressionCountProperty.selectCount(), ExpressionCountProperty.tableFunctionCount()), childExpressionMatcher);
 
     @Nonnull
     private static final BindingMatcher<Reference> childReferenceMatcher =
@@ -114,6 +119,7 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
         // Collect up the mergeable children, grouping by which child they came from.
 
         // Merge the quantifiers and predicates from each mergeable child expression
+        final Set<CorrelationIdentifier> newQunAliases = new HashSet<>();
         final var newQuantifiers = ImmutableList.<Quantifier>builder();
         final var newPredicates = ImmutableList.<QueryPredicate>builder();
         final var translationBuilder = TranslationMap.regularBuilder();
@@ -125,6 +131,11 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
                 //
                 // Mergeable. Add the child quantifiers in the old one's place and scoop up any predicates.
                 //
+                for (Quantifier childQun : childSelectExpression.getQuantifiers()) {
+                    if (!newQunAliases.add(childQun.getAlias())) {
+                        throw new RecordCoreException("duplicated alias: " + childQun.getAlias());
+                    }
+                }
                 newQuantifiers.addAll(childSelectExpression.getQuantifiers());
                 newPredicates.addAll(childSelectExpression.getPredicates());
                 translationBuilder.when(alias)
@@ -135,6 +146,9 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
                 //
                 // Not mergeable. Grab all final expressions and create a new reference.
                 //
+                if (!newQunAliases.add(quantifier.getAlias())) {
+                    throw new RecordCoreException("duplicated alias: " + quantifier.getAlias());
+                }
                 final var childReference = quantifier.getRangesOver();
                 final var newChildReference =
                         call.memoizeFinalExpressionsFromOther(childReference, childReference.getFinalExpressions());

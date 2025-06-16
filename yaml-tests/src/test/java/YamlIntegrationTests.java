@@ -30,6 +30,7 @@ import org.junit.jupiter.api.TestTemplate;
  * Note: Use {@link MaintainYamlTestConfig} using {@link YamlTestConfigFilters#CORRECT_EXPLAIN_AND_METRICS} or similar
  *       to correct explain strings and/or planner metrics. That annotation works both on class and on method level.
  */
+@MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
 @YamlTest
 public class YamlIntegrationTests {
     @TestTemplate

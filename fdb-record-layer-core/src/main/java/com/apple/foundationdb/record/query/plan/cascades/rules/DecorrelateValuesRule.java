@@ -134,7 +134,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpression> {
     // TODO: This could use filtered expression partitions, but we have to make modifications to the test infrastructure to ensure there are final children
     @Nonnull
-    private static final BindingMatcher<RelationalExpression> baseExpressionMatcher = TypedMatcherWithPredicate.typedMatcherWithPredicate(RelationalExpression.class,
+    private static final BindingMatcher<TableFunctionExpression> baseExpressionMatcher = TypedMatcherWithPredicate.typedMatcherWithPredicate(TableFunctionExpression.class,
             expr -> CardinalitiesProperty.Cardinalities.exactlyOne().equals(CardinalitiesProperty.cardinalities().evaluate(expr)));
 
     // Conditions for a "values box":

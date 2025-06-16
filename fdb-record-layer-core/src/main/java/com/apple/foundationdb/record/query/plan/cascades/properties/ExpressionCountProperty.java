@@ -46,7 +46,7 @@ public class ExpressionCountProperty implements ExpressionProperty<Integer> {
     @Nonnull
     private static final ExpressionCountProperty SELECT_COUNT = ofTrackedTypes(SelectExpression.class, LogicalFilterExpression.class);
     @Nonnull
-    private static final ExpressionCountProperty TABLE_FUNCTION_COUNT = ofUntrackedTypes(TableFunctionExpression.class);
+    private static final ExpressionCountProperty TABLE_FUNCTION_COUNT = ofTrackedTypes(TableFunctionExpression.class);
 
     private final boolean isTracked;
     private final Predicate<? super RelationalExpression> filter;

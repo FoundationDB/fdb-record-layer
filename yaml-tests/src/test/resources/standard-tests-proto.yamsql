@@ -51,11 +51,11 @@ test_block:
   tests:
     -
       - query: select * from (select * from (select * from T1) as x where ID = 5) as y;
-      - explain: "SCAN(<,>) | FILTER _.ID EQUALS promote(@c19 AS LONG)"
+      - explain: "SCAN([EQUALS promote(@c19 AS LONG)])"
       - result: [{ID: !l 5, !l 10, !l 5}]
     -
       - query: select * from (select * from (select * from T1) as x) as y where ID = 5;
-      - explain: "SCAN(<,>) | FILTER _.ID EQUALS promote(@c22 AS LONG)"
+      - explain: "SCAN([EQUALS promote(@c22 AS LONG)])"
       - result: [{ID: !l 5, !l 10, !l 5}]
     -
       - query: select count(*) from (select * from (select * from (select * from T1  where ID = 5) as x) as y) as z;

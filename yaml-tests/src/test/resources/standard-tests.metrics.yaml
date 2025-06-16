@@ -3,72 +3,72 @@ standard-tests:
         then 200 else 300 end as NEWCOL from T1
     explain: ISCAN(I1 <,>) | MAP (_.ID AS ID, pick(ConditionSelector(_.COL1 equals
         @c8, _.COL2 IN promote(@c14 AS ARRAY(LONG)), TRUE), @c10, @c24, @c26) AS NEWCOL)
-    task_count: 301
-    task_total_time_ms: 18
-    transform_count: 77
-    transform_time_ms: 6
+    task_count: 307
+    task_total_time_ms: 136
+    transform_count: 83
+    transform_time_ms: 88
     transform_yield_count: 26
-    insert_time_ms: 1
+    insert_time_ms: 4
     insert_new_count: 29
     insert_reused_count: 5
 -   query: EXPLAIN select id, case when col1 = 10 then 100 when col2 in (6,7,8,9)
         then 200 end as NEWCOL from T1
     explain: ISCAN(I1 <,>) | MAP (_.ID AS ID, pick(ConditionSelector(_.COL1 equals
         @c8, _.COL2 IN promote(@c14 AS ARRAY(LONG))), @c10, @c24) AS NEWCOL)
-    task_count: 301
-    task_total_time_ms: 19
-    transform_count: 77
-    transform_time_ms: 6
+    task_count: 307
+    task_total_time_ms: 136
+    transform_count: 83
+    transform_time_ms: 87
     transform_yield_count: 26
-    insert_time_ms: 1
+    insert_time_ms: 4
     insert_new_count: 29
     insert_reused_count: 5
 -   query: EXPLAIN select * from (select * from (select * from T1) as x where ID =
         5) as y;
     explain: 'COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.ID EQUALS
         promote(@c19 AS LONG) | FETCH'
-    task_count: 534
-    task_total_time_ms: 23
-    transform_count: 124
-    transform_time_ms: 7
-    transform_yield_count: 36
-    insert_time_ms: 1
-    insert_new_count: 49
+    task_count: 566
+    task_total_time_ms: 152
+    transform_count: 166
+    transform_time_ms: 92
+    transform_yield_count: 41
+    insert_time_ms: 16
+    insert_new_count: 61
     insert_reused_count: 10
 -   query: EXPLAIN select * from (select * from (select * from T1) as x) as y where
         ID = 5;
     explain: 'COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.ID EQUALS
         promote(@c22 AS LONG) | FETCH'
-    task_count: 545
-    task_total_time_ms: 18
-    transform_count: 129
-    transform_time_ms: 6
-    transform_yield_count: 36
+    task_count: 603
+    task_total_time_ms: 26
+    transform_count: 183
+    transform_time_ms: 8
+    transform_yield_count: 45
     insert_time_ms: 2
-    insert_new_count: 52
+    insert_new_count: 70
     insert_reused_count: 13
 -   query: EXPLAIN select count(*) from (select * from (select * from (select * from
         T1  where ID = 5) as x) as y) as z;
     explain: 'COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.ID EQUALS
         promote(@c23 AS LONG) | FETCH | MAP (_ AS _0) | AGG (count_star(*) AS _0)
         | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
-    task_count: 834
-    task_total_time_ms: 34
-    transform_count: 198
-    transform_time_ms: 10
-    transform_yield_count: 48
-    insert_time_ms: 2
-    insert_new_count: 78
-    insert_reused_count: 8
+    task_count: 686
+    task_total_time_ms: 157
+    transform_count: 189
+    transform_time_ms: 90
+    transform_yield_count: 44
+    insert_time_ms: 13
+    insert_new_count: 75
+    insert_reused_count: 7
 -   query: EXPLAIN select * from (select * from (select * from (select * from T1  where
         ID > 10) as x) as y) as z;
     explain: 'COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.ID GREATER_THAN
         promote(@c20 AS LONG) | FETCH'
-    task_count: 756
-    task_total_time_ms: 21
-    transform_count: 180
-    transform_time_ms: 6
-    transform_yield_count: 46
-    insert_time_ms: 2
-    insert_new_count: 66
-    insert_reused_count: 8
+    task_count: 560
+    task_total_time_ms: 152
+    transform_count: 162
+    transform_time_ms: 93
+    transform_yield_count: 40
+    insert_time_ms: 14
+    insert_new_count: 58
+    insert_reused_count: 9
