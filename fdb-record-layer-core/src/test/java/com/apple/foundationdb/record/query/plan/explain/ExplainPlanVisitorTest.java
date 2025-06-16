@@ -221,7 +221,7 @@ public class ExplainPlanVisitorTest {
         IndexScanParameters scanParameters = IndexScanComparisons.byValue(comparisons.getLeft(), scanType);
         String indexName = randomIndexName(r);
         boolean reverse = r.nextBoolean();
-        return NonnullPair.of(new RecordQueryIndexPlan(indexName, scanParameters, reverse, KeyValueCursorBase.SerializationMode.TO_OLD),
+        return NonnullPair.of(new RecordQueryIndexPlan(indexName, scanParameters, reverse),
                 String.format("%s %s%s%s", indexName, comparisons.getRight(), scanType == IndexScanType.BY_VALUE ? "" : (" " + scanType), reverse ? " REVERSE" : ""));
     }
 

@@ -1765,7 +1765,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                     fetchIndexRecords == FetchIndexRecords.PRIMARY_KEY
                     ? getConfiguration().getIndexFetchMethod()
                     : IndexFetchMethod.SCAN_AND_FETCH;
-            plan = new RecordQueryIndexPlan(candidateScan.index.getName(), candidateScan.planContext.commonPrimaryKey, indexScanParameters, indexFetchMethod, fetchIndexRecords, candidateScan.reverse, strictlySorted, configuration.getKeyValueCursorSerializationMode());
+            plan = new RecordQueryIndexPlan(candidateScan.index.getName(), candidateScan.planContext.commonPrimaryKey, indexScanParameters, indexFetchMethod, fetchIndexRecords, candidateScan.reverse, strictlySorted);
             possibleTypes = getPossibleTypes(candidateScan.index);
         }
         // Add a type filter if the query plan might return records of more types than the query specified
@@ -2158,7 +2158,7 @@ public class RecordQueryPlanner implements QueryPlanner {
 
         RecordQueryIndexPlan plan = (RecordQueryIndexPlan)scoredPlan.getPlan();
         IndexScanParameters scanParameters = new IndexScanComparisons(IndexScanType.BY_GROUP, plan.getScanComparisons());
-        plan = new RecordQueryIndexPlan(plan.getIndexName(), scanParameters, plan.isReverse(), configuration.getKeyValueCursorSerializationMode());
+        plan = new RecordQueryIndexPlan(plan.getIndexName(), scanParameters, plan.isReverse());
         return new RecordQueryCoveringIndexPlan(plan, recordType.getName(), AvailableFields.NO_FIELDS, builder.build());
     }
 

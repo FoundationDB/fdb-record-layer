@@ -165,11 +165,9 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
     @Nonnull
     private final Supplier<ComparisonRanges> comparisonRangesSupplier;
 
-    @Nonnull
-    private final KeyValueCursorBase.SerializationMode serializationMode;
 
-    public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull final IndexScanParameters scanParameters, final boolean reverse, @Nonnull final KeyValueCursorBase.SerializationMode serializationMode) {
-        this(indexName, null, scanParameters, IndexFetchMethod.SCAN_AND_FETCH, FetchIndexRecords.PRIMARY_KEY, reverse, false, serializationMode);
+    public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull final IndexScanParameters scanParameters, final boolean reverse) {
+        this(indexName, null, scanParameters, IndexFetchMethod.SCAN_AND_FETCH, FetchIndexRecords.PRIMARY_KEY, reverse, false);
     }
 
     public RecordQueryIndexPlan(@Nonnull final String indexName,
@@ -178,9 +176,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                                 @Nonnull final IndexFetchMethod useIndexPrefetch,
                                 @Nonnull final FetchIndexRecords fetchIndexRecords,
                                 final boolean reverse,
-                                final boolean strictlySorted,
-                                @Nonnull final KeyValueCursorBase.SerializationMode serializationMode) {
-        this(indexName, commonPrimaryKey, scanParameters, useIndexPrefetch, fetchIndexRecords, reverse, strictlySorted, Optional.empty(), new Type.Any(), QueryPlanConstraint.tautology(), serializationMode);
+                                final boolean strictlySorted) {
+        this(indexName, commonPrimaryKey, scanParameters, useIndexPrefetch, fetchIndexRecords, reverse, strictlySorted, Optional.empty(), new Type.Any(), QueryPlanConstraint.tautology());
     }
 
     public RecordQueryIndexPlan(@Nonnull final String indexName,
@@ -192,9 +189,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                                 final boolean strictlySorted,
                                 @Nonnull final MatchCandidate matchCandidate,
                                 @Nonnull final Type.Record resultType,
-                                @Nonnull final QueryPlanConstraint constraint,
-                                @Nonnull final KeyValueCursorBase.SerializationMode serializationMode) {
-        this(indexName, commonPrimaryKey, scanParameters, indexFetchMethod, fetchIndexRecords, reverse, strictlySorted, Optional.of(matchCandidate), resultType, constraint, serializationMode);
+                                @Nonnull final QueryPlanConstraint constraint) {
+        this(indexName, commonPrimaryKey, scanParameters, indexFetchMethod, fetchIndexRecords, reverse, strictlySorted, Optional.of(matchCandidate), resultType, constraint);
     }
 
     protected RecordQueryIndexPlan(@Nonnull final PlanSerializationContext serializationContext,
@@ -211,19 +207,6 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                 QueryPlanConstraint.fromProto(serializationContext, Objects.requireNonNull(recordQueryIndexPlanProto.getConstraint())));
     }
 
-    protected RecordQueryIndexPlan(@Nonnull final String indexName,
-                                @Nullable final KeyExpression commonPrimaryKey,
-                                @Nonnull final IndexScanParameters scanParameters,
-                                @Nonnull final IndexFetchMethod indexFetchMethod,
-                                @Nonnull final FetchIndexRecords fetchIndexRecords,
-                                final boolean reverse,
-                                final boolean strictlySorted,
-                                @Nonnull final Optional<? extends MatchCandidate> matchCandidateOptional,
-                                @Nonnull final Type resultType,
-                                @Nonnull final QueryPlanConstraint constraint) {
-        this(indexName, commonPrimaryKey, scanParameters, indexFetchMethod, fetchIndexRecords, reverse, strictlySorted, matchCandidateOptional, resultType, constraint, KeyValueCursorBase.SerializationMode.TO_OLD);
-    }
-
     @VisibleForTesting
     public RecordQueryIndexPlan(@Nonnull final String indexName,
                                 @Nullable final KeyExpression commonPrimaryKey,
@@ -234,8 +217,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                                 final boolean strictlySorted,
                                 @Nonnull final Optional<? extends MatchCandidate> matchCandidateOptional,
                                 @Nonnull final Type resultType,
-                                @Nonnull final QueryPlanConstraint constraint,
-                                @Nonnull final KeyValueCursorBase.SerializationMode serializationMode) {
+                                @Nonnull final QueryPlanConstraint constraint) {
         this.indexName = indexName;
         this.commonPrimaryKey = commonPrimaryKey;
         this.scanParameters = scanParameters;
@@ -253,7 +235,6 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
         }
         this.constraint = constraint;
         this.comparisonRangesSupplier = Suppliers.memoize(this::computeComparisonRanges);
-        this.serializationMode = serializationMode;
     }
 
     @Nonnull
@@ -351,7 +332,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                                                                                     @Nonnull FDBRecordStoreBase<M> store, @Nonnull Index index,
                                                                                     @Nullable byte[] continuation, @Nonnull ExecuteProperties executeProperties) {
         final byte[] prefixBytes = getRangePrefixBytes(tupleScanRange);
-        final IndexScanContinuationConvertor continuationConvertor = new IndexScanContinuationConvertor(prefixBytes);
+        final IndexScanContinuationConvertor continuationConvertor = new IndexScanContinuationConvertor(prefixBytes, executeProperties.isKvCursorContSerializeToNew() ? KeyValueCursorBase.SerializationMode.TO_NEW : KeyValueCursorBase.SerializationMode.TO_OLD);
 
         // Scan a wider range, and then halt when either this scans outside the given range
         final IndexScanRange newScanRange = new IndexScanRange(IndexScanType.BY_VALUE, widenedScanRange);

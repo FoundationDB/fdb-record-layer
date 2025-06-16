@@ -172,40 +172,35 @@ class SlowMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
     @ParameterizedTest
     @MethodSource("argumentsForBasicReads")
     void deleteWhereTest(@Nonnull final String storage, final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
-        super.deleteWhereTest(true, storage, storeHilbertValues, useNodeSlotIndex, KeyValueCursorBase.SerializationMode.TO_OLD);
-        super.deleteWhereTest(true, storage, storeHilbertValues, useNodeSlotIndex, KeyValueCursorBase.SerializationMode.TO_NEW);
+        super.deleteWhereTest(true, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForBasicReads")
     void coveringIndexScanWithFetchTest(@Nonnull final String storage, final boolean storeHilbertValues,
                                         final boolean useNodeSlotIndex) throws Exception {
-        super.coveringIndexScanWithFetchTest(true, storage, storeHilbertValues, useNodeSlotIndex, KeyValueCursorBase.SerializationMode.TO_OLD);
-        super.coveringIndexScanWithFetchTest(true, storage, storeHilbertValues, useNodeSlotIndex, KeyValueCursorBase.SerializationMode.TO_NEW);
+        super.coveringIndexScanWithFetchTest(true, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
     void indexReadTest(final long seed, final int numRecords, @Nonnull final String storage,
                        final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
-        super.indexReadTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex, KeyValueCursorBase.SerializationMode.TO_OLD);
-        super.indexReadTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex, KeyValueCursorBase.SerializationMode.TO_NEW);
+        super.indexReadTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
     void indexReadWithNullsTest(final long seed, final int numRecords, @Nonnull final String storage,
                                 final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
-        super.indexReadWithNullsTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex, KeyValueCursorBase.SerializationMode.TO_OLD);
-        super.indexReadWithNullsTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex, KeyValueCursorBase.SerializationMode.TO_NEW);
+        super.indexReadWithNullsTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
     void indexReadIsNullTest(final long seed, final int numRecords, @Nonnull final String storage,
                              final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
-        super.indexReadIsNullTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex, KeyValueCursorBase.SerializationMode.TO_OLD);
-        super.indexReadIsNullTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex, KeyValueCursorBase.SerializationMode.TO_NEW);
+        super.indexReadIsNullTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
@@ -219,16 +214,14 @@ class SlowMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
     @MethodSource("argumentsForIndexReads")
     void indexScan3DTest(final long seed, final int numRecords, @Nonnull final String storage,
                          final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
-        super.indexScan3DTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex, KeyValueCursorBase.SerializationMode.TO_OLD);
-        super.indexScan3DTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex, KeyValueCursorBase.SerializationMode.TO_NEW);
+        super.indexScan3DTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReads")
     void unprefixedIndexReadTest(final long seed, final int numRecords, @Nonnull final String storage,
                                  final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
-        super.unprefixedIndexReadTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex, KeyValueCursorBase.SerializationMode.TO_OLD);
-        super.unprefixedIndexReadTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex, KeyValueCursorBase.SerializationMode.TO_NEW);
+        super.unprefixedIndexReadTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
@@ -256,8 +249,7 @@ class SlowMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
     @MethodSource("argumentsForIndexReads")
     void indexSkipScanTest(final long seed, final int numRecords, @Nonnull final String storage,
                            final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
-        super.indexSkipScanTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex, KeyValueCursorBase.SerializationMode.TO_OLD);
-        super.indexSkipScanTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex, KeyValueCursorBase.SerializationMode.TO_NEW);
+        super.indexSkipScanTest(true, seed, numRecords, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
@@ -265,9 +257,7 @@ class SlowMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
     void indexReadsAfterDeletesTest(final long seed, final int numRecords, final int numDeletes,
                                     @Nonnull final String storage, final boolean storeHilbertValues,
                                     final boolean useNodeSlotIndex) throws Exception {
-        super.indexReadsAfterDeletesTest(true, seed, numRecords, numDeletes, storage, storeHilbertValues, useNodeSlotIndex, KeyValueCursorBase.SerializationMode.TO_OLD);
-        super.indexReadsAfterDeletesTest(true, seed, numRecords, numDeletes, storage, storeHilbertValues, useNodeSlotIndex, KeyValueCursorBase.SerializationMode.TO_NEW);
-
+        super.indexReadsAfterDeletesTest(true, seed, numRecords, numDeletes, storage, storeHilbertValues, useNodeSlotIndex);
     }
 
     @ParameterizedTest
@@ -279,8 +269,7 @@ class SlowMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
 
     @Test
     void continuationTest() throws Exception {
-        super.continuationTest(true, KeyValueCursorBase.SerializationMode.TO_OLD);
-        super.continuationTest(true, KeyValueCursorBase.SerializationMode.TO_NEW);
+        super.continuationTest(true);
     }
 
     @Test
@@ -290,21 +279,18 @@ class SlowMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
 
     @Test
     void indexReadWithNullsAndMinsTest1() throws Exception {
-        super.indexReadWithNullsAndMinsTest1(true, KeyValueCursorBase.SerializationMode.TO_OLD);
-        super.indexReadWithNullsAndMinsTest1(true, KeyValueCursorBase.SerializationMode.TO_NEW);
+        super.indexReadWithNullsAndMinsTest1(true);
     }
 
     @Test
     void indexReadWithNullsAndMinsTest2() throws Exception {
-        super.indexReadWithNullsAndMinsTest2(true, KeyValueCursorBase.SerializationMode.TO_OLD);
-        super.indexReadWithNullsAndMinsTest2(true, KeyValueCursorBase.SerializationMode.TO_NEW);
+        super.indexReadWithNullsAndMinsTest2(true);
     }
 
     @ParameterizedTest
     @MethodSource("argumentsForIndexReadWithIn")
     void indexReadWithIn(final long seed, final int numRecords, final int numIns) throws Exception {
-        super.indexReadWithIn(false, seed, numRecords, numIns, KeyValueCursorBase.SerializationMode.TO_OLD);
-        super.indexReadWithIn(false, seed, numRecords, numIns, KeyValueCursorBase.SerializationMode.TO_NEW);
+        super.indexReadWithIn(false, seed, numRecords, numIns);
     }
 
     @ParameterizedTest
@@ -317,8 +303,7 @@ class SlowMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
                         new HypercubeScanParameters("business",
                                 (Long)null, null,
                                 null, null),
-                        false,
-                        KeyValueCursorBase.SerializationMode.TO_OLD);
+                        false);
         final var random = new Random(System.currentTimeMillis());
         final var expectedMessages = new HashSet<Message>();
         var writeNum = 0;

@@ -78,7 +78,7 @@ public class ExpressionMatcherTest {
             RecordQueryPlanMatchers.indexPlan(),
             RelationalExpressionMatchers.ofType(RecordQueryPlan.class));
     private static final List<? extends RecordQueryPlan> existingBindables = ImmutableList.of(
-            new RecordQueryIndexPlan("fake_index", IndexScanComparisons.byValue(), false, KeyValueCursorBase.SerializationMode.TO_OLD),
+            new RecordQueryIndexPlan("fake_index", IndexScanComparisons.byValue(), false),
             new RecordQueryScanPlan(ScanComparisons.EMPTY, false));
 
     @Nonnull
@@ -123,7 +123,7 @@ public class ExpressionMatcherTest {
         BindingMatcher<RecordQueryIndexPlan> matcher = RecordQueryPlanMatchers.indexPlan();
         final IndexScanParameters fullValueScan = IndexScanComparisons.byValue();
         final Reference root =
-                Reference.plannedOf(new RecordQueryIndexPlan("an_index", fullValueScan, true, KeyValueCursorBase.SerializationMode.TO_OLD));
+                Reference.plannedOf(new RecordQueryIndexPlan("an_index", fullValueScan, true));
         Optional<PlannerBindings> newBindings = matcher.bindMatches(RecordQueryPlannerConfiguration.defaultPlannerConfiguration(), PlannerBindings.empty(), root.get()).findFirst();
         // check the bindings are what we expect, and that none of the existing ones were clobbered
         assertTrue(newBindings.isPresent());
@@ -143,7 +143,7 @@ public class ExpressionMatcherTest {
                 ListMatcher.exactly(QuantifierMatchers.physicalQuantifier(childMatcher1),
                         QuantifierMatchers.physicalQuantifier(childMatcher2)));
         IndexScanParameters fullValueScan = IndexScanComparisons.byValue();
-        RecordQueryIndexPlan child1 = new RecordQueryIndexPlan("an_index", fullValueScan, true, KeyValueCursorBase.SerializationMode.TO_OLD);
+        RecordQueryIndexPlan child1 = new RecordQueryIndexPlan("an_index", fullValueScan, true);
         RecordQueryScanPlan child2 = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
 
         // check matches if the children are in the right order
@@ -170,7 +170,7 @@ public class ExpressionMatcherTest {
                         QuantifierMatchers.physicalQuantifier(RecordQueryPlanMatchers.scanPlan())));
 
         IndexScanParameters fullValueScan = IndexScanComparisons.byValue();
-        RecordQueryIndexPlan child1 = new RecordQueryIndexPlan("an_index", fullValueScan, true, KeyValueCursorBase.SerializationMode.TO_OLD);
+        RecordQueryIndexPlan child1 = new RecordQueryIndexPlan("an_index", fullValueScan, true);
         RecordQueryScanPlan child2 = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
         RelationalExpression root = RecordQueryUnionPlan.from( // union with arbitrary comparison key
                 child1, child2, EmptyKeyExpression.EMPTY, false);
@@ -190,7 +190,7 @@ public class ExpressionMatcherTest {
                         QuantifierMatchers.physicalQuantifierOverRef(childMatcher2)));
 
         IndexScanParameters fullValueScan = IndexScanComparisons.byValue();
-        RecordQueryIndexPlan child1 = new RecordQueryIndexPlan("an_index", fullValueScan, true, KeyValueCursorBase.SerializationMode.TO_OLD);
+        RecordQueryIndexPlan child1 = new RecordQueryIndexPlan("an_index", fullValueScan, true);
         RecordQueryScanPlan child2 = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
         RelationalExpression root = RecordQueryUnionPlan.from( // union with arbitrary comparison key
                 child1, child2, EmptyKeyExpression.EMPTY, false);
@@ -235,8 +235,7 @@ public class ExpressionMatcherTest {
                         Type.Record.fromFields(false,
                                 ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("field1")),
                                         Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("field2")))),
-                        QueryPlanConstraint.tautology(),
-                        KeyValueCursorBase.SerializationMode.TO_OLD));
+                        QueryPlanConstraint.tautology()));
         final Quantifier.ForEach quantifier = Quantifier.forEach(baseRef);
         LogicalFilterExpression filterPlan =
                 new LogicalFilterExpression(Query.and(andBranch1, andBranch2).expand(quantifier, () -> Quantifier.forEach(baseRef)).getPredicates(),

@@ -64,7 +64,7 @@ public class RecordQueryPlanEqualityTest {
     private RecordQueryPlan indexPlanEquals(String indexName, Object value) {
         IndexScanParameters scan = IndexScanComparisons.byValue(new ScanComparisons(Arrays.asList(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, value)),
                         Collections.emptySet()));
-        return new RecordQueryIndexPlan(indexName, scan, false, KeyValueCursorBase.SerializationMode.TO_OLD);
+        return new RecordQueryIndexPlan(indexName, scan, false);
     }
 
     private RecordQueryPlan unionPlan(Object value1, Object value2) {
