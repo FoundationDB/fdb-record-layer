@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.RecordStoreAlreadyExistsException;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
@@ -63,7 +64,7 @@ public class RecordLayerSetStoreStateConstantAction implements ConstantAction {
 
     @Override
     @SuppressWarnings("PMD.PreserveStackTrace") //can't without violating Record layer isolation law
-    public void execute(Transaction txn) throws RelationalException {
+    public void execute(Transaction txn, final Options options) throws RelationalException {
         final var databasePath = RelationalKeyspaceProvider.toDatabasePath(dbUri, keySpace).schemaPath(schemaName);
         try {
             FDBRecordStore recordStore =

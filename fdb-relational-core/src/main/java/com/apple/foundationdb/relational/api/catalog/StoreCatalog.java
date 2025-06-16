@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
 
 /**
@@ -44,16 +45,19 @@ public interface StoreCatalog {
     /**
      * Returns the {@link Schema} associated with a given database URI.
      *
-     * @param txn        a Transaction
+     * @param txn a Transaction
      * @param databaseId id of the database
      * @param schemaName schema name
+     *
      * @return the schema
+     *
      * @throws RelationalException SchemaNotFound if the combination of databaseId and schemaName is not found
-     *                           InternalError if txn is incompatible type
-     *                           TransactionInactive if txn is no longer active
+     * InternalError if txn is incompatible type
+     * TransactionInactive if txn is no longer active
      */
     @Nonnull
-    Schema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName) throws RelationalException;
+    Schema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName,
+                      @Nullable String tableNamePrefix) throws RelationalException;
 
     /**
      * Updates schema, returns true if succeeds. Change applied after transaction is committed.

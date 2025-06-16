@@ -75,7 +75,7 @@ public class RecordLayerStoreCatalogWithNoTemplateOperationsTest extends RecordL
 
         // test loadSchema method with correct schema name
         try (Transaction loadTxn1 = new RecordContextTransaction(fdb.openContext())) {
-            Schema result = storeCatalog.loadSchema(loadTxn1, URI.create("/TEST/test_database_id"), "test_schema_name");
+            Schema result = storeCatalog.loadSchema(loadTxn1, URI.create("/TEST/test_database_id"), "test_schema_name", null);
             Assertions.assertEquals("test_schema_name", result.getName());
             Assertions.assertEquals("test_template_name", result.getSchemaTemplate().getName());
             Assertions.assertEquals(1, result.getSchemaTemplate().getVersion());

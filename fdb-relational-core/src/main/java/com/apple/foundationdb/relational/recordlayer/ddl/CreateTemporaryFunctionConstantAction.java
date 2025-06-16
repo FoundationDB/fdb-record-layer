@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -57,7 +58,7 @@ public class CreateTemporaryFunctionConstantAction implements ConstantAction  {
     }
 
     @Override
-    public void execute(final Transaction txn) throws RelationalException {
+    public void execute(final Transaction txn, final Options options) throws RelationalException {
         final var transactionBoundSchemaTemplate = Assert.castUnchecked(txn.getBoundSchemaTemplateMaybe().orElse(template), RecordLayerSchemaTemplate.class);
         if (throwIfExists) {
             Assert.thatUnchecked(transactionBoundSchemaTemplate.getInvokedRoutines().stream()

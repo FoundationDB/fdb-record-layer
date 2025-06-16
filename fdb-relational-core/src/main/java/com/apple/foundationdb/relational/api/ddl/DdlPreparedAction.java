@@ -20,10 +20,11 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 public interface DdlPreparedAction<T> {
 
-    T executeAction(Transaction txn) throws RelationalException;
+    T executeAction(Transaction txn, final Options options) throws RelationalException;
 }

@@ -173,6 +173,12 @@ public final class Options {
         CASE_SENSITIVE_IDENTIFIERS,
 
         /**
+         * Prepend a given prefix to every record type name.
+         * Scope: Connection
+         */
+        TABLE_PREFIX,
+
+        /**
          * Current plan hash mode. Must be a valid version or assumed current if not set.
          */
         CURRENT_PLAN_HASH_MODE,

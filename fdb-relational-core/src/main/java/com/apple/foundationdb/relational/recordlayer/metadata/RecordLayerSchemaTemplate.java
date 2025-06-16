@@ -49,6 +49,7 @@ import com.google.common.collect.Multimap;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Comparator;
@@ -196,22 +197,20 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     /**
      * Deserializes given a {@link RecordMetaData} into a corresponding {@link RecordLayerSchemaTemplate} instance.
+     *
      * @param metaData The serialized metadata.
      * @param templateName The name of the schema template.
      * @param version The version of the metadata.
+     *
      * @return A {@link RecordLayerSchemaTemplate} instance of the deserialized metadata.
      */
     @Nonnull
     public static RecordLayerSchemaTemplate fromRecordMetadata(@Nonnull final RecordMetaData metaData,
                                                                @Nonnull final String templateName,
-                                                               int version) {
-        final var deserializer = new RecordMetadataDeserializer(metaData);
+                                                               int version,
+                                                               @Nullable final String tableNamePrefix) {
+        final var deserializer = new RecordMetadataDeserializer(metaData, tableNamePrefix);
         return deserializer.getSchemaTemplate(templateName, version);
-    }
-
-    @Nonnull
-    public static RecordLayerSchemaTemplate fromRecordMetadataWithFakeTemplateNameAndVersion(@Nonnull RecordMetaData metaData) {
-        return fromRecordMetadata(metaData, "fakeTemplateName", 1);
     }
 
     /**

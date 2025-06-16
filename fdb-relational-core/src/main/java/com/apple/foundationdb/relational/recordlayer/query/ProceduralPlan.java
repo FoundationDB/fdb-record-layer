@@ -53,7 +53,7 @@ public final class ProceduralPlan extends Plan<Void> {
 
     @Override
     public Void executeInternal(@Nonnull final ExecutionContext context) throws RelationalException {
-        action.executeAction(context.transaction);
+        action.executeAction(context.transaction, context.getOptions());
         return null;
     }
 

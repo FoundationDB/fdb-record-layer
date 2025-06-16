@@ -24,7 +24,7 @@ setup:
     - query: drop schema template if exists rename_types_metadata_template
     - query: drop database if exists /FRL/RENAME_TYPES_YAML
     - query: create database /FRL/RENAME_TYPES_YAML
-    - load schema template: RENAME_TYPES_METADATA_TEMPLATE from src/test/resources/rename-types-metadata.json
+    - load schema template: RENAME_TYPES_METADATA_TEMPLATE from src/test/resources/rename-types-metadata.json with tableNamePrefix __4_
     - query: create schema /FRL/RENAME_TYPES_YAML/test with template RENAME_TYPES_METADATA_TEMPLATE
     - set schema state: "{\"name\": \"TEST\", \"database_id\": \"/FRL/RENAME_TYPES_YAML\", \"template_name\": \"RENAME_TYPES_TEMPLATE\", \"store_info\" : {\"formatVersion\": 10}}"
 ---

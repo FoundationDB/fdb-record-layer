@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.RecordStoreAlreadyExistsException;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
@@ -71,7 +72,7 @@ public class RecordLayerCreateSchemaConstantAction implements ConstantAction {
 
     @Override
     @SuppressWarnings("PMD.PreserveStackTrace") //can't without violating Record layer isolation law
-    public void execute(Transaction txn) throws RelationalException {
+    public void execute(Transaction txn, final Options options) throws RelationalException {
         /*
          *
          */
@@ -80,8 +81,9 @@ public class RecordLayerCreateSchemaConstantAction implements ConstantAction {
         }
         //verify that the schema doesn't already exist
         // This is a bit awkward--perhaps we should adjust the behavior of the StoreCatalog?
+        final String tableNamePrefix = options.getOption(Options.Name.TABLE_PREFIX);
         try {
-            final Schema beforeSchema = catalog.loadSchema(txn, dbUri, schemaName);
+            final Schema beforeSchema = catalog.loadSchema(txn, dbUri, schemaName, tableNamePrefix);
             String schemaTemplateName = beforeSchema.getSchemaTemplate().getName();
             throw new RelationalException("Schema " + schemaName + " already exists with template " + schemaTemplateName, ErrorCode.SCHEMA_ALREADY_EXISTS);
         } catch (RelationalException ve) {
@@ -90,7 +92,7 @@ public class RecordLayerCreateSchemaConstantAction implements ConstantAction {
             }
         }
 
-        final SchemaTemplate schemaTemplate = catalog.getSchemaTemplateCatalog().loadSchemaTemplate(txn, templateName);
+        final SchemaTemplate schemaTemplate = catalog.getSchemaTemplateCatalog().loadSchemaTemplate(txn, templateName, tableNamePrefix);
 
         //map the schema to the template
         final Schema schema = schemaTemplate.generateSchema(dbUri.getPath(), schemaName);

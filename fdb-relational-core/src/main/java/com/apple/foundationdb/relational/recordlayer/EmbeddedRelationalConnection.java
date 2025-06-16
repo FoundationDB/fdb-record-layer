@@ -278,7 +278,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     @Nonnull
     public SchemaTemplate getSchemaTemplate() throws RelationalException {
         try {
-            return backingCatalog.loadSchema(getTransaction(), getPath(), getSchema()).getSchemaTemplate();
+            return backingCatalog.loadSchema(getTransaction(), getPath(), getSchema(), null).getSchemaTemplate();
         } catch (SQLException sqle) {
             throw new RelationalException(sqle);
         }

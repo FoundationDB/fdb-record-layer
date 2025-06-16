@@ -110,7 +110,7 @@ public class RecordLayerStorageCluster implements StorageCluster {
                 //if the schema does not exist, then an error will be thrown, and the schema can't
                 //exist if the database doesn't, so we get two calls for the price of one
                 try {
-                    catalog.loadSchema(txn, url, presetSchema);
+                    catalog.loadSchema(txn, url, presetSchema, connOptions.getOption(Options.Name.TABLE_PREFIX));
                 } catch (RelationalException ve) {
                     if (ve.getErrorCode() == ErrorCode.UNDEFINED_SCHEMA) {
                         //this could be because the database doesn't exist, OR it could be because the schema

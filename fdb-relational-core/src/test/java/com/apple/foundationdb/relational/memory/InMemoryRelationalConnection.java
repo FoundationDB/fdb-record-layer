@@ -175,8 +175,8 @@ public class InMemoryRelationalConnection implements RelationalConnection {
             @Nonnull
             @Override
             public ConstantAction getCreateSchemaConstantAction(@Nonnull URI dbUri, @Nonnull String schemaName, @Nonnull String templateId, Options constantActionOptions) {
-                return txn -> {
-                    final SchemaTemplate schemaTemplate = catalog.getSchemaTemplateCatalog().loadSchemaTemplate(txn, templateId);
+                return (txn, options) -> {
+                    final SchemaTemplate schemaTemplate = catalog.getSchemaTemplateCatalog().loadSchemaTemplate(txn, templateId, null);
 
                     //map the schema to the template
                     Schema schema = schemaTemplate.generateSchema(dbUri.getPath(), schemaName);
@@ -195,7 +195,7 @@ public class InMemoryRelationalConnection implements RelationalConnection {
             @Nonnull
             @Override
             public ConstantAction getDropDatabaseConstantAction(@Nonnull URI dbUrl, boolean throwIfDoesNotExist, @Nonnull Options options) {
-                return txn -> catalog.deleteDatabase(txn, dbUrl, throwIfDoesNotExist);
+                return (txn, options) -> catalog.deleteDatabase(txn, dbUrl, throwIfDoesNotExist);
             }
         };
     }

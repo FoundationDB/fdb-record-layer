@@ -342,7 +342,7 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
 
     @Nonnull
     private RecordMetaDataProto.MetaData loadSchemaMetadata(@Nonnull final String database, @Nonnull final String schema) throws RelationalException {
-        final var recLayerSchema = this.catalog.loadSchema(conn.getTransaction(), URI.create(database), schema);
+        final var recLayerSchema = this.catalog.loadSchema(conn.getTransaction(), URI.create(database), schema, null);
         Assert.thatUnchecked(recLayerSchema instanceof RecordLayerSchema);
         return (recLayerSchema.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toRecordMetadata().toProto());
     }

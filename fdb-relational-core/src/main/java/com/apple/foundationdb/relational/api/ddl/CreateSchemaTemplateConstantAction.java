@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.api.ddl;
 
 import com.apple.foundationdb.annotation.API;
 
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -41,7 +42,7 @@ public class CreateSchemaTemplateConstantAction implements ConstantAction {
     }
 
     @Override
-    public void execute(Transaction txn) throws RelationalException {
+    public void execute(Transaction txn, final Options options) throws RelationalException {
         catalog.createTemplate(txn, template);
     }
 }

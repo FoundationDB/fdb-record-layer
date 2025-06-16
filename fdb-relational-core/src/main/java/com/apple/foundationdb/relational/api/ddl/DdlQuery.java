@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.api.ddl;
 
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -57,7 +58,7 @@ public interface DdlQuery extends DdlPreparedAction<RelationalResultSet> {
         }
 
         @Override
-        public RelationalResultSet executeAction(Transaction txn) throws RelationalException {
+        public RelationalResultSet executeAction(Transaction txn, final Options options) throws RelationalException {
             return null;
         }
 

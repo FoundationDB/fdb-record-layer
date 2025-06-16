@@ -132,7 +132,9 @@ public class TransactionBoundQueryTest {
             final var driver = (EmbeddedRelationalDriver) DriverManager.getDriver(databaseRule.getConnectionUri().toString());
             try {
                 RelationalConnection transactionBoundConnection = driver.connect(databaseRule.getConnectionUri(),
-                        new RecordStoreAndRecordContextTransaction(newStore, context, RecordLayerSchemaTemplate.fromRecordMetadata(metaData, databaseRule.getSchemaTemplateName(), metaData.getVersion())), Options.NONE);
+                        new RecordStoreAndRecordContextTransaction(newStore, context,
+                                RecordLayerSchemaTemplate.fromRecordMetadata(metaData, databaseRule.getSchemaTemplateName(), metaData.getVersion(), null)),
+                        Options.NONE);
                 transactionBoundConnection.setSchema(databaseRule.getSchemaName());
                 return transactionBoundConnection.unwrap(EmbeddedRelationalConnection.class);
             } finally {

@@ -33,6 +33,7 @@ import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 import com.apple.foundationdb.relational.recordlayer.ValueTuple;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.sql.DatabaseMetaData;
 import java.sql.Types;
 import java.util.Comparator;
@@ -56,7 +57,7 @@ class InMemorySchemaTemplateCatalog implements SchemaTemplateCatalog {
     @Override
     public boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException {
         try {
-            loadSchemaTemplate(txn, templateName);
+            loadSchemaTemplate(txn, templateName, null);
             return true;
         } catch (RelationalException ex) {
             if (ex.getErrorCode() == ErrorCode.UNKNOWN_SCHEMA_TEMPLATE) {
@@ -69,7 +70,7 @@ class InMemorySchemaTemplateCatalog implements SchemaTemplateCatalog {
     @Override
     public boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName, int version) throws RelationalException {
         try {
-            loadSchemaTemplate(txn, templateName, version);
+            loadSchemaTemplate(txn, templateName, version, null);
             return true;
         } catch (RelationalException ex) {
             if (ex.getErrorCode() == ErrorCode.UNKNOWN_SCHEMA_TEMPLATE) {
@@ -81,7 +82,7 @@ class InMemorySchemaTemplateCatalog implements SchemaTemplateCatalog {
 
     @Nonnull
     @Override
-    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException {
+    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName, final @Nullable String tableNamePrefix) throws RelationalException {
         final var versions = backingStore.get(templateName);
         if (versions == null) {
             throw new RelationalException(String.format(Locale.ROOT, "Unknown schema template with name %s", templateName), ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
@@ -95,7 +96,7 @@ class InMemorySchemaTemplateCatalog implements SchemaTemplateCatalog {
 
     @Nonnull
     @Override
-    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName, int version) throws RelationalException {
+    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName, int version, final String tableNamePrefix) throws RelationalException {
         final var versions = backingStore.get(templateName);
         if (versions == null) {
             throw new RelationalException(String.format(Locale.ROOT, "Unknown schema template with name %s and version %d", templateName, version), ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);

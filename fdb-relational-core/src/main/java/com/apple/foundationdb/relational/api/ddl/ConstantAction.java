@@ -20,16 +20,17 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 public interface ConstantAction extends DdlPreparedAction<Void> {
 
     @Override
-    default Void executeAction(Transaction txn) throws RelationalException {
-        execute(txn);
+    default Void executeAction(Transaction txn, final Options options) throws RelationalException {
+        execute(txn, options);
         return null;
     }
 
-    void execute(Transaction txn) throws RelationalException;
+    void execute(Transaction txn, final Options options) throws RelationalException;
 }

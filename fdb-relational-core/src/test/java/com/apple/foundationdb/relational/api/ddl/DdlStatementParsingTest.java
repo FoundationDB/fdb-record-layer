@@ -221,7 +221,7 @@ public class DdlStatementParsingTest {
                             .collect(Collectors.toList()));
                 });
 
-                return txn -> {
+                return (txn, options) -> {
                 };
             }
         });
@@ -252,7 +252,7 @@ public class DdlStatementParsingTest {
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template, @Nonnull final Options templateProperties) {
                 checkColumnNullability(template, sqlType, true);
-                return txn -> {
+                return (txn, options) -> {
                 };
             }
         });
@@ -270,7 +270,7 @@ public class DdlStatementParsingTest {
                 @Override
                 public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template, @Nonnull final Options templateProperties) {
                     checkColumnNullability(template, sqlType, false);
-                    return txn -> {
+                    return (txn, options) -> {
                     };
                 }
             });
@@ -309,7 +309,7 @@ public class DdlStatementParsingTest {
                 Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
                 Assertions.assertEquals(0, ((RecordLayerSchemaTemplate) template).getTables().size(), "Tables defined!");
                 visited[0] = true;
-                return txn -> {
+                return (txn, options) -> {
                 };
             }
         });
@@ -326,7 +326,7 @@ public class DdlStatementParsingTest {
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                         @Nonnull Options templateProperties) {
                 Assertions.fail("Should fail during parsing!");
-                return txn -> {
+                return (txn, options) -> {
                 };
             }
         });
@@ -346,7 +346,7 @@ public class DdlStatementParsingTest {
                                                                         @Nonnull Options templateProperties) {
                 Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
                 Assertions.assertEquals(1, ((RecordLayerSchemaTemplate) template).getTables().size(), "Incorrect number of tables");
-                return txn -> {
+                return (txn, options) -> {
                 };
             }
         });
@@ -367,7 +367,7 @@ public class DdlStatementParsingTest {
                 Assertions.assertEquals("TEST_TEMPLATE", template.getName(), "incorrect template name!");
                 DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(getProtoDescriptor(template));
                 Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
-                return txn -> {
+                return (txn, options) -> {
                     try {
                         final DdlTestUtil.ParsedType type = schema.getType("foo");
                         assertColumnsMatch(type, columns);
@@ -394,7 +394,7 @@ public class DdlStatementParsingTest {
                 Assertions.assertEquals("TEST_TEMPLATE", template.getName(), "incorrect template name!");
                 DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(getProtoDescriptor(template));
                 Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
-                return txn -> {
+                return (txn, options) -> {
                     try {
                         final DdlTestUtil.ParsedType type = schema.getTable("foo");
                         assertColumnsMatch(type, columns);
@@ -421,7 +421,7 @@ public class DdlStatementParsingTest {
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                         @Nonnull Options templateProperties) {
                 Assertions.fail("Should not call this!");
-                return txn -> {
+                return (txn, options) -> {
                 };
             }
         });
@@ -467,7 +467,7 @@ public class DdlStatementParsingTest {
                 for (int i = 0; i < idxColumns.size(); i++) {
                     Assertions.assertEquals(idxColumns.get(i), keys.get(i).getField().getFieldName(), "Incorrect column at position " + i);
                 }
-                return txn -> {
+                return (txn, options) -> {
                 };
             }
         });
@@ -519,7 +519,7 @@ public class DdlStatementParsingTest {
                     Assertions.assertEquals(unindexedColumns.get(i), ve.getField().getFieldName(), "Incorrect column at position " + i);
                 }
 
-                return txn -> {
+                return (txn, options) -> {
                 };
             }
         });
@@ -544,7 +544,7 @@ public class DdlStatementParsingTest {
                 } else {
                     Assertions.assertFalse(template.isEnableLongRows());
                 }
-                return txn -> {
+                return (txn, options) -> {
                 };
             }
         });
@@ -560,7 +560,7 @@ public class DdlStatementParsingTest {
             public ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, boolean throwIfDoesNotExist, @Nonnull Options options) {
                 Assertions.assertEquals("TEST_TEMPLATE", templateId, "Incorrect schema template name!");
                 called[0] = true;
-                return txn -> {
+                return (txn, options) -> {
                 };
             }
         });
@@ -594,7 +594,7 @@ public class DdlStatementParsingTest {
                 Assertions.assertEquals("TEST_TEMPLATE", template.getName(), "incorrect template name!");
                 DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(getProtoDescriptor(template));
                 Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
-                return txn -> {
+                return (txn, options) -> {
                     try {
                         final DdlTestUtil.ParsedType table = schema.getTable("foo");
                         assertColumnsMatch(table, columns);
@@ -623,7 +623,7 @@ public class DdlStatementParsingTest {
                 Assertions.assertEquals("TEST_TEMPLATE", template.getName(), "incorrect template name!");
                 DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(getProtoDescriptor(template));
                 Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
-                return txn -> {
+                return (txn, options) -> {
                     try {
                         assertColumnsMatch(schema.getTable("tbl"), columns);
                         assertColumnsMatch(schema.getType("typ"), columns);
@@ -876,7 +876,7 @@ public class DdlStatementParsingTest {
                 Assertions.assertNotNull(dbUri, "No database URI specified");
                 Assertions.assertNotNull(schemaName, "No schema specified");
                 Assertions.assertNotNull(templateId, "No template specified");
-                return txn -> {
+                return (txn, options) -> {
                 };
             }
         });
@@ -894,7 +894,7 @@ public class DdlStatementParsingTest {
             @Override
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
                                                                         @Nonnull Options templateProperties) {
-                return txn -> {
+                return (txn, options) -> {
                 };
             }
         });

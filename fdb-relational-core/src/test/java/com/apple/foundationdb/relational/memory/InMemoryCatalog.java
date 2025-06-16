@@ -33,6 +33,7 @@ import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -52,7 +53,7 @@ public class InMemoryCatalog implements StoreCatalog {
 
     @Nonnull
     @Override
-    public Schema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName) throws RelationalException {
+    public Schema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName, @Nullable String tableNamePrefix) throws RelationalException {
         final List<InMemorySchema> schemas = dbToSchemas.get(databaseId);
         if (schemas == null) {
             throw new RelationalException("No such database <" + databaseId + ">", ErrorCode.UNDEFINED_SCHEMA);

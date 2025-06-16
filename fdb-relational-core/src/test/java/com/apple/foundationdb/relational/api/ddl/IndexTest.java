@@ -127,7 +127,7 @@ public class IndexTest {
                 final KeyExpression actualKey = KeyExpression.fromProto(((RecordLayerIndex) index).getKeyExpression().toKeyExpression());
                 Assertions.assertEquals(expectedKey, actualKey);
                 validator.accept(index);
-                return txn -> {
+                return (txn, options) -> {
                 };
             }
         });
