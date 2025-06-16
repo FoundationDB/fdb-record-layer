@@ -32,7 +32,7 @@ import com.apple.foundationdb.record.planprotos.PRangeConstraints;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -435,16 +435,16 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
 
     @Nonnull
     @Override
-    public BooleanWithConstraint semanticEqualsTyped(@Nonnull final RangeConstraints other,
-                                                     @Nonnull final ValueEquivalence valueEquivalence) {
+    public ConstrainedBoolean semanticEqualsTyped(@Nonnull final RangeConstraints other,
+                                                  @Nonnull final ValueEquivalence valueEquivalence) {
         if (deferredRanges.size() != other.deferredRanges.size()) {
-            return BooleanWithConstraint.falseValue();
+            return ConstrainedBoolean.falseValue();
         }
 
         var deferredRangesEquals =
                 valueEquivalence.semanticEquals(deferredRanges, other.deferredRanges);
         if (deferredRangesEquals.isFalse()) {
-            return BooleanWithConstraint.falseValue();
+            return ConstrainedBoolean.falseValue();
         }
 
         if (evaluableRange == null && other.evaluableRange == null) {
@@ -457,7 +457,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
                         return valueEquivalence.semanticEquals(evaluableRange.compilableComparisons,
                                 other.evaluableRange.compilableComparisons);
                     }
-                    return BooleanWithConstraint.falseValue();
+                    return ConstrainedBoolean.falseValue();
                 });
     }
 

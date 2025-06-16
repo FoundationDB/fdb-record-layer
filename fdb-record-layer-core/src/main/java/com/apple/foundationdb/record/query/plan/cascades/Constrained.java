@@ -1,5 +1,5 @@
 /*
- * BooleanWithConstraint.java
+ * Constrained.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -42,8 +42,6 @@ public interface Constrained<T> {
         Verify.verify(!getConstraint().isConstrained());
         return get();
     }
-
-    boolean hasConstraint();
 
     @Nonnull
     QueryPlanConstraint getConstraint();

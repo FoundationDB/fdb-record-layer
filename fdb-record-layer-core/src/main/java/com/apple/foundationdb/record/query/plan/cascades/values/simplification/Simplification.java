@@ -136,7 +136,7 @@ public class Simplification {
      * @param aliasMap an alias map of equalities
      * @param constantAliases a set of aliases that are considered to be constant
      * @param ruleSet the rule set used to simplify the {@link Value} that is passed in
-     * @return a new simplified {@link Value} of {@code root}
+     * @return a new simplified list of {@link Constrained} {@link Value}s
      */
     @Nonnull
     public static List<Constrained<Value>> simplifyCurrent(@Nonnull final Value current,

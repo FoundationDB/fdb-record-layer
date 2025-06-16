@@ -1,5 +1,5 @@
 /*
- * BooleanWithConstraint.java
+ * DefaultConstrained.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Objects;
 
 /**
@@ -38,13 +37,12 @@ public class DefaultConstrained<T> implements Constrained<T> {
     private final T object;
 
     /**
-     * The query plan constraint recorded for this boolean. By convention, if this field is equal to {@code null} this
-     * boolean is considered to be {@code false}, it is {@code true} otherwise.
+     * The query plan constraint recorded for this {@code object}.
      */
-    @Nullable
+    @Nonnull
     private final QueryPlanConstraint queryPlanConstraint;
 
-    private DefaultConstrained(@Nonnull final T object, @Nullable final QueryPlanConstraint queryPlanConstraint) {
+    private DefaultConstrained(@Nonnull final T object, @Nonnull final QueryPlanConstraint queryPlanConstraint) {
         this.object = object;
         this.queryPlanConstraint = queryPlanConstraint;
     }
@@ -59,15 +57,10 @@ public class DefaultConstrained<T> implements Constrained<T> {
         return object;
     }
 
-    @Override
-    public boolean hasConstraint() {
-        return queryPlanConstraint != null;
-    }
-
     @Nonnull
     @Override
     public QueryPlanConstraint getConstraint() {
-        return Objects.requireNonNull(queryPlanConstraint);
+        return queryPlanConstraint;
     }
 
     /**

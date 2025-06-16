@@ -24,7 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
@@ -75,8 +75,8 @@ import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
-import static com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint.alwaysTrue;
-import static com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint.falseValue;
+import static com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean.alwaysTrue;
+import static com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean.falseValue;
 
 /**
  * A logical {@code group by} expression that represents grouping incoming tuples and aggregating each group.
@@ -363,12 +363,12 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     }
 
     @Nonnull
-    private BooleanWithConstraint groupingSubsumedBy(@Nonnull final Quantifier candidateInnerQuantifier,
-                                                     @Nonnull final PartialMatch childMatch,
-                                                     @Nullable final Value candidateGroupingValue,
-                                                     @Nonnull final TranslationMap translationMap,
-                                                     @Nonnull final ValueEquivalence valueEquivalence,
-                                                     @Nonnull final EvaluationContext evaluationContext) {
+    private ConstrainedBoolean groupingSubsumedBy(@Nonnull final Quantifier candidateInnerQuantifier,
+                                                  @Nonnull final PartialMatch childMatch,
+                                                  @Nullable final Value candidateGroupingValue,
+                                                  @Nonnull final TranslationMap translationMap,
+                                                  @Nonnull final ValueEquivalence valueEquivalence,
+                                                  @Nonnull final EvaluationContext evaluationContext) {
         if (groupingValue == null && candidateGroupingValue == null) {
             return alwaysTrue();
         }

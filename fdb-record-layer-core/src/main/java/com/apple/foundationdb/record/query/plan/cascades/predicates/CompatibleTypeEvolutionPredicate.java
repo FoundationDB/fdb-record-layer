@@ -36,7 +36,7 @@ import com.apple.foundationdb.record.planprotos.PFieldAccessTrieNode;
 import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
@@ -178,8 +178,8 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
 
     @Nonnull
     @Override
-    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final QueryPredicate other,
-                                                       @Nonnull final ValueEquivalence valueEquivalence) {
+    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final QueryPredicate other,
+                                                    @Nonnull final ValueEquivalence valueEquivalence) {
         return super.equalsWithoutChildren(other, valueEquivalence)
                 .filter(ignored -> {
                     final CompatibleTypeEvolutionPredicate otherCompatibleTypeEvolutionPredicate = (CompatibleTypeEvolutionPredicate)other;

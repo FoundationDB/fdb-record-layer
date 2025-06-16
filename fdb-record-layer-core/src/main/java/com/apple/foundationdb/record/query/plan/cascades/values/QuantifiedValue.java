@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.collect.ImmutableMap;
@@ -51,7 +51,7 @@ public interface QuantifiedValue extends LeafValue {
 
     @Nonnull
     @Override
-    default BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+    default ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
         return LeafValue.super.equalsWithoutChildren(other)
                 .filter(ignored -> getAlias().equals(((QuantifiedValue)other).getAlias()));
     }

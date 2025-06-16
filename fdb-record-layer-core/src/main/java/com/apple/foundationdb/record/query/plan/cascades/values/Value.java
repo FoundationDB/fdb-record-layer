@@ -33,7 +33,7 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
@@ -346,20 +346,20 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
      * assert equivalence of {@code this} and {@code other} using the {@link ValueEquivalence} that was passed in.
      * @param other the other object to compare this object to
      * @param valueEquivalence the value equivalence
-     * @return a boolean monad {@link BooleanWithConstraint} that is either effectively {@code false} or {@code true}
+     * @return a boolean monad {@link ConstrainedBoolean} that is either effectively {@code false} or {@code true}
      *         under the assumption that a contained query plan constraint is satisfied
      */
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    default BooleanWithConstraint semanticEquals(@Nullable final Object other,
-                                                 @Nonnull final ValueEquivalence valueEquivalence) {
+    default ConstrainedBoolean semanticEquals(@Nullable final Object other,
+                                              @Nonnull final ValueEquivalence valueEquivalence) {
         if (this == other) {
-            return BooleanWithConstraint.alwaysTrue();
+            return ConstrainedBoolean.alwaysTrue();
         }
 
         if (!(other instanceof Value)) {
-            return BooleanWithConstraint.falseValue();
+            return ConstrainedBoolean.falseValue();
         }
 
         final var thisOther = semanticEqualsTyped((Value)other, valueEquivalence);
@@ -385,11 +385,11 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
 
     @Nonnull
     @Override
-    default BooleanWithConstraint semanticEqualsTyped(@Nonnull final Value other,
-                                                      @Nonnull final ValueEquivalence valueEquivalence) {
+    default ConstrainedBoolean semanticEqualsTyped(@Nonnull final Value other,
+                                                   @Nonnull final ValueEquivalence valueEquivalence) {
         final var equalsWithoutChildren = equalsWithoutChildren(other);
         if (equalsWithoutChildren.isFalse()) {
-            return BooleanWithConstraint.falseValue();
+            return ConstrainedBoolean.falseValue();
         }
 
         var constraint = equalsWithoutChildren;
@@ -398,13 +398,13 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
 
         while (children.hasNext()) {
             if (!otherChildren.hasNext()) {
-                return BooleanWithConstraint.falseValue();
+                return ConstrainedBoolean.falseValue();
             }
 
             final var isChildEquals =
                     children.next().semanticEquals(otherChildren.next(), valueEquivalence);
             if (isChildEquals.isFalse()) {
-                return BooleanWithConstraint.falseValue();
+                return ConstrainedBoolean.falseValue();
             }
 
             constraint = constraint.composeWithOther(isChildEquals);
@@ -412,7 +412,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
 
         if (otherChildren.hasNext()) {
             // otherValue has more children, it cannot be equivalent
-            return BooleanWithConstraint.falseValue();
+            return ConstrainedBoolean.falseValue();
         }
 
         return constraint;
@@ -420,12 +420,12 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
 
     @Nonnull
     @SuppressWarnings({"unused", "PMD.CompareObjectsWithEquals"})
-    default BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+    default ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
         if (this == other) {
-            return BooleanWithConstraint.alwaysTrue();
+            return ConstrainedBoolean.alwaysTrue();
         }
 
-        return other.getClass() == getClass() ? BooleanWithConstraint.alwaysTrue() : BooleanWithConstraint.falseValue();
+        return other.getClass() == getClass() ? ConstrainedBoolean.alwaysTrue() : ConstrainedBoolean.falseValue();
     }
 
     default boolean canResultInType(@Nonnull final Type type) {

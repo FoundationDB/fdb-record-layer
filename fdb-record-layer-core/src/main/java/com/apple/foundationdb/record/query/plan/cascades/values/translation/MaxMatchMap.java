@@ -24,7 +24,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
@@ -547,7 +547,7 @@ public class MaxMatchMap {
                             valueEquivalence, ImmutableList.of());
             bestMatches.put(currentQueryValue, resultForCurrent);
         } else {
-            final BooleanWithConstraint isFound;
+            final ConstrainedBoolean isFound;
             if (!anyParentsMatching && isCurrentMatching) {
                 //
                 // We know that no parents are matching but that the current level is potentially matching. Try to
@@ -564,7 +564,7 @@ public class MaxMatchMap {
                             Objects.requireNonNull(matchingPair.getRight())), 0, isFound.getConstraint()));
                 }
             } else {
-                isFound = BooleanWithConstraint.falseValue();
+                isFound = ConstrainedBoolean.falseValue();
             }
 
             if (isFound.isFalse()) {
@@ -753,9 +753,9 @@ public class MaxMatchMap {
 
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private static Pair<BooleanWithConstraint, Value> findMatchingReachableCandidateValue(@Nonnull final Value currentQueryValue,
-                                                                                          @Nonnull final Value candidateValue,
-                                                                                          @Nonnull final ValueEquivalence valueEquivalence) {
+    private static Pair<ConstrainedBoolean, Value> findMatchingReachableCandidateValue(@Nonnull final Value currentQueryValue,
+                                                                                       @Nonnull final Value candidateValue,
+                                                                                       @Nonnull final ValueEquivalence valueEquivalence) {
         for (final var currentCandidateValue : candidateValue
                 // when traversing the candidate in pre-order, only descend into structures that can be referenced
                 // from the top expression. For example, RCV's components can be referenced however an Arithmetic
@@ -764,7 +764,7 @@ public class MaxMatchMap {
                 .preOrderIterable(v -> v instanceof RecordConstructorValue)) {
             if (currentCandidateValue == candidateValue) {
                 if (currentQueryValue instanceof QuantifiedRecordValue) {
-                    return Pair.of(BooleanWithConstraint.alwaysTrue(), currentCandidateValue);
+                    return Pair.of(ConstrainedBoolean.alwaysTrue(), currentCandidateValue);
                 }
             }
 
@@ -774,7 +774,7 @@ public class MaxMatchMap {
                 return Pair.of(semanticEquals, currentCandidateValue);
             }
         }
-        return Pair.of(BooleanWithConstraint.falseValue(), null);
+        return Pair.of(ConstrainedBoolean.falseValue(), null);
     }
 
     /**
