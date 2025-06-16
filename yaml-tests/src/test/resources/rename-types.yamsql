@@ -1,0 +1,87 @@
+#
+# standard-tests-metadata.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+setup:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template if exists rename_types_metadata_template
+    - query: drop database if exists /FRL/RENAME_TYPES_YAML
+    - query: create database /FRL/RENAME_TYPES_YAML
+    - load schema template: RENAME_TYPES_METADATA_TEMPLATE from src/test/resources/rename-types-metadata.json
+    - query: create schema /FRL/RENAME_TYPES_YAML/test with template RENAME_TYPES_METADATA_TEMPLATE
+    - set schema state: "{\"name\": \"TEST\", \"database_id\": \"/FRL/RENAME_TYPES_YAML\", \"template_name\": \"RENAME_TYPES_TEMPLATE\", \"store_info\" : {\"formatVersion\": 10}}"
+---
+setup:
+  connect: "jdbc:embed:/FRL/RENAME_TYPES_YAML?schema=TEST"
+  steps:
+    - query: INSERT INTO T1_FOO
+        VALUES ('a', 'boo', 'Z', 7),
+        ('b', 'far', 'Y', 10),
+        ('f', 'ok', 'Z', 30),
+        ('g', 'boo', 'X', 15)
+    - query: INSERT INTO T2_BAR
+        VALUES ('c', 'what', 3),
+        ('d', 'do', 8),
+        ('e', 'want', 33),
+        ('h', 'what', 9)
+---
+test_block:
+  connect: "jdbc:embed:/FRL/RENAME_TYPES_YAML?schema=TEST"
+  name: rename-types
+  tests:
+    -
+      - query: select * from T1_FOO;
+      - result: [{'a', 'boo', 'Z', 7},
+                 {'g', 'boo', 'X', 15},
+                 {'b', 'far', 'Y', 10},
+                 {'f', 'ok', 'Z', 30}]
+    -
+      - query: select * from T2_bar;
+      - result: [{'d', 'do', 8},
+                 {'e', 'want', 33},
+                 {'c', 'what', 3},
+                 {'h', 'what', 9}]
+    -
+      - query: select * from T1_FOO WHERE my_string = 'boo';
+      - explain: "ISCAN(T1_FOO$MY_STRING [EQUALS promote(@c8 AS STRING)])"
+      - result: [{'a', 'boo', 'Z', 7},
+                 {'g', 'boo', 'X', 15}]
+    -
+      - query: select pkey, my_string from T1_FOO WHERE my_string = 'boo';
+      - explain: "COVERING(T1_FOO$MY_STRING [EQUALS promote(@c10 AS STRING)] -> [MY_STRING: KEY[0], PKEY: KEY[1]]) | MAP (_.PKEY AS PKEY, _.MY_STRING AS MY_STRING)"
+      - result: [{'a', 'boo'},
+                 {'g', 'boo'}]
+    -
+      - query: select * from T2_bar WHERE here = 'what';
+      - explain: "ISCAN(HERE_IS_STUFF [EQUALS promote(@c8 AS STRING)])"
+      - result: [{'c', 'what', 3},
+                 {'h', 'what', 9}]
+    -
+      - query: select * from T1_FOO WHERE "_UNDERSCORY" = 'Z';
+      - explain: "ISCAN(T1_FOO$MY_STRING <,>) | FILTER _._UNDERSCORY EQUALS promote(@c8 AS STRING)"
+      - result: [{'a', 'boo', 'Z', 7},
+                 {'f', 'ok', 'Z', 30}]
+---
+setup:
+  connect: "jdbc:embed:/__SYS?schema=CATALOG"
+  steps:
+    - query: drop schema template RENAME_TYPES_METADATA_TEMPLATE
+    - query: drop database /FRL/RENAME_TYPES_YAML
+...

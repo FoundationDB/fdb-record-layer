@@ -63,6 +63,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void renameTypes(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("rename-types.yamsql");
+    }
+
+    @TestTemplate
     public void nullOperator(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("null-operator-tests.yamsql");
     }

@@ -1,0 +1,158 @@
+{
+  "records": {
+    "name": "rename-types",
+    "dependency": [
+      "record_metadata.proto",
+      "record_metadata_options.proto"
+    ],
+    "message_type": [
+      {
+        "name": "T1_FOO",
+        "field": [
+          {
+            "name": "PKEY",
+            "number": 1,
+            "label": "LABEL_OPTIONAL",
+            "type": "TYPE_STRING"
+          },
+          {
+            "name": "MY_STRING",
+            "number": 2,
+            "label": "LABEL_OPTIONAL",
+            "type": "TYPE_STRING"
+          },
+          {
+            "name": "_UNDERSCORY",
+            "number": 3,
+            "label": "LABEL_OPTIONAL",
+            "type": "TYPE_STRING"
+          },
+          {
+            "name": "A_LONG",
+            "number": 4,
+            "label": "LABEL_OPTIONAL",
+            "type": "TYPE_INT64"
+          }
+        ]
+      },
+      {
+        "name": "T2_BAR",
+        "field": [
+          {
+            "name": "PKEY",
+            "number": 1,
+            "label": "LABEL_OPTIONAL",
+            "type": "TYPE_STRING"
+          },
+          {
+            "name": "HERE",
+            "number": 2,
+            "label": "LABEL_OPTIONAL",
+            "type": "TYPE_STRING"
+          },
+          {
+            "name": "A_LONG",
+            "number": 3,
+            "label": "LABEL_OPTIONAL",
+            "type": "TYPE_INT64"
+          }
+        ]
+      },
+      {
+        "name": "RecordTypeUnion",
+        "field": [
+          {
+            "name": "_T1_FOO_1",
+            "number": 1,
+            "type": "TYPE_MESSAGE",
+            "type_name": "T1_FOO",
+            "options": { "deprecated": true }
+          },
+          {
+            "name": "_T2_BAR",
+            "number": 2,
+            "type": "TYPE_MESSAGE",
+            "type_name": "T2_BAR"
+          },
+          {
+            "name": "_T1_FOO",
+            "number": 3,
+            "type": "TYPE_MESSAGE",
+            "type_name": "T1_FOO"
+          }
+        ],
+        "options": {
+          "com.apple.foundationdb.record.record": {
+            "usage": "UNION"
+          }
+        }
+      }
+    ]
+  },
+  "indexes": [
+    {
+      "record_type": [ "T1_FOO" ],
+      "name": "T1_FOO$MY_STRING",
+      "root_expression": {
+        "field": {
+          "field_name": "MY_STRING",
+          "fan_type": "SCALAR"
+        }
+      },
+      "subspace_key": "FQE=",
+      "last_modified_version": 1
+    },
+    {
+      "record_type": [ "T2_BAR" ],
+      "name": "HERE_IS_STUFF",
+      "root_expression": {
+        "field": {
+          "field_name": "HERE",
+          "fan_type": "SCALAR"
+        }
+      },
+      "subspace_key": "FQI=",
+      "last_modified_version": 1
+    },
+    {
+      "name": "LONGS",
+      "root_expression": {
+        "field": {
+          "field_name": "A_LONG",
+          "fan_type": "SCALAR"
+        }
+      },
+      "subspace_key": "FRI=",
+      "last_modified_version": 2,
+      "options": [
+        {
+          "key": "allowedForQuery",
+          "value": "false"
+        }
+      ]
+    }
+  ],
+  "record_types": [
+    {
+      "name": "T1_FOO",
+      "primary_key": {
+        "field": {
+          "field_name": "PKEY",
+          "fan_type": "SCALAR"
+        }
+      }
+    },
+    {
+      "name": "T2_BAR",
+      "primary_key": {
+        "field": {
+          "field_name": "PKEY",
+          "fan_type": "SCALAR"
+        }
+      }
+    }
+  ],
+  "split_long_records": true,
+  "version": 2
+}
+
