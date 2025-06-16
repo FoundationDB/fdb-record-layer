@@ -474,7 +474,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                                           @Nonnull final String query,
                                           @Nonnull final PlanHashMode currentPlanHashMode,
                                           @Nonnull final PlanHashMode serializedPlanHashMode) {
-            super(recordQueryPlan, null, typeRepository, QueryPlanConstraint.tautology(),
+            super(recordQueryPlan, null, typeRepository, QueryPlanConstraint.noConstraint(),
                     continuationConstraint, queryExecutionParameters, query, currentPlanHashMode);
             this.serializedPlanHashMode = serializedPlanHashMode;
         }
@@ -697,7 +697,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         @Nonnull
         @Override
         public QueryPlanConstraint getConstraint() {
-            return QueryPlanConstraint.tautology();
+            return QueryPlanConstraint.noConstraint();
         }
 
         @Nonnull

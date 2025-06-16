@@ -34,7 +34,7 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
@@ -286,14 +286,14 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
 
     @Nonnull
     @Override
-    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
         if (hashCodeWithoutChildren() != other.hashCodeWithoutChildren()) { // as the hashcode is memoized
-            return BooleanWithConstraint.falseValue();
+            return ConstrainedBoolean.falseValue();
         }
 
         final var superEqualsWithoutChildren = super.equalsWithoutChildren(other);
         if (superEqualsWithoutChildren.isFalse()) {
-            return BooleanWithConstraint.falseValue();
+            return ConstrainedBoolean.falseValue();
         }
 
         final var otherColumns = ((RecordConstructorValue)other).getColumns();
@@ -303,7 +303,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
             final var column = columns.get(i);
             final var otherColumn = otherColumns.get(i);
             if (!column.getField().equals(otherColumn.getField())) {
-                return BooleanWithConstraint.falseValue();
+                return ConstrainedBoolean.falseValue();
             }
         }
 

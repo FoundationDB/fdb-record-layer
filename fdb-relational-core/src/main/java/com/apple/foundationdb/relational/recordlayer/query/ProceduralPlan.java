@@ -60,7 +60,7 @@ public final class ProceduralPlan extends Plan<Void> {
     @Nonnull
     @Override
     public QueryPlanConstraint getConstraint() {
-        return QueryPlanConstraint.tautology();
+        return QueryPlanConstraint.noConstraint();
     }
 
     @Nonnull

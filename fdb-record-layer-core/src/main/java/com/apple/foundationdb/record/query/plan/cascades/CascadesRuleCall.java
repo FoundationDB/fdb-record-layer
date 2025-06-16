@@ -284,6 +284,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
     }
 
     @Nonnull
+    @Override
     public EvaluationContext getEvaluationContext() {
         return evaluationContext;
     }

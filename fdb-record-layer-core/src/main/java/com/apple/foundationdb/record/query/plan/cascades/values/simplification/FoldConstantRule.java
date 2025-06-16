@@ -32,7 +32,7 @@ import java.util.Optional;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
 
 /**
- * A rule that detects a value that evaluates to one constant value given the a set of aliases that are considered
+ * A rule that detects a value that evaluates to one constant value given a set of aliases that are considered
  * being bound to constant objects.
  */
 @API(API.Status.EXPERIMENTAL)
@@ -73,7 +73,8 @@ public class FoldConstantRule extends ValueSimplificationRule<Value> {
                 }
             }
 
-            call.yieldResult(new ConstantValue(root.withChildren(newChildren.build())));
+            call.yieldResultBuilder().addConstraintsFrom(root).addConstraintsFrom(root.getChildren())
+                    .yieldResult(new ConstantValue(root.withChildren(newChildren.build())));
         }
     }
 }
