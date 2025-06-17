@@ -24,9 +24,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
-import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursorBase;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregationPlan;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
@@ -110,7 +108,7 @@ class SlowMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
                     Arguments.of(random.nextLong(), 5000, random.nextInt(5000) + 1, BY_NODE.toString(), false, true),
                     Arguments.of(random.nextLong(), 5000, random.nextInt(5000) + 1, BY_NODE.toString(), true, false),
                     Arguments.of(random.nextLong(), 5000, random.nextInt(5000) + 1, BY_NODE.toString(), true, true)
-            ));
+                ));
     }
 
     static Stream<Arguments> argumentsForIndexReadsWithDuplicates() {

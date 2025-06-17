@@ -36,11 +36,6 @@ message PlannerConfiguration {
         USE_REMOTE_FETCH_WITH_FALLBACK = 2;
     }
 
-    enum KeyValueCursorContinuationSerializationMode {
-        TO_OLD = 0;
-        TO_NEW = 1;
-    }
-
     message SortConfiguration {
         optional bool shouldAllowNonIndexSort = 1;
     }
@@ -59,5 +54,4 @@ message PlannerConfiguration {
     optional int32 maxNumReplansForInToJoin = 12;
     optional int32 orToUnionMaxNumConjuncts = 13;
     optional int32 maxNumReplansForInUnion = 14;
-    optional KeyValueCursorContinuationSerializationMode keyValueCursorContinuationSerializationMode = 15;
 }

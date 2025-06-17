@@ -47,7 +47,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
-import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursorBase;
 import com.apple.foundationdb.record.provider.foundationdb.MultidimensionalIndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
@@ -497,7 +496,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
     }
 
     void indexReadTest(final boolean useAsync, final long seed, final int numRecords, @Nonnull final String storage,
-                       final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
+                           final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
                     addCalendarNameStartEpochIndex(metaDataBuilder);
