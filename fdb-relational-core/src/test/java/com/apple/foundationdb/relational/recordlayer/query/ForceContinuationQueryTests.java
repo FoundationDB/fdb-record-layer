@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -56,6 +57,7 @@ public class ForceContinuationQueryTests {
                     "create index mv4 as select count(col1) from t1 group by col2\n" +
 
                     "create table t2(id bigint, col1 bigint, col2 bigint, col3 bigint, primary key(id))\n" +
+                    "create index mv5 as select col2 from t2\n" +
                     "create index mv7 as select min_ever(col3) from t2\n" +
 
                     "create table t3(id bigint, col1 bigint, col2 bigint, primary key(id))\n" +
@@ -97,8 +99,8 @@ public class ForceContinuationQueryTests {
     }
 
     @ParameterizedTest
-    @MethodSource("provideArguments")
-    void testOldSerialization(String sql, long result) throws Exception {
+    @MethodSource("failedQueries")
+    void testOldSerializationFails(String sql, long result) throws Exception {
         Continuation continuation;
         statement.setMaxRows(1);
         try (var resultSet = statement.executeQuery(sql)) {
@@ -115,7 +117,7 @@ public class ForceContinuationQueryTests {
     }
 
     @ParameterizedTest
-    @MethodSource("provideArguments")
+    @MethodSource("failedQueries")
     void testNewSerialization(String sql, long result) throws Exception {
         connection.setOption(Options.Name.KEYVALUE_CURSOR_CONTINUATION_SERIALIZE_TO_NEW, true);
         Continuation continuation;
@@ -137,8 +139,94 @@ public class ForceContinuationQueryTests {
         }
     }
 
+    @Test
+    void testOldSerializationWorks() throws Exception {
+        Continuation continuation;
+        statement.setMaxRows(1);
+        try (var resultSet = statement.executeQuery("select count(*) from t2 group by col2")) {
+            Assertions.assertTrue(resultSet.next());
+            Assertions.assertEquals(1L, resultSet.getLong(1));
+            continuation = resultSet.getContinuation();
+        }
+        try (final var preparedStatement = connection.prepareStatement("EXECUTE CONTINUATION ?param")) {
+            preparedStatement.setMaxRows(1);
+            preparedStatement.setBytes("param", continuation.serialize());
+            try (var resultSet = preparedStatement.executeQuery()) {
+                Assertions.assertTrue(resultSet.next());
+                Assertions.assertEquals(3L, resultSet.getLong(1));
+                continuation = resultSet.getContinuation();
+            }
+        }
+        try (final var preparedStatement = connection.prepareStatement("EXECUTE CONTINUATION ?param")) {
+            preparedStatement.setMaxRows(1);
+            preparedStatement.setBytes("param", continuation.serialize());
+            try (var resultSet = preparedStatement.executeQuery()) {
+                Assertions.assertFalse(resultSet.next());
+            }
+        }
+    }
 
-    private static Stream<Arguments> provideArguments() {
+    @Test
+    void testNewSerializationWorks() throws Exception {
+        connection.setOption(Options.Name.KEYVALUE_CURSOR_CONTINUATION_SERIALIZE_TO_NEW, true);
+        Continuation continuation;
+        try (final var s = connection.createStatement()) {
+            s.setMaxRows(1);
+            try (var resultSet = s.executeQuery("select count(*) from t2 group by col2")) {
+                Assertions.assertTrue(resultSet.next());
+                Assertions.assertEquals(1L, resultSet.getLong(1));
+                continuation = resultSet.getContinuation();
+            }
+        }
+        try (final var preparedStatement = connection.prepareStatement("EXECUTE CONTINUATION ?param")) {
+            preparedStatement.setMaxRows(1);
+            preparedStatement.setBytes("param", continuation.serialize());
+            try (var resultSet = preparedStatement.executeQuery()) {
+                Assertions.assertTrue(resultSet.next());
+                Assertions.assertEquals(3L, resultSet.getLong(1));
+                continuation = resultSet.getContinuation();
+            }
+        }
+        try (final var preparedStatement = connection.prepareStatement("EXECUTE CONTINUATION ?param")) {
+            preparedStatement.setMaxRows(1);
+            preparedStatement.setBytes("param", continuation.serialize());
+            try (var resultSet = preparedStatement.executeQuery()) {
+                Assertions.assertFalse(resultSet.next());
+            }
+        }
+    }
+
+    @Test
+    void testOldThenNewWorks() throws Exception {
+        Continuation continuation;
+        try (final var s = connection.createStatement()) {
+            s.setMaxRows(1);
+            try (var resultSet = s.executeQuery("select count(*) from t2 group by col2")) {
+                Assertions.assertTrue(resultSet.next());
+                Assertions.assertEquals(1L, resultSet.getLong(1));
+                continuation = resultSet.getContinuation();
+            }
+        }
+        connection.setOption(Options.Name.KEYVALUE_CURSOR_CONTINUATION_SERIALIZE_TO_NEW, true);
+        try (final var preparedStatement = connection.prepareStatement("EXECUTE CONTINUATION ?param")) {
+            preparedStatement.setMaxRows(1);
+            preparedStatement.setBytes("param", continuation.serialize());
+            try (var resultSet = preparedStatement.executeQuery()) {
+                Assertions.assertTrue(resultSet.next());
+                Assertions.assertEquals(3L, resultSet.getLong(1));
+                continuation = resultSet.getContinuation();
+            }
+        }
+        try (final var preparedStatement = connection.prepareStatement("EXECUTE CONTINUATION ?param")) {
+            preparedStatement.setMaxRows(1);
+            preparedStatement.setBytes("param", continuation.serialize());
+            try (var resultSet = preparedStatement.executeQuery()) {
+                Assertions.assertFalse(resultSet.next());
+            }
+        }
+    }
+
+    private static Stream<Arguments> failedQueries() {
         return Stream.of(
                 // aggregate-index-count.yamsql
                 Arguments.of("select count(*) from t1", 4L),
