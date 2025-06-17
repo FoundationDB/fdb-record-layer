@@ -60,7 +60,7 @@ public class ExpressionCountProperty implements ExpressionProperty<Integer> {
     @Nonnull
     @Override
     public ExpressionCountVisitor createVisitor() {
-        return new ExpressionCountVisitor(filter, isTracked);
+        return new ExpressionCountVisitor(filter, this);
     }
 
     public int evaluate(@Nonnull final Reference reference) {
@@ -84,12 +84,13 @@ public class ExpressionCountProperty implements ExpressionProperty<Integer> {
     public static class ExpressionCountVisitor implements RelationalExpressionVisitorWithDefaults<Integer> {
         @Nonnull
         private final Predicate<? super RelationalExpression> filter;
-        private final boolean isTracked;
+        @Nonnull
+        private final ExpressionCountProperty property;
 
         private ExpressionCountVisitor(@Nonnull Predicate<? super RelationalExpression> filter,
-                                       final boolean isTracked) {
+                                       ExpressionCountProperty property) {
             this.filter = filter;
-            this.isTracked = isTracked;
+            this.property = property;
         }
 
         @Nonnull
@@ -110,9 +111,9 @@ public class ExpressionCountProperty implements ExpressionProperty<Integer> {
         private int forReference(@Nonnull final Reference reference) {
             final var finalExpressions = reference.getFinalExpressions();
             Verify.verify(finalExpressions.size() == 1);
-            if (isTracked) {
+            if (property.isTracked) {
                 final var memberResults =
-                        reference.getPropertyForExpressions(SELECT_COUNT).values();
+                        reference.getPropertyForExpressions(property).values();
                 return Iterables.getOnlyElement(memberResults);
             }
             return visit(Iterables.getOnlyElement(finalExpressions));

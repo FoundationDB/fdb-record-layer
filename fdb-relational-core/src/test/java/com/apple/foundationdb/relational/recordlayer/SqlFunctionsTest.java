@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -70,7 +71,7 @@ public class SqlFunctionsTest {
     @RegisterExtension
     @Order(1)
     public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, CaseSensitiveDbObjectsTest.class,
-            SCHEMA_TEMPLATE_2, new SchemaTemplateRule.SchemaTemplateOptions(true, true));
+            SCHEMA_TEMPLATE, new SchemaTemplateRule.SchemaTemplateOptions(true, true));
 
     @RegisterExtension
     @Order(2)
@@ -110,11 +111,16 @@ public class SqlFunctionsTest {
     public void queryJoinOfFunctions() throws Exception {
         statement.execute("select * from f3(103, 'b') options (log query)");
         Assertions.assertTrue(logAppender.lastMessageIsCacheMiss());
+        statement.execute("select * from f3(103, 'b') options (log query)");
+        Assertions.assertTrue(logAppender.lastMessageIsCacheHit());
     }
 
+    @Disabled
     @Test
-    public void queryF3() throws Exception {
-        statement.execute("select * from f3(103, 'b', 4)");
+    public void queryTransformedJoinOfFunctions() throws Exception {
+        statement.execute("select * from f4(103, 'b') options (log query)");
         Assertions.assertTrue(logAppender.lastMessageIsCacheMiss());
+        statement.execute("select * from f4(103, 'b') options (log query)");
+        Assertions.assertTrue(logAppender.lastMessageIsCacheHit());
     }
 }

@@ -100,11 +100,11 @@ test_block:
       - result: [{W: 101, X: 'b', Y: 101, Z: 'b'}, {W: 102, X: 'b', Y: 102, Z: 'b'}]
     -
       - query: with x(y, z) as (select * from f1(b => 'b', a => 103)) select * from x
-      - explain: "TF range(0l, promote(1l AS LONG), STEP 1l) | FLATMAP q0 -> { ISCAN(T1_IDX1 [EQUALS promote(@c17 AS STRING), [LESS_THAN promote(promote(@c21 AS LONG) AS LONG)]]) AS q1 RETURN (q1.COL1 AS Y, q1.COL2 AS Z) }"
+      - explain: "COVERING(T1_IDX1 [EQUALS promote(@c17 AS STRING), [LESS_THAN promote(promote(@c21 AS LONG) AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS Y, _.COL2 AS Z)"
       - result: [{101, 'b'}, {102, 'b'}]
     -
       - query: with x(y, z) as (select * from f1(103, 'b')) select * from x
-      - explain: "TF range(0l, promote(1l AS LONG), STEP 1l) | FLATMAP q0 -> { ISCAN(T1_IDX1 [EQUALS promote(@c17 AS STRING), [LESS_THAN promote(promote(@c15 AS LONG) AS LONG)]]) AS q1 RETURN (q1.COL1 AS Y, q1.COL2 AS Z) }"
+      - explain: "COVERING(T1_IDX1 [EQUALS promote(@c17 AS STRING), [LESS_THAN promote(promote(@c15 AS LONG) AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS Y, _.COL2 AS Z)"
       - result: [{101, 'b'}, {102, 'b'}]
     -
       - query: select * from t2 where exists (select * from f2(t2.z))
@@ -116,19 +116,19 @@ test_block:
       - result: [{10, 14, 1}, {11, 16, 1}]
     -
       - query: select * from f3(103, 'b', 4)
-      - explain: "ISCAN(T1_IDX1 <,>) | FLATMAP q0 -> { TF range(0l, promote(1l AS LONG), STEP 1l) | FLATMAP q1 -> { TF range(0l, promote(1l AS LONG), STEP 1l) AS q2 RETURN (1 AS _0) } | FLATMAP q3 -> { TF range(0l, promote(1l AS LONG), STEP 1l) AS q4 RETURN (1 AS _0) } | FLATMAP q5 -> { ISCAN(T1_IDX1 [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(promote(@c6 AS LONG) AS LONG)]]) AS q6 RETURN q6 } | FILTER promote(q0.COL3 AS LONG) EQUALS promote(promote(@c10 AS LONG) AS LONG) AS q6 RETURN (q6.COL1 AS COL1, q6.COL2 AS COL2, q0.COL3 AS COL3) }"
+      - explain: "ISCAN(T1_IDX1 <,>) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(promote(@c6 AS LONG) AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | FILTER promote(q0.COL3 AS LONG) EQUALS promote(promote(@c10 AS LONG) AS LONG) | FETCH AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2, q0.COL3 AS COL3) }"
       - result: [{101, 'b', 4}, {102, 'b', 4}]
     -
       - query: select * from f3(103, 'b', 4)
-      - explain: "ISCAN(T1_IDX1 <,>) | FLATMAP q0 -> { TF range(0l, promote(1l AS LONG), STEP 1l) | FLATMAP q1 -> { TF range(0l, promote(1l AS LONG), STEP 1l) AS q2 RETURN (1 AS _0) } | FLATMAP q3 -> { TF range(0l, promote(1l AS LONG), STEP 1l) AS q4 RETURN (1 AS _0) } | FLATMAP q5 -> { ISCAN(T1_IDX1 [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(promote(@c6 AS LONG) AS LONG)]]) AS q6 RETURN q6 } | FILTER promote(q0.COL3 AS LONG) EQUALS promote(promote(@c10 AS LONG) AS LONG) AS q6 RETURN (q6.COL1 AS COL1, q6.COL2 AS COL2, q0.COL3 AS COL3) }"
+      - explain: "ISCAN(T1_IDX1 <,>) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(promote(@c6 AS LONG) AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | FILTER promote(q0.COL3 AS LONG) EQUALS promote(promote(@c10 AS LONG) AS LONG) | FETCH AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2, q0.COL3 AS COL3) }"
       - result: [{101, 'b', 4}, {102, 'b', 4}]
     -
       - query: select * from f4(103, 'b', 2, 2)
-      - explain: "ISCAN(T1_IDX1 [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(promote(@c6 AS LONG) AS LONG)]]) | FLATMAP q0 -> { TF range(0l, promote(1l AS LONG), STEP 1l) | FLATMAP q1 -> { TF range(0l, promote(1l AS LONG), STEP 1l) AS q2 RETURN (1 AS _0) } | FLATMAP q3 -> { ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3 AS LONG) EQUALS promote(promote(promote(@c10 AS LONG) + promote(@c10 AS LONG) AS LONG) AS LONG) AS q4 RETURN q4 } | FLATMAP q4 -> { TF range(0l, promote(1l AS LONG), STEP 1l) | FLATMAP q6 -> { TF range(0l, promote(1l AS LONG), STEP 1l) AS q7 RETURN (1 AS _0) } AS q8 RETURN q4 } AS q4 RETURN (q0.COL1 AS COL1, q0.COL2 AS COL2, q4.COL3 AS COL3) }"
+      - explain: "ISCAN(T1_IDX1 <,>) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(promote(@c6 AS LONG) AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | FILTER promote(q0.COL3 AS LONG) EQUALS promote(promote(promote(@c10 AS LONG) + promote(@c10 AS LONG) AS LONG) AS LONG) | FETCH AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2, q0.COL3 AS COL3) }"
       - result: [{101, 'b', 4}, {102, 'b', 4}]
     -
       - query: select * from f4(a => 103, b => 'b', c => 2, d => 2)
-      - explain: "ISCAN(T1_IDX1 [EQUALS promote(@c12 AS STRING), [LESS_THAN promote(promote(@c8 AS LONG) AS LONG)]]) | FLATMAP q0 -> { TF range(0l, promote(1l AS LONG), STEP 1l) | FLATMAP q1 -> { TF range(0l, promote(1l AS LONG), STEP 1l) AS q2 RETURN (1 AS _0) } | FLATMAP q3 -> { ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3 AS LONG) EQUALS promote(promote(promote(@c16 AS LONG) + promote(@c16 AS LONG) AS LONG) AS LONG) AS q4 RETURN q4 } | FLATMAP q4 -> { TF range(0l, promote(1l AS LONG), STEP 1l) | FLATMAP q6 -> { TF range(0l, promote(1l AS LONG), STEP 1l) AS q7 RETURN (1 AS _0) } AS q8 RETURN q4 } AS q4 RETURN (q0.COL1 AS COL1, q0.COL2 AS COL2, q4.COL3 AS COL3) }"
+      - explain: "ISCAN(T1_IDX1 <,>) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(@c12 AS STRING), [LESS_THAN promote(promote(@c8 AS LONG) AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | FILTER promote(q0.COL3 AS LONG) EQUALS promote(promote(promote(@c16 AS LONG) + promote(@c16 AS LONG) AS LONG) AS LONG) | FETCH AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2, q0.COL3 AS COL3) }"
       - result: [{101, 'b', 4}, {102, 'b', 4}]
     -
       - query: select * from f5();

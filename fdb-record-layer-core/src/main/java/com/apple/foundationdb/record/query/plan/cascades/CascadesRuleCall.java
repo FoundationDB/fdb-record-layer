@@ -349,6 +349,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
             final var expressionToReferenceMap = new LinkedIdentityMap<RelationalExpression, Reference>();
             referencePathsList.stream()
                     .flatMap(Collection::stream)
+                    .filter(path -> path.getReference().getPlannerStage() == plannerPhase.getTargetPlannerStage() && path.getReference().isExploratory(path.getExpression()))
                     .forEach(referencePath -> {
                         final var referencingExpression = referencePath.getExpression();
                         if (expressionToReferenceMap.containsKey(referencingExpression)) {
@@ -364,6 +365,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
             final List<Set<RelationalExpression>> referencingExpressions = referencePathsList.stream()
                     .map(referencePaths ->
                             referencePaths.stream()
+                                    .filter(path -> path.getReference().getPlannerStage() == plannerPhase.getTargetPlannerStage() && path.getReference().isExploratory(path.getExpression()))
                                     .map(Traversal.ReferencePath::getExpression)
                                     .collect(LinkedIdentitySet.toLinkedIdentitySet()))
                     .collect(ImmutableList.toImmutableList());
@@ -414,6 +416,9 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
             final var leafRefs = traversal.getLeafReferences();
 
             for (final var leafRef : leafRefs) {
+                if (leafRef.getPlannerStage() != plannerPhase.getTargetPlannerStage()) {
+                    continue;
+                }
                 if (leafRef.containsAllInMemo(expressions, AliasMap.emptyMap(), false)) {
                     for (RelationalExpression expression : expressions) {
                         Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.reusedExp(expression)));

@@ -2,8 +2,8 @@ primary-key-tests:
 -   query: EXPLAIN SELECT COUNT(*) FROM T1
     explain: SCAN(<,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL
         | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
-    task_count: 277
-    task_total_time_ms: 3
+    task_count: 281
+    task_total_time_ms: 2
     transform_count: 77
     transform_time_ms: 1
     transform_yield_count: 18

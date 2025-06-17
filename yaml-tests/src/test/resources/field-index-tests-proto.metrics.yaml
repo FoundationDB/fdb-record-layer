@@ -4,7 +4,7 @@ field-index-tests-proto:
     explain: SCAN([EQUALS promote(@c23 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*)
         AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)
-    task_count: 402
+    task_count: 415
     task_total_time_ms: 15
     transform_count: 122
     transform_time_ms: 2
@@ -15,10 +15,10 @@ field-index-tests-proto:
 -   query: EXPLAIN select sum(COL1) from "MyTable";
     explain: SCAN(<,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL
         | MAP (_._0._0 AS _0)
-    task_count: 277
-    task_total_time_ms: 12
+    task_count: 281
+    task_total_time_ms: 10
     transform_count: 77
-    transform_time_ms: 1
+    transform_time_ms: 2
     transform_yield_count: 18
     insert_time_ms: 0
     insert_new_count: 24
@@ -26,8 +26,8 @@ field-index-tests-proto:
 -   query: EXPLAIN select count(COL1) from "MyTable";
     explain: SCAN(<,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY NULL
         | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
-    task_count: 277
-    task_total_time_ms: 5
+    task_count: 281
+    task_total_time_ms: 7
     transform_count: 77
     transform_time_ms: 1
     transform_yield_count: 18

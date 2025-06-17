@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionPartition;
@@ -41,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
@@ -135,43 +135,45 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
                 //
                 // Mergeable. Add the child quantifiers in the old one's place and scoop up any predicates.
                 //
-                AliasMap.Builder remappedChildAliasBuilder = AliasMap.builder();
+                AliasMap.Builder childAliasMapBuilder = AliasMap.builder();
                 for (Quantifier childQun : childSelectExpression.getQuantifiers()) {
                     if (!newQunAliases.add(childQun.getAlias())) {
+                        //
+                        // Check if the same quantifier alias appears in multiple children of
+                        // childSelectExpression. If one does, we need to assign a new alias
+                        // to it. Choose one here
+                        //
                         CorrelationIdentifier newAlias = Quantifier.uniqueID();
-                        remappedChildAliasBuilder.put(childQun.getAlias(), newAlias);
+                        childAliasMapBuilder.put(childQun.getAlias(), newAlias);
                         newQunAliases.add(newAlias);
                     }
                 }
-                final TranslationMap remappedChildAliasTranslation = TranslationMap.rebaseWithAliasMap(remappedChildAliasBuilder.build());
-                if (remappedChildAliasTranslation.definesOnlyIdentities()) {
+                final TranslationMap childAliasMap = TranslationMap.rebaseWithAliasMap(childAliasMapBuilder.build());
+                if (childAliasMap.definesOnlyIdentities()) {
+                    // No conflicts with other child aliases. Pull things up directly
                     newQuantifiers.addAll(childSelectExpression.getQuantifiers());
                     newPredicates.addAll(childSelectExpression.getPredicates());
                 } else {
+                    // At least one child needs to be rewritten. Rebase the children on top of the new name
                     final List<Reference> oldChildRefs = childSelectExpression.getQuantifiers().stream().map(Quantifier::getRangesOver).collect(ImmutableList.toImmutableList());
-                    final List<? extends Reference> newChildRefs = References.rebaseGraphs(oldChildRefs, (Memoizer) call, remappedChildAliasTranslation, false);
-                    Streams.zip(childSelectExpression.getQuantifiers().stream(), newChildRefs.stream(), NonnullPair::of)
-                            .map((pair) -> {
-                                Quantifier oldChildQun = pair.getLeft();
-                                CorrelationIdentifier targetAlias = remappedChildAliasTranslation.getTargetOrDefault(oldChildQun.getAlias(), oldChildQun.getAlias());
-                                return oldChildQun.overNewReference(pair.getRight(), targetAlias);
-                            })
-                            .forEach(newQuantifiers::add);
+                    final List<? extends Reference> newChildRefs = References.rebaseGraphs(oldChildRefs, (Memoizer) call, childAliasMap, false);
+                    Streams.zip(childSelectExpression.getQuantifiers().stream(), newChildRefs.stream(), (oldChildQun, ref) -> {
+                        CorrelationIdentifier targetAlias = childAliasMap.getTargetOrDefault(oldChildQun.getAlias(), oldChildQun.getAlias());
+                        return oldChildQun.overNewReference(ref, targetAlias);
+                    }).forEachOrdered(newQuantifiers::add);
                     childSelectExpression.getPredicates().stream()
-                            .map(predicate -> predicate.translateCorrelations(remappedChildAliasTranslation, false))
+                            .map(predicate -> predicate.translateCorrelations(childAliasMap, false))
                             .forEach(newPredicates::add);
                 }
                 translationBuilder.when(alias)
                         .then((ignored1, ignored2) ->
-                                childSelectExpression.getResultValue().translateCorrelations(remappedChildAliasTranslation));
+                                childSelectExpression.getResultValue().translateCorrelations(childAliasMap));
                 atLeastOneQuantifierIsMergeable = true;
             } else {
                 //
                 // Not mergeable. Grab all final expressions and create a new reference.
                 //
-                if (!newQunAliases.add(quantifier.getAlias())) {
-                    throw new RecordCoreException("duplicated alias: " + quantifier.getAlias());
-                }
+                Verify.verify(newQunAliases.add(quantifier.getAlias()), "alias %s duplicated in pulled up children", quantifier.getAlias());
                 final var childReference = quantifier.getRangesOver();
                 final var newChildReference =
                         call.memoizeFinalExpressionsFromOther(childReference, childReference.getFinalExpressions());
