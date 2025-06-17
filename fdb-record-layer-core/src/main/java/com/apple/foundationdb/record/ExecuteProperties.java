@@ -119,8 +119,9 @@ public class ExecuteProperties {
         return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun, kvCursorContSerializeToNew);
     }
 
-    public boolean isKvCursorContSerializeToNew() {return kvCursorContSerializeToNew;}
-
+    public boolean isKvCursorContSerializeToNew() {
+        return kvCursorContSerializeToNew;
+    }
 
     /**
      * Get the limit on the number of rows that will be returned as it would be passed to FDB.
