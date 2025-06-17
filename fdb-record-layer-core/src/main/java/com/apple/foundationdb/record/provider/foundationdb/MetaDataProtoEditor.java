@@ -36,6 +36,8 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * A helper class for mutating the meta-data proto.
@@ -98,6 +100,13 @@ public class MetaDataProtoEditor {
                 .setName("_" + newRecordType.getName())
                 .setNumber(assignFieldNumber(unionBuilder));
         unionBuilder.addField(fieldBuilder);
+    }
+
+    @Nonnull
+    public static List<String> getRecordTypes(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder) {
+        return metaDataBuilder.getRecordTypesBuilderList().stream()
+                .map(RecordMetaDataProto.RecordType.Builder::getName)
+                .collect(Collectors.toList());
     }
 
     @Nonnull
@@ -409,6 +418,14 @@ public class MetaDataProtoEditor {
         }
         if (!found) {
             throw new MetaDataException("Record type " + recordType + " not found");
+        }
+    }
+
+    public static void renameRecordTypes(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder,
+                                         @Nonnull Function<String, String> renamer) {
+        for (final String recordType : MetaDataProtoEditor.getRecordTypes(metaDataBuilder)) {
+            MetaDataProtoEditor.renameRecordType(metaDataBuilder,
+                    recordType, renamer.apply(recordType));
         }
     }
 

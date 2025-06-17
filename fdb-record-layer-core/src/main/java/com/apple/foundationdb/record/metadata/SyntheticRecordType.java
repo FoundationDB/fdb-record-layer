@@ -37,6 +37,9 @@ import java.util.concurrent.CompletableFuture;
  * A <i>synthetic</i> record type is made up of other record types and not actually stored separately in the record store.
  * It can, however, be indexed, by passing it to an {@link com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer}
  * that will evaluate {@link KeyExpression}s against it.
+ * Note: If you are adding a new implementation of this, check out {@link TypeRenamer} to make sure it will
+ * appropriately update the type names in the synthetic type.
+ *
  * @param <C> type of constituent record types
  */
 @API(API.Status.EXPERIMENTAL)

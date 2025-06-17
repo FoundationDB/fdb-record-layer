@@ -304,8 +304,9 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         fillUnionFields(processExtensionOptions);
     }
 
+    @API(API.Status.INTERNAL)
     @Nonnull
-    private static Descriptors.Descriptor fetchUnionDescriptor(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
+    public static Descriptors.Descriptor fetchUnionDescriptor(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
         @Nullable Descriptors.Descriptor union = null;
         for (Descriptors.Descriptor descriptor : fileDescriptor.getMessageTypes()) {
             RecordMetaDataOptionsProto.RecordTypeOptions recordTypeOptions = descriptor.getOptions()
@@ -381,14 +382,20 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             throw new MetaDataException("Records already set.");
         }
         // Build the recordDescriptor by de-serializing the metaData proto
+        final Descriptors.FileDescriptor[] dependencies = getDependencies(metaDataProto, this.explicitDependencies);
+        loadFromProto(metaDataProto, dependencies, processExtensionOptions);
+        return this;
+    }
+
+    @API(API.Status.INTERNAL)
+    public static Descriptors.FileDescriptor[] getDependencies(@Nonnull final RecordMetaDataProto.MetaData metaDataProto,
+                                                                @Nonnull final Map<String, Descriptors.FileDescriptor> explicitDependencies1) {
         Map<String, DescriptorProtos.FileDescriptorProto> protoDependencies = new TreeMap<>();
         for (DescriptorProtos.FileDescriptorProto dependency : metaDataProto.getDependenciesList()) {
             protoDependencies.put(dependency.getName(), dependency);
         }
         Map<String, Descriptors.FileDescriptor> generatedDependencies = initGeneratedDependencies(protoDependencies);
-        Descriptors.FileDescriptor[] dependencies = getDependencies(metaDataProto.getRecords(), generatedDependencies, protoDependencies);
-        loadFromProto(metaDataProto, dependencies, processExtensionOptions);
-        return this;
+        return getDependencies(metaDataProto.getRecords(), generatedDependencies, protoDependencies, explicitDependencies1);
     }
 
     /**
@@ -582,9 +589,10 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         return this;
     }
 
-    private Descriptors.FileDescriptor[] getDependencies(@Nonnull DescriptorProtos.FileDescriptorProto proto,
-                                                         @Nonnull Map<String, Descriptors.FileDescriptor> generatedDependencies,
-                                                         @Nonnull Map<String, DescriptorProtos.FileDescriptorProto> protoDependencies) {
+    private static Descriptors.FileDescriptor[] getDependencies(@Nonnull DescriptorProtos.FileDescriptorProto proto,
+                                                                @Nonnull Map<String, Descriptors.FileDescriptor> generatedDependencies,
+                                                                @Nonnull Map<String, DescriptorProtos.FileDescriptorProto> protoDependencies,
+                                                                @Nonnull Map<String, Descriptors.FileDescriptor> explicitDependencies1) {
         if (proto.getDependencyCount() == 0) {
             return emptyDependencyList;
         }
@@ -592,16 +600,16 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         Descriptors.FileDescriptor[] dependencies = new Descriptors.FileDescriptor[proto.getDependencyCount()];
         for (int index = 0; index < proto.getDependencyCount(); index++) {
             String key = proto.getDependency(index);
-            if (this.explicitDependencies.containsKey(key)) {
+            if (explicitDependencies1.containsKey(key)) {
                 // Provided by caller.
-                dependencies[index] = this.explicitDependencies.get(key);
+                dependencies[index] = explicitDependencies1.get(key);
             } else if (generatedDependencies.containsKey(key)) {
                 // Generated already.
                 dependencies[index] = generatedDependencies.get(key);
             } else if (protoDependencies.containsKey(key)) {
                 // Not seen before. Build it.
                 DescriptorProtos.FileDescriptorProto dependency = protoDependencies.get(key);
-                dependencies[index] = buildFileDescriptor(dependency, getDependencies(dependency, generatedDependencies, protoDependencies));
+                dependencies[index] = buildFileDescriptor(dependency, getDependencies(dependency, generatedDependencies, protoDependencies, explicitDependencies1));
                 generatedDependencies.put(key, dependencies[index]);
             } else {
                 // Unknown dependency.
@@ -937,8 +945,9 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         }
     }
 
-    private static Descriptors.FileDescriptor buildFileDescriptor(@Nonnull DescriptorProtos.FileDescriptorProto fileDescriptorProto,
-                                                                  @Nonnull Descriptors.FileDescriptor[] dependencies) {
+    @API(API.Status.INTERNAL)
+    public static Descriptors.FileDescriptor buildFileDescriptor(@Nonnull DescriptorProtos.FileDescriptorProto fileDescriptorProto,
+                                                                 @Nonnull Descriptors.FileDescriptor[] dependencies) {
         try {
             return Descriptors.FileDescriptor.buildFrom(fileDescriptorProto, dependencies);
         } catch (Descriptors.DescriptorValidationException ex) {
