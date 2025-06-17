@@ -44,6 +44,7 @@ public class TypeRenamer {
 
     public void modify(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder,
                        @Nonnull Descriptors.FileDescriptor[] dependencies) {
+        // TODO this doesn't work well if there are other types with the same name
         final DescriptorProtos.FileDescriptorProto.Builder protoFile = metaDataBuilder.getRecordsBuilder();
         final Descriptors.FileDescriptor fileDescriptor = RecordMetaDataBuilder.buildFileDescriptor(metaDataBuilder.getRecords(), dependencies);
         final Descriptors.Descriptor unionDescriptor = RecordMetaDataBuilder.fetchUnionDescriptor(fileDescriptor);
@@ -95,7 +96,11 @@ public class TypeRenamer {
                 constituent.setRecordType(getNewName(nameMapping, constituent.getRecordType()));
             }
         }
-        // TODO error if there are userDefined functions
+        // fail if there are user defined functions because those might be an arbitrary SQL function, and we don't
+        // want to have to parse and process the string
+        if (metaDataBuilder.getUserDefinedFunctionsCount() > 0) {
+            throw new MetaDataException("Cannot rename types if there are user defined functions");
+        }
     }
 
     @Nonnull
