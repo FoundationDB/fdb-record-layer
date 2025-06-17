@@ -115,12 +115,16 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
 
     @Override
     public boolean canResultInType(@Nonnull final Type type) {
-        return resultType.getTypeCode() == Type.TypeCode.NULL;
+        return resultType.getTypeCode() == Type.TypeCode.NULL ||
+                (resultType.isNullable() && resultType.equals(type.nullable()));
     }
 
     @Nonnull
     @Override
     public Value with(@Nonnull final Type type) {
+        if (getResultType().equals(type)) {
+            return this;
+        }
         Verify.verify(canResultInType(type));
         return ConstantObjectValue.of(alias, constantId, type);
     }

@@ -36,6 +36,8 @@ import java.util.Set;
 @SuppressWarnings("java:S1452")
 public class DefaultValueSimplificationRuleSet extends AbstractValueRuleSet<Value, ValueSimplificationRuleCall> {
     @Nonnull
+    protected static final ValueSimplificationRule<? extends Value> dereferenceConstantObjectValueRule = new DereferenceConstantObjectValueRule();
+    @Nonnull
     protected static final ValueSimplificationRule<? extends Value> composeFieldValueOverRecordConstructorRule = new ComposeFieldValueOverRecordConstructorRule();
     @Nonnull
     protected static final ValueSimplificationRule<? extends Value> composeFieldValueOverFieldValueRule = new ComposeFieldValueOverFieldValueRule();
@@ -43,10 +45,14 @@ public class DefaultValueSimplificationRuleSet extends AbstractValueRuleSet<Valu
     protected static final ValueSimplificationRule<? extends Value> collapseRecordConstructorOverFieldsToStarRule = new CollapseRecordConstructorOverFieldsToStarRule();
     @Nonnull
     protected static final Set<ValueSimplificationRule<? extends Value>> SIMPLIFICATION_RULES =
-            ImmutableSet.of(composeFieldValueOverRecordConstructorRule, composeFieldValueOverFieldValueRule, collapseRecordConstructorOverFieldsToStarRule);
+            ImmutableSet.of(dereferenceConstantObjectValueRule, composeFieldValueOverRecordConstructorRule,
+                    composeFieldValueOverFieldValueRule, collapseRecordConstructorOverFieldsToStarRule);
     @Nonnull
     protected static final SetMultimap<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>> SIMPLIFICATION_DEPENDS_ON =
-            ImmutableSetMultimap.of();
+            ImmutableSetMultimap.of(
+                    composeFieldValueOverRecordConstructorRule, dereferenceConstantObjectValueRule,
+                    composeFieldValueOverFieldValueRule, dereferenceConstantObjectValueRule,
+                    collapseRecordConstructorOverFieldsToStarRule, dereferenceConstantObjectValueRule);
 
     @Nonnull
     private static final DefaultValueSimplificationRuleSet INSTANCE = new DefaultValueSimplificationRuleSet();

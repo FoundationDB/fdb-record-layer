@@ -23,7 +23,10 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
@@ -41,6 +44,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcher.typed;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcherWithExtractAndDownstream.typedWithDownstream;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcherWithPredicate.typedMatcherWithPredicate;
 
 /**
  * Matchers for descendants of {@link Value}.
@@ -59,6 +63,28 @@ public class ValueMatchers {
     @Nonnull
     public static BindingMatcher<FieldValue> anyFieldValue() {
         return typed(FieldValue.class);
+    }
+
+    @Nonnull
+    public static BindingMatcher<ConstantObjectValue> anyConstantObjectValue() {
+        return typed(ConstantObjectValue.class);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Nonnull
+    public static BindingMatcher<LiteralValue<Boolean>> anyBooleanLiteralValue() {
+        return typedMatcherWithPredicate((Class<LiteralValue<Boolean>>)(Class<?>)LiteralValue.class,
+                t -> t.getResultType().getTypeCode() == Type.TypeCode.BOOLEAN);
+    }
+
+    @Nonnull
+    public static BindingMatcher<NullValue> nullValue() {
+        return typed(NullValue.class);
+    }
+
+    @Nonnull
+    public static BindingMatcher<Value> anyNotNullValue() {
+        return typedMatcherWithPredicate(Value.class, value -> !value.getResultType().isNullable());
     }
 
     @Nonnull

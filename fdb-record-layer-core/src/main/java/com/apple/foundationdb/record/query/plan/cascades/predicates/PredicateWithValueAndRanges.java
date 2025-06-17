@@ -58,6 +58,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -240,20 +241,30 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
     @Override
     public Optional<PredicateWithValueAndRanges> translateValueAndComparisonsMaybe(@Nonnull final Function<Value, Optional<Value>> valueTranslator,
                                                                                    @Nonnull final Function<Comparisons.Comparison, Optional<Comparisons.Comparison>> comparisonTranslator) {
+        final AtomicBoolean allSame = new AtomicBoolean(true);
         final var newValueOptional = Verify.verifyNotNull(valueTranslator.apply(this.getValue()));
         if (newValueOptional.isEmpty()) {
             return Optional.empty();
         }
+        if (newValueOptional.get() != this.getValue()) {
+            allSame.set(false);
+        }
         final var newValue = newValueOptional.get();
         final var newRangesBuilder = ImmutableSet.<RangeConstraints>builder();
+
         for (final var range : ranges) {
             final var newRangeOptional = range.translateRanges(comparisonTranslator);
             if (newRangeOptional.isEmpty()) {
                 return Optional.empty();
             }
+            if (newRangeOptional.get() != range) {
+                allSame.set(false);
+            }
             newRangesBuilder.add(newRangeOptional.get());
         }
-
+        if (allSame.get()) {
+            return Optional.of(this);
+        }
         return Optional.of(withValueAndRanges(newValue, newRangesBuilder.build()));
     }
 

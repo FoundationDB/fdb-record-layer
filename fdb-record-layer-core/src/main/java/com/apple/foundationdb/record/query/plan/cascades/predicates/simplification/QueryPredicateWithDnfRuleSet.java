@@ -39,7 +39,7 @@ public class QueryPredicateWithDnfRuleSet extends DefaultQueryPredicateRuleSet {
 
     protected static final Set<QueryPredicateSimplificationRule<? extends QueryPredicate>> COMPUTATION_WITH_DNF_RULES =
             ImmutableSet.<QueryPredicateSimplificationRule<? extends QueryPredicate>>builder()
-                    .addAll(COMPUTATION_RULES)
+                    .addAll(SIMPLIFICATION_RULES)
                     .add(dnfRule)
                     .build();
 
@@ -48,9 +48,9 @@ public class QueryPredicateWithDnfRuleSet extends DefaultQueryPredicateRuleSet {
     static {
         final var computationDependsOnBuilder =
                 ImmutableSetMultimap.<QueryPredicateSimplificationRule<? extends QueryPredicate>, QueryPredicateSimplificationRule<? extends QueryPredicate>>builder();
-        computationDependsOnBuilder.putAll(COMPUTATION_DEPENDS_ON);
+        computationDependsOnBuilder.putAll(SIMPLIFICATION_DEPENDS_ON);
 
-        COMPUTATION_RULES.forEach(existingRule -> computationDependsOnBuilder.put(existingRule, dnfRule));
+        SIMPLIFICATION_RULES.forEach(existingRule -> computationDependsOnBuilder.put(existingRule, dnfRule));
         COMPUTATION_WITH_DNF_DEPENDS_ON = computationDependsOnBuilder.build();
     }
 
@@ -63,7 +63,8 @@ public class QueryPredicateWithDnfRuleSet extends DefaultQueryPredicateRuleSet {
         super(abstractQueryPredicateRules, dependsOn);
     }
 
-    public static QueryPredicateWithDnfRuleSet ofComputationRules() {
+    @Nonnull
+    public static QueryPredicateWithDnfRuleSet ofSimplificationRules() {
         return new QueryPredicateWithDnfRuleSet();
     }
 }

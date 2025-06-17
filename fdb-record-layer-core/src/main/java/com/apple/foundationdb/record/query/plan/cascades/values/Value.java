@@ -438,7 +438,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     }
 
     @Nonnull
-    default Optional<Value> promoteToTypeMaybe(@Nonnull final Type type) {
+    default Optional<Value> overrideTypeMaybe(@Nonnull final Type type) {
         if (canResultInType(type)) {
             return Optional.of(with(type));
         }

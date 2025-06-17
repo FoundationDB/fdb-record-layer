@@ -295,7 +295,7 @@ public class QueryPredicateTest {
                 EvaluationContext.empty(),
                 AliasMap.emptyMap(),
                 ImmutableSet.of(),
-                DefaultQueryPredicateRuleSet.ofComputationRules());
+                DefaultQueryPredicateRuleSet.ofSimplificationRules());
 
         assertTrue(result.get().equals(p1));
     }
@@ -314,7 +314,7 @@ public class QueryPredicateTest {
                 EvaluationContext.empty(),
                 AliasMap.emptyMap(),
                 ImmutableSet.of(),
-                DefaultQueryPredicateRuleSet.ofComputationRules());
+                DefaultQueryPredicateRuleSet.ofSimplificationRules());
 
         final var notP1 = new ValuePredicate(a, new Comparisons.SimpleComparison(Comparisons.Type.NOT_EQUALS, "Hello"));
         final var notP2 = new ValuePredicate(b, new Comparisons.SimpleComparison(Comparisons.Type.NOT_EQUALS, "World"));
@@ -339,11 +339,11 @@ public class QueryPredicateTest {
 
         final var constrainedCnfPredicate =
                 Simplification.optimize(predicate, EvaluationContext.empty(), AliasMap.emptyMap(), ImmutableSet.of(),
-                        QueryPredicateWithCnfRuleSet.ofComputationRules());
+                        QueryPredicateWithCnfRuleSet.ofSimplificationRules());
         final var constrainedDnfPredicate =
                 Simplification.optimize(constrainedCnfPredicate.get(), EvaluationContext.empty(), AliasMap.emptyMap(),
                         ImmutableSet.of(),
-                        QueryPredicateWithDnfRuleSet.ofComputationRules());
+                        QueryPredicateWithDnfRuleSet.ofSimplificationRules());
         assertTrue(constrainedDnfPredicate.get().equals(predicate));
     }
 
@@ -363,7 +363,7 @@ public class QueryPredicateTest {
         final var expectedSimplifiedPredicate = or(restnoGtC1PlusC2, nameEqFoo);
         final var simplifiedPredicate =
                 Simplification.optimize(predicate, EvaluationContext.empty(), AliasMap.emptyMap(), ImmutableSet.of(),
-                        QueryPredicateWithDnfRuleSet.ofComputationRules()).get();
+                        QueryPredicateWithDnfRuleSet.ofSimplificationRules()).get();
         assertEquals(expectedSimplifiedPredicate, simplifiedPredicate);
     }
 
@@ -388,7 +388,7 @@ public class QueryPredicateTest {
 
         final var simplifiedPredicate =
                 Simplification.optimize(predicate, EvaluationContext.empty(), AliasMap.emptyMap(), ImmutableSet.of(),
-                        QueryPredicateWithDnfRuleSet.ofComputationRules()).get();
+                        QueryPredicateWithDnfRuleSet.ofSimplificationRules()).get();
         assertEquals(expectedSimplifiedPredicate, simplifiedPredicate);
     }
 }
