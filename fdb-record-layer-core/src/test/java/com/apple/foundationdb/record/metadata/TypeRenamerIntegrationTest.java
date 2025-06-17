@@ -27,10 +27,11 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import java.io.IOException;
 import java.util.Map;
@@ -39,23 +40,34 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TypeRenamerIntegrationTest extends FDBRecordStoreTestBase {
 
-    @Test
-    void readAfterRename() throws IOException {
+    @ParameterizedTest
+    @BooleanSource("readWithRenamed")
+    void mixedModeReadWrite(boolean readWithRenamed) throws IOException {
         final RecordMetaDataProto.MetaData.Builder builder = TypeRenamerUnitTest.loadMetaData("OneBoringType.json");
         final RecordMetaData originalMetaData = RecordMetaData.build(builder.build());
 
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, () -> originalMetaData);
-            saveDynamicRecord(originalMetaData, "T1", Map.of("ID", 1L));
             commit(context);
         }
+
         new TypeRenamer(oldName -> oldName + "__X")
                 .modify(builder, RecordMetaDataBuilder.getDependencies(builder.build(), Map.of()));
         final RecordMetaData newMetaData = RecordMetaData.build(builder.build());
+        final RecordMetaData writeMetaData = readWithRenamed ? originalMetaData : newMetaData;
+        final RecordMetaData readMetaData = readWithRenamed ? newMetaData : originalMetaData;
+        String readTypeName = readWithRenamed ? "T1__X" : "T1";
+        String writeTypeName = readWithRenamed ? "T1" : "T1__X";
+
         try (FDBRecordContext context = openContext()) {
-            createOrOpenRecordStore(context, () -> newMetaData);
+            createOrOpenRecordStore(context, () -> writeMetaData);
+            saveDynamicRecord(writeMetaData, writeTypeName, Map.of("ID", 1L));
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, () -> readMetaData);
             final FDBStoredRecord<Message> record = recordStore.loadRecord(Tuple.from(1L));
-            assertEquals("T1__X", record.getRecordType().getName());
+            assertEquals(readTypeName, record.getRecordType().getName());
         }
     }
 
