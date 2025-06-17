@@ -42,10 +42,10 @@ import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-class TypeRenamerTest {
+class TypeRenamerUnitTest {
 
-    private RecordMetaDataProto.MetaData.Builder loadMetaData(@Nonnull String name) throws IOException {
-        try (@Nullable InputStream input = getClass().getResourceAsStream("/" + name);
+    public static RecordMetaDataProto.MetaData.Builder loadMetaData(@Nonnull String name) throws IOException {
+        try (@Nullable InputStream input = TypeRenamerUnitTest.class.getResourceAsStream("/" + name);
                 InputStreamReader reader = new InputStreamReader(Objects.requireNonNull(input,
                         () -> "No resource: " + name))) {
             RecordMetaDataProto.MetaData.Builder builder = RecordMetaDataProto.MetaData.newBuilder();
