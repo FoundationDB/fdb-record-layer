@@ -33,10 +33,8 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.GetResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.InsertRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.InsertResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.Parameter;
-import com.apple.foundationdb.relational.jdbc.grpc.v1.Parameters;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ScanRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ScanResponse;
-import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementResponse;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import io.grpc.StatusRuntimeException;
@@ -176,23 +174,7 @@ class JDBCRelationalStatement implements RelationalStatement {
             throws SQLException {
         checkOpen();
         // Punt on transaction/autocommit consideration for now (autocommit==true).
-        StatementResponse statementResponse;
-        try {
-            StatementRequest.Builder builder = StatementRequest.newBuilder()
-                    .setSql(sql).setDatabase(this.connection.getDatabase()).setSchema(this.connection.getSchema()).setOptions(optionsAsProto());
-            if (parameters != null) {
-                builder.setParameters(Parameters.newBuilder().addAllParameter(parameters).build());
-            }
-            statementResponse = this.connection.getStub().execute(builder.build());
-        } catch (StatusRuntimeException statusRuntimeException) {
-            // Is this incoming statusRuntimeException carrying a SQLException?
-            SQLException sqlException = GrpcSQLExceptionUtil.map(statusRuntimeException);
-            if (sqlException == null) {
-                throw statusRuntimeException;
-            }
-            throw sqlException;
-        }
-        return statementResponse;
+        return this.connection.execute(sql, optionsAsProto(), parameters);
     }
 
     @Override

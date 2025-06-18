@@ -27,13 +27,23 @@ import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.jdbc.grpc.GrpcConstants;
+import com.apple.foundationdb.relational.jdbc.grpc.GrpcSQLExceptionUtil;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.CommitRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.DatabaseMetaDataRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.JDBCServiceGrpc;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.Parameter;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.Parameters;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.RollbackRequest;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementRequest;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementResponse;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.TransactionalRequest;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import io.grpc.StatusRuntimeException;
 import io.grpc.inprocess.InProcessChannelBuilder;
+import io.grpc.stub.StreamObserver;
 
 import javax.annotation.Nonnull;
 import java.io.Closeable;
@@ -48,6 +58,7 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Struct;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -89,6 +100,19 @@ class JDBCRelationalConnection implements RelationalConnection {
     private final String database;
     private String schema;
     private final JDBCServiceGrpc.JDBCServiceBlockingStub blockingStub;
+    private final JDBCServiceGrpc.JDBCServiceStub asyncStub;
+    /**
+     * stream used to send transactional requests to the server.
+     * Only active when autocommit is OFF
+      */
+    private StreamObserver<TransactionalRequest> requestSender;
+    /**
+     * Handler for server transactional responses.
+     * Used to receive and buffer the results, synchronizing response after
+     * requests have been sent.
+     */
+    private ServerResponseHandler serverResponses;
+
     /**
      * If inprocess, this will be set and needs to be called on close.
      * Its an in-process server instance started by us.
@@ -96,7 +120,7 @@ class JDBCRelationalConnection implements RelationalConnection {
     private Closeable closeable;
 
     @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "Should consider refactoring but throwing exceptions for now")
-    JDBCRelationalConnection(URI uri) {
+    JDBCRelationalConnection(URI uri) throws SQLException {
         this.database = uri.getPath();
         Map<String, List<String>> queryParams = JDBCURI.splitQuery(uri);
         this.schema = JDBCURI.getFirstValue("schema", queryParams);
@@ -121,6 +145,9 @@ class JDBCRelationalConnection implements RelationalConnection {
             this.managedChannel = InProcessChannelBuilder.forName(server).directExecutor().build();
         }
         this.blockingStub = JDBCServiceGrpc.newBlockingStub(managedChannel);
+        this.asyncStub = JDBCServiceGrpc.newStub(managedChannel);
+
+        // this.setAutoCommit(false);
     }
 
     /**
@@ -157,8 +184,45 @@ class JDBCRelationalConnection implements RelationalConnection {
         return serverName;
     }
 
+    // TODO: This needs to go away as it breaks the abstraction of the connection (and prevents it from internally managing transactions)
     JDBCServiceGrpc.JDBCServiceBlockingStub getStub() {
         return this.blockingStub;
+    }
+
+    public StatementResponse execute(String sql, com.apple.foundationdb.relational.jdbc.grpc.v1.Options options, Collection<Parameter> parameters) throws SQLException {
+        try {
+            StatementRequest.Builder builder = StatementRequest.newBuilder()
+                    .setSql(sql)
+                    .setDatabase(getDatabase()) // TODO: for transactional execution these are not required
+                    .setSchema(getSchema())
+                    .setOptions(options);
+            if (parameters != null) {
+                builder.setParameters(Parameters.newBuilder().addAllParameter(parameters).build());
+            }
+
+            if (getAutoCommit()) {
+                // execute using synchronous RPC call using a single transaction
+                return getStub().execute(builder.build());
+            } else {
+                // Use the stateful sender to send the requests as part of a transaction
+                TransactionalRequest.Builder transactionRequest = TransactionalRequest.newBuilder()
+                                .setExecuteRequest(builder);
+                requestSender.onNext(transactionRequest.build());
+                // TODO: verify the correct response type
+                // Wait here until a response arrives
+                return serverResponses.getResponse().getExecuteResponse();
+            }
+        } catch (StatusRuntimeException statusRuntimeException) {
+            // TODO: If we get DQL exception we should throw and continue, right?
+            // TODO: On other errors, should we close the connection?
+
+            // Is this incoming statusRuntimeException carrying a SQLException?
+            SQLException sqlException = GrpcSQLExceptionUtil.map(statusRuntimeException);
+            if (sqlException == null) {
+                throw statusRuntimeException;
+            }
+            throw sqlException;
+        }
     }
 
     /**
@@ -189,10 +253,25 @@ class JDBCRelationalConnection implements RelationalConnection {
 
     @Override
     public void setAutoCommit(boolean autoCommit) throws SQLException {
-        if (!autoCommit) {
-            throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
+        if (autoCommit == getAutoCommit()) {
+            return;
         }
         this.autoCommit = autoCommit;
+
+        if (!autoCommit) {
+            // Create handlers for requests and responses (as local state, they will stay around)
+            serverResponses = new ServerResponseHandler();
+            requestSender = asyncStub.handleAutoCommitOff(serverResponses);
+        } else {
+            if (requestSender != null) {
+                // Commit any remaining requests
+                commit();
+                // finalize and close existing connection
+                requestSender.onCompleted();
+            }
+            serverResponses = null;
+            requestSender = null;
+        }
     }
 
     @Override
@@ -250,6 +329,16 @@ class JDBCRelationalConnection implements RelationalConnection {
         }
         this.closed = true;
         try {
+            if (requestSender != null) {
+                // rollback uncommitted changes if closed with some remaining work
+                // todo: this should probably move to the server side
+                // todo: probably add "dirty" flag to avoid commit/rollback if no work pending
+                rollback();
+                requestSender.onCompleted();
+            }
+            serverResponses = null;
+            requestSender = null;
+
             managedChannel.shutdown();
             managedChannel.awaitTermination(10, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
@@ -316,14 +405,50 @@ class JDBCRelationalConnection implements RelationalConnection {
     @Override
     @ExcludeFromJacocoGeneratedReport
     public void commit() throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented",
-                ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        try {
+            if (getAutoCommit()) {
+                throw new SQLException("Commit cannot be called when auto commit is ON");
+            } else {
+                TransactionalRequest.Builder transactionRequest = TransactionalRequest.newBuilder()
+                        .setCommitRequest(CommitRequest.newBuilder().build());
+                requestSender.onNext(transactionRequest.build());
+                // TODO: verify the correct response type
+                serverResponses.getResponse();
+            }
+        } catch (StatusRuntimeException statusRuntimeException) {
+            // TODO: Close connection on unrecoverable error?
+
+            // Is this incoming statusRuntimeException carrying a SQLException?
+            SQLException sqlException = GrpcSQLExceptionUtil.map(statusRuntimeException);
+            if (sqlException == null) {
+                throw statusRuntimeException;
+            }
+            throw sqlException;
+        }
     }
 
     @Override
     public void rollback() throws SQLException {
-        throw new SQLFeatureNotSupportedException("Not implemented",
-                ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        try {
+            if (getAutoCommit()) {
+                throw new SQLException("Rollback cannot be called when auto commit is ON");
+            } else {
+                TransactionalRequest.Builder transactionRequest = TransactionalRequest.newBuilder()
+                        .setRollbackRequest(RollbackRequest.newBuilder().build());
+                requestSender.onNext(transactionRequest.build());
+                // TODO: verify the correct response type
+                serverResponses.getResponse();
+            }
+        } catch (StatusRuntimeException statusRuntimeException) {
+            // TODO: Close connection on unrecoverable error?
+
+            // Is this incoming statusRuntimeException carrying a SQLException?
+            SQLException sqlException = GrpcSQLExceptionUtil.map(statusRuntimeException);
+            if (sqlException == null) {
+                throw statusRuntimeException;
+            }
+            throw sqlException;
+        }
     }
 
     @Override
