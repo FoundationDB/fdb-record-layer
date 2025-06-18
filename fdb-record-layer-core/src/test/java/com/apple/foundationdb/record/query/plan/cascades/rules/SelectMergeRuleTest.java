@@ -557,7 +557,7 @@ class SelectMergeRuleTest {
 
         final Quantifier unionQun = forEach(new LogicalUnionExpression(ImmutableList.of(
                 forEach(selectWithPredicates(t1, ImmutableList.of("a", "b", "c"), fieldPredicate(t1, "b", GREATER_THAN_HELLO))),
-                forEach(selectWithPredicates(t2, ImmutableList.of("a", "b", "c"), fieldPredicate(t1, "a", EQUALS_42)))
+                forEach(selectWithPredicates(t2, ImmutableList.of("a", "b", "c"), fieldPredicate(t2, "a", EQUALS_42)))
         )));
 
         final Quantifier t3 = baseT();
@@ -565,7 +565,7 @@ class SelectMergeRuleTest {
         final Quantifier filterGQun = forEach(selectWithPredicates(explodeGQun, ImmutableList.of("two", "three"),
                 fieldPredicate(explodeGQun, "one", new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))));
 
-        final SelectExpression select = join(unionQun, filterGQun)
+        final SelectExpression select = join(t3, unionQun, filterGQun)
                 .addResultColumn(projectColumn(unionQun, "a"))
                 .addResultColumn(projectColumn(unionQun, "b"))
                 .addResultColumn(projectColumn(unionQun, "c"))
@@ -574,7 +574,7 @@ class SelectMergeRuleTest {
                 .addPredicate(fieldPredicate(unionQun, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(filterGQun, "two"))))
                 .build().buildSelect();
 
-        final SelectExpression merged = join(unionQun, explodeGQun)
+        final SelectExpression merged = join(t3, unionQun, explodeGQun)
                 .addResultColumn(projectColumn(unionQun, "a"))
                 .addResultColumn(projectColumn(unionQun, "b"))
                 .addResultColumn(projectColumn(unionQun, "c"))

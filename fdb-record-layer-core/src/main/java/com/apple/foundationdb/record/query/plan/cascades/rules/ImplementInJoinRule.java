@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ParameterValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.InComparandSource;
@@ -383,6 +384,7 @@ public class ImplementInJoinRule extends ImplementationCascadesRule<SelectExpres
     private static boolean isSupportedExplodeValue(@Nonnull final Value explodeValue) {
         return explodeValue instanceof LiteralValue<?> ||
                 explodeValue instanceof QuantifiedObjectValue ||
+                explodeValue instanceof ParameterValue ||
                 explodeValue.isConstant();
     }
 
@@ -414,6 +416,11 @@ public class ImplementInJoinRule extends ImplementationCascadesRule<SelectExpres
             }
         } else if (explodeValue instanceof QuantifiedObjectValue) {
             final var alias = ((QuantifiedObjectValue)explodeValue).getAlias().getId();
+            return attemptedSortOrder == null
+                   ? new InParameterSource(bindingName, alias)
+                   : new SortedInParameterSource(bindingName, alias, attemptedSortOrder.isAnyDescending()); // TODO needs to distinguish between different descending orders
+        } else if (explodeValue instanceof ParameterValue) {
+            final var alias = ((ParameterValue)explodeValue).getBindingName();
             return attemptedSortOrder == null
                    ? new InParameterSource(bindingName, alias)
                    : new SortedInParameterSource(bindingName, alias, attemptedSortOrder.isAnyDescending()); // TODO needs to distinguish between different descending orders

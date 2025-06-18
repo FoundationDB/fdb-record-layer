@@ -88,6 +88,13 @@ public class RecursiveUnionExpression implements RelationalExpressionWithChildre
 
     @Nonnull
     @Override
+    public Set<CorrelationIdentifier> getLocallyVisibleAliases() {
+        return ImmutableSet.of(tempTableInsertAlias, tempTableScanAlias, initialStateQuantifier.getAlias(),
+                recursiveStateQuantifier.getAlias());
+    }
+
+    @Nonnull
+    @Override
     public Value getResultValue() {
         return resultValue;
     }

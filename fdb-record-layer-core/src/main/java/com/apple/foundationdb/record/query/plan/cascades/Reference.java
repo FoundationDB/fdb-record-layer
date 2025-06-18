@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.HeuristicPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
@@ -40,6 +41,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.SetMultimap;
+import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 import javax.annotation.Nonnull;
@@ -706,6 +708,132 @@ public class Reference implements Correlated<Reference>, Typed {
     @SuppressWarnings("UnusedReturnValue")
     public boolean addPartialMatchForCandidate(final MatchCandidate candidate, final PartialMatch partialMatch) {
         return partialMatchMap.put(candidate, partialMatch);
+    }
+
+    public void verifyCorrelationsForNewExpression(@Nonnull final Traversal traversal,
+                                                   @Nonnull final RelationalExpression expression,
+                                                   @Nonnull final EvaluationContext evaluationContext) {
+        final Set<CorrelationIdentifier> correlatedToWithoutChildren;
+        if (expression instanceof RelationalExpressionWithChildren) {
+            correlatedToWithoutChildren = ((RelationalExpressionWithChildren)expression).getCorrelatedToWithoutChildren();
+        } else {
+            correlatedToWithoutChildren = expression.getCorrelatedTo();
+        }
+
+        final var visibleThroughEvaluationContext = evaluationContext.getBindings().getBoundCorrelationAliases();
+        final var locallyVisibleAliases = expression.getLocallyVisibleAliases();
+
+        final var currentResolvedCorrelatedToBuilder =
+                ImmutableSet.<CorrelationIdentifier>builder();
+        final var currentUnresolvedCorrelatedToBuilder =
+                ImmutableSet.<CorrelationIdentifier>builder();
+        for (final var unresolvedAlias : correlatedToWithoutChildren) {
+            if (visibleThroughEvaluationContext.contains(unresolvedAlias) ||
+                    locallyVisibleAliases.contains(unresolvedAlias)) {
+                currentResolvedCorrelatedToBuilder.add(unresolvedAlias);
+            } else {
+                // still unresolved
+                currentUnresolvedCorrelatedToBuilder.add(unresolvedAlias);
+            }
+        }
+
+        final var currentUnresolvedCorrelatedTo =
+                currentUnresolvedCorrelatedToBuilder.build();
+        final var currentResolvedCorrelatedTo =
+                currentResolvedCorrelatedToBuilder.build();
+
+        final var parentRefPaths = traversal.getParentRefPaths(this);
+
+        if (parentRefPaths.isEmpty()) {
+            Verify.verify(currentUnresolvedCorrelatedTo.isEmpty(), "unresolved aliases: " + currentUnresolvedCorrelatedTo);
+        } else {
+            for (final var parentRefPath : parentRefPaths) {
+                final var parentReference = parentRefPath.getReference();
+                parentReference.verifyCorrelationsForNewExpressionRecursive(traversal, parentRefPath.getExpression(),
+                        parentRefPath.getQuantifier(), currentUnresolvedCorrelatedTo, currentResolvedCorrelatedTo);
+            }
+        }
+    }
+
+    private void verifyCorrelationsForNewExpressionRecursive(@Nonnull final Traversal traversal,
+                                                             @Nonnull final RelationalExpression expression,
+                                                             @Nonnull final Quantifier quantifier,
+                                                             @Nonnull final Set<CorrelationIdentifier> unresolvedCorrelatedTo,
+                                                             @Nonnull final Set<CorrelationIdentifier> resolvedCorrelatedTo) {
+
+        final Set<CorrelationIdentifier> localVisibleAliases;
+        if (expression.canCorrelate()) {
+            final var allLocallyVisibleAliases = expression.getLocallyVisibleAliases();
+            Verify.verify(allLocallyVisibleAliases.contains(quantifier.getAlias()));
+            localVisibleAliases =
+                    Sets.difference(allLocallyVisibleAliases, ImmutableSet.of(quantifier.getAlias()));
+        } else {
+            localVisibleAliases = ImmutableSet.of();
+        }
+
+        final var intersection = Sets.intersection(localVisibleAliases, resolvedCorrelatedTo);
+        Verify.verify(intersection.isEmpty(), "ambiguous aliases: " + intersection);
+        final var currentResolvedCorrelatedToBuilder =
+                ImmutableSet.<CorrelationIdentifier>builder();
+        currentResolvedCorrelatedToBuilder.addAll(resolvedCorrelatedTo);
+
+        final var currentUnresolvedCorrelatedToBuilder =
+                ImmutableSet.<CorrelationIdentifier>builder();
+        for (final var unresolvedAlias : unresolvedCorrelatedTo) {
+            if (localVisibleAliases.contains(unresolvedAlias)) {
+                currentResolvedCorrelatedToBuilder.add(unresolvedAlias);
+            } else {
+                // still unresolved
+                currentUnresolvedCorrelatedToBuilder.add(unresolvedAlias);
+            }
+        }
+
+        final var currentUnresolvedCorrelatedTo =
+                currentUnresolvedCorrelatedToBuilder.build();
+        final var currentResolvedCorrelatedTo =
+                currentResolvedCorrelatedToBuilder.build();
+
+        final var parentRefPaths = traversal.getParentRefPaths(this);
+
+        if (parentRefPaths.isEmpty()) {
+            Verify.verify(currentUnresolvedCorrelatedTo.isEmpty(), "unresolved aliases: " +
+                    currentUnresolvedCorrelatedTo);
+        } else {
+            for (final var parentRefPath : parentRefPaths) {
+                final var parentReference = parentRefPath.getReference();
+                parentReference.verifyCorrelationsForNewExpressionRecursive(traversal,
+                        parentRefPath.getExpression(), parentRefPath.getQuantifier(), currentUnresolvedCorrelatedTo,
+                        currentResolvedCorrelatedTo);
+            }
+        }
+    }
+
+    public void verifyCorrelationsRecursive(@Nonnull final Set<CorrelationIdentifier> visibleAliases) {
+        for (final var expression : getAllMemberExpressions()) {
+            final var locallyVisibleAliases = expression.getLocallyVisibleAliases();
+            final var intersection = Sets.intersection(visibleAliases, locallyVisibleAliases);
+            Verify.verify(intersection.isEmpty(), "ambiguous aliases: ", intersection);
+
+            final var allVisibleAliases = Sets.union(visibleAliases, locallyVisibleAliases);
+            final Set<CorrelationIdentifier> correlatedToWithoutChildren;
+            if (expression instanceof RelationalExpressionWithChildren) {
+                correlatedToWithoutChildren = ((RelationalExpressionWithChildren)expression).getCorrelatedToWithoutChildren();
+            } else {
+                correlatedToWithoutChildren = expression.getCorrelatedTo();
+            }
+            final var difference = Sets.difference(correlatedToWithoutChildren, allVisibleAliases);
+            Verify.verify(difference.isEmpty(), "unresolved aliases: " + difference);
+
+            for (final var quantifier : expression.getQuantifiers()) {
+                final var lowerReference = quantifier.getRangesOver();
+                if (expression.canCorrelate()) {
+                    lowerReference.verifyCorrelationsRecursive(Sets.difference(allVisibleAliases,
+                            ImmutableSet.of(quantifier.getAlias())));
+                } else {
+                    lowerReference.verifyCorrelationsRecursive(visibleAliases);
+                }
+            }
+        }
     }
 
     /**

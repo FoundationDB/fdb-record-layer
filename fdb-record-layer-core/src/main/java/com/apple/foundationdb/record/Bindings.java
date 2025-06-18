@@ -22,15 +22,20 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.planprotos.PParameterComparison.PBindingKind;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.util.pair.Pair;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * A map of bound parameter values passed to query evaluation.
@@ -117,9 +122,13 @@ public class Bindings {
 
     public static final Bindings EMPTY_BINDINGS = new Bindings();
 
+    @Nonnull
+    private Supplier<Set<CorrelationIdentifier>> boundCorrelationAliasesSupplier;
+
     private Bindings(@Nullable Bindings parent) {
         this.values = new HashMap<>();
         this.parent = parent;
+        this.boundCorrelationAliasesSupplier = Suppliers.memoize(this::computeBoundCorrelationAliases);
     }
 
     public Bindings() {
@@ -163,6 +172,20 @@ public class Bindings {
             resultBuilder.addAll(parent.asMappingList());
         }
         return resultBuilder.build();
+    }
+
+    @Nonnull
+    public Set<CorrelationIdentifier> getBoundCorrelationAliases() {
+        return boundCorrelationAliasesSupplier.get();
+    }
+
+    @Nonnull
+    private Set<CorrelationIdentifier> computeBoundCorrelationAliases() {
+        return asMappingList()
+                .stream()
+                .filter(entry -> Bindings.Internal.CORRELATION.isOfType(entry.getKey()))
+                .map(entry -> CorrelationIdentifier.of(Bindings.Internal.CORRELATION.identifier(entry.getKey())))
+                .collect(ImmutableSet.toImmutableSet());
     }
 
     @Override

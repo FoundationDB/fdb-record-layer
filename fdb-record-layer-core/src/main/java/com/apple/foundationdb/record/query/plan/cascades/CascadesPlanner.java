@@ -405,6 +405,11 @@ public class CascadesPlanner implements QueryPlanner {
                              @Nonnull final Function<Reference, PlanContext> contextCreatorFunction,
                              @Nonnull final EvaluationContext evaluationContext) {
         this.currentRoot = referenceSupplier.get();
+
+        // run sanity check to make sure that all aliases handed in can be uniquely resolved
+        Debugger.sanityCheck(() ->
+                currentRoot.verifyCorrelationsRecursive(evaluationContext.getBindings().getBoundCorrelationAliases()));
+
         this.planContext = contextCreatorFunction.apply(currentRoot);
         this.evaluationContext = evaluationContext;
 

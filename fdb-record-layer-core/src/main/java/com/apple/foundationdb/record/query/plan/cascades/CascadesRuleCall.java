@@ -215,7 +215,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
     }
 
     private void yieldExpression(@Nonnull final RelationalExpression expression, final boolean isFinal) {
-        verifyChildrenMemoized(expression);
+        validateNewExpression(expression);
         if (isFinal) {
             if (root.insertFinalExpression(expression)) {
                 newFinalExpressions.add(expression);
@@ -227,6 +227,12 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
                 traversal.addExpression(root, expression);
             }
         }
+    }
+
+    protected void validateNewExpression(@Nonnull final RelationalExpression expression) {
+        Debugger.sanityCheck(() -> verifyChildrenMemoized(expression));
+        Debugger.sanityCheck(() -> getRoot().verifyCorrelationsForNewExpression(traversal, expression,
+                getEvaluationContext()));
     }
 
     private void verifyChildrenMemoized(@Nonnull RelationalExpression expression) {

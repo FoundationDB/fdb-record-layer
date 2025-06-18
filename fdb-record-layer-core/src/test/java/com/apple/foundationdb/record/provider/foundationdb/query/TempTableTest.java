@@ -71,9 +71,9 @@ public class TempTableTest extends TempTableTestBase {
     void scanTempTableWorksCorrectly() throws Exception {
         try (FDBRecordContext context = openContext()) {
             // select id, value from <tempTable>.
-            final var tempTable = tempTableInstance();
             final var tempTableId = CorrelationIdentifier.uniqueID();
-            final var plan = createAndOptimizeTempTableScanPlan(tempTableId);
+            final var tempTable = tempTableInstance();
+            final var plan = createAndOptimizeTempTableScanPlan(tempTableId, tempTable);
             addSampleDataToTempTable(tempTable);
             final var expectedResults = ImmutableList.of(Pair.of(42L, "fortySecondValue"),
                     Pair.of(45L, "fortyFifthValue"));
@@ -95,7 +95,9 @@ public class TempTableTest extends TempTableTestBase {
                     .addQuantifier(tempTableScanQun);
             final var logicalPlan = Reference.initialOf(LogicalSortExpression.unsorted(Quantifier.forEach(Reference.initialOf(selectExpressionBuilder.build().buildSelect()))));
             final var cascadesPlanner = (CascadesPlanner)planner;
-            final var plan = cascadesPlanner.planGraph(() -> logicalPlan, Optional.empty(), IndexQueryabilityFilter.TRUE, EvaluationContext.empty()).getPlan();
+            final var compilationEvaluationContext = putTempTableInContext(tempTableId, tempTable, EvaluationContext.empty());
+            final var plan = cascadesPlanner.planGraph(() -> logicalPlan,
+                    Optional.empty(), IndexQueryabilityFilter.TRUE, compilationEvaluationContext).getPlan();
             assertMatchesExactly(plan, mapPlan(predicatesFilterPlan(tempTableScanPlan()).where(predicates(only(valuePredicate(fieldValueWithFieldNames("id"),
                     new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 44L)))))));
             assertEquals(ImmutableList.of(Pair.of(42L, "fortySecondValue")), collectResults(context, plan, tempTable, tempTableId));
@@ -118,14 +120,15 @@ public class TempTableTest extends TempTableTestBase {
             final var insertPlan = Reference.initialOf(LogicalSortExpression.unsorted(qun));
 
             final var cascadesPlanner = (CascadesPlanner)planner;
+            final var compilationEvaluationContext = putTempTableInContext(tempTableId, tempTable, EvaluationContext.empty());
             var plan = cascadesPlanner.planGraph(() -> insertPlan, Optional.empty(),
-                    IndexQueryabilityFilter.TRUE, EvaluationContext.empty()).getPlan();
+                    IndexQueryabilityFilter.TRUE, compilationEvaluationContext).getPlan();
             assertMatchesExactly(plan,  tempTableInsertPlan(explodePlan()));
             final var evaluationContext = putTempTableInContext(tempTableId, tempTable, null);
             fetchResultValues(context, plan, Function.identity(), evaluationContext, c -> { }, ExecuteProperties.SERIAL_EXECUTE);
 
             // select id, value from tq1 | tq1 is a temporary table.
-            plan = createAndOptimizeTempTableScanPlan(tempTableId);
+            plan = createAndOptimizeTempTableScanPlan(tempTableId, tempTable);
             assertEquals(ImmutableList.of(Pair.of(1L, "first"),
                     Pair.of(2L, "second")), collectResults(context, plan, tempTable, tempTableId));
         }
@@ -149,8 +152,9 @@ public class TempTableTest extends TempTableTestBase {
             final var insertPlan = Reference.initialOf(LogicalSortExpression.unsorted(qun));
 
             final var cascadesPlanner = (CascadesPlanner)planner;
+            final var compilationEvaluationContext = putTempTableInContext(tempTableId, tempTable, EvaluationContext.empty());
             planToResume = cascadesPlanner.planGraph(() -> insertPlan, Optional.empty(),
-                    IndexQueryabilityFilter.TRUE, EvaluationContext.empty()).getPlan();
+                    IndexQueryabilityFilter.TRUE, compilationEvaluationContext).getPlan();
             assertMatchesExactly(planToResume, tempTableInsertPlan(explodePlan()));
             final var evaluationContext = setUpPlanContext(planToResume, tempTableId, tempTable);
             try (RecordCursorIterator<QueryResult> cursor = planToResume.executePlan(recordStore, evaluationContext,
@@ -190,7 +194,7 @@ public class TempTableTest extends TempTableTestBase {
             tempTable.add(queryResult(2L, "two"));
             tempTable.add(queryResult(3L, "three"));
             tempTable.add(queryResult(4L, "four"));
-            planToResume = createAndOptimizeTempTableScanPlan(tempTableId);
+            planToResume = createAndOptimizeTempTableScanPlan(tempTableId, tempTable);
             final var evaluationContext = setUpPlanContext(planToResume, tempTableId, tempTable);
 
             // Read the first two elements "one", "two".

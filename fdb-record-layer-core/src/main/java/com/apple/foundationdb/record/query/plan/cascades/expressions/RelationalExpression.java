@@ -260,6 +260,11 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
         return PartiallyOrderedSet.empty();
     }
 
+    @Nonnull
+    default Set<CorrelationIdentifier> getLocallyVisibleAliases() {
+        return Quantifiers.aliases(getQuantifiers());
+    }
+
     boolean equalsWithoutChildren(@Nonnull RelationalExpression other,
                                   @Nonnull AliasMap equivalences);
 

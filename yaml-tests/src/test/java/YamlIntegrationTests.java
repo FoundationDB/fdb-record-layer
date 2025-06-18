@@ -245,6 +245,7 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAINS)
     public void recursiveCte(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("recursive-cte.yamsql");
     }
