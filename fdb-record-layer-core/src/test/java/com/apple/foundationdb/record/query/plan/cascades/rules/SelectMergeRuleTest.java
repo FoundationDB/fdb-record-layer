@@ -55,7 +55,6 @@ import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQuery
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.forEachWithNullOnEmpty;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.projectColumn;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.selectWithPredicates;
-import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.valuesQun;
 import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.EQUALS_42;
 import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.EQUALS_PARAM;
 import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.GREATER_THAN_HELLO;
@@ -63,6 +62,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.b
 import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.baseTau;
 import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.explodeField;
 import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.join;
+import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.valuesQun;
 
 /**
  * Tests of the {@link SelectMergeRule}.

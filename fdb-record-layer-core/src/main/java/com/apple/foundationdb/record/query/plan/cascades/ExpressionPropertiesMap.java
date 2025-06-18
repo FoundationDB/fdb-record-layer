@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Verify;
@@ -284,7 +283,7 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
     @Nonnull
     public static ExpressionPropertiesMap<RelationalExpression> defaultForRewritePhase() {
         return new ExpressionPropertiesMap<>(RelationalExpression.class,
-                ImmutableSet.of(CardinalitiesProperty.cardinalities()),
+                ImmutableSet.of(),
                 ImmutableSet.of(ExpressionCountProperty.selectCount(), ExpressionCountProperty.tableFunctionCount()),
                 ImmutableList.of());
     }

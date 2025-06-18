@@ -139,8 +139,10 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpression> {
     // TODO: This could use filtered expression partitions, but we have to make modifications to the test infrastructure to ensure there are final children
     @Nonnull
-    private static final BindingMatcher<TableFunctionExpression> baseExpressionMatcher = TypedMatcherWithPredicate.typedMatcherWithPredicate(TableFunctionExpression.class,
-            expr -> CardinalitiesProperty.Cardinalities.exactlyOne().equals(CardinalitiesProperty.cardinalities().evaluate(expr)));
+    private static final BindingMatcher<Quantifier.ForEach> rangeOneMatcher = forEachQuantifierWithoutDefaultOnEmptyOverRef(
+            TypedMatcherWithPredicate.typedMatcherWithPredicate(Reference.class,
+                    ref -> ref.getAllMemberExpressions().stream().anyMatch(expr -> expr instanceof TableFunctionExpression && CardinalitiesProperty.Cardinalities.exactlyOne().equals(CardinalitiesProperty.cardinalities().evaluate(expr))))
+    );
 
     // Conditions for a "values box":
     //  1. Select expression over a single for each quantifier with no predicates.
@@ -149,9 +151,13 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
     //      -> Validated by the downstream baseExpressionMatcher
     //  3. The select's result value is not correlated to its input
     //      -> Validated by the predicate in the matcher below
+    //
+    // Note: this currently matches each values box. That means that if we have multiple variations,
+    // we'll end up pushing down the values box for each variation. We may want to have this
+    // choose the "best" variation to avoid over-exploration
     @Nonnull
     private static final BindingMatcher<SelectExpression> valuesExpressionMatcher = AllOfMatcher.matchingAllOf(SelectExpression.class,
-            selectExpression(empty(), only(forEachQuantifierWithoutDefaultOnEmptyOverRef(exploratoryMember(baseExpressionMatcher)))),
+            selectExpression(empty(), only(rangeOneMatcher)),
             TypedMatcherWithPredicate.typedMatcherWithPredicate(
                     SelectExpression.class,
                     expr -> {
