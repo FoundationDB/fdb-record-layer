@@ -23,11 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades.predicates.simplificat
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
@@ -68,7 +64,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * </ul>
  */
 @API(API.Status.EXPERIMENTAL)
-public class ConstantFoldingBooleanLiteralsRule extends QueryPredicateSimplificationRule<ValuePredicate> {
+public class ConstantFoldingValuePredicateRule extends QueryPredicateSimplificationRule<ValuePredicate> implements ConstantPredicateFoldingTrait {
 
     @Nonnull
     private static final BindingMatcher<Comparisons.Comparison> comparisonMatcher = anyComparison();
@@ -79,80 +75,16 @@ public class ConstantFoldingBooleanLiteralsRule extends QueryPredicateSimplifica
     @Nonnull
     private static final BindingMatcher<ValuePredicate> rootMatcher = valuePredicate(comparandMatcher, comparisonMatcher);
 
-    public ConstantFoldingBooleanLiteralsRule() {
+    public ConstantFoldingValuePredicateRule() {
         super(rootMatcher);
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public void onMatch(@Nonnull final QueryPredicateSimplificationRuleCall call) {
         final var root = call.getBindings().get(rootMatcher);
         final var comparison = call.getBindings().get(comparisonMatcher);
-        final var comparisonType = comparison.getType();
         final var lhsValue = root.getValue();
-
         final var lhsOperand = lhsValue.evalWithoutStore(call.getEvaluationContext());
-
-        if (comparisonType.isUnary()) {
-            switch (comparisonType) {
-                case IS_NULL:
-                    if (lhsOperand == null) {
-                        call.yieldResult(ConstantPredicate.TRUE);
-                    } else {
-                        call.yieldResult(ConstantPredicate.FALSE);
-                    }
-                    break;
-                case NOT_NULL:
-                    if (lhsOperand == null) {
-                        call.yieldResult(ConstantPredicate.FALSE);
-                    } else {
-                        call.yieldResult(ConstantPredicate.TRUE);
-                    }
-                    break;
-                default:
-                    return;
-            }
-        }
-
-        if (!(comparison instanceof Comparisons.ValueComparison)) {
-            return;
-        }
-
-        final var valueComparison = (Comparisons.ValueComparison)comparison;
-        final var rhsValue = valueComparison.getValue();
-
-        if (rhsValue instanceof NullValue ||
-                rhsValue.getResultType().getTypeCode() == Type.TypeCode.BOOLEAN && rhsValue instanceof LiteralValue<?>) {
-
-            final Object rhsOperand;
-            if (rhsValue instanceof NullValue) {
-                rhsOperand = null;
-            } else {
-                rhsOperand = ((LiteralValue<Boolean>)rhsValue).getLiteralValue();
-            }
-
-            switch (comparisonType) {
-                case EQUALS:
-                    if (lhsOperand == null || rhsOperand == null) {
-                        call.yieldResult(ConstantPredicate.NULL);
-                    } else if (lhsOperand == rhsOperand) {
-                        call.yieldResult(ConstantPredicate.TRUE);
-                    } else {
-                        call.yieldResult(ConstantPredicate.FALSE);
-                    }
-                    break;
-                case NOT_EQUALS:
-                    if (lhsOperand == null || rhsOperand == null) {
-                        call.yieldResult(ConstantPredicate.NULL);
-                    } else if (lhsOperand != rhsOperand) {
-                        call.yieldResult(ConstantPredicate.TRUE);
-                    } else {
-                        call.yieldResult(ConstantPredicate.FALSE);
-                    }
-                    break;
-                default:
-                    break;
-            }
-        }
+        foldComparisonMaybe(lhsOperand, comparison).ifPresent(call::yieldResult);
     }
 }

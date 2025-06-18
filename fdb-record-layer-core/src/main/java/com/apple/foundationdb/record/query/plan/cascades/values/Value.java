@@ -473,8 +473,24 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     default Value simplify(@Nonnull final EvaluationContext evaluationContext,
                            @Nonnull final AliasMap aliasMap,
                            @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+        return simplify(evaluationContext, aliasMap, constantAliases, DefaultValueSimplificationRuleSet.instance());
+    }
+
+    /**
+     * Method to simplify this value using the default simplification rule set.
+     * @param evaluationContext the evaluation context
+     * @param aliasMap and alias map of equalities
+     * @param constantAliases a set of aliases that are considered to be constant
+     * @param ruleSet the rule set used to simplify the {@link Value} that is passed in
+     * @return a new (simplified) value
+     */
+    @Nonnull
+    default Value simplify(@Nonnull final EvaluationContext evaluationContext,
+                           @Nonnull final AliasMap aliasMap,
+                           @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                           @Nonnull final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> ruleSet) {
         return Simplification.simplify(this, evaluationContext, aliasMap, constantAliases,
-                DefaultValueSimplificationRuleSet.instance()).getUnconstrained();
+                ruleSet).getUnconstrained();
     }
 
     /**

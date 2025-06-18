@@ -36,7 +36,7 @@ import java.util.Set;
 @SuppressWarnings("java:S1452")
 public class ConstantFoldingRuleSet extends DefaultQueryPredicateRuleSet {
     protected static final QueryPredicateSimplificationRule<? extends QueryPredicate> valuePredicateSimplificationRule = new ValuePredicateSimplificationRule();
-    protected static final QueryPredicateSimplificationRule<? extends QueryPredicate> constantFoldingBooleanLiteralsRule = new ConstantFoldingBooleanLiteralsRule();
+    protected static final QueryPredicateSimplificationRule<? extends QueryPredicate> constantFoldingBooleanLiteralsRule = new ConstantFoldingValuePredicateRule();
     protected static final QueryPredicateSimplificationRule<? extends QueryPredicate> constantFoldingBooleanPredicateWithRangesRule = new ConstantFoldingPredicateWithRangesRule();
 
     protected static final Set<QueryPredicateSimplificationRule<? extends QueryPredicate>> SIMPLIFICATION_WITH_CONSTANT_FOLDING_RULES =

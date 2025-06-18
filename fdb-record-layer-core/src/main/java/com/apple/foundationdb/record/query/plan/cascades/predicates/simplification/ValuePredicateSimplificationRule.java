@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DereferenceConstantObjectValueRuleSet;
 
 import javax.annotation.Nonnull;
 import java.util.Optional;
@@ -59,13 +60,14 @@ public class ValuePredicateSimplificationRule extends QueryPredicateSimplificati
     public void onMatch(@Nonnull final QueryPredicateSimplificationRuleCall call) {
         final var predicateWithValue = call.getBindings().get(rootMatcher);
         final var simplifiedPredicateMaybe = predicateWithValue.translateValueAndComparisonsMaybe(
-                value -> Optional.of(value.simplify(call.getEvaluationContext(), call.getEquivalenceMap(), call.getConstantAliases())),
+                value -> Optional.of(value.simplify(call.getEvaluationContext(), call.getEquivalenceMap(), call.getConstantAliases(),
+                        DereferenceConstantObjectValueRuleSet.instance())),
                 comparison -> {
                     if (comparison instanceof Comparisons.ValueComparison) {
                         final var comparisonType = comparison.getType();
                         if (!comparisonType.isUnary()) {
                             final var simplifiedOperand = comparison.getValue().simplify(call.getEvaluationContext(),
-                                    call.getEquivalenceMap(), call.getConstantAliases());
+                                    call.getEquivalenceMap(), call.getConstantAliases(), DereferenceConstantObjectValueRuleSet.instance());
                             return Optional.of(comparison.withValue(simplifiedOperand));
                         }
                     }
