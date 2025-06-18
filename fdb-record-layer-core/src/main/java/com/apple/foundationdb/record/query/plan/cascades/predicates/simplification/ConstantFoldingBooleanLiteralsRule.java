@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.predicates.simplification;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
@@ -35,6 +36,38 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.valuePredicate;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
 
+/**
+ * Simplifies a specific form of constant {@link ValuePredicate}. The following simplifications are performed:
+ *
+ * <ul>
+ *     <li>{@code NULL = NULL  → NULL}</li>
+ *     <li>{@code NULL = TRUE  → NULL}</li>
+ *     <li>{@code NULL = FALSE → NULL}</li>
+ *     <li>{@code TRUE = NULL  → NULL}</li>
+ *     <li>{@code TRUE = TRUE  → TRUE}</li>
+ *     <li>{@code TRUE = FALSE → FALSE}</li>
+ *     <li>{@code FALSE = NULL → NULL}</li>
+ *     <li>{@code FALSE = TRUE  → FALSE}</li>
+ *     <li>{@code FALSE = FALSE → TRUE}</li>
+ *     <li>{@code NULL ≠ NULL  → NULL}</li>
+ *     <li>{@code NULL ≠ TRUE  → NULL}</li>
+ *     <li>{@code NULL ≠ FALSE → NULL}</li>
+ *     <li>{@code TRUE ≠ NULL  → NULL}</li>
+ *     <li>{@code TRUE ≠ TRUE  → FALSE}</li>
+ *     <li>{@code TRUE ≠ FALSE → TRUE}</li>
+ *     <li>{@code FALSE ≠ NULL → NULL}</li>
+ *     <li>{@code FALSE ≠ TRUE  → TRUE}</li>
+ *     <li>{@code FALSE ≠ FALSE → FALSE}</li>
+ *     <li>{@code NOT_NULL IS NULL  → FALSE}</li>
+ *     <li>{@code TRUE IS NULL → FALSE}</li>
+ *     <li>{@code FALSE IS NULL → FALSE}</li>
+ *     <li>{@code NULL IS NULL → TRUE}</li>
+ *     <li>{@code TRUE IS NOT NULL → TRUE}</li>
+ *     <li>{@code FALSE IS NOT NULL → TRUE}</li>
+ *     <li>{@code NULL IS NOT NULL → FALSE}</li>
+ * </ul>
+ */
+@API(API.Status.EXPERIMENTAL)
 public class ConstantFoldingBooleanLiteralsRule extends QueryPredicateSimplificationRule<ValuePredicate> {
 
     @Nonnull

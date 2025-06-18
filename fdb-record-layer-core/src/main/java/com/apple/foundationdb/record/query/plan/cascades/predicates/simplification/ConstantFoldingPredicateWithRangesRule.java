@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.predicates.simplification;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
@@ -39,6 +40,43 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.rangeConstraint;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
 
+/**
+ * Simplifies a specific form of constant {@link PredicateWithValueAndRanges} that contains a constant singleton range.
+ * The following simplifications are performed:
+ *
+ * <ul>
+ *     <li>{@code NULL = [NULL, NULL]  → NULL}</li>
+ *     <li>{@code NULL = [TRUE, TRUE]  → NULL}</li>
+ *     <li>{@code NULL = [FALSE, FALSE] → NULL}</li>
+ *     <li>{@code TRUE = [NULL, NULL]  → NULL}</li>
+ *     <li>{@code TRUE = [TRUE, TRUE]  → TRUE}</li>
+ *     <li>{@code TRUE = [FALSE, FALSE] → FALSE}</li>
+ *     <li>{@code FALSE = [NULL, NULL] → NULL}</li>
+ *     <li>{@code FALSE = [TRUE, TRUE]  → FALSE}</li>
+ *     <li>{@code FALSE = [FALSE, FALSE] → TRUE}</li>
+ *     <li>{@code NULL ≠ [NULL, NULL]  → NULL}</li>
+ *     <li>{@code NULL ≠ [TRUE, TRUE]  → NULL}</li>
+ *     <li>{@code NULL ≠ [FALSE, FALSE] → NULL}</li>
+ *     <li>{@code TRUE ≠ [NULL, NULL]  → NULL}</li>
+ *     <li>{@code TRUE ≠ [TRUE, TRUE]  → FALSE}</li>
+ *     <li>{@code TRUE ≠ [FALSE, FALSE] → TRUE}</li>
+ *     <li>{@code FALSE ≠ [NULL, NULL] → NULL}</li>
+ *     <li>{@code FALSE ≠ [TRUE, TRUE]  → TRUE}</li>
+ *     <li>{@code FALSE ≠ [FALSE, FALSE] → FALSE}</li>
+ *     <li>{@code NOT_NULL IS NULL  → FALSE}</li>
+ *     <li>{@code TRUE IS NULL → FALSE}</li>
+ *     <li>{@code FALSE IS NULL → FALSE}</li>
+ *     <li>{@code NULL IS NULL → TRUE}</li>
+ *     <li>{@code TRUE IS NOT NULL → TRUE}</li>
+ *     <li>{@code FALSE IS NOT NULL → TRUE}</li>
+ *     <li>{@code NULL IS NOT NULL → FALSE}</li>
+ * </ul>
+ *
+ * <p>Some of the cases above do not appear in practice due to restrictions in the construction of
+ * {@link PredicateWithValueAndRanges}, but are included for completeness.</p>
+ */
+@API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class ConstantFoldingPredicateWithRangesRule extends QueryPredicateSimplificationRule<PredicateWithValueAndRanges> {
 
     @Nonnull

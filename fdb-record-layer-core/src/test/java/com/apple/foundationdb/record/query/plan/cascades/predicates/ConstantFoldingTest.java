@@ -52,7 +52,7 @@ public class ConstantFoldingTest {
     private static int counter;
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    static final class ValueWrapper {
+    public static final class ValueWrapper {
 
         @Nonnull
         private final Optional<EvaluationContext> evaluationContext;
@@ -163,44 +163,44 @@ public class ConstantFoldingTest {
     }
 
     @Nonnull
-    static RangeConstraints buildSingletonRange(@Nonnull Comparisons.Type comparisonType, @Nullable final Value comparand) {
-        return buildSingletonRange(comparisonType, comparand, false);
+    static RangeConstraints buildSingletonRange(@Nonnull Comparisons.Type comparisonType) {
+        return buildSingletonRange(comparisonType, null);
     }
 
     @Nonnull
-    static RangeConstraints buildSingletonRange(@Nonnull Comparisons.Type comparisonType, @Nullable final Value comparand,
-                                                boolean useSimpleComparison) {
+    static RangeConstraints buildSingletonRange(@Nonnull Comparisons.Type comparisonType, @Nullable final Value comparand) {
         final var singletonRangeBuilder = RangeConstraints.newBuilder();
-        if (useSimpleComparison) {
-            singletonRangeBuilder.addComparisonMaybe(new Comparisons.SimpleComparison(comparisonType, comparand));
-        } else {
-            singletonRangeBuilder.addComparisonMaybe(new Comparisons.ValueComparison(comparisonType, comparand));
+        switch (comparisonType) {
+            case IS_NULL: // fallthrough
+            case NOT_NULL:
+                singletonRangeBuilder.addComparisonMaybe(new Comparisons.NullComparison(comparisonType));
+                break;
+            default:
+                singletonRangeBuilder.addComparisonMaybe(new Comparisons.ValueComparison(comparisonType, Verify.verifyNotNull(comparand)));
         }
         final var singletonRange = singletonRangeBuilder.build();
         Assertions.assertThat(singletonRange).isPresent();
         return singletonRange.get();
     }
 
-
-
     @Nonnull
     static QueryPredicate isNotNull(@Nonnull final Value value) {
-        return new ValuePredicate(value, new Comparisons.SimpleComparison(Comparisons.Type.NOT_NULL, null));
+        return new ValuePredicate(value, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL));
     }
 
     @Nonnull
     static QueryPredicate isNotNullAsRange(@Nonnull final Value value) {
-        return PredicateWithValueAndRanges.ofRanges(value, ImmutableSet.of(buildSingletonRange(Comparisons.Type.NOT_NULL, null, true)));
+        return PredicateWithValueAndRanges.ofRanges(value, ImmutableSet.of(buildSingletonRange(Comparisons.Type.NOT_NULL)));
     }
 
     @Nonnull
     static QueryPredicate isNull(@Nonnull final Value value) {
-        return new ValuePredicate(value, new Comparisons.SimpleComparison(Comparisons.Type.IS_NULL, null));
+        return new ValuePredicate(value, new Comparisons.NullComparison(Comparisons.Type.IS_NULL));
     }
 
     @Nonnull
     static QueryPredicate isNullAsRange(@Nonnull final Value value) {
-        return PredicateWithValueAndRanges.ofRanges(value, ImmutableSet.of(buildSingletonRange(Comparisons.Type.IS_NULL, null, true)));
+        return PredicateWithValueAndRanges.ofRanges(value, ImmutableSet.of(buildSingletonRange(Comparisons.Type.IS_NULL)));
 
     }
 
@@ -218,11 +218,6 @@ public class ConstantFoldingTest {
     @Nonnull
     static QueryPredicate areNotEqual(@Nonnull final Value value1, @Nonnull final Value value2) {
         return new ValuePredicate(value1, new Comparisons.ValueComparison(Comparisons.Type.NOT_EQUALS, value2));
-    }
-
-    @Nonnull
-    static QueryPredicate areNotEqualAsRange(@Nonnull final Value value1, @Nonnull final Value value2) {
-        return PredicateWithValueAndRanges.ofRanges(value1, ImmutableSet.of(buildSingletonRange(Comparisons.Type.NOT_EQUALS, value2)));
     }
 
     @Nonnull
@@ -251,9 +246,9 @@ public class ConstantFoldingTest {
         return result.get();
     }
 
-    public ConstantFoldingTest() {
-
-    }
+    ///
+    /// EQUALS simplification tests
+    ///
 
     @Nonnull
     public static Stream<Arguments> equalTestArguments() {
@@ -307,6 +302,10 @@ public class ConstantFoldingTest {
         Assertions.assertThat(result).isEqualTo(queryPredicate);
     }
 
+    ///
+    /// NOT EQUALS simplification tests
+    ///
+
     @Nonnull
     public static Stream<Arguments> notEqualsTestArguments() {
         return Stream.of(
@@ -354,6 +353,10 @@ public class ConstantFoldingTest {
     // it is not possible to construct a RangeConstraint with NOT_EQUALS comparison since it can not be used as a
     // scan prefix. Therefore, it is not possible to test case (since we can't even construct it).
 
+    ///
+    /// IS NULL simplification tests
+    ///
+
     @Nonnull
     public static Stream<Arguments> isNullTests() {
         return Stream.of(
@@ -387,6 +390,10 @@ public class ConstantFoldingTest {
             Assertions.assertThat(simplify(isNullAsRange(value.value()))).isEqualTo(queryPredicate);
         }
     }
+
+    ///
+    /// IS NOT NULL simplification tests
+    ///
 
     @Nonnull
     public static Stream<Arguments> isNotNullTests() {

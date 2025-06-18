@@ -239,6 +239,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public Optional<PredicateWithValueAndRanges> translateValueAndComparisonsMaybe(@Nonnull final Function<Value, Optional<Value>> valueTranslator,
                                                                                    @Nonnull final Function<Comparisons.Comparison, Optional<Comparisons.Comparison>> comparisonTranslator) {
         final AtomicBoolean allSame = new AtomicBoolean(true);

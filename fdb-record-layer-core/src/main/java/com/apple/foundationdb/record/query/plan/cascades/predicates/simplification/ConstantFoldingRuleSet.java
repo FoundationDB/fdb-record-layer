@@ -30,7 +30,7 @@ import javax.annotation.Nonnull;
 import java.util.Set;
 
 /**
- * A set of rules for use by a planner that supports quickly finding rules that could match a given {@link QueryPredicate}.
+ * A set of rules for folding constant {@link QueryPredicate}s.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")

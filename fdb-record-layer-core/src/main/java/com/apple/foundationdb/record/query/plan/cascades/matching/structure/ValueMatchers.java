@@ -50,6 +50,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * Matchers for descendants of {@link Value}.
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class ValueMatchers {
     private ValueMatchers() {
         // do not instantiate

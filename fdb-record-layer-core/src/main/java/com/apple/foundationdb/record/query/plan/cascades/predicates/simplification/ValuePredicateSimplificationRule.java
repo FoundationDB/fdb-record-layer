@@ -21,15 +21,23 @@
 package com.apple.foundationdb.record.query.plan.cascades.predicates.simplification;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.predicateWithValue;
 
+/**
+ * Simplifies {@link Value} instances within a {@link PredicateWithValue}.
+ * The actual value simplification is delegated to the {@link Value#simplify(EvaluationContext, AliasMap, Set)} method.
+ */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ValuePredicateSimplificationRule extends QueryPredicateSimplificationRule<PredicateWithValue> {
@@ -44,7 +52,7 @@ public class ValuePredicateSimplificationRule extends QueryPredicateSimplificati
     @Nonnull
     @Override
     public Optional<Class<?>> getRootOperator() {
-        return Optional.empty(); // apply to all.
+        return Optional.empty();
     }
 
     @Override
@@ -56,7 +64,8 @@ public class ValuePredicateSimplificationRule extends QueryPredicateSimplificati
                     if (comparison instanceof Comparisons.ValueComparison) {
                         final var comparisonType = comparison.getType();
                         if (!comparisonType.isUnary()) {
-                            final var simplifiedOperand = comparison.getValue().simplify(call.getEvaluationContext(), call.getEquivalenceMap(), call.getConstantAliases());
+                            final var simplifiedOperand = comparison.getValue().simplify(call.getEvaluationContext(),
+                                    call.getEquivalenceMap(), call.getConstantAliases());
                             return Optional.of(comparison.withValue(simplifiedOperand));
                         }
                     }
