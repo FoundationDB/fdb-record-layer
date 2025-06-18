@@ -58,6 +58,14 @@ task quickTest(type: Test) {
     }
 }
 
+// Tests that run similarly to quickTest, but with an embedded RPC server instead of embedded connection
+task rpcTest(type: Test) {
+    systemProperties["tests.runRPC"] = true
+    useJUnitPlatform {
+        excludeTags 'WipesFDB'
+    }
+}
+
 // Tests that run a single version on multiple external servers
 task singleVersionTest(type: Test) {
     systemProperties["tests.singleVersion"] = true
