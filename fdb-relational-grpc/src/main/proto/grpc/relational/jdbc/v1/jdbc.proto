@@ -161,6 +161,18 @@ message RollbackResponse {
   optional string error_message = 1;
 }
 
+message CommitRequest {
+}
+
+message CommitResponse {
+}
+
+message RollbackRequest {
+}
+
+message RollbackResponse {
+}
+
 message DatabaseMetaDataRequest {}
 message DatabaseMetaDataResponse {
   string url = 1;
