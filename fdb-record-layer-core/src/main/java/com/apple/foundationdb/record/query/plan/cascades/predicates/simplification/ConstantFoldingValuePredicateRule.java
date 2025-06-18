@@ -84,7 +84,6 @@ public class ConstantFoldingValuePredicateRule extends QueryPredicateSimplificat
         final var root = call.getBindings().get(rootMatcher);
         final var comparison = call.getBindings().get(comparisonMatcher);
         final var lhsValue = root.getValue();
-        final var lhsOperand = lhsValue.evalWithoutStore(call.getEvaluationContext());
-        foldComparisonMaybe(lhsOperand, comparison).ifPresent(call::yieldResult);
+        foldComparisonMaybe(lhsValue, comparison).ifPresent(call::yieldResult);
     }
 }

@@ -27,9 +27,9 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Optional;
 
 /**
@@ -41,28 +41,31 @@ interface ConstantPredicateFoldingTrait {
     /**
      * Analyzes the provided operand and comparison to produce a simplified, semantically equivalent {@link QueryPredicate}.
      *
-     * @param operand The operand on the left-hand side of the predicate.
+     * @param operand The operand {@link Value} on the left-hand side of the predicate.
      * @param comparison The comparison, including both the operator and the operand on the right-hand side.
      * @return An {@code Optional} containing the simplified {@link QueryPredicate} if both the operand and comparison
      *         evaluate to constant values. Returns an empty {@code Optional} otherwise.
      */
-    @SuppressWarnings("unchecked")
-    default Optional<QueryPredicate> foldComparisonMaybe(@Nullable final Object operand,
+    default Optional<QueryPredicate> foldComparisonMaybe(@Nonnull final Value operand,
                                                          @Nonnull final Comparisons.Comparison comparison) {
         final var comparisonType = comparison.getType();
         if (comparisonType.isUnary()) {
             switch (comparisonType) {
                 case IS_NULL:
-                    if (operand == null) {
+                    if (operand instanceof NullValue) {
                         return Optional.of(ConstantPredicate.TRUE);
-                    } else {
+                    } else if (operand.getResultType().isNotNullable()) {
                         return Optional.of(ConstantPredicate.FALSE);
+                    } else {
+                        return Optional.empty();
                     }
                 case NOT_NULL:
-                    if (operand == null) {
+                    if (operand instanceof NullValue) {
                         return Optional.of(ConstantPredicate.FALSE);
-                    } else {
+                    } else if (operand.getResultType().isNotNullable()) {
                         return Optional.of(ConstantPredicate.TRUE);
+                    } else {
+                        return Optional.empty();
                     }
                 default:
                     return Optional.empty();
@@ -75,40 +78,58 @@ interface ConstantPredicateFoldingTrait {
 
         final var valueComparison = (Comparisons.ValueComparison)comparison;
         final var rhsValue = valueComparison.getValue();
+        final var rhsOperand = EffectiveConstant.from(rhsValue);
+        final var lhsOperand = EffectiveConstant.from(operand);
 
-        if (rhsValue instanceof NullValue ||
-                rhsValue.getResultType().getTypeCode() == Type.TypeCode.BOOLEAN && rhsValue instanceof LiteralValue<?>) {
-
-            final Object rhsOperand;
-            if (rhsValue instanceof NullValue) {
-                rhsOperand = null;
-            } else {
-                rhsOperand = ((LiteralValue<Boolean>)rhsValue).getLiteralValue();
-            }
-
-            switch (comparisonType) {
-                case EQUALS:
-                    if (operand == null || rhsOperand == null) {
-                        return Optional.of(ConstantPredicate.NULL);
-                    } else if (operand.equals(rhsOperand)) {
-                        return Optional.of(ConstantPredicate.TRUE);
-                    } else {
-                        return Optional.of(ConstantPredicate.FALSE);
-                    }
-                case NOT_EQUALS:
-                    if (operand == null || rhsOperand == null) {
-                        return Optional.of(ConstantPredicate.NULL);
-                    } else if (!operand.equals(rhsOperand)) {
-                        return Optional.of(ConstantPredicate.TRUE);
-                    } else {
-                        return Optional.of(ConstantPredicate.FALSE);
-                    }
-                default:
-                    break;
-            }
+        if (rhsOperand == EffectiveConstant.UNKNOWN || lhsOperand == EffectiveConstant.UNKNOWN) {
+            return Optional.empty();
         }
 
-        return Optional.empty();
+        switch (comparisonType) {
+            case EQUALS:
+                if (lhsOperand == EffectiveConstant.NULL || rhsOperand == EffectiveConstant.NULL) {
+                    return Optional.of(ConstantPredicate.NULL);
+                } else if (lhsOperand.equals(rhsOperand)) {
+                    return Optional.of(ConstantPredicate.TRUE);
+                } else {
+                    return Optional.of(ConstantPredicate.FALSE);
+                }
+            case NOT_EQUALS:
+                if (lhsOperand == EffectiveConstant.NULL || rhsOperand == EffectiveConstant.NULL) {
+                    return Optional.of(ConstantPredicate.NULL);
+                } else if (!lhsOperand.equals(rhsOperand)) {
+                    return Optional.of(ConstantPredicate.TRUE);
+                } else {
+                    return Optional.of(ConstantPredicate.FALSE);
+                }
+            default:
+                return Optional.empty();
+        }
     }
 
+    enum EffectiveConstant {
+        TRUE,
+        FALSE,
+        NULL,
+        UNKNOWN;
+
+        public static EffectiveConstant from(@Nonnull final Value value) {
+            if (value instanceof NullValue) {
+                return EffectiveConstant.NULL;
+            }
+
+            if (value.getResultType().getTypeCode() == Type.TypeCode.BOOLEAN && value instanceof LiteralValue<?>) {
+                final var plainValue = (Boolean)((LiteralValue<?>)value).getLiteralValue();
+                if (plainValue == null) {
+                    return EffectiveConstant.NULL;
+                } else if (plainValue) {
+                    return EffectiveConstant.TRUE;
+                } else {
+                    return EffectiveConstant.FALSE;
+                }
+            }
+
+            return EffectiveConstant.UNKNOWN;
+        }
+    }
 }
