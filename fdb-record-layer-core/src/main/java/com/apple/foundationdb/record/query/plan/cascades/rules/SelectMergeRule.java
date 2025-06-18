@@ -27,8 +27,8 @@ import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesR
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.References;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
@@ -47,7 +47,6 @@ import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
@@ -155,12 +154,7 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
                     newPredicates.addAll(childSelectExpression.getPredicates());
                 } else {
                     // At least one child needs to be rewritten. Rebase the children on top of the new name
-                    final List<Reference> oldChildRefs = childSelectExpression.getQuantifiers().stream().map(Quantifier::getRangesOver).collect(ImmutableList.toImmutableList());
-                    final List<? extends Reference> newChildRefs = References.rebaseGraphs(oldChildRefs, (Memoizer) call, childAliasMap, false);
-                    Streams.zip(childSelectExpression.getQuantifiers().stream(), newChildRefs.stream(), (oldChildQun, ref) -> {
-                        CorrelationIdentifier targetAlias = childAliasMap.getTargetOrDefault(oldChildQun.getAlias(), oldChildQun.getAlias());
-                        return oldChildQun.overNewReference(ref, targetAlias);
-                    }).forEachOrdered(newQuantifiers::add);
+                    newQuantifiers.addAll(Quantifiers.rebaseGraphs(childSelectExpression.getQuantifiers(), (Memoizer) call, childAliasMap, false));
                     childSelectExpression.getPredicates().stream()
                             .map(predicate -> predicate.translateCorrelations(childAliasMap, false))
                             .forEach(newPredicates::add);

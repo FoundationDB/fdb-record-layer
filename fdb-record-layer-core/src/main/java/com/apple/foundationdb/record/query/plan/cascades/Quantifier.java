@@ -612,7 +612,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     protected Quantifier(@Nonnull final CorrelationIdentifier alias) {
         this.alias = alias;
-        this.correlatedToSupplier = () -> getRangesOver().getCorrelatedTo();
+        this.correlatedToSupplier = Suppliers.memoize(() -> getRangesOver().getCorrelatedTo());
         this.flowedColumnsSupplier = Suppliers.memoize(this::computeFlowedColumns);
         this.flowedValuesSupplier = Suppliers.memoize(this::computeFlowedValues);
         // Call debugger hook for this new quantifier.
