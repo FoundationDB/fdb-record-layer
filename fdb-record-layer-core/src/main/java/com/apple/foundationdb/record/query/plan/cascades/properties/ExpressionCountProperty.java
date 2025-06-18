@@ -128,12 +128,6 @@ public class ExpressionCountProperty implements ExpressionProperty<Integer> {
 
     @Nonnull
     @SafeVarargs
-    private static ExpressionCountProperty ofUntrackedTypes(Class<? extends RelationalExpression>... expressionTypes) {
-        return ofTypes(false, expressionTypes);
-    }
-
-    @Nonnull
-    @SafeVarargs
     @SuppressWarnings("varargs")
     private static ExpressionCountProperty ofTypes(final boolean isTracked,
                                                    Class<? extends RelationalExpression>... expressionTypes) {

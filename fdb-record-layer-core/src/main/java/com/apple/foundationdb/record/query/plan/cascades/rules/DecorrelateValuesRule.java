@@ -54,8 +54,6 @@ import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -251,7 +249,6 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
             Quantifier newRangeQun = Quantifier.forEach(call.memoizeExploratoryExpression(rangeOneExpr));
             newQuantifiersBuilder.add(newRangeQun);
         }
-        final Set<CorrelationIdentifier> alreadyPushedDown = Collections.newSetFromMap(new LinkedHashMap<>());
         for (Quantifier qun : selectExpression.getQuantifiers()) {
             if (qunsToPushDownByAlias.containsKey(qun.getAlias())) {
                 //
