@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpre
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.AllOfMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcherWithPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty;
@@ -62,9 +63,7 @@ import java.util.Set;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher.empty;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierWithoutDefaultOnEmptyOverRef;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.exploratoryMember;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
@@ -169,7 +168,7 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
     );
 
     @Nonnull
-    private static final BindingMatcher<Quantifier.ForEach> valuesQunMatcher = forEachQuantifierOverRef(exploratoryMember(valuesExpressionMatcher));
+    private static final BindingMatcher<Quantifier.ForEach> valuesQunMatcher = forEachQuantifierWithoutDefaultOnEmptyOverRef(ReferenceMatchers.exploratoryMember(valuesExpressionMatcher));
 
     // Match a select expression over the values boxes. Ideally, we'd also check each box's correlation sets to validate that
     // we don't match any that have references out to sibling quantifiers in the SelectExpression's root. However,
@@ -264,14 +263,16 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
             boolean anyChanged = false;
             ImmutableList.Builder<RelationalExpression> newExpressionsBuilder = ImmutableList.builderWithExpectedSize(qun.getRangesOver().getExploratoryExpressions().size());
             for (RelationalExpression lowerExpression : qun.getRangesOver().getExploratoryExpressions()) {
+                // Generate a new lower expression for each lower expression
+                // We do this even if the lower expression is uncorrelated because if
+                // some (but not all) of the expressions are rewritten, then if we don't
+                // copy over the expression, it can end up in multiple (non-memoized) references
+                newExpressionsBuilder.add(visitor.visit(lowerExpression));
                 final Set<CorrelationIdentifier> lowerCorrelatedTo = qunsToPushDownByAlias.keySet().stream()
                         .filter(lowerExpression::isCorrelatedTo)
                         .collect(ImmutableSet.toImmutableSet());
-                if (lowerCorrelatedTo.isEmpty()) {
-                    newExpressionsBuilder.add(lowerExpression);
-                } else {
+                if (!lowerCorrelatedTo.isEmpty()) {
                     anyChanged = true;
-                    newExpressionsBuilder.add(visitor.visit(lowerExpression));
                 }
             }
             if (anyChanged) {
