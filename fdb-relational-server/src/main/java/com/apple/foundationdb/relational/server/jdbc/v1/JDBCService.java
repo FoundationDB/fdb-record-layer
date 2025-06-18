@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.server.jdbc.v1;
 
 import com.apple.foundationdb.annotation.API;
-
+import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.jdbc.TypeConversion;
@@ -38,9 +38,10 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.ScanRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ScanResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementResponse;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.TransactionalRequest;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.TransactionalResponse;
 import com.apple.foundationdb.relational.server.FRL;
 import com.apple.foundationdb.relational.util.BuildVersion;
-
 import com.google.common.annotations.VisibleForTesting;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -107,6 +108,20 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
         }
     }
 
+    /**
+     * This is called when the client connection enters "autoCommit=off" state.
+     * Requests coming in after that point will be accepted through the returned TransactionRequestHandler,
+     * while responses will be sent back through the responseObserver.
+     * This stream will remain open for the duration of the client being in autoCommit=off mode.
+     *
+     * @param responseObserver the stream to send transactional responses to
+     * @return the stream that can handle transactional requests
+     */
+    @Override
+    public StreamObserver<TransactionalRequest> handleAutoCommitOff(final StreamObserver<TransactionalResponse> responseObserver) {
+        return new TransactionRequestHandler(responseObserver, frl);
+    }
+
     @Override
     public void update(StatementRequest request, StreamObserver<StatementResponse> responseObserver) {
         if (!checkStatementRequest(request, responseObserver)) {
@@ -128,7 +143,7 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
      * Check the StatementRequest is wholesome.
      */
     @VisibleForTesting
-    static boolean checkStatementRequest(StatementRequest request, StreamObserver<StatementResponse> responseObserver) {
+    static boolean checkStatementRequest(StatementRequest request, StreamObserver<?> responseObserver) {
         if (!request.hasDatabase() || request.getDatabase().isEmpty()) {
             responseObserver.onError(createStatusRuntimeException("Empty database name"));
             return false;
@@ -265,13 +280,13 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
         return true;
     }
 
-    private StatusRuntimeException handleUncaughtException(Throwable t) {
+    private static StatusRuntimeException handleUncaughtException(Throwable t) {
         return Status.INTERNAL.withDescription("Uncaught exception")
                 .augmentDescription(GrpcSQLExceptionUtil.stacktraceToString(t))
                 .withCause(t).asRuntimeException();
     }
 
-    private Options fromProtoOptions(com.apple.foundationdb.relational.jdbc.grpc.v1.Options protoOptions) throws SQLException {
+    private static Options fromProtoOptions(com.apple.foundationdb.relational.jdbc.grpc.v1.Options protoOptions) throws SQLException {
         final var builder = Options.builder();
         if (protoOptions.hasMaxRows()) {
             builder.withOption(Options.Name.MAX_ROWS, protoOptions.getMaxRows());

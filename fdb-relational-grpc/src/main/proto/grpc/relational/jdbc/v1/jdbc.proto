@@ -33,6 +33,7 @@ import "grpc/relational/jdbc/v1/column.proto";
 service JDBCService {
   rpc getMetaData(DatabaseMetaDataRequest) returns (DatabaseMetaDataResponse) {}
   rpc execute(StatementRequest) returns (StatementResponse) {}
+  rpc handleAutoCommitOff(stream TransactionalRequest) returns (stream TransactionalResponse) {}
   rpc update(StatementRequest) returns (StatementResponse) {}
   rpc insert(InsertRequest) returns (InsertResponse) {}
   rpc get(GetRequest) returns (GetResponse) {}
@@ -112,6 +113,23 @@ message Options {
   optional int32 maxRows = 1;
 }
 
+// Request that is part of a transactional (stateful) exchange
+message TransactionalRequest {
+  oneof TransactionalMessage {
+      StatementRequest executeRequest = 1;
+      CommitRequest commitRequest = 2;
+      RollbackRequest rollbackRequest = 3;
+  }
+}
+
+message TransactionalResponse {
+  oneof TransactionalMessage {
+      StatementResponse executeResponse = 1;
+      CommitResponse commitResponse = 2;
+      RollbackResponse rollbackResponse = 3;
+  }
+}
+
 message StatementRequest {
   optional string sql = 1;
   optional string database = 2;
@@ -126,6 +144,18 @@ message StatementRequest {
 message StatementResponse {
   int32 row_count = 1;
   grpc.relational.jdbc.v1.ResultSet result_set = 2;
+}
+
+message CommitRequest {
+}
+
+message CommitResponse {
+}
+
+message RollbackRequest {
+}
+
+message RollbackResponse {
 }
 
 message DatabaseMetaDataRequest {}
