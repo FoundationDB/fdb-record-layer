@@ -1176,7 +1176,7 @@ class DecorrelateValuesRuleTest {
         final Quantifier valuesBox1 = valuesQun(ImmutableMap.of("x", LiteralValue.ofScalar(42L), "y", LiteralValue.ofScalar("hello")));
         final Quantifier valuesBox2 = valuesQun(ImmutableMap.of("z", fieldValue(valuesBox1, "y")));
         final SelectExpression uncorrelatedValueBox2Expr = GraphExpansion.builder()
-                .addQuantifier(rangeOneQun())
+                .addAllQuantifiers(valuesBox2.getRangesOver().get().getQuantifiers())
                 .addResultColumn(Column.of(Optional.of("z"), LiteralValue.ofScalar("hello")))
                 .build().buildSelect();
         valuesBox2.getRangesOver().insertFinalExpression(uncorrelatedValueBox2Expr);
@@ -1194,6 +1194,28 @@ class DecorrelateValuesRuleTest {
                 .addResultColumn(projectColumn(lowerSelectQun, "c"))
                 .addPredicate(fieldPredicate(lowerSelectQun, "a", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, fieldValue(valuesBox1, "x"))))
                 .addPredicate(fieldPredicate(lowerSelectQun, "d", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(valuesBox2, "z"))))
+                .build().buildSelect();
+
+        //
+        // Match both value boxes. In this case, we only extract out the uncorrelated values box variant
+        //
+        final Quantifier trimmedValuesBox2 = valuesQun(ImmutableMap.of("z", LiteralValue.ofScalar("hello")));
+        final Quantifier newLowerSelectQun = forEach(join(trimmedValuesBox2, base)
+                .addResultColumn(projectColumn(base, "a"))
+                .addResultColumn(projectColumn(base, "b"))
+                .addResultColumn(projectColumn(base, "c"))
+                .addResultColumn(projectColumn(base, "d"))
+                .addPredicate(fieldPredicate(base, "b", new Comparisons.ValueComparison(Comparisons.Type.STARTS_WITH, fieldValue(trimmedValuesBox2, "z"))))
+                .build().buildSelect());
+
+        final SelectExpression expected1 = join(newLowerSelectQun)
+                .addResultColumn(Column.of(Optional.of("x"), LiteralValue.ofScalar(42L)))
+                .addResultColumn(Column.of(Optional.of("z"), LiteralValue.ofScalar("hello")))
+                .addResultColumn(projectColumn(newLowerSelectQun, "a"))
+                .addResultColumn(projectColumn(newLowerSelectQun, "b"))
+                .addResultColumn(projectColumn(newLowerSelectQun, "c"))
+                .addPredicate(fieldPredicate(newLowerSelectQun, "a", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, LiteralValue.ofScalar(42L))))
+                .addPredicate(fieldPredicate(newLowerSelectQun, "d", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, LiteralValue.ofScalar("hello"))))
                 .build().buildSelect();
 
         //
@@ -1220,7 +1242,8 @@ class DecorrelateValuesRuleTest {
                 .addPredicate(fieldPredicate(lowerSelectQun, "a", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, LiteralValue.ofScalar(42L))))
                 .addPredicate(fieldPredicate(lowerSelectQun, "d", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(valuesBox2WithExtraChild, "z"))))
                 .build().buildSelect();
-        testHelper.assertYields(selectExpression, expected2);
+
+        testHelper.assertYields(selectExpression, expected1, expected2);
     }
 
     /**

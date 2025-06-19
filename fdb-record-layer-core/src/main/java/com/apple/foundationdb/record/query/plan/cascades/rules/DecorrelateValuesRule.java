@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExploratoryMemoizer;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -204,21 +205,33 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
         final ImmutableMap.Builder<CorrelationIdentifier, Quantifier> qunsToPushDownBuilder = ImmutableMap.builderWithExpectedSize(valueQunCandidates.size());
         Streams.zip(valueQunCandidates.stream(), valuesExpressions.stream(), NonnullPair::of)
                 //
-                // Reject any quantifiers here that have correlations to their siblings.
-                // In theory, we could check the _expressions_, rather than the quantifier,
-                // but then we'd have to be careful not to carry along any expressions
-                // with correlations (which may be invalidated) when we push the quantifier down.
+                // Reject any values boxes here that have correlations to their siblings.
+                // This is to prevent us from pushing down a values box that is sideways
+                // correlated to another values box, which might lead to problems if they are
+                // both pushed down in the same pass. Note that other expressions in the
+                // quantifier may not have the same correlation set, so we may need to trim some
                 //
-                // Note: simply re-creating a trimmed down reference without the correlated expressions
-                // leads to problems with the memoizer as it tries to re-use the reference with correlations
-                //
-                .filter(pair -> correlatedToNone(pair.getLeft(), childAliases))
+                .filter(pair -> correlatedToNone(pair.getRight(), childAliases))
                 .forEach(pair -> {
-                    Quantifier qun = pair.getLeft();
-                    SelectExpression valueExpression = pair.getRight();
+                    final Quantifier qun = pair.getLeft();
+                    final SelectExpression valueExpression = pair.getRight();
+                    final CorrelationIdentifier alias = qun.getAlias();
                     Verify.verify(qun.getRangesOver().containsExactly(valueExpression), "matched value box should be aligned with matched quantifier");
-                    valuesByAlias.put(qun.getAlias(), valueExpression);
-                    qunsToPushDownBuilder.put(qun.getAlias(), qun);
+                    valuesByAlias.put(alias, valueExpression);
+                    if (correlatedToNone(qun, childAliases)) {
+                        // There are no expressions within the quantifier that have any siblings correlations.
+                        // We can push down the entire quantifier
+                        qunsToPushDownBuilder.put(alias, qun);
+                    } else {
+                        // There is at least one expression in the quantifier that is correlated to one of the
+                        // siblings. Extract out only the variations that are not correlated to a sibling
+                        Set<RelationalExpression> uncorrelatedExpressions = qun.getRangesOver().getExploratoryExpressions().stream()
+                                .filter(expr -> correlatedToNone(expr, childAliases))
+                                .collect(LinkedIdentitySet.toLinkedIdentitySet());
+                        Verify.verify(uncorrelatedExpressions.contains(valueExpression), "target value expression should be in the uncorrelated subset of quantifier expressions");
+                        Quantifier newQun = qun.overNewReference(call.memoizeExploratoryExpressions(uncorrelatedExpressions));
+                        qunsToPushDownBuilder.put(alias, newQun);
+                    }
                 });
 
         final Map<CorrelationIdentifier, Quantifier> qunsToPushDownByAlias = qunsToPushDownBuilder.build();
@@ -264,11 +277,13 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
                 // We do this even if the lower expression is uncorrelated because if
                 // some (but not all) of the expressions are rewritten, then if we don't
                 // copy over the expression, it can end up in multiple (non-memoized) references
-                newExpressionsBuilder.add(visitor.visit(lowerExpression));
                 final Set<CorrelationIdentifier> lowerCorrelatedTo = qunsToPushDownByAlias.keySet().stream()
                         .filter(lowerExpression::isCorrelatedTo)
                         .collect(ImmutableSet.toImmutableSet());
-                if (!lowerCorrelatedTo.isEmpty()) {
+                if (lowerCorrelatedTo.isEmpty()) {
+                    newExpressionsBuilder.add(lowerExpression);
+                } else {
+                    newExpressionsBuilder.add(visitor.visit(lowerExpression));
                     anyChanged = true;
                 }
             }
