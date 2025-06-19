@@ -238,22 +238,33 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public Optional<PredicateWithValueAndRanges> translateValueAndComparisonsMaybe(@Nonnull final Function<Value, Optional<Value>> valueTranslator,
                                                                                    @Nonnull final Function<Comparisons.Comparison, Optional<Comparisons.Comparison>> comparisonTranslator) {
+        boolean allSame = true;
         final var newValueOptional = Verify.verifyNotNull(valueTranslator.apply(this.getValue()));
         if (newValueOptional.isEmpty()) {
             return Optional.empty();
         }
+        if (newValueOptional.get() != this.getValue()) {
+            allSame = false;
+        }
         final var newValue = newValueOptional.get();
         final var newRangesBuilder = ImmutableSet.<RangeConstraints>builder();
+
         for (final var range : ranges) {
             final var newRangeOptional = range.translateRanges(comparisonTranslator);
             if (newRangeOptional.isEmpty()) {
                 return Optional.empty();
             }
+            if (newRangeOptional.get() != range) {
+                allSame = false;
+            }
             newRangesBuilder.add(newRangeOptional.get());
         }
-
+        if (allSame) {
+            return Optional.of(this);
+        }
         return Optional.of(withValueAndRanges(newValue, newRangesBuilder.build()));
     }
 

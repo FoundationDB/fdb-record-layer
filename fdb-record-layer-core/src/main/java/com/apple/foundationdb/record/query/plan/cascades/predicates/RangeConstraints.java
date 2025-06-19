@@ -58,6 +58,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -401,18 +402,34 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
     public Optional<RangeConstraints> translateRanges(@Nonnull final Function<Comparisons.Comparison, Optional<Comparisons.Comparison>> comparisonTranslator) {
         var constraintsBuilder = RangeConstraints.newBuilder();
         boolean allAdded = true;
+        final AtomicBoolean allSame = new AtomicBoolean(true);
         if (evaluableRange != null) {
             allAdded = evaluableRange.compilableComparisons.stream()
-                    .map(comparisonTranslator)
+                    .map(compilableComparison -> {
+                        final Optional<Comparisons.Comparison> newCompilableComparison = comparisonTranslator.apply(compilableComparison);
+                        if (newCompilableComparison.isPresent() && newCompilableComparison.get() != compilableComparison) {
+                            allSame.set(false);
+                        }
+                        return newCompilableComparison;
+                    })
                     .map(maybeComparison -> maybeComparison.map(constraintsBuilder::addComparisonMaybe))
                     .allMatch(maybeAdded -> maybeAdded.orElse(false));
         }
         allAdded = allAdded && deferredRanges.stream()
-                .map(comparisonTranslator)
+                .map(compilableComparison -> {
+                    final Optional<Comparisons.Comparison> newCompilableComparison = comparisonTranslator.apply(compilableComparison);
+                    if (newCompilableComparison.isPresent() && newCompilableComparison.get() != compilableComparison) {
+                        allSame.set(false);
+                    }
+                    return newCompilableComparison;
+                })
                 .map(maybeComparison -> maybeComparison.map(constraintsBuilder::addComparisonMaybe))
                 .allMatch(maybeAdded -> maybeAdded.orElse(false));
 
-        return allAdded ? constraintsBuilder.build() : Optional.empty();
+        if (allAdded) {
+            return allSame.get() ? Optional.of(this) : constraintsBuilder.build();
+        }
+        return Optional.empty();
     }
 
     @Override

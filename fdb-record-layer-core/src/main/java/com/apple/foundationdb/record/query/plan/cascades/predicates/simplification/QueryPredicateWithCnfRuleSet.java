@@ -38,25 +38,25 @@ import java.util.Set;
 public class QueryPredicateWithCnfRuleSet extends DefaultQueryPredicateRuleSet {
     protected static final QueryPredicateSimplificationRule<QueryPredicate> cnfRule = new NormalFormRule(BooleanPredicateNormalizer.getDefaultInstanceForCnf());
 
-    protected static final Set<QueryPredicateSimplificationRule<? extends QueryPredicate>> COMPUTATION_WITH_CNF_RULES =
+    protected static final Set<QueryPredicateSimplificationRule<? extends QueryPredicate>> SIMPLIFICATION_WITH_CNF_RULES =
             ImmutableSet.<QueryPredicateSimplificationRule<? extends QueryPredicate>>builder()
-                    .addAll(COMPUTATION_RULES)
+                    .addAll(SIMPLIFICATION_RULES)
                     .add(cnfRule)
                     .build();
 
-    protected static final SetMultimap<QueryPredicateSimplificationRule<? extends QueryPredicate>, QueryPredicateSimplificationRule<? extends QueryPredicate>> COMPUTATION_WITH_CNF_DEPENDS_ON;
+    protected static final SetMultimap<QueryPredicateSimplificationRule<? extends QueryPredicate>, QueryPredicateSimplificationRule<? extends QueryPredicate>> SIMPLIFICATION_WITH_CNF_DEPENDS_ON;
 
     static {
-        final var computationDependsOnBuilder =
+        final var simplificationDependsOnBuilder =
                 ImmutableSetMultimap.<QueryPredicateSimplificationRule<? extends QueryPredicate>, QueryPredicateSimplificationRule<? extends QueryPredicate>>builder();
-        computationDependsOnBuilder.putAll(COMPUTATION_DEPENDS_ON);
+        simplificationDependsOnBuilder.putAll(SIMPLIFICATION_DEPENDS_ON);
 
-        COMPUTATION_RULES.forEach(existingRule -> computationDependsOnBuilder.put(existingRule, cnfRule));
-        COMPUTATION_WITH_CNF_DEPENDS_ON = computationDependsOnBuilder.build();
+        SIMPLIFICATION_RULES.forEach(existingRule -> simplificationDependsOnBuilder.put(existingRule, cnfRule));
+        SIMPLIFICATION_WITH_CNF_DEPENDS_ON = simplificationDependsOnBuilder.build();
     }
 
     private QueryPredicateWithCnfRuleSet() {
-        this(COMPUTATION_WITH_CNF_RULES, COMPUTATION_WITH_CNF_DEPENDS_ON);
+        this(SIMPLIFICATION_WITH_CNF_RULES, SIMPLIFICATION_WITH_CNF_DEPENDS_ON);
     }
 
     protected QueryPredicateWithCnfRuleSet(@Nonnull final Set<? extends AbstractQueryPredicateRule<QueryPredicate, QueryPredicateSimplificationRuleCall, ? extends QueryPredicate>> abstractQueryPredicateRules,
@@ -64,7 +64,8 @@ public class QueryPredicateWithCnfRuleSet extends DefaultQueryPredicateRuleSet {
         super(abstractQueryPredicateRules, dependsOn);
     }
 
-    public static QueryPredicateWithCnfRuleSet ofComputationRules() {
+    @Nonnull
+    public static QueryPredicateWithCnfRuleSet ofSimplificationRules() {
         return new QueryPredicateWithCnfRuleSet();
     }
 }
