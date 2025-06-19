@@ -36,7 +36,7 @@ import java.util.Optional;
  * Trait that facilitates folding a constant {@link QueryPredicate}.
  */
 @API(API.Status.EXPERIMENTAL)
-interface ConstantPredicateFoldingTrait {
+final class ConstantPredicateFoldingUtil {
 
     /**
      * Analyzes the provided operand and comparison to produce a simplified, semantically equivalent {@link QueryPredicate}.
@@ -46,8 +46,8 @@ interface ConstantPredicateFoldingTrait {
      * @return An {@code Optional} containing the simplified {@link QueryPredicate} if both the operand and comparison
      *         evaluate to constant values. Returns an empty {@code Optional} otherwise.
      */
-    default Optional<QueryPredicate> foldComparisonMaybe(@Nonnull final Value operand,
-                                                         @Nonnull final Comparisons.Comparison comparison) {
+    public static Optional<QueryPredicate> foldComparisonMaybe(@Nonnull final Value operand,
+                                                               @Nonnull final Comparisons.Comparison comparison) {
         final var comparisonType = comparison.getType();
         if (comparisonType.isUnary()) {
             switch (comparisonType) {

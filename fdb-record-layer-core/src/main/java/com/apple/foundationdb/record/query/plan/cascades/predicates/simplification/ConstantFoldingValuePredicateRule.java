@@ -64,7 +64,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * </ul>
  */
 @API(API.Status.EXPERIMENTAL)
-public class ConstantFoldingValuePredicateRule extends QueryPredicateSimplificationRule<ValuePredicate> implements ConstantPredicateFoldingTrait {
+public class ConstantFoldingValuePredicateRule extends QueryPredicateSimplificationRule<ValuePredicate> {
 
     @Nonnull
     private static final BindingMatcher<Comparisons.Comparison> comparisonMatcher = anyComparison();
@@ -84,6 +84,6 @@ public class ConstantFoldingValuePredicateRule extends QueryPredicateSimplificat
         final var root = call.getBindings().get(rootMatcher);
         final var comparison = call.getBindings().get(comparisonMatcher);
         final var lhsValue = root.getValue();
-        foldComparisonMaybe(lhsValue, comparison).ifPresent(call::yieldResult);
+        ConstantPredicateFoldingUtil.foldComparisonMaybe(lhsValue, comparison).ifPresent(call::yieldResult);
     }
 }

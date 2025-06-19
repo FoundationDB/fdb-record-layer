@@ -84,7 +84,7 @@ public class ValueMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<Value> anyNotNullValue() {
+    public static BindingMatcher<Value> anyNotNullableValue() {
         return typedMatcherWithPredicate(Value.class, value -> !value.getResultType().isNullable());
     }
 

@@ -32,14 +32,14 @@ import javax.annotation.Nonnull;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyConstantObjectValue;
 
 /**
- This rule replaces specific instances of {@link ConstantObjectValue} with their equivalent {@link LiteralValue}
- representations.  The following cases are currently handled:
- <ul>
-    <li>Boolean constant object values are represented as {@link LiteralValue}s.</li>
-    <li>{@code Null} constant object values are represented as null values.</li>
-    <li>Non-null constant object values may be represented as a new {@link ConstantObjectValue} instance with a
- non-nullable type.</li>
- </ul>
+ * This rule replaces specific instances of {@link ConstantObjectValue} with their equivalent {@link LiteralValue}
+ * representations.  The following cases are currently handled:
+ * <ul>
+ *    <li>Boolean constant object values are represented as {@link LiteralValue}s.</li>
+ *    <li>{@code Null} constant object values are represented as null values.</li>
+ *    <li>Non-null constant object values may be represented as a new {@link ConstantObjectValue} instance with a
+ * non-nullable type.</li>
+ * </ul>
  */
 public class DereferenceConstantObjectValueRule extends ValueSimplificationRule<ConstantObjectValue> {
 

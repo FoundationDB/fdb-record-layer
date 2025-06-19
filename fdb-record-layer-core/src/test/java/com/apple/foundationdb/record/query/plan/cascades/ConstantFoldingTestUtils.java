@@ -1,5 +1,5 @@
 /*
- * tils.java
+ * ConstantFoldingTestUtils.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -164,6 +164,16 @@ public class ConstantFoldingTestUtils {
     }
 
     @Nonnull
+    public static ValueWrapper litString(@Nonnull final String value) {
+        return ValueWrapper.of(LiteralValue.ofScalar(value));
+    }
+
+    @Nonnull
+    public static ValueWrapper litInt(int value) {
+        return ValueWrapper.of(LiteralValue.ofScalar(value));
+    }
+
+    @Nonnull
     public static ValueWrapper notNullIntCov() {
         return newCov(Type.primitiveType(Type.TypeCode.INT, false), 42);
     }
@@ -243,7 +253,7 @@ public class ConstantFoldingTestUtils {
 
     @Nonnull
     public static QueryPredicate simplify(@Nonnull final QueryPredicate predicate,
-                                   @Nonnull final EvaluationContext evaluationContext) {
+                                          @Nonnull final EvaluationContext evaluationContext) {
         final var result = Simplification.optimize(predicate,
                 evaluationContext,
                 AliasMap.emptyMap(),

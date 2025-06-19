@@ -72,7 +72,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class ConstantFoldingPredicateWithRangesRule extends QueryPredicateSimplificationRule<PredicateWithValueAndRanges> implements ConstantPredicateFoldingTrait {
+public class ConstantFoldingPredicateWithRangesRule extends QueryPredicateSimplificationRule<PredicateWithValueAndRanges> {
 
     @Nonnull
     private static final BindingMatcher<RangeConstraints> booleanSingletonRangeMatcher = rangeConstraint(exactly(anyComparison()));
@@ -93,6 +93,6 @@ public class ConstantFoldingPredicateWithRangesRule extends QueryPredicateSimpli
         final var booleanSingletonRange = call.getBindings().get(booleanSingletonRangeMatcher);
         final var comparison = (Iterables.getOnlyElement(booleanSingletonRange.getComparisons()));
         final var lhsValue = root.getValue();
-        foldComparisonMaybe(lhsValue, comparison).ifPresent(call::yieldResult);
+        ConstantPredicateFoldingUtil.foldComparisonMaybe(lhsValue, comparison).ifPresent(call::yieldResult);
     }
 }
