@@ -32,7 +32,7 @@ import com.apple.foundationdb.record.planprotos.PEvaluation;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
@@ -114,7 +114,7 @@ public class EvaluatesToValue extends AbstractValue implements Value.RangeMatcha
 
     @Nonnull
     @Override
-    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
         return super.equalsWithoutChildren(other)
                 .filter(ignored -> evaluation.equals(((EvaluatesToValue)other).getEvaluation()));
     }
