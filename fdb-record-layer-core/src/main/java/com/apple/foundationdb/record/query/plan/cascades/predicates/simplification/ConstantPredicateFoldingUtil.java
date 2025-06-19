@@ -49,23 +49,30 @@ final class ConstantPredicateFoldingUtil {
     public static Optional<QueryPredicate> foldComparisonMaybe(@Nonnull final Value operand,
                                                                @Nonnull final Comparisons.Comparison comparison) {
         final var comparisonType = comparison.getType();
+        final var lhsOperand = EffectiveConstant.from(operand);
         if (comparisonType.isUnary()) {
             switch (comparisonType) {
                 case IS_NULL:
-                    if (operand instanceof NullValue) {
-                        return Optional.of(ConstantPredicate.TRUE);
-                    } else if (operand.getResultType().isNotNullable()) {
-                        return Optional.of(ConstantPredicate.FALSE);
-                    } else {
-                        return Optional.empty();
+                    switch (lhsOperand) {
+                        case NULL:
+                            return Optional.of(ConstantPredicate.TRUE);
+                        case TRUE: // fallthrough
+                        case FALSE: // fallthrough
+                        case NOT_NULL:
+                            return Optional.of(ConstantPredicate.FALSE);
+                        default:
+                            return Optional.empty();
                     }
                 case NOT_NULL:
-                    if (operand instanceof NullValue) {
-                        return Optional.of(ConstantPredicate.FALSE);
-                    } else if (operand.getResultType().isNotNullable()) {
-                        return Optional.of(ConstantPredicate.TRUE);
-                    } else {
-                        return Optional.empty();
+                    switch (lhsOperand) {
+                        case NULL:
+                            return Optional.of(ConstantPredicate.FALSE);
+                        case TRUE: // fallthrough
+                        case FALSE: // fallthrough
+                        case NOT_NULL:
+                            return Optional.of(ConstantPredicate.TRUE);
+                        default:
+                            return Optional.empty();
                     }
                 default:
                     return Optional.empty();
@@ -79,9 +86,8 @@ final class ConstantPredicateFoldingUtil {
         final var valueComparison = (Comparisons.ValueComparison)comparison;
         final var rhsValue = valueComparison.getValue();
         final var rhsOperand = EffectiveConstant.from(rhsValue);
-        final var lhsOperand = EffectiveConstant.from(operand);
 
-        if (rhsOperand == EffectiveConstant.UNKNOWN || lhsOperand == EffectiveConstant.UNKNOWN) {
+        if (rhsOperand.isUnknownLiteral() || lhsOperand.isUnknownLiteral()) {
             return Optional.empty();
         }
 
@@ -108,10 +114,21 @@ final class ConstantPredicateFoldingUtil {
     }
 
     enum EffectiveConstant {
-        TRUE,
-        FALSE,
-        NULL,
-        UNKNOWN;
+        TRUE(true),
+        FALSE(true),
+        NULL(true),
+        NOT_NULL(false),
+        UNKNOWN(false);
+
+        private final boolean isKnownLiteral;
+
+        EffectiveConstant(final boolean isKnownLiteral) {
+            this.isKnownLiteral = isKnownLiteral;
+        }
+
+        boolean isUnknownLiteral() {
+            return !isKnownLiteral;
+        }
 
         public static EffectiveConstant from(@Nonnull final Value value) {
             if (value instanceof NullValue) {
@@ -128,7 +145,9 @@ final class ConstantPredicateFoldingUtil {
                     return EffectiveConstant.FALSE;
                 }
             }
-
+            if (value.getResultType().isNotNullable()) {
+                return EffectiveConstant.NOT_NULL;
+            }
             return EffectiveConstant.UNKNOWN;
         }
     }

@@ -38,6 +38,7 @@ public class ConstantFoldingRuleSet extends DefaultQueryPredicateRuleSet {
     protected static final QueryPredicateSimplificationRule<? extends QueryPredicate> valuePredicateSimplificationRule = new ValuePredicateSimplificationRule();
     protected static final QueryPredicateSimplificationRule<? extends QueryPredicate> constantFoldingBooleanLiteralsRule = new ConstantFoldingValuePredicateRule();
     protected static final QueryPredicateSimplificationRule<? extends QueryPredicate> constantFoldingBooleanPredicateWithRangesRule = new ConstantFoldingPredicateWithRangesRule();
+    protected static final QueryPredicateSimplificationRule<? extends QueryPredicate> constantFoldingImpossiblePredicateWithRangesRule = new ConstantFoldingMultiConstraintPredicateRule();
 
     protected static final Set<QueryPredicateSimplificationRule<? extends QueryPredicate>> SIMPLIFICATION_WITH_CONSTANT_FOLDING_RULES =
             ImmutableSet.<QueryPredicateSimplificationRule<? extends QueryPredicate>>builder()
@@ -45,6 +46,7 @@ public class ConstantFoldingRuleSet extends DefaultQueryPredicateRuleSet {
                     .add(valuePredicateSimplificationRule)
                     .add(constantFoldingBooleanLiteralsRule)
                     .add(constantFoldingBooleanPredicateWithRangesRule)
+                    .add(constantFoldingImpossiblePredicateWithRangesRule)
                     .build();
 
     protected static final SetMultimap<QueryPredicateSimplificationRule<? extends QueryPredicate>, QueryPredicateSimplificationRule<? extends QueryPredicate>> SIMPLIFICATION_WITH_CONSTANT_FOLDING_DEPENDS_ON;
@@ -57,6 +59,7 @@ public class ConstantFoldingRuleSet extends DefaultQueryPredicateRuleSet {
         SIMPLIFICATION_RULES.forEach(existingRule -> simplificationDependsOnBuilder.put(existingRule, valuePredicateSimplificationRule));
         SIMPLIFICATION_RULES.forEach(existingRule -> simplificationDependsOnBuilder.put(existingRule, constantFoldingBooleanLiteralsRule));
         SIMPLIFICATION_RULES.forEach(existingRule -> simplificationDependsOnBuilder.put(existingRule, constantFoldingBooleanPredicateWithRangesRule));
+        SIMPLIFICATION_RULES.forEach(existingRule -> simplificationDependsOnBuilder.put(existingRule, constantFoldingImpossiblePredicateWithRangesRule));
         SIMPLIFICATION_WITH_CONSTANT_FOLDING_DEPENDS_ON = simplificationDependsOnBuilder.build();
     }
 
