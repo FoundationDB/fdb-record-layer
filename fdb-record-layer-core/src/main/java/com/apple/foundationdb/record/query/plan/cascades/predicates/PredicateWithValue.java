@@ -36,9 +36,12 @@ import java.util.function.Function;
 public interface PredicateWithValue extends LeafQueryPredicate, WithValue<PredicateWithValue> {
 
     /**
-     * Replaces the predicate {@link Value} and {@code Value}(s) in the {@code Comparison}.
+     * Replaces the {@link Value} and its associated {@code Value}(s) within the {@code Comparison}.
+     * To avoid unnecessary object creation, this method expects the caller to return the original objects
+     * if no translation is required.
+     *
      * @param valueTranslator the value translator.
-     * @param comparisonTranslator the comparison translator
+     * @param comparisonTranslator the comparison translator.
      *
      * @return potentially a new instance of {@code PredicateWithValue} with translated {@code Value}(s).
      */

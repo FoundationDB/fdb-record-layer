@@ -47,7 +47,7 @@ public class DefaultQueryPredicateRuleSet extends AbstractQueryPredicateRuleSet<
     protected static final QueryPredicateSimplificationRule<NotPredicate> notOverComparisonRule = new NotOverComparisonRule();
     protected static final QueryPredicateSimplificationRule<NotPredicate> deMorganNotOverAndRule = DeMorgansTheoremRule.withMajor(AndPredicate.class);
     protected static final QueryPredicateSimplificationRule<NotPredicate> deMorganNotOverOrRule = DeMorgansTheoremRule.withMajor(OrPredicate.class);
-    protected static final Set<QueryPredicateSimplificationRule<? extends QueryPredicate>> COMPUTATION_RULES =
+    protected static final Set<QueryPredicateSimplificationRule<? extends QueryPredicate>> SIMPLIFICATION_RULES =
             ImmutableSet.of(identityOrRule,
                     annulmentOrRule,
                     identityAndRule,
@@ -58,11 +58,11 @@ public class DefaultQueryPredicateRuleSet extends AbstractQueryPredicateRuleSet<
                     deMorganNotOverAndRule,
                     deMorganNotOverOrRule);
 
-    protected static final SetMultimap<QueryPredicateSimplificationRule<? extends QueryPredicate>, QueryPredicateSimplificationRule<? extends QueryPredicate>> COMPUTATION_DEPENDS_ON =
+    protected static final SetMultimap<QueryPredicateSimplificationRule<? extends QueryPredicate>, QueryPredicateSimplificationRule<? extends QueryPredicate>> SIMPLIFICATION_DEPENDS_ON =
             ImmutableSetMultimap.of();
 
     public DefaultQueryPredicateRuleSet() {
-        this(COMPUTATION_RULES, COMPUTATION_DEPENDS_ON);
+        this(SIMPLIFICATION_RULES, SIMPLIFICATION_DEPENDS_ON);
     }
 
     public DefaultQueryPredicateRuleSet(@Nonnull final Set<? extends AbstractQueryPredicateRule<QueryPredicate, QueryPredicateSimplificationRuleCall, ? extends QueryPredicate>> abstractQueryPredicateRules,
@@ -70,7 +70,8 @@ public class DefaultQueryPredicateRuleSet extends AbstractQueryPredicateRuleSet<
         super(abstractQueryPredicateRules, dependsOn);
     }
 
-    public static DefaultQueryPredicateRuleSet ofComputationRules() {
+    @Nonnull
+    public static DefaultQueryPredicateRuleSet ofSimplificationRules() {
         return new DefaultQueryPredicateRuleSet();
     }
 }
