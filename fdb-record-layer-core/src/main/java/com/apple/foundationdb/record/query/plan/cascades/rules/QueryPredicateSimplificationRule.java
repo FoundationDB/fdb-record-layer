@@ -1,5 +1,5 @@
 /*
- * DecorrelateValuesRule.java
+ * QueryPredicateSimplificationRule.java
  *
  * This source file is part of the FoundationDB open source project
  *

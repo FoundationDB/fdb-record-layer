@@ -115,12 +115,12 @@ public class ConstantFoldingMultiConstraintPredicateRule extends QueryPredicateS
                 if (comparison.getType() == Comparisons.Type.IS_NULL) {
                     switch (lhsOperand) {
                         case NULL:
-                            rangeCategoriesBuilder.add(RangeCategory.SingletonTrue);
+                            rangeCategoriesBuilder.add(RangeCategory.SINGLETON_TRUE);
                             break;
                         case TRUE: // fallthrough
                         case FALSE: // fallthrough
                         case NOT_NULL:
-                            rangeCategoriesBuilder.add(RangeCategory.SingletonFalse);
+                            rangeCategoriesBuilder.add(RangeCategory.SINGLETON_FALSE);
                             break;
                         default:
                             break;
@@ -138,24 +138,24 @@ public class ConstantFoldingMultiConstraintPredicateRule extends QueryPredicateS
                 switch (comparison.getType()) {
                     case EQUALS:
                         if (lhsOperand == EffectiveConstant.NULL || rhsOperand == EffectiveConstant.NULL) {
-                            rangeCategoriesBuilder.add(RangeCategory.SingletonNull);
+                            rangeCategoriesBuilder.add(RangeCategory.SINGLETON_NULL);
                             break;
                         } else if (lhsOperand.equals(rhsOperand)) {
-                            rangeCategoriesBuilder.add(RangeCategory.SingletonTrue);
+                            rangeCategoriesBuilder.add(RangeCategory.SINGLETON_TRUE);
                             break;
                         } else {
-                            rangeCategoriesBuilder.add(RangeCategory.SingletonFalse);
+                            rangeCategoriesBuilder.add(RangeCategory.SINGLETON_FALSE);
                             break;
                         }
                     case NOT_EQUALS:
                         if (lhsOperand == EffectiveConstant.NULL || rhsOperand == EffectiveConstant.NULL) {
-                            rangeCategoriesBuilder.add(RangeCategory.SingletonNull);
+                            rangeCategoriesBuilder.add(RangeCategory.SINGLETON_NULL);
                             break;
                         } else if (!lhsOperand.equals(rhsOperand)) {
-                            rangeCategoriesBuilder.add(RangeCategory.SingletonTrue);
+                            rangeCategoriesBuilder.add(RangeCategory.SINGLETON_TRUE);
                             break;
                         } else {
-                            rangeCategoriesBuilder.add(RangeCategory.SingletonFalse);
+                            rangeCategoriesBuilder.add(RangeCategory.SINGLETON_FALSE);
                             break;
                         }
                     default:
@@ -167,7 +167,7 @@ public class ConstantFoldingMultiConstraintPredicateRule extends QueryPredicateS
         final var rangeCategories = rangeCategoriesBuilder.build();
 
         // if at least one range is FALSE, the returned result must be FALSE
-        if (rangeCategories.contains(RangeCategory.SingletonFalse)) {
+        if (rangeCategories.contains(RangeCategory.SINGLETON_FALSE)) {
             return Optional.of(ConstantPredicate.FALSE);
         }
 
@@ -179,11 +179,11 @@ public class ConstantFoldingMultiConstraintPredicateRule extends QueryPredicateS
         if (rangeCategories.size() == 1) {
             final var singleRangeCategory = Iterables.getOnlyElement(rangeCategories);
             switch (singleRangeCategory) {
-                case SingletonTrue:
+                case SINGLETON_TRUE:
                     return Optional.of(ConstantPredicate.TRUE);
-                case SingletonFalse:
+                case SINGLETON_FALSE:
                     return Optional.of(ConstantPredicate.FALSE);
-                case SingletonNull:
+                case SINGLETON_NULL:
                     return Optional.of(ConstantPredicate.NULL);
                 default:
                     return Optional.empty();
@@ -194,10 +194,10 @@ public class ConstantFoldingMultiConstraintPredicateRule extends QueryPredicateS
         // of them ...
 
         // ... unless we have a combination of TRUE and NULL then the result is NULL
-        if (rangeCategories.stream().noneMatch(p -> p == RangeCategory.SingletonFalse)) {
+        if (rangeCategories.stream().noneMatch(p -> p == RangeCategory.SINGLETON_FALSE)) {
             // we must have TRUE and NULL
-            Verify.verify(rangeCategories.contains(RangeCategory.SingletonTrue));
-            Verify.verify(rangeCategories.contains(RangeCategory.SingletonNull));
+            Verify.verify(rangeCategories.contains(RangeCategory.SINGLETON_TRUE));
+            Verify.verify(rangeCategories.contains(RangeCategory.SINGLETON_NULL));
             return Optional.of(ConstantPredicate.NULL);
         }
 
@@ -206,9 +206,9 @@ public class ConstantFoldingMultiConstraintPredicateRule extends QueryPredicateS
     }
 
     private enum RangeCategory {
-        SingletonNull,
-        SingletonTrue,
-        SingletonFalse,
+        SINGLETON_NULL,
+        SINGLETON_TRUE,
+        SINGLETON_FALSE,
         UNKNOWN
     }
 }

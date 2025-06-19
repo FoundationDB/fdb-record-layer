@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.test.RandomizedTestUtils;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -126,6 +127,65 @@ public class QueryPredicateSimplificationRuleTest {
         testHelper.assertYields(selectExpression, evaluationContext, expected);
     }
 
+    @ParameterizedTest(name = "({1}) should be the simplified version of {0}")
+    @MethodSource("randomPredicateProvider")
+    void testPredicateSimplificationGeneratedConjunctionIsSplitCorrectly(QueryPredicate actualPredicate, QueryPredicate expectedPredicate, EvaluationContext evaluationContext) {
+        final Quantifier baseQun = baseBlah();
+
+        final SelectExpression selectExpression = GraphExpansion.builder()
+                .addQuantifier(baseQun)
+                .addResultColumn(projectColumn(baseQun, "intField"))
+                .addPredicate(RandomPredicateGenerator.getNonConstantPredicates().get(1))
+                .addPredicate(actualPredicate)
+                .addPredicate(RandomPredicateGenerator.getNonConstantPredicates().get(2))
+                .addPredicate(RandomPredicateGenerator.getNonConstantPredicates().get(3))
+                .build().buildSelect();
+
+        final SelectExpression expected;
+        if (expectedPredicate == ConstantPredicate.TRUE) {
+            // The idea here, if we have a SelectExpression with the following predicates (passed individually
+            // through the builder):
+            // P1 AND P2 AND P3 AND P4 | P3 collapses to TRUE
+            // then, the resulting SelectExpression should be:
+            // P1 AND P2 AND P4, because after collapsing P3 to TRUE, it should be removed afterward.
+            expected = GraphExpansion.builder()
+                .addQuantifier(baseQun)
+                .addResultColumn(projectColumn(baseQun, "intField"))
+                .addPredicate(RandomPredicateGenerator.getNonConstantPredicates().get(1))
+                .addPredicate(RandomPredicateGenerator.getNonConstantPredicates().get(2))
+                .addPredicate(RandomPredicateGenerator.getNonConstantPredicates().get(3))
+                .build().buildSelect();
+        } else if (expectedPredicate == ConstantPredicate.FALSE) {
+            // The idea here, if we have a SelectExpression with the following predicates (passed individually
+            // through the builder):
+            // P1 AND P2 AND P3 AND P4 | P3 collapses to FALSE
+            // then, the resulting SelectExpression should be:
+            // FALSE (the expected predicate)
+            expected = GraphExpansion.builder()
+                    .addQuantifier(baseQun)
+                    .addResultColumn(projectColumn(baseQun, "intField"))
+                    .addPredicate(expectedPredicate)
+                    .build().buildSelect();
+        } else {
+            Verify.verify(expectedPredicate == ConstantPredicate.NULL);
+            // The idea here, if we have a SelectExpression with the following predicates (passed individually
+            // through the builder):
+            // P1 AND P2 AND P3 AND P4 | P3 collapses to NULL
+            // then, the resulting SelectExpression should be:
+            // P1 AND P2 AND NULL AND P4 according to Kleene's logic, we can't simplify this further,
+            // since P1, P2, P4 are not constant.
+            expected = GraphExpansion.builder()
+                    .addQuantifier(baseQun)
+                    .addResultColumn(projectColumn(baseQun, "intField"))
+                    .addPredicate(RandomPredicateGenerator.getNonConstantPredicates().get(1))
+                    .addPredicate(expectedPredicate)
+                    .addPredicate(RandomPredicateGenerator.getNonConstantPredicates().get(2))
+                    .addPredicate(RandomPredicateGenerator.getNonConstantPredicates().get(3))
+                    .build().buildSelect();
+        }
+        testHelper.assertYields(selectExpression, evaluationContext, expected);
+    }
+
     public static class RandomPredicateGenerator {
 
         public static class PredicateTest {
@@ -147,30 +207,10 @@ public class QueryPredicateSimplificationRuleTest {
         }
 
         @Nonnull
-        private final List<NonnullPair<QueryPredicate, EvaluationContext>> nullConstantPredicates;
-
-        @Nonnull
-        private final List<NonnullPair<QueryPredicate, EvaluationContext>> trueConstantPredicates;
-
-        @Nonnull
-        private final List<QueryPredicate> trueConstantLiteralPredicates;
-
-        @Nonnull
-        private final List<NonnullPair<QueryPredicate, EvaluationContext>> falseConstantPredicates;
-
-        @Nonnull
-        private final List<QueryPredicate> falseConstantLiteralPredicates;
-
-        @Nonnull
         private final Random random;
 
         public RandomPredicateGenerator(@Nonnull Random random) {
             this.random = random;
-            this.nullConstantPredicates = generateNullConstantPredicates();
-            this.trueConstantPredicates = buildTrueConstantPredicates();
-            this.trueConstantLiteralPredicates = buildTrueConstantLiteralPredicates();
-            this.falseConstantPredicates = buildFalseConstantPredicates();
-            this.falseConstantLiteralPredicates = buildFalseConstantLiteralPredicates();
         }
 
         @Nonnull
@@ -188,11 +228,16 @@ public class QueryPredicateSimplificationRuleTest {
             }
         }
 
+        @Nonnull
+        public static List<QueryPredicate> getNonConstantPredicates() {
+            return nonConstantPredicates;
+        }
+
         /**
          * List of predicates that can not be evaluated at query compile time.
          */
         @Nonnull
-        private final List<QueryPredicate> nonConstantPredicates = ImmutableList.of(
+        private static final List<QueryPredicate> nonConstantPredicates = ImmutableList.of(
                 fieldPredicate(baseBlah(), "intField", new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)),
                 fieldPredicate(baseBlah(), "stringField", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, litString("foo").value())),
                 LiteralValue.ofScalar("something").withComparison(new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(baseBlah(), "stringField"))),
@@ -201,7 +246,9 @@ public class QueryPredicateSimplificationRuleTest {
         );
 
         @Nonnull
-        private static List<NonnullPair<QueryPredicate, EvaluationContext>> generateNullConstantPredicates() {
+        private static final List<NonnullPair<QueryPredicate, EvaluationContext>> nullConstantPredicates;
+
+        static {
             final var nullConstantPredicatesBuilder = ImmutableList.<NonnullPair<QueryPredicate, EvaluationContext>>builder();
             {
                 var op1 = covTrue();
@@ -244,11 +291,13 @@ public class QueryPredicateSimplificationRuleTest {
                 var op2 = litNull();
                 nullConstantPredicatesBuilder.add(NonnullPair.of(areEqual(op1.value(), op2.value()), op1.mergeEvaluationContext(op2)));
             }
-            return nullConstantPredicatesBuilder.build();
+            nullConstantPredicates = nullConstantPredicatesBuilder.build();
         }
 
         @Nonnull
-        private static List<NonnullPair<QueryPredicate, EvaluationContext>> buildTrueConstantPredicates() {
+        private static final List<NonnullPair<QueryPredicate, EvaluationContext>> trueConstantPredicates;
+
+        static  {
             final var nullConstantPredicatesBuilder = ImmutableList.<NonnullPair<QueryPredicate, EvaluationContext>>builder();
             {
                 var op1 = covTrue();
@@ -283,11 +332,13 @@ public class QueryPredicateSimplificationRuleTest {
                 var op2 = covTrue();
                 nullConstantPredicatesBuilder.add(NonnullPair.of(areEqualAsRange(op1.value(), op2.value()), op1.mergeEvaluationContext(op2)));
             }
-            return nullConstantPredicatesBuilder.build();
+            trueConstantPredicates = nullConstantPredicatesBuilder.build();
         }
 
         @Nonnull
-        private static List<QueryPredicate> buildTrueConstantLiteralPredicates() {
+        private static final List<QueryPredicate> trueConstantLiteralPredicates;
+
+        static {
             final var trueConstantLiteralPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
             {
                 var op1 = litTrue();
@@ -322,11 +373,13 @@ public class QueryPredicateSimplificationRuleTest {
                 var op2 = litTrue();
                 trueConstantLiteralPredicatesBuilder.add(areEqualAsRange(op1.value(), op2.value()));
             }
-            return trueConstantLiteralPredicatesBuilder.build();
+            trueConstantLiteralPredicates = trueConstantLiteralPredicatesBuilder.build();
         }
 
+        @Nonnull
+        private static final List<NonnullPair<QueryPredicate, EvaluationContext>> falseConstantPredicates;
 
-        private static List<NonnullPair<QueryPredicate, EvaluationContext>> buildFalseConstantPredicates() {
+        static {
             final var nullConstantPredicatesBuilder = ImmutableList.<NonnullPair<QueryPredicate, EvaluationContext>>builder();
             {
                 var op1 = covTrue();
@@ -366,10 +419,13 @@ public class QueryPredicateSimplificationRuleTest {
                 var op2 = covTrue();
                 nullConstantPredicatesBuilder.add(NonnullPair.of(areNotEqual(op1.value(), op2.value()), op1.mergeEvaluationContext(op2)));
             }
-            return nullConstantPredicatesBuilder.build();
+            falseConstantPredicates = nullConstantPredicatesBuilder.build();
         }
 
-        private static List<QueryPredicate> buildFalseConstantLiteralPredicates() {
+        @Nonnull
+        private static final List<QueryPredicate> falseConstantLiteralPredicates;
+
+        static {
             final var nullConstantPredicatesBuilder = ImmutableList.<QueryPredicate>builder();
             {
                 var op1 = litTrue();
@@ -409,7 +465,7 @@ public class QueryPredicateSimplificationRuleTest {
                 var op2 = litTrue();
                 nullConstantPredicatesBuilder.add(areNotEqual(op1.value(), op2.value()));
             }
-            return nullConstantPredicatesBuilder.build();
+            falseConstantLiteralPredicates = nullConstantPredicatesBuilder.build();
         }
 
         @Nonnull
