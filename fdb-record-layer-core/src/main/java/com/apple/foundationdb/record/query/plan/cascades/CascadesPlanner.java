@@ -437,6 +437,17 @@ public class CascadesPlanner implements QueryPlanner {
                     Debugger.withDebugger(debugger -> debugger.onEvent(nextTask.toTaskEvent(Location.BEGIN)));
                     try {
                         nextTask.execute();
+                        Debugger.sanityCheck(() ->
+                                // This is a fairly expensive check, but it makes sure that the traversal
+                                // is up to date with the query DAG.
+                                // If we have something in the DAG that is not in the traversal, this can
+                                // lead to wrong results. If there is stuff in the traversal that is not
+                                // in the DAG, then this is a bit of a memory leak, but it should generally
+                                // be fine. There is currently some accounting in the SelectDataAccessRule
+                                // where plans are generated and memoized and then not pruned if they are
+                                // not selected, which is why we can't enable the "require no extra" part
+                                // of this check
+                                traversal.verifyIntegrity(false));
                     } finally {
                         Debugger.withDebugger(debugger -> debugger.onEvent(nextTask.toTaskEvent(Location.END)));
                     }

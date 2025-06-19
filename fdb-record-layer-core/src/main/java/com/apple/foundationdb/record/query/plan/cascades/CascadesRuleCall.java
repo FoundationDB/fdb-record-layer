@@ -220,11 +220,15 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
             if (root.insertFinalExpression(expression)) {
                 newFinalExpressions.add(expression);
                 traversal.addExpression(root, expression);
+            } else {
+                traversal.pruneUnreferencedChildren(expression);
             }
         } else {
             if (root.insertExploratoryExpression(expression)) {
                 newExploratoryExpressions.add(expression);
                 traversal.addExpression(root, expression);
+            } else {
+                traversal.pruneUnreferencedChildren(expression);
             }
         }
     }
