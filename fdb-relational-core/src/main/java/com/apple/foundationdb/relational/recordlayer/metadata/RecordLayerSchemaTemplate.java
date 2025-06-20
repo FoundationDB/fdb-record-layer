@@ -448,6 +448,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         public Builder addInvokedRoutine(@Nonnull final RecordLayerInvokedRoutine invokedRoutine) {
             Assert.thatUnchecked(!invokedRoutines.containsKey(invokedRoutine.getName()), ErrorCode.INVALID_SCHEMA_TEMPLATE,
                     () -> "routine " + invokedRoutine.getName() + " is already defined");
+            Assert.thatUnchecked(!tables.containsKey(invokedRoutine.getName()), ErrorCode.INVALID_SCHEMA_TEMPLATE,
+                    () -> "routine " + invokedRoutine.getName() + " cannot be defined because a table with the same name exists");
             invokedRoutines.put(invokedRoutine.getName(), invokedRoutine);
             return this;
         }
