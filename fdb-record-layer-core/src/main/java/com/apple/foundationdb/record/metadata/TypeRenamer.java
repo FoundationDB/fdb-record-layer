@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.metadata;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.provider.foundationdb.MetaDataProtoEditor;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 
@@ -43,7 +44,18 @@ public class TypeRenamer {
     }
 
     public void modify(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder,
-                       @Nonnull Descriptors.FileDescriptor[] dependencies) {
+                        @Nonnull Descriptors.FileDescriptor[] dependencies) {
+        modify2(metaDataBuilder, dependencies);
+    }
+
+    private void modify2(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder,
+                         @Nonnull Descriptors.FileDescriptor[] dependencies) {
+        MetaDataProtoEditor.renameRecordTypes(metaDataBuilder, renamer);
+    }
+
+
+    private void modify1(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder,
+                         @Nonnull Descriptors.FileDescriptor[] dependencies) {
         // TODO this doesn't work well if there are other types with the same name
         final DescriptorProtos.FileDescriptorProto.Builder protoFile = metaDataBuilder.getRecordsBuilder();
         final Descriptors.FileDescriptor fileDescriptor = RecordMetaDataBuilder.buildFileDescriptor(metaDataBuilder.getRecords(), dependencies);
