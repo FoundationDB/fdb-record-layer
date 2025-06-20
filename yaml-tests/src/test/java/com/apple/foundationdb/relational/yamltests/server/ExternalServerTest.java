@@ -61,7 +61,8 @@ class ExternalServerTest {
             for (final ExternalServer server : servers) {
                 server.start();
             }
-            // we can't assert about the actual values, because one of the ports may be busy
+            // we can't assert about the actual values, because one of the ports may be busy,
+            // so assert that each server has its own port, and none of them have the same port
             assertEquals(servers.stream().map(ExternalServer::getPort).distinct().collect(Collectors.toList()),
                     servers.stream().map(ExternalServer::getPort).collect(Collectors.toList()));
         } finally {

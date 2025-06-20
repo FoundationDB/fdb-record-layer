@@ -59,17 +59,11 @@ public class ExternalServer {
      *
      * @param serverJar the path to the jar to run
      */
-    public ExternalServer(@Nullable File serverJar,
+    public ExternalServer(@Nonnull final File serverJar,
                           @Nullable final String clusterFile) throws IOException {
         this.clusterFile = clusterFile;
 
-        if (serverJar == null) {
-            final List<File> externalServers = getAvailableServers();
-            Assertions.assertEquals(1, externalServers.size());
-            this.serverJar = externalServers.get(0);
-        } else {
-            this.serverJar = serverJar;
-        }
+        this.serverJar = serverJar;
         Assertions.assertTrue(this.serverJar.exists(), "Jar could not be found " + serverJar.getAbsolutePath());
         this.version = getVersion(this.serverJar);
     }
@@ -192,6 +186,13 @@ public class ExternalServer {
         return serverProcess.isAlive();
     }
 
+    /**
+     * Get a port that is currently available for the server.
+     * @param unavailablePort Get a port that you know will be unavailable. This is mostly useful because the server
+     * needs two ports, one for GRPC, and one for HTTP, so the GRPC port can be noted as unavailable when asking for
+     * the http port and both can be provided to the server. If nothing is unavailable, use a negative number.
+     * @return a port that is not currently in use on the system.
+     */
     private int getAvailablePort(final int unavailablePort) {
         // running locally on my laptop, testing if a port is available takes 0 milliseconds, so no need to optimize
         for (int i = 1111; i < 9999; i++) {
