@@ -3,8 +3,8 @@ unnamed-1:
     explain: SCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0,
         count_star(*) AS _1) | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1,
         promote(0l AS LONG)) AS B)
-    task_count: 297
-    task_total_time_ms: 3
+    task_count: 301
+    task_total_time_ms: 6
     transform_count: 77
     transform_time_ms: 1
     transform_yield_count: 18
@@ -20,31 +20,31 @@ unnamed-1:
         AS A, coalesce_long(_._0._1, promote(0l AS LONG)) AS B) | MAP (_ AS _0) |
         AGG (sum_l(_._0.A) AS _0, sum_l(_._0.B) AS _1) | ON EMPTY NULL | MAP (_._0._0
         AS A, _._0._1 AS B)
-    task_count: 765
-    task_total_time_ms: 25
+    task_count: 777
+    task_total_time_ms: 11
     transform_count: 200
-    transform_time_ms: 6
+    transform_time_ms: 3
     transform_yield_count: 44
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 70
     insert_reused_count: 4
 -   query: EXPLAIN select col1, col2 from t1 union all select col1, col2 from t1
     explain: SCAN(<,>) | TFILTER T1 | MAP (_.COL1 AS COL1, _.COL2 AS COL2) ⊎ SCAN(<,>)
         | TFILTER T1 | MAP (_.COL1 AS COL1, _.COL2 AS COL2)
-    task_count: 413
-    task_total_time_ms: 6
+    task_count: 417
+    task_total_time_ms: 7
     transform_count: 106
-    transform_time_ms: 2
+    transform_time_ms: 1
     transform_yield_count: 27
     insert_time_ms: 0
     insert_new_count: 39
     insert_reused_count: 4
 -   query: EXPLAIN select * from t1 union all select * from t1;
     explain: SCAN(<,>) | TFILTER T1 ⊎ SCAN(<,>) | TFILTER T1
-    task_count: 397
-    task_total_time_ms: 15
+    task_count: 401
+    task_total_time_ms: 12
     transform_count: 106
-    transform_time_ms: 4
+    transform_time_ms: 3
     transform_yield_count: 27
     insert_time_ms: 0
     insert_new_count: 37
@@ -52,10 +52,10 @@ unnamed-1:
 -   query: EXPLAIN select * from t1 union all select id, col1, col2 from t1;
     explain: SCAN(<,>) | TFILTER T1 ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1
         AS COL1, _.COL2 AS COL2)
-    task_count: 465
-    task_total_time_ms: 17
+    task_count: 469
+    task_total_time_ms: 4
     transform_count: 123
-    transform_time_ms: 3
+    transform_time_ms: 1
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 42
@@ -63,8 +63,8 @@ unnamed-1:
 -   query: EXPLAIN select id, col1, col2 from t1 union all select * from t1;
     explain: SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)
         ⊎ SCAN(<,>) | TFILTER T1
-    task_count: 465
-    task_total_time_ms: 17
+    task_count: 469
+    task_total_time_ms: 20
     transform_count: 123
     transform_time_ms: 3
     transform_yield_count: 30
@@ -76,8 +76,8 @@ unnamed-1:
     explain: SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) |
         MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS
         ID, _.COL1 AS COL1, _.COL2 AS COL2)
-    task_count: 529
-    task_total_time_ms: 19
+    task_count: 537
+    task_total_time_ms: 17
     transform_count: 144
     transform_time_ms: 3
     transform_yield_count: 31
@@ -89,8 +89,8 @@ unnamed-1:
     explain: SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) |
         MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS
         ID, _.COL1 AS COL1, _.COL2 AS COL2)
-    task_count: 529
-    task_total_time_ms: 20
+    task_count: 537
+    task_total_time_ms: 13
     transform_count: 144
     transform_time_ms: 3
     transform_yield_count: 31
@@ -102,10 +102,10 @@ unnamed-1:
     explain: SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) |
         MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS
         ID, _.COL1 AS COL1, _.COL2 AS COL2)
-    task_count: 529
-    task_total_time_ms: 18
+    task_count: 537
+    task_total_time_ms: 12
     transform_count: 144
-    transform_time_ms: 3
+    transform_time_ms: 2
     transform_yield_count: 31
     insert_time_ms: 0
     insert_new_count: 46
@@ -115,10 +115,10 @@ unnamed-1:
     explain: SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) |
         MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS
         ID, _.COL1 AS COL1, _.COL2 AS COL2)
-    task_count: 529
-    task_total_time_ms: 20
+    task_count: 537
+    task_total_time_ms: 5
     transform_count: 144
-    transform_time_ms: 3
+    transform_time_ms: 1
     transform_yield_count: 31
     insert_time_ms: 0
     insert_new_count: 46
@@ -128,10 +128,10 @@ unnamed-1:
     explain: SCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) |
         MAP (_.W AS W, _.X AS X, _.Y AS Y) ⊎ SCAN(<,>) | TFILTER T1 | MAP (_.ID AS
         ID, _.COL1 AS COL1, _.COL2 AS COL2)
-    task_count: 529
+    task_count: 537
     task_total_time_ms: 14
     transform_count: 144
-    transform_time_ms: 3
+    transform_time_ms: 2
     transform_yield_count: 31
     insert_time_ms: 0
     insert_new_count: 46
@@ -140,10 +140,10 @@ unnamed-1:
     explain: SCAN(<,>) | TFILTER T3 | MAP (_.A AS A, _.B AS B) | MAP (_.A AS A, promote(_.B
         AS DOUBLE) AS B) ⊎ SCAN(<,>) | TFILTER T4 | MAP (_.A AS A, _.B AS B) | MAP
         (promote(_.A AS DOUBLE) AS A, _.B AS B)
-    task_count: 575
-    task_total_time_ms: 12
+    task_count: 583
+    task_total_time_ms: 22
     transform_count: 157
-    transform_time_ms: 3
+    transform_time_ms: 4
     transform_yield_count: 41
     insert_time_ms: 0
     insert_new_count: 50
@@ -155,10 +155,10 @@ unnamed-1:
         | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) |
         ON EMPTY NULL | MAP (_._0._0 AS S)'
-    task_count: 810
-    task_total_time_ms: 32
-    transform_count: 231
-    transform_time_ms: 11
+    task_count: 825
+    task_total_time_ms: 22
+    transform_count: 233
+    transform_time_ms: 8
     transform_yield_count: 56
     insert_time_ms: 0
     insert_new_count: 71
@@ -170,12 +170,12 @@ unnamed-1:
         | TFILTER T1 | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL |
         MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) |
         AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)
-    task_count: 801
-    task_total_time_ms: 23
+    task_count: 816
+    task_total_time_ms: 14
     transform_count: 214
-    transform_time_ms: 6
+    transform_time_ms: 4
     transform_yield_count: 51
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 74
     insert_reused_count: 5
 -   query: EXPLAIN select col2 from t1 where exists (select a from t3 where col2 <=
@@ -184,11 +184,11 @@ unnamed-1:
         _.ID GREATER_THAN_OR_EQUALS q0.COL2 | MAP (_.A AS A) ⊎ SCAN(<,>) | TFILTER
         T4 | FILTER _.ID GREATER_THAN_OR_EQUALS q0.COL2 | MAP (_.B AS B) | DEFAULT
         NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.COL2 AS COL2) }
-    task_count: 895
-    task_total_time_ms: 40
-    transform_count: 260
-    transform_time_ms: 12
+    task_count: 907
+    task_total_time_ms: 32
+    transform_count: 268
+    transform_time_ms: 16
     transform_yield_count: 64
-    insert_time_ms: 4
+    insert_time_ms: 1
     insert_new_count: 85
     insert_reused_count: 8

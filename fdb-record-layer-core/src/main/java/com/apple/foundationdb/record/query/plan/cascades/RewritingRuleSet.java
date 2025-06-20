@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.rules.DecorrelateValuesRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.FinalizeExpressionsRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PredicatePushDownRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.QueryPredicateSimplificationRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.RemoveRangeOneRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.SelectMergeRule;
 import com.google.common.annotations.VisibleForTesting;
@@ -41,6 +42,7 @@ import java.util.Set;
 @SuppressWarnings("java:S1452")
 public class RewritingRuleSet extends CascadesRuleSet {
     private static final Set<ExplorationCascadesRule<? extends RelationalExpression>> EXPLORATION_RULES = ImmutableSet.of(
+            new QueryPredicateSimplificationRule(),
             new PredicatePushDownRule(),
             new DecorrelateValuesRule(),
             new RemoveRangeOneRule()

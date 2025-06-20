@@ -2,19 +2,19 @@ agg-index-tests-count-empty:
 -   query: EXPLAIN select count(*) from t1
     explain: 'AISCAN(MV1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
-    task_count: 502
-    task_total_time_ms: 24
+    task_count: 506
+    task_total_time_ms: 18
     transform_count: 152
-    transform_time_ms: 10
+    transform_time_ms: 7
     transform_yield_count: 44
-    insert_time_ms: 3
+    insert_time_ms: 0
     insert_new_count: 44
     insert_reused_count: 5
 -   query: EXPLAIN select count(*) from t1 group by col2
     explain: 'AISCAN(MV2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1
         AS _0)'
-    task_count: 348
-    task_total_time_ms: 17
+    task_count: 352
+    task_total_time_ms: 19
     transform_count: 110
     transform_time_ms: 10
     transform_yield_count: 40
@@ -24,19 +24,19 @@ agg-index-tests-count-empty:
 -   query: EXPLAIN select count(col1) from t1
     explain: 'AISCAN(MV3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
-    task_count: 502
-    task_total_time_ms: 23
+    task_count: 506
+    task_total_time_ms: 22
     transform_count: 152
-    transform_time_ms: 11
+    transform_time_ms: 9
     transform_yield_count: 44
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 44
     insert_reused_count: 5
 -   query: EXPLAIN select count(col1) from t1 group by col2
     explain: 'AISCAN(MV4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1
         AS _0)'
-    task_count: 348
-    task_total_time_ms: 18
+    task_count: 352
+    task_total_time_ms: 19
     transform_count: 110
     transform_time_ms: 10
     transform_yield_count: 40
@@ -46,29 +46,7 @@ agg-index-tests-count-empty:
 -   query: EXPLAIN select count(*) from t2
     explain: ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY
         NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
-    task_count: 413
-    task_total_time_ms: 19
-    transform_count: 107
-    transform_time_ms: 7
-    transform_yield_count: 30
-    insert_time_ms: 0
-    insert_new_count: 43
-    insert_reused_count: 5
--   query: EXPLAIN select count(*) from t2 group by col2
-    explain: ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY (_._0.COL2
-        AS _0) | MAP (_._1._0 AS _0)
-    task_count: 317
-    task_total_time_ms: 13
-    transform_count: 88
-    transform_time_ms: 4
-    transform_yield_count: 26
-    insert_time_ms: 0
-    insert_new_count: 29
-    insert_reused_count: 3
--   query: EXPLAIN select count(col1) from t2
-    explain: ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY
-        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
-    task_count: 413
+    task_count: 417
     task_total_time_ms: 15
     transform_count: 107
     transform_time_ms: 4
@@ -76,11 +54,33 @@ agg-index-tests-count-empty:
     insert_time_ms: 0
     insert_new_count: 43
     insert_reused_count: 5
+-   query: EXPLAIN select count(*) from t2 group by col2
+    explain: ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY (_._0.COL2
+        AS _0) | MAP (_._1._0 AS _0)
+    task_count: 321
+    task_total_time_ms: 12
+    transform_count: 88
+    transform_time_ms: 3
+    transform_yield_count: 26
+    insert_time_ms: 0
+    insert_new_count: 29
+    insert_reused_count: 3
+-   query: EXPLAIN select count(col1) from t2
+    explain: ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY
+        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
+    task_count: 417
+    task_total_time_ms: 13
+    transform_count: 107
+    transform_time_ms: 3
+    transform_yield_count: 30
+    insert_time_ms: 0
+    insert_new_count: 43
+    insert_reused_count: 5
 -   query: EXPLAIN select count(col1) from t2 group by col2
     explain: ISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP BY
         (_._0.COL2 AS _0) | MAP (_._1._0 AS _0)
-    task_count: 317
-    task_total_time_ms: 12
+    task_count: 321
+    task_total_time_ms: 13
     transform_count: 88
     transform_time_ms: 4
     transform_yield_count: 26
