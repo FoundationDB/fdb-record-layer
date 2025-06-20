@@ -144,7 +144,7 @@ public class RuleTestHelper {
     }
 
     @Nonnull
-    private TestRuleExecution run(RelationalExpression original) {
+    private TestRuleExecution run(RelationalExpression original, EvaluationContext evaluationContext) {
         // copy the graph handed in so the caller can modify it at will afterwards and won't see the effects of
         // rewriting and planning
         final var copiedOriginal =
@@ -166,7 +166,7 @@ public class RuleTestHelper {
         }
         Reference ref = Reference.ofExploratoryExpression(PlannerStage.CANONICAL, copiedOriginal);
         PlanContext planContext = new FakePlanContext();
-        return TestRuleExecution.applyRule(planContext, rule, ref, EvaluationContext.EMPTY);
+        return TestRuleExecution.applyRule(planContext, rule, ref, evaluationContext);
     }
 
     public void ensureStage(@Nonnull PlannerStage plannerStage, @Nonnull RelationalExpression expression) {
@@ -230,6 +230,13 @@ public class RuleTestHelper {
     @CanIgnoreReturnValue
     @Nonnull
     public TestRuleExecution assertYields(RelationalExpression original, RelationalExpression... expected) {
+        return assertYields(original, EvaluationContext.EMPTY, expected);
+    }
+
+    @CanIgnoreReturnValue
+    @Nonnull
+    public TestRuleExecution assertYields(RelationalExpression original, EvaluationContext evaluationContext,
+                                          RelationalExpression... expected) {
         final ImmutableList.Builder<RelationalExpression> expectedListBuilder = ImmutableList.builder();
         for (RelationalExpression expression : expected) {
             //
@@ -250,7 +257,7 @@ public class RuleTestHelper {
             }
         }
 
-        TestRuleExecution execution = run(original);
+        TestRuleExecution execution = run(original, evaluationContext);
         try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
             softly.assertThat(execution.getResult().getAllMemberExpressions())
                     .hasSize(1 + expectedList.size())
@@ -262,7 +269,13 @@ public class RuleTestHelper {
     @CanIgnoreReturnValue
     @Nonnull
     public TestRuleExecution assertYieldsNothing(RelationalExpression original, boolean matched) {
-        TestRuleExecution execution = run(original);
+        return assertYieldsNothing(original, EvaluationContext.empty(), matched);
+    }
+
+    @CanIgnoreReturnValue
+    @Nonnull
+    public TestRuleExecution assertYieldsNothing(RelationalExpression original, EvaluationContext evaluationContext, boolean matched) {
+        TestRuleExecution execution = run(original, evaluationContext);
         try (AutoCloseableSoftAssertions softly = new AutoCloseableSoftAssertions()) {
             softly.assertThat(execution.hasYielded())
                     .as("rule should not have yielded new expressions")
