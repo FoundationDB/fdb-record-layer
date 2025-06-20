@@ -254,15 +254,17 @@ public abstract class TempTableTestBase extends FDBRecordStoreQueryTestBase {
     }
 
     @Nonnull
-    RecordQueryPlan createAndOptimizeTempTableScanPlan(@Nonnull final CorrelationIdentifier tempTableId) {
+    RecordQueryPlan createAndOptimizeTempTableScanPlan(@Nonnull final CorrelationIdentifier tempTableId,
+                                                       @Nonnull final TempTable tempTable) {
         final var tempTableScanQun = Quantifier.forEach(Reference.initialOf(TempTableScanExpression.ofCorrelated(tempTableId, getTempTableType())));
         final var selectExpressionBuilder = GraphExpansion.builder()
                 .addAllResultColumns(ImmutableList.of(getIdCol(tempTableScanQun), getValueCol(tempTableScanQun)))
                 .addQuantifier(tempTableScanQun);
         final var logicalPlan = Reference.initialOf(LogicalSortExpression.unsorted(Quantifier.forEach(Reference.initialOf(selectExpressionBuilder.build().buildSelect()))));
         final var cascadesPlanner = (CascadesPlanner)planner;
+        final var compileTimeEvaluationContext = putTempTableInContext(tempTableId, tempTable, EvaluationContext.empty());
         final var plan = cascadesPlanner.planGraph(() -> logicalPlan, Optional.empty(), IndexQueryabilityFilter.TRUE,
-                EvaluationContext.empty()).getPlan();
+                compileTimeEvaluationContext).getPlan();
         assertMatchesExactly(plan, mapPlan(tempTableScanPlan()));
         return plan;
     }

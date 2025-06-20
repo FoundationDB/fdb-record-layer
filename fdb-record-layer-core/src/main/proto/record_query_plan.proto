@@ -253,6 +253,7 @@ message PValue {
     PMacroFunctionValue macro_function_value = 47;
     PRangeValue range_value = 48;
     PFirstOrDefaultStreamingValue first_or_default_streaming_value = 49;
+    PParameterValue parameter_value = 50;
   }
 }
 
@@ -471,6 +472,11 @@ message PFromOrderedBytesValue {
   optional PValue child = 1;
   optional PDirection direction = 2;
   optional PType result_type = 3;
+}
+
+message PParameterValue {
+  optional string bindingName = 1;
+  optional PType result_type = 2;
 }
 
 enum PDirection {

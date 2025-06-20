@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
@@ -48,7 +49,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
@@ -321,9 +321,9 @@ public class RecursiveUnionTest extends TempTableTestBase {
 
             final var logicalPlan = Reference.initialOf(LogicalSortExpression.unsorted(Quantifier.forEach(Reference.initialOf(recursiveUnionPlan))));
             final var cascadesPlanner = (CascadesPlanner)planner;
-            final var plan = cascadesPlanner.planGraph(() -> logicalPlan, Optional.empty(), IndexQueryabilityFilter.TRUE, EvaluationContext.empty()).getPlan();
+            final var evaluationContext = putTempTableInContext(seedingTempTableAlias, seedingTempTable, null);
+            final var plan = cascadesPlanner.planGraph(() -> logicalPlan, Optional.empty(), IndexQueryabilityFilter.TRUE, evaluationContext).getPlan();
 
-            var evaluationContext = putTempTableInContext(seedingTempTableAlias, seedingTempTable, null);
             return extractResultsAsIds(context, plan, evaluationContext).stream().collect(ImmutableList.toImmutableList());
         }
     }
@@ -485,11 +485,15 @@ public class RecursiveUnionTest extends TempTableTestBase {
         final var insertTempTableAlias = CorrelationIdentifier.of("Insert");
         final var scanTempTableAlias = CorrelationIdentifier.of("Scan");
 
-        final var plan = createAndOptimizeHierarchyQuery(seedingTempTableAlias, insertTempTableAlias, scanTempTableAlias, queryPredicate);
+        final var seedingTempTable = tempTableInstance();
+        final var compileTimeEvaluationContext =
+                putTempTableInContext(seedingTempTableAlias, seedingTempTable, EvaluationContext.empty());
+
+        final var plan = createAndOptimizeHierarchyQuery(seedingTempTableAlias, insertTempTableAlias,
+                scanTempTableAlias, queryPredicate, compileTimeEvaluationContext);
 
         System.out.println(ExplainPlanVisitor.prettyExplain(plan));
 
-        final var seedingTempTable = tempTableInstance();
 
         initial.forEach((id, parent) -> seedingTempTable.add(queryResult(id, parent)));
         var evaluationContext = setUpPlanContext(plan, seedingTempTableAlias, seedingTempTable);
@@ -539,7 +543,8 @@ public class RecursiveUnionTest extends TempTableTestBase {
     private RecordQueryPlan createAndOptimizeHierarchyQuery(@Nonnull final CorrelationIdentifier seedingTempTableAlias,
                                                             @Nonnull final CorrelationIdentifier insertTempTableAlias,
                                                             @Nonnull final CorrelationIdentifier scanTempTableAlias,
-                                                            @Nonnull final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> queryPredicate) {
+                                                            @Nonnull final BiFunction<Quantifier.ForEach, Quantifier.ForEach, QueryPredicate> queryPredicate,
+                                                            @Nonnull final EvaluationContext evaluationContext) {
         final var ttScanSeeding = Quantifier.forEach(Reference.initialOf(TempTableScanExpression.ofCorrelated(seedingTempTableAlias, getHierarchyType())));
         var selectExpression = GraphExpansion.builder()
                 .addAllResultColumns(ImmutableList.of(getIdCol(ttScanSeeding), getParentCol(ttScanSeeding))).addQuantifier(ttScanSeeding)
@@ -569,7 +574,7 @@ public class RecursiveUnionTest extends TempTableTestBase {
 
         final var logicalPlan = Reference.initialOf(LogicalSortExpression.unsorted(Quantifier.forEach(Reference.initialOf(recursiveUnionPlan))));
         final var cascadesPlanner = (CascadesPlanner)planner;
-        return cascadesPlanner.planGraph(() -> logicalPlan, Optional.empty(), IndexQueryabilityFilter.TRUE, EvaluationContext.empty()).getPlan();
+        return cascadesPlanner.planGraph(() -> logicalPlan, Optional.empty(), IndexQueryabilityFilter.TRUE, evaluationContext).getPlan();
     }
 
     @Nonnull

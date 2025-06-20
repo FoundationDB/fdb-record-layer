@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Refe
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
-import java.util.Iterator;
 
 /**
  * A helper class for executing a rule during a unit test, without using one of the tasks from the
@@ -76,14 +75,16 @@ public class TestRuleExecution {
         return null;
     }
 
-    public static TestRuleExecution applyRule(@Nonnull PlanContext context,
-                                              @Nonnull CascadesRule<? extends RelationalExpression> rule,
-                                              @Nonnull Reference group,
+    public static TestRuleExecution applyRule(@Nonnull final PlanContext context,
+                                              @Nonnull final CascadesRule<? extends RelationalExpression> rule,
+                                              @Nonnull final Reference group,
+                                              final boolean validateNewExpressions,
+                                              @Nonnull final Traversal traversal,
                                               @Nonnull final EvaluationContext evaluationContext) {
         boolean ruleMatched = false;
         boolean hasYielded = false;
         for (RelationalExpression expression : group.getAllMemberExpressions()) {
-            final Iterator<CascadesRuleCall> ruleCalls =
+            final var ruleCalls =
                     rule.getMatcher()
                             .bindMatches(context.getPlannerConfiguration(),
                                     PlannerBindings.newBuilder()
@@ -91,7 +92,14 @@ public class TestRuleExecution {
                                             .build(),
                                     expression)
                             .map(bindings -> new CascadesRuleCall(PlannerPhase.REWRITING, context, rule, group,
-                                    Traversal.withRoot(group), new ArrayDeque<>(), bindings, evaluationContext))
+                                    traversal, new ArrayDeque<>(), bindings, evaluationContext) {
+                                @Override
+                                protected void validateNewExpression(@Nonnull final RelationalExpression expression) {
+                                    if (validateNewExpressions) {
+                                        super.validateNewExpression(expression);
+                                    }
+                                }
+                            })
                             .iterator();
             while (ruleCalls.hasNext()) {
                 final var ruleCall = ruleCalls.next();

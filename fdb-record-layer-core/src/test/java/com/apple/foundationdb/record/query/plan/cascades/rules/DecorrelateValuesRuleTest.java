@@ -157,6 +157,10 @@ class DecorrelateValuesRuleTest {
                 .addPredicate(fieldPredicate(baseQun, "c", new Comparisons.ValueComparison(Comparisons.Type.NOT_EQUALS, fieldValue(values3, "z"))))
                 .build().buildSelect();
 
+        final Reference group = Reference.initialOf(selectExpression);
+        final SelectExpression selectExpressionWithExternalCorrelations = join(otherQun, forEach(group))
+                .build().buildSelect();
+
         final SelectExpression expected = GraphExpansion.builder()
                 .addQuantifier(baseQun)
                 .addResultColumn(projectColumn(baseQun, "a"))
@@ -168,7 +172,8 @@ class DecorrelateValuesRuleTest {
                 .addPredicate(fieldPredicate(baseQun, "c", new Comparisons.ValueComparison(Comparisons.Type.NOT_EQUALS, fieldValue(otherQun, "gamma"))))
                 .build().buildSelect();
 
-        testHelper.assertYields(selectExpression, expected);
+        testHelper.assertYields(Reference.initialOf(selectExpressionWithExternalCorrelations), group, selectExpression,
+                expected);
     }
 
     /**
