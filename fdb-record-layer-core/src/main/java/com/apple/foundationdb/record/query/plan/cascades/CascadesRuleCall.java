@@ -98,6 +98,8 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
     @Nonnull
     private final LinkedIdentitySet<PartialMatch> newPartialMatches;
     @Nonnull
+    private final LinkedIdentitySet<Reference> newReferences;
+    @Nonnull
     private final Set<Reference> referencesWithPushedConstraints;
     @Nonnull
     private final EvaluationContext evaluationContext;
@@ -120,6 +122,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
         this.newExploratoryExpressions = new LinkedIdentitySet<>();
         this.newFinalExpressions = new LinkedIdentitySet<>();
         this.newPartialMatches = new LinkedIdentitySet<>();
+        this.newReferences = new LinkedIdentitySet<>();
         this.referencesWithPushedConstraints = Sets.newLinkedHashSet();
         this.evaluationContext = evaluationContext;
     }
@@ -221,15 +224,11 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
             if (root.insertFinalExpression(expression)) {
                 newFinalExpressions.add(expression);
                 traversal.addExpression(root, expression);
-            } else {
-                traversal.pruneUnreferencedChildren(expression);
             }
         } else {
             if (root.insertExploratoryExpression(expression)) {
                 newExploratoryExpressions.add(expression);
                 traversal.addExpression(root, expression);
-            } else {
-                traversal.pruneUnreferencedChildren(expression);
             }
         }
     }
@@ -291,6 +290,24 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
     @Nonnull
     public EvaluationContext getEvaluationContext() {
         return evaluationContext;
+    }
+
+    @Nonnull
+    private Reference addNewReference(@Nonnull final Reference newRef) {
+        for (RelationalExpression expression : newRef.getAllMemberExpressions()) {
+            Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.newExp(expression)));
+            traversal.addExpression(newRef, expression);
+        }
+        newReferences.add(newRef);
+        return newRef;
+    }
+
+    public void pruneUnusedNewReferences() {
+        // Not all of the references created during the course of a rule call end up in a yielded expression.
+        // At the end of rule call execution, remove any of the newly created references that aren't referenced
+        // by another reference in the graph
+        traversal.pruneUnreferencedRefs(newReferences);
+        newReferences.clear();
     }
 
     @Nonnull
@@ -409,12 +426,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
             }
 
             // If we didn't find one, create a new reference and add it to the memo
-            final var newRef = Reference.ofExploratoryExpressions(plannerPhase.getTargetPlannerStage(), expressions);
-            expressions.forEach(expr -> {
-                Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.newExp(expr)));
-                traversal.addExpression(newRef, expr);
-            });
-            return newRef;
+            return addNewReference(Reference.ofExploratoryExpressions(plannerPhase.getTargetPlannerStage(), expressions));
         } finally {
             Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.end()));
         }
@@ -442,12 +454,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
                 }
             }
 
-            final Reference newRef = Reference.ofExploratoryExpressions(plannerPhase.getTargetPlannerStage(), expressions);
-            for (RelationalExpression expression : expressions) {
-                Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.newExp(expression)));
-                traversal.addExpression(newRef, expression);
-            }
-            return newRef;
+            return addNewReference(Reference.ofExploratoryExpressions(plannerPhase.getTargetPlannerStage(), expressions));
         } finally {
             Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.end()));
         }
@@ -526,12 +533,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
         try {
             final var exploratoryExpressionSet = new LinkedIdentitySet<>(exploratoryExpressions);
             final var finalExpressionSet = new LinkedIdentitySet<>(finalExpressions);
-            final var newRef = referenceCreator.apply(exploratoryExpressionSet, finalExpressionSet);
-            for (final var expression : allExpressions) {
-                Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.newExp(expression)));
-                traversal.addExpression(newRef, expression);
-            }
-            return newRef;
+            return addNewReference(referenceCreator.apply(exploratoryExpressionSet, finalExpressionSet));
         } finally {
             Debugger.withDebugger(debugger -> allExpressions.forEach(
                     expression -> debugger.onEvent(InsertIntoMemoEvent.end())));

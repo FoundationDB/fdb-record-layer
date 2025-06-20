@@ -35,6 +35,7 @@ import com.google.common.graph.NetworkBuilder;
 import com.google.common.graph.StableStandardMutableNetwork;
 
 import javax.annotation.Nonnull;
+import java.util.Collection;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -170,7 +171,7 @@ public class Traversal {
             }
             childrenReferences.add(referencePath.getQuantifier().getRangesOver());
         }
-        pruneUnreferencedChildren(childrenReferences);
+        pruneUnreferencedRefs(childrenReferences);
         containedInMultiMap.remove(expression, reference);
         if (leafReferences.contains(reference)) {
             boolean stillHasLeaf = false;
@@ -186,14 +187,7 @@ public class Traversal {
         }
     }
 
-    public void pruneUnreferencedChildren(@Nonnull RelationalExpression expression) {
-        pruneUnreferencedChildren(
-                expression.getQuantifiers().stream()
-                        .map(Quantifier::getRangesOver)
-                        .collect(LinkedIdentitySet.toLinkedIdentitySet()));
-    }
-
-    private void pruneUnreferencedChildren(@Nonnull final Set<? extends Reference> childrenReferences) {
+    public void pruneUnreferencedRefs(@Nonnull final Collection<? extends Reference> childrenReferences) {
         for (final var childReference : childrenReferences) {
             if (network.outDegree(childReference) == 0) {
                 for (final var memberExpression : childReference.getAllMemberExpressions()) {
@@ -261,7 +255,7 @@ public class Traversal {
         }
     }
 
-    public void verifyIntegrity(boolean requireNoExtra) {
+    public void verifyIntegrity() {
         // Recompute the traversal from the root
         Traversal secondTraversal = Traversal.withRoot(rootReference);
 
@@ -289,31 +283,29 @@ public class Traversal {
             Verify.verify(missingEdges.isEmpty(), "missing %s expected edges for reference %s", missingEdges.size(), ref);
         }
 
-        if (requireNoExtra) {
-            //
-            // Make sure everything in the network is in the manual traversal
-            //
-            Set<Reference> extraNodes = network.nodes().stream()
-                    .filter(ref -> !secondTraversal.network.nodes().contains(ref))
-                    .collect(LinkedIdentitySet.toLinkedIdentitySet());
-            Verify.verify(extraNodes.isEmpty(), "network contains %s extra nodes", extraNodes.size());
-            Set<Reference> extraLeafs = leafReferences.stream()
-                    .filter(ref -> !secondTraversal.leafReferences.contains(ref))
-                    .collect(LinkedIdentitySet.toLinkedIdentitySet());
-            Verify.verify(extraLeafs.isEmpty(), "network contains %s extra leaf nodes", extraLeafs.size());
-            var extraContainedIn = containedInMultiMap.entries().stream()
-                    .filter(entry -> !secondTraversal.containedInMultiMap.containsEntry(entry.getKey(), entry.getValue()))
-                    .collect(LinkedIdentitySet.toLinkedIdentitySet());
-            Verify.verify(extraContainedIn.isEmpty(), "contained in map contains %s extra entries", extraContainedIn.size());
+        //
+        // Make sure everything in the network is in the manual traversal
+        //
+        Set<Reference> extraNodes = network.nodes().stream()
+                .filter(ref -> !secondTraversal.network.nodes().contains(ref))
+                .collect(LinkedIdentitySet.toLinkedIdentitySet());
+        Verify.verify(extraNodes.isEmpty(), "network contains %s extra nodes", extraNodes.size());
+        Set<Reference> extraLeafs = leafReferences.stream()
+                .filter(ref -> !secondTraversal.leafReferences.contains(ref))
+                .collect(LinkedIdentitySet.toLinkedIdentitySet());
+        Verify.verify(extraLeafs.isEmpty(), "network contains %s extra leaf nodes", extraLeafs.size());
+        var extraContainedIn = containedInMultiMap.entries().stream()
+                .filter(entry -> !secondTraversal.containedInMultiMap.containsEntry(entry.getKey(), entry.getValue()))
+                .collect(LinkedIdentitySet.toLinkedIdentitySet());
+        Verify.verify(extraContainedIn.isEmpty(), "contained in map contains %s extra entries", extraContainedIn.size());
 
-            for (Reference ref : network.nodes()) {
-                Set<ReferencePath> edgesOut = network.outEdges(ref);
-                Set<ReferencePath> expectedOut = secondTraversal.network.outEdges(ref);
-                Set<ReferencePath> extraEdges = edgesOut.stream()
-                        .filter(path -> !expectedOut.contains(path))
-                        .collect(LinkedIdentitySet.toLinkedIdentitySet());
-                Verify.verify(extraEdges.isEmpty(), "network contained %s expected edges for reference %s", extraEdges.size(), ref);
-            }
+        for (Reference ref : network.nodes()) {
+            Set<ReferencePath> edgesOut = network.outEdges(ref);
+            Set<ReferencePath> expectedOut = secondTraversal.network.outEdges(ref);
+            Set<ReferencePath> extraEdges = edgesOut.stream()
+                    .filter(path -> !expectedOut.contains(path))
+                    .collect(LinkedIdentitySet.toLinkedIdentitySet());
+            Verify.verify(extraEdges.isEmpty(), "network contained %s expected edges for reference %s", extraEdges.size(), ref);
         }
     }
 
