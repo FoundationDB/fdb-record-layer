@@ -90,15 +90,6 @@ public class RuleTestHelper {
     ));
 
     @Nonnull
-    public static final Type.Record TYPE_BLAH = Type.Record.fromFieldsWithName("bla", true, ImmutableList.of(
-            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.BOOLEAN, true), Optional.of("boolField")),
-            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("intField")),
-            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT, true), Optional.of("stringField")),
-            Type.Record.Field.of(TYPE_S, Optional.of("structField")),
-            Type.Record.Field.of(new Type.Array(true, TYPE_S), Optional.of("arrayOfStructField"))
-    ));
-
-    @Nonnull
     public static Quantifier fuseQun() {
         return forEach(new FullUnorderedScanExpression(ImmutableSet.of("T", "TAU"), Type.Record.fromFields(ImmutableList.of()), new AccessHints()));
     }
@@ -111,11 +102,6 @@ public class RuleTestHelper {
     @Nonnull
     public static Quantifier baseTau() {
         return forEach(new LogicalTypeFilterExpression(ImmutableSet.of("TAU"), fuseQun(), TYPE_TAU));
-    }
-
-    @Nonnull
-    public static Quantifier baseBlah() {
-        return forEach(new LogicalTypeFilterExpression(ImmutableSet.of("BLAH"), fuseQun(), TYPE_BLAH));
     }
 
     @Nonnull

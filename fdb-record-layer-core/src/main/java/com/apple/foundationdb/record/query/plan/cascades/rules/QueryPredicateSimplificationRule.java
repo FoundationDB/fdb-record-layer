@@ -110,7 +110,7 @@ public class QueryPredicateSimplificationRule extends ExplorationCascadesRule<Se
         final var simplifiedConjunction = Simplification.optimize(conjunction, call.getEvaluationContext(), aliasMap,
                 constantAliases, ConstantFoldingRuleSet.ofSimplificationRules());
 
-        if (simplifiedConjunction.get() == conjunction) {
+        if (simplifiedConjunction.get().semanticEquals(conjunction, aliasMap)) {
             return;
         }
 

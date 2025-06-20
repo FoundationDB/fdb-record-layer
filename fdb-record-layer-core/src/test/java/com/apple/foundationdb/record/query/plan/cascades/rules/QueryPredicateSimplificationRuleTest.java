@@ -64,7 +64,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingT
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.litString;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.litTrue;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.notNullIntCov;
-import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.baseBlah;
+import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.baseT;
 
 /**
  * A test suite for predicate simplification. A key component is a random predicate tree generator which, for a given
@@ -111,17 +111,17 @@ public class QueryPredicateSimplificationRuleTest {
     @ParameterizedTest(name = "({1}) should be the simplified version of {0}")
     @MethodSource("randomPredicateProvider")
     void testPredicateSimplification(QueryPredicate actualPredicate, QueryPredicate expectedPredicate, EvaluationContext evaluationContext) {
-        final Quantifier baseQun = baseBlah();
+        final Quantifier baseQun = baseT();
 
         final SelectExpression selectExpression = GraphExpansion.builder()
                 .addQuantifier(baseQun)
-                .addResultColumn(projectColumn(baseQun, "intField"))
+                .addResultColumn(projectColumn(baseQun, "a"))
                 .addPredicate(actualPredicate)
                 .build().buildSelect();
 
         final SelectExpression expected = GraphExpansion.builder()
                 .addQuantifier(baseQun)
-                .addResultColumn(projectColumn(baseQun, "intField"))
+                .addResultColumn(projectColumn(baseQun, "a"))
                 .addPredicate(expectedPredicate)
                 .build().buildSelect();
         testHelper.assertYields(selectExpression, evaluationContext, expected);
@@ -130,11 +130,11 @@ public class QueryPredicateSimplificationRuleTest {
     @ParameterizedTest(name = "({1}) should be the simplified version of {0}")
     @MethodSource("randomPredicateProvider")
     void testPredicateSimplificationGeneratedConjunctionIsSplitCorrectly(QueryPredicate actualPredicate, QueryPredicate expectedPredicate, EvaluationContext evaluationContext) {
-        final Quantifier baseQun = baseBlah();
+        final Quantifier baseQun = baseT();
 
         final SelectExpression selectExpression = GraphExpansion.builder()
                 .addQuantifier(baseQun)
-                .addResultColumn(projectColumn(baseQun, "intField"))
+                .addResultColumn(projectColumn(baseQun, "a"))
                 .addPredicate(RandomPredicateGenerator.getNonConstantPredicates().get(1))
                 .addPredicate(actualPredicate)
                 .addPredicate(RandomPredicateGenerator.getNonConstantPredicates().get(2))
@@ -150,7 +150,7 @@ public class QueryPredicateSimplificationRuleTest {
             // P1 AND P2 AND P4, because after collapsing P3 to TRUE, it should be removed afterward.
             expected = GraphExpansion.builder()
                 .addQuantifier(baseQun)
-                .addResultColumn(projectColumn(baseQun, "intField"))
+                .addResultColumn(projectColumn(baseQun, "a"))
                 .addPredicate(RandomPredicateGenerator.getNonConstantPredicates().get(1))
                 .addPredicate(RandomPredicateGenerator.getNonConstantPredicates().get(2))
                 .addPredicate(RandomPredicateGenerator.getNonConstantPredicates().get(3))
@@ -163,7 +163,7 @@ public class QueryPredicateSimplificationRuleTest {
             // FALSE (the expected predicate)
             expected = GraphExpansion.builder()
                     .addQuantifier(baseQun)
-                    .addResultColumn(projectColumn(baseQun, "intField"))
+                    .addResultColumn(projectColumn(baseQun, "a"))
                     .addPredicate(expectedPredicate)
                     .build().buildSelect();
         } else {
@@ -176,7 +176,7 @@ public class QueryPredicateSimplificationRuleTest {
             // since P1, P2, P4 are not constant.
             expected = GraphExpansion.builder()
                     .addQuantifier(baseQun)
-                    .addResultColumn(projectColumn(baseQun, "intField"))
+                    .addResultColumn(projectColumn(baseQun, "a"))
                     .addPredicate(RandomPredicateGenerator.getNonConstantPredicates().get(1))
                     .addPredicate(expectedPredicate)
                     .addPredicate(RandomPredicateGenerator.getNonConstantPredicates().get(2))
@@ -238,11 +238,11 @@ public class QueryPredicateSimplificationRuleTest {
          */
         @Nonnull
         private static final List<QueryPredicate> nonConstantPredicates = ImmutableList.of(
-                fieldPredicate(baseBlah(), "intField", new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)),
-                fieldPredicate(baseBlah(), "stringField", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, litString("foo").value())),
-                LiteralValue.ofScalar("something").withComparison(new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(baseBlah(), "stringField"))),
-                fieldPredicate(baseBlah(), "intField", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, litInt(42).value())),
-                new NullValue(Type.primitiveType(Type.TypeCode.INT)).withComparison(new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(baseBlah(), "intField")))
+                fieldPredicate(baseT(), "a", new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)),
+                fieldPredicate(baseT(), "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, litString("foo").value())),
+                LiteralValue.ofScalar("something").withComparison(new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(baseT(), "b"))),
+                fieldPredicate(baseT(), "a", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, litInt(42).value())),
+                new NullValue(Type.primitiveType(Type.TypeCode.INT)).withComparison(new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(baseT(), "a")))
         );
 
         @Nonnull
