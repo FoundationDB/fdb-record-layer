@@ -113,11 +113,6 @@ public class OrderFunctionKeyExpression extends InvertibleFunctionKeyExpression 
     }
 
     @Override
-    public int queryHash(@Nonnull final QueryHashKind hashKind) {
-        return super.baseQueryHash(hashKind, BASE_HASH, direction);
-    }
-
-    @Override
     protected List<Key.Evaluated> evaluateInverseInternal(@Nonnull Key.Evaluated result) {
         return Collections.singletonList(Key.Evaluated.fromTuple(TupleOrdering.unpack(result.getObject(0, byte[].class), direction)));
     }
