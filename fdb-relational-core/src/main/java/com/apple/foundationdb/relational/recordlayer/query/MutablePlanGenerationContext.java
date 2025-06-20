@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.EvaluatesToValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.OfTypeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -337,15 +338,23 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
 
 
     @Nonnull
-    public QueryPlanConstraint getPlanConstraintsForLiterals() {
+    public QueryPlanConstraint getPlanConstraintsForLiteralReferences() {
         final ImmutableList.Builder<QueryPredicate> predicateBuilder = ImmutableList.builder();
 
         // add type constraint for every ConstantObjectValue.
         constantObjectValues.forEach(cov ->
-                predicateBuilder.add(new ValuePredicate(OfTypeValue.from(cov), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true))));
+                predicateBuilder.add(new ValuePredicate(OfTypeValue.from(cov),
+                        new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true))));
 
         // add any literal equality constraints.
         predicateBuilder.addAll(equalityConstraints.build());
+
+        // add literal evaluation for specific values to enable
+        // triggering constant folding internally.
+        final var evaluationContext = getEvaluationContext();
+        constantObjectValues.forEach(cov ->
+                predicateBuilder.add(new ValuePredicate(EvaluatesToValue.of(cov, evaluationContext),
+                        new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true))));
 
         return QueryPlanConstraint.ofPredicates(predicateBuilder.build());
     }

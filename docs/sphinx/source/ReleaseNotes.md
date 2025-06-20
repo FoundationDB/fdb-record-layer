@@ -69,6 +69,23 @@ Mixed mode testing run against the following previous versions:
 [See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/15613193749)
 
 
+### 4.3.3.1
+
+<h4> Bug Fixes </h4>
+
+* Revert "Add RecordCountKey State" - [PR #3383](https://github.com/FoundationDB/fdb-record-layer/pull/3383)
+
+
+**[Full Changelog (4.3.3.0...4.3.3.1)](https://github.com/FoundationDB/fdb-record-layer/compare/4.3.3.0...4.3.3.1)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.1.10.0`, ✅`4.2.2.0`, ✅`4.2.2.1`, ❌`4.2.3.0`, ❌`4.2.4.0`, ✅`4.2.5.0`, ✅`4.2.6.0`, ✅`4.2.8.0`, ✅`4.3.2.0`, ✅`4.3.3.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/15452270034)
+
 
 ### 4.3.3.0
 

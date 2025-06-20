@@ -89,6 +89,7 @@ public class PushRequestedOrderingThroughSelectRule extends CascadesRule<SelectE
                 toBePushedRequestedOrderingsBuilder.add(
                         requestedOrdering.pushDown(resultValue,
                                 innerQuantifier.getAlias(),
+                                call.getEvaluationContext(),
                                 AliasMap.emptyMap(),
                                 selectExpression.getCorrelatedTo()));
             }

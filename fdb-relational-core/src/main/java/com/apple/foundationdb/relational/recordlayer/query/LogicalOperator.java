@@ -183,6 +183,8 @@ public class LogicalOperator {
             return cteMaybe.get().withNewSharedReferenceAndAlias(alias);
         } else if (semanticAnalyzer.tableExists(identifier)) {
             return logicalOperatorCatalog.lookupTableAccess(identifier, alias, requestedIndexes, semanticAnalyzer);
+        } else if (semanticAnalyzer.functionExists(identifier)) {
+            return semanticAnalyzer.resolveTableFunction(identifier.getName(), Expressions.empty(), false);
         } else {
             final var correlatedField = semanticAnalyzer.resolveCorrelatedIdentifier(identifier, currentPlanFragment.getLogicalOperatorsIncludingOuter());
             Assert.thatUnchecked(requestedIndexes.isEmpty(), ErrorCode.UNSUPPORTED_QUERY, () -> String.format(Locale.ROOT, "Can not hint indexes with correlated field access %s", identifier));

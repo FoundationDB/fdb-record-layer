@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -184,12 +185,13 @@ public class Expression {
     public Expression pullUp(@Nonnull Value value, @Nonnull CorrelationIdentifier correlationIdentifier,
                              @Nonnull Set<CorrelationIdentifier> constantAliases) {
         final var aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
-        final var simplifiedValue = value.simplify(aliasMap, constantAliases);
+        final var simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
         final var underlying = getUnderlying();
         final var pulledUpUnderlying = Assert.notNullUnchecked(underlying.replace(
                 subExpression -> {
-                    final var pulledUpExpressionMap = simplifiedValue.pullUp(List.of(subExpression),
-                            aliasMap, constantAliases, correlationIdentifier);
+                    final var pulledUpExpressionMap =
+                            simplifiedValue.pullUp(List.of(subExpression), EvaluationContext.empty(), aliasMap,
+                                    constantAliases, correlationIdentifier);
                     if (pulledUpExpressionMap.containsKey(subExpression)) {
                         return pulledUpExpressionMap.get(subExpression);
                     }
@@ -203,10 +205,11 @@ public class Expression {
                                     @Nonnull final Set<CorrelationIdentifier> constantAliases) {
         final var value = expression.getUnderlying();
         final var aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
-        final var simplifiedValue = value.simplify(aliasMap, constantAliases);
+        final var simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
         final var thisValue = getUnderlying();
         final var quantifier = CorrelationIdentifier.uniqueID();
-        final var result = simplifiedValue.pullUp(ImmutableList.of(thisValue), aliasMap, constantAliases, quantifier);
+        final var result = simplifiedValue.pullUp(ImmutableList.of(thisValue),
+                EvaluationContext.empty(), aliasMap, constantAliases, quantifier);
         return result.containsKey(thisValue);
     }
 

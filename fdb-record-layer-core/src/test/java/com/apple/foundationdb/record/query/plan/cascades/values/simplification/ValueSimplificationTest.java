@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -266,7 +267,8 @@ class ValueSimplificationTest {
 
         // (q2) << note there is another record constructor around the record
         final var value = RecordConstructorValue.ofUnnamed(List.of(QuantifiedObjectValue.of(CorrelationIdentifier.of("q2"), recordType)));
-        final var pulledUpValuesMap = value.pullUp(orderingKeyValues, aliasMap, constantAliases, Quantifier.current());
+        final var pulledUpValuesMap = value.pullUp(orderingKeyValues, EvaluationContext.empty(),
+                aliasMap, constantAliases, Quantifier.current());
         Assertions.assertFalse(pulledUpValuesMap.isEmpty());
 
         final var qovPulledUp = QuantifiedObjectValue.of(Quantifier.current(), value.getResultType());
@@ -307,6 +309,7 @@ class ValueSimplificationTest {
 
     @Nonnull
     private static Value defaultSimplify(@Nonnull final Value toBeSimplified) {
-        return toBeSimplified.simplify(DefaultValueSimplificationRuleSet.instance(), AliasMap.emptyMap(), ImmutableSet.of());
+        return toBeSimplified.simplify(DefaultValueSimplificationRuleSet.instance(), EvaluationContext.empty(),
+                AliasMap.emptyMap(), ImmutableSet.of());
     }
 }

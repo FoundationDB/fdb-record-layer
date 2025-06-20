@@ -69,7 +69,7 @@ public class PhysicalPlanEquivalenceTests {
             new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 400));
 
     @Nonnull
-    private static final QueryPlanConstraint trueConstraint = QueryPlanConstraint.tautology();
+    private static final QueryPlanConstraint trueConstraint = QueryPlanConstraint.noConstraint();
 
     @Nonnull
     private static final QueryPlanConstraint lt100Constraint = QueryPlanConstraint.ofPredicate(lt00);

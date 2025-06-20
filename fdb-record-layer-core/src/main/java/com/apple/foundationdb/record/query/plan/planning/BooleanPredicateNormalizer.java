@@ -31,13 +31,14 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.LeafQueryPre
 import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -208,8 +209,8 @@ public class BooleanPredicateNormalizer {
     public Optional<QueryPredicate> normalizeAndSimplify(@Nullable final QueryPredicate predicate, boolean failIfTooLarge) {
         return normalizeInternal(predicate, failIfTooLarge)
                 .map(majorOfMinor -> {
-                    applyAbsorptionLaw(majorOfMinor);
-                    return mode.majorWithChildren(majorOfMinor.stream().map(mode::minorWithChildren).collect(Collectors.toList()));
+                    final var absorbed = applyAbsorptionLaw(majorOfMinor);
+                    return mode.majorWithChildren(absorbed.stream().map(mode::minorWithChildren).collect(Collectors.toList()));
                 });
     }
 
@@ -422,19 +423,23 @@ public class BooleanPredicateNormalizer {
     }
 
     @SuppressWarnings({"java:S1119", "java:S135", "java:S1066", "SuspiciousMethodCalls"})
-    public static void applyAbsorptionLaw(final List<Collection<? extends QueryPredicate>> majorOfMinor) {
+    public static List<Collection<? extends QueryPredicate>> applyAbsorptionLaw(final List<Collection<? extends QueryPredicate>> majorOfMinor) {
         int size = majorOfMinor.size();
         if (size < 2) {
-            return;
+            return majorOfMinor;
         }
+
+        final List<Collection<? extends QueryPredicate>> absorbed = Lists.newArrayList();
 
         //
         // The following loop eliminates repetitions of an atom within a list of atoms to be minored, since
         // a ^ a == a and a v a == a
         //
         // de-dup and put the terms back into the list of lists
-        majorOfMinor.replaceAll(LinkedHashSet::new);
-        
+        for (Collection<? extends QueryPredicate> minors : majorOfMinor) {
+            absorbed.add(Sets.newLinkedHashSet(minors));
+        }
+
         //
         // The following loop attempts to find a list of terms (to be minored) within another list of terms (to be minored)
         // which would eventually be combined using the major. This works both ways as both
@@ -450,17 +455,17 @@ public class BooleanPredicateNormalizer {
         nexti:
         while (i < size) {
             // this is a linked hash set -- see above
-            Collection<? extends QueryPredicate> ci = majorOfMinor.get(i);
+            Collection<? extends QueryPredicate> ci = absorbed.get(i);
 
             // There is therefore no need to keep having this one.
             for (int j = 0; j < size; j++) {
                 if (i == j) {
                     continue;
                 }
-                Collection<? extends QueryPredicate> cj = majorOfMinor.get(j);
+                Collection<? extends QueryPredicate> cj = absorbed.get(j);
                 if (ci.size() > cj.size() || (ci.size() == cj.size() && i < j)) {
                     if (ci.containsAll(cj)) {
-                        majorOfMinor.remove(i);
+                        absorbed.remove(i);
                         size--;
                         continue nexti;
                     }
@@ -468,6 +473,7 @@ public class BooleanPredicateNormalizer {
             }
             i++;
         }
+        return absorbed;
     }
 
     @SuppressWarnings("java:S110")

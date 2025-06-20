@@ -181,4 +181,17 @@ test_block:
     -
       - query: select col1, col2 from f1(a => 103, a => 104);
       - error: "42601"
+---
+test_block:
+  name: parenthesis-less-function-calls
+  options:
+    supported_version: !current_version
+  tests:
+    -
+      - query: select * from f5;
+      - result: [{101, 'b'}, {102, 'b'}]
+    -
+      - query: select * from f1;
+      - error: '42883'
+
 ...

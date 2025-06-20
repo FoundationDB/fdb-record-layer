@@ -38,7 +38,7 @@ import com.apple.foundationdb.record.planprotos.PRangeValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInTableFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
@@ -223,12 +223,12 @@ public class RangeValue extends AbstractValue implements StreamingValue, Creates
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
         if (other == this) {
-            return BooleanWithConstraint.alwaysTrue();
+            return ConstrainedBoolean.alwaysTrue();
         }
         if (!(other instanceof RangeValue)) {
-            return BooleanWithConstraint.falseValue();
+            return ConstrainedBoolean.falseValue();
         }
         RangeValue otherRange = (RangeValue) other;
         return beginInclusive.equalsWithoutChildren(otherRange.beginInclusive)

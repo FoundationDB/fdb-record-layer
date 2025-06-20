@@ -194,6 +194,10 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
      */
     boolean isNullable();
 
+    default boolean isNotNullable() {
+        return !isNullable();
+    }
+
     default Type nullable() {
         return withNullability(true);
     }

@@ -21,21 +21,19 @@
 package com.apple.foundationdb.record.query.plan.cascades.predicates.simplification;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndOrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.planning.BooleanPredicateNormalizer;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
-import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -54,7 +52,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class AbsorptionRule<P extends AndOrPredicate> extends QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, P> {
+public class AbsorptionRule<P extends AndOrPredicate> extends QueryPredicateSimplificationRule<P> {
     @Nonnull
     private final Class<P> majorClass;
     @Nonnull
@@ -75,7 +73,7 @@ public class AbsorptionRule<P extends AndOrPredicate> extends QueryPredicateComp
     }
 
     @Override
-    public void onMatch(@Nonnull final QueryPredicateComputationRuleCall<EvaluationContext, List<QueryPlanConstraint>> call) {
+    public void onMatch(@Nonnull final QueryPredicateSimplificationRuleCall call) {
         final var bindings = call.getBindings();
         final var majorTerms = bindings.getAll(termMatcher);
 
@@ -91,15 +89,29 @@ public class AbsorptionRule<P extends AndOrPredicate> extends QueryPredicateComp
                         })
                         .collect(Collectors.toList());
 
-        final int numberOfMajors = majorTerms.size();
-        BooleanPredicateNormalizer.applyAbsorptionLaw(majorOfMinors);
-        if (majorOfMinors.size() < numberOfMajors) {
+        final var absorbed = BooleanPredicateNormalizer.applyAbsorptionLaw(majorOfMinors);
+        if (absorbed.size() < majorOfMinors.size()) {
             final var simplifiedPredicate =
-                    with(majorClass, majorOfMinors
-                            .stream()
-                            .map(minor -> with(minorClass, minor))
-                            .collect(Collectors.toList()));
-            call.yieldPredicate(simplifiedPredicate, ImmutableList.of(QueryPlanConstraint.tautology()));
+                    with(majorClass,
+                            absorbed.stream()
+                                    .map(minor -> with(minorClass, minor))
+                                    .collect(Collectors.toList()));
+
+            // Find all predicates that have not been retained
+            final var allMajorOfMinors =
+                    majorOfMinors.stream()
+                            .flatMap(Collection::stream)
+                            .collect(LinkedIdentitySet.toLinkedIdentitySet());
+
+            final var retainedMajorOfMinors =
+                    absorbed.stream()
+                            .flatMap(Collection::stream)
+                            .collect(LinkedIdentitySet.toLinkedIdentitySet());
+
+            call.yieldResultBuilder()
+                    .addConstraintsFrom(bindings.get(getMatcher()))
+                    .addConstraintsFrom(Sets.difference(allMajorOfMinors, retainedMajorOfMinors))
+                    .yieldResult(simplifiedPredicate);
         }
     }
 

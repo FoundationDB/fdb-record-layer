@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.properties;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
@@ -275,7 +276,8 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
             final var childOrdering = orderingFromSingleChild(mapPlan);
             final var resultValue = mapPlan.getResultValue();
 
-            return childOrdering.pullUp(resultValue, AliasMap.ofAliases(mapPlan.getInner().getAlias(), Quantifier.current()), mapPlan.getCorrelatedTo());
+            return childOrdering.pullUp(resultValue, EvaluationContext.empty(),
+                    AliasMap.ofAliases(mapPlan.getInner().getAlias(), Quantifier.current()), mapPlan.getCorrelatedTo());
         }
 
         @Nonnull
@@ -537,12 +539,14 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
             final var outerMaxCardinality = outerCardinalities.getMaxCardinality();
             if (!outerMaxCardinality.isUnknown() && outerMaxCardinality.getCardinality() == 1L) {
                 // outer max cardinality is proven to be 1 row
-                return innerOrdering.pullUp(resultValue, AliasMap.ofAliases(flatMapPlan.getInnerQuantifier().getAlias(), Quantifier.current()), correlatedTo);
+                return innerOrdering.pullUp(resultValue, EvaluationContext.empty(),
+                        AliasMap.ofAliases(flatMapPlan.getInnerQuantifier().getAlias(), Quantifier.current()), correlatedTo);
             }
 
             if (!outerOrdering.isDistinct()) {
                 // outer ordering is not distinct
-                return outerOrdering.pullUp(resultValue, AliasMap.ofAliases(flatMapPlan.getInnerQuantifier().getAlias(), Quantifier.current()), correlatedTo);
+                return outerOrdering.pullUp(resultValue, EvaluationContext.empty(),
+                        AliasMap.ofAliases(flatMapPlan.getInnerQuantifier().getAlias(), Quantifier.current()), correlatedTo);
             }
 
             //
@@ -589,7 +593,9 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
 
             final var composedCompleteResultValue = composedCompleteResultValueOptional.get();
 
-            return childOrdering.pullUp(composedCompleteResultValue, AliasMap.ofAliases(streamingAggregationPlan.getInner().getAlias(), Quantifier.current()), streamingAggregationPlan.getCorrelatedTo());
+            return childOrdering.pullUp(composedCompleteResultValue, EvaluationContext.empty(),
+                    AliasMap.ofAliases(streamingAggregationPlan.getInner().getAlias(), Quantifier.current()),
+                    streamingAggregationPlan.getCorrelatedTo());
         }
 
         @Nonnull

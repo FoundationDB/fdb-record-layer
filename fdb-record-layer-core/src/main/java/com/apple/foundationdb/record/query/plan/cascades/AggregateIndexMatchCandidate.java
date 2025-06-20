@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -233,8 +234,10 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
 
             if (normalizedValues.add(value)) {
                 final var matchedOrderingPart =
-                        value.<MatchedSortOrder, MatchedOrderingPart>deriveOrderingPart(AliasMap.emptyMap(), ImmutableSet.of(),
-                                (v, sortOrder) -> MatchedOrderingPart.of(parameterId, v, comparisonRange, sortOrder),
+                        value.<MatchedSortOrder, MatchedOrderingPart>deriveOrderingPart(EvaluationContext.empty(),
+                                AliasMap.emptyMap(), ImmutableSet.of(),
+                                (v, sortOrder) ->
+                                        MatchedOrderingPart.of(parameterId, v, comparisonRange, sortOrder),
                                 OrderingValueComputationRuleSet.usingMatchedOrderingParts());
                 builder.add(matchedOrderingPart);
             }
@@ -338,8 +341,8 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
             final var normalizedValue = deconstructedValues.get(permutedIndex).rebase(aliasMap);
 
             final var providedOrderingPart =
-                    normalizedValue.deriveOrderingPart(AliasMap.emptyMap(), ImmutableSet.of(),
-                            OrderingPart.ProvidedOrderingPart::new,
+                    normalizedValue.deriveOrderingPart(EvaluationContext.empty(), AliasMap.emptyMap(),
+                            ImmutableSet.of(), OrderingPart.ProvidedOrderingPart::new,
                             OrderingValueComputationRuleSet.usingProvidedOrderingParts());
 
             final var providedOrderingValue = providedOrderingPart.getValue();
@@ -383,7 +386,7 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
                 false,
                 partialMatch.getMatchCandidate(),
                 baseRecordType,
-                QueryPlanConstraint.tautology());
+                QueryPlanConstraint.noConstraint());
 
         return new RecordQueryAggregateIndexPlan(aggregateIndexScan,
                 recordTypes.get(0).getName(),
@@ -523,8 +526,8 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
         final var fieldValue = FieldValue.ofFieldName(baseObjectValue, fieldName);
 
         final var extractFromIndexEntryPairOptional =
-                fieldValue.extractFromIndexEntryMaybe(baseObjectValue, AliasMap.emptyMap(), ImmutableSet.of(),
-                        tupleSource, ImmutableIntArray.of(index));
+                fieldValue.extractFromIndexEntryMaybe(baseObjectValue, EvaluationContext.empty(), AliasMap.emptyMap(),
+                        ImmutableSet.of(), tupleSource, ImmutableIntArray.of(index));
 
         Verify.verify(extractFromIndexEntryPairOptional.isPresent());
         final var extractFromIndexEntryPair = extractFromIndexEntryPairOptional.get();

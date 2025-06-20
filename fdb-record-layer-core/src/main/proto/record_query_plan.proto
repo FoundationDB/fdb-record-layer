@@ -253,6 +253,7 @@ message PValue {
     PMacroFunctionValue macro_function_value = 47;
     PRangeValue range_value = 48;
     PFirstOrDefaultStreamingValue first_or_default_streaming_value = 49;
+    PEvaluatesToValue evaluates_to_value = 50;
   }
 }
 
@@ -441,6 +442,18 @@ message PEmptyValue {
 message PExistsValue {
   optional PQuantifiedObjectValue child = 1; // deprecated
   optional string alias = 2;
+}
+
+enum PEvaluation {
+  IS_TRUE = 1;
+  IS_FALSE = 2;
+  IS_NULL = 3;
+  IS_NOT_NULL = 4;
+}
+
+message PEvaluatesToValue {
+  optional PValue child = 1;
+  optional PEvaluation evaluation = 2;
 }
 
 message PFieldValue {

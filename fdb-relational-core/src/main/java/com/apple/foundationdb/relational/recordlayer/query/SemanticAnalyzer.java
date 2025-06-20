@@ -194,6 +194,10 @@ public class SemanticAnalyzer {
         }
     }
 
+    public boolean functionExists(@Nonnull final Identifier functionIdentifier) {
+        return functionCatalog.containsFunction(functionIdentifier.getName());
+    }
+
     @Nonnull
     public Table getTable(@Nonnull Identifier tableIdentifier) {
         Assert.thatUnchecked(tableIdentifier.getQualifier().size() <= 1, ErrorCode.INTERNAL_ERROR, () -> String.format(Locale.ROOT, "Unknown table %s", tableIdentifier));

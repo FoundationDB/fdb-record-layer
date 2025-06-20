@@ -1,5 +1,5 @@
 /*
- * BooleanWithConstraint.java
+ * ConstrainedBoolean.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,9 +21,9 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
+import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
@@ -40,26 +40,29 @@ import java.util.function.Predicate;
  *         evaluates to {@code true}.
  *     </li>
  * </ul>
- * Note that the {@link QueryPlanConstraint} can be {@link QueryPlanConstraint#tautology()} which means that this
+ * Note that the {@link QueryPlanConstraint} can be {@link QueryPlanConstraint#noConstraint()} which means that this
  * boolean is effectively unconditionally true. {@link QueryPlanConstraint}s are usually proven to be true for this
  * invocation of the planner but refer to an external environment that may change if a plan were to be re-executed in
  * a different environment.
  * <br>
  * This class is a monad which conceptually wraps around a boolean and a {@link QueryPlanConstraint}. There are two
- * combinators {@link #composeWithOther(BooleanWithConstraint)} and {@link #filter(Predicate)}.
+ * combinators {@link #composeWithOther(ConstrainedBoolean)} and {@link #filter(Predicate)}.
  */
-public class BooleanWithConstraint {
-    private static final BooleanWithConstraint FALSE = new BooleanWithConstraint(null);
-    private static final BooleanWithConstraint ALWAYS_TRUE = new BooleanWithConstraint(QueryPlanConstraint.tautology());
+public class ConstrainedBoolean implements Constrained<Boolean> {
+    private static final ConstrainedBoolean FALSE = new ConstrainedBoolean(false, QueryPlanConstraint.noConstraint());
+    private static final ConstrainedBoolean ALWAYS_TRUE = new ConstrainedBoolean(true, QueryPlanConstraint.noConstraint());
+
+    private final boolean isTrue;
 
     /**
-     * The query plan constraint recorded for this boolean. By convention, if this field is equal to {@code null} this
-     * boolean is considered to be {@code false}, it is {@code true} otherwise.
+     * The query plan constraint recorded for this boolean.
      */
-    @Nullable
+    @Nonnull
     private final QueryPlanConstraint queryPlanConstraint;
 
-    private BooleanWithConstraint(@Nullable final QueryPlanConstraint queryPlanConstraint) {
+    private ConstrainedBoolean(final boolean isTrue, @Nonnull final QueryPlanConstraint queryPlanConstraint) {
+        Verify.verify(isTrue || !queryPlanConstraint.isConstrained());
+        this.isTrue = isTrue;
         this.queryPlanConstraint = queryPlanConstraint;
     }
 
@@ -69,7 +72,7 @@ public class BooleanWithConstraint {
      * @return {@code true} if this boolean is true, {@code false} otherwise.
      */
     public boolean isTrue() {
-        return queryPlanConstraint != null;
+        return isTrue;
     }
 
     /**
@@ -83,19 +86,26 @@ public class BooleanWithConstraint {
     }
 
     @Nonnull
+    @Override
+    public Boolean get() {
+        return isTrue();
+    }
+
+    @Nonnull
+    @Override
     public QueryPlanConstraint getConstraint() {
-        return Objects.requireNonNull(queryPlanConstraint);
+        return queryPlanConstraint;
     }
 
     /**
-     * Method to compose this boolean with another {@link BooleanWithConstraint}.
-     * @param other another {@link BooleanWithConstraint}
-     * @return a new {@link BooleanWithConstraint} that is {@code false} if {@code this} or {@code other} is false,
+     * Method to compose this boolean with another {@link ConstrainedBoolean}.
+     * @param other another {@link ConstrainedBoolean}
+     * @return a new {@link ConstrainedBoolean} that is {@code false} if {@code this} or {@code other} is false,
      *         and that is {@code true} otherwise under the composed constraint from the constraint of {@code this} and
      *         the constraint of {@code other}
      */
     @Nonnull
-    public BooleanWithConstraint composeWithOther(@Nonnull final BooleanWithConstraint other) {
+    public ConstrainedBoolean composeWithOther(@Nonnull final ConstrainedBoolean other) {
         if (other.isFalse()) {
             return falseValue();
         }
@@ -107,12 +117,13 @@ public class BooleanWithConstraint {
      * Method to compose this boolean with a {@link QueryPlanConstraint}. It is assumed that the caller just wants to
      * strengthen the constraint already recorded in {@code this}.
      * @param constraint a {@link QueryPlanConstraint}
-     * @return a new {@link BooleanWithConstraint} that is {@code false} if {@code this} is false,
+     * @return a new {@link ConstrainedBoolean} that is {@code false} if {@code this} is false,
      *         and that is {@code true} otherwise under the composed constraint from the constraint of {@code this} and
      *         the {@code constraint}
      */
     @Nonnull
-    public BooleanWithConstraint composeWithConstraint(@Nonnull final QueryPlanConstraint constraint) {
+    @Override
+    public ConstrainedBoolean composeWithConstraint(@Nonnull final QueryPlanConstraint constraint) {
         if (!this.isTrue()) {
             return falseValue();
         }
@@ -124,11 +135,11 @@ public class BooleanWithConstraint {
      * Monadic method to filter {@code this} by applying a {@link Predicate} to the recorded plan constraint if
      * applicable.
      * @param predicate to be applied as filter
-     * @return {@link BooleanWithConstraint#falseValue()} if {@link #isFalse()} is true or the {@link Predicate}
+     * @return {@link ConstrainedBoolean#falseValue()} if {@link #isFalse()} is true or the {@link Predicate}
      *         evaluates to {@code false}, {@code this} otherwise
      */
     @Nonnull
-    public BooleanWithConstraint filter(@Nonnull final Predicate<? super QueryPlanConstraint> predicate) {
+    public ConstrainedBoolean filter(@Nonnull final Predicate<? super QueryPlanConstraint> predicate) {
         if (isFalse() || !predicate.test(getConstraint())) {
             return falseValue();
         }
@@ -157,18 +168,18 @@ public class BooleanWithConstraint {
      * Monadic method to compose {@code this} by applying a {@link Function} to the recorded plan constraint if
      * applicable.
      * @param composeFunction function that maps the current {@link QueryPlanConstraint} to a new
-     *        {@link BooleanWithConstraint}
-     * @return {@link BooleanWithConstraint#falseValue()} if {@link #isFalse()} is true or the
-     *         {@link BooleanWithConstraint} that the {@code composeFunction} returned
+     *        {@link ConstrainedBoolean}
+     * @return {@link ConstrainedBoolean#falseValue()} if {@link #isFalse()} is true or the
+     *         {@link ConstrainedBoolean} that the {@code composeFunction} returned
      */
     @Nonnull
-    public BooleanWithConstraint compose(@Nonnull final Function<? super QueryPlanConstraint, ? extends BooleanWithConstraint> composeFunction) {
+    public ConstrainedBoolean compose(@Nonnull final Function<? super QueryPlanConstraint, ? extends ConstrainedBoolean> composeFunction) {
         if (isFalse()) {
-            return BooleanWithConstraint.falseValue();
+            return ConstrainedBoolean.falseValue();
         } else {
             final var result = composeFunction.apply(getConstraint());
             if (result.isFalse()) {
-                return BooleanWithConstraint.falseValue();
+                return ConstrainedBoolean.falseValue();
             }
             return composeWithOther(result);
         }
@@ -179,39 +190,39 @@ public class BooleanWithConstraint {
      * @return {@code false}
      */
     @Nonnull
-    public static BooleanWithConstraint falseValue() {
+    public static ConstrainedBoolean falseValue() {
         return FALSE;
     }
 
     /**
      * Factory method to create an unconditional {@code true}.
-     * @return a {@link BooleanWithConstraint} that is unconditionally {@code true}, i.e. that is {@code true} using
-     *         a {@link QueryPlanConstraint#tautology()}
+     * @return a {@link ConstrainedBoolean} that is unconditionally {@code true}, i.e. that is {@code true} using
+     *         a {@link QueryPlanConstraint#noConstraint()}
      */
     @Nonnull
-    public static BooleanWithConstraint alwaysTrue() {
+    public static ConstrainedBoolean alwaysTrue() {
         return ALWAYS_TRUE;
     }
 
     /**
      * Helper method to dispatch to {@link #falseValue()} or {@link #alwaysTrue()} based on a boolean value handed in.
      * @param isTrue {@code true} or {@code false}
-     * @return the appropriate unconditional {@link BooleanWithConstraint}
+     * @return the appropriate unconditional {@link ConstrainedBoolean}
      */
     @Nonnull
-    public static BooleanWithConstraint fromBoolean(final boolean isTrue) {
+    public static ConstrainedBoolean ofBoolean(final boolean isTrue) {
         return isTrue ? alwaysTrue() : falseValue();
     }
 
     /**
      * Factory method to create a conditional {@code true} based on a {@link QueryPlanConstraint} that is also passed
      * in.
-     * @param constraint the {@link QueryPlanConstraint} that this {@link BooleanWithConstraint} is constraint on.
-     * @return a {@link BooleanWithConstraint} that is conditionally {@code true} under the constraint
+     * @param constraint the {@link QueryPlanConstraint} that this {@link ConstrainedBoolean} is constraint on.
+     * @return a {@link ConstrainedBoolean} that is conditionally {@code true} under the constraint
      *         {@code constraint}.
      */
     @Nonnull
-    public static BooleanWithConstraint trueWithConstraint(@Nonnull final QueryPlanConstraint constraint) {
-        return new BooleanWithConstraint(constraint);
+    public static ConstrainedBoolean trueWithConstraint(@Nonnull final QueryPlanConstraint constraint) {
+        return new ConstrainedBoolean(true, constraint);
     }
 }

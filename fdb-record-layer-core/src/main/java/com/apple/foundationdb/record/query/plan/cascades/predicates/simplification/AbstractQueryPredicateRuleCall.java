@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.query.plan.cascades.predicates.simplification;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
@@ -31,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.simplification.A
 
 import javax.annotation.Nonnull;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * A rule call tag subclass for the simplification of {@link QueryPredicate} trees. This rule call implements the logic for
@@ -44,9 +47,12 @@ public class AbstractQueryPredicateRuleCall<RESULT, CALL extends AbstractQueryPr
     public AbstractQueryPredicateRuleCall(@Nonnull final PlannerRule<CALL, ? extends QueryPredicate> rule,
                                           @Nonnull final QueryPredicate root,
                                           @Nonnull final QueryPredicate current,
+                                          @Nonnull final EvaluationContext evaluationContext,
                                           @Nonnull final PlannerBindings bindings,
                                           @Nonnull final AliasMap equivalenceMap,
-                                          @Nonnull final Set<CorrelationIdentifier> constantAliases) {
-        super(rule, root, current, bindings, equivalenceMap, constantAliases);
+                                          @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                          @Nonnull final Function<QueryPredicate, QueryPlanConstraint> retrieveQueryPlanConstraintFunction) {
+        super(rule, root, current, evaluationContext, bindings, equivalenceMap, constantAliases,
+                retrieveQueryPlanConstraintFunction);
     }
 }

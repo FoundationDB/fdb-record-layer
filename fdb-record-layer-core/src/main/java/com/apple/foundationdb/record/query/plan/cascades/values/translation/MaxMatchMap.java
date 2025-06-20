@@ -20,10 +20,11 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values.translation;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
@@ -237,6 +238,7 @@ public class MaxMatchMap {
         final var candidateValue = getCandidateValue();
         final var pulledUpCandidateValueMap =
                 candidateValue.pullUp(ImmutableSet.copyOf(mapping.values()), // values may contain duplicates
+                        EvaluationContext.empty(),
                         AliasMap.emptyMap(),
                         ImmutableSet.of(), candidateAlias);
         //
@@ -371,7 +373,7 @@ public class MaxMatchMap {
 
             if (bestMaxMatchMap == null) {
                 bestMaxMatchMap = new MaxMatchMap(ImmutableMap.of(), queryValue, candidateValue, rangedOverAliases,
-                        QueryPlanConstraint.tautology(), valueEquivalence);
+                        QueryPlanConstraint.noConstraint(), valueEquivalence);
             }
         } finally {
             if (logger.isDebugEnabled()) {
@@ -415,7 +417,7 @@ public class MaxMatchMap {
         }
 
         return Optional.of(new MaxMatchMap(ImmutableMap.of(candidateValue, candidateValue),
-                queryValue, candidateValue, rangedOverAliases, QueryPlanConstraint.tautology(),
+                queryValue, candidateValue, rangedOverAliases, QueryPlanConstraint.noConstraint(),
                 valueEquivalence));
     }
 
@@ -545,7 +547,7 @@ public class MaxMatchMap {
                             valueEquivalence, ImmutableList.of());
             bestMatches.put(currentQueryValue, resultForCurrent);
         } else {
-            final BooleanWithConstraint isFound;
+            final ConstrainedBoolean isFound;
             if (!anyParentsMatching && isCurrentMatching) {
                 //
                 // We know that no parents are matching but that the current level is potentially matching. Try to
@@ -562,7 +564,7 @@ public class MaxMatchMap {
                             Objects.requireNonNull(matchingPair.getRight())), 0, isFound.getConstraint()));
                 }
             } else {
-                isFound = BooleanWithConstraint.falseValue();
+                isFound = ConstrainedBoolean.falseValue();
             }
 
             if (isFound.isFalse()) {
@@ -640,10 +642,14 @@ public class MaxMatchMap {
                 !expandedValues.contains(currentQueryValue)) {
             try {
                 expandedValues.add(currentQueryValue);
-                final var expandedCurrentQueryValues =
+                final var constrainedExpandedCurrentQueryValues =
                         Simplification.simplifyCurrent(currentQueryValue,
-                                AliasMap.emptyMap(), rangedOverAliases, MaxMatchMapSimplificationRuleSet.instance());
-                for (final var expandedCurrentQueryValue : expandedCurrentQueryValues) {
+                                EvaluationContext.empty(), AliasMap.emptyMap(), rangedOverAliases,
+                                MaxMatchMapSimplificationRuleSet.instance());
+                for (final var constrainedExpandedCurrentQueryValue : constrainedExpandedCurrentQueryValues) {
+                    // there should never be any actual constraints on the result
+                    final var expandedCurrentQueryValue =
+                            constrainedExpandedCurrentQueryValue.getUnconstrained();
                     final var currentMaxDepthBound =
                             anyParentsMatching
                             ? Integer.MAX_VALUE
@@ -715,7 +721,7 @@ public class MaxMatchMap {
                             Objects.requireNonNull(matchingPair.getRight())), 0, isFound.getConstraint());
         }
 
-        var childrenConstraint = QueryPlanConstraint.tautology();
+        var childrenConstraint = QueryPlanConstraint.noConstraint();
         final var childrenResultsMap = new LinkedHashMap<Value, Value>();
         int childrenMaxDepth = -1;
         for (final var childrenResultsEntry : childrenResultEntries) {
@@ -747,9 +753,9 @@ public class MaxMatchMap {
 
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private static Pair<BooleanWithConstraint, Value> findMatchingReachableCandidateValue(@Nonnull final Value currentQueryValue,
-                                                                                          @Nonnull final Value candidateValue,
-                                                                                          @Nonnull final ValueEquivalence valueEquivalence) {
+    private static Pair<ConstrainedBoolean, Value> findMatchingReachableCandidateValue(@Nonnull final Value currentQueryValue,
+                                                                                       @Nonnull final Value candidateValue,
+                                                                                       @Nonnull final ValueEquivalence valueEquivalence) {
         for (final var currentCandidateValue : candidateValue
                 // when traversing the candidate in pre-order, only descend into structures that can be referenced
                 // from the top expression. For example, RCV's components can be referenced however an Arithmetic
@@ -758,7 +764,7 @@ public class MaxMatchMap {
                 .preOrderIterable(v -> v instanceof RecordConstructorValue)) {
             if (currentCandidateValue == candidateValue) {
                 if (currentQueryValue instanceof QuantifiedRecordValue) {
-                    return Pair.of(BooleanWithConstraint.alwaysTrue(), currentCandidateValue);
+                    return Pair.of(ConstrainedBoolean.alwaysTrue(), currentCandidateValue);
                 }
             }
 
@@ -768,7 +774,7 @@ public class MaxMatchMap {
                 return Pair.of(semanticEquals, currentCandidateValue);
             }
         }
-        return Pair.of(BooleanWithConstraint.falseValue(), null);
+        return Pair.of(ConstrainedBoolean.falseValue(), null);
     }
 
     /**
@@ -984,7 +990,7 @@ public class MaxMatchMap {
                                 if (candidateValue == candidateRootValue) {
                                     if (getCurrentQueryValue() instanceof QuantifiedRecordValue) {
                                         return Stream.of(NonnullPair.<Value, QueryPlanConstraint>of(candidateValue,
-                                                QueryPlanConstraint.tautology()));
+                                                QueryPlanConstraint.noConstraint()));
                                     }
                                 }
                                 return getCurrentQueryValue().equalsWithoutChildren(candidateValue)
@@ -1011,7 +1017,7 @@ public class MaxMatchMap {
      */
     private static class MatchResult {
         private static final MatchResult NOT_MATCHED =
-                new MatchResult(ImmutableMap.of(), Integer.MAX_VALUE, QueryPlanConstraint.tautology());
+                new MatchResult(ImmutableMap.of(), Integer.MAX_VALUE, QueryPlanConstraint.noConstraint());
 
         @Nonnull
         private final Map<Value, Value> valueMap;
