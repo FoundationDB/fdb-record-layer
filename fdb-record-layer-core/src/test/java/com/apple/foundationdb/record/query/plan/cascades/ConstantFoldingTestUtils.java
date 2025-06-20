@@ -124,7 +124,7 @@ public class ConstantFoldingTestUtils {
     }
 
     @Nonnull
-    private static ValueWrapper newCov(@Nonnull final Type type, @Nullable Object bindingValue) {
+    public static ValueWrapper newCov(@Nonnull final Type type, @Nullable Object bindingValue) {
         final var correlationId = CorrelationIdentifier.uniqueID();
         final var constantId = String.valueOf(counter++);
         final var bindingKey = Bindings.Internal.CONSTANT.bindingName(correlationId.getId());

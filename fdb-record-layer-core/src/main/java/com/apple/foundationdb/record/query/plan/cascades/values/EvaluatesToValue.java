@@ -105,6 +105,12 @@ public class EvaluatesToValue extends AbstractValue implements Value.RangeMatcha
         }
     }
 
+    @Nullable
+    @Override
+    public Boolean evalWithoutStore(@Nonnull final EvaluationContext context) {
+        return eval(null, context);
+    }
+
     @Override
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
