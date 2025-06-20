@@ -87,9 +87,14 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
 
     @Override
     public void beforeAll(final ExtensionContext context) throws Exception {
+        maintainConfigs = List.of(
+                new CorrectExplains(new EmbeddedConfig(clusterFile)),
+                new CorrectMetrics(new EmbeddedConfig(clusterFile)),
+                new CorrectExplainsAndMetrics(new EmbeddedConfig(clusterFile)),
+                new ShowPlanOnDiff(new EmbeddedConfig(clusterFile))
+        );
         if (Boolean.parseBoolean(System.getProperty("tests.runQuick", "false"))) {
             testConfigs = List.of(new EmbeddedConfig(clusterFile));
-            maintainConfigs = List.of();
         } else {
             AtomicInteger serverPort = new AtomicInteger(1111);
             List<File> jars = ExternalServer.getAvailableServers();
@@ -115,12 +120,6 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
                     // The configs for multi-server testing
                     externalServerConfigs).collect(Collectors.toList());
 
-            maintainConfigs = List.of(
-                    new CorrectExplains(new EmbeddedConfig(clusterFile)),
-                    new CorrectMetrics(new EmbeddedConfig(clusterFile)),
-                    new CorrectExplainsAndMetrics(new EmbeddedConfig(clusterFile)),
-                    new ShowPlanOnDiff(new EmbeddedConfig(clusterFile))
-            );
         }
         for (final YamlTestConfig testConfig : Iterables.concat(testConfigs, maintainConfigs)) {
             testConfig.beforeAll();
