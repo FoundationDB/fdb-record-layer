@@ -18,12 +18,6 @@
 # limitations under the License.
 
 ---
-options:
-  # Prior to #3099 being fixed, every query that returned any data failed if there are continuations
-  # Without testing any continuations there's not a lot of value here to running with multi-server,
-  # So this is just being disabled entirely for older versions.
-  supported_version: 4.1.9.0 # https://github.com/FoundationDB/fdb-record-layer/issues/3099
----
 schema_template:
     create table A(a1 string, primary key(a1))
     create table B(b1 integer, b2 string, primary key(b1))

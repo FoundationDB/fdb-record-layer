@@ -1,30 +1,30 @@
-unnamed-4:
+unnamed-3:
 -   query: EXPLAIN select count(*) from "TEMPLATES" where template_name = 'TEMP1'
     explain: SCAN(<,>) | TFILTER TEMPLATES | FILTER _.TEMPLATE_NAME EQUALS promote(@c11
         AS STRING) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP
         (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
     task_count: 360
-    task_total_time_ms: 2
+    task_total_time_ms: 155
     transform_count: 86
-    transform_time_ms: 1
+    transform_time_ms: 93
     transform_yield_count: 20
-    insert_time_ms: 0
+    insert_time_ms: 10
     insert_new_count: 33
     insert_reused_count: 2
-unnamed-10:
+unnamed-9:
 -   query: EXPLAIN select count(*) from "DATABASES" where database_id = '/FRL/DB'
     explain: SCAN(<,>) | TFILTER DATABASES | FILTER _.DATABASE_ID EQUALS promote(@c11
         AS STRING) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP
         (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
     task_count: 372
-    task_total_time_ms: 3
+    task_total_time_ms: 42
     transform_count: 93
-    transform_time_ms: 1
+    transform_time_ms: 29
     transform_yield_count: 26
-    insert_time_ms: 0
+    insert_time_ms: 2
     insert_new_count: 33
     insert_reused_count: 2
-unnamed-20:
+unnamed-19:
 -   query: EXPLAIN select count(*) from "SCHEMAS" where database_id = '/FRL/DB'
     explain: 'COVERING(TEMPLATES_VALUE_INDEX <,> -> [DATABASE_ID: KEY[2], SCHEMA_NAME:
         KEY[3], TEMPLATE_NAME: KEY[0], TEMPLATE_VERSION: KEY[1]]) | FILTER _.DATABASE_ID
@@ -32,10 +32,10 @@ unnamed-20:
         AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)'
     task_count: 642
-    task_total_time_ms: 5
+    task_total_time_ms: 70
     transform_count: 154
-    transform_time_ms: 2
+    transform_time_ms: 32
     transform_yield_count: 42
-    insert_time_ms: 0
+    insert_time_ms: 4
     insert_new_count: 66
     insert_reused_count: 4
