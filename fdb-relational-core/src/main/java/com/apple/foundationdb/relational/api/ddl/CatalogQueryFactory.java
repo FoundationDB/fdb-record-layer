@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.api.ddl;
 
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
@@ -56,7 +57,7 @@ public abstract class CatalogQueryFactory implements DdlQueryFactory {
             }
 
             @Override
-            public RelationalResultSet executeAction(Transaction txn) throws RelationalException {
+            public RelationalResultSet executeAction(Transaction txn, final Options options) throws RelationalException {
                 return catalog.listDatabases(txn, ContinuationImpl.BEGIN);
             }
         };
@@ -73,7 +74,7 @@ public abstract class CatalogQueryFactory implements DdlQueryFactory {
             }
 
             @Override
-            public RelationalResultSet executeAction(Transaction txn) throws RelationalException {
+            public RelationalResultSet executeAction(Transaction txn, final Options options) throws RelationalException {
                 return catalog.getSchemaTemplateCatalog().listTemplates(txn);
             }
         };

@@ -41,6 +41,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.stream.Collectors;
@@ -57,9 +58,9 @@ public class RecordMetadataDeserializer {
     @Nonnull
     private final RecordLayerSchemaTemplate.Builder builder;
 
-    public RecordMetadataDeserializer(@Nonnull final RecordMetaData recordMetaData) {
+    public RecordMetadataDeserializer(@Nonnull final RecordMetaData recordMetaData, final String tableNamePrefix) {
         this.recordMetaData = recordMetaData;
-        builder = deserializeRecordMetaData();
+        builder = deserializeRecordMetaData(tableNamePrefix);
     }
 
     @Nonnull
@@ -68,7 +69,7 @@ public class RecordMetadataDeserializer {
     }
 
     @Nonnull
-    private RecordLayerSchemaTemplate.Builder deserializeRecordMetaData() {
+    private RecordLayerSchemaTemplate.Builder deserializeRecordMetaData(final String tableNamePrefix) {
         // iterate _only_ over the record types registered in the union descriptor to avoid potentially-expensive
         // deserialization of other descriptors that can never be used by the user.
         final var unionDescriptor = recordMetaData.getUnionDescriptor();
@@ -84,7 +85,7 @@ public class RecordMetadataDeserializer {
                 case MESSAGE:
                     final var name = registeredType.getMessageType().getName();
                     if (!nameToTableBuilder.containsKey(name)) {
-                        nameToTableBuilder.put(name, generateTableBuilder(name));
+                        nameToTableBuilder.put(name, generateTableBuilder(name, tableNamePrefix));
                     }
                     nameToTableBuilder.get(name).addGeneration(registeredType.getNumber(), registeredType.getOptions());
                     break;
@@ -114,15 +115,18 @@ public class RecordMetadataDeserializer {
     }
 
     @Nonnull
-    private RecordLayerTable.Builder generateTableBuilder(@Nonnull final String tableName) {
-        return generateTableBuilder(recordMetaData.getRecordType(tableName));
+    private RecordLayerTable.Builder generateTableBuilder(@Nonnull final String tableName,
+                                                          @Nullable final String tableNamePrefix) {
+        return generateTableBuilder(recordMetaData.getRecordType(tableName), tableNamePrefix);
     }
 
     @Nonnull
-    private RecordLayerTable.Builder generateTableBuilder(@Nonnull final RecordType recordType) {
+    private RecordLayerTable.Builder generateTableBuilder(@Nonnull final RecordType recordType,
+                                                          @Nullable final String tableNamePrefix) {
         // todo (yhatem) we rely on the record type for deserialization from ProtoBuf for now, later on
         //      we will avoid this step by having our own deserializers.
-        final var recordLayerType = Type.Record.fromFieldsWithName(recordType.getName(), false, Type.Record.fromDescriptor(recordType.getDescriptor()).getFields());
+        final String nameWithPrefix = tableNamePrefix == null ? recordType.getName() : tableNamePrefix + recordType.getName();
+        final var recordLayerType = Type.Record.fromFieldsWithName(nameWithPrefix, false, Type.Record.fromDescriptor(recordType.getDescriptor()).getFields());
         // todo (yhatem) this is hacky and must be cleaned up. We need to understand the actually field types so we can take decisions
         // on higher level based on these types (wave3).
         if (recordLayerType.getFields().stream().anyMatch(f -> f.getFieldType().isRecord())) {
@@ -138,14 +142,14 @@ public class RecordMetadataDeserializer {
                 }
             }
             return RecordLayerTable.Builder
-                    .from(Type.Record.fromFieldsWithName(recordType.getName(), false, newFields.build()))
+                    .from(Type.Record.fromFieldsWithName(nameWithPrefix, false, newFields.build()))
                     .setPrimaryKey(recordType.getPrimaryKey())
-                    .addIndexes(recordType.getIndexes().stream().map(index -> RecordLayerIndex.from(recordType.getName(), index)).collect(Collectors.toSet()));
+                    .addIndexes(recordType.getIndexes().stream().map(index -> RecordLayerIndex.from(nameWithPrefix, index)).collect(Collectors.toSet()));
         }
         return RecordLayerTable.Builder
                 .from(recordLayerType)
                 .setPrimaryKey(recordType.getPrimaryKey())
-                .addIndexes(recordType.getIndexes().stream().map(index -> RecordLayerIndex.from(recordType.getName(), index)).collect(Collectors.toSet()));
+                .addIndexes(recordType.getIndexes().stream().map(index -> RecordLayerIndex.from(nameWithPrefix, index)).collect(Collectors.toSet()));
     }
 
     @Nonnull

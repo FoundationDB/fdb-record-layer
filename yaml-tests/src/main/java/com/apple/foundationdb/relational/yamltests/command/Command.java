@@ -154,7 +154,8 @@ public abstract class Command {
                 // current connection should be __SYS/catalog
                 // save schema template
                 ApplyState applyState = (RecordLayerMetadataOperationsFactory factory, Transaction txn) -> {
-                    factory.getCreateSchemaTemplateConstantAction(CommandUtil.fromProto(value), Options.NONE).execute(txn);
+                    // TODO the options should get the prefix from the value
+                    factory.getCreateSchemaTemplateConstantAction(CommandUtil.fromProto(value), Options.NONE).execute(txn, Options.NONE);
                 };
                 final EmbeddedRelationalConnection embedded = connection.tryGetEmbedded();
                 if (embedded != null) {
@@ -179,7 +180,7 @@ public abstract class Command {
                         .setUserVersionChecker((oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(schemaInstance.getStoreInfo().getUserVersion()))
                         .build();
                 ApplyState applyState = (RecordLayerMetadataOperationsFactory factory, Transaction txn) -> {
-                    factory.getSetStoreStateConstantAction(URI.create(schemaInstance.getDatabaseId()), schemaInstance.getName()).execute(txn);
+                    factory.getSetStoreStateConstantAction(URI.create(schemaInstance.getDatabaseId()), schemaInstance.getName()).execute(txn, Options.NONE);
                 };
                 final EmbeddedRelationalConnection embedded = connection.tryGetEmbedded();
                 if (embedded != null) {

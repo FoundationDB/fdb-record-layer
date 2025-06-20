@@ -63,7 +63,7 @@ public class CatalogMetaDataProvider implements RecordMetaDataProvider {
         RecordMetaData metaData = cachedMetaData;
         if (metaData == null) {
             try {
-                final var recLayerSchema = storeCatalog.loadSchema(txn, dbUri, schemaName);
+                final var recLayerSchema = storeCatalog.loadSchema(txn, dbUri, schemaName, null);
                 Assert.thatUnchecked(recLayerSchema instanceof RecordLayerSchema);
                 final RecordMetaDataProto.MetaData schema = recLayerSchema.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toRecordMetadata().toProto();
                 metaData = RecordMetaData.build(schema);

@@ -88,7 +88,7 @@ public final class NoOpMetadataOperationsFactory implements MetadataOperationsFa
         private static final NoOpConstantAction INSTANCE = new NoOpConstantAction();
 
         @Override
-        public void execute(Transaction txn) throws RelationalException {
+        public void execute(Transaction txn, final Options options) throws RelationalException {
         }
     }
 }

@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.ImmutableRowStruct;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalArrayMetaData;
@@ -65,8 +66,8 @@ public class RecordLayerCatalogQueryFactory extends CatalogQueryFactory {
             }
 
             @Override
-            public RelationalResultSet executeAction(Transaction txn) throws RelationalException {
-                final Schema schema = catalog.loadSchema(txn, dbId, schemaId);
+            public RelationalResultSet executeAction(Transaction txn, final Options options) throws RelationalException {
+                final Schema schema = catalog.loadSchema(txn, dbId, schemaId, null);
 
                 final List<String> tableNames = schema.getTables().stream().map(Metadata::getName)
                         .collect(Collectors.toList());
@@ -101,8 +102,8 @@ public class RecordLayerCatalogQueryFactory extends CatalogQueryFactory {
             }
 
             @Override
-            public RelationalResultSet executeAction(Transaction txn) throws RelationalException {
-                final SchemaTemplate schemaTemplate = catalog.getSchemaTemplateCatalog().loadSchemaTemplate(txn, schemaId);
+            public RelationalResultSet executeAction(Transaction txn, final Options options) throws RelationalException {
+                final SchemaTemplate schemaTemplate = catalog.getSchemaTemplateCatalog().loadSchemaTemplate(txn, schemaId, null);
                 final var columnStructMetadata = new RelationalStructMetaData(
                         FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
                         FieldDescription.primitive("COLUMN_TYPE", Types.INTEGER, DatabaseMetaData.columnNoNulls));

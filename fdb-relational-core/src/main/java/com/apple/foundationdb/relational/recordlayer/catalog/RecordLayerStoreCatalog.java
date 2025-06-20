@@ -189,7 +189,8 @@ class RecordLayerStoreCatalog implements StoreCatalog {
 
     @Nonnull
     @Override
-    public RecordLayerSchema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName) throws RelationalException {
+    public RecordLayerSchema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName,
+                                        @Nullable String tableNamePrefix) throws RelationalException {
         var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
                 this.catalogRecordMetaDataProvider);
         Assert.notNull(recordStore);
@@ -200,7 +201,7 @@ class RecordLayerStoreCatalog implements StoreCatalog {
                 throw new RelationalException("Schema <" + databaseId.getPath() + "/" + schemaName + "> does not exist in the catalog!", ErrorCode.UNDEFINED_SCHEMA);
             }
             Message m = record.getRecord();
-            return parseSchemaTable(m, txn);
+            return parseSchemaTable(m, txn, tableNamePrefix);
         } catch (RecordCoreException ex) {
             throw ExceptionUtil.toRelationalException(ex);
         }
@@ -237,9 +238,9 @@ class RecordLayerStoreCatalog implements StoreCatalog {
     @Override
     public void repairSchema(@Nonnull Transaction txn, @Nonnull String databaseId, @Nonnull String schemaName) throws RelationalException {
         // a read-modify-write loop, done in 1 transaction
-        final RecordLayerSchema schema = loadSchema(txn, URI.create(databaseId), schemaName);
+        final RecordLayerSchema schema = loadSchema(txn, URI.create(databaseId), schemaName, null);
         // load latest schema template
-        final SchemaTemplate template = schemaTemplateCatalog.loadSchemaTemplate(txn, schema.getSchemaTemplate().getName());
+        final SchemaTemplate template = schemaTemplateCatalog.loadSchemaTemplate(txn, schema.getSchemaTemplate().getName(), null);
         final Schema newSchema = template.generateSchema(databaseId, schemaName);
         saveSchema(txn, newSchema, false);
     }
@@ -437,7 +438,7 @@ class RecordLayerStoreCatalog implements StoreCatalog {
         return new MessageTuple(record.getRecord());
     }
 
-    private RecordLayerSchema parseSchemaTable(Message m, Transaction txn) throws RelationalException {
+    private RecordLayerSchema parseSchemaTable(Message m, Transaction txn, @Nullable String tableNamePrefix) throws RelationalException {
         final RecordMetaData recordMetaData = catalogRecordMetaDataProvider.getRecordMetaData();
         final RecordType schemaTableMD = recordMetaData.getRecordType(SystemTableRegistry.SCHEMAS_TABLE_NAME);
         final Descriptors.Descriptor descriptor = schemaTableMD.getDescriptor();
@@ -446,7 +447,7 @@ class RecordLayerStoreCatalog implements StoreCatalog {
         // load metadata from template table
         String templateName = (String) m.getField(descriptor.findFieldByName("TEMPLATE_NAME"));
         final var version = (Integer) m.getField(descriptor.findFieldByName("TEMPLATE_VERSION"));
-        SchemaTemplate template = schemaTemplateCatalog.loadSchemaTemplate(txn, templateName, version);
+        SchemaTemplate template = schemaTemplateCatalog.loadSchemaTemplate(txn, templateName, version, tableNamePrefix);
         return (RecordLayerSchema) template.generateSchema(dbId, schemaName);
     }
 }
