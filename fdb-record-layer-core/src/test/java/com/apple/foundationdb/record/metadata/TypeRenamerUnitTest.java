@@ -41,6 +41,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class TypeRenamerUnitTest {
 
@@ -64,11 +65,28 @@ class TypeRenamerUnitTest {
             "UniversalIndex.json",
             "UnnestedExternalType.json",
             "UnnestedInternal.json",
-            "UnnestedRenamed.json",
             "Joined.json"
     })
     void simplePrefix(String name) throws IOException {
         runRename(name);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "UnnestedRenamed.json",
+    })
+    void unsupported(String name) throws IOException {
+        final RecordMetaDataProto.MetaData.Builder builder = loadMetaData(name);
+        final RecordMetaDataProto.MetaData originalProto = builder.build();
+        RecordMetaData.build(originalProto); // ensure original metadata is valid
+        final Function<String, String> renamer = oldName -> "__x_" + oldName;
+        final Function<String, String> undoRename = newName -> {
+            assertEquals("__x_", newName.substring(0, 4));
+            return newName.substring(4);
+        };
+        final TypeRenamer typeRenamer = new TypeRenamer(renamer);
+        final Descriptors.FileDescriptor[] dependencies = RecordMetaDataBuilder.getDependencies(originalProto, Map.of());
+        assertThrows(MetaDataException.class, () -> typeRenamer.modify(builder, dependencies));
     }
 
     @Test

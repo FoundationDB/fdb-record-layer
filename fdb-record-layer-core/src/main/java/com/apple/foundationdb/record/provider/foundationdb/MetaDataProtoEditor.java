@@ -623,12 +623,26 @@ public class MetaDataProtoEditor {
         metaDataBuilder.addAllRecordTypes(recordTypes);
         metaDataBuilder.clearIndexes();
         metaDataBuilder.addAllIndexes(indexes);
-        metaDataBuilder.clearRecordTypes();
-        metaDataBuilder.addAllRecordTypes(recordTypes);
-        metaDataBuilder.clearIndexes();
-        metaDataBuilder.addAllIndexes(indexes);
+        updateUnnestedTypes(metaDataBuilder, recordTypeName, newRecordTypeName);
         // TODO synthetic types
         // TODO protect UDFs
+    }
+
+    private static void updateUnnestedTypes(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder,
+                                            @Nonnull String oldRecordTypeName,
+                                            @Nonnull String newRecordTypeName) {
+        for (var unnested : metaDataBuilder.getUnnestedRecordTypesBuilderList()) {
+            for (var constituent : unnested.getNestedConstituentsBuilderList()) {
+                // The nested constituents would most likely be nested types, not record types, and thus would not be
+                // renamed
+                if (constituent.getParent().isEmpty() && constituent.getTypeName().equals(oldRecordTypeName)) {
+                    constituent.setTypeName(newRecordTypeName);
+                } else if (constituent.getTypeName().startsWith(metaDataBuilder.getRecords().getPackage()) &&
+                        constituent.getTypeName().endsWith(oldRecordTypeName)) {
+                    throw new MetaDataException("Renaming types used by non-parent unnested constituents is not supported");
+                }
+            }
+        }
     }
 
     /**
