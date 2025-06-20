@@ -305,6 +305,11 @@ public class MetaDataProtoEditor {
                 String[] fullTypeParts = fullTypeName.substring(1).split("\\.");
                 String[] messageNamespaceParts = messageNamespace.split("\\.");
                 String[] typeNameParts = fieldTypeName.split("\\.");
+                if (!typeNameParts[typeNameParts.length - 1].equals(fullTypeParts[fullTypeParts.length - 1])) {
+                    return FieldTypeMatch.DOES_NOT_MATCH;
+                }
+                // TODO perhaps the rest of this should just become FieldTypeMatch.MIGHT_MATCH, and give up
+                //      It returns MIGHT_MATCH for .T1 vs T2, so I'm not super confident in it
 
                 // Start with including all parts in the namespace to mirror how protobuf searches from the
                 // innermost scope.
