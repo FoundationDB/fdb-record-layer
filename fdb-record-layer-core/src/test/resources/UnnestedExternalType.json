@@ -1,0 +1,74 @@
+{
+  "records": {
+    "dependency": [
+      "record_metadata_options.proto",
+      "tuple_fields.proto"
+    ],
+    "message_type": [
+      {
+        "name": "RecordTypeUnion",
+        "field": [
+          {
+            "name": "_T1",
+            "number": 1,
+            "type": "TYPE_MESSAGE",
+            "type_name": "T1"
+          }
+        ]
+      },
+      {
+        "name": "T1",
+        "field": [
+          {
+            "name": "ID",
+            "number": 1,
+            "type": "TYPE_INT64"
+          },
+          {
+            "name": "VALUE",
+            "number": 2,
+            "label": "LABEL_REPEATED",
+            "type": "TYPE_MESSAGE",
+            "type_name": "com.apple.foundationdb.record.UUID"
+          }
+        ]
+      }
+    ]
+  },
+  "record_types": [
+    {
+      "name": "T1",
+      "primary_key": {
+        "field": {
+          "field_name": "ID",
+          "fan_type": "SCALAR"
+        }
+      }
+    }
+  ],
+  "unnested_record_types": [
+    {
+      "name": "__3_syntheticType_1",
+      "record_type_key": {
+        "long_value": -1
+      },
+      "nested_constituents": [
+        {
+          "name": "parent",
+          "type_name": "T1"
+        },
+        {
+          "name": "child",
+          "parent": "parent",
+          "type_name": "com.apple.foundationdb.record.UUID",
+          "nesting_expression": {
+            "field": {
+              "field_name": "VALUE",
+              "fan_type": "FAN_OUT"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

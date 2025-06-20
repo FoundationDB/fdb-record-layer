@@ -1,0 +1,98 @@
+{
+  "records": {
+    "dependency": [
+      "record_metadata_options.proto"
+    ],
+    "message_type": [
+      {
+        "name": "RecordTypeUnion",
+        "field": [
+          {
+            "name": "_T1",
+            "number": 1,
+            "type": "TYPE_MESSAGE",
+            "type_name": "T1"
+          },
+          {
+            "name": "_T2",
+            "number": 2,
+            "type": "TYPE_MESSAGE",
+            "type_name": "T2"
+          }
+        ]
+      },
+      {
+        "name": "T1",
+        "field": [
+          {
+            "name": "ID",
+            "number": 1,
+            "type": "TYPE_INT64"
+          }
+        ]
+      },
+      {
+        "name": "T2",
+        "field": [
+          {
+            "name": "ID",
+            "number": 1,
+            "type": "TYPE_INT64"
+          },
+          {
+            "name": "T1",
+            "number": 2,
+            "label": "LABEL_REPEATED",
+            "type": "TYPE_MESSAGE",
+            "type_name": "T1"
+          }
+        ]
+      }
+    ]
+  },
+  "record_types": [
+    {
+      "name": "T1",
+      "primary_key": {
+        "field": {
+          "field_name": "ID",
+          "fan_type": "SCALAR"
+        }
+      }
+    },
+    {
+      "name": "T2",
+      "primary_key": {
+        "field": {
+          "field_name": "ID",
+          "fan_type": "SCALAR"
+        }
+      }
+    }
+  ],
+  "unnested_record_types": [
+    {
+      "name": "__3_syntheticType_1",
+      "record_type_key": {
+        "long_value": -1
+      },
+      "nested_constituents": [
+        {
+          "name": "parent",
+          "type_name": "T2"
+        },
+        {
+          "name": "child",
+          "parent": "parent",
+          "type_name": "T1",
+          "nesting_expression": {
+            "field": {
+              "field_name": "T1",
+              "fan_type": "FAN_OUT"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
