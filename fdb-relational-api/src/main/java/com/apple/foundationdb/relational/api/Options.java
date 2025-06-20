@@ -194,7 +194,8 @@ public final class Options {
          * operations interacting with FDB.
          * Scope: Engine
          */
-        ASYNC_OPERATIONS_TIMEOUT_MILLIS
+        ASYNC_OPERATIONS_TIMEOUT_MILLIS,
+        KEYVALUE_CURSOR_CONTINUATION_SERIALIZE_TO_NEW,
     }
 
     public enum IndexFetchMethod {
@@ -229,6 +230,7 @@ public final class Options {
         builder.put(Name.CASE_SENSITIVE_IDENTIFIERS, false);
         builder.put(Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
         builder.put(Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, 10_000L);
+        builder.put(Name.KEYVALUE_CURSOR_CONTINUATION_SERIALIZE_TO_NEW, false);
         OPTIONS_DEFAULT_VALUES = builder.build();
     }
 
@@ -364,6 +366,7 @@ public final class Options {
         data.put(Name.VALID_PLAN_HASH_MODES, List.of(TypeContract.stringType()));
         data.put(Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, List.of(TypeContract.booleanType()));
         data.put(Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, List.of(TypeContract.longType(), RangeContract.of(0L, Long.MAX_VALUE)));
+        data.put(Name.KEYVALUE_CURSOR_CONTINUATION_SERIALIZE_TO_NEW, List.of(TypeContract.booleanType()));
 
         return Collections.unmodifiableMap(data);
     }
