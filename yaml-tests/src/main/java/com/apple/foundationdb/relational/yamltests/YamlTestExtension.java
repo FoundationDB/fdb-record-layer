@@ -90,6 +90,9 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
         if (Boolean.parseBoolean(System.getProperty("tests.runQuick", "false"))) {
             testConfigs = List.of(new EmbeddedConfig(clusterFile));
             maintainConfigs = List.of();
+        } else if (Boolean.parseBoolean(System.getProperty("tests.runRPC", "false"))) {
+            testConfigs = List.of(new JDBCInProcessConfig(clusterFile));
+            maintainConfigs = List.of();
         } else {
             AtomicInteger serverPort = new AtomicInteger(1111);
             List<File> jars = ExternalServer.getAvailableServers();
