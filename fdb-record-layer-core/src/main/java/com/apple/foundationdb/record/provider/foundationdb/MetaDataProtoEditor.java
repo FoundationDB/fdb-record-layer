@@ -624,8 +624,11 @@ public class MetaDataProtoEditor {
         metaDataBuilder.clearIndexes();
         metaDataBuilder.addAllIndexes(indexes);
         updateUnnestedTypes(metaDataBuilder, recordTypeName, newRecordTypeName);
-        // TODO synthetic types
-        // TODO protect UDFs
+        updateJoinedRecordTypes(metaDataBuilder, recordTypeName, newRecordTypeName);
+        if (metaDataBuilder.getUserDefinedFunctionsCount() > 0) {
+            // UserDefinedFunctions may be a string that needs parsing to figure out the types it references
+            throw new MetaDataException("Renaming record types with UserDefinedFunctions is not supported");
+        }
     }
 
     private static void updateUnnestedTypes(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder,
@@ -640,6 +643,18 @@ public class MetaDataProtoEditor {
                 } else if (constituent.getTypeName().startsWith(metaDataBuilder.getRecords().getPackage()) &&
                         constituent.getTypeName().endsWith(oldRecordTypeName)) {
                     throw new MetaDataException("Renaming types used by non-parent unnested constituents is not supported");
+                }
+            }
+        }
+    }
+
+    private static void updateJoinedRecordTypes(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder,
+                                                @Nonnull String oldRecordTypeName,
+                                                @Nonnull String newRecordTypeName) {
+        for (var joined : metaDataBuilder.getJoinedRecordTypesBuilderList()) {
+            for (var constituent : joined.getJoinConstituentsBuilderList()) {
+                if (constituent.getRecordType().equals(oldRecordTypeName)) {
+                    constituent.setRecordType(newRecordTypeName);
                 }
             }
         }
