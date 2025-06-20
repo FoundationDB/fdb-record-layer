@@ -87,7 +87,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
 
     @Override
     public void beforeAll(final ExtensionContext context) throws Exception {
-        if (Boolean.parseBoolean(System.getProperty("tests.runQuick", "true"))) {
+        if (Boolean.parseBoolean(System.getProperty("tests.runQuick", "false"))) {
             testConfigs = List.of(new EmbeddedConfig(clusterFile));
             maintainConfigs = List.of();
         } else {

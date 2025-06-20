@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
-import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
@@ -53,7 +52,7 @@ public class PredicateMultiMap {
      * Backing multimap.
      */
     @Nonnull
-    private final ImmutableSetMultimap<QueryPredicate, PredicateMapping> map;
+    private final SetMultimap<QueryPredicate, PredicateMapping> map;
 
     /**
      * Functional interface to reapply a predicate if necessary.
@@ -493,11 +492,13 @@ public class PredicateMultiMap {
     }
 
     protected PredicateMultiMap(@Nonnull final SetMultimap<QueryPredicate, PredicateMapping> map) {
-        this.map = ImmutableSetMultimap.copyOf(map);
+        SetMultimap<QueryPredicate, PredicateMapping> copy = Multimaps.newSetMultimap(new LinkedIdentityMap<>(), LinkedIdentitySet::new);
+        map.entries().forEach(entry -> copy.put(entry.getKey(), entry.getValue()));
+        this.map = Multimaps.unmodifiableSetMultimap(copy);
     }
 
     @Nonnull
-    protected ImmutableSetMultimap<QueryPredicate, PredicateMapping> getMap() {
+    protected SetMultimap<QueryPredicate, PredicateMapping> getMap() {
         return map;
     }
 
