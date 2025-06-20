@@ -1281,7 +1281,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
          * {@inheritDoc}
          */
         @Override
-        public TypeCode getTypeCode() {
+        public final TypeCode getTypeCode() {
             return TypeCode.ANY;
         }
 
@@ -1289,7 +1289,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
          * {@inheritDoc}
          */
         @Override
-        public boolean isNullable() {
+        public final boolean isNullable() {
             return true;
         }
 
@@ -1413,7 +1413,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
          * {@inheritDoc}
          */
         @Override
-        public TypeCode getTypeCode() {
+        public final TypeCode getTypeCode() {
             return TypeCode.RECORD;
         }
 
@@ -1421,7 +1421,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
          * {@inheritDoc}
          */
         @Override
-        public boolean isNullable() {
+        public final boolean isNullable() {
             return isNullable;
         }
 
@@ -1887,7 +1887,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
          * {@inheritDoc}
          */
         @Override
-        public TypeCode getTypeCode() {
+        public final TypeCode getTypeCode() {
             return TypeCode.RECORD;
         }
 
@@ -1895,7 +1895,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
          * {@inheritDoc}
          */
         @Override
-        public boolean isNullable() {
+        public final boolean isNullable() {
             return isNullable;
         }
 
@@ -2378,7 +2378,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
              * @return The field {@link Type}.
              */
             @Nonnull
-            public Type getFieldType() {
+            public final Type getFieldType() {
                 return fieldType;
             }
 
@@ -2387,7 +2387,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
              * @return The field name.
              */
             @Nonnull
-            public Optional<String> getFieldNameOptional() {
+            public final Optional<String> getFieldNameOptional() {
                 return fieldNameOptional;
             }
 
@@ -2405,7 +2405,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
              * @return The field index.
              */
             @Nonnull
-            public Optional<Integer> getFieldIndexOptional() {
+            public final Optional<Integer> getFieldIndexOptional() {
                 return fieldIndexOptional;
             }
 
@@ -2574,7 +2574,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
          * {@inheritDoc}
          */
         @Override
-        public TypeCode getTypeCode() {
+        public final TypeCode getTypeCode() {
             return TypeCode.RELATION;
         }
 
@@ -2590,7 +2590,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
          * {@inheritDoc}
          */
         @Override
-        public boolean isNullable() {
+        public final boolean isNullable() {
             return false;
         }
 
@@ -2768,7 +2768,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
          * {@inheritDoc}
          */
         @Override
-        public TypeCode getTypeCode() {
+        public final TypeCode getTypeCode() {
             return TypeCode.ARRAY;
         }
 
@@ -2784,7 +2784,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
          * {@inheritDoc}
          */
         @Override
-        public boolean isNullable() {
+        public final boolean isNullable() {
             return isNullable;
         }
 

@@ -55,6 +55,7 @@ public abstract class AbstractQueryPredicate implements QueryPredicate {
                 PAbstractQueryPredicate::hasIsAtomic, PAbstractQueryPredicate::getIsAtomic));
     }
 
+    @SuppressWarnings("this-escape")
     protected AbstractQueryPredicate(final boolean isAtomic) {
         this.isAtomic = isAtomic;
         this.correlatedToSupplier = Suppliers.memoize(this::computeCorrelatedTo);

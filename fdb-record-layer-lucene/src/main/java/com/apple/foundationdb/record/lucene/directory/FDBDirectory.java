@@ -185,10 +185,12 @@ public class FDBDirectory extends Directory  {
     private LucenePrimaryKeySegmentIndex primaryKeySegmentIndex;
 
     @VisibleForTesting
+    @SuppressWarnings("this-escape")
     public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nullable Map<String, String> indexOptions) {
         this(subspace, indexOptions, null, null, true, AgilityContext.nonAgile(context));
     }
 
+    @SuppressWarnings("this-escape")
     public FDBDirectory(@Nonnull Subspace subspace, @Nullable Map<String, String> indexOptions,
                         @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey,
                         boolean deferDeleteToCompoundFile, AgilityContext agilityContext) {
@@ -196,6 +198,7 @@ public class FDBDirectory extends Directory  {
                 DEFAULT_BLOCK_SIZE, DEFAULT_INITIAL_CAPACITY, DEFAULT_BLOCK_CACHE_MAXIMUM_SIZE, DEFAULT_CONCURRENCY_LEVEL, deferDeleteToCompoundFile);
     }
 
+    @SuppressWarnings("this-escape")
     public FDBDirectory(@Nonnull Subspace subspace, @Nullable Map<String, String> indexOptions,
                         @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey,
                         boolean deferDeleteToCompoundFile, AgilityContext agilityContext, int blockCacheMaximumSize) {
@@ -203,6 +206,7 @@ public class FDBDirectory extends Directory  {
                 DEFAULT_BLOCK_SIZE, DEFAULT_INITIAL_CAPACITY, blockCacheMaximumSize, DEFAULT_CONCURRENCY_LEVEL, deferDeleteToCompoundFile);
     }
 
+    @SuppressWarnings("this-escape")
     private FDBDirectory(@Nonnull Subspace subspace, @Nullable Map<String, String> indexOptions,
                          @Nullable FDBDirectorySharedCacheManager sharedCacheManager, @Nullable Tuple sharedCacheKey, AgilityContext agilityContext,
                          int blockSize, final int initialCapacity, final int blockCacheMaximumSize, final int concurrencyLevel,
