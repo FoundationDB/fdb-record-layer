@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistsPredic
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.AndOrValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
@@ -76,6 +77,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.j
 import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.rangeOneQun;
 import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.valuesQun;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 /**
  * Tests of the {@link DecorrelateValuesRule}. These manipulate the values box in order to ensure that
@@ -671,6 +673,128 @@ class DecorrelateValuesRuleTest {
     }
 
     /**
+     * Create a values box with variants. In this case, we simulate a potential simplification of the values in the box by
+     * running the rule with both {@code 1 + 2} and with {@code 3} as potential variants.
+     */
+    @Test
+    void multipleValueChildrenVariants() {
+        final Quantifier valuesBox = valuesQun((Value) new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(LiteralValue.ofScalar(1L), LiteralValue.ofScalar(2L))));
+        SelectExpression valueExpr = (SelectExpression) valuesBox.getRangesOver().get();
+        valuesBox.getRangesOver().insertFinalExpression(new SelectExpression(new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG, true), 3L), valueExpr.getQuantifiers(), ImmutableList.of()));
+
+        final Quantifier base = baseT();
+        final Quantifier lowerSelect = forEach(selectWithPredicates(base, ImmutableList.of("a", "b", "c"),
+                fieldPredicate(base, "a", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, valuesBox.getFlowedObjectValue()))));
+
+        final SelectExpression select = join(valuesBox, lowerSelect)
+                .addResultColumn(Column.of(Optional.of("minA"), valuesBox.getFlowedObjectValue()))
+                .addResultColumn(projectColumn(lowerSelect, "a"))
+                .addResultColumn(projectColumn(lowerSelect, "b"))
+                .build().buildSelect();
+
+        final Quantifier newLowerSelect = forEach(join(valuesBox, base)
+                .addResultColumn(projectColumn(base, "a"))
+                .addResultColumn(projectColumn(base, "b"))
+                .addResultColumn(projectColumn(base, "c"))
+                .addPredicate(fieldPredicate(base, "a", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, valuesBox.getFlowedObjectValue())))
+                .build().buildSelect());
+        final SelectExpression expected1 = join(newLowerSelect)
+                .addResultColumn(Column.of(Optional.of("minA"), (Value) new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(LiteralValue.ofScalar(1L), LiteralValue.ofScalar(2L)))))
+                .addResultColumn(projectColumn(newLowerSelect, "a"))
+                .addResultColumn(projectColumn(newLowerSelect, "b"))
+                .build().buildSelect();
+        final SelectExpression expected2 = join(newLowerSelect)
+                .addResultColumn(Column.of(Optional.of("minA"), new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG, true), 3L)))
+                .addResultColumn(projectColumn(newLowerSelect, "a"))
+                .addResultColumn(projectColumn(newLowerSelect, "b"))
+                .build().buildSelect();
+
+        // Expect one final variant for every variant of the values box
+        // In the future, we may want to restrict this to only creating one
+        // variant (for the simplest value)
+        testHelper.assertYields(select, expected1, expected2);
+    }
+
+    /**
+     * Test what happens when there are multiple values boxes each with multiple variants. In this case, the variants represent
+     * adding zero to a constant long or {@code AND}'ing a constant boolean with {@code true}, both of which could be simplified
+     * to just the original constants.
+     */
+    @Test
+    void multipleVariantsFromTwoValuesChildren() {
+        final ConstantObjectValue cov0 = ConstantObjectValue.of(Quantifier.constant(), "0", Type.primitiveType(Type.TypeCode.LONG, true));
+        final Value cov0PlusZero = (Value) new ArithmeticValue.AddFn().encapsulate(ImmutableList.of(cov0, LiteralValue.ofScalar(0L)));
+        final Quantifier valuesBox0 = valuesQun(cov0PlusZero);
+        valuesBox0.getRangesOver().insertFinalExpression(new SelectExpression(cov0, valuesBox0.getRangesOver().get().getQuantifiers(), ImmutableList.of()));
+
+        final ConstantObjectValue cov1 = ConstantObjectValue.of(Quantifier.constant(), "1", Type.primitiveType(Type.TypeCode.BOOLEAN, true));
+        final Value cov1AndTrue = (Value) new AndOrValue.AndFn().encapsulate(ImmutableList.of(cov1, LiteralValue.ofScalar(true)));
+        final Quantifier valuesBox1 = valuesQun(cov1AndTrue);
+        valuesBox1.getRangesOver().insertFinalExpression(new SelectExpression(cov1, valuesBox1.getRangesOver().get().getQuantifiers(), ImmutableList.of()));
+
+        final Quantifier base = baseT();
+        final SelectExpression selectExpression = join(valuesBox0, valuesBox1, base)
+                .addResultColumn(projectColumn(base, "b"))
+                .addPredicate(fieldPredicate(base, "a", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, valuesBox0.getFlowedObjectValue())))
+                .addPredicate(valuesBox1.getFlowedObjectValue().withComparison(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true)))
+                .build().buildSelect();
+
+        final SelectExpression expected1 = selectWithPredicates(base, ImmutableList.of("b"),
+                fieldPredicate(base, "a", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, cov0)),
+                cov1.withComparison(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true)));
+        final SelectExpression expected2 = selectWithPredicates(base, ImmutableList.of("b"),
+                fieldPredicate(base, "a", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, cov0)),
+                cov1AndTrue.withComparison(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true)));
+        final SelectExpression expected3 = selectWithPredicates(base, ImmutableList.of("b"),
+                fieldPredicate(base, "a", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, cov0PlusZero)),
+                cov1.withComparison(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true)));
+        final SelectExpression expected4 = selectWithPredicates(base, ImmutableList.of("b"),
+                fieldPredicate(base, "a", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, cov0PlusZero)),
+                cov1AndTrue.withComparison(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true)));
+
+        // Expect one final variant for every variant in the cross-product of the
+        // available values box variants.
+        // In the future, we may want to restrict this to only creating one
+        // variant (picking the simplest value from each box)
+        testHelper.assertYields(selectExpression, expected1, expected2, expected3, expected4);
+    }
+
+    @Test
+    void multipleRangeOneVariants() {
+        final Quantifier rangeQun = rangeOneQun();
+        final TableFunctionExpression tf2 = new TableFunctionExpression(new RangeValue(LiteralValue.ofScalar(2L), LiteralValue.ofScalar(0L), LiteralValue.ofScalar(2L)));
+        assertEquals(CardinalitiesProperty.Cardinalities.exactlyOne(), tf2.getValue().getCardinalities());
+        assertNotEquals(rangeQun.getRangesOver().get(), tf2);
+        rangeQun.getRangesOver().insertFinalExpression(tf2);
+
+        final Quantifier valuesBox = forEach(new SelectExpression(LiteralValue.ofScalar("hello"), ImmutableList.of(rangeQun), ImmutableList.of()));
+        final Quantifier base = baseT();
+        final Quantifier lowerSelect = forEach(selectWithPredicates(base, ImmutableList.of("a", "c"),
+                fieldPredicate(base, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, valuesBox.getFlowedObjectValue()))));
+        final SelectExpression select = join(valuesBox, lowerSelect)
+                .addResultColumn(projectColumn(lowerSelect, "a"))
+                .addResultColumn(Column.of(Optional.of("b"), valuesBox.getFlowedObjectValue()))
+                .addResultColumn(projectColumn(lowerSelect, "c"))
+                .build().buildSelect();
+
+        final Quantifier newLowerSelect = forEach(join(valuesBox, base)
+                .addResultColumn(projectColumn(base, "a"))
+                .addResultColumn(projectColumn(base, "c"))
+                .addPredicate(fieldPredicate(base, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, valuesBox.getFlowedObjectValue())))
+                .build().buildSelect());
+        final SelectExpression expected = join(newLowerSelect)
+                .addResultColumn(projectColumn(newLowerSelect, "a"))
+                .addResultColumn(Column.of(Optional.of("b"), LiteralValue.ofScalar("hello")))
+                .addResultColumn(projectColumn(newLowerSelect, "c"))
+                .build().buildSelect();
+
+        // Executed twice, once for each variant of the underlying range. As they produce the same result,
+        // we only get one expression yielded
+        TestRuleExecution execution = testHelper.assertYields(select, expected);
+        assertEquals(1, execution.getRuleMatchedCount());
+    }
+
+    /**
      * This pushes a values box into a {@link GroupByExpression}'s children. In this case the original query is
      * something like:
      * <pre>{@code
@@ -1052,7 +1176,7 @@ class DecorrelateValuesRuleTest {
         final Quantifier valuesBox1 = valuesQun(ImmutableMap.of("x", LiteralValue.ofScalar(42L), "y", LiteralValue.ofScalar("hello")));
         final Quantifier valuesBox2 = valuesQun(ImmutableMap.of("z", fieldValue(valuesBox1, "y")));
         final SelectExpression uncorrelatedValueBox2Expr = GraphExpansion.builder()
-                .addQuantifier(rangeOneQun())
+                .addAllQuantifiers(valuesBox2.getRangesOver().get().getQuantifiers())
                 .addResultColumn(Column.of(Optional.of("z"), LiteralValue.ofScalar("hello")))
                 .build().buildSelect();
         valuesBox2.getRangesOver().insertFinalExpression(uncorrelatedValueBox2Expr);
@@ -1070,6 +1194,28 @@ class DecorrelateValuesRuleTest {
                 .addResultColumn(projectColumn(lowerSelectQun, "c"))
                 .addPredicate(fieldPredicate(lowerSelectQun, "a", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, fieldValue(valuesBox1, "x"))))
                 .addPredicate(fieldPredicate(lowerSelectQun, "d", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(valuesBox2, "z"))))
+                .build().buildSelect();
+
+        //
+        // Match both value boxes. In this case, we only extract out the uncorrelated values box variant
+        //
+        final Quantifier trimmedValuesBox2 = valuesQun(ImmutableMap.of("z", LiteralValue.ofScalar("hello")));
+        final Quantifier newLowerSelectQun = forEach(join(trimmedValuesBox2, base)
+                .addResultColumn(projectColumn(base, "a"))
+                .addResultColumn(projectColumn(base, "b"))
+                .addResultColumn(projectColumn(base, "c"))
+                .addResultColumn(projectColumn(base, "d"))
+                .addPredicate(fieldPredicate(base, "b", new Comparisons.ValueComparison(Comparisons.Type.STARTS_WITH, fieldValue(trimmedValuesBox2, "z"))))
+                .build().buildSelect());
+
+        final SelectExpression expected1 = join(newLowerSelectQun)
+                .addResultColumn(Column.of(Optional.of("x"), LiteralValue.ofScalar(42L)))
+                .addResultColumn(Column.of(Optional.of("z"), LiteralValue.ofScalar("hello")))
+                .addResultColumn(projectColumn(newLowerSelectQun, "a"))
+                .addResultColumn(projectColumn(newLowerSelectQun, "b"))
+                .addResultColumn(projectColumn(newLowerSelectQun, "c"))
+                .addPredicate(fieldPredicate(newLowerSelectQun, "a", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, LiteralValue.ofScalar(42L))))
+                .addPredicate(fieldPredicate(newLowerSelectQun, "d", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, LiteralValue.ofScalar("hello"))))
                 .build().buildSelect();
 
         //
@@ -1096,7 +1242,8 @@ class DecorrelateValuesRuleTest {
                 .addPredicate(fieldPredicate(lowerSelectQun, "a", new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, LiteralValue.ofScalar(42L))))
                 .addPredicate(fieldPredicate(lowerSelectQun, "d", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(valuesBox2WithExtraChild, "z"))))
                 .build().buildSelect();
-        testHelper.assertYields(selectExpression, expected2);
+
+        testHelper.assertYields(selectExpression, expected1, expected2);
     }
 
     /**

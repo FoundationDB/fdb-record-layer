@@ -46,6 +46,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 /**
  * A rule call implementation for the {@link CascadesPlanner}. The life cycle of a rule call object starts with the
@@ -97,6 +98,8 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
     @Nonnull
     private final LinkedIdentitySet<PartialMatch> newPartialMatches;
     @Nonnull
+    private final LinkedIdentitySet<Reference> newReferences;
+    @Nonnull
     private final Set<Reference> referencesWithPushedConstraints;
     @Nonnull
     private final EvaluationContext evaluationContext;
@@ -119,6 +122,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
         this.newExploratoryExpressions = new LinkedIdentitySet<>();
         this.newFinalExpressions = new LinkedIdentitySet<>();
         this.newPartialMatches = new LinkedIdentitySet<>();
+        this.newReferences = new LinkedIdentitySet<>();
         this.referencesWithPushedConstraints = Sets.newLinkedHashSet();
         this.evaluationContext = evaluationContext;
     }
@@ -290,6 +294,24 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
     }
 
     @Nonnull
+    private Reference addNewReference(@Nonnull final Reference newRef) {
+        for (RelationalExpression expression : newRef.getAllMemberExpressions()) {
+            Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.newExp(expression)));
+            traversal.addExpression(newRef, expression);
+        }
+        newReferences.add(newRef);
+        return newRef;
+    }
+
+    public void pruneUnusedNewReferences() {
+        // Not all of the references created during the course of a rule call end up in a yielded expression.
+        // At the end of rule call execution, remove any of the newly created references that aren't referenced
+        // by another reference in the graph
+        traversal.pruneUnreferencedRefs(newReferences);
+        newReferences.clear();
+    }
+
+    @Nonnull
     @Override
     public Reference memoizeExpressions(@Nonnull final Collection<? extends RelationalExpression> exploratoryExpressions,
                                         @Nonnull final Collection<? extends RelationalExpression> finalExpressions) {
@@ -335,7 +357,9 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
         try {
             Preconditions.checkArgument(expressions.stream().noneMatch(expression -> expression instanceof RecordQueryPlan));
 
-            // Pick a candidate expression from the expressions collection. This will be used to do the
+            final Set<CorrelationIdentifier> requiredCorrelations = correlatedTo(expressions);
+
+            // Pick a candidate expression from the expressions collection. This will be used to do the topological check
             final RelationalExpression expression = Iterables.getFirst(expressions, null);
             Verify.verify(expression != null, "should not get null from first element of non-empty expressions collection");
 
@@ -346,10 +370,18 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
                             .map(traversal::getParentRefPaths)
                             .collect(ImmutableList.toImmutableList());
 
+            // Only look for references that are: (1) in the right planner stage and (2) have appropriate correlations.
+            // It's important that there aren't any correlations as if we choose to re-use a reference that
+            // contains a correlation that the original set of expressions don't have, then we might try to use it
+            // in a place that we are not allowed to
+            final Predicate<Traversal.ReferencePath> referencePathFilter = path ->
+                    path.getReference().getPlannerStage() == plannerPhase.getTargetPlannerStage() && path.getReference().getCorrelatedTo().equals(requiredCorrelations);
+
             // Gather the references to the expressions that include each child
             final var expressionToReferenceMap = new LinkedIdentityMap<RelationalExpression, Reference>();
             referencePathsList.stream()
                     .flatMap(Collection::stream)
+                    .filter(referencePathFilter)
                     .forEach(referencePath -> {
                         final var referencingExpression = referencePath.getExpression();
                         if (expressionToReferenceMap.containsKey(referencingExpression)) {
@@ -365,6 +397,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
             final List<Set<RelationalExpression>> referencingExpressions = referencePathsList.stream()
                     .map(referencePaths ->
                             referencePaths.stream()
+                                    .filter(referencePathFilter)
                                     .map(Traversal.ReferencePath::getExpression)
                                     .collect(LinkedIdentitySet.toLinkedIdentitySet()))
                     .collect(ImmutableList.toImmutableList());
@@ -394,12 +427,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
             }
 
             // If we didn't find one, create a new reference and add it to the memo
-            final var newRef = Reference.ofExploratoryExpressions(plannerPhase.getTargetPlannerStage(), expressions);
-            expressions.forEach(expr -> {
-                Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.newExp(expr)));
-                traversal.addExpression(newRef, expr);
-            });
-            return newRef;
+            return addNewReference(Reference.ofExploratoryExpressions(plannerPhase.getTargetPlannerStage(), expressions));
         } finally {
             Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.end()));
         }
@@ -412,9 +440,13 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
             Preconditions.checkArgument(expressions.stream()
                     .allMatch(expression -> !(expression instanceof RecordQueryPlan) && expression.getQuantifiers().isEmpty()));
 
+            final Set<CorrelationIdentifier> requiredCorrelations = correlatedTo(expressions);
             final var leafRefs = traversal.getLeafReferences();
 
             for (final var leafRef : leafRefs) {
+                if (leafRef.getPlannerStage() != plannerPhase.getTargetPlannerStage() || !requiredCorrelations.equals(leafRef.getCorrelatedTo())) {
+                    continue;
+                }
                 if (leafRef.containsAllInMemo(expressions, AliasMap.emptyMap(), false)) {
                     for (RelationalExpression expression : expressions) {
                         Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.reusedExp(expression)));
@@ -423,14 +455,23 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
                 }
             }
 
-            final Reference newRef = Reference.ofExploratoryExpressions(plannerPhase.getTargetPlannerStage(), expressions);
-            for (RelationalExpression expression : expressions) {
-                Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.newExp(expression)));
-                traversal.addExpression(newRef, expression);
-            }
-            return newRef;
+            return addNewReference(Reference.ofExploratoryExpressions(plannerPhase.getTargetPlannerStage(), expressions));
         } finally {
             Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.end()));
+        }
+    }
+
+    @Nonnull
+    private Set<CorrelationIdentifier> correlatedTo(@Nonnull Collection<? extends RelationalExpression> expressions) {
+        if (expressions.isEmpty()) {
+            return ImmutableSet.of();
+        } else if (expressions.size() == 1) {
+            return Iterables.getOnlyElement(expressions).getCorrelatedTo();
+        } else {
+            return expressions.stream()
+                    .map(Correlated::getCorrelatedTo)
+                    .flatMap(Collection::stream)
+                    .collect(ImmutableSet.toImmutableSet());
         }
     }
 
@@ -493,12 +534,7 @@ public class CascadesRuleCall implements ExplorationCascadesRuleCall, Implementa
         try {
             final var exploratoryExpressionSet = new LinkedIdentitySet<>(exploratoryExpressions);
             final var finalExpressionSet = new LinkedIdentitySet<>(finalExpressions);
-            final var newRef = referenceCreator.apply(exploratoryExpressionSet, finalExpressionSet);
-            for (final var expression : allExpressions) {
-                Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.newExp(expression)));
-                traversal.addExpression(newRef, expression);
-            }
-            return newRef;
+            return addNewReference(referenceCreator.apply(exploratoryExpressionSet, finalExpressionSet));
         } finally {
             Debugger.withDebugger(debugger -> allExpressions.forEach(
                     expression -> debugger.onEvent(InsertIntoMemoEvent.end())));

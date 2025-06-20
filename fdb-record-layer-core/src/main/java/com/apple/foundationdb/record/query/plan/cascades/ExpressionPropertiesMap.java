@@ -282,7 +282,9 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
 
     @Nonnull
     public static ExpressionPropertiesMap<RelationalExpression> defaultForRewritePhase() {
-        return new ExpressionPropertiesMap<>(RelationalExpression.class, ImmutableSet.of(),
-                ImmutableSet.of(ExpressionCountProperty.selectCount()), ImmutableList.of());
+        return new ExpressionPropertiesMap<>(RelationalExpression.class,
+                ImmutableSet.of(),
+                ImmutableSet.of(ExpressionCountProperty.selectCount(), ExpressionCountProperty.tableFunctionCount()),
+                ImmutableList.of());
     }
 }

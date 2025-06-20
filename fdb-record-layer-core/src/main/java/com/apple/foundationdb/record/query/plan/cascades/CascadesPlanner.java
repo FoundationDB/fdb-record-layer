@@ -437,6 +437,11 @@ public class CascadesPlanner implements QueryPlanner {
                     Debugger.withDebugger(debugger -> debugger.onEvent(nextTask.toTaskEvent(Location.BEGIN)));
                     try {
                         nextTask.execute();
+                        Debugger.sanityCheck(() ->
+                                // This is a fairly expensive check, but it makes sure that the traversal
+                                // is up to date with the query DAG. This is used during memoization, so
+                                // it's important that it has an accurate view of the state of the world.
+                                traversal.verifyIntegrity());
                     } finally {
                         Debugger.withDebugger(debugger -> debugger.onEvent(nextTask.toTaskEvent(Location.END)));
                     }
@@ -1003,6 +1008,12 @@ public class CascadesPlanner implements QueryPlanner {
 
         protected void executeRuleCall(@Nonnull CascadesRuleCall ruleCall) {
             ruleCall.run();
+
+            //
+            // During rule construction, references can be added to the memoizer that don't end up in
+            // any final expression. Prune them here
+            //
+            ruleCall.pruneUnusedNewReferences();
 
             //
             // Handle produced artifacts (through yield...() calls)

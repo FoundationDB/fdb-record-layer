@@ -62,6 +62,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.b
 import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.baseTau;
 import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.explodeField;
 import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.join;
+import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.valuesQun;
 
 /**
  * Tests of the {@link SelectMergeRule}.
@@ -1029,5 +1030,161 @@ class SelectMergeRuleTest {
                 .build().buildSelect();
 
         testHelper.assertYields(upper, merged);
+    }
+
+    /**
+     * Test merging up two selects with duplicate quantifiers. Here, the same quantifier (in this case standing in for the base
+     * records) is the basis of both the left hand and right hand side of a join. Each expression has predicates on it,
+     * and the top level select projects up from it. So, something like:
+     * <pre>{@code
+     * SELECT L.c AS c1, R.c AS c2, L.d AS d1, L.d AS d2
+     *   FROM (SELECT a, b, c, d, FROM T WHERE T.a = 42) AS L,
+     *        (SELECT a, b, c, d, FROM T WHERE T.b = ?param) AS R
+     *   WHERE L.a = R.a AND L.b = R.b
+     * }</pre>
+     * <p>
+     * And in the query graph, the {@code T} value is a single (re-used) quantifier. Note that though this
+     * quantifier is re-used, it's not ambiguous at any point which one is being referred to. The rewritten graph
+     * may look something like:
+     * </p>
+     * <pre>{@code
+     * SELECT L.c AS c1, R.c AS c2, L.d AS d1, L.d AS d2
+     *   FROM T AS L,
+     *        T AS R
+     *   WHERE L.a = 42 AND R.b = ?param AND L.a = R.a AND L.b = R.b
+     * }</pre>
+     * <p>
+     * Note that the quantifiers for {@code T AS L} and {@code T AS R} need to be disambiguated. That is,
+     * (at least) one of them should be copied into a new quantifier so that the merged select can consume
+     * both of them.
+     * </p>
+     */
+    @Test
+    void mergeUpAvoidingDuplicates() {
+        final Quantifier baseQun = baseT();
+
+        final Quantifier leftQun = forEach(selectWithPredicates(baseQun,
+                ImmutableList.of("a", "b", "c", "d"),
+                fieldPredicate(baseQun, "a", EQUALS_42)));
+        final Quantifier rightQun = forEach(selectWithPredicates(baseQun,
+                ImmutableList.of("a", "b", "c", "d"),
+                fieldPredicate(baseQun, "b", EQUALS_PARAM)));
+
+        final SelectExpression upper = join(leftQun, rightQun)
+                .addResultColumn(column(leftQun, "c", "c1"))
+                .addResultColumn(column(rightQun, "c", "c2"))
+                .addResultColumn(column(leftQun, "d", "d1"))
+                .addResultColumn(column(rightQun, "d", "d2"))
+                .addPredicate(fieldPredicate(leftQun, "a", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(rightQun, "a"))))
+                .addPredicate(fieldPredicate(rightQun, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(leftQun, "b"))))
+                .build().buildSelect();
+
+        final Quantifier base1 = baseT();
+        final Quantifier base2 = Quantifier.forEach(base1.getRangesOver());
+
+        final SelectExpression expected = join(base1, base2)
+                .addResultColumn(column(base1, "c", "c1"))
+                .addResultColumn(column(base2, "c", "c2"))
+                .addResultColumn(column(base1, "d", "d1"))
+                .addResultColumn(column(base2, "d", "d2"))
+                .addPredicate(fieldPredicate(base1, "a", EQUALS_42))
+                .addPredicate(fieldPredicate(base2, "b", EQUALS_PARAM))
+                .addPredicate(fieldPredicate(base1, "a", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(base2, "a"))))
+                .addPredicate(fieldPredicate(base2, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(base1, "b"))))
+                .build().buildSelect();
+
+        testHelper.assertYields(upper, expected);
+    }
+
+    /**
+     * Similar case to {@link #mergeUpAvoidingDuplicates()}, but in this case, there are correlations between some of the merged-up
+     * children that also require fixing. So, we start with something like:
+     * <pre>{@code
+     * SELECT L.a AS a1, R.a AS a2, L.b AS b1, R.b AS b2, L.c AS c1, R.c AS c2, L.d AS d1, L.d AS d2
+     *   FROM (SELECT v.x AS a, U.b AS b, U.c AS c, U.d AS d FROM values(x = @0, y = @1) AS v, (SELECT b, c, d FROM T WHERE T.a = v.x) AS U) AS L,
+     *        (SELECT U.a AS a, v.y AS b, U.c AS c, U.d AS d FROM values(x = @0, y = @1) AS v, (SELECT a, c, d FROM T WHERE T.b = v.y) AS U) AS R
+     *   WHERE L.a = R.a AND L.b = R.b
+     * }</pre>
+     * <p>
+     * In this case, the two values boxes (both denoted {@code v}) are the same quantifier. When we do the
+     * merge up, we get:
+     * </p>
+     * <pre>{@code
+     * SELECT v1.x AS a1, R.a AS a2, L.b AS b1, v2.y AS b2, L.c AS c1, R.c AS c2, L.d AS d1, L.d AS d2
+     *   FROM values(x = @0, y = @1) AS v1,
+     *        (SELECT b, c, d FROM T WHERE T.a = v1.x) AS L,
+     *        values(x = @0, y = @1) AS v2
+     *        (SELECT a, c, d FROM T WHERE T.b = v2.x) AS R
+     *   WHERE v1.x = R.a AND L.b = v2.y
+     * }</pre>
+     * <p>
+     * Now we have two copies of the values box pulled into the top-level box. It needs to have a new quantifier
+     * name, <em>and</em> the correlation to it within each of {@code L} and {@code R} need to point to
+     * the appropriate one.
+     * </p>
+     */
+    @Test
+    void mergeUpWithRenamedCorrelations() {
+        final ConstantObjectValue cov0 = ConstantObjectValue.of(Quantifier.constant(), "0", Type.primitiveType(Type.TypeCode.LONG, false));
+        final ConstantObjectValue cov1 = ConstantObjectValue.of(Quantifier.constant(), "1", Type.primitiveType(Type.TypeCode.STRING, false));
+        final Quantifier valuesBox = valuesQun(ImmutableMap.of("x", cov0, "y", cov1));
+
+        final Quantifier leftBase = baseT();
+        final Quantifier lowerLeft = forEach(selectWithPredicates(leftBase,
+                ImmutableList.of("b", "c", "d"),
+                fieldPredicate(leftBase, "a", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(valuesBox, "x")))));
+        final Quantifier leftQun = forEach(join(valuesBox, lowerLeft)
+                .addResultColumn(column(valuesBox, "x", "a"))
+                .addResultColumn(projectColumn(lowerLeft, "b"))
+                .addResultColumn(projectColumn(lowerLeft, "c"))
+                .addResultColumn(projectColumn(lowerLeft, "d"))
+                .build().buildSelect());
+
+        final Quantifier rightBase = baseT();
+        final Quantifier lowerRight = forEach(selectWithPredicates(rightBase,
+                ImmutableList.of("a", "c", "d"),
+                fieldPredicate(rightBase, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(valuesBox, "y")))));
+        final Quantifier rightQun = forEach(join(valuesBox, lowerRight)
+                .addResultColumn(projectColumn(lowerRight, "a"))
+                .addResultColumn(column(valuesBox, "y", "b"))
+                .addResultColumn(projectColumn(lowerRight, "c"))
+                .addResultColumn(projectColumn(lowerRight, "d"))
+                .build().buildSelect());
+
+        final SelectExpression upper = join(leftQun, rightQun)
+                .addResultColumn(column(leftQun, "a", "a1"))
+                .addResultColumn(column(rightQun, "a", "a2"))
+                .addResultColumn(column(leftQun, "b", "b1"))
+                .addResultColumn(column(rightQun, "b", "b2"))
+                .addResultColumn(column(leftQun, "c", "c1"))
+                .addResultColumn(column(rightQun, "c", "c2"))
+                .addResultColumn(column(leftQun, "d", "d1"))
+                .addResultColumn(column(rightQun, "d", "d2"))
+                .addPredicate(fieldPredicate(leftQun, "a", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(rightQun, "a"))))
+                .addPredicate(fieldPredicate(leftQun, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(rightQun, "b"))))
+                .build().buildSelect();
+
+        final Quantifier valuesBox1 = Quantifier.forEach(valuesBox.getRangesOver());
+        final Quantifier newLowerLeft = forEach(selectWithPredicates(leftBase,
+                ImmutableList.of("b", "c", "d"),
+                fieldPredicate(leftBase, "a", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(valuesBox1, "x")))));
+        final Quantifier valuesBox2 = Quantifier.forEach(valuesBox.getRangesOver());
+        final Quantifier newLowerRight = forEach(selectWithPredicates(rightBase,
+                ImmutableList.of("a", "c", "d"),
+                fieldPredicate(rightBase, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(valuesBox2, "y")))));
+        final SelectExpression expected = join(valuesBox1, newLowerLeft, valuesBox2, newLowerRight)
+                .addResultColumn(column(valuesBox1, "x", "a1"))
+                .addResultColumn(column(newLowerRight, "a", "a2"))
+                .addResultColumn(column(newLowerLeft, "b", "b1"))
+                .addResultColumn(column(valuesBox2, "y", "b2"))
+                .addResultColumn(column(newLowerLeft, "c", "c1"))
+                .addResultColumn(column(newLowerRight, "c", "c2"))
+                .addResultColumn(column(newLowerLeft, "d", "d1"))
+                .addResultColumn(column(newLowerRight, "d", "d2"))
+                .addPredicate(fieldPredicate(valuesBox1, "x", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(newLowerRight, "a"))))
+                .addPredicate(fieldPredicate(newLowerLeft, "b", new Comparisons.ValueComparison(Comparisons.Type.EQUALS, fieldValue(valuesBox2, "y"))))
+                .build().buildSelect();
+
+        testHelper.assertYields(upper, expected);
     }
 }

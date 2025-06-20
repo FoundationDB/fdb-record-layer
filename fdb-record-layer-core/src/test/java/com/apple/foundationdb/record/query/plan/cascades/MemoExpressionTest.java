@@ -398,6 +398,83 @@ public class MemoExpressionTest {
         assertThat(notReusedP2, allOf(not(sameInstance(parent1)), not(sameInstance(parent2))));
     }
 
+    @Test
+    void doNotReuseLeafReferenceWithExtraCorrelations() {
+        final SyntheticPlannerExpression correlatedExpr = SyntheticPlannerExpression.withCorrelated("p1", "a");
+        final SyntheticPlannerExpression uncorrelatedExpr = SyntheticPlannerExpression.withCorrelated("p2");
+        Reference root = ofExploratoryExpressions(correlatedExpr, uncorrelatedExpr);
+        final Memoizer memoizer = createMemoizer(root);
+
+        Reference reusedRoot = memoizer.memoizeExploratoryExpression(correlatedExpr);
+        assertSame(root, reusedRoot, "correlated expression should re-use memoized expression");
+
+        // When constructing a memoized reference, do not allow us to re-use the expression if there are correlations
+        // missing in the new set that are present in the original reference, as it won't be allowed in all of the same
+        // places
+        Reference notReusedRoot = memoizer.memoizeExploratoryExpression(uncorrelatedExpr);
+        assertNotSame(root, notReusedRoot, "uncorrelated expression should not re-use memoized expression");
+        assertEquals(1, notReusedRoot.getTotalMembersSize(), "non-memoized reference should only contain one member");
+        assertEquals(ImmutableSet.of(), notReusedRoot.getCorrelatedTo());
+    }
+
+    @Test
+    void doNotReuseReferenceWithExtraCorrelations() {
+        final Quantifier baseQun = Quantifier.forEach(ofExploratoryExpressions(new SyntheticPlannerExpression("base")));
+        final Quantifier otherQun = Quantifier.forEach(ofExploratoryExpressions(new SyntheticPlannerExpression("other")));
+        final Reference middle = ofExploratoryExpressions(
+                new SyntheticPlannerExpression("middle", ImmutableList.of(baseQun), ImmutableSet.of(otherQun.getAlias())),
+                new SyntheticPlannerExpression("middle", ImmutableList.of(baseQun), ImmutableSet.of())
+        );
+        final Quantifier middleQun = Quantifier.forEach(middle);
+        final Reference root = ofExploratoryExpressions(new SyntheticPlannerExpression("root", ImmutableList.of(otherQun, middleQun), ImmutableList.of()));
+        final Memoizer memoizer = createMemoizer(root);
+
+        // Do not re-use a reference if for the uncorrelated expression
+        Reference newRef1 = memoizer.memoizeExploratoryExpression(new SyntheticPlannerExpression("middle", ImmutableList.of(baseQun), ImmutableSet.of()));
+        assertNotSame(middle, newRef1, "reference missing correlation should not re-use correlated reference");
+        assertEquals(1, newRef1.getTotalMembersSize());
+
+        // Do re-use the reference if there is a correlation that matches the existing expression. Note that the other expression comes along
+        Reference reused1 = memoizer.memoizeExploratoryExpression(new SyntheticPlannerExpression("middle", ImmutableList.of(baseQun), ImmutableSet.of(otherQun.getAlias())));
+        assertSame(middle, reused1, "when correlation sets match, the reference should be re-used");
+
+        // Do re-use the reference if we get a mix of both, but the total correlation set matches the expected set
+        Reference reused2 = memoizer.memoizeExploratoryExpressions(ImmutableList.of(
+                new SyntheticPlannerExpression("middle", ImmutableList.of(baseQun), ImmutableSet.of()),
+                new SyntheticPlannerExpression("middle", ImmutableList.of(baseQun), ImmutableSet.of(otherQun.getAlias()))));
+        assertSame(middle, reused2);
+    }
+
+    @Test
+    void matchCorrelationsSplitAcrossExpressions() {
+        final Quantifier baseQun = Quantifier.forEach(ofExploratoryExpressions(new SyntheticPlannerExpression("base")));
+        final Quantifier other1 = Quantifier.forEach(ofExploratoryExpressions(new SyntheticPlannerExpression("o1")));
+        final Quantifier other2 = Quantifier.forEach(ofExploratoryExpressions(new SyntheticPlannerExpression("o2")));
+        final Reference middle = ofExploratoryExpressions(
+                new SyntheticPlannerExpression("middle", ImmutableList.of(baseQun), ImmutableSet.of(other1.getAlias())),
+                new SyntheticPlannerExpression("middle", ImmutableList.of(baseQun), ImmutableSet.of(other2.getAlias())),
+                new SyntheticPlannerExpression("middle", ImmutableList.of(baseQun), ImmutableSet.of(other1.getAlias(), other2.getAlias()))
+        );
+        final Quantifier middleQun = Quantifier.forEach(middle);
+        final Reference root =  ofExploratoryExpressions(new SyntheticPlannerExpression("root", ImmutableList.of(other1, other2, middleQun), ImmutableSet.of()));
+        final Memoizer memoizer = createMemoizer(root);
+
+        Reference newRef1 = memoizer.memoizeExploratoryExpression(new SyntheticPlannerExpression("middle", ImmutableList.of(baseQun), ImmutableSet.of(other1.getAlias())));
+        assertNotSame(middle, newRef1);
+
+        Reference newRef2 = memoizer.memoizeExploratoryExpression(new SyntheticPlannerExpression("middle", ImmutableList.of(baseQun), ImmutableSet.of(other2.getAlias())));
+        assertNotSame(middle, newRef2);
+
+        Reference reused1 = memoizer.memoizeExploratoryExpression(new SyntheticPlannerExpression("middle", ImmutableList.of(baseQun), ImmutableSet.of(other1.getAlias(), other2.getAlias())));
+        assertSame(middle, reused1);
+
+        Reference reused2 = memoizer.memoizeExploratoryExpressions(ImmutableList.of(
+                new SyntheticPlannerExpression("middle", ImmutableList.of(baseQun), ImmutableSet.of(other1.getAlias())),
+                new SyntheticPlannerExpression("middle", ImmutableList.of(baseQun), ImmutableSet.of(other2.getAlias()))
+        ));
+        assertSame(middle, reused2);
+    }
+
     /**
      * A mock planner expression with very general semantics to test the correctness of various operations on the memo
      * data structure.

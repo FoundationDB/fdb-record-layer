@@ -71,9 +71,11 @@ public class RegularTranslationMap implements TranslationMap {
     @Nullable
     @Override
     public CorrelationIdentifier getTarget(@Nonnull final CorrelationIdentifier sourceAlias) {
-        return getAliasMapMaybe()
-                .map(aliasMap -> aliasMap.getTarget(sourceAlias))
-                .orElseThrow(() -> new RecordCoreException("translation map is not backed by an alias map"));
+        AliasMap aliasMap = getAliasMapMaybe().orElse(null);
+        if (aliasMap == null) {
+            throw new RecordCoreException("translation map is not backed by an alias map");
+        }
+        return aliasMap.getTarget(sourceAlias);
     }
 
     @Nonnull

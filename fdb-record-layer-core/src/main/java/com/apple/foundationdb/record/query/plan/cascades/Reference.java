@@ -460,10 +460,6 @@ public class Reference implements Correlated<Reference>, Typed {
     @VisibleForTesting
     boolean containsInMemo(@Nonnull final RelationalExpression expression,
                            final boolean isFinal) {
-        // TODO This is correct for planning but it may be too strict for rewriting.
-        if (!getCorrelatedTo().equals(expression.getCorrelatedTo())) {
-            return false;
-        }
         return isFinal ? finalMembers.containsInMemo(expression, AliasMap.emptyMap()) :
                exploratoryMembers.containsInMemo(expression, AliasMap.emptyMap());
     }

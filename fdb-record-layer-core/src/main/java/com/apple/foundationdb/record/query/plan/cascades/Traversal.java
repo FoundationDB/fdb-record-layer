@@ -35,6 +35,8 @@ import com.google.common.graph.NetworkBuilder;
 import com.google.common.graph.StableStandardMutableNetwork;
 
 import javax.annotation.Nonnull;
+import java.util.Collection;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiConsumer;
 
@@ -169,7 +171,23 @@ public class Traversal {
             }
             childrenReferences.add(referencePath.getQuantifier().getRangesOver());
         }
+        pruneUnreferencedRefs(childrenReferences);
+        containedInMultiMap.remove(expression, reference);
+        if (leafReferences.contains(reference)) {
+            boolean stillHasLeaf = false;
+            for (RelationalExpression otherRefExpression : reference.getAllMemberExpressions()) {
+                if (containedInMultiMap.containsEntry(otherRefExpression, reference) && otherRefExpression.getQuantifiers().isEmpty()) {
+                    stillHasLeaf = true;
+                    break;
+                }
+            }
+            if (!stillHasLeaf) {
+                leafReferences.remove(reference);
+            }
+        }
+    }
 
+    public void pruneUnreferencedRefs(@Nonnull final Collection<? extends Reference> childrenReferences) {
         for (final var childReference : childrenReferences) {
             if (network.outDegree(childReference) == 0) {
                 for (final var memberExpression : childReference.getAllMemberExpressions()) {
@@ -178,8 +196,6 @@ public class Traversal {
                 network.removeNode(childReference);
             }
         }
-
-        containedInMultiMap.removeAll(expression);
     }
 
     /**
@@ -239,6 +255,60 @@ public class Traversal {
         }
     }
 
+    public void verifyIntegrity() {
+        // Recompute the traversal from the root
+        Traversal secondTraversal = Traversal.withRoot(rootReference);
+
+        //
+        // Make sure there is nothing missing in the graph
+        //
+        var missingNodes = secondTraversal.network.nodes().stream()
+                    .filter(ref -> !network.nodes().contains(ref))
+                    .collect(LinkedIdentitySet.toLinkedIdentitySet());
+        Verify.verify(missingNodes.isEmpty(), "graph is missing %d nodes", missingNodes.size());
+        var missingLeafNodes = secondTraversal.leafReferences.stream()
+                    .filter(ref -> !leafReferences.contains(ref))
+                    .collect(LinkedIdentitySet.toLinkedIdentitySet());
+        Verify.verify(missingLeafNodes.isEmpty(), "graph is missing %s leaf nodes", missingLeafNodes.size());
+        var missingContainedIns = secondTraversal.containedInMultiMap.entries().stream()
+                .filter(entry -> !containedInMultiMap.containsEntry(entry.getKey(), entry.getValue()))
+                .collect(LinkedIdentitySet.toLinkedIdentitySet());
+        Verify.verify(missingContainedIns.isEmpty(), "traversal is missing %s containedIn entries", missingContainedIns.size());
+        for (Reference ref : secondTraversal.network.nodes()) {
+            Set<ReferencePath> expectedOut = secondTraversal.network.outEdges(ref);
+            Set<ReferencePath> edgesOut = network.outEdges(ref);
+            Set<ReferencePath> missingEdges = expectedOut.stream()
+                    .filter(path -> !edgesOut.contains(path))
+                    .collect(LinkedIdentitySet.toLinkedIdentitySet());
+            Verify.verify(missingEdges.isEmpty(), "missing %s expected edges for reference %s", missingEdges.size(), ref);
+        }
+
+        //
+        // Make sure everything in the network is in the manual traversal
+        //
+        Set<Reference> extraNodes = network.nodes().stream()
+                .filter(ref -> !secondTraversal.network.nodes().contains(ref))
+                .collect(LinkedIdentitySet.toLinkedIdentitySet());
+        Verify.verify(extraNodes.isEmpty(), "network contains %s extra nodes", extraNodes.size());
+        Set<Reference> extraLeafs = leafReferences.stream()
+                .filter(ref -> !secondTraversal.leafReferences.contains(ref))
+                .collect(LinkedIdentitySet.toLinkedIdentitySet());
+        Verify.verify(extraLeafs.isEmpty(), "network contains %s extra leaf nodes", extraLeafs.size());
+        var extraContainedIn = containedInMultiMap.entries().stream()
+                .filter(entry -> !secondTraversal.containedInMultiMap.containsEntry(entry.getKey(), entry.getValue()))
+                .collect(LinkedIdentitySet.toLinkedIdentitySet());
+        Verify.verify(extraContainedIn.isEmpty(), "contained in map contains %s extra entries", extraContainedIn.size());
+
+        for (Reference ref : network.nodes()) {
+            Set<ReferencePath> edgesOut = network.outEdges(ref);
+            Set<ReferencePath> expectedOut = secondTraversal.network.outEdges(ref);
+            Set<ReferencePath> extraEdges = edgesOut.stream()
+                    .filter(path -> !expectedOut.contains(path))
+                    .collect(LinkedIdentitySet.toLinkedIdentitySet());
+            Verify.verify(extraEdges.isEmpty(), "network contained %s expected edges for reference %s", extraEdges.size(), ref);
+        }
+    }
+
     /**
      * Case class to hold information about the path from an expression to another expression reference.
      */
@@ -272,6 +342,27 @@ public class Traversal {
         @Nonnull
         public Quantifier getQuantifier() {
             return quantifier;
+        }
+
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
+        @Override
+        public boolean equals(final Object object) {
+            if (this == object) {
+                return true;
+            }
+            if (object == null || getClass() != object.getClass()) {
+                return false;
+            }
+            final ReferencePath that = (ReferencePath)object;
+            // Use referential equality here, as the data structures are all based on identity sets, and so
+            // we only want to identify two paths as the same if they refer to the same objects
+            return reference == that.reference && expression == that.expression && quantifier == that.quantifier;
+        }
+
+        @Override
+        public int hashCode() {
+            // Note that we're using the identity hash codes here as equality is based on pointer equality
+            return Objects.hash(System.identityHashCode(reference), System.identityHashCode(expression), System.identityHashCode(quantifier));
         }
     }
 }
