@@ -346,11 +346,6 @@ public class GraphExpansion {
     }
 
     @Nonnull
-    public static GraphExpansion ofPlaceholderAndQuantifier(@Nonnull final Placeholder placeholder, @Nonnull final Quantifier quantifier) {
-        return of(ImmutableList.of(), ImmutableList.of(placeholder), ImmutableList.of(quantifier), ImmutableList.of(placeholder));
-    }
-
-    @Nonnull
     public static GraphExpansion of(@Nonnull final List<Column<? extends Value>> resultColumns,
                                     @Nonnull final List<QueryPredicate> predicates,
                                     @Nonnull final List<Quantifier> quantifiers,
@@ -557,12 +552,6 @@ public class GraphExpansion {
         @Nonnull
         public Builder pullUpAllQuantifiers(@Nonnull final Iterable<? extends Quantifier> addQuantifiers) {
             addQuantifiers.forEach(this::pullUpQuantifier);
-            return this;
-        }
-
-        @Nonnull
-        public Builder pullUpAllExistingQuantifiers() {
-            quantifiers.build().stream().filter(qun -> qun instanceof Quantifier.ForEach).forEach(qun -> resultColumns.addAll(qun.getFlowedColumns()));
             return this;
         }
 

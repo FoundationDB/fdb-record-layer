@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSo
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
-import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RankValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -39,7 +38,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
@@ -122,28 +120,18 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
 
         final var innerBaseQuantifier = baseQuantifierSupplier.get();
         final var innerBaseAlias = innerBaseQuantifier.getAlias();
-        final var rankGroupingsAndArgumentsExpansion =
-                expandGroupingsAndArguments(innerBaseQuantifier, groupingKeyExpression, groupingAndArgumentValues);
-        final var rankSelectExpression = rankGroupingsAndArgumentsExpansion.buildSelect();
+        final var expandGroupingsAndArgumentsResult =
+                expandGroupingsAndArguments(baseQuantifier, innerBaseQuantifier, groupingKeyExpression,
+                        groupingAndArgumentValues);
+        final var rankSelectExpression = expandGroupingsAndArgumentsResult.getExpansion().buildSelect();
+        final var rankAlias = expandGroupingsAndArgumentsResult.getRankAlias();
         final var rankQuantifier = Quantifier.forEach(Reference.initialOf(rankSelectExpression));
 
-        //
-        // Construct another select expression that applies the predicate on the rank value as well as adds a join
-        // predicate between the outer and the inner base as we model this index access as a semi join
-        //
-        // predicate on rank is expressed as an index placeholder
-        final var rankColumnValue = FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(rankQuantifier), rankSelectExpression.getResultValues().size() - 1);
-        final var rankAndJoiningPredicateExpansion = buildRankComparisonSelectExpression(baseQuantifier, rankQuantifier, rankColumnValue);
-        Verify.verify(rankAndJoiningPredicateExpansion.getPlaceholders().size() == 1);
-        final var rankAlias = Iterables.getOnlyElement(rankAndJoiningPredicateExpansion.getPlaceholderAliases());
-        final var rankAndJoiningPredicateSelectExpression = rankAndJoiningPredicateExpansion.buildSelect();
-        final var rankComparisonQuantifier =
-                Quantifier.forEach(Reference.initialOf(rankAndJoiningPredicateSelectExpression));
-
-        allExpansionsBuilder.add(GraphExpansion.ofQuantifier(rankComparisonQuantifier));
+        allExpansionsBuilder.add(GraphExpansion.ofQuantifier(rankQuantifier));
 
         final var duplicatedPlaceholders =
-                duplicateSimpleGroupingPlaceholders(baseAlias, innerBaseAlias, groupingKeyExpression, rankGroupingsAndArgumentsExpansion.getPlaceholders(), rankSelectExpression);
+                duplicateSimpleGroupingPlaceholders(baseAlias, innerBaseAlias, groupingKeyExpression,
+                        expandGroupingsAndArgumentsResult.getGroupingsAndArgumentsPlaceholders(), rankSelectExpression);
         allExpansionsBuilder.add(duplicatedPlaceholders);
 
         final var primaryKeyAliasesBuilder = ImmutableList.<CorrelationIdentifier>builder();
@@ -178,7 +166,7 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         final var indexKeyValues = computeIndexKeyValues(baseAlias, innerBaseAlias, groupingAndArgumentValues, primaryKeyValues);
 
         final var completeExpansion = GraphExpansion.ofOthers(allExpansionsBuilder.build());
-        final var groupingAndArgumentAliases = rankGroupingsAndArgumentsExpansion.getPlaceholderAliases();
+        final var groupingAndArgumentAliases = expandGroupingsAndArgumentsResult.getGroupingsAndArgumentsAliases();
         final var groupingAliases = groupingAndArgumentAliases.subList(0, groupingKeyExpression.getGroupingCount());
         final var scoreAlias = groupingAndArgumentAliases.get(groupingAndArgumentAliases.size() - 1);
         final var matchableSortExpression = new MatchableSortExpression(WindowedIndexScanMatchCandidate.orderingAliases(groupingAliases, scoreAlias, primaryKeyAliases), isReverse, completeExpansion.buildSelect());
@@ -215,12 +203,11 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
     }
 
     @Nonnull
-    @SuppressWarnings("java:S135")
-    private GraphExpansion duplicateSimpleGroupingPlaceholders(final CorrelationIdentifier baseAlias,
-                                                               final CorrelationIdentifier innerBaseAlias,
-                                                               final GroupingKeyExpression groupingKeyExpression,
-                                                               final List<Placeholder> groupingsAndArgumentsPlaceholders,
-                                                               final SelectExpression rankSelectExpression) {
+    private GraphExpansion duplicateSimpleGroupingPlaceholders(@Nonnull final CorrelationIdentifier baseAlias,
+                                                               @Nonnull final CorrelationIdentifier innerBaseAlias,
+                                                               @Nonnull final GroupingKeyExpression groupingKeyExpression,
+                                                               @Nonnull final List<Placeholder> groupingsAndArgumentsPlaceholders,
+                                                               @Nonnull final SelectExpression rankSelectExpression) {
         final var expansions = Lists.<GraphExpansion>newArrayList();
 
         //
@@ -266,29 +253,10 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
     }
 
     @Nonnull
-    private GraphExpansion buildRankComparisonSelectExpression(@Nonnull final Quantifier baseQuantifier,
-                                                               @Nonnull final Quantifier.ForEach rankQuantifier,
-                                                               @Nonnull final FieldValue rankColumnValue) {
-        // hold on to the placeholder for later
-        final var rankPlaceholder = rankColumnValue.asPlaceholder(newParameterAlias());
-
-        final var rankComparisonExpansion =
-                GraphExpansion.ofPlaceholderAndQuantifier(rankPlaceholder, rankQuantifier);
-
-        // join predicate
-        final var selfJoinPredicate =
-                rankQuantifier.getFlowedObjectValue()
-                        .withComparison(new Comparisons.ValueComparison(Comparisons.Type.EQUALS,
-                                QuantifiedObjectValue.of(baseQuantifier.getAlias(), baseQuantifier.getFlowedObjectType())));
-        final var selfJoinPredicateExpansion = GraphExpansion.ofPredicate(selfJoinPredicate);
-
-        return GraphExpansion.ofOthers(rankComparisonExpansion, selfJoinPredicateExpansion);
-    }
-
-    @Nonnull
-    private GraphExpansion expandGroupingsAndArguments(@Nonnull final Quantifier.ForEach innerBaseQuantifier,
-                                                       @Nonnull final GroupingKeyExpression groupingKeyExpression,
-                                                       @Nonnull final List<Value> groupingAndArgumentValues) {
+    private ExpandGroupingsAndArgumentsResults expandGroupingsAndArguments(@Nonnull final Quantifier.ForEach baseQuantifier,
+                                                                           @Nonnull final Quantifier.ForEach innerBaseQuantifier,
+                                                                           @Nonnull final GroupingKeyExpression groupingKeyExpression,
+                                                                           @Nonnull final List<Value> groupingAndArgumentValues) {
         final var wholeKeyExpression = groupingKeyExpression.getWholeKey();
 
         final VisitorState initialState =
@@ -312,10 +280,65 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
         final var partitioningExpressions = sealedPartitioningAndArgumentExpansion.getResultValues().subList(0, partitioningSize);
         final var argumentExpressions = sealedPartitioningAndArgumentExpansion.getResultValues().subList(partitioningSize, groupingKeyExpression.getColumnSize());
         final var rankValue = new RankValue(partitioningExpressions, argumentExpressions);
-        return partitioningAndArgumentExpansion
-                .toBuilder()
-                .addQuantifier(innerBaseQuantifier)
-                .addResultValue(rankValue)
-                .build();
+        final var rankAlias = newParameterAlias();
+        final var rankPlaceholder = Placeholder.newInstanceWithoutRanges(rankValue, rankAlias);
+        final var selfJoinPredicate =
+                innerBaseQuantifier.getFlowedObjectValue()
+                        .withComparison(new Comparisons.ValueComparison(Comparisons.Type.EQUALS,
+                                QuantifiedObjectValue.of(baseQuantifier.getAlias(), baseQuantifier.getFlowedObjectType())));
+
+        return new ExpandGroupingsAndArgumentsResults(
+                partitioningAndArgumentExpansion
+                        .toBuilder()
+                        .removeAllResultColumns()
+                        .pullUpQuantifier(innerBaseQuantifier)
+                        .addPredicate(rankPlaceholder)
+                        .addPredicate(selfJoinPredicate)
+                        .addPlaceholder(rankPlaceholder)
+                        .build(),
+                rankAlias,
+                partitioningAndArgumentExpansion.getPlaceholderAliases(),
+                partitioningAndArgumentExpansion.getPlaceholders());
+    }
+
+    private static class ExpandGroupingsAndArgumentsResults {
+        @Nonnull
+        private final GraphExpansion expansion;
+        @Nonnull
+        private final CorrelationIdentifier rankAlias;
+        @Nonnull
+        private final List<CorrelationIdentifier> groupingsAndArgumentsAliases;
+        @Nonnull
+        private final List<Placeholder> groupingsAndArgumentsPlaceholders;
+
+        public ExpandGroupingsAndArgumentsResults(@Nonnull final GraphExpansion expansion,
+                                                  @Nonnull final CorrelationIdentifier rankAlias,
+                                                  @Nonnull final List<CorrelationIdentifier> groupingsAndArgumentsAliases,
+                                                  @Nonnull final List<Placeholder> groupingsAndArgumentsPlaceholders) {
+            this.expansion = expansion;
+            this.rankAlias = rankAlias;
+            this.groupingsAndArgumentsAliases = groupingsAndArgumentsAliases;
+            this.groupingsAndArgumentsPlaceholders = groupingsAndArgumentsPlaceholders;
+        }
+
+        @Nonnull
+        public GraphExpansion getExpansion() {
+            return expansion;
+        }
+
+        @Nonnull
+        public CorrelationIdentifier getRankAlias() {
+            return rankAlias;
+        }
+
+        @Nonnull
+        public List<CorrelationIdentifier> getGroupingsAndArgumentsAliases() {
+            return groupingsAndArgumentsAliases;
+        }
+
+        @Nonnull
+        public List<Placeholder> getGroupingsAndArgumentsPlaceholders() {
+            return groupingsAndArgumentsPlaceholders;
+        }
     }
 }
