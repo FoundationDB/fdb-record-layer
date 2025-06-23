@@ -27,6 +27,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.MetaDataProtoEditor;
+import com.apple.foundationdb.record.provider.foundationdb.MetaDataProtoEditorUnitTest;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.google.protobuf.Descriptors;
@@ -43,7 +45,7 @@ import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class TypeRenamerIntegrationTest extends FDBRecordStoreTestBase {
+public class MetaDataProtoEditorIntegrationTest extends FDBRecordStoreTestBase {
 
     @ParameterizedTest
     @BooleanSource("readWithRenamed")
@@ -104,7 +106,7 @@ public class TypeRenamerIntegrationTest extends FDBRecordStoreTestBase {
         private final Function<String, String> writeTypeName;
 
         public MixedModeUtility(String fileName, boolean readWithRenamed) throws IOException {
-            final RecordMetaDataProto.MetaData.Builder builder = TypeRenamerUnitTest.loadMetaData(fileName);
+            final RecordMetaDataProto.MetaData.Builder builder = MetaDataProtoEditorUnitTest.loadMetaData(fileName);
             final RecordMetaData originalMetaData = RecordMetaData.build(builder.build());
 
             try (FDBRecordContext context = openContext()) {
@@ -112,8 +114,8 @@ public class TypeRenamerIntegrationTest extends FDBRecordStoreTestBase {
                 commit(context);
             }
 
-            new TypeRenamer(this::renameType)
-                    .modify(builder, RecordMetaDataBuilder.getDependencies(builder.build(), Map.of()));
+            RecordMetaDataBuilder.getDependencies(builder.build(), Map.of());
+            MetaDataProtoEditor.renameRecordTypes(builder, this::renameType);
             final RecordMetaData newMetaData = RecordMetaData.build(builder.build());
             this.writeMetaData = readWithRenamed ? originalMetaData : newMetaData;
             this.readMetaData = readWithRenamed ? newMetaData : originalMetaData;
