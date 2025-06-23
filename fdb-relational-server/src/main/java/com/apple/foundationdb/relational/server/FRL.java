@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -78,8 +79,9 @@ import java.util.concurrent.TimeUnit;
 @API(API.Status.EXPERIMENTAL)
 public class FRL implements AutoCloseable {
     private final FdbConnection fdbDatabase;
-    private final RelationalDriver driver;
+    private final RelationalDriver registeredDriver;
     private boolean registeredJDBCEmbedDriver;
+    private RelationalConnection transactionalConnection;
 
     public FRL() throws RelationalException {
         this(Options.NONE, null);
@@ -113,7 +115,7 @@ public class FRL implements AutoCloseable {
                 .setStoreCatalog(storeCatalog).build();
 
         try {
-            this.driver = new EmbeddedRelationalDriver(RecordLayerEngine.makeEngine(
+            this.registeredDriver = new EmbeddedRelationalDriver(RecordLayerEngine.makeEngine(
                     rlConfig,
                     Collections.singletonList(fdbDb),
                     keySpace,
@@ -129,7 +131,7 @@ public class FRL implements AutoCloseable {
                             .setTertiarySize(options.getOption(Options.Name.PLAN_CACHE_TERTIARY_MAX_ENTRIES))
                             .build()));
 
-            DriverManager.registerDriver(this.driver);
+            DriverManager.registerDriver(this.registeredDriver);
             this.registeredJDBCEmbedDriver = true;
         } catch (SQLException ve) {
             throw new RelationalException(ve);
@@ -322,6 +324,53 @@ public class FRL implements AutoCloseable {
         }
     }
 
+    @Nonnull
+    public Response transactionalExecute(String database, String schema, String sql, List<Parameter> parameters, Options options)
+            throws SQLException {
+        if (parameters == null) {
+            throw new SQLException("Is that a non-prepared transaction?");
+        }
+        if (transactionalConnection == null) {
+            final var driver = (RelationalDriver) DriverManager.getDriver(createEmbeddedJDBCURI(database, schema));
+            transactionalConnection = driver.connect(URI.create(createEmbeddedJDBCURI(database, schema)), options);
+            transactionalConnection.setAutoCommit(false);
+        }
+        ResultSet resultSet;
+        // If parameters, it's a prepared statement.
+        try (RelationalPreparedStatement statement = transactionalConnection.prepareStatement(sql)) {
+            int index = 1; // Parameter position is one-based.
+            for (Parameter parameter : parameters) {
+                addPreparedStatementParameter(statement, parameter, index++);
+            }
+            if (statement.execute()) {
+                try (RelationalResultSet rs = statement.getResultSet()) {
+                    resultSet = TypeConversion.toProtobuf(rs);
+                    return Response.query(resultSet);
+                }
+            } else {
+                return Response.mutation(statement.getUpdateCount());
+            }
+        }
+    }
+
+    public void transactionalCommit() throws SQLException {
+        if (transactionalConnection == null) {
+            throw new SQLException("Transaction not initialized");
+        }
+        transactionalConnection.commit();
+        transactionalConnection.close();
+        transactionalConnection = null;
+    }
+
+    public void transactionalRollback() throws SQLException {
+        if (transactionalConnection == null) {
+            throw new SQLException("Transaction not initialized");
+        }
+        transactionalConnection.rollback();
+        transactionalConnection.close();
+        transactionalConnection = null;
+    }
+
     @Override
     public void close() throws SQLException, RelationalException {
         try {
@@ -331,7 +380,7 @@ public class FRL implements AutoCloseable {
         }
         // We registered the Relational embed driver... cleanup.
         if (this.registeredJDBCEmbedDriver) {
-            DriverManager.deregisterDriver(driver);
+            DriverManager.deregisterDriver(registeredDriver);
         }
     }
 }
