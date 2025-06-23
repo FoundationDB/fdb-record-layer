@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.server.jdbc.v1;
 
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.CommitResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.RollbackResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementRequest;
@@ -30,6 +31,8 @@ import com.apple.foundationdb.relational.server.FRL;
 import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.sql.SQLException;
 
 /**
  * Handles client requests in transactional (autoCommit=off) mode.
@@ -52,39 +55,56 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
 
     @Override
     public void onNext(final TransactionalRequest transactionRequest) {
-        try {
-            TransactionalResponse.Builder responseBuilder = TransactionalResponse.newBuilder();
+        TransactionalResponse.Builder responseBuilder = TransactionalResponse.newBuilder();
+        if (transactionRequest.hasExecuteRequest()) {
+            final StatementRequest request = transactionRequest.getExecuteRequest();
+            logger.info("Handling execute request: " + request.getSql());
 
-            if (transactionRequest.hasExecuteRequest()) {
-                final StatementRequest request = transactionRequest.getExecuteRequest();
-                logger.info("Handling execute request: " + request.getSql());
-                // TODO
+            try {
+                final FRL.Response response = frl.transactionalExecute(request.getDatabase(), request.getSchema(), request.getSql(),
+                        request.getParameters().getParameterList(),
+                        Options.builder()
+                                .withOption(Options.Name.MAX_ROWS, request.getOptions().getMaxRows()).build());
 
-                StatementResponse.Builder statementResponseBuilder = StatementResponse.newBuilder().setRowCount(0);
+                StatementResponse.Builder statementResponseBuilder = StatementResponse.newBuilder()
+                        .setRowCount(response.getRowCount());
+
                 responseBuilder.setExecuteResponse(statementResponseBuilder);
-            } else if (transactionRequest.hasCommitRequest()) {
-                // handle commit
-                logger.info("Handling commit request");
-                // TODO
-
-                responseBuilder.setCommitResponse(CommitResponse.newBuilder().build());
-            } else if (transactionRequest.hasRollbackRequest()) {
-                // handle rollback
-                logger.info("Handling rollback request");
-                // TODO
-
-                responseBuilder.setRollbackResponse(RollbackResponse.newBuilder().build());
-            } else {
-                throw new IllegalArgumentException("Unknown transactional request type in" + transactionRequest);
+            } catch (SQLException | RuntimeException e) {
+                logger.warn("Execute: Error caught", e);
+                responseBuilder.setExecuteResponse(StatementResponse.newBuilder()
+                        .setRowCount(0)
+                        .setErrorMessage(e.getMessage())
+                );
             }
-
-            responseObserver.onNext(responseBuilder.build());
-        // } catch (SQLException e) {
-        //     responseObserver.onError(StatusProto.toStatusRuntimeException(GrpcSQLExceptionUtil.create(e)));
-        } catch (RuntimeException e) {
-            responseObserver.onError(e);
-            // throw JDBCService.handleUncaughtException(e);
+        } else if (transactionRequest.hasCommitRequest()) {
+            // handle commit
+            logger.info("Handling commit request");
+            try {
+                frl.transactionalCommit();
+                responseBuilder.setCommitResponse(CommitResponse.newBuilder().build());
+            }  catch (SQLException | RuntimeException e) {
+                logger.warn("Commit: Error caught", e);
+                responseBuilder.setCommitResponse(CommitResponse.newBuilder()
+                        .setErrorMessage(e.getMessage())
+                        .build());
+            }
+        } else if (transactionRequest.hasRollbackRequest()) {
+            // handle rollback
+            logger.info("Handling rollback request");
+            try {
+                frl.transactionalRollback();
+                responseBuilder.setRollbackResponse(RollbackResponse.newBuilder().build());
+            }  catch (SQLException | RuntimeException e) {
+                logger.warn("Rollback: Error caught", e);
+                responseBuilder.setRollbackResponse(RollbackResponse.newBuilder()
+                        .setErrorMessage(e.getMessage())
+                        .build());
+            }
+        } else {
+            throw new IllegalArgumentException("Unknown transactional request type in" + transactionRequest);
         }
+        responseObserver.onNext(responseBuilder.build());
     }
 
     @Override

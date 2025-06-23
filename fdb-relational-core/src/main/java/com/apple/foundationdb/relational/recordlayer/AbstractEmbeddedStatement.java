@@ -58,6 +58,8 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
 
     Options options;
 
+    boolean allowAutoCommit = true;
+
     public AbstractEmbeddedStatement(@Nonnull final EmbeddedRelationalConnection conn) {
         this.conn = conn;
         this.options = conn.getOptions();
@@ -65,6 +67,10 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
 
     @Nonnull
     abstract PlanContext buildPlanContext(@Nonnull FDBRecordStoreBase<?> store) throws RelationalException;
+
+    protected void setAutoCommitInternal(boolean mode) {
+        allowAutoCommit = mode;
+    }
 
     @SuppressWarnings("PMD.PreserveStackTrace")
     public boolean executeInternal(String sql) throws SQLException, RelationalException {
@@ -109,7 +115,7 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
                         resultSetRetrieved = true;
                         //ddl statements are updates that don't return results, so they get 0 for row count
                         currentRowCount = 0;
-                        if (conn.canCommit()) {
+                        if (conn.canCommit() && allowAutoCommit) {
                             conn.commitInternal();
                         }
                         return false;

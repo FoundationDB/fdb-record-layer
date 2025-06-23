@@ -147,7 +147,7 @@ class JDBCRelationalConnection implements RelationalConnection {
         this.blockingStub = JDBCServiceGrpc.newBlockingStub(managedChannel);
         this.asyncStub = JDBCServiceGrpc.newStub(managedChannel);
 
-        // this.setAutoCommit(false);
+        this.setAutoCommit(false);
     }
 
     /**
