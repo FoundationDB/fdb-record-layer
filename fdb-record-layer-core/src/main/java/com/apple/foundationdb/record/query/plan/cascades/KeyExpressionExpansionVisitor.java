@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -295,8 +296,8 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                                     .collect(ImmutableList.toImmutableList());
                     final var childResultValue = selectExpression.getResultValue();
                     final var pulledUpValuesMap =
-                            childResultValue.pullUp(childExpansionValues, AliasMap.emptyMap(), ImmutableSet.of(),
-                                    childQuantifier.getAlias());
+                            childResultValue.pullUp(childExpansionValues, EvaluationContext.empty(),
+                                    AliasMap.emptyMap(), ImmutableSet.of(), childQuantifier.getAlias());
                     final ImmutableList<Column<? extends Value>> pulledUpExpansionColumns =
                             childExpansionValues.stream()
                                     .map(value -> {

@@ -31,7 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
-import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ResultCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
@@ -198,9 +198,9 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
             return Compensation.impossibleCompensation();
         }
 
-        final PredicateMultiMap.ResultCompensationFunction resultCompensationFunction;
+        final ResultCompensationFunction resultCompensationFunction;
         if (pullUp != null) {
-            resultCompensationFunction = PredicateMultiMap.ResultCompensationFunction.noCompensationNeeded();
+            resultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
         } else {
             final var rootPullUp = adjustedPullUp.getRootPullUp();
             final var maxMatchMap = matchInfo.getMaxMatchMap();
@@ -212,9 +212,14 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
 
             final var pulledUpResultValue = pulledUpResultValueOptional.get();
 
-            resultCompensationFunction =
-                    PredicateMultiMap.ResultCompensationFunction.of(baseAlias -> pulledUpResultValue.translateCorrelations(
-                            TranslationMap.ofAliases(rootPullUp.getNestingAlias(), baseAlias), false));
+            if (QuantifiedObjectValue.isSimpleQuantifiedObjectValueOver(pulledUpResultValue,
+                    rootPullUp.getNestingAlias())) {
+                resultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
+            } else {
+                resultCompensationFunction =
+                        ResultCompensationFunction.of(baseAlias -> pulledUpResultValue.translateCorrelations(
+                                TranslationMap.ofAliases(rootPullUp.getNestingAlias(), baseAlias), false));
+            }
         }
 
         final var unmatchedQuantifiers = partialMatch.getUnmatchedQuantifiers();

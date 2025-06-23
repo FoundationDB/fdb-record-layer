@@ -147,16 +147,18 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
                             .withComparison(new Comparisons.ValueComparison(Comparisons.Type.EQUALS,
                                     QuantifiedObjectValue.of(baseQuantifier.getAlias(), baseQuantifier.getFlowedObjectType())));
 
-            final var rankExpansion =
+            final var rankExpansionBuilder =
                     partitioningAndArgumentExpansion
                             .toBuilder()
                             .removeAllResultColumns()
-                            .addQuantifier(innerBaseQuantifier)
                             .addPredicate(rankPredicate)
-                            .addPredicate(selfJoinPredicate)
-                            .build();
+                            .addPredicate(selfJoinPredicate);
 
-            final var rankSelectExpression = rankExpansion.buildSelect();
+            rankExpansionBuilder.pullUpQuantifier(innerBaseQuantifier);
+            partitioningAndArgumentExpansion.getQuantifiers()
+                    .forEach(quantifier -> rankExpansionBuilder.addAllResultColumns(quantifier.getFlowedColumns()));
+
+            final var rankSelectExpression = rankExpansionBuilder.build().buildSelect();
             final var rankComparisonQuantifier =
                     Quantifier.existential(Reference.initialOf(rankSelectExpression));
             return GraphExpansion.ofExists(rankComparisonQuantifier);

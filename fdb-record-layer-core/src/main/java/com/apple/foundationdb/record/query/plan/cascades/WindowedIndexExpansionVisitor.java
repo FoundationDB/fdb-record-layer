@@ -287,15 +287,19 @@ public class WindowedIndexExpansionVisitor extends KeyExpressionExpansionVisitor
                         .withComparison(new Comparisons.ValueComparison(Comparisons.Type.EQUALS,
                                 QuantifiedObjectValue.of(baseQuantifier.getAlias(), baseQuantifier.getFlowedObjectType())));
 
-        return new ExpandGroupingsAndArgumentsResults(
-                partitioningAndArgumentExpansion
-                        .toBuilder()
-                        .removeAllResultColumns()
-                        .pullUpQuantifier(innerBaseQuantifier)
+        final var expansionBuilder =
+                partitioningAndArgumentExpansion.toBuilder()
                         .addPredicate(rankPlaceholder)
                         .addPredicate(selfJoinPredicate)
                         .addPlaceholder(rankPlaceholder)
-                        .build(),
+                        .removeAllResultColumns();
+
+        expansionBuilder.pullUpQuantifier(innerBaseQuantifier);
+        partitioningAndArgumentExpansion.getQuantifiers()
+                .forEach(quantifier -> expansionBuilder.addAllResultColumns(quantifier.getFlowedColumns()));
+
+        return new ExpandGroupingsAndArgumentsResults(
+                expansionBuilder.build(),
                 rankAlias,
                 partitioningAndArgumentExpansion.getPlaceholderAliases(),
                 partitioningAndArgumentExpansion.getPlaceholders());
