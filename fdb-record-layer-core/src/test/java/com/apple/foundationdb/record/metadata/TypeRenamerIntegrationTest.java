@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.metadata;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
@@ -34,7 +35,11 @@ import com.google.protobuf.Message;
 import org.junit.jupiter.params.ParameterizedTest;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -43,32 +48,42 @@ public class TypeRenamerIntegrationTest extends FDBRecordStoreTestBase {
     @ParameterizedTest
     @BooleanSource("readWithRenamed")
     void mixedModeReadWrite(boolean readWithRenamed) throws IOException {
-        final RecordMetaDataProto.MetaData.Builder builder = TypeRenamerUnitTest.loadMetaData("OneBoringType.json");
-        final RecordMetaData originalMetaData = RecordMetaData.build(builder.build());
+        MixedModeUtility mixedModeUtility = new MixedModeUtility("OneBoringType.json", readWithRenamed);
 
-        try (FDBRecordContext context = openContext()) {
-            createOrOpenRecordStore(context, () -> originalMetaData);
-            commit(context);
-        }
+        mixedModeUtility.doWrite((metaData, rename) ->
+                saveDynamicRecord(metaData, rename.apply("T1"), Map.of("ID", 1L)));
 
-        new TypeRenamer(oldName -> oldName + "__X")
-                .modify(builder, RecordMetaDataBuilder.getDependencies(builder.build(), Map.of()));
-        final RecordMetaData newMetaData = RecordMetaData.build(builder.build());
-        final RecordMetaData writeMetaData = readWithRenamed ? originalMetaData : newMetaData;
-        final RecordMetaData readMetaData = readWithRenamed ? newMetaData : originalMetaData;
-        String readTypeName = readWithRenamed ? "T1__X" : "T1";
-        String writeTypeName = readWithRenamed ? "T1" : "T1__X";
-
-        try (FDBRecordContext context = openContext()) {
-            createOrOpenRecordStore(context, () -> writeMetaData);
-            saveDynamicRecord(writeMetaData, writeTypeName, Map.of("ID", 1L));
-            commit(context);
-        }
-        try (FDBRecordContext context = openContext()) {
-            createOrOpenRecordStore(context, () -> readMetaData);
+        mixedModeUtility.doRead((metaData, typeName) -> {
             final FDBStoredRecord<Message> record = recordStore.loadRecord(Tuple.from(1L));
-            assertEquals(readTypeName, record.getRecordType().getName());
-        }
+            assertEquals(mixedModeUtility.readTypeName.apply("T1"), record.getRecordType().getName());
+        });
+    }
+
+    @ParameterizedTest
+    @BooleanSource("readWithRenamed")
+    void mixedModeMultiTypeIndex(boolean readWithRenamed) throws IOException {
+        MixedModeUtility mixedModeUtility = new MixedModeUtility("MultiTypeIndex.json", readWithRenamed);
+
+        mixedModeUtility.doWrite((metaData, rename) -> {
+            saveDynamicRecord(metaData, rename.apply("T1"), Map.of("ID", 1L, "VALUE", 10L));
+            saveDynamicRecord(metaData,  rename.apply("T2"), Map.of("ID", 2L, "VALUE", 15L));
+            saveDynamicRecord(metaData, rename.apply("T1"), Map.of("ID", 3L, "VALUE", 15L));
+            saveDynamicRecord(metaData,  rename.apply("T2"), Map.of("ID", 4L, "VALUE", 10L));
+        });
+
+        mixedModeUtility.doRead((metaData, rename) -> {
+            final List<FDBIndexedRecord<Message>> records = recordStore.scanIndexRecords("theIndex").asList().join();
+            assertEquals(
+                    Map.of(1L, rename.apply("T1"),
+                            2L, rename.apply("T2"),
+                            3L, rename.apply("T1"),
+                            4L, rename.apply("T2")),
+                    records.stream().collect(Collectors.toMap(
+                            message -> message.getRecord().getAllFields()
+                                    .entrySet().stream().filter(entry -> entry.getKey().getName().equals("ID"))
+                                    .findAny().orElseThrow().getValue(),
+                            message -> message.getRecordType().getName())));
+        });
     }
 
     private void saveDynamicRecord(final RecordMetaData originalMetaData,
@@ -80,5 +95,49 @@ public class TypeRenamerIntegrationTest extends FDBRecordStoreTestBase {
             builder.setField(typeDescriptor.findFieldByName(field.getKey()), field.getValue());
         }
         recordStore.saveRecord(builder.build());
+    }
+
+    private class MixedModeUtility {
+        private final RecordMetaData writeMetaData;
+        private final RecordMetaData readMetaData;
+        private final Function<String, String> readTypeName;
+        private final Function<String, String> writeTypeName;
+
+        public MixedModeUtility(String fileName, boolean readWithRenamed) throws IOException {
+            final RecordMetaDataProto.MetaData.Builder builder = TypeRenamerUnitTest.loadMetaData(fileName);
+            final RecordMetaData originalMetaData = RecordMetaData.build(builder.build());
+
+            try (FDBRecordContext context = openContext()) {
+                createOrOpenRecordStore(context, () -> originalMetaData);
+                commit(context);
+            }
+
+            new TypeRenamer(this::renameType)
+                    .modify(builder, RecordMetaDataBuilder.getDependencies(builder.build(), Map.of()));
+            final RecordMetaData newMetaData = RecordMetaData.build(builder.build());
+            this.writeMetaData = readWithRenamed ? originalMetaData : newMetaData;
+            this.readMetaData = readWithRenamed ? newMetaData : originalMetaData;
+            this.readTypeName = readWithRenamed ? this::renameType : Function.identity();
+            this.writeTypeName = readWithRenamed ? Function.identity() : this::renameType;
+        }
+
+        public void doWrite(BiConsumer<RecordMetaData, Function<String, String>> doWrite) {
+            try (FDBRecordContext context = openContext()) {
+                createOrOpenRecordStore(context, () -> writeMetaData);
+                doWrite.accept(this.writeMetaData, this.writeTypeName);
+                commit(context);
+            }
+        }
+
+        public void doRead(BiConsumer<RecordMetaData, Function<String, String>> doRead) {
+            try (FDBRecordContext context = openContext()) {
+                createOrOpenRecordStore(context, () -> readMetaData);
+                doRead.accept(readMetaData, readTypeName);
+            }
+        }
+
+        private String renameType(String oldName) {
+            return oldName + "__X";
+        }
     }
 }
