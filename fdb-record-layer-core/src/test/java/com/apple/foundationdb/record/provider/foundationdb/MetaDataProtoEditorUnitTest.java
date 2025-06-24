@@ -439,4 +439,21 @@ public class MetaDataProtoEditorUnitTest {
         assertEquals(originalMetaData.getUniversalIndexes(), renamed.getUniversalIndexes());
         return renamed;
     }
+
+    /**
+     * This test solely exists to decrease the chance that someone will add something to the metadata protobuf, and not
+     * update the {@link MetaDataProtoEditor}.
+     */
+    @Test
+    void validateMetaDataCoverage() {
+        assertEquals(Set.of(
+                        "split_long_records", "version", "former_indexes", "record_count_key",
+                        "store_record_versions", "dependencies", "subspace_key_counter", "uses_subspace_key_counter",
+                        // the below reference record types
+                        "records", "indexes", "record_types", "joined_record_types", "unnested_record_types",
+                        "user_defined_functions"),
+                RecordMetaDataProto.MetaData.getDescriptor().getFields().stream()
+                        .map(Descriptors.FieldDescriptor::getName)
+                .collect(Collectors.toSet()));
+    }
 }
