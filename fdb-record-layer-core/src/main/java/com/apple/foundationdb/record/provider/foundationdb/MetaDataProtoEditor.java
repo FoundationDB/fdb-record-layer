@@ -140,9 +140,7 @@ public class MetaDataProtoEditor {
                 }
             } else {
                 final FieldTypeMatch unionFieldMatch = fieldIsType(recordsBuilder, unionBuilder, unionDescriptor, field, recordTypeName);
-                if (unionFieldMatch.isAmbiguousMatch()) {
-                    throw new AmbiguousTypeNameException(recordsBuilder.getPackage(), unionBuilder, field, fullyQualifiedTypeName(recordsBuilder, recordTypeName));
-                } else if (FieldTypeMatch.MATCHES.equals(unionFieldMatch)
+                if (FieldTypeMatch.MATCHES.equals(unionFieldMatch)
                         && (foundField == null || field.getName().equals("_" + recordTypeName) || field.getNumber() > foundField.getNumber())) {
                     // Choose the matching field with either a matching name or the highest number.
                     foundField = field;
@@ -197,47 +195,16 @@ public class MetaDataProtoEditor {
         /**
          * The field definitely does not have the type requested.
          */
-        DOES_NOT_MATCH(false),
+        DOES_NOT_MATCH,
         /**
          * The field definitely does have the type requested.
          */
-        MATCHES(false),
+        MATCHES,
         /**
          * The field is definitely a nested type defined within the type requested.
          * For example, the requested type might be an {@code OuterMessage} and the field an {@code OuterMessage.InnerMessage}.
          */
-        MATCHES_AS_NESTED(false),
-        /**
-         * The field might have the type requested, but it is ambiguous. This can result from fields with type names
-         * that are not fully qualified. For example, a field that has type name {@code a.b.MessageName} in package
-         * {@code a.b} might match {@code .a.b.a.b.MessageName}, {@code .a.a.b.MessageName}, or {@code .a.b.MessageName}.
-         */
-        MIGHT_MATCH(true),
-        /**
-         * The field might be a nested type within the type requested, but it is ambiguous. For example, if looking
-         * for an {@code .a.b.OuterMessage}, this might match on a field of type {@code b.OuterMessage.InnerMessage} within
-         * package {@code a.b} as the given field might refer either to type {@code .a.b.OuterMessage.InnerMessage} or
-         * {@code .a.b.b.OuterMessage.InnerMessage}.
-         */
-        MIGHT_MATCH_AS_NESTED(true),
-        ;
-
-        private final boolean ambiguousMatch;
-
-        FieldTypeMatch(boolean ambiguousMatch) {
-            this.ambiguousMatch = ambiguousMatch;
-        }
-
-        /**
-         * Whether the match indicates that the field may or may not be of the type asked for.
-         * This can be {@code true} if the field type name is not fully specified and it is
-         * possible (but not guaranteed) that the field resolves to that type.
-         *
-         * @return whether it is ambiguous whether the field matches the type or not
-         */
-        public boolean isAmbiguousMatch() {
-            return ambiguousMatch;
-        }
+        MATCHES_AS_NESTED;
     }
 
     /**
@@ -262,7 +229,6 @@ public class MetaDataProtoEditor {
      * instead takes a simpler approach where if it can be determined for sure that the type is the
      * same, it returns that the type {@link FieldTypeMatch#MATCHES}. If it can be determined that the
      * type is definitely different, then this returns that it {@link FieldTypeMatch#DOES_NOT_MATCH}.
-     * And if it's ambiguous, it returns that the type {@link FieldTypeMatch#MIGHT_MATCH}.
      * </p>
      *
      * <p>
@@ -375,9 +341,7 @@ public class MetaDataProtoEditor {
         boolean found = false;
         for (DescriptorProtos.FieldDescriptorProto.Builder fieldBuilder : unionBuilder.getFieldBuilderList()) {
             final FieldTypeMatch fieldTypeMatch = fieldIsType(fileBuilder, unionBuilder, null /* FIXME */, fieldBuilder, recordType);
-            if (fieldTypeMatch.isAmbiguousMatch()) {
-                throw new AmbiguousTypeNameException(fileBuilder.getPackage(), unionBuilder, fieldBuilder, fullyQualifiedTypeName(fileBuilder, recordType));
-            } else if (FieldTypeMatch.MATCHES.equals(fieldTypeMatch) || FieldTypeMatch.MATCHES_AS_NESTED.equals(fieldTypeMatch)) {
+            if (FieldTypeMatch.MATCHES.equals(fieldTypeMatch) || FieldTypeMatch.MATCHES_AS_NESTED.equals(fieldTypeMatch)) {
                 setDeprecated(fieldBuilder);
                 found = true;
             }
@@ -539,9 +503,7 @@ public class MetaDataProtoEditor {
                 field.setTypeName(fullNewRecordTypeName);
             } else {
                 final FieldTypeMatch fieldTypeMatch = fieldIsType(namespace, messageTypeBuilder, descriptorForMessage, field, fullOldRecordTypeName);
-                if (fieldTypeMatch.isAmbiguousMatch()) {
-                    throw new AmbiguousTypeNameException(namespace, messageTypeBuilder, field, fullOldRecordTypeName);
-                } else if (FieldTypeMatch.MATCHES.equals(fieldTypeMatch)) {
+                if (FieldTypeMatch.MATCHES.equals(fieldTypeMatch)) {
                     field.setTypeName(fullNewRecordTypeName);
                 } else if (FieldTypeMatch.MATCHES_AS_NESTED.equals(fieldTypeMatch)) {
                     final String fullOldFieldTypeName = "." + descriptorForMessage.findFieldByNumber(field.getNumber())
@@ -819,27 +781,11 @@ public class MetaDataProtoEditor {
         for (DescriptorProtos.FieldDescriptorProto field : message.getFieldList()) {
             final String fullTypeName = fullyQualifiedTypeName(file, messageType.getName());
             FieldTypeMatch fieldTypeMatch = fieldIsType(file, message, null /* FIXME */, field, fullTypeName);
-            if (fieldTypeMatch.isAmbiguousMatch()) {
-                throw new AmbiguousTypeNameException(file.getPackage(), message, field, fullTypeName);
-            } else if (FieldTypeMatch.MATCHES.equals(fieldTypeMatch)) {
+            if (FieldTypeMatch.MATCHES.equals(fieldTypeMatch)) {
                 return true;
             }
             // Nested matches do not count.
         }
         return false;
-    }
-
-    /**
-     * An exception that is thrown if the type of a field is ambiguous. This can happen if, for example, a field of a nested type does not
-     * fully-qualify its type name and it has a type that might (or might not) resolve to a record type whose name is being changed.
-     */
-    @API(API.Status.EXPERIMENTAL)
-    public static class AmbiguousTypeNameException extends MetaDataException {
-        private static final long serialVersionUID = 1L;
-
-        private AmbiguousTypeNameException(@Nonnull String namespace, @Nonnull DescriptorProtos.DescriptorProtoOrBuilder messageTypeBuilder,
-                                           @Nonnull DescriptorProtos.FieldDescriptorProtoOrBuilder field, @Nonnull String fullRecordTypeName) {
-            super("Field " + field.getName() + " in message " + fullyQualifiedTypeName(namespace, messageTypeBuilder.getName()) + " of type " + field.getTypeName() + " might be of type " + fullRecordTypeName);
-        }
     }
 }
