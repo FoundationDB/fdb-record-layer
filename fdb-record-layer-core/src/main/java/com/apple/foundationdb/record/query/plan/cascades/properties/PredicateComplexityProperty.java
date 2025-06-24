@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -39,9 +40,8 @@ import java.util.Objects;
 import java.util.function.Function;
 
 /**
- * A property representing the minimum depth of any of a set of relational planner expression types in a relational
- * planner expression: that is, the smallest integer such that one of those types is exactly that many relational
- * planner expressions away from the root expression.
+ This property traverses a {@link RelationalExpression} to find the maximum diameter of any {@link QueryPredicate} associated
+ with either a {@link SelectExpression} or a {@link LogicalFilterExpression}.
  */
 public class PredicateComplexityProperty implements ExpressionProperty<Integer> {
     @Nonnull

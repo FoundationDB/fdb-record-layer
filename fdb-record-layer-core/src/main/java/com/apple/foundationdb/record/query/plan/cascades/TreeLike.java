@@ -328,7 +328,7 @@ public interface TreeLike<T extends TreeLike<T>> {
     }
 
     /**
-     * returns the diameter of the tree.
+     * returns the diameter of the tree. i.e. the maximum path between two leaves in the tree.
      * @return the diameter of the tree.
      */
     default int diameter() {
