@@ -304,9 +304,8 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         fillUnionFields(processExtensionOptions);
     }
 
-    @API(API.Status.INTERNAL)
     @Nonnull
-    public static Descriptors.Descriptor fetchUnionDescriptor(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
+    private static Descriptors.Descriptor fetchUnionDescriptor(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
         @Nullable Descriptors.Descriptor union = null;
         for (Descriptors.Descriptor descriptor : fileDescriptor.getMessageTypes()) {
             RecordMetaDataOptionsProto.RecordTypeOptions recordTypeOptions = descriptor.getOptions()
