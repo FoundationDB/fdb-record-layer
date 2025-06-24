@@ -317,11 +317,43 @@ public interface TreeLike<T extends TreeLike<T>> {
     }
 
     /**
-     * returns the height of the tree.
+     * returns the height of the tree rooted at {@code this} {@code TreeLike}.
      * @return the height of the tree.
      */
     default int height() {
-        return Streams.stream(getChildren()).mapToInt(TreeLike::height).max().orElse(0) + 1;
+        if (Iterables.isEmpty(getChildren())) {
+            return 0;
+        }
+        return 1 + Streams.stream(getChildren()).mapToInt(TreeLike::height).max().orElseThrow();
+    }
+
+    /**
+     * returns the diameter of the tree.
+     * @return the diameter of the tree.
+     */
+    default int diameter() {
+        if (Iterables.isEmpty(getChildren())) {
+            return 0;
+        }
+        int maxChildDiameter = 0;
+        int maxChildHeight = 0;
+        int secondMaxChildHeight = 0;
+        int connectingEdgesCount = Math.min(Iterables.size(getChildren()), 2);
+        for (final var child : getChildren()) {
+            int diameter = child.diameter();
+            if (diameter > maxChildDiameter) {
+                maxChildDiameter = diameter;
+            }
+            int height = child.height();
+            if (height > maxChildHeight) {
+                secondMaxChildHeight = maxChildHeight;
+                maxChildHeight = height;
+            } else if (height > secondMaxChildHeight) {
+                secondMaxChildHeight = height;
+            }
+        }
+        return Math.max(connectingEdgesCount + maxChildHeight + secondMaxChildHeight,
+                maxChildDiameter);
     }
 
     /**

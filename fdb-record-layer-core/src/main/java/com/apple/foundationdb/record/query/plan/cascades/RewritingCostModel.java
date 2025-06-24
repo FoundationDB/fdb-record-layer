@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 
 import javax.annotation.Nonnull;
 
+import static com.apple.foundationdb.record.query.plan.cascades.properties.PredicateComplexityProperty.predicateComplexity;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.PredicateHeightProperty.predicateHeight;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty.selectCount;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty.tableFunctionCount;
@@ -77,6 +78,15 @@ public class RewritingCostModel implements CascadesCostModel {
         int bTableFunctions = tableFunctionCount().evaluate(b);
         if (aTableFunctions != bTableFunctions) {
             return Integer.compare(aTableFunctions, bTableFunctions);
+        }
+
+        //
+        // Choose the expression with the simplest predicate.
+        //
+        int aPredicateComplexity = predicateComplexity().evaluate(a);
+        int bPredicateComplexity = predicateComplexity().evaluate(b);
+        if (aPredicateComplexity != bPredicateComplexity) {
+            return Integer.compare(aPredicateComplexity, bPredicateComplexity);
         }
 
         //
