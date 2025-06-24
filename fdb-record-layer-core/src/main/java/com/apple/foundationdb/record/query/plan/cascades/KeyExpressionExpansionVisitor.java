@@ -20,8 +20,10 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
@@ -39,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
@@ -262,17 +265,63 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                                     .pullUpQuantifier(childBaseQuantifier)
                                     .build();
                     baseAndChildExpansion = GraphExpansion.ofOthers(baseExpansion, childExpansion);
+
+                    final GraphExpansion.Sealed sealedBaseAndChildExpansion = baseAndChildExpansion.seal();
+                    final SelectExpression selectExpression =
+                            sealedBaseAndChildExpansion.buildSelect();
+                    final Quantifier childQuantifier = Quantifier.forEach(Reference.initialOf(selectExpression));
+                    return sealedBaseAndChildExpansion
+                            .builderWithInheritedPlaceholders()
+                            .pullUpQuantifier(childQuantifier)
+                            .build();
                 } else {
-                    baseAndChildExpansion = childExpansion.withBase(childBaseQuantifier);
+                    //
+                    // The child expansion retains all predicates (and placeholders) defined on that child and
+                    // returns all of its original columns. We then pull up the result values so that they are now
+                    // defined using (new) child quantifier and can be put at the parent level. This is more
+                    // advantageous to matching as all columns flow from child to parent.
+                    //
+                    final var baseAndChildExpansionBuilder =
+                            GraphExpansion.builder()
+                                    .addAllPredicates(childExpansion.getPredicates())
+                                    .addAllPlaceholders(childExpansion.getPlaceholders());
+                    baseAndChildExpansionBuilder.pullUpQuantifier(childBaseQuantifier);
+                    childExpansion.getQuantifiers()
+                            .forEach(baseAndChildExpansionBuilder::pullUpQuantifier);
+                    baseAndChildExpansion = baseAndChildExpansionBuilder.build();
+
+                    final GraphExpansion.Sealed sealedBaseAndChildExpansion = baseAndChildExpansion.seal();
+                    final SelectExpression selectExpression =
+                            sealedBaseAndChildExpansion.buildSelect();
+                    final Quantifier childQuantifier = Quantifier.forEach(Reference.initialOf(selectExpression));
+
+                    final var childExpansionValues =
+                            childExpansion.getResultColumns()
+                                    .stream()
+                                    .map(Column::getValue)
+                                    .collect(ImmutableList.toImmutableList());
+                    final var childResultValue = selectExpression.getResultValue();
+                    final var pulledUpValuesMap =
+                            childResultValue.pullUp(childExpansionValues, EvaluationContext.empty(),
+                                    AliasMap.emptyMap(), ImmutableSet.of(), childQuantifier.getAlias());
+                    final ImmutableList<Column<? extends Value>> pulledUpExpansionColumns =
+                            childExpansionValues.stream()
+                                    .map(value -> {
+                                        if (!pulledUpValuesMap.containsKey(value)) {
+                                            throw new RecordCoreException("could not pull expansion value " + value)
+                                                    .addLogInfo(LogMessageKeys.VALUE, value);
+                                        }
+                                        return pulledUpValuesMap.get(value);
+                                    })
+                                    .map(Column::unnamedOf)
+                                    .collect(ImmutableList.toImmutableList());
+
+                    return sealedBaseAndChildExpansion
+                            .builderWithInheritedPlaceholders()
+                            .addQuantifier(childQuantifier)
+                            .addAllResultColumns(pulledUpExpansionColumns)
+                            .build();
                 }
-                final GraphExpansion.Sealed sealedBaseAndChildExpansion = baseAndChildExpansion.seal();
-                final SelectExpression selectExpression =
-                        sealedBaseAndChildExpansion.buildSelect();
-                final Quantifier childQuantifier = Quantifier.forEach(Reference.initialOf(selectExpression));
-                return sealedBaseAndChildExpansion
-                        .builderWithInheritedPlaceholders()
-                        .pullUpQuantifier(childQuantifier)
-                        .build();
             case Concatenate:
             default:
                 throw new RecordCoreException("unsupported fan type");

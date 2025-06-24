@@ -134,14 +134,14 @@ public abstract class WindowedValue extends AbstractValue {
     @SuppressWarnings("PMD.ForLoopCanBeForeach")
     public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         int i = 0;
-        final var argumentsBuilder = ImmutableList.<ExplainTokens>builder();
-        final var iterator = explainSuppliers.iterator();
-        for (; i < argumentValues.size(); i ++) {
-            argumentsBuilder.add(iterator.next().get().getExplainTokens());
-        }
         final var partitioningBuilder = ImmutableList.<ExplainTokens>builder();
-        while (iterator.hasNext()) {
+        final var iterator = explainSuppliers.iterator();
+        for (; i < partitioningValues.size(); i ++) {
             partitioningBuilder.add(iterator.next().get().getExplainTokens());
+        }
+        final var argumentsBuilder = ImmutableList.<ExplainTokens>builder();
+        while (iterator.hasNext()) {
+            argumentsBuilder.add(iterator.next().get().getExplainTokens());
         }
 
         final var allArgumentsExplainTokens =
@@ -149,8 +149,8 @@ public abstract class WindowedValue extends AbstractValue {
                         argumentsBuilder.build());
         final var partitioning = partitioningBuilder.build();
         if (!partitioning.isEmpty()) {
-            allArgumentsExplainTokens.addKeyword("PARTITION").addWhitespace().addKeyword("BY").addWhitespace()
-                    .addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(), partitioning);
+            allArgumentsExplainTokens.addWhitespace().addKeyword("PARTITION").addWhitespace().addKeyword("BY")
+                    .addWhitespace().addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(), partitioning);
         }
 
         return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall(getName(), allArgumentsExplainTokens));
