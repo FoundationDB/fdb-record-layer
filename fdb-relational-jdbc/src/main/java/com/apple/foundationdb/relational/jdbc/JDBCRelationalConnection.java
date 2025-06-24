@@ -256,12 +256,12 @@ class JDBCRelationalConnection implements RelationalConnection {
         if (autoCommit == getAutoCommit()) {
             return;
         }
-        this.autoCommit = autoCommit;
 
         if (!autoCommit) {
             // Create handlers for requests and responses (as local state, they will stay around)
             serverResponses = new ServerResponseHandler();
             requestSender = asyncStub.handleAutoCommitOff(serverResponses);
+            this.autoCommit = false;
         } else {
             if (requestSender != null) {
                 // Commit any remaining requests
@@ -269,6 +269,7 @@ class JDBCRelationalConnection implements RelationalConnection {
                 // finalize and close existing connection
                 requestSender.onCompleted();
             }
+            this.autoCommit = true;
             serverResponses = null;
             requestSender = null;
         }
@@ -328,6 +329,7 @@ class JDBCRelationalConnection implements RelationalConnection {
             return;
         }
         this.closed = true;
+        this.setAutoCommit(true);
         try {
             if (requestSender != null) {
                 // rollback uncommitted changes if closed with some remaining work
