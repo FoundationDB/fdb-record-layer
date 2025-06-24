@@ -40,6 +40,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -261,11 +262,25 @@ public class MetaDataProtoEditorUnitTest {
         MetaDataProtoEditor.renameRecordType(metaDataProtoBuilder, "OuterRecord", "OtterRecord",
                 getDependencies(metaData));
         Descriptors.FileDescriptor renamedDescriptor = Descriptors.FileDescriptor.buildFrom(metaDataProtoBuilder.getRecords(), dependencies);
-        final Descriptors.FieldDescriptor unionField = renamedDescriptor.findMessageTypeByName("RecordTypeUnion")
-                .findFieldByNumber(originalUnionFieldNumber);
+        final Descriptors.Descriptor renamedUnionDescriptor = renamedDescriptor.findMessageTypeByName("RecordTypeUnion");
+        final Descriptors.FieldDescriptor unionField = renamedUnionDescriptor.findFieldByNumber(originalUnionFieldNumber);
         assertEquals("_OtterRecord", unionField.getName());
         assertSame(renamedDescriptor.findMessageTypeByName("OtterRecord"), unionField.getMessageType());
-        // TODO more assertions, particularly things that aren't renamed
+        assertEquals(List.of(), renamedDescriptor.getMessageTypes().stream()
+                .filter(type -> type.getName().equals("OuterRecord")).collect(Collectors.toList()));
+        assertEquals(Set.of("_OtterRecord", "_MiddleRecord"), renamedUnionDescriptor.getFields().stream()
+                .map(Descriptors.FieldDescriptor::getName).collect(Collectors.toSet()));
+        assertEquals(Set.of("MiddleRecord"), getNestedTypeNames(renamedDescriptor.findMessageTypeByName("OtterRecord")));
+        assertEquals(Set.of("InnerRecord"), getNestedTypeNames(renamedDescriptor.findMessageTypeByName("OtterRecord")
+                .findNestedTypeByName("MiddleRecord")));
+    }
+
+    @Nonnull
+    private static Set<String> getNestedTypeNames(final Descriptors.Descriptor messageDescriptor) {
+        return messageDescriptor
+                .getNestedTypes().stream()
+                .map(Descriptors.Descriptor::getName)
+                .collect(Collectors.toSet());
     }
 
     @Nonnull
