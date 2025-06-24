@@ -716,7 +716,7 @@ public class MetaDataProtoEditor {
             fileDescriptor = Descriptors.FileDescriptor.buildFrom(fileBuilder.build(), dependencies);
             final Descriptors.Descriptor unionDescriptor = fileDescriptor.findMessageTypeByName(unionDescriptorBuilder.getName());
             for (final Descriptors.Descriptor messageType : fileDescriptor.getMessageTypes()) {
-                if (unionDescriptor != messageType
+                if (!Objects.equals(unionDescriptor, messageType)
                         && getMessageTypeUsage(messageType.toProto()) != RecordMetaDataOptionsProto.RecordTypeOptions.Usage.NESTED) {
                     if (unionDescriptor.getFields().stream().noneMatch(field -> field.getMessageType() == messageType)) {
                         addFieldToUnion(unionDescriptorBuilder, fileBuilder, messageType.getName());
