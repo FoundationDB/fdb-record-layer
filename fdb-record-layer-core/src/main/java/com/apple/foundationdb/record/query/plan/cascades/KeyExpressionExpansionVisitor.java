@@ -275,6 +275,12 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                             .pullUpQuantifier(childQuantifier)
                             .build();
                 } else {
+                    //
+                    // The child expansion retains all predicates (and placeholders) defined on that child and
+                    // returns all of its original columns. We then pull up the result values so that they are now
+                    // defined using (new) child quantifier and can be put at the parent level. This is more
+                    // advantageous to matching as all columns flow from child to parent.
+                    //
                     final var baseAndChildExpansionBuilder =
                             GraphExpansion.builder()
                                     .addAllPredicates(childExpansion.getPredicates())

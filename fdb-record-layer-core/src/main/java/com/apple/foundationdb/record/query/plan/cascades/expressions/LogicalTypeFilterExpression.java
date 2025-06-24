@@ -217,8 +217,7 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
                 resultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
             } else {
                 resultCompensationFunction =
-                        ResultCompensationFunction.of(baseAlias -> pulledUpResultValue.translateCorrelations(
-                                TranslationMap.ofAliases(rootPullUp.getNestingAlias(), baseAlias), false));
+                        ResultCompensationFunction.ofTranslation(pulledUpResultValue, rootPullUp.getNestingAlias());
             }
         }
 
