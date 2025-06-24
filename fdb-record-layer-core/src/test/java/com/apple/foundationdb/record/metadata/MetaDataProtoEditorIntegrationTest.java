@@ -114,8 +114,8 @@ public class MetaDataProtoEditorIntegrationTest extends FDBRecordStoreTestBase {
                 commit(context);
             }
 
-            RecordMetaDataBuilder.getDependencies(builder.build(), Map.of());
-            MetaDataProtoEditor.renameRecordTypes(builder, this::renameType);
+            MetaDataProtoEditor.renameRecordTypes(builder, this::renameType,
+                    RecordMetaDataBuilder.getDependencies(builder.build(), Map.of()));
             final RecordMetaData newMetaData = RecordMetaData.build(builder.build());
             this.writeMetaData = readWithRenamed ? originalMetaData : newMetaData;
             this.readMetaData = readWithRenamed ? newMetaData : originalMetaData;
