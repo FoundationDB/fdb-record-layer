@@ -811,7 +811,10 @@ public class FDBMetaDataStoreTest {
     }
 
     private void deprecateRecordType(@Nonnull String recordType) {
-        metaDataStore.mutateMetaData((metaDataProto) -> MetaDataProtoEditor.deprecateRecordType(metaDataProto, recordType));
+        metaDataStore.mutateMetaData((metaDataProto) -> {
+            Descriptors.FileDescriptor[] dependencies = RecordMetaDataBuilder.getDependencies(metaDataProto.build(), Map.of());
+            MetaDataProtoEditor.deprecateRecordType(metaDataProto, recordType, dependencies);
+        });
     }
 
     private void addField(@Nonnull String recordType, @Nonnull DescriptorProtos.FieldDescriptorProto field) {

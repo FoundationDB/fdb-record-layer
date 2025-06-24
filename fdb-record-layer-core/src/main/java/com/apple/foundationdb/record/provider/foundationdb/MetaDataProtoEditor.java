@@ -66,7 +66,9 @@ public class MetaDataProtoEditor {
      * @param newRecordType the new record type
      * @param primaryKey the primary key of the new record type
      */
-    public static void addRecordType(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder, @Nonnull DescriptorProtos.DescriptorProto newRecordType, @Nonnull KeyExpression primaryKey) {
+    public static void addRecordType(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder,
+                                     @Nonnull DescriptorProtos.DescriptorProto newRecordType,
+                                     @Nonnull KeyExpression primaryKey) {
         RecordMetaDataOptionsProto.RecordTypeOptions.Usage newRecordTypeUsage = getMessageTypeUsage(newRecordType);
         if (RecordMetaDataBuilder.DEFAULT_UNION_NAME.equals(newRecordType.getName()) ||
                 newRecordTypeUsage == RecordMetaDataOptionsProto.RecordTypeOptions.Usage.UNION) {
@@ -86,20 +88,20 @@ public class MetaDataProtoEditor {
                 .setPrimaryKey(primaryKey.toKeyExpression())
                 .setSinceVersion(metaDataBuilder.getVersion())
                 .build());
-        addFieldToUnion(fetchUnionBuilder(recordsBuilder), recordsBuilder, newRecordType);
+        addFieldToUnion(fetchUnionBuilder(recordsBuilder), recordsBuilder, newRecordType.getName());
     }
 
     private static void addFieldToUnion(@Nonnull DescriptorProtos.DescriptorProto.Builder unionBuilder,
                                         @Nonnull DescriptorProtos.FileDescriptorProtoOrBuilder fileBuilder,
-                                        @Nonnull DescriptorProtos.DescriptorProtoOrBuilder newRecordType) {
+                                        @Nonnull String typeName) {
         if (unionBuilder.getOneofDeclCount() > 0) {
             throw new MetaDataException("Adding record type to oneof is not allowed");
         }
         DescriptorProtos.FieldDescriptorProto.Builder fieldBuilder = DescriptorProtos.FieldDescriptorProto.newBuilder()
                 .setLabel(DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL)
                 .setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE)
-                .setTypeName(fullyQualifiedTypeName(fileBuilder, newRecordType.getName()))
-                .setName("_" + newRecordType.getName())
+                .setTypeName(fullyQualifiedTypeName(fileBuilder, typeName))
+                .setName("_" + typeName)
                 .setNumber(assignFieldNumber(unionBuilder));
         unionBuilder.addField(fieldBuilder);
     }
@@ -204,7 +206,7 @@ public class MetaDataProtoEditor {
          * The field is definitely a nested type defined within the type requested.
          * For example, the requested type might be an {@code OuterMessage} and the field an {@code OuterMessage.InnerMessage}.
          */
-        MATCHES_AS_NESTED;
+        MATCHES_AS_NESTED
     }
 
     /**
@@ -320,23 +322,29 @@ public class MetaDataProtoEditor {
     }
 
     /**
-     * Deprecate a record type from the meta-data. The record is still defined in the record definition, but any occurrences
+     * Deprecate a record type from the meta-data. The record is still defined in the record definition, but any
+     * occurrences
      * of the field in the union descriptor are deprecated. If there are any top-level record types that are defined
      * as nested messages within the deprecated record type, those fields in the union will also be deprecated.
      *
      * @param metaDataBuilder the meta-data builder
      * @param recordType the record type to be deprecated
      */
-    public static void deprecateRecordType(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder, @Nonnull String recordType) {
+    public static void deprecateRecordType(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder,
+                                           @Nonnull String recordType,
+                                           @Nonnull Descriptors.FileDescriptor[] dependencies) {
         final DescriptorProtos.FileDescriptorProto.Builder fileBuilder = metaDataBuilder.getRecordsBuilder();
         DescriptorProtos.DescriptorProto.Builder unionBuilder = fetchUnionBuilder(fileBuilder);
         if (unionBuilder.getName().equals(recordType)) {
             throw new MetaDataException("Cannot deprecate the union");
         }
+        final Descriptors.FileDescriptor fileDescriptor = RecordMetaDataBuilder.buildFileDescriptor(
+                metaDataBuilder.getRecords(), dependencies);
+        final Descriptors.Descriptor unionDescriptor = fileDescriptor.findMessageTypeByName(unionBuilder.getName());
         // deprecate all fields of type recordType from the union.
         boolean found = false;
         for (DescriptorProtos.FieldDescriptorProto.Builder fieldBuilder : unionBuilder.getFieldBuilderList()) {
-            final FieldTypeMatch fieldTypeMatch = fieldIsType(fileBuilder, null /* FIXME */, fieldBuilder, recordType);
+            final FieldTypeMatch fieldTypeMatch = fieldIsType(fileBuilder, unionDescriptor, fieldBuilder, recordType);
             if (FieldTypeMatch.MATCHES.equals(fieldTypeMatch) || FieldTypeMatch.MATCHES_AS_NESTED.equals(fieldTypeMatch)) {
                 setDeprecated(fieldBuilder);
                 found = true;
@@ -700,16 +708,24 @@ public class MetaDataProtoEditor {
         DescriptorProtos.FileDescriptorProto fileDescriptorProto = fileDescriptor.toProto();
         DescriptorProtos.FileDescriptorProto.Builder fileBuilder = fileDescriptorProto.toBuilder();
         DescriptorProtos.DescriptorProto.Builder unionDescriptorBuilder = createSyntheticUnion(fileDescriptor, baseUnionDescriptor);
-        for (DescriptorProtos.DescriptorProto.Builder messageType : fileBuilder.getMessageTypeBuilderList()) {
-            RecordMetaDataOptionsProto.RecordTypeOptions.Usage messageTypeUsage = getMessageTypeUsage(messageType);
-            if (messageTypeUsage != RecordMetaDataOptionsProto.RecordTypeOptions.Usage.NESTED
-                    && !hasField(fileBuilder, unionDescriptorBuilder, messageType)) {
-                addFieldToUnion(unionDescriptorBuilder, fileBuilder, messageType);
-            }
-        }
+        int unionTypeIndex = fileBuilder.getMessageTypeCount();
         fileBuilder.addMessageType(unionDescriptorBuilder);
+        final Descriptors.FileDescriptor[] dependencies = fileDescriptor.getDependencies().toArray(new Descriptors.FileDescriptor[0]);
+
         try {
-            return Descriptors.FileDescriptor.buildFrom(fileBuilder.build(), fileDescriptor.getDependencies().toArray(new Descriptors.FileDescriptor[0]));
+            fileDescriptor = Descriptors.FileDescriptor.buildFrom(fileBuilder.build(), dependencies);
+            final Descriptors.Descriptor unionDescriptor = fileDescriptor.findMessageTypeByName(unionDescriptorBuilder.getName());
+            for (final Descriptors.Descriptor messageType : fileDescriptor.getMessageTypes()) {
+                if (unionDescriptor != messageType
+                        && getMessageTypeUsage(messageType.toProto()) != RecordMetaDataOptionsProto.RecordTypeOptions.Usage.NESTED) {
+                    if (unionDescriptor.getFields().stream().noneMatch(field -> field.getMessageType() == messageType)) {
+                        addFieldToUnion(unionDescriptorBuilder, fileBuilder, messageType.getName());
+                    }
+                }
+            }
+            fileBuilder.removeMessageType(unionTypeIndex);
+            fileBuilder.addMessageType(unionDescriptorBuilder);
+            return Descriptors.FileDescriptor.buildFrom(fileBuilder.build(), dependencies);
         } catch (Descriptors.DescriptorValidationException e) {
             throw new MetaDataException("Failed to add a default union", e);
         }
@@ -722,7 +738,7 @@ public class MetaDataProtoEditor {
         for (DescriptorProtos.DescriptorProtoOrBuilder messageType : recordsDescriptor.getMessageTypeOrBuilderList()) {
             RecordMetaDataOptionsProto.RecordTypeOptions.Usage messageTypeUsage = getMessageTypeUsage(messageType);
             if (messageTypeUsage != RecordMetaDataOptionsProto.RecordTypeOptions.Usage.NESTED) {
-                addFieldToUnion(unionMessageType, recordsDescriptor, messageType);
+                addFieldToUnion(unionMessageType, recordsDescriptor, messageType.getName());
             }
         }
         return unionMessageType;
@@ -737,7 +753,8 @@ public class MetaDataProtoEditor {
      */
     @Nonnull
     @API(API.Status.INTERNAL)
-    public static DescriptorProtos.DescriptorProto.Builder createSyntheticUnion(@Nonnull Descriptors.FileDescriptor fileDescriptor, @Nonnull Descriptors.Descriptor baseUnionDescriptor) {
+    public static DescriptorProtos.DescriptorProto.Builder createSyntheticUnion(@Nonnull Descriptors.FileDescriptor fileDescriptor,
+                                                                                @Nonnull Descriptors.Descriptor baseUnionDescriptor) {
         DescriptorProtos.DescriptorProto.Builder unionMessageType = DescriptorProtos.DescriptorProto.newBuilder();
         unionMessageType.setName(RecordMetaDataBuilder.DEFAULT_UNION_NAME);
         if (!baseUnionDescriptor.getOneofs().isEmpty()) {
@@ -771,17 +788,4 @@ public class MetaDataProtoEditor {
         return false;
     }
 
-    private static boolean hasField(@Nonnull DescriptorProtos.FileDescriptorProtoOrBuilder file,
-                                    @Nonnull DescriptorProtos.DescriptorProtoOrBuilder message,
-                                    @Nonnull DescriptorProtos.DescriptorProtoOrBuilder messageType) {
-        for (DescriptorProtos.FieldDescriptorProto field : message.getFieldList()) {
-            final String fullTypeName = fullyQualifiedTypeName(file, messageType.getName());
-            FieldTypeMatch fieldTypeMatch = fieldIsType(file, null /* FIXME */, field, fullTypeName);
-            if (FieldTypeMatch.MATCHES.equals(fieldTypeMatch)) {
-                return true;
-            }
-            // Nested matches do not count.
-        }
-        return false;
-    }
 }
