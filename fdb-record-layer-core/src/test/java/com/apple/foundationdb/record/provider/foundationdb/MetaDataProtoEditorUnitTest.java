@@ -84,7 +84,7 @@ public class MetaDataProtoEditorUnitTest {
         final Descriptors.Descriptor typeDescriptor = fileDescriptor.getMessageTypes().stream()
                 .filter(type -> type.getName().equals(messageName))
                 .findAny().orElseThrow();
-        return MetaDataProtoEditor.fieldIsType(file, record, typeDescriptor, field, typeName);
+        return MetaDataProtoEditor.fieldIsType(file, typeDescriptor, field, typeName);
     }
 
     @Test

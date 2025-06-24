@@ -139,7 +139,7 @@ public class MetaDataProtoEditor {
                     foundField = field;
                 }
             } else {
-                final FieldTypeMatch unionFieldMatch = fieldIsType(recordsBuilder, unionBuilder, unionDescriptor, field, recordTypeName);
+                final FieldTypeMatch unionFieldMatch = fieldIsType(recordsBuilder, unionDescriptor, field, recordTypeName);
                 if (FieldTypeMatch.MATCHES.equals(unionFieldMatch)
                         && (foundField == null || field.getName().equals("_" + recordTypeName) || field.getNumber() > foundField.getNumber())) {
                     // Choose the matching field with either a matching name or the highest number.
@@ -237,16 +237,13 @@ public class MetaDataProtoEditor {
      * This is useful for determining whether the type needs to be renamed, for example.
      * </p>
      *
-     * @param namespace the package plus any nested types in which this field is located
      * @param field the field descriptor to check the type of
      * @param fullTypeName the fully-qualified type name
      *
      * @return whether the field matches or might match the given type
      */
     @Nonnull
-    private static FieldTypeMatch fieldIsType(@Nonnull String namespace,
-                                              @Nonnull DescriptorProtos.DescriptorProtoOrBuilder message,
-                                              @Nonnull Descriptors.Descriptor messageDescriptor,
+    private static FieldTypeMatch fieldIsType(@Nonnull Descriptors.Descriptor messageDescriptor,
                                               @Nonnull DescriptorProtos.FieldDescriptorProtoOrBuilder field,
                                               @Nonnull String fullTypeName) {
         // Protobuf type name resolution is moderately complicated. Rather than trying to re-implement it on protobufs,
@@ -275,11 +272,10 @@ public class MetaDataProtoEditor {
     @VisibleForTesting
     @Nonnull
     static FieldTypeMatch fieldIsType(@Nonnull DescriptorProtos.FileDescriptorProtoOrBuilder file,
-                                      @Nonnull DescriptorProtos.DescriptorProtoOrBuilder message,
                                       @Nonnull Descriptors.Descriptor descriptorForMessage,
                                       @Nonnull DescriptorProtos.FieldDescriptorProtoOrBuilder field,
                                       @Nonnull String typeName) {
-        return fieldIsType(file.getPackage(), message, descriptorForMessage, field, fullyQualifiedTypeName(file, typeName));
+        return fieldIsType(descriptorForMessage, field, fullyQualifiedTypeName(file, typeName));
     }
 
     private static int assignFieldNumber(@Nonnull DescriptorProtos.DescriptorProto.Builder messageType) {
@@ -340,7 +336,7 @@ public class MetaDataProtoEditor {
         // deprecate all fields of type recordType from the union.
         boolean found = false;
         for (DescriptorProtos.FieldDescriptorProto.Builder fieldBuilder : unionBuilder.getFieldBuilderList()) {
-            final FieldTypeMatch fieldTypeMatch = fieldIsType(fileBuilder, unionBuilder, null /* FIXME */, fieldBuilder, recordType);
+            final FieldTypeMatch fieldTypeMatch = fieldIsType(fileBuilder, null /* FIXME */, fieldBuilder, recordType);
             if (FieldTypeMatch.MATCHES.equals(fieldTypeMatch) || FieldTypeMatch.MATCHES_AS_NESTED.equals(fieldTypeMatch)) {
                 setDeprecated(fieldBuilder);
                 found = true;
@@ -502,7 +498,7 @@ public class MetaDataProtoEditor {
             if (!isHidden && field.getTypeName().equals(oldRecordTypeName)) {
                 field.setTypeName(fullNewRecordTypeName);
             } else {
-                final FieldTypeMatch fieldTypeMatch = fieldIsType(namespace, messageTypeBuilder, descriptorForMessage, field, fullOldRecordTypeName);
+                final FieldTypeMatch fieldTypeMatch = fieldIsType(descriptorForMessage, field, fullOldRecordTypeName);
                 if (FieldTypeMatch.MATCHES.equals(fieldTypeMatch)) {
                     field.setTypeName(fullNewRecordTypeName);
                 } else if (FieldTypeMatch.MATCHES_AS_NESTED.equals(fieldTypeMatch)) {
@@ -780,7 +776,7 @@ public class MetaDataProtoEditor {
                                     @Nonnull DescriptorProtos.DescriptorProtoOrBuilder messageType) {
         for (DescriptorProtos.FieldDescriptorProto field : message.getFieldList()) {
             final String fullTypeName = fullyQualifiedTypeName(file, messageType.getName());
-            FieldTypeMatch fieldTypeMatch = fieldIsType(file, message, null /* FIXME */, field, fullTypeName);
+            FieldTypeMatch fieldTypeMatch = fieldIsType(file, null /* FIXME */, field, fullTypeName);
             if (FieldTypeMatch.MATCHES.equals(fieldTypeMatch)) {
                 return true;
             }
