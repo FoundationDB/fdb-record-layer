@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.api;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
 
+import com.google.common.collect.ImmutableSet;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -129,6 +130,13 @@ class OptionsTest {
                 .hasErrorCode(ErrorCode.INVALID_PARAMETER)
                 .hasMessage("Option CONTINUATION should be of type interface com.apple.foundationdb.relational.api.Continuation but is class java.lang.Object");
 
+        RelationalAssertions.assertThrowsSqlException(() -> Options.builder().withOption(Options.Name.DISABLED_PLANNER_RULES, "foo"))
+                .hasErrorCode(ErrorCode.INVALID_PARAMETER)
+                .hasMessage("Option DISABLED_PLANNER_RULES should be of a collection type instead of java.lang.String");
+
+        RelationalAssertions.assertThrowsSqlException(() -> Options.builder().withOption(Options.Name.DISABLED_PLANNER_RULES, ImmutableSet.of(-1)))
+                .hasErrorCode(ErrorCode.INVALID_PARAMETER)
+                .hasMessage("Element of collection option DISABLED_PLANNER_RULES violated contract: Option DISABLED_PLANNER_RULES should be of type class java.lang.String but is class java.lang.Integer");
     }
 
     @Test
