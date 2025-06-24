@@ -91,6 +91,13 @@ public class TreeDiameterTest {
     }
 
     @Test
+    void testDiameterOfOrphanTree() {
+        final var expectedDiameter = 0;
+        final var actualValue = LiteralValue.ofScalar(42);
+        Assertions.assertThat(actualValue.diameter()).isEqualTo(expectedDiameter);
+    }
+
+    @Test
     void testDiameterPassingThroughRoot() {
         final var expectedDiameter = 5 + 2;
         final var actualValue = valueOfDiameter(2, 3);
