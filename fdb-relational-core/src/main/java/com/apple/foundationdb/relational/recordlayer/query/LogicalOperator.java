@@ -245,9 +245,9 @@ public class LogicalOperator {
         for (final var column : table.getColumns()) {
             final var attributeName = Identifier.of(column.getName());
             final var attributeType = column.getDataType();
-            final var fieldType = type.getField(colCount);
+            final var field = type.getField(colCount).withOverriddenTypeIfNullable(type.isNullable());
             final var attributeExpression = FieldValue.ofFields(resultingQuantifier.getFlowedObjectValue(),
-                    FieldValue.FieldPath.ofSingle(FieldValue.ResolvedAccessor.of(fieldType, colCount)));
+                    FieldValue.FieldPath.ofSingle(FieldValue.ResolvedAccessor.of(field, colCount)));
             attributesBuilder.add(new Expression(Optional.of(attributeName), attributeType, attributeExpression));
             colCount++;
         }

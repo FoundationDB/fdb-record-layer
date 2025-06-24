@@ -248,6 +248,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
     public static FieldPath resolveFieldPath(@Nonnull final Type inputType, @Nonnull final List<Accessor> accessors) {
         final var accessorPathBuilder = ImmutableList.<ResolvedAccessor>builder();
         var currentType = inputType;
+        boolean isNullable = inputType.isNullable();
         for (final var accessor : accessors) {
             final var fieldName = accessor.getName();
             SemanticException.check(currentType.isRecord(), SemanticException.ErrorCode.FIELD_ACCESS_INPUT_NON_RECORD_TYPE,
@@ -269,7 +270,8 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
                 ordinal = accessor.getOrdinal();
             }
             currentType = field.getFieldType();
-            accessorPathBuilder.add(ResolvedAccessor.of(field.getFieldNameOptional().orElse(null), ordinal, currentType));
+            isNullable |= currentType.isNullable();
+            accessorPathBuilder.add(ResolvedAccessor.of(field.getFieldNameOptional().orElse(null), ordinal, currentType.overrideIfNullable(isNullable)));
         }
         return new FieldPath(accessorPathBuilder.build());
     }

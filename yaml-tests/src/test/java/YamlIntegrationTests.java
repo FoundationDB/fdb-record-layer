@@ -140,6 +140,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void nestedWithNulls(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("nested-with-nulls.yamsql");
+    }
+
+    @TestTemplate
     public void orderBy(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("orderby.yamsql");
     }
