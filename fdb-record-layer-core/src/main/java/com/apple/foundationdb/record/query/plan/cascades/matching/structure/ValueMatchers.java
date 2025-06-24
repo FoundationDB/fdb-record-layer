@@ -28,11 +28,13 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ToOrderedBytesValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.VariadicFunctionValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.VersionValue;
 import com.apple.foundationdb.tuple.TupleOrdering;
 import com.google.common.collect.ImmutableList;
@@ -71,6 +73,30 @@ public class ValueMatchers {
         return typed(ConstantObjectValue.class);
     }
 
+    @Nonnull
+    public static BindingMatcher<PromoteValue> anyPromoteValue() {
+        return typed(PromoteValue.class);
+    }
+
+    @Nonnull
+    public static BindingMatcher<VariadicFunctionValue> anyVariadicFunction() {
+        return typed(VariadicFunctionValue.class);
+    }
+
+    @Nonnull
+    public static BindingMatcher<VariadicFunctionValue> variadicFunction(
+            @Nonnull final VariadicFunctionValue.ComparisonFunction comparisonFunction) {
+        return typedMatcherWithPredicate(VariadicFunctionValue.class,
+                variadicFunctionValue -> variadicFunctionValue.getComparisonFunction() == comparisonFunction);
+    }
+
+    @Nonnull
+    public static BindingMatcher<VariadicFunctionValue> coalesceFunction() {
+        return variadicFunction(VariadicFunctionValue.ComparisonFunction.COALESCE);
+    }
+
+
+
     @SuppressWarnings("unchecked")
     @Nonnull
     public static BindingMatcher<LiteralValue<Boolean>> anyBooleanLiteralValue() {
@@ -92,7 +118,7 @@ public class ValueMatchers {
     public static <V extends Value> BindingMatcher<FieldValue> fieldValue(@Nonnull final BindingMatcher<V> downstreamValueMatcher) {
         return typedWithDownstream(FieldValue.class,
                 Extractor.of(FieldValue::getChild, name -> "child(" + name + ")"),
-                        downstreamValueMatcher);
+                downstreamValueMatcher);
     }
 
     @Nonnull

@@ -94,7 +94,7 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
 
     @Override
     public boolean canResultInType(@Nonnull final Type type) {
-        return resultType.isNullable() && resultType.equals(type.nullable());
+        return type.isNullable() && resultType.equals(type.nullable());
     }
 
     @Nonnull
