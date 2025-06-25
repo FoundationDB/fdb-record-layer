@@ -151,6 +151,8 @@ public class ConstantFoldingTest {
                 Arguments.arguments(covNull(), throwingValue(), ConstantPredicate.NULL),
                 Arguments.arguments(throwingValue(), litNull(), ConstantPredicate.NULL),
                 Arguments.arguments(throwingValue(), covNull(), ConstantPredicate.NULL),
+                Arguments.arguments(coalesce(covNull(), promoteToBoolean(covNull())), throwingValue(), ConstantPredicate.NULL),
+                Arguments.arguments(throwingValue(), coalesce(litNull(), promoteToBoolean(litNull())), ConstantPredicate.NULL),
 
                 Arguments.arguments(litFalse(), covTrue(), ConstantPredicate.TRUE),
                 Arguments.arguments(litTrue(), covFalse(), ConstantPredicate.TRUE),
@@ -197,6 +199,7 @@ public class ConstantFoldingTest {
                 Arguments.arguments(covFalse(), ConstantPredicate.FALSE),
                 Arguments.arguments(litTrue(), ConstantPredicate.FALSE),
                 Arguments.arguments(covTrue(), ConstantPredicate.FALSE),
+                Arguments.arguments(coalesce(litNull(), promoteToBoolean(covNull())), ConstantPredicate.TRUE),
                 Arguments.arguments(notNullIntCov(), ConstantPredicate.FALSE));
     }
 
@@ -235,6 +238,7 @@ public class ConstantFoldingTest {
                 Arguments.arguments(covFalse(), ConstantPredicate.TRUE),
                 Arguments.arguments(litTrue(), ConstantPredicate.TRUE),
                 Arguments.arguments(covTrue(), ConstantPredicate.TRUE),
+                Arguments.arguments(coalesce(covNull(), covNull(), covNull(), promoteToBoolean(litNull())), ConstantPredicate.FALSE),
                 Arguments.arguments(notNullIntCov(), ConstantPredicate.TRUE));
     }
 

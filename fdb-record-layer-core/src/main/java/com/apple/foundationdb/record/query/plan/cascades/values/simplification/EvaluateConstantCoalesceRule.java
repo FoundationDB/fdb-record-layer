@@ -21,11 +21,12 @@
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.VariadicFunctionValue;
+import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 
@@ -36,7 +37,10 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * effective coalesced value literal.
  *
  * <ul>
- *     <li>{@code Coalesce(X1, X2, ... Xn, Y ∈ {'True, 'False}, Z1, Z2, .... Zm | Xi ∈ {'Null}, Y ∈ {'True, 'False} Zj ∈ {<ANY VALUE>}) -> Y}</li>
+ *     <li>{@code Coalesce(X1, X2, ... Xn, Y, Z1, Z2, .... Zm | Xi ∈ {'Null}, Y ∈ {'True, 'False} Zj ∈ {<ANY VALUE>}) -> Y}</li>
+ *     <li>{@code Coalesce(X1, X2, ... Xn, Y1, Y2, ... Ym | Xi ∈ {<ANY VALUE EXCEPT 'null>}, Y ∈ {<ANY VALUE>}) -> Coalesce(X1, X2, ... Xn, Y'1, Y'2, ... Y'k | Y' ∈ {<ANY VALUE EXCEPT 'null>, k < m}}</li>
+ *     <li>{@code Coalesce(Y1, Y2, ... Yi, X, Yi+1, Yi+2, ... Yj | X ∈ {<ANY VALUE EXCEPT 'null>}, Y ∈ {'null}) -> X}</li>
+ *     <li>{@code Coalesce(Y1, Y2, ... Ym | Y ∈ {'null}) -> 'null}</li>
  * </ul>
  */
 public class EvaluateConstantCoalesceRule extends ValueSimplificationRule<VariadicFunctionValue> {
@@ -53,21 +57,53 @@ public class EvaluateConstantCoalesceRule extends ValueSimplificationRule<Variad
     public void onMatch(@Nonnull final ValueSimplificationRuleCall call) {
         final var variadicFunctionValue = call.getBindings().get(rootMatcher);
 
+        final var newChildrenBuilder = ImmutableList.<Value>builder();
+        boolean yieldsNewCoalesce = false;
+        boolean removeRedundantNulls = false;
+        boolean seenOnlyConstantsSoFar = true;
+        boolean onlyNulls = true;
         for (final var child : variadicFunctionValue.getChildren()) {
-            if (canNotFold(child)) {
-                return;
+            if (cannotFold(child)) {
+                onlyNulls = false;
+                removeRedundantNulls = true;
+                seenOnlyConstantsSoFar = false;
+            } else if (child instanceof NullValue) {
+                if (removeRedundantNulls) {
+                    yieldsNewCoalesce = true;
+                    continue;
+                }
+            } else {
+                onlyNulls = false;
+                if (seenOnlyConstantsSoFar) {
+                    call.yieldResult(child);
+                    return;
+                }
             }
-            if (child instanceof NullValue) {
-                continue;
-            }
-            call.yieldResult(child);
+            newChildrenBuilder.add(child);
+        }
+
+        if (onlyNulls) {
+            // all values were null constants => return null.
+            call.yieldResult(new NullValue(variadicFunctionValue.getResultType()));
             return;
+        }
+
+        if (!yieldsNewCoalesce) {
+            return;
+        }
+
+        final var newChildren = newChildrenBuilder.build();
+        Verify.verify(!newChildren.isEmpty());
+        if (newChildren.size() == 1) {
+            // degenerate case
+            call.yieldResult(newChildren.get(0));
+        } else {
+            call.yieldResult(variadicFunctionValue.withChildren(newChildren));
         }
     }
 
-    private static boolean canNotFold(@Nonnull final Value value) {
+    private static boolean cannotFold(@Nonnull final Value value) {
         return !(value instanceof NullValue)
-                && (value.getResultType().getTypeCode()
-                            != Type.TypeCode.BOOLEAN || !(value instanceof LiteralValue<?>));
+                && !(value.getResultType().isNotNullable() && value instanceof LiteralValue<?>);
     }
 }
