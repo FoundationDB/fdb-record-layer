@@ -20,7 +20,9 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.predicates;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.ValueWrapper;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -32,6 +34,7 @@ import java.util.stream.Stream;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.areEqual;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.areEqualAsRange;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.areNotEqual;
+import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.areNotNullAndEqualAsRange;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.coalesce;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.covFalse;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.covNull;
@@ -45,7 +48,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingT
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.litNull;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.litTrue;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.lowerType;
+import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.nonNullBoolean;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.notNullIntCov;
+import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.nullableBoolean;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.promoteToBoolean;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.qov;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.simplify;
@@ -93,6 +98,11 @@ public class ConstantFoldingTest {
                 Arguments.arguments(covTrue(), covFalse(), ConstantPredicate.FALSE),
                 Arguments.arguments(covTrue(), covTrue(), ConstantPredicate.TRUE),
                 Arguments.arguments(covFalse(), covFalse(), ConstantPredicate.TRUE),
+
+                Arguments.arguments(nullableBoolean(), litNull(), ConstantPredicate.NULL),
+                Arguments.arguments(litNull(), nullableBoolean(), ConstantPredicate.NULL),
+                Arguments.arguments(nonNullBoolean(), litNull(), ConstantPredicate.NULL),
+                Arguments.arguments(litNull(), nonNullBoolean(), ConstantPredicate.NULL),
 
                 Arguments.arguments(coalesce(litNull(), covFalse()), covTrue(), ConstantPredicate.FALSE),
                 Arguments.arguments(coalesce(covNull(), covTrue(), throwingValue()), covTrue(), ConstantPredicate.TRUE),
@@ -157,6 +167,10 @@ public class ConstantFoldingTest {
                 Arguments.arguments(throwingValue(), covNull(), ConstantPredicate.NULL),
                 Arguments.arguments(coalesce(covNull(), promoteToBoolean(covNull())), throwingValue(), ConstantPredicate.NULL),
                 Arguments.arguments(throwingValue(), coalesce(litNull(), promoteToBoolean(litNull())), ConstantPredicate.NULL),
+                Arguments.arguments(nullableBoolean(), litNull(), ConstantPredicate.NULL),
+                Arguments.arguments(litNull(), nullableBoolean(), ConstantPredicate.NULL),
+                Arguments.arguments(nonNullBoolean(), litNull(), ConstantPredicate.NULL),
+                Arguments.arguments(litNull(), nonNullBoolean(), ConstantPredicate.NULL),
 
                 Arguments.arguments(litFalse(), covTrue(), ConstantPredicate.TRUE),
                 Arguments.arguments(litTrue(), covFalse(), ConstantPredicate.TRUE),
@@ -204,6 +218,7 @@ public class ConstantFoldingTest {
                 Arguments.arguments(litTrue(), ConstantPredicate.FALSE),
                 Arguments.arguments(covTrue(), ConstantPredicate.FALSE),
                 Arguments.arguments(notNullIntCov(), ConstantPredicate.FALSE),
+                Arguments.arguments(nonNullBoolean(), ConstantPredicate.FALSE),
                 Arguments.arguments(fieldValue(qov(lowerType), "a_non_null"), ConstantPredicate.FALSE),
                 Arguments.arguments(fieldValue(fieldValue(qov(upperType), "a_non_null"), "a_non_null"), ConstantPredicate.FALSE),
                 Arguments.arguments(coalesce(litNull(), promoteToBoolean(covNull())), ConstantPredicate.TRUE));
@@ -234,8 +249,9 @@ public class ConstantFoldingTest {
                 Arguments.arguments(covFalse(), ConstantPredicate.TRUE),
                 Arguments.arguments(litTrue(), ConstantPredicate.TRUE),
                 Arguments.arguments(covTrue(), ConstantPredicate.TRUE),
-                Arguments.arguments(coalesce(covNull(), covNull(), covNull(), promoteToBoolean(litNull())), ConstantPredicate.FALSE),
                 Arguments.arguments(notNullIntCov(), ConstantPredicate.TRUE),
+                Arguments.arguments(nonNullBoolean(), ConstantPredicate.TRUE),
+                Arguments.arguments(coalesce(covNull(), covNull(), covNull(), promoteToBoolean(litNull())), ConstantPredicate.FALSE),
                 Arguments.arguments(fieldValue(qov(lowerType), "a_non_null"), ConstantPredicate.TRUE),
                 Arguments.arguments(fieldValue(fieldValue(qov(upperType), "a_non_null"), "a_non_null"), ConstantPredicate.TRUE));
     }
@@ -295,5 +311,92 @@ public class ConstantFoldingTest {
     public void notSimplifyIsNotNullAsRange(@Nonnull ValueWrapper value) {
         QueryPredicate predicate = isNotNullAsRange(value.value());
         Assertions.assertThat(simplify(predicate, value.getEvaluationContextOrEmpty())).isEqualTo(predicate);
+    }
+
+    @Nonnull
+    public static Stream<Arguments> notSimplifiableEqualsComparisons() {
+        return Stream.of(
+                Arguments.of(nonNullBoolean(), litTrue()),
+                Arguments.of(nonNullBoolean(), litFalse()),
+                Arguments.of(nullableBoolean(), litTrue()),
+                Arguments.of(nullableBoolean(), litFalse())
+        );
+    }
+
+    @ParameterizedTest(name = "{0} EQUALS {1} not simplifiable")
+    @MethodSource("notSimplifiableEqualsComparisons")
+    public void notSimplifyEquality(@Nonnull ValueWrapper lhs, @Nonnull ValueWrapper rhs) {
+        QueryPredicate predicate = areEqual(lhs.value(), rhs.value());
+        Assertions.assertThat(simplify(predicate, lhs.mergeEvaluationContext(rhs))).isEqualTo(predicate);
+
+        QueryPredicate predicate2 = areEqual(rhs.value(), lhs.value());
+        Assertions.assertThat(simplify(predicate2, lhs.mergeEvaluationContext(rhs))).isEqualTo(predicate2);
+    }
+
+    @ParameterizedTest(name = "{0} EQUALS {1} not simplifiable")
+    @MethodSource("notSimplifiableEqualsComparisons")
+    public void notSimplifyEqualityAsRanges(@Nonnull ValueWrapper lhs, @Nonnull ValueWrapper rhs) {
+        QueryPredicate predicate = areEqualAsRange(lhs.value(), rhs.value());
+        Assertions.assertThat(simplify(predicate, lhs.mergeEvaluationContext(rhs))).isEqualTo(predicate);
+
+        QueryPredicate predicate2 = areEqualAsRange(rhs.value(), lhs.value());
+        Assertions.assertThat(simplify(predicate2, lhs.mergeEvaluationContext(rhs))).isEqualTo(predicate2);
+    }
+
+    @ParameterizedTest(name = "{0} EQUALS {1} not simplifiable")
+    @MethodSource("notSimplifiableEqualsComparisons")
+    public void notSimplifyEqualityAndNotNullAsRanges(@Nonnull ValueWrapper lhs, @Nonnull ValueWrapper rhs) {
+        QueryPredicate predicate = areNotNullAndEqualAsRange(lhs.value(), rhs.value());
+        Assertions.assertThat(simplify(predicate, lhs.mergeEvaluationContext(rhs))).isEqualTo(predicate);
+
+        QueryPredicate predicate2 = areNotNullAndEqualAsRange(rhs.value(), lhs.value());
+        Assertions.assertThat(simplify(predicate2, lhs.mergeEvaluationContext(rhs))).isEqualTo(predicate2);
+    }
+
+    private static Stream<Arguments> miscellaneousSimplifications() {
+        Stream<NonnullPair<QueryPredicate, QueryPredicate>> withoutEvalContext = Stream.of(
+                NonnullPair.of(areEqual(nonNullBoolean().value(), promoteToBoolean(litTrue()).value()), areEqual(nonNullBoolean().value(), litTrue().value())),
+                NonnullPair.of(areEqual(nonNullBoolean().value(), promoteToBoolean(litFalse()).value()), areEqual(nonNullBoolean().value(), litFalse().value())),
+                NonnullPair.of(areEqual(nullableBoolean().value(), promoteToBoolean(litTrue()).value()), areEqual(nullableBoolean().value(), litTrue().value())),
+                NonnullPair.of(areEqual(nullableBoolean().value(), promoteToBoolean(litFalse()).value()), areEqual(nullableBoolean().value(), litFalse().value())),
+
+                NonnullPair.of(areEqualAsRange(nonNullBoolean().value(), promoteToBoolean(litTrue()).value()), areEqualAsRange(nonNullBoolean().value(), litTrue().value())),
+                NonnullPair.of(areEqualAsRange(nonNullBoolean().value(), promoteToBoolean(litFalse()).value()), areEqualAsRange(nonNullBoolean().value(), litFalse().value())),
+                NonnullPair.of(areEqualAsRange(nullableBoolean().value(), promoteToBoolean(litTrue()).value()), areEqualAsRange(nullableBoolean().value(), litTrue().value())),
+                NonnullPair.of(areEqualAsRange(nullableBoolean().value(), promoteToBoolean(litFalse()).value()), areEqualAsRange(nullableBoolean().value(), litFalse().value())),
+
+                NonnullPair.of(areNotNullAndEqualAsRange(nonNullBoolean().value(), promoteToBoolean(litTrue()).value()), areNotNullAndEqualAsRange(nonNullBoolean().value(), litTrue().value())),
+                NonnullPair.of(areNotNullAndEqualAsRange(nonNullBoolean().value(), promoteToBoolean(litFalse()).value()), areNotNullAndEqualAsRange(nonNullBoolean().value(), litFalse().value())),
+                NonnullPair.of(areNotNullAndEqualAsRange(nullableBoolean().value(), promoteToBoolean(litTrue()).value()), areNotNullAndEqualAsRange(nullableBoolean().value(), litTrue().value())),
+                NonnullPair.of(areNotNullAndEqualAsRange(nullableBoolean().value(), promoteToBoolean(litFalse()).value()), areNotNullAndEqualAsRange(nullableBoolean().value(), litFalse().value()))
+        );
+
+        final ValueWrapper covTrue = covTrue();
+        final ValueWrapper covFalse = covFalse();
+
+        Stream<Arguments> withEvalContext = Stream.of(
+                Arguments.of(areEqual(nonNullBoolean().value(), covTrue.value()), covTrue.getEvaluationContext(), areEqual(nonNullBoolean().value(), litTrue().value())),
+                Arguments.of(areEqual(nonNullBoolean().value(), covFalse.value()), covFalse.getEvaluationContext(), areEqual(nonNullBoolean().value(), litFalse().value())),
+                Arguments.of(areEqual(nullableBoolean().value(), covTrue.value()), covTrue.getEvaluationContext(), areEqual(nullableBoolean().value(), litTrue().value())),
+                Arguments.of(areEqual(nullableBoolean().value(), covFalse.value()), covFalse.getEvaluationContext(), areEqual(nullableBoolean().value(), litFalse().value())),
+
+                Arguments.of(areEqualAsRange(nonNullBoolean().value(), covTrue.value()), covTrue.getEvaluationContext(), areEqualAsRange(nonNullBoolean().value(), litTrue().value())),
+                Arguments.of(areEqualAsRange(nonNullBoolean().value(), covFalse.value()), covFalse.getEvaluationContext(), areEqualAsRange(nonNullBoolean().value(), litFalse().value())),
+                Arguments.of(areEqualAsRange(nullableBoolean().value(), covTrue.value()), covTrue.getEvaluationContext(), areEqualAsRange(nullableBoolean().value(), litTrue().value())),
+                Arguments.of(areEqualAsRange(nullableBoolean().value(), covFalse.value()), covFalse.getEvaluationContext(), areEqualAsRange(nullableBoolean().value(), litFalse().value())),
+
+                Arguments.of(areNotNullAndEqualAsRange(nonNullBoolean().value(), covTrue.value()), covTrue.getEvaluationContext(), areNotNullAndEqualAsRange(nonNullBoolean().value(), litTrue().value())),
+                Arguments.of(areNotNullAndEqualAsRange(nonNullBoolean().value(), covFalse.value()), covFalse.getEvaluationContext(), areNotNullAndEqualAsRange(nonNullBoolean().value(), litFalse().value())),
+                Arguments.of(areNotNullAndEqualAsRange(nullableBoolean().value(), covTrue.value()), covTrue.getEvaluationContext(), areNotNullAndEqualAsRange(nullableBoolean().value(), litTrue().value())),
+                Arguments.of(areNotNullAndEqualAsRange(nullableBoolean().value(), covFalse.value()), covFalse.getEvaluationContext(), areNotNullAndEqualAsRange(nullableBoolean().value(), litFalse().value()))
+        );
+
+        return Stream.concat(withoutEvalContext.map(pair -> Arguments.of(pair.getLeft(), EvaluationContext.empty(), pair.getRight())), withEvalContext);
+    }
+
+    @ParameterizedTest(name = "{0} should simplify to {2}")
+    @MethodSource
+    void miscellaneousSimplifications(@Nonnull QueryPredicate original, @Nonnull EvaluationContext evaluationContext, @Nonnull QueryPredicate expected) {
+        Assertions.assertThat(simplify(original, evaluationContext)).isEqualTo(expected);
     }
 }

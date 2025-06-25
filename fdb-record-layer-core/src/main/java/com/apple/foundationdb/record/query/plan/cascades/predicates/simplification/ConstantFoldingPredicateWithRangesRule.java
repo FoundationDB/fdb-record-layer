@@ -92,6 +92,6 @@ public class ConstantFoldingPredicateWithRangesRule extends QueryPredicateSimpli
         final var booleanSingletonRange = call.getBindings().get(booleanSingletonRangeMatcher);
         final var comparison = (Iterables.getOnlyElement(booleanSingletonRange.getComparisons()));
         final var lhsValue = root.getValue();
-        ConstantPredicateFoldingUtil.foldComparisonMaybe(lhsValue, comparison).ifPresent(call::yieldResult);
+        ConstantPredicateFoldingUtil.foldComparisonMaybe(lhsValue, comparison).getPredicateMaybe().ifPresent(call::yieldResult);
     }
 }
