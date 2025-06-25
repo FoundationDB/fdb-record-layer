@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.server.jdbc.v1;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.jdbc.TypeConversion;

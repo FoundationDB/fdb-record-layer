@@ -58,7 +58,6 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
         TransactionalResponse.Builder responseBuilder = TransactionalResponse.newBuilder();
         if (transactionRequest.hasExecuteRequest()) {
             final StatementRequest request = transactionRequest.getExecuteRequest();
-            logger.info("Handling execute request: " + request.getSql());
 
             try {
                 final FRL.Response response = frl.transactionalExecute(request.getDatabase(), request.getSchema(), request.getSql(),
