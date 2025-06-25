@@ -55,6 +55,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *     <li>{@code TRUE = [FALSE, FALSE] (AND [FALSE, FALSE])+ → FALSE}</li>
  *     <li>{@code FALSE = [TRUE, TRUE] (AND [TRUE, TRUE])+ → FALSE}</li>
  *     <li>{@code FALSE = [FALSE, FALSE] (AND [FALSE, FALSE])+ → TRUE}</li>
+ *     <li>{@code NULL = <ANYTHING> → NULL}</li>
+ *     <li>{@code <ANYTHING> = NULL → NULL}</li>
  *     <li>{@code NULL ≠ [NULL, NULL] (AND [NULL, NULL])+ → NULL}</li>
  *     <li>{@code NULL ≠ [TRUE, TRUE] (AND [TRUE, TRUE])+ → NULL}</li>
  *     <li>{@code NULL ≠ [FALSE, FALSE] (AND [FALSE, FALSE])+ → NULL}</li>

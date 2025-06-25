@@ -37,8 +37,7 @@ public class ValueHeightTest {
 
     @Nonnull
     private static Value valueOfDepth(int depth) {
-        assert depth > 0;
-        if (depth == 1) {
+        if (depth == 0) {
             return LiteralValue.ofScalar(random.nextInt(1000));
         }
         int childrenCount = random.nextInt(5) + 1;
@@ -56,9 +55,9 @@ public class ValueHeightTest {
 
     @Test
     void valueHeightIsCalculatedCorrectly() {
-        Assertions.assertEquals(1, valueOfDepth(1).height());
+        Assertions.assertEquals(0, valueOfDepth(0).height());
         for (int i = 0; i < 10000; i++) {
-            final int depth = random.nextInt(100) + 1;
+            final int depth = random.nextInt(100);
             Assertions.assertEquals(depth, valueOfDepth(depth).height());
         }
     }

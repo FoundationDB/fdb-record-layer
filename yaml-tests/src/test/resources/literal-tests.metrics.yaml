@@ -1,0 +1,74 @@
+unnamed-3:
+-   query: EXPLAIN select * from B where 6L = coalesce(5L, 6L)
+    explain: SCAN(<,>) | FILTER @c6 EQUALS coalesce_long(@c10, @c6)
+    task_count: 155
+    task_total_time_ms: 74
+    transform_count: 38
+    transform_time_ms: 51
+    transform_yield_count: 14
+    insert_time_ms: 5
+    insert_new_count: 14
+    insert_reused_count: 2
+-   query: EXPLAIN select * from B where 6L = coalesce(5I, 6I)
+    explain: SCAN(<,>) | FILTER @c6 EQUALS promote(coalesce_int(@c10, @c12) AS LONG)
+    task_count: 155
+    task_total_time_ms: 75
+    transform_count: 38
+    transform_time_ms: 52
+    transform_yield_count: 14
+    insert_time_ms: 3
+    insert_new_count: 14
+    insert_reused_count: 2
+-   query: EXPLAIN select * from B where 6L = coalesce(5, 6)
+    explain: SCAN(<,>) | FILTER @c6 EQUALS promote(coalesce_int(@c10, @c12) AS LONG)
+    task_count: 155
+    task_total_time_ms: 74
+    transform_count: 38
+    transform_time_ms: 51
+    transform_yield_count: 14
+    insert_time_ms: 4
+    insert_new_count: 14
+    insert_reused_count: 2
+-   query: EXPLAIN select * from B where 6 = coalesce(5L, 6)
+    explain: SCAN(<,>) | FILTER promote(@c6 AS LONG) EQUALS coalesce_long(@c10, promote(@c6
+        AS LONG))
+    task_count: 155
+    task_total_time_ms: 74
+    transform_count: 38
+    transform_time_ms: 52
+    transform_yield_count: 14
+    insert_time_ms: 5
+    insert_new_count: 14
+    insert_reused_count: 2
+-   query: EXPLAIN select * from B where 6I = coalesce(5L, 6I)
+    explain: SCAN(<,>) | FILTER promote(@c6 AS LONG) EQUALS coalesce_long(@c10, promote(@c6
+        AS LONG))
+    task_count: 155
+    task_total_time_ms: 74
+    transform_count: 38
+    transform_time_ms: 54
+    transform_yield_count: 14
+    insert_time_ms: 4
+    insert_new_count: 14
+    insert_reused_count: 2
+-   query: EXPLAIN select * from B where 6i = coalesce(5l, 6i)
+    explain: SCAN(<,>) | FILTER promote(@c6 AS LONG) EQUALS coalesce_long(@c10, promote(@c6
+        AS LONG))
+    task_count: 155
+    task_total_time_ms: 74
+    transform_count: 38
+    transform_time_ms: 53
+    transform_yield_count: 14
+    insert_time_ms: 3
+    insert_new_count: 14
+    insert_reused_count: 2
+-   query: EXPLAIN select * from B where 6 = coalesce(5, 6)
+    explain: SCAN(<,>) | FILTER @c6 EQUALS coalesce_int(@c10, @c6)
+    task_count: 155
+    task_total_time_ms: 74
+    transform_count: 38
+    transform_time_ms: 52
+    transform_yield_count: 14
+    insert_time_ms: 4
+    insert_new_count: 14
+    insert_reused_count: 2

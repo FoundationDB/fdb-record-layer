@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.util.Hex;
 
+import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -63,24 +64,36 @@ public final class ParseHelpers {
      */
     @Nonnull
     public static Object parseDecimal(@Nonnull String valueAsString) {
+        final var lastCharIdx = valueAsString.length() - 1;
+        Assert.thatUnchecked(lastCharIdx >= 0);
         if (valueAsString.contains(".")) {
-            final var lastCharacter = valueAsString.charAt(valueAsString.length() - 1);
+            final var lastCharacter = valueAsString.charAt(lastCharIdx);
             switch (lastCharacter) {
-                case 'f':
+                case 'f': // fallthrough
                 case 'F':
-                    return Float.parseFloat(valueAsString.substring(0, valueAsString.length() - 1));
-                case 'd':
+                    return Float.parseFloat(valueAsString.substring(0, lastCharIdx));
+                case 'd': // fallthrough
                 case 'D':
-                    return Double.parseDouble(valueAsString.substring(0, valueAsString.length() - 1));
+                    return Double.parseDouble(valueAsString.substring(0, lastCharIdx));
                 default:
                     return Double.parseDouble(valueAsString);
             }
         } else {
-            long result = Long.parseLong(valueAsString);
-            if (Integer.MIN_VALUE <= result && result <= Integer.MAX_VALUE) {
-                return Math.toIntExact(result);
-            } else {
-                return result;
+            final var lastCharacter = valueAsString.charAt(lastCharIdx);
+            switch (lastCharacter) {
+                case 'l': // fallthrough
+                case 'L':
+                    return Long.parseLong(valueAsString.substring(0, lastCharIdx));
+                case 'i': // fallthrough
+                case 'I':
+                    return Integer.parseInt(valueAsString.substring(0, lastCharIdx));
+                default:
+                    long result = Long.parseLong(valueAsString);
+                    if (Integer.MIN_VALUE <= result && result <= Integer.MAX_VALUE) {
+                        return Math.toIntExact(result);
+                    } else {
+                        return result;
+                    }
             }
         }
     }

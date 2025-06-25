@@ -1272,14 +1272,14 @@ FILESIZE_LITERAL:                    DEC_DIGIT+ ('K'|'M'|'G'|'T');
 
 START_NATIONAL_STRING_LITERAL:       'N' SQUOTA_STRING;
 STRING_LITERAL:                      SQUOTA_STRING;
-DECIMAL_LITERAL:                     DEC_DIGIT+;
+DECIMAL_LITERAL:                     DEC_DIGIT+ DECIMAL_TYPE_MODIFIER?;
 HEXADECIMAL_LITERAL:                 'X' STRING_LITERAL;
 BASE64_LITERAL:                      'B64' STRING_LITERAL;
 
-REAL_LITERAL:                        (DEC_DIGIT+)? '.' DEC_DIGIT+ TYPE_MODIFIER?
-                                     | DEC_DIGIT+ '.' EXPONENT_NUM_PART TYPE_MODIFIER?
-                                     | (DEC_DIGIT+)? '.' (DEC_DIGIT+ EXPONENT_NUM_PART) TYPE_MODIFIER?
-                                     | DEC_DIGIT+ EXPONENT_NUM_PART TYPE_MODIFIER?;
+REAL_LITERAL:                        (DEC_DIGIT+)? '.' DEC_DIGIT+ REAL_TYPE_MODIFIER?
+                                     | DEC_DIGIT+ '.' EXPONENT_NUM_PART REAL_TYPE_MODIFIER?
+                                     | (DEC_DIGIT+)? '.' (DEC_DIGIT+ EXPONENT_NUM_PART) REAL_TYPE_MODIFIER?
+                                     | DEC_DIGIT+ EXPONENT_NUM_PART REAL_TYPE_MODIFIER?;
 NULL_SPEC_LITERAL:                   '\\' 'N';
 BIT_STRING:                          BIT_STRING_L;
 STRING_CHARSET_NAME:                 '_' CHARSET_NAME;
@@ -1341,7 +1341,10 @@ fragment BIT_STRING_L:               'B' '\'' [01]+ '\'';
 
 fragment FLOAT_TYPE_MODIFIER:        ('F'|'f');
 fragment DOUBLE_TYPE_MODIFIER:       ('D'|'d');
-fragment TYPE_MODIFIER:              (FLOAT_TYPE_MODIFIER | DOUBLE_TYPE_MODIFIER);
+fragment REAL_TYPE_MODIFIER:         (FLOAT_TYPE_MODIFIER | DOUBLE_TYPE_MODIFIER);
+fragment INT_TYPE_MODIFIER:          ('I' | 'i');
+fragment LONG_TYPE_MODIFIER:         ('L' | 'l');
+fragment DECIMAL_TYPE_MODIFIER:      (INT_TYPE_MODIFIER | LONG_TYPE_MODIFIER);
 
 
 

@@ -40,9 +40,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * The following simplifications are performed:
  *
  * <ul>
- *     <li>{@code NULL = [NULL, NULL]  → NULL}</li>
- *     <li>{@code NULL = [TRUE, TRUE]  → NULL}</li>
- *     <li>{@code NULL = [FALSE, FALSE] → NULL}</li>
+ *     <li>{@code NULL = [<ANYTHING>]  → NULL}</li>
+ *     <li>{@code [<ANYTHING>] = NULL → NULL}</li>
  *     <li>{@code TRUE = [NULL, NULL]  → NULL}</li>
  *     <li>{@code TRUE = [TRUE, TRUE]  → TRUE}</li>
  *     <li>{@code TRUE = [FALSE, FALSE] → FALSE}</li>

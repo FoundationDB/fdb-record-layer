@@ -36,25 +36,24 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * Simplifies a specific form of constant {@link ValuePredicate}. The following simplifications are performed:
  *
  * <ul>
- *     <li>{@code NULL = NULL  → NULL}</li>
- *     <li>{@code NULL = TRUE  → NULL}</li>
- *     <li>{@code NULL = FALSE → NULL}</li>
- *     <li>{@code TRUE = NULL  → NULL}</li>
- *     <li>{@code TRUE = TRUE  → TRUE}</li>
+ *     <li>{@code NULL = <ANYTHING> → NULL}</li>
+ *     <li>{@code <ANYTHING> = NULL → NULL}</li>
+ *     <li>{@code TRUE = NULL → NULL}</li>
+ *     <li>{@code TRUE = TRUE → TRUE}</li>
  *     <li>{@code TRUE = FALSE → FALSE}</li>
  *     <li>{@code FALSE = NULL → NULL}</li>
- *     <li>{@code FALSE = TRUE  → FALSE}</li>
+ *     <li>{@code FALSE = TRUE → FALSE}</li>
  *     <li>{@code FALSE = FALSE → TRUE}</li>
- *     <li>{@code NULL ≠ NULL  → NULL}</li>
- *     <li>{@code NULL ≠ TRUE  → NULL}</li>
+ *     <li>{@code NULL ≠ NULL → NULL}</li>
+ *     <li>{@code NULL ≠ TRUE → NULL}</li>
  *     <li>{@code NULL ≠ FALSE → NULL}</li>
- *     <li>{@code TRUE ≠ NULL  → NULL}</li>
- *     <li>{@code TRUE ≠ TRUE  → FALSE}</li>
+ *     <li>{@code TRUE ≠ NULL → NULL}</li>
+ *     <li>{@code TRUE ≠ TRUE → FALSE}</li>
  *     <li>{@code TRUE ≠ FALSE → TRUE}</li>
  *     <li>{@code FALSE ≠ NULL → NULL}</li>
- *     <li>{@code FALSE ≠ TRUE  → TRUE}</li>
+ *     <li>{@code FALSE ≠ TRUE → TRUE}</li>
  *     <li>{@code FALSE ≠ FALSE → FALSE}</li>
- *     <li>{@code NOT_NULL IS NULL  → FALSE}</li>
+ *     <li>{@code NOT_NULL IS NULL → FALSE}</li>
  *     <li>{@code TRUE IS NULL → FALSE}</li>
  *     <li>{@code FALSE IS NULL → FALSE}</li>
  *     <li>{@code NULL IS NULL → TRUE}</li>
