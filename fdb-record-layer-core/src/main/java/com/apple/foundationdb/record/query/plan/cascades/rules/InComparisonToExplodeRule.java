@@ -21,12 +21,14 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
@@ -44,6 +46,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
@@ -165,7 +168,7 @@ public class InComparisonToExplodeRule extends ExplorationCascadesRule<SelectExp
                     explodeExpression = new ExplodeExpression(comparisonValue.getComparandValue());
                     newQuantifier = Quantifier.forEach(call.memoizeExploratoryExpression(explodeExpression));
                     if (arrayElementType.isRecord()) {
-                        transformedPredicates.addAll(createSimpleEqualities(value, newQuantifier));
+                        transformedPredicates.addAll(createSimpleEqualitiesForRecordTypeValue(value, newQuantifier));
                     } else {
                         transformedPredicates.add(new ValuePredicate(value,
                                 new Comparisons.ValueComparison(Comparisons.Type.EQUALS, QuantifiedObjectValue.of(newQuantifier.getAlias(), elementType))));
@@ -202,14 +205,20 @@ public class InComparisonToExplodeRule extends ExplorationCascadesRule<SelectExp
      * This method creates an equality predicate for all constituent parts of a tuple.
      */
     @Nonnull
-    private static List<QueryPredicate> createSimpleEqualities(@Nonnull final Value value,
-                                                               @Nonnull final Quantifier.ForEach newQuantifier) {
-        List<Value> valueChildren = ImmutableList.copyOf(value.getChildren());
+    private static List<QueryPredicate> createSimpleEqualitiesForRecordTypeValue(@Nonnull final Value value,
+                                                                                 @Nonnull final Quantifier.ForEach newQuantifier) {
+        Verify.verify(value.getResultType().isRecord(), "value should be of type record and not %s", value.getResultType());
+        Type.Record valueType = (Type.Record) value.getResultType();
+        List<Type.Record.Field> fields = valueType.getFields();
+
         List<Column<? extends FieldValue>> comparandValueChildren = newQuantifier.getFlowedColumns();
-        Verify.verify(valueChildren.size() == comparandValueChildren.size());
+        Verify.verify(fields.size() == comparandValueChildren.size(), "record type value and comparand should have matching number of fields");
         final var resultsBuilder = ImmutableList.<QueryPredicate>builder();
-        for (int i = 0; i < valueChildren.size(); i++) {
-            BooleanValue currentVal = (BooleanValue) new RelOpValue.EqualsFn().encapsulate(List.of(valueChildren.get(i), comparandValueChildren.get(i).getValue()));
+        for (int i = 0; i < fields.size(); i++) {
+            // Extract the field value. Simplify to avoid, for example, a field value over an RCV
+            Value fieldValue = FieldValue.ofOrdinalNumber(value, i)
+                    .simplify(EvaluationContext.EMPTY, AliasMap.emptyMap(), ImmutableSet.of());
+            BooleanValue currentVal = (BooleanValue) new RelOpValue.EqualsFn().encapsulate(List.of(fieldValue, comparandValueChildren.get(i).getValue()));
             Optional<QueryPredicate> currentQueryPredicate = currentVal.toQueryPredicate(null, Quantifier.current());
             Verify.verify(currentQueryPredicate.isPresent());
             resultsBuilder.add(currentQueryPredicate.get());

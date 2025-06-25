@@ -54,6 +54,14 @@ public class DereferenceConstantObjectValueRule extends ValueSimplificationRule<
     public void onMatch(@Nonnull final ValueSimplificationRuleCall call) {
         final var constantObjectValue = call.getBindings().get(rootMatcher);
         final var evaluationContext = call.getEvaluationContext();
+        if (!evaluationContext.containsConstantBinding(constantObjectValue.getAlias(), constantObjectValue.getConstantId())) {
+            //
+            // We don't have access to the constant. This can happen when trying to plan a statement
+            // that has not been fully prepared (that is, one is trying to generate a plan that is independent
+            // of particular constant values). In this case, we just leave the value alone
+            //
+            return;
+        }
         final var plainValue = constantObjectValue.evalWithoutStore(evaluationContext);
 
         if (plainValue == null) {

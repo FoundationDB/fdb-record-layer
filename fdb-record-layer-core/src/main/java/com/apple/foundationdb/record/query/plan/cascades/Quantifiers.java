@@ -48,13 +48,11 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -508,36 +506,21 @@ public class Quantifiers {
 
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public static List<? extends Quantifier> translateGraphs(@Nonnull final Iterable<? extends Quantifier> quantifiers,
-                                                             @Nonnull final Memoizer memoizer,
-                                                             @Nonnull final TranslationMap translationMap,
-                                                             final boolean shouldSimplifyValues) {
-        //
-        // Take care of the case that two distinct quantifiers range over the same ref (CSE).
-        //
-        final var oldToNewRefMap =
-                Maps.<Reference, Reference>newIdentityHashMap();
-        final var translatedQuantifiersBuilder = ImmutableList.<Quantifier>builder();
+    public static List<? extends Quantifier> rebaseGraphs(@Nonnull final List<? extends Quantifier> quantifiers,
+                                                          @Nonnull final Memoizer memoizer,
+                                                          @Nonnull final TranslationMap translationMap,
+                                                          final boolean shouldSimplifyValues) {
+        final List<? extends Reference> oldReferences = quantifiers.stream().map(Quantifier::getRangesOver).collect(ImmutableList.toImmutableList());
+        final List<? extends Reference> newReferences = References.rebaseGraphs(oldReferences, memoizer, translationMap, shouldSimplifyValues);
 
-        for (final Quantifier quantifier : quantifiers) {
-            @Nullable final var newRef = oldToNewRefMap.get(quantifier.getRangesOver());
-            if (newRef != null) {
-                // already translated
-                if (quantifier.getRangesOver() == newRef) {
-                    // old == new means that the translation did not change the subgraph
-                    translatedQuantifiersBuilder.add(quantifier);
-                } else {
-                    translatedQuantifiersBuilder.add(quantifier.overNewReference(newRef));
-                }
+        return Streams.zip(quantifiers.stream(), newReferences.stream(), (oldQun, newRef) -> {
+            CorrelationIdentifier newAlias = translationMap.getTargetOrDefault(oldQun.getAlias(), oldQun.getAlias());
+            if (newAlias.equals(oldQun.getAlias()) && oldQun.getRangesOver() == newRef) {
+                return oldQun;
             } else {
-                final var translatedQuantifier =
-                        quantifier.translateGraph(memoizer, translationMap, shouldSimplifyValues);
-                oldToNewRefMap.put(quantifier.getRangesOver(), translatedQuantifier.getRangesOver());
-                translatedQuantifiersBuilder.add(translatedQuantifier);
+                return oldQun.overNewReference(newRef, newAlias);
             }
-        }
-
-        return translatedQuantifiersBuilder.build();
+        }).collect(ImmutableList.toImmutableList());
     }
 
     @Nonnull

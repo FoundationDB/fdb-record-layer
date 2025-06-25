@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.SetMultimap;
 
@@ -38,7 +37,7 @@ public class PredicateMap extends PredicateMultiMap {
     }
 
     public Optional<PredicateMapping> getMappingOptional(@Nonnull final QueryPredicate queryPredicate) {
-        final ImmutableSet<PredicateMapping> predicateEntries = getMap().get(queryPredicate);
+        final Set<PredicateMapping> predicateEntries = getMap().get(queryPredicate);
         if (predicateEntries.size() != 1) {
             return Optional.empty();
         }
