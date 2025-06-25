@@ -21,12 +21,15 @@
 package com.apple.foundationdb.record.query.plan.cascades.predicates;
 
 import com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.ValueWrapper;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
+import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.areEqual;
@@ -35,6 +38,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingT
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.covFalse;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.covNull;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.covTrue;
+import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.fieldValue;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.isNotNull;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.isNotNullAsRange;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.isNull;
@@ -43,10 +47,23 @@ import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingT
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.litNull;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.litTrue;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.notNullIntCov;
+import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.qov;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.simplify;
 
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ConstantFoldingTest {
+    @Nonnull
+    private static final Type.Record lowerType = Type.Record.fromFields(false, List.of(
+            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, false), Optional.of("a_non_null")),
+            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("b_nullable"))
+    ));
+
+    @Nonnull
+    private static final Type.Record upperType = Type.Record.fromFields(false, List.of(
+            Type.Record.Field.of(lowerType.withNullability(false), Optional.of("a_non_null")),
+            Type.Record.Field.of(lowerType.withNullability(true), Optional.of("b_nullable"))
+    ));
+
 
     ///
     /// EQUALS simplification tests
@@ -168,29 +185,21 @@ public class ConstantFoldingTest {
                 Arguments.arguments(covFalse(), ConstantPredicate.FALSE),
                 Arguments.arguments(litTrue(), ConstantPredicate.FALSE),
                 Arguments.arguments(covTrue(), ConstantPredicate.FALSE),
-                Arguments.arguments(notNullIntCov(), ConstantPredicate.FALSE));
+                Arguments.arguments(notNullIntCov(), ConstantPredicate.FALSE),
+                Arguments.arguments(fieldValue(qov(lowerType), "a_non_null"), ConstantPredicate.FALSE),
+                Arguments.arguments(fieldValue(fieldValue(qov(upperType), "a_non_null"), "a_non_null"), ConstantPredicate.FALSE));
     }
 
     @ParameterizedTest(name = "{0} is null ≡ {1}")
     @MethodSource("isNullTests")
     public void valuePredicateIsNull(@Nonnull ValueWrapper value, @Nonnull QueryPredicate queryPredicate) {
-        final var evaluationContextMaybe = value.getEvaluationContextMaybe();
-        if (evaluationContextMaybe.isPresent()) {
-            Assertions.assertThat(simplify(isNull(value.value()), evaluationContextMaybe.get())).isEqualTo(queryPredicate);
-        } else {
-            Assertions.assertThat(simplify(isNull(value.value()))).isEqualTo(queryPredicate);
-        }
+        Assertions.assertThat(simplify(isNull(value.value()), value.getEvaluationContextOrEmpty())).isEqualTo(queryPredicate);
     }
 
     @ParameterizedTest(name = "{0} is null ≡ {1}")
     @MethodSource("isNullTests")
     public void predicateValueWithRangesIsNull(@Nonnull ValueWrapper value, @Nonnull QueryPredicate queryPredicate) {
-        final var evaluationContextMaybe = value.getEvaluationContextMaybe();
-        if (evaluationContextMaybe.isPresent()) {
-            Assertions.assertThat(simplify(isNullAsRange(value.value()), evaluationContextMaybe.get())).isEqualTo(queryPredicate);
-        } else {
-            Assertions.assertThat(simplify(isNullAsRange(value.value()))).isEqualTo(queryPredicate);
-        }
+        Assertions.assertThat(simplify(isNullAsRange(value.value()), value.getEvaluationContextOrEmpty())).isEqualTo(queryPredicate);
     }
 
     ///
@@ -206,28 +215,65 @@ public class ConstantFoldingTest {
                 Arguments.arguments(covFalse(), ConstantPredicate.TRUE),
                 Arguments.arguments(litTrue(), ConstantPredicate.TRUE),
                 Arguments.arguments(covTrue(), ConstantPredicate.TRUE),
-                Arguments.arguments(notNullIntCov(), ConstantPredicate.TRUE));
+                Arguments.arguments(notNullIntCov(), ConstantPredicate.TRUE),
+                Arguments.arguments(fieldValue(qov(lowerType), "a_non_null"), ConstantPredicate.TRUE),
+                Arguments.arguments(fieldValue(fieldValue(qov(upperType), "a_non_null"), "a_non_null"), ConstantPredicate.TRUE));
     }
 
     @ParameterizedTest(name = "{0} is null ≡ {1}")
     @MethodSource("isNotNullTests")
     public void valuePredicateIsNotNull(@Nonnull ValueWrapper value, @Nonnull QueryPredicate queryPredicate) {
-        final var evaluationContextMaybe = value.getEvaluationContextMaybe();
-        if (evaluationContextMaybe.isPresent()) {
-            Assertions.assertThat(simplify(isNotNull(value.value()), evaluationContextMaybe.get())).isEqualTo(queryPredicate);
-        } else {
-            Assertions.assertThat(simplify(isNotNull(value.value()))).isEqualTo(queryPredicate);
-        }
+        Assertions.assertThat(simplify(isNotNull(value.value()), value.getEvaluationContextOrEmpty())).isEqualTo(queryPredicate);
     }
 
     @ParameterizedTest(name = "{0} is null ≡ {1}")
     @MethodSource("isNotNullTests")
     public void predicateValueWithRangesIsNotNull(@Nonnull ValueWrapper value, @Nonnull QueryPredicate queryPredicate) {
-        final var evaluationContextMaybe = value.getEvaluationContextMaybe();
-        if (evaluationContextMaybe.isPresent()) {
-            Assertions.assertThat(simplify(isNotNullAsRange(value.value()), evaluationContextMaybe.get())).isEqualTo(queryPredicate);
-        } else {
-            Assertions.assertThat(simplify(isNotNullAsRange(value.value()))).isEqualTo(queryPredicate);
-        }
+        Assertions.assertThat(simplify(isNotNullAsRange(value.value()), value.getEvaluationContextOrEmpty())).isEqualTo(queryPredicate);
+    }
+
+    public static Stream<ValueWrapper> notSimplifiableAsNullComparisons() {
+        // Nullable fields cannot be simplified when presented IS_NULL or NOT_NULL comparisons
+        final var lower = qov(lowerType);
+        final var upper = qov(upperType);
+        final var upperNullable = qov(upperType.nullable());
+        return Stream.of(
+                fieldValue(lower, "b_nullable"),
+                fieldValue(fieldValue(upper, "a_non_null"), "b_nullable"),
+                fieldValue(fieldValue(upper, "b_nullable"), "a_non_null"),
+                fieldValue(fieldValue(upper, "b_nullable"), "b_nullable"),
+                fieldValue(fieldValue(upperNullable, "a_non_null"), "a_non_null"),
+                fieldValue(fieldValue(upperNullable, "a_non_null"), "b_nullable"),
+                fieldValue(fieldValue(upperNullable, "b_nullable"), "a_non_null"),
+                fieldValue(fieldValue(upperNullable, "b_nullable"), "b_nullable")
+        );
+    }
+
+    @ParameterizedTest(name = "{0} is null ≡ {0} is null")
+    @MethodSource("notSimplifiableAsNullComparisons")
+    public void notSimplifyIsNull(@Nonnull ValueWrapper value) {
+        QueryPredicate predicate = isNull(value.value());
+        Assertions.assertThat(simplify(predicate, value.getEvaluationContextOrEmpty())).isEqualTo(predicate);
+    }
+
+    @ParameterizedTest(name = "{0} is null ≡ {0} is null")
+    @MethodSource("notSimplifiableAsNullComparisons")
+    public void notSimplifyIsNullAsRange(@Nonnull ValueWrapper value) {
+        QueryPredicate predicate = isNullAsRange(value.value());
+        Assertions.assertThat(simplify(predicate, value.getEvaluationContextOrEmpty())).isEqualTo(predicate);
+    }
+
+    @ParameterizedTest(name = "{0} is not null ≡ {0} is not null")
+    @MethodSource("notSimplifiableAsNullComparisons")
+    public void notSimplifyIsNotNull(@Nonnull ValueWrapper value) {
+        QueryPredicate predicate = isNotNull(value.value());
+        Assertions.assertThat(simplify(predicate, value.getEvaluationContextOrEmpty())).isEqualTo(predicate);
+    }
+
+    @ParameterizedTest(name = "{0} is not null ≡ {0} is not null")
+    @MethodSource("notSimplifiableAsNullComparisons")
+    public void notSimplifyIsNotNullAsRange(@Nonnull ValueWrapper value) {
+        QueryPredicate predicate = isNotNullAsRange(value.value());
+        Assertions.assertThat(simplify(predicate, value.getEvaluationContextOrEmpty())).isEqualTo(predicate);
     }
 }

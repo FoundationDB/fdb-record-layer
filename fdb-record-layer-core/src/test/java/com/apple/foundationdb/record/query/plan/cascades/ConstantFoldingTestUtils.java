@@ -32,8 +32,10 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.ConstantFoldingRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.Simplification;
 import com.google.common.base.Verify;
@@ -82,6 +84,16 @@ public class ConstantFoldingTestUtils {
             return getEvaluationContextMaybe().get();
         }
 
+        @Nonnull
+        public EvaluationContext getEvaluationContextOrEmpty() {
+            return evaluationContext.orElse(EvaluationContext.EMPTY);
+        }
+
+        @Nonnull
+        public ValueWrapper withNewValue(@Nonnull Value value) {
+            return new ValueWrapper(value, evaluationContext);
+        }
+
         @Override
         public String toString() {
             if (value() instanceof ConstantObjectValue) {
@@ -91,8 +103,10 @@ public class ConstantFoldingTestUtils {
             if (value instanceof LiteralValue<?>) {
                 return "(ℓ " + ((LiteralValue<?>)value).getLiteralValue() + ")";
             }
-            Verify.verify(value instanceof NullValue);
-            return "∅";
+            if (value instanceof NullValue) {
+                return "∅";
+            }
+            return value.toString();
         }
 
         @Nonnull
@@ -176,6 +190,18 @@ public class ConstantFoldingTestUtils {
     @Nonnull
     public static ValueWrapper notNullIntCov() {
         return newCov(Type.primitiveType(Type.TypeCode.INT, false), 42);
+    }
+
+    @Nonnull
+    public static ValueWrapper qov(Type type) {
+        final QuantifiedObjectValue qov = QuantifiedObjectValue.of(Quantifier.current(), type);
+        return new ValueWrapper(qov, Optional.empty());
+    }
+
+    @Nonnull
+    public static ValueWrapper fieldValue(@Nonnull ValueWrapper baseValue, @Nonnull String fieldName) {
+        final FieldValue fieldValue = FieldValue.ofFieldNameAndFuseIfPossible(baseValue.value(), fieldName);
+        return baseValue.withNewValue(fieldValue);
     }
 
     @Nonnull

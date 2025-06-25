@@ -107,11 +107,10 @@ public class Values {
 
         for (int i = 0; i < fields.size(); i++) {
             final var field = fields.get(i);
-            final Type fieldType = field.getFieldType().overrideIfNullable(type.isNullable());
             final var singleStepPath =
                     FieldValue.FieldPath.ofSingle(FieldValue.ResolvedAccessor.of(
-                            field.getFieldNameOptional().orElse(null), i, fieldType));
-            primitiveAccessorsForType(fieldType,
+                            field.getFieldNameOptional().orElse(null), i, field.getFieldType()));
+            primitiveAccessorsForType(field.getFieldType(),
                     () -> FieldValue.ofFieldsAndFuseIfPossible(baseValueSupplier.get(), singleStepPath))
                     .forEach(orderingValuesBuilder::add);
         }
