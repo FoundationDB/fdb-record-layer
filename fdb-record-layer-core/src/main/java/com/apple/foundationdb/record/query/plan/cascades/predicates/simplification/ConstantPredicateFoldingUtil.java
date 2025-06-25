@@ -30,13 +30,14 @@ import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Optional;
 
 /**
  * Trait that facilitates folding a constant {@link QueryPredicate}.
  */
 @API(API.Status.EXPERIMENTAL)
-final class ConstantPredicateFoldingUtil {
+public final class ConstantPredicateFoldingUtil {
 
     /**
      * Analyzes the provided operand and comparison to produce a simplified, semantically equivalent {@link QueryPredicate}.
@@ -79,13 +80,30 @@ final class ConstantPredicateFoldingUtil {
             }
         }
 
-        if (!(comparison instanceof Comparisons.ValueComparison)) {
+        EffectiveConstant rhsOperand;
+
+        if (comparison instanceof Comparisons.ValueComparison) {
+            final var valueComparison = (Comparisons.ValueComparison)comparison;
+            final var rhsValue = valueComparison.getValue();
+            rhsOperand = EffectiveConstant.from(rhsValue);
+        } else if (comparison instanceof Comparisons.SimpleComparison) {
+            final var simpleComparison = (Comparisons.SimpleComparison)comparison;
+            final var rhsValue = simpleComparison.getComparand();
+            rhsOperand = EffectiveConstant.from(rhsValue);
+        } else {
             return Optional.empty();
         }
 
-        final var valueComparison = (Comparisons.ValueComparison)comparison;
-        final var rhsValue = valueComparison.getValue();
-        final var rhsOperand = EffectiveConstant.from(rhsValue);
+        switch (comparisonType) {
+            case EQUALS: // fallthrough
+            case NOT_EQUALS:
+                if (lhsOperand == EffectiveConstant.NULL || rhsOperand == EffectiveConstant.NULL) {
+                    return Optional.of(ConstantPredicate.NULL);
+                }
+                break;
+            default:
+                return Optional.empty();
+        }
 
         if (rhsOperand.isUnknownLiteral() || lhsOperand.isUnknownLiteral()) {
             return Optional.empty();
@@ -93,17 +111,13 @@ final class ConstantPredicateFoldingUtil {
 
         switch (comparisonType) {
             case EQUALS:
-                if (lhsOperand == EffectiveConstant.NULL || rhsOperand == EffectiveConstant.NULL) {
-                    return Optional.of(ConstantPredicate.NULL);
-                } else if (lhsOperand.equals(rhsOperand)) {
+                if (lhsOperand.equals(rhsOperand)) {
                     return Optional.of(ConstantPredicate.TRUE);
                 } else {
                     return Optional.of(ConstantPredicate.FALSE);
                 }
             case NOT_EQUALS:
-                if (lhsOperand == EffectiveConstant.NULL || rhsOperand == EffectiveConstant.NULL) {
-                    return Optional.of(ConstantPredicate.NULL);
-                } else if (!lhsOperand.equals(rhsOperand)) {
+                if (!lhsOperand.equals(rhsOperand)) {
                     return Optional.of(ConstantPredicate.TRUE);
                 } else {
                     return Optional.of(ConstantPredicate.FALSE);
@@ -113,7 +127,7 @@ final class ConstantPredicateFoldingUtil {
         }
     }
 
-    enum EffectiveConstant {
+    public enum EffectiveConstant {
         TRUE(true),
         FALSE(true),
         NULL(true),
@@ -128,6 +142,25 @@ final class ConstantPredicateFoldingUtil {
 
         boolean isUnknownLiteral() {
             return !isKnownLiteral;
+        }
+
+        public static EffectiveConstant from(@Nullable Object value) {
+            if (value == null) {
+                return EffectiveConstant.NULL;
+            }
+
+            if (value instanceof Value) {
+                return from((Value)value);
+            }
+
+            if (value instanceof Boolean) {
+                if ((Boolean)value) {
+                    return EffectiveConstant.TRUE;
+                }
+                return EffectiveConstant.FALSE;
+            }
+
+            return EffectiveConstant.NOT_NULL;
         }
 
         public static EffectiveConstant from(@Nonnull final Value value) {

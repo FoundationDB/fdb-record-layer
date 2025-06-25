@@ -41,10 +41,18 @@ public class DereferenceConstantObjectValueRuleSet extends AbstractValueRuleSet<
     @Nonnull
     protected static final ValueSimplificationRule<? extends Value> dereferenceConstantObjectValueRule = new DereferenceConstantObjectValueRule();
 
+    @Nonnull
+    protected static final ValueSimplificationRule<? extends Value> evaluateConstantPromotionRule = new EvaluateConstantPromotionRule();
+
+    @Nonnull
+    protected static final ValueSimplificationRule<? extends Value> evaluateConstantCoalesceRule = new EvaluateConstantCoalesceRule();
+
     private static final Set<ValueSimplificationRule<? extends Value>> DEREFERENCE_CONSTANT_OBJECT_VALUE_RULES =
             ImmutableSet.<ValueSimplificationRule<? extends Value>>builder()
                     .addAll(DefaultValueSimplificationRuleSet.SIMPLIFICATION_RULES)
                     .add(dereferenceConstantObjectValueRule)
+                    .add(evaluateConstantPromotionRule)
+                    .add(evaluateConstantCoalesceRule)
                     .build();
 
     private static final SetMultimap<ValueSimplificationRule<? extends Value>, ValueSimplificationRule<? extends Value>> DEREFERENCE_CONSTANT_OBJECT_VALUE_DEPENDS_ON;
@@ -55,6 +63,10 @@ public class DereferenceConstantObjectValueRuleSet extends AbstractValueRuleSet<
         simplificationDependsOnBuilder.putAll(DefaultValueSimplificationRuleSet.SIMPLIFICATION_DEPENDS_ON);
 
         DefaultValueSimplificationRuleSet.SIMPLIFICATION_RULES.forEach(existingRule -> simplificationDependsOnBuilder.put(existingRule, dereferenceConstantObjectValueRule));
+        DefaultValueSimplificationRuleSet.SIMPLIFICATION_RULES.forEach(existingRule -> simplificationDependsOnBuilder.put(existingRule, evaluateConstantPromotionRule));
+        DefaultValueSimplificationRuleSet.SIMPLIFICATION_RULES.forEach(existingRule -> simplificationDependsOnBuilder.put(existingRule, evaluateConstantCoalesceRule));
+        simplificationDependsOnBuilder.put(evaluateConstantPromotionRule, dereferenceConstantObjectValueRule);
+        simplificationDependsOnBuilder.put(evaluateConstantCoalesceRule, dereferenceConstantObjectValueRule);
         DEREFERENCE_CONSTANT_OBJECT_VALUE_DEPENDS_ON = simplificationDependsOnBuilder.build();
     }
 

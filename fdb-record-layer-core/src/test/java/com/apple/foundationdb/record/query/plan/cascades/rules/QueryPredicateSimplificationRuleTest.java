@@ -53,6 +53,7 @@ import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQuery
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.areEqual;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.areEqualAsRange;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.areNotEqual;
+import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.coalesce;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.covFalse;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.covNull;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.covTrue;
@@ -64,6 +65,8 @@ import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingT
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.litString;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.litTrue;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.notNullIntCov;
+import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.promoteToBoolean;
+import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.throwingValue;
 import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.baseT;
 
 /**
@@ -323,6 +326,10 @@ public class QueryPredicateSimplificationRuleTest {
                 nullConstantPredicatesBuilder.add(NonnullPair.of(isNull(op2.value()), EvaluationContext.empty()));
             }
             {
+                var op2 = promoteToBoolean(litNull());
+                nullConstantPredicatesBuilder.add(NonnullPair.of(isNull(op2.value()), EvaluationContext.empty()));
+            }
+            {
                 var op1 = covFalse();
                 var op2 = litFalse();
                 nullConstantPredicatesBuilder.add(NonnullPair.of(areEqualAsRange(op1.value(), op2.value()), op1.mergeEvaluationContext(op2)));
@@ -369,6 +376,11 @@ public class QueryPredicateSimplificationRuleTest {
                 trueConstantLiteralPredicatesBuilder.add(areEqualAsRange(op1.value(), op2.value()));
             }
             {
+                var op1 = coalesce(promoteToBoolean(litFalse()), throwingValue());
+                var op2 = coalesce(promoteToBoolean(litFalse()), litNull(), throwingValue());
+                trueConstantLiteralPredicatesBuilder.add(areEqualAsRange(op1.value(), op2.value()));
+            }
+            {
                 var op1 = litTrue();
                 var op2 = litTrue();
                 trueConstantLiteralPredicatesBuilder.add(areEqualAsRange(op1.value(), op2.value()));
@@ -402,6 +414,11 @@ public class QueryPredicateSimplificationRuleTest {
                 nullConstantPredicatesBuilder.add(NonnullPair.of(areEqual(op1.value(), op2.value()), op1.mergeEvaluationContext(op2)));
             }
             {
+                var op1 = coalesce(litNull(), litFalse(), litTrue(), litNull());
+                var op2 = promoteToBoolean(litTrue());
+                nullConstantPredicatesBuilder.add(NonnullPair.of(areEqual(op1.value(), op2.value()), op1.mergeEvaluationContext(op2)));
+            }
+            {
                 var op1 = notNullIntCov();
                 nullConstantPredicatesBuilder.add(NonnullPair.of(isNull(op1.value()), op1.getEvaluationContext()));
             }
@@ -419,6 +436,11 @@ public class QueryPredicateSimplificationRuleTest {
                 var op2 = covTrue();
                 nullConstantPredicatesBuilder.add(NonnullPair.of(areNotEqual(op1.value(), op2.value()), op1.mergeEvaluationContext(op2)));
             }
+            {
+                var op1 = coalesce(covNull(), covTrue(), covFalse());
+                var op2 = coalesce(litNull(), litNull(), covTrue(), throwingValue());
+                nullConstantPredicatesBuilder.add(NonnullPair.of(areNotEqual(op1.value(), op2.value()), op1.mergeEvaluationContext(op2)));
+            }
             falseConstantPredicates = nullConstantPredicatesBuilder.build();
         }
 
@@ -433,6 +455,16 @@ public class QueryPredicateSimplificationRuleTest {
                 nullConstantPredicatesBuilder.add(areNotEqual(op1.value(), op2.value()));
             }
             {
+                var op1 = promoteToBoolean(litFalse());
+                var op2 = promoteToBoolean(litTrue());
+                nullConstantPredicatesBuilder.add(areEqual(op1.value(), op2.value()));
+            }
+            {
+                var op1 = coalesce(litNull(), litNull(), litFalse(), litTrue());
+                var op2 = promoteToBoolean(litTrue());
+                nullConstantPredicatesBuilder.add(areEqual(op1.value(), op2.value()));
+            }
+            {
                 var op1 = litFalse();
                 var op2 = litFalse();
                 nullConstantPredicatesBuilder.add(areNotEqual(op1.value(), op2.value()));
@@ -440,6 +472,16 @@ public class QueryPredicateSimplificationRuleTest {
             {
                 var op1 = litFalse();
                 var op2 = litTrue();
+                nullConstantPredicatesBuilder.add(areEqual(op1.value(), op2.value()));
+            }
+            {
+                var op1 = promoteToBoolean(litFalse());
+                var op2 = promoteToBoolean(litTrue());
+                nullConstantPredicatesBuilder.add(areEqual(op1.value(), op2.value()));
+            }
+            {
+                var op1 = promoteToBoolean(litFalse());
+                var op2 = coalesce(litNull(), litTrue(), throwingValue(), throwingValue(), throwingValue(), litNull());
                 nullConstantPredicatesBuilder.add(areEqual(op1.value(), op2.value()));
             }
             {
@@ -463,6 +505,16 @@ public class QueryPredicateSimplificationRuleTest {
             {
                 var op1 = litTrue();
                 var op2 = litTrue();
+                nullConstantPredicatesBuilder.add(areNotEqual(op1.value(), op2.value()));
+            }
+            {
+                var op1 = promoteToBoolean(litTrue());
+                var op2 = promoteToBoolean(litTrue());
+                nullConstantPredicatesBuilder.add(areNotEqual(op1.value(), op2.value()));
+            }
+            {
+                var op1 = promoteToBoolean(litTrue());
+                var op2 = coalesce(litNull(), promoteToBoolean(litTrue()), litFalse());
                 nullConstantPredicatesBuilder.add(areNotEqual(op1.value(), op2.value()));
             }
             falseConstantLiteralPredicates = nullConstantPredicatesBuilder.build();
