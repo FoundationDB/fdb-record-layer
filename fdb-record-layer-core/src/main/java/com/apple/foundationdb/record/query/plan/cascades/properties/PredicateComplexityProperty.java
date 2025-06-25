@@ -23,29 +23,26 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionProperty;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 
 /**
- This property traverses a {@link RelationalExpression} to find the maximum diameter of any {@link QueryPredicate} associated
- with either a {@link SelectExpression} or a {@link LogicalFilterExpression}.
+ This property traverses a {@link RelationalExpression} to find the maximum diameter of any {@link QueryPredicate}
+ associated with {@link RelationalExpressionWithPredicates} implementations.
  */
 public class PredicateComplexityProperty implements ExpressionProperty<Integer> {
     @Nonnull
-    private static final PredicateComplexityProperty PREDICATE_COMPLEXITY = ofScoredTyped(SelectExpression.class, LogicalFilterExpression.class);
+    private static final PredicateComplexityProperty PREDICATE_COMPLEXITY = newInstance();
 
     private final boolean isTracked;
     private final Function<? super RelationalExpression, Integer> scoringFunction;
@@ -116,13 +113,9 @@ public class PredicateComplexityProperty implements ExpressionProperty<Integer> 
     }
 
     @Nonnull
-    @SafeVarargs
-    @SuppressWarnings("varargs")
-    private static PredicateComplexityProperty ofScoredTyped(Class<? extends RelationalExpressionWithPredicates>... expressionTypes) {
+    private static PredicateComplexityProperty newInstance() {
         return new PredicateComplexityProperty(
-                expr ->
-                        Arrays.stream(expressionTypes)
-                                .anyMatch(type -> type.isInstance(expr))
+                expr -> expr instanceof RelationalExpressionWithPredicates
                         ? ((RelationalExpressionWithPredicates)expr)
                                 .getPredicates()
                                 .stream()
