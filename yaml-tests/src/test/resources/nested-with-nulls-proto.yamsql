@@ -129,7 +129,7 @@ test_block:
     -
       # As a.a.a is not nullable, this predicate could be simplified to TRUE
       - query: select id from t1 where coalesce(a.a.a, null) IS NOT NULL
-      - explain: "SCAN(<,>) | FILTER coalesce_string(_.A.A.A, promote(NULL AS STRING)) NOT_NULL | MAP (_.ID AS ID)"
+      - explain: "SCAN(<,>) | FILTER coalesce_string(promote(_.A.A.A AS STRING), NULL) NOT_NULL | MAP (_.ID AS ID)"
       - unorderedResult: [{ ID: 100 }, { ID: 101 }, { ID: 102 }, { ID: 103 }, { ID: 104 }, { ID: 105 }, { ID: 106 }, { ID: 107 }]
     -
       - query: select id from t1 where coalesce(a.b.a, 'a2') = 'a2'
