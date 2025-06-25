@@ -36,7 +36,10 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.VariadicFunctionValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.simplification.Simplification;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -47,11 +50,24 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Optional;
 
 public class ConstantFoldingTestUtils {
 
     private static int counter;
+
+    @Nonnull
+    public static final Type.Record lowerType = Type.Record.fromFields(false, List.of(
+            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, false), Optional.of("a_non_null")),
+            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("b_nullable"))
+    ));
+
+    @Nonnull
+    public static final Type.Record upperType = Type.Record.fromFields(false, List.of(
+            Type.Record.Field.of(lowerType.withNullability(false), Optional.of("a_non_null")),
+            Type.Record.Field.of(lowerType.withNullability(true), Optional.of("b_nullable"))
+    ));
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     public static final class ValueWrapper {
@@ -111,29 +127,56 @@ public class ConstantFoldingTestUtils {
 
         @Nonnull
         public EvaluationContext mergeEvaluationContext(@Nonnull final ValueWrapper that) {
-            if (evaluationContext.isEmpty() && that.evaluationContext.isEmpty()) {
-                return EvaluationContext.empty();
-            }
-            if (evaluationContext.isEmpty()) {
-                return that.evaluationContext.get();
-            }
-            if (that.evaluationContext.isEmpty()) {
-                return evaluationContext.get();
-            }
-            final var thisBindingsChildBuilder = evaluationContext.get().getBindings().childBuilder();
-            final var thatBindings = that.evaluationContext.get().getBindings();
-            thatBindings.asMappingList().forEach(entry -> thisBindingsChildBuilder.set(entry.getKey(), entry.getValue()));
-            return EvaluationContext.forBindings(thisBindingsChildBuilder.build());
+            return mergeEvaluationContexts(this, that);
         }
 
         @Nonnull
-        public static ValueWrapper of(@Nonnull final EvaluationContext evaluationContext, @Nonnull final ConstantObjectValue constantObjectValue) {
-            return new ValueWrapper(constantObjectValue, Optional.of(evaluationContext));
+        public static ValueWrapper of(@Nonnull final EvaluationContext evaluationContext, @Nonnull final Value value) {
+            return ValueWrapper.of(Optional.of(evaluationContext), value);
+        }
+
+        @Nonnull
+        public static ValueWrapper of(@Nonnull final Optional<EvaluationContext> evaluationContextMaybe, @Nonnull final Value value) {
+            return new ValueWrapper(value, evaluationContextMaybe);
         }
 
         @Nonnull
         public static ValueWrapper of(@Nonnull final Value value) {
             return new ValueWrapper(value, Optional.empty());
+        }
+
+        @Nonnull
+        public static EvaluationContext mergeEvaluationContexts(@Nonnull final ValueWrapper v1, @Nonnull final ValueWrapper v2) {
+            return mergeEvaluationContexts(v1.evaluationContext, v2.evaluationContext);
+        }
+
+        @Nonnull
+        public static EvaluationContext mergeEvaluationContexts(@Nonnull final Optional<EvaluationContext> v1,
+                                                                @Nonnull final Optional<EvaluationContext>  v2) {
+            if (v1.isEmpty() && v2.isEmpty()) {
+                return EvaluationContext.empty();
+            }
+            if (v1.isEmpty()) {
+                return v2.get();
+            }
+            if (v2.isEmpty()) {
+                return v1.get();
+            }
+            final var thisBindingsChildBuilder = v1.get().getBindings().childBuilder();
+            final var thatBindings = v2.get().getBindings();
+            thatBindings.asMappingList().forEach(entry -> thisBindingsChildBuilder.set(entry.getKey(), entry.getValue()));
+            return EvaluationContext.forBindings(thisBindingsChildBuilder.build());
+        }
+
+        @Nonnull
+        public static EvaluationContext mergeEvaluationContexts(@Nonnull final ValueWrapper... vs) {
+            return Arrays.stream(vs)
+                    .map(ValueWrapper::getEvaluationContextMaybe)
+                    .reduce(Optional.empty(),
+                            (evaluationContext1, evaluationContext2) ->
+                                    Optional.of(mergeEvaluationContexts(evaluationContext1,
+                                            evaluationContext2)))
+                    .orElse(EvaluationContext.EMPTY);
         }
     }
 
@@ -190,6 +233,27 @@ public class ConstantFoldingTestUtils {
     @Nonnull
     public static ValueWrapper notNullIntCov() {
         return newCov(Type.primitiveType(Type.TypeCode.INT, false), 42);
+    }
+
+    @Nonnull
+    public static ValueWrapper throwingValue() {
+        // this is for examining lazy evaluation of constant folding logic.
+        // for example: NULL EQUALS <X | X IMMEDIATELY THROWS> should evaluate to NULL.
+        return ValueWrapper.of(new ThrowsValue(Type.nullType()));
+    }
+
+    @Nonnull
+    public static ValueWrapper coalesce(@Nonnull final ValueWrapper... valueWrappers) {
+        final var evaluationContext = ValueWrapper.mergeEvaluationContexts(valueWrappers);
+        final var values = Arrays.stream(valueWrappers).map(ValueWrapper::value).collect(ImmutableList.toImmutableList());
+        final var value = (Value)new VariadicFunctionValue.CoalesceFn().encapsulate(values);
+        return new ValueWrapper(value, Optional.of(evaluationContext));
+    }
+
+    @Nonnull
+    public static ValueWrapper promoteToBoolean(@Nonnull ValueWrapper valueWrapper) {
+        final var promoteValue = new PromoteValue(valueWrapper.value(), Type.primitiveType(Type.TypeCode.BOOLEAN), null);
+        return ValueWrapper.of(valueWrapper.getEvaluationContextMaybe(), promoteValue);
     }
 
     @Nonnull

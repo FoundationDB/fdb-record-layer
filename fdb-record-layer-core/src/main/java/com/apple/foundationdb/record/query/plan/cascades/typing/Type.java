@@ -523,6 +523,10 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     @Nullable
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     static Type maximumType(@Nonnull final Type t1, @Nonnull final Type t2) {
+        if (t1.getTypeCode() == TypeCode.NULL && t2.getTypeCode() == TypeCode.NULL) {
+            return Type.nullType();
+        }
+
         if (t1.getTypeCode() == TypeCode.NULL && PromoteValue.isPromotable(t1, t2)) {
             return t2.withNullability(true);
         }

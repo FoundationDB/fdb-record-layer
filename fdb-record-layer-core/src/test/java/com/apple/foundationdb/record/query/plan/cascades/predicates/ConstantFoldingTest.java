@@ -21,20 +21,18 @@
 package com.apple.foundationdb.record.query.plan.cascades.predicates;
 
 import com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.ValueWrapper;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
-import java.util.List;
-import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.areEqual;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.areEqualAsRange;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.areNotEqual;
+import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.coalesce;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.covFalse;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.covNull;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.covTrue;
@@ -46,24 +44,16 @@ import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingT
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.litFalse;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.litNull;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.litTrue;
+import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.lowerType;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.notNullIntCov;
+import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.promoteToBoolean;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.qov;
 import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.simplify;
+import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.throwingValue;
+import static com.apple.foundationdb.record.query.plan.cascades.ConstantFoldingTestUtils.upperType;
 
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ConstantFoldingTest {
-    @Nonnull
-    private static final Type.Record lowerType = Type.Record.fromFields(false, List.of(
-            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, false), Optional.of("a_non_null")),
-            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("b_nullable"))
-    ));
-
-    @Nonnull
-    private static final Type.Record upperType = Type.Record.fromFields(false, List.of(
-            Type.Record.Field.of(lowerType.withNullability(false), Optional.of("a_non_null")),
-            Type.Record.Field.of(lowerType.withNullability(true), Optional.of("b_nullable"))
-    ));
-
 
     ///
     /// EQUALS simplification tests
@@ -102,7 +92,29 @@ public class ConstantFoldingTest {
                 Arguments.arguments(covFalse(), covTrue(), ConstantPredicate.FALSE),
                 Arguments.arguments(covTrue(), covFalse(), ConstantPredicate.FALSE),
                 Arguments.arguments(covTrue(), covTrue(), ConstantPredicate.TRUE),
-                Arguments.arguments(covFalse(), covFalse(), ConstantPredicate.TRUE));
+                Arguments.arguments(covFalse(), covFalse(), ConstantPredicate.TRUE),
+
+                Arguments.arguments(coalesce(litNull(), covFalse()), covTrue(), ConstantPredicate.FALSE),
+                Arguments.arguments(coalesce(covNull(), covTrue(), throwingValue()), covTrue(), ConstantPredicate.TRUE),
+                Arguments.arguments(coalesce(covTrue(), covNull(), covFalse(), litFalse(), throwingValue()), covTrue(), ConstantPredicate.TRUE),
+                Arguments.arguments(coalesce(covTrue(), litFalse()), covTrue(), ConstantPredicate.TRUE),
+
+                Arguments.arguments(covTrue(), coalesce(litNull(), covFalse()), ConstantPredicate.FALSE),
+                Arguments.arguments(covTrue(), coalesce(covNull(), covTrue(), throwingValue()), ConstantPredicate.TRUE),
+                Arguments.arguments(covTrue(), coalesce(covTrue(), covNull(), covFalse(), litFalse(), throwingValue()), ConstantPredicate.TRUE),
+                Arguments.arguments(covFalse(), coalesce(covFalse(), covNull()), ConstantPredicate.TRUE),
+
+                Arguments.arguments(promoteToBoolean(litNull()), covTrue(), ConstantPredicate.NULL),
+                Arguments.arguments(promoteToBoolean(litFalse()), covTrue(), ConstantPredicate.FALSE),
+                Arguments.arguments(promoteToBoolean(covTrue()), covTrue(), ConstantPredicate.TRUE),
+                Arguments.arguments(promoteToBoolean(covFalse()), covTrue(), ConstantPredicate.FALSE),
+
+                Arguments.arguments(covTrue(), promoteToBoolean(litNull()), ConstantPredicate.NULL),
+                Arguments.arguments(litFalse(), promoteToBoolean(litFalse()), ConstantPredicate.TRUE),
+                Arguments.arguments(litTrue(), promoteToBoolean(covTrue()), ConstantPredicate.TRUE),
+                Arguments.arguments(covTrue(), promoteToBoolean(covFalse()), ConstantPredicate.FALSE)
+                );
+
     }
 
     @ParameterizedTest(name = "{0} = {1} ≡ {2}")
@@ -139,6 +151,12 @@ public class ConstantFoldingTest {
                 Arguments.arguments(covFalse(), litNull(), ConstantPredicate.NULL),
                 Arguments.arguments(litTrue(), litNull(), ConstantPredicate.NULL),
                 Arguments.arguments(litFalse(), litNull(), ConstantPredicate.NULL),
+                Arguments.arguments(litNull(), throwingValue(), ConstantPredicate.NULL),
+                Arguments.arguments(covNull(), throwingValue(), ConstantPredicate.NULL),
+                Arguments.arguments(throwingValue(), litNull(), ConstantPredicate.NULL),
+                Arguments.arguments(throwingValue(), covNull(), ConstantPredicate.NULL),
+                Arguments.arguments(coalesce(covNull(), promoteToBoolean(covNull())), throwingValue(), ConstantPredicate.NULL),
+                Arguments.arguments(throwingValue(), coalesce(litNull(), promoteToBoolean(litNull())), ConstantPredicate.NULL),
 
                 Arguments.arguments(litFalse(), covTrue(), ConstantPredicate.TRUE),
                 Arguments.arguments(litTrue(), covFalse(), ConstantPredicate.TRUE),
@@ -187,7 +205,8 @@ public class ConstantFoldingTest {
                 Arguments.arguments(covTrue(), ConstantPredicate.FALSE),
                 Arguments.arguments(notNullIntCov(), ConstantPredicate.FALSE),
                 Arguments.arguments(fieldValue(qov(lowerType), "a_non_null"), ConstantPredicate.FALSE),
-                Arguments.arguments(fieldValue(fieldValue(qov(upperType), "a_non_null"), "a_non_null"), ConstantPredicate.FALSE));
+                Arguments.arguments(fieldValue(fieldValue(qov(upperType), "a_non_null"), "a_non_null"), ConstantPredicate.FALSE),
+                Arguments.arguments(coalesce(litNull(), promoteToBoolean(covNull())), ConstantPredicate.TRUE));
     }
 
     @ParameterizedTest(name = "{0} is null ≡ {1}")
@@ -215,6 +234,7 @@ public class ConstantFoldingTest {
                 Arguments.arguments(covFalse(), ConstantPredicate.TRUE),
                 Arguments.arguments(litTrue(), ConstantPredicate.TRUE),
                 Arguments.arguments(covTrue(), ConstantPredicate.TRUE),
+                Arguments.arguments(coalesce(covNull(), covNull(), covNull(), promoteToBoolean(litNull())), ConstantPredicate.FALSE),
                 Arguments.arguments(notNullIntCov(), ConstantPredicate.TRUE),
                 Arguments.arguments(fieldValue(qov(lowerType), "a_non_null"), ConstantPredicate.TRUE),
                 Arguments.arguments(fieldValue(fieldValue(qov(upperType), "a_non_null"), "a_non_null"), ConstantPredicate.TRUE));
