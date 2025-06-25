@@ -95,8 +95,6 @@ public class ValueMatchers {
         return variadicFunction(VariadicFunctionValue.ComparisonFunction.COALESCE);
     }
 
-
-
     @SuppressWarnings("unchecked")
     @Nonnull
     public static BindingMatcher<LiteralValue<Boolean>> anyBooleanLiteralValue() {
@@ -118,7 +116,7 @@ public class ValueMatchers {
     public static <V extends Value> BindingMatcher<FieldValue> fieldValue(@Nonnull final BindingMatcher<V> downstreamValueMatcher) {
         return typedWithDownstream(FieldValue.class,
                 Extractor.of(FieldValue::getChild, name -> "child(" + name + ")"),
-                downstreamValueMatcher);
+                        downstreamValueMatcher);
     }
 
     @Nonnull
