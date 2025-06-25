@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
@@ -197,6 +198,13 @@ public class PredicateMultiMap {
 
         @Nonnull
         Value applyCompensationForResult(@Nonnull CorrelationIdentifier baseAlias);
+
+        @Nonnull
+        static ResultCompensationFunction ofTranslation(@Nonnull final Value resultValue,
+                                                        @Nonnull final CorrelationIdentifier nestingAlias) {
+            return of(baseAlias -> resultValue.translateCorrelations(
+                    TranslationMap.ofAliases(nestingAlias, baseAlias), false));
+        }
 
         @Nonnull
         static ResultCompensationFunction of(@Nonnull final Function<CorrelationIdentifier, Value> compensationFunction) {

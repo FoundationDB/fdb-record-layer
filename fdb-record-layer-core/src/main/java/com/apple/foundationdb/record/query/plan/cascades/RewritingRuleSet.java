@@ -47,6 +47,7 @@ public class RewritingRuleSet extends CascadesRuleSet {
             new FinalizeExpressionsRule()
     );
 
+    @Nonnull
     private static final Set<CascadesRule<? extends RelationalExpression>> ALL_EXPRESSION_RULES =
             ImmutableSet.<CascadesRule<? extends RelationalExpression>>builder()
                     .addAll(PREORDER_RULES)
@@ -54,6 +55,13 @@ public class RewritingRuleSet extends CascadesRuleSet {
                     .addAll(IMPLEMENTATION_RULES)
                     .build();
 
+    @Nonnull
+    public static final Set<CascadesRule<? extends RelationalExpression>> OPTIONAL_RULES =
+            ALL_EXPRESSION_RULES.stream()
+                    .filter(rule -> !(rule instanceof FinalizeExpressionsRule))
+                    .collect(ImmutableSet.toImmutableSet());
+
+    @Nonnull
     public static final RewritingRuleSet DEFAULT = new RewritingRuleSet();
 
     @VisibleForTesting

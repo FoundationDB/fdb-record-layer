@@ -25,11 +25,10 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
-import com.apple.test.Tags;
+import com.apple.test.SuperSlow;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -48,7 +47,7 @@ import static com.apple.foundationdb.async.rtree.RTree.Storage.BY_SLOT;
 /**
  * Additional tests for Multidimensional Index around concurrency and large data-sets.
  */
-@Tag(Tags.Slow)
+@SuperSlow
 class SlowMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
 
     static Stream<Arguments> argumentsForBasicReads() {

@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
+import com.apple.foundationdb.record.query.plan.cascades.PlanningRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.StableSelectorCostModel;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
@@ -54,6 +55,7 @@ import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.RelationalLoggingUtil;
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.logging.log4j.LogManager;
@@ -63,6 +65,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -375,12 +378,15 @@ public final class PlanGenerator {
         Options.IndexFetchMethod indexFetchMethod = options.getOption(Options.Name.INDEX_FETCH_METHOD);
         CascadesPlanner planner = new CascadesPlanner(metaData, recordStoreState);
         // TODO: TODO (Expose planner configuration parameters like index scan preference)
-        RecordQueryPlannerConfiguration configuration = RecordQueryPlannerConfiguration.builder()
+        RecordQueryPlannerConfiguration.Builder configuration = RecordQueryPlannerConfiguration.builder()
                 .setIndexScanPreference(QueryPlanner.IndexScanPreference.PREFER_INDEX)
                 .setIndexFetchMethod(toRecLayerIndexFetchMethod(indexFetchMethod))
                 .setAttemptFailedInJoinAsUnionMaxSize(24)
-                .build();
-        planner.setConfiguration(configuration);
+                .setDisabledTransformationRuleNames(ImmutableSet.copyOf(options.<Collection<String>>getOption(Options.Name.DISABLED_PLANNER_RULES)), PlanningRuleSet.DEFAULT);
+        if (options.getOption(Options.Name.DISABLE_PLANNER_REWRITING)) {
+            configuration.disableRewritingRules();
+        }
+        planner.setConfiguration(configuration.build());
         return planner;
     }
 
