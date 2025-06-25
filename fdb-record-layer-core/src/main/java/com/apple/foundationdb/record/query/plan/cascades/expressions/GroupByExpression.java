@@ -24,10 +24,10 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
@@ -37,7 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedO
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.RequestedSortOrder;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMap;
-import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap;
+import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ResultCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
@@ -51,6 +51,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWit
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
@@ -559,9 +560,9 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
             return Compensation.impossibleCompensation();
         }
 
-        final PredicateMultiMap.ResultCompensationFunction resultCompensationFunction;
+        final ResultCompensationFunction resultCompensationFunction;
         if (pullUp != null) {
-            resultCompensationFunction = PredicateMultiMap.ResultCompensationFunction.noCompensationNeeded();
+            resultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
         } else {
             final var rootPullUp = adjustedPullUp.getRootPullUp();
             final var maxMatchMap = matchInfo.getMaxMatchMap();
@@ -573,9 +574,13 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
             final var pulledUpResultValue = pulledUpResultValueOptional.get();
 
-            resultCompensationFunction =
-                    PredicateMultiMap.ResultCompensationFunction.of(baseAlias -> pulledUpResultValue.translateCorrelations(
-                            TranslationMap.ofAliases(rootPullUp.getNestingAlias(), baseAlias), false));
+            if (QuantifiedObjectValue.isSimpleQuantifiedObjectValueOver(pulledUpResultValue,
+                    rootPullUp.getNestingAlias())) {
+                resultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
+            } else {
+                resultCompensationFunction =
+                        ResultCompensationFunction.ofTranslation(pulledUpResultValue, rootPullUp.getNestingAlias());
+            }
         }
 
         final var unmatchedQuantifiers = partialMatch.getUnmatchedQuantifiers();
