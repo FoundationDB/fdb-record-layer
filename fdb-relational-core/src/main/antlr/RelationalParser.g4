@@ -1173,6 +1173,7 @@ unaryOperator
 comparisonOperator
     : '=' | '>' | '<' | '<' '=' | '>' '='
     | '<' '>' | '!' '=' // | '<' '=' '>' // no support for null-safe equality
+    | IS NOT? DISTINCT FROM
     ;
 
 logicalOperator
