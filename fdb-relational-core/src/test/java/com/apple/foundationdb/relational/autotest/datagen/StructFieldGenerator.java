@@ -25,12 +25,16 @@ import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalStructBuilder;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
+
+import static com.apple.foundationdb.relational.api.metadata.DataType.Code.ARRAY;
+import static com.apple.foundationdb.relational.api.metadata.DataType.Code.STRUCT;
 
 public class StructFieldGenerator implements FieldGenerator {
     private final String fieldName;
@@ -57,13 +61,13 @@ public class StructFieldGenerator implements FieldGenerator {
         this.maxArraySize = maxArraySize;
         this.nestedFieldGenerators = new ArrayList<>(structMetaData.getColumnCount());
         for (int i = 0; i < structMetaData.getColumnCount(); i++) {
-            final var sqlType = structMetaData.getColumnType(i + 1);
-            if (sqlType == Types.STRUCT) {
+            final var field = structMetaData.getRelationalDataType().getFields().get(i);
+            if (field.getType().getCode() == STRUCT) {
                 nestedFieldGenerators.add(getStructFieldGenerator(structMetaData.getColumnName(i + 1), structMetaData.getStructMetaData(i + 1)));
-            } else if (sqlType == Types.ARRAY) {
+            } else if (field.getType().getCode() == ARRAY) {
                 nestedFieldGenerators.add(getArrayFieldGenerator(structMetaData.getColumnName(i + 1), structMetaData.getArrayMetaData(i + 1)));
             } else {
-                nestedFieldGenerators.add(getPrimitiveFieldGenerator(structMetaData.getColumnName(i + 1), sqlType));
+                nestedFieldGenerators.add(getPrimitiveFieldGenerator(structMetaData.getColumnName(i + 1), field.getType()));
             }
         }
     }
@@ -86,23 +90,23 @@ public class StructFieldGenerator implements FieldGenerator {
         if (arrayMetaData.getElementType() == Types.STRUCT) {
             componentGenerator = getStructFieldGenerator("na", arrayMetaData.getElementStructMetaData());
         } else {
-            componentGenerator = getPrimitiveFieldGenerator("na", arrayMetaData.getElementType());
+            componentGenerator = getPrimitiveFieldGenerator("na", arrayMetaData.getRelationalDataType());
         }
         return new ArrayFieldGenerator(name, componentGenerator, randomSource, maxArraySize);
     }
 
-    private FieldGenerator getPrimitiveFieldGenerator(@Nonnull String name, int sqlType) {
-        switch (sqlType) {
-            case Types.INTEGER:
-            case Types.BIGINT:
-            case Types.FLOAT:
-            case Types.DOUBLE:
-            case Types.BOOLEAN:
-            case Types.VARCHAR:
-            case Types.BINARY:
-                return new PrimitiveFieldGenerator(name, sqlType, randomSource);
+    private FieldGenerator getPrimitiveFieldGenerator(@Nonnull String name, DataType dataType) {
+        switch (dataType.getCode()) {
+            case INTEGER:
+            case LONG:
+            case FLOAT:
+            case DOUBLE:
+            case BOOLEAN:
+            case STRING:
+            case BYTES:
+                return new PrimitiveFieldGenerator(name, dataType, randomSource);
             default:
-                throw new IllegalStateException("Unexpected field type: " + SqlTypeNamesSupport.getSqlTypeName(sqlType));
+                throw new IllegalStateException("Unexpected field type: " + SqlTypeNamesSupport.getSqlTypeName(dataType.getJdbcSqlCode()));
         }
     }
 }

@@ -58,7 +58,6 @@ import java.sql.Array;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Types;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -235,41 +234,37 @@ public class FRL implements AutoCloseable {
 
     private static void addPreparedStatementParameter(RelationalPreparedStatement relationalPreparedStatement,
                                                       Parameter parameter, int index) throws SQLException {
-        int type = parameter.getJavaSqlTypesCode();
+        final var type = parameter.getType();
         switch (type) {
-            case Types.VARCHAR:
+            case STRING:
                 relationalPreparedStatement.setString(index, parameter.getParameter().getString());
                 break;
-            case Types.BIGINT:
+            case LONG:
                 relationalPreparedStatement.setLong(index, parameter.getParameter().getLong());
                 break;
-            case Types.INTEGER:
+            case INTEGER:
                 relationalPreparedStatement.setInt(index, parameter.getParameter().getInteger());
                 break;
-            case Types.FLOAT:
+            case FLOAT:
                 relationalPreparedStatement.setFloat(index, parameter.getParameter().getFloat());
                 break;
-            case Types.DOUBLE:
+            case DOUBLE:
                 relationalPreparedStatement.setDouble(index, parameter.getParameter().getDouble());
                 break;
-            case Types.BOOLEAN:
+            case BOOLEAN:
                 relationalPreparedStatement.setBoolean(index, parameter.getParameter().getBoolean());
                 break;
-            case Types.BINARY:
+            case BYTES:
                 relationalPreparedStatement.setBytes(index, parameter.getParameter().getBinary().toByteArray());
                 break;
-            case Types.NULL:
+            case NULL:
                 relationalPreparedStatement.setNull(index, parameter.getParameter().getNullType());
                 break;
-            case Types.OTHER:
-                if (parameter.getParameter().hasUuid()) {
-                    final var uuidParameter = parameter.getParameter().getUuid();
-                    relationalPreparedStatement.setUUID(index, new UUID(uuidParameter.getMostSignificantBits(), uuidParameter.getLeastSignificantBits()));
-                } else {
-                    throw new SQLException("Unsupported type OTHER");
-                }
+            case UUID:
+                final var uuidParameter = parameter.getParameter().getUuid();
+                relationalPreparedStatement.setUUID(index, new UUID(uuidParameter.getMostSignificantBits(), uuidParameter.getLeastSignificantBits()));
                 break;
-            case Types.ARRAY:
+            case ARRAY:
                 final com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array arrayProto = parameter.getParameter().getArray();
                 final Array relationalArray = relationalPreparedStatement.getConnection().createArrayOf(
                         SqlTypeNamesSupport.getSqlTypeName(arrayProto.getElementType()),

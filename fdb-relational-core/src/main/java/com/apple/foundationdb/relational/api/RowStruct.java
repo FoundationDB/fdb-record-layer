@@ -240,8 +240,6 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
             for (final var t : coll) {
                 if (t instanceof Message) {
                     elements.add(new ImmutableRowStruct(new MessageTuple((Message) t), arrayMetaData.getElementStructMetaData()));
-                } else if (t instanceof ByteString) {
-                    elements.add(((ByteString) t).toByteArray());
                 } else {
                     elements.add(t);
                 }
@@ -256,14 +254,13 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
             }
             Descriptors.FieldDescriptor fieldDescriptor = message.getDescriptorForType().findFieldByName(NullableArrayUtils.getRepeatedFieldName());
             final var elements = new ArrayList<>();
-            final var coll = (Collection<?>) message.getField(fieldDescriptor);
-            for (final var t : coll) {
-                if (t instanceof Message) {
-                    elements.add(new ImmutableRowStruct(new MessageTuple((Message) t), arrayMetaData.getElementStructMetaData()));
-                } else if (t instanceof ByteString) {
-                    elements.add(((ByteString) t).toByteArray());
-                } else {
-                    elements.add(t);
+            final var fieldValues = (Collection<?>) message.getField(fieldDescriptor);
+            for (var fieldValue : fieldValues) {
+                fieldValue = MessageTuple.sanitizeField(fieldValue);
+                if (fieldValue instanceof Message) {
+                    elements.add(new ImmutableRowStruct(new MessageTuple((Message) fieldValue), arrayMetaData.getElementStructMetaData()));
+                }  else {
+                    elements.add(fieldValue);
                 }
             }
             return new RowArray(elements, arrayMetaData);

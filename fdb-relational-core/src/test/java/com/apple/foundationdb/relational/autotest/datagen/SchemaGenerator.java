@@ -21,21 +21,14 @@
 package com.apple.foundationdb.relational.autotest.datagen;
 
 import com.apple.foundationdb.record.util.pair.NonnullPair;
-import com.apple.foundationdb.relational.api.FieldDescription;
-import com.apple.foundationdb.relational.api.StructMetaData;
-import com.apple.foundationdb.relational.api.RelationalArrayMetaData;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.autotest.SchemaDescription;
 import com.apple.foundationdb.relational.autotest.TableDescription;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.sql.DatabaseMetaData;
-import java.sql.SQLException;
-import java.sql.Types;
 import java.util.AbstractMap;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -49,11 +42,11 @@ import java.util.stream.Collectors;
  */
 public class SchemaGenerator {
 
-    private static final List<NonnullPair<String, Integer>> primitiveDataTypes = List.of(
-            NonnullPair.of("bigint", Types.BIGINT),
-            NonnullPair.of("double", Types.DOUBLE),
-            NonnullPair.of("string", Types.VARCHAR),
-            NonnullPair.of("bytes", Types.BINARY)
+    private static final List<NonnullPair<String, DataType>> primitiveDataTypes = List.of(
+            NonnullPair.of("bigint", DataType.Primitives.LONG.type()),
+            NonnullPair.of("double", DataType.Primitives.DOUBLE.type()),
+            NonnullPair.of("string", DataType.Primitives.STRING.type()),
+            NonnullPair.of("bytes", DataType.Primitives.BYTES.type())
     // removing boolean to avoid pk violations with small tables
     );
     private final RandomDataSource random;
@@ -68,16 +61,14 @@ public class SchemaGenerator {
         this.maxNumColumns = maxNumColumns;
     }
 
-    public SchemaDescription generateSchemaDescription(String templateName, String schemaName) throws SQLException {
-        List<NonnullPair<String, Integer>> availableColumnTypes = new ArrayList<>(primitiveDataTypes);
+    public SchemaDescription generateSchemaDescription(String templateName, String schemaName) {
+        List<NonnullPair<String, DataType>> availableColumnTypes = new ArrayList<>(primitiveDataTypes);
         List<String> schemaEntries = new ArrayList<>();
-        Map<String, StructMetaData> structMap = new HashMap<>();
         int numStructs = random.nextInt(maxNumStructs + 1);
         for (int i = 0; i < numStructs; i++) {
-            Map.Entry<StructMetaData, String> struct = generateStruct(availableColumnTypes);
+            Map.Entry<DataType.StructType, String> struct = generateStructTypes(availableColumnTypes);
             //add the structs to the column type so that you can CREATE TYPE AS STRUCTs within structs
-            availableColumnTypes.add(NonnullPair.of(struct.getKey().getTypeName(), Types.STRUCT));
-            structMap.put(struct.getKey().getTypeName(), struct.getKey());
+            availableColumnTypes.add(NonnullPair.of(struct.getKey().getName(), struct.getKey()));
             schemaEntries.add(struct.getValue());
         }
         //now generate a random number of tables with the specified types
@@ -85,7 +76,7 @@ public class SchemaGenerator {
 
         List<TableDescription> tableNames = new ArrayList<>();
         for (int tableNum = 0; tableNum < numTables; tableNum++) {
-            Map.Entry<TableDescription, String> table = generateTable(availableColumnTypes, structMap);
+            Map.Entry<TableDescription, String> table = generateTable(availableColumnTypes);
             schemaEntries.add(table.getValue());
             tableNames.add(table.getKey());
         }
@@ -95,51 +86,43 @@ public class SchemaGenerator {
         return new SchemaDescription(templateName, templateDescription, schemaName, templateName + "_" + schemaName, tableNames);
     }
 
-    private Map.Entry<TableDescription, String> generateTable(List<NonnullPair<String, Integer>> availableColumnTypes, Map<String, StructMetaData> structMetaDataMap) {
-        List<ColumnDesc> columns = generateColumns(availableColumnTypes, structMetaDataMap);
+    private Map.Entry<TableDescription, String> generateTable(List<NonnullPair<String, DataType>> availableColumnTypes) {
+        List<ColumnDesc> columns = generateColumns(availableColumnTypes);
         List<String> pkColumns = selectPrimaryKeys(columns);
         String typeName = "table_" + random.nextAlphaNumeric(5);
         String sb = "CREATE TABLE \"" + typeName + "\"(" +
                 columns.stream().map(Object::toString).collect(Collectors.joining(",")) +
                 ", PRIMARY KEY(" + pkColumns.stream().map(pk -> "\"" + pk + "\"").collect(Collectors.joining(",")) + ")" +
                 ")";
-        final var fieldDescs = new FieldDescription[columns.size()];
+        final var fields = new ArrayList<DataType.StructType.Field>();
         for (int i = 0; i < columns.size(); i++) {
             final var col = columns.get(i);
-            if (col.sqlType == Types.STRUCT) {
-                if (col.isRepeated) {
-                    fieldDescs[i] = FieldDescription.array(col.name, DatabaseMetaData.columnNoNulls, RelationalArrayMetaData.ofStruct(col.structMetaData, DatabaseMetaData.columnNoNulls));
-                } else {
-                    fieldDescs[i] = FieldDescription.struct(col.name, DatabaseMetaData.columnNoNulls, col.structMetaData);
-                }
+            if (col.isRepeated) {
+                fields.add(DataType.StructType.Field.from(col.name, DataType.ArrayType.from(col.type), i));
             } else {
-                if (col.isRepeated) {
-                    fieldDescs[i] = FieldDescription.array(col.name, DatabaseMetaData.columnNoNulls, RelationalArrayMetaData.ofPrimitive(col.sqlType, DatabaseMetaData.columnNoNulls));
-                } else {
-                    fieldDescs[i] = FieldDescription.primitive(col.name, col.sqlType, DatabaseMetaData.columnNoNulls);
-                }
+                fields.add(DataType.StructType.Field.from(col.name, col.type, i));
             }
         }
-        TableDescription tableDef = new TableDescription(new RelationalStructMetaData(typeName, fieldDescs), pkColumns);
+        TableDescription tableDef = new TableDescription(RelationalStructMetaData.of(DataType.StructType.from(typeName, fields, true)), pkColumns);
         return new AbstractMap.SimpleEntry<>(tableDef, sb);
     }
 
-    private Map.Entry<StructMetaData, String> generateStruct(List<NonnullPair<String, Integer>> availableColumnTypes) {
-        List<ColumnDesc> columns = generateColumns(availableColumnTypes, null);
-        final var fieldDescs = new FieldDescription[columns.size()];
+    private Map.Entry<DataType.StructType, String> generateStructTypes(List<NonnullPair<String, DataType>> availableColumnTypes) {
+        List<ColumnDesc> columns = generateColumns(availableColumnTypes);
+        final var fields = new ArrayList<DataType.StructType.Field>();
         for (int i = 0; i < columns.size(); i++) {
             final var col = columns.get(0);
-            fieldDescs[i] = FieldDescription.primitive(col.name, col.sqlType, DatabaseMetaData.columnNoNulls);
+            fields.add(DataType.StructType.Field.from(col.name, col.type, i));
         }
         String typeName = "struct_" + random.nextAlphaNumeric(5);
-        final var metaData = new RelationalStructMetaData(typeName, fieldDescs);
+        final var type = DataType.StructType.from(typeName, fields, false);
         String sb = "CREATE TYPE AS STRUCT \"" + typeName + "\" (" +
                 columns.stream().map(Object::toString).collect(Collectors.joining(",")) +
                 ")";
-        return new AbstractMap.SimpleEntry<>(metaData, sb);
+        return new AbstractMap.SimpleEntry<>(type, sb);
     }
 
-    private List<ColumnDesc> generateColumns(List<NonnullPair<String, Integer>> availableColumnTypes, @Nullable Map<String, StructMetaData> structMetaDataMap) {
+    private List<ColumnDesc> generateColumns(List<NonnullPair<String, DataType>> availableColumnTypes) {
         //generate some columns, but we need at least 1
         int numCols = random.nextInt(1, maxNumColumns);
         List<ColumnDesc> columnDescs = new ArrayList<>(numCols);
@@ -153,7 +136,7 @@ public class SchemaGenerator {
          * change the PK generation logic to not have that restriction, we can remove this code block
          */
 
-        NonnullPair<String, Integer> primitiveType = primitiveDataTypes.get(random.nextInt(primitiveDataTypes.size()));
+        NonnullPair<String, DataType> primitiveType = primitiveDataTypes.get(random.nextInt(primitiveDataTypes.size()));
         int ptColNumber = random.nextInt(numCols);
         ColumnDesc reqPrimitiveType = new ColumnDesc("col_" + ptColNumber, primitiveType.getRight(), primitiveType.getLeft(), false);
         columnDescs.add(reqPrimitiveType);
@@ -162,7 +145,7 @@ public class SchemaGenerator {
         Set<Integer> takenColumnNumbers = new HashSet<>();
         takenColumnNumbers.add(ptColNumber);
         OUTER: while (columnDescs.size() < numCols) {
-            NonnullPair<String, Integer> nameAndType = availableColumnTypes.get(random.nextInt(availableColumnTypes.size()));
+            NonnullPair<String, DataType> nameAndType = availableColumnTypes.get(random.nextInt(availableColumnTypes.size()));
             int colNum = random.nextInt(numCols);
             int finalColNum = colNum;
             while (takenColumnNumbers.contains(colNum)) {
@@ -172,11 +155,7 @@ public class SchemaGenerator {
                     break OUTER;
                 }
             }
-            if (nameAndType.getRight() == Types.STRUCT) {
-                columnDescs.add(new ColumnDesc("col_" + colNum, nameAndType.getRight(), nameAndType.getLeft(), random.nextBoolean(), structMetaDataMap.get(nameAndType.getLeft())));
-            } else {
-                columnDescs.add(new ColumnDesc("col_" + colNum, nameAndType.getRight(), nameAndType.getLeft(), random.nextBoolean()));
-            }
+            columnDescs.add(new ColumnDesc("col_" + colNum, nameAndType.getRight(), nameAndType.getLeft(), random.nextBoolean()));
             takenColumnNumbers.add(colNum);
         }
 
@@ -209,34 +188,27 @@ public class SchemaGenerator {
 
     private static class ColumnDesc {
         private final String name;
-        private final int sqlType;
+        private final DataType type;
         private final String sqlName;
         private final boolean isRepeated;
-        @Nullable
-        private final StructMetaData structMetaData;
 
-        public ColumnDesc(String name, int sqlType, @Nonnull String sqlName, boolean isRepeated, @Nullable StructMetaData structMetaData) {
+        public ColumnDesc(String name, DataType type, @Nonnull String sqlName, boolean isRepeated) {
             this.name = name;
-            this.sqlType = sqlType;
+            this.type = type;
             this.sqlName = sqlName;
             this.isRepeated = isRepeated;
-            this.structMetaData = structMetaData;
-        }
-
-        public ColumnDesc(String name, int sqlType, @Nonnull String sqlName, boolean isRepeated) {
-            this(name, sqlType, sqlName, isRepeated, null);
         }
 
         /*
          * returns true if this column is a non-repeated primitive type
          */
         public boolean isSinglePrimitiveType() {
-            return !isRepeated && primitiveDataTypes.stream().map(NonnullPair::getRight).anyMatch(v -> v.equals(sqlType));
+            return !isRepeated && primitiveDataTypes.stream().map(NonnullPair::getRight).anyMatch(v -> v.equals(type));
         }
 
         public boolean allowedInPrimaryKey() {
             //TODO(bfines) allow booleans in pks again, but right now the cardinality is goofy
-            return isSinglePrimitiveType() && Types.BOOLEAN != sqlType;
+            return isSinglePrimitiveType() && DataType.Primitives.BOOLEAN.type() != type;
         }
 
         @Override

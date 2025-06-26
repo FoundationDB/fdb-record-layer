@@ -21,16 +21,13 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.annotation.API;
-
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
-
 import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
-import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
-import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -73,22 +70,11 @@ public class RowArray implements RelationalArray, EmbeddedRelationalArray {
                 .skip(oneBasedIndex - 1)
                 .limit(count)
                 .collect(Collectors.toList());
-        FieldDescription componentFieldType;
-        switch (arrayMetaData.getElementType()) {
-            case Types.ARRAY:
-                componentFieldType = FieldDescription.array("VALUE", arrayMetaData.isElementNullable(), arrayMetaData.getElementArrayMetaData());
-                break;
-            case Types.STRUCT:
-                componentFieldType = FieldDescription.struct("VALUE", arrayMetaData.isElementNullable(), arrayMetaData.getElementStructMetaData());
-                break;
-            default:
-                componentFieldType = FieldDescription.primitive("VALUE", arrayMetaData.getElementType(), arrayMetaData.isElementNullable());
-                break;
-        }
-        return new IteratorResultSet(new RelationalStructMetaData("ARRAY_ROW",
-                FieldDescription.primitive("INDEX", Types.INTEGER, DatabaseMetaData.columnNoNulls),
-                componentFieldType
-        ), slice.iterator(), 0);
+        final var type = DataType.StructType.from("ARRAY_ROW", List.of(
+                DataType.StructType.Field.from("INDEX", DataType.Primitives.INTEGER.type(), 0),
+                DataType.StructType.Field.from("VALUE", arrayMetaData.getRelationalDataType().getElementType(), 1)
+        ), true);
+        return new IteratorResultSet(RelationalStructMetaData.of(type), slice.iterator(), 0);
     }
 
     @Override
