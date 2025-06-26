@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 
@@ -137,21 +136,60 @@ public class EvaluationContext {
     }
 
     /**
+     * Whether a value is bound to the provided parameter.
+     *
+     * @param name the name of the parameter to check
+     * @return whether a value is bound to the given parameter
+     * @see Bindings#containsBinding(String) 
+     */
+    public boolean containsBinding(@Nonnull final String name) {
+        return bindings.containsBinding(name);
+    }
+
+    /**
+     * Whether the bindings contain a given special internal correlation.
+     *
+     * @param type the type of the parameter
+     * @param alias the parameter's alias
+     * @return whether the bindings contain that special correlation value
+     */
+    public boolean containsBinding(@Nonnull final Bindings.Internal type, @Nonnull final CorrelationIdentifier alias) {
+        return containsBinding(type.bindingName(alias.getId()));
+    }
+
+    /**
+     * Whether a value is bound to the given constant.
+     *
+     * @param alias the alias of the constant map
+     * @param constantId the identity of the constant within the map
+     * @return whether a value is bound to the given constant
+     */
+    public boolean containsConstantBinding(@Nonnull final CorrelationIdentifier alias, @Nonnull final String constantId) {
+        if (!containsBinding(Bindings.Internal.CONSTANT, alias)) {
+            return false;
+        }
+        final var constantsMap = getConstantsMap(alias);
+        return constantsMap.containsKey(constantId);
+    }
+
+
+    /**
      * Dereferences the constant.
      *
      * @param alias the correlation identifier
      * @param constantId the constant id
      * @return de-referenced constant
      */
-    @SuppressWarnings("unchecked")
     @Nullable
     public Object dereferenceConstant(@Nonnull final CorrelationIdentifier alias, @Nonnull final String constantId) {
-        final var constantsMap = (Map<String, ?>)bindings.get(Bindings.Internal.CONSTANT.bindingName(alias.getId()));
-        if (constantsMap == null) {
-            throw new RecordCoreException("could not find constant in the evaluation context")
-                    .addLogInfo(LogMessageKeys.KEY, "'" + alias.getId() + "' - '" + constantId + "'");
-        }
+        final var constantsMap = getConstantsMap(alias);
         return constantsMap.get(constantId);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Nonnull
+    private Map<String, ?> getConstantsMap(@Nonnull final CorrelationIdentifier alias) {
+        return (Map<String, ?>) getBinding(Bindings.Internal.CONSTANT, alias);
     }
 
     @Nonnull

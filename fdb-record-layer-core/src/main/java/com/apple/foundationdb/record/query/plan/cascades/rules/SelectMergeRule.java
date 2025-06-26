@@ -20,10 +20,14 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExpressionPartition;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -31,15 +35,21 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.CollectionMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.PredicateComplexityProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
+import java.util.HashSet;
+import java.util.Objects;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ExpressionsPartitionMatchers.argmin;
@@ -66,7 +76,11 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
 
     @Nonnull
     private static final BindingMatcher<ExpressionPartition<RelationalExpression>> childPartitionsMatcher =
-            argmin(ExpressionCountProperty.selectCount(), childExpressionMatcher);
+            argmin(ExpressionsPartitionMatchers.<RelationalExpressionWithPredicates>comparisonByPropertyList(
+                    ExpressionCountProperty.selectCount(),
+                    ExpressionCountProperty.tableFunctionCount(),
+                    PredicateComplexityProperty.predicateComplexity()
+            ), childExpressionMatcher);
 
     @Nonnull
     private static final BindingMatcher<Reference> childReferenceMatcher =
@@ -95,6 +109,7 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
         final var correlationOrder = selectExpression.getCorrelationOrder().dualOrder();
         final var dependencyMap = correlationOrder.getDependencyMap();
 
+        // Collect up the mergeable children, grouping by which child they came from.
         final var mergeableChildren =
                 Streams.zip(quantifiers.stream(),
                                 childSelectExpressions.stream(),
@@ -110,14 +125,23 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
         if (mergeableChildren.isEmpty()) {
             return;
         }
-
-        // Collect up the mergeable children, grouping by which child they came from.
+        // Make sure at least one mergeable child has a corresponding expression to bring up
+        boolean atLeastOneQuantifierIsMergeable = selectExpression.getQuantifiers()
+                .stream()
+                .map(Quantifier::getAlias)
+                .map(mergeableChildren::get)
+                .anyMatch(Objects::nonNull);
+        if (!atLeastOneQuantifierIsMergeable) {
+            // None of the quantifiers contain a mergeable expression. Return immediately
+            // as we will not yield a new expression here
+            return;
+        }
 
         // Merge the quantifiers and predicates from each mergeable child expression
+        final Set<CorrelationIdentifier> newQunAliases = new HashSet<>();
         final var newQuantifiers = ImmutableList.<Quantifier>builder();
         final var newPredicates = ImmutableList.<QueryPredicate>builder();
         final var translationBuilder = TranslationMap.regularBuilder();
-        boolean atLeastOneQuantifierIsMergeable = false;
         for (final var quantifier : selectExpression.getQuantifiers()) {
             final var alias = quantifier.getAlias();
             final var childSelectExpression = mergeableChildren.get(alias);
@@ -125,25 +149,44 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
                 //
                 // Mergeable. Add the child quantifiers in the old one's place and scoop up any predicates.
                 //
-                newQuantifiers.addAll(childSelectExpression.getQuantifiers());
-                newPredicates.addAll(childSelectExpression.getPredicates());
+                AliasMap.Builder childAliasMapBuilder = AliasMap.builder();
+                for (Quantifier childQun : childSelectExpression.getQuantifiers()) {
+                    if (!newQunAliases.add(childQun.getAlias())) {
+                        //
+                        // Check if the same quantifier alias appears in multiple children of
+                        // childSelectExpression. If one does, we need to assign a new alias
+                        // to it. Choose one here
+                        //
+                        CorrelationIdentifier newAlias = Quantifier.uniqueID();
+                        childAliasMapBuilder.put(childQun.getAlias(), newAlias);
+                        newQunAliases.add(newAlias);
+                    }
+                }
+                final TranslationMap childAliasMap = TranslationMap.rebaseWithAliasMap(childAliasMapBuilder.build());
+                if (childAliasMap.definesOnlyIdentities()) {
+                    // No conflicts with other child aliases. Pull things up directly
+                    newQuantifiers.addAll(childSelectExpression.getQuantifiers());
+                    newPredicates.addAll(childSelectExpression.getPredicates());
+                } else {
+                    // At least one child needs to be rewritten. Rebase the children on top of the new name
+                    newQuantifiers.addAll(Quantifiers.rebaseGraphs(childSelectExpression.getQuantifiers(), (Memoizer) call, childAliasMap, false));
+                    childSelectExpression.getPredicates().stream()
+                            .map(predicate -> predicate.translateCorrelations(childAliasMap, false))
+                            .forEach(newPredicates::add);
+                }
                 translationBuilder.when(alias)
                         .then((ignored1, ignored2) ->
-                                childSelectExpression.getResultValue());
-                atLeastOneQuantifierIsMergeable = true;
+                                childSelectExpression.getResultValue().translateCorrelations(childAliasMap));
             } else {
                 //
                 // Not mergeable. Grab all final expressions and create a new reference.
                 //
+                Verify.verify(newQunAliases.add(quantifier.getAlias()), "alias %s duplicated in pulled up children", quantifier.getAlias());
                 final var childReference = quantifier.getRangesOver();
                 final var newChildReference =
                         call.memoizeFinalExpressionsFromOther(childReference, childReference.getFinalExpressions());
                 newQuantifiers.add(quantifier.overNewReference(newChildReference));
             }
-        }
-
-        if (!atLeastOneQuantifierIsMergeable) {
-            return;
         }
 
         //

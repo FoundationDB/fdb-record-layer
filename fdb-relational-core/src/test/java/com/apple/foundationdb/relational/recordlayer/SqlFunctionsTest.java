@@ -87,4 +87,20 @@ public class SqlFunctionsTest {
         statement.execute("select * from f2(43) options (log query)");
         Assertions.assertTrue(logAppender.lastMessageIsCacheHit());
     }
+
+    @Test
+    public void queryJoinOfFunctions() throws Exception {
+        statement.execute("select * from f3(103, 'b') options (log query)");
+        Assertions.assertTrue(logAppender.lastMessageIsCacheMiss());
+        statement.execute("select * from f3(103, 'b') options (log query)");
+        Assertions.assertTrue(logAppender.lastMessageIsCacheHit());
+    }
+
+    @Test
+    public void queryTransformedJoinOfFunctions() throws Exception {
+        statement.execute("select * from f4(103, 'b') options (log query)");
+        Assertions.assertTrue(logAppender.lastMessageIsCacheMiss());
+        statement.execute("select * from f4(103, 'b') options (log query)");
+        Assertions.assertTrue(logAppender.lastMessageIsCacheHit());
+    }
 }

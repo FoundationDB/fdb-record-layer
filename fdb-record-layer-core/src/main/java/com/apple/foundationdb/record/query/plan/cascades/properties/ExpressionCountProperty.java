@@ -46,7 +46,7 @@ public class ExpressionCountProperty implements ExpressionProperty<Integer> {
     @Nonnull
     private static final ExpressionCountProperty SELECT_COUNT = ofTrackedTypes(SelectExpression.class, LogicalFilterExpression.class);
     @Nonnull
-    private static final ExpressionCountProperty TABLE_FUNCTION_COUNT = ofUntrackedTypes(TableFunctionExpression.class);
+    private static final ExpressionCountProperty TABLE_FUNCTION_COUNT = ofTrackedTypes(TableFunctionExpression.class);
 
     private final boolean isTracked;
     private final Predicate<? super RelationalExpression> filter;
@@ -60,7 +60,7 @@ public class ExpressionCountProperty implements ExpressionProperty<Integer> {
     @Nonnull
     @Override
     public ExpressionCountVisitor createVisitor() {
-        return new ExpressionCountVisitor(filter, isTracked);
+        return new ExpressionCountVisitor();
     }
 
     public int evaluate(@Nonnull final Reference reference) {
@@ -81,16 +81,8 @@ public class ExpressionCountProperty implements ExpressionProperty<Integer> {
         return TABLE_FUNCTION_COUNT;
     }
 
-    public static class ExpressionCountVisitor implements RelationalExpressionVisitorWithDefaults<Integer> {
-        @Nonnull
-        private final Predicate<? super RelationalExpression> filter;
-        private final boolean isTracked;
-
-        private ExpressionCountVisitor(@Nonnull Predicate<? super RelationalExpression> filter,
-                                       final boolean isTracked) {
-            this.filter = filter;
-            this.isTracked = isTracked;
-        }
+    public class ExpressionCountVisitor implements RelationalExpressionVisitorWithDefaults<Integer> {
+        // Note: This inner class is not static. It relies on state that is contained within the parent class
 
         @Nonnull
         @Override
@@ -112,7 +104,7 @@ public class ExpressionCountProperty implements ExpressionProperty<Integer> {
             Verify.verify(finalExpressions.size() == 1);
             if (isTracked) {
                 final var memberResults =
-                        reference.getPropertyForExpressions(SELECT_COUNT).values();
+                        reference.getPropertyForExpressions(ExpressionCountProperty.this).values();
                 return Iterables.getOnlyElement(memberResults);
             }
             return visit(Iterables.getOnlyElement(finalExpressions));
@@ -123,12 +115,6 @@ public class ExpressionCountProperty implements ExpressionProperty<Integer> {
     @SafeVarargs
     private static ExpressionCountProperty ofTrackedTypes(Class<? extends RelationalExpression>... expressionTypes) {
         return ofTypes(true, expressionTypes);
-    }
-
-    @Nonnull
-    @SafeVarargs
-    private static ExpressionCountProperty ofUntrackedTypes(Class<? extends RelationalExpression>... expressionTypes) {
-        return ofTypes(false, expressionTypes);
     }
 
     @Nonnull

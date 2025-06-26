@@ -41,19 +41,23 @@ import java.util.Iterator;
  * {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner}.
  */
 public class TestRuleExecution {
-    private final boolean ruleMatched;
+    private final int ruleMatchedCount;
     private final boolean hasYielded;
     @Nonnull
     private final Reference result;
 
-    private TestRuleExecution(boolean ruleMatched, boolean hasYielded, @Nonnull Reference result) {
-        this.ruleMatched = ruleMatched;
+    private TestRuleExecution(int ruleMatchedCount, boolean hasYielded, @Nonnull Reference result) {
+        this.ruleMatchedCount = ruleMatchedCount;
         this.hasYielded = hasYielded;
         this.result = result;
     }
 
     public boolean isRuleMatched() {
-        return ruleMatched;
+        return ruleMatchedCount > 0;
+    }
+
+    public int getRuleMatchedCount() {
+        return ruleMatchedCount;
     }
 
     public boolean hasYielded() {
@@ -80,7 +84,7 @@ public class TestRuleExecution {
                                               @Nonnull CascadesRule<? extends RelationalExpression> rule,
                                               @Nonnull Reference group,
                                               @Nonnull final EvaluationContext evaluationContext) {
-        boolean ruleMatched = false;
+        int matchesCount = 0;
         boolean hasYielded = false;
         for (RelationalExpression expression : group.getAllMemberExpressions()) {
             final Iterator<CascadesRuleCall> ruleCalls =
@@ -98,9 +102,9 @@ public class TestRuleExecution {
                 ruleCall.run();
                 hasYielded |= !ruleCall.getNewExploratoryExpressions().isEmpty() ||
                         !ruleCall.getNewFinalExpressions().isEmpty();
-                ruleMatched = true;
+                matchesCount++;
             }
         }
-        return new TestRuleExecution(ruleMatched, hasYielded, group);
+        return new TestRuleExecution(matchesCount, hasYielded, group);
     }
 }
