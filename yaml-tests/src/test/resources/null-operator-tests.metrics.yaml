@@ -4,11 +4,11 @@ null-operator-tests:
     explain: 'COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.ID NOT_NULL
         | FETCH | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP
         (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)'
-    task_count: 506
-    task_total_time_ms: 15
-    transform_count: 110
-    transform_time_ms: 4
-    transform_yield_count: 35
-    insert_time_ms: 0
-    insert_new_count: 48
-    insert_reused_count: 9
+    task_count: 624
+    task_total_time_ms: 30
+    transform_count: 169
+    transform_time_ms: 8
+    transform_yield_count: 42
+    insert_time_ms: 1
+    insert_new_count: 71
+    insert_reused_count: 7

@@ -45,12 +45,11 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedRecordValue;
@@ -96,10 +95,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicates;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicatesFilterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.queryComponents;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.recordTypes;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanPlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.typeFilterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.versionValue;
@@ -581,16 +577,10 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
             }, Optional.empty(), IndexQueryabilityFilter.DEFAULT, EvaluationContext.empty()).getPlan();
 
             assertMatchesExactly(plan, mapPlan(
-                    predicatesFilterPlan(
-                            mapPlan(
-                                    typeFilterPlan(
-                                            scanPlan()
-                                                    .where(scanComparisons(unbounded()))
-                                    ).where(recordTypes(PrimitiveMatchers.containsAll(Set.of("MySimpleRecord"))))
-                            )
-                            .where(mapResult(recordConstructorValue(exactly(versionValue(), fieldValueWithFieldNames("rec_no")))))
-                    ).where(predicates(exactly(valuePredicate(fieldValueWithFieldNames("version"), new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, versionForQuery)))))
-            ).where(mapResult(recordConstructorValue(exactly(fieldValueWithFieldNames("version"), fieldValueWithFieldNames("number"))))));
+                    indexPlan()
+                            .where(indexName("versionIndex"))
+                            .and(scanComparisons(range("([null],[" + versionForQuery.toVersionstamp() + "]]")))
+            ).where(mapResult(recordConstructorValue(exactly(versionValue(), fieldValueWithFieldNames("rec_no"))))));
 
             Set<Long> expectedNumbers = records.stream()
                     .filter(rec -> rec.getVersion() != null && rec.getVersion().compareTo(versionForQuery) <= 0)

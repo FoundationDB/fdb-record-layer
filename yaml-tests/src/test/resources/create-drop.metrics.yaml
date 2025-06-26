@@ -3,9 +3,9 @@ unnamed-4:
     explain: SCAN(<,>) | TFILTER TEMPLATES | FILTER _.TEMPLATE_NAME EQUALS promote(@c11
         AS STRING) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP
         (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
-    task_count: 315
-    task_total_time_ms: 2
-    transform_count: 73
+    task_count: 335
+    task_total_time_ms: 3
+    transform_count: 85
     transform_time_ms: 1
     transform_yield_count: 19
     insert_time_ms: 0
@@ -16,10 +16,10 @@ unnamed-10:
     explain: SCAN(<,>) | TFILTER DATABASES | FILTER _.DATABASE_ID EQUALS promote(@c11
         AS STRING) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP
         (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
-    task_count: 327
-    task_total_time_ms: 3
-    transform_count: 80
-    transform_time_ms: 1
+    task_count: 347
+    task_total_time_ms: 4
+    transform_count: 92
+    transform_time_ms: 2
     transform_yield_count: 25
     insert_time_ms: 0
     insert_new_count: 30
@@ -31,10 +31,10 @@ unnamed-20:
         EQUALS promote(@c11 AS STRING) | FETCH | MAP (_ AS _0) | AGG (count_star(*)
         AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)'
-    task_count: 541
-    task_total_time_ms: 4
-    transform_count: 125
-    transform_time_ms: 2
+    task_count: 561
+    task_total_time_ms: 7
+    transform_count: 137
+    transform_time_ms: 3
     transform_yield_count: 39
     insert_time_ms: 0
     insert_new_count: 59

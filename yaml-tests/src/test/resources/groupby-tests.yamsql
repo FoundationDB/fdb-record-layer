@@ -224,7 +224,7 @@ test_block:
       - initialVersionAtLeast: 4.1.9.0
     -
       - query: select AVG(x.col2) from (select col1,col2 from t1) as x group by x.col1;
-      - explain: "ISCAN(I1 <,>) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) | MAP (_ AS _0) | AGG (avg_l(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)"
+      - explain: "ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (avg_l(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)"
       - maxRows: 0 # Disable force_continuations. Can be removed when we longer care about testing with versions older than 4.1.9.0
       - result: [{3.0}, {9.5}]
     -
@@ -258,7 +258,7 @@ test_block:
     -
       # result is correct since we don't use (not support, yet) explicit casting.
       - query: select SUM(x.col2) / COUNT(x.col2), AVG(x.col2) from (select col1,col2 from t1) as x group by x.col1;
-      - explain: "ISCAN(I1 <,>) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) | MAP (_ AS _0) | AGG (sum_l(_._0.COL2) AS _0, count(_._0.COL2) AS _1, avg_l(_._0.COL2) AS _2) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 / _._1._1 AS _0, _._1._2 AS _1)"
+      - explain: "ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (sum_l(_._0.COL2) AS _0, count(_._0.COL2) AS _1, avg_l(_._0.COL2) AS _2) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 / _._1._1 AS _0, _._1._2 AS _1)"
       - maxRows: 0 # Disable force_continuations. Can be removed when we longer care about testing with versions older than 4.1.9.0
       - result: [{!l 3, 3.0}, {!l 9, 9.5}]
     -
@@ -283,7 +283,7 @@ test_block:
       - error: "42803"
     -
       - query: select MAX(x.col2) from (select col1,col2 from t1) as x;
-      - explain: "ISCAN(I1 <,>) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) | MAP (_ AS _0) | AGG (max_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (max_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - maxRows: 0 # Disable force_continuations. Can be removed when we longer care about testing with versions older than 4.1.9.0
       - result: [{!l 13}]
     -
@@ -299,7 +299,7 @@ test_block:
       - result: []
     -
       - query: select MIN(x.col2) from (select col1,col2 from t1) as x;
-      - explain: "ISCAN(I1 <,>) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) | MAP (_ AS _0) | AGG (min_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (min_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - maxRows: 0 # Disable force_continuations. Can be removed when we longer care about testing with versions older than 4.1.9.0
       - result: [{!l 1}]
     -
@@ -315,7 +315,7 @@ test_block:
       - result: []
     -
       - query: select COUNT(x.col2) from (select col1,col2 from t1) as x;
-      - explain: "ISCAN(I1 <,>) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) | MAP (_ AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - maxRows: 0 # Disable force_continuations. Can be removed when we longer care about testing with versions older than 4.1.9.0
       - result: [{!l 13}]
     -
@@ -331,13 +331,13 @@ test_block:
       - result: []
     -
       - query: select AVG(x.col2) from (select col1,col2 from t1) as x;
-      - explain: "ISCAN(I1 <,>) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) | MAP (_ AS _0) | AGG (avg_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (avg_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - maxRows: 0 # Disable force_continuations. Can be removed when we longer care about testing with versions older than 4.1.9.0
       - result: [{7.0}]
     -
       # Same as above but simulates force_continuations mode. Can be removed after we no longer care about compatibility with versions before 4.1.9.0
       - query: select AVG(x.col2) from (select col1,col2 from t1) as x;
-      - explain: "ISCAN(I1 <,>) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) | MAP (_ AS _0) | AGG (avg_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
+      - explain: "ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (avg_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - maxRows: 1
       - initialVersionLessThan: 4.1.9.0
       - result: [{7.0}]

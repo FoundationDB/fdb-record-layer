@@ -60,6 +60,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.AbstractMap;
@@ -117,12 +118,12 @@ public class RelationalPlanCacheTests {
     }
 
     @Nonnull
-    private static QueryPredicate gte1980p0(final int tokenIndex) {
+    private static QueryPredicate gte1980p0(final int tokenIndex, @Nonnull Optional<String> scope) {
         final var builder = RangeConstraints.newBuilder();
         builder.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 1980));
         builder.addComparisonMaybe(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, 1989));
         return PredicateWithValueAndRanges.ofRanges(new PromoteValue(ConstantObjectValue.of(Quantifier.constant(),
-                constantId(tokenIndex), Type.primitiveType(Type.TypeCode.INT, false)), Type.primitiveType(Type.TypeCode.INT), null), Set.of(builder.build().get()));
+                constantId(tokenIndex, scope), Type.primitiveType(Type.TypeCode.INT, false)), Type.primitiveType(Type.TypeCode.INT), null), Set.of(builder.build().get()));
     }
 
     @Nonnull
@@ -272,7 +273,12 @@ public class RelationalPlanCacheTests {
 
     @Nonnull
     private static QueryPlanConstraint c1980Cp0(final int tokenIndex) {
-        return QueryPlanConstraint.ofPredicate(gte1980p0(tokenIndex));
+        return c1980Cp0(tokenIndex, null);
+    }
+
+    @Nonnull
+    private static QueryPlanConstraint c1980Cp0(final int tokenIndex, @Nullable String scope) {
+        return QueryPlanConstraint.ofPredicate(gte1980p0(tokenIndex, Optional.ofNullable(scope)));
     }
 
     @Nonnull
@@ -301,8 +307,8 @@ public class RelationalPlanCacheTests {
     }
 
     @Nonnull
-    private static QueryPlanConstraint ofTypeIntCons(final int tokenIndex, String scope) {
-        return QueryPlanConstraint.ofPredicate(ofTypeInt(tokenIndex, Optional.of(scope)));
+    private static QueryPlanConstraint ofTypeIntCons(final int tokenIndex, @Nullable String scope) {
+        return QueryPlanConstraint.ofPredicate(ofTypeInt(tokenIndex, Optional.ofNullable(scope)));
     }
 
     @Nonnull
@@ -399,7 +405,9 @@ public class RelationalPlanCacheTests {
             }
         }
 
-        org.assertj.core.api.Assertions.assertThat(result).isEqualTo(expectedLayout);
+        org.assertj.core.api.Assertions.assertThat(result)
+                .containsAllEntriesOf(expectedLayout)
+                .hasSameSizeAs(expectedLayout);
     }
 
     @Nonnull
@@ -776,16 +784,20 @@ public class RelationalPlanCacheTests {
         final var readableIndexesBitset = planQueryWithTemporaryFunctionsPreamble(cache, ImmutableList.of(
                 "CREATE TEMPORARY FUNCTION SCI_FI_BOOKS() ON COMMIT DROP FUNCTION AS SELECT * FROM BOOKS WHERE TITLE LIKE 'SCIFI'",
                 "CREATE TEMPORARY FUNCTION SCI_FI_BOOKS_OF_80S() ON COMMIT DROP FUNCTION AS SELECT * FROM SCI_FI_BOOKS() WHERE YEAR > 1980 AND YEAR < 1989"),
-                "SELECT * FROM SCI_FI_BOOKS_OF_80S()", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980, i1990), Scan /*should be i1970 once the planner can perform predicate push down*/);
+                "SELECT * FROM SCI_FI_BOOKS_OF_80S()", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980, i1990), i1980);
 
         shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"SCI_FI_BOOKS_OF_80S\" ( ) ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, "CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS\" ( ) " +
                         "ON COMMIT DROP FUNCTION AS SELECT * FROM \"BOOKS\" WHERE \"TITLE\" LIKE 'SCIFI' ||CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS_OF_80S\" ( ) " +
                         "ON COMMIT DROP FUNCTION AS SELECT * FROM \"SCI_FI_BOOKS\" ( ) WHERE \"YEAR\" > ? AND \"YEAR\" < ? "),
-                Map.of(ppe(cons(ofTypeStringCons(18, "SCI_FI_BOOKS")), ofTypeIntCons(20, "SCI_FI_BOOKS_OF_80S"),
-                        ofTypeIntCons(24, "SCI_FI_BOOKS_OF_80S"),
-                        isNotNullStr(18, "SCI_FI_BOOKS"),
-                        isNotNullInt(20, "SCI_FI_BOOKS_OF_80S"),
-                        isNotNullInt(24, "SCI_FI_BOOKS_OF_80S")), Scan)));
+                Map.of(ppe(cons(
+                        cons(c1980Cp0(20, "SCI_FI_BOOKS_OF_80S"), c1980Cp0(24, "SCI_FI_BOOKS_OF_80S")),
+                        cons(ofTypeStringCons(18, "SCI_FI_BOOKS"), ofTypeIntCons(20, "SCI_FI_BOOKS_OF_80S"),
+                            ofTypeIntCons(24, "SCI_FI_BOOKS_OF_80S"),
+                            isNotNullStr(18, "SCI_FI_BOOKS"),
+                            isNotNullInt(20, "SCI_FI_BOOKS_OF_80S"),
+                            isNotNullInt(24, "SCI_FI_BOOKS_OF_80S")
+                        )
+                )), i1980)));
         // the fact that we generate a type constraint for like pattern, and we still keep it in the normalized query is related
         // to an orthogonal bug: https://github.com/FoundationDB/fdb-record-layer/issues/3389
     }
@@ -799,17 +811,21 @@ public class RelationalPlanCacheTests {
                         "CREATE TEMPORARY FUNCTION OTHER_BOOKS() ON COMMIT DROP FUNCTION AS SELECT * FROM BOOKS WHERE TITLE LIKE 'OTHER'",
                         "CREATE TEMPORARY FUNCTION SCI_FI_BOOKS() ON COMMIT DROP FUNCTION AS SELECT * FROM BOOKS WHERE TITLE LIKE 'SCIFI'",
                         "CREATE TEMPORARY FUNCTION SCI_FI_BOOKS_OF_80S() ON COMMIT DROP FUNCTION AS SELECT * FROM SCI_FI_BOOKS() WHERE YEAR > 1980 AND YEAR < 1989"),
-                "SELECT * FROM SCI_FI_BOOKS_OF_80S()", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980, i1990), Scan /*should be i1970 once the planner can perform predicate push down*/);
+                "SELECT * FROM SCI_FI_BOOKS_OF_80S()", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980, i1990), i1980);
 
         shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"SCI_FI_BOOKS_OF_80S\" ( ) ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, "CREATE TEMPORARY FUNCTION \"OTHER_BOOKS\" ( ) " +
                         "ON COMMIT DROP FUNCTION AS SELECT * FROM \"BOOKS\" WHERE \"TITLE\" LIKE 'OTHER' ||CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS\" ( ) " +
                         "ON COMMIT DROP FUNCTION AS SELECT * FROM \"BOOKS\" WHERE \"TITLE\" LIKE 'SCIFI' ||CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS_OF_80S\" ( ) " +
                         "ON COMMIT DROP FUNCTION AS SELECT * FROM \"SCI_FI_BOOKS\" ( ) WHERE \"YEAR\" > ? AND \"YEAR\" < ? "),
-                Map.of(ppe(cons(ofTypeStringCons(18, "SCI_FI_BOOKS")), ofTypeIntCons(20, "SCI_FI_BOOKS_OF_80S"),
-                        ofTypeIntCons(24, "SCI_FI_BOOKS_OF_80S"),
-                        isNotNullStr(18, "SCI_FI_BOOKS"),
-                        isNotNullInt(20, "SCI_FI_BOOKS_OF_80S"),
-                        isNotNullInt(24, "SCI_FI_BOOKS_OF_80S")), Scan)));
+                Map.of(ppe(cons(
+                        cons(c1980Cp0(20, "SCI_FI_BOOKS_OF_80S"), c1980Cp0(24, "SCI_FI_BOOKS_OF_80S")),
+                        cons(ofTypeStringCons(18, "SCI_FI_BOOKS"), ofTypeIntCons(20, "SCI_FI_BOOKS_OF_80S"),
+                                ofTypeIntCons(24, "SCI_FI_BOOKS_OF_80S"),
+                                isNotNullStr(18, "SCI_FI_BOOKS"),
+                                isNotNullInt(20, "SCI_FI_BOOKS_OF_80S"),
+                                isNotNullInt(24, "SCI_FI_BOOKS_OF_80S")
+                        )
+                )), i1980)));
     }
 
     @Test
@@ -820,16 +836,20 @@ public class RelationalPlanCacheTests {
         final var readableIndexesBitset = planQueryWithTemporaryFunctionsPreamble(cache, ImmutableList.of(
                         "CREATE TEMPORARY FUNCTION SCI_FI_BOOKS() ON COMMIT DROP FUNCTION AS SELECT * FROM BOOKS WHERE TITLE LIKE 'SCIFI'",
                         "CREATE TEMPORARY FUNCTION SCI_FI_BOOKS_OF_80S() ON COMMIT DROP FUNCTION AS SELECT * FROM SCI_FI_BOOKS() WHERE YEAR > 1980 AND YEAR < 1989"),
-                "SELECT * FROM SCI_FI_BOOKS_OF_80S(), SCI_FI_BOOKS_OF_80S()", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980, i1990), Scan /*should be i1970 once the planner can perform predicate push down*/);
+                "SELECT * FROM SCI_FI_BOOKS_OF_80S(), SCI_FI_BOOKS_OF_80S()", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980, i1990), i1980);
 
         shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"SCI_FI_BOOKS_OF_80S\" ( ) , \"SCI_FI_BOOKS_OF_80S\" ( ) ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, "CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS\" ( ) " +
                         "ON COMMIT DROP FUNCTION AS SELECT * FROM \"BOOKS\" WHERE \"TITLE\" LIKE 'SCIFI' ||CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS_OF_80S\" ( ) " +
                         "ON COMMIT DROP FUNCTION AS SELECT * FROM \"SCI_FI_BOOKS\" ( ) WHERE \"YEAR\" > ? AND \"YEAR\" < ? "),
-                Map.of(ppe(cons(ofTypeStringCons(18, "SCI_FI_BOOKS")), ofTypeIntCons(20, "SCI_FI_BOOKS_OF_80S"),
-                        ofTypeIntCons(24, "SCI_FI_BOOKS_OF_80S"),
-                        isNotNullStr(18, "SCI_FI_BOOKS"),
-                        isNotNullInt(20, "SCI_FI_BOOKS_OF_80S"),
-                        isNotNullInt(24, "SCI_FI_BOOKS_OF_80S")), Scan)));
+                Map.of(ppe(cons(
+                        cons(c1980Cp0(20, "SCI_FI_BOOKS_OF_80S"), c1980Cp0(24, "SCI_FI_BOOKS_OF_80S")),
+                        cons(ofTypeStringCons(18, "SCI_FI_BOOKS"), ofTypeIntCons(20, "SCI_FI_BOOKS_OF_80S"),
+                                ofTypeIntCons(24, "SCI_FI_BOOKS_OF_80S"),
+                                isNotNullStr(18, "SCI_FI_BOOKS"),
+                                isNotNullInt(20, "SCI_FI_BOOKS_OF_80S"),
+                                isNotNullInt(24, "SCI_FI_BOOKS_OF_80S")
+                        ))
+                ), i1980)));
     }
 
     @Test
@@ -841,22 +861,25 @@ public class RelationalPlanCacheTests {
                         "CREATE TEMPORARY FUNCTION OTHER_BOOKS() ON COMMIT DROP FUNCTION AS SELECT * FROM BOOKS WHERE TITLE LIKE 'OTHER'",
                         "CREATE TEMPORARY FUNCTION SCI_FI_BOOKS() ON COMMIT DROP FUNCTION AS SELECT * FROM BOOKS WHERE TITLE LIKE 'SCIFI'",
                         "CREATE TEMPORARY FUNCTION SCI_FI_BOOKS_OF_80S() ON COMMIT DROP FUNCTION AS SELECT * FROM SCI_FI_BOOKS() WHERE YEAR > 1980 AND YEAR < 1989"),
-                "SELECT * FROM SCI_FI_BOOKS_OF_80S() AS A, OTHER_BOOKS() AS B WHERE A.YEAR > 1985 AND A.TITLE = 'OTHER'", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980, i1990), Scan /*should be i1970 once the planner can perform predicate push down*/);
+                "SELECT * FROM SCI_FI_BOOKS_OF_80S() AS A, OTHER_BOOKS() AS B WHERE A.YEAR > 1985 AND A.TITLE = 'OTHER'", "SCHEMA_TEMPLATE_1", 10, 100, Set.of(i1970, i1980, i1990), i1980);
 
         shouldBe(cache, Map.of(new Tuple("SELECT * FROM \"SCI_FI_BOOKS_OF_80S\" ( ) AS \"A\" , \"OTHER_BOOKS\" ( ) AS \"B\" WHERE \"A\" . \"YEAR\" > ? AND \"A\" . \"TITLE\" = ? ", "SCHEMA_TEMPLATE_1", 10, 100, readableIndexesBitset, "CREATE TEMPORARY FUNCTION \"OTHER_BOOKS\" ( ) " +
                         "ON COMMIT DROP FUNCTION AS SELECT * FROM \"BOOKS\" WHERE \"TITLE\" LIKE 'OTHER' ||CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS\" ( ) " +
                         "ON COMMIT DROP FUNCTION AS SELECT * FROM \"BOOKS\" WHERE \"TITLE\" LIKE 'SCIFI' ||CREATE TEMPORARY FUNCTION \"SCI_FI_BOOKS_OF_80S\" ( ) " +
                         "ON COMMIT DROP FUNCTION AS SELECT * FROM \"SCI_FI_BOOKS\" ( ) WHERE \"YEAR\" > ? AND \"YEAR\" < ? "),
-                Map.of(ppe(cons(ofTypeStringCons(18, "SCI_FI_BOOKS")), ofTypeIntCons(20, "SCI_FI_BOOKS_OF_80S"),
-                        ofTypeIntCons(24, "SCI_FI_BOOKS_OF_80S"), ofTypeStringCons(18, "OTHER_BOOKS"),
-                        ofTypeIntCp0(19), ofTypeStringCons(25),
-                        strEqCon(25, Optional.empty(), 18, Optional.of("OTHER_BOOKS")),
-                        isNotNullStr(18, "SCI_FI_BOOKS"),
-                        isNotNullInt(20, "SCI_FI_BOOKS_OF_80S"),
-                        isNotNullInt(24, "SCI_FI_BOOKS_OF_80S"),
-                        isNotNullStr(18, "OTHER_BOOKS"),
-                        isNotNullInt(19),
-                        isNotNullStr(25)
-                        ), Scan)));
+                Map.of(ppe(cons(
+                        cons(c1980Cp0(20, "SCI_FI_BOOKS_OF_80S"), c1980Cp0(24, "SCI_FI_BOOKS_OF_80S"), c1980Cp0(19)),
+                        cons(ofTypeStringCons(18, "SCI_FI_BOOKS"), ofTypeIntCons(20, "SCI_FI_BOOKS_OF_80S"),
+                                ofTypeIntCons(24, "SCI_FI_BOOKS_OF_80S"), ofTypeStringCons(18, "OTHER_BOOKS"),
+                                ofTypeIntCp0(19), ofTypeStringCons(25),
+                                strEqCon(25, Optional.empty(), 18, Optional.of("OTHER_BOOKS")),
+                                isNotNullStr(18, "SCI_FI_BOOKS"),
+                                isNotNullInt(20, "SCI_FI_BOOKS_OF_80S"),
+                                isNotNullInt(24, "SCI_FI_BOOKS_OF_80S"),
+                                isNotNullStr(18, "OTHER_BOOKS"),
+                                isNotNullInt(19),
+                                isNotNullStr(25)
+                        ))
+                ), i1980)));
     }
 }

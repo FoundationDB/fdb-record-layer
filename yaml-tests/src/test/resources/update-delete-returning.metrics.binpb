@@ -1,7 +1,7 @@
 Æ
 e
 	unnamed-1XEXPLAIN update A set A2 = 42, A3 = 44 where A1 <= 2 returning "new".A3 OPTIONS(DRY RUN);Ü
-¥Ó§< µ²T(0Çé8@tSCAN(<,>) | DISTINCT BY PK | FILTER _.A1 LESS_THAN_OR_EQUALS promote(@c15 AS LONG) | UPDATE A | MAP (_.new.A3 AS A3)Édigraph G {
+¤˜î±J —ûM(0Æš8@tSCAN(<,>) | DISTINCT BY PK | FILTER _.A1 LESS_THAN_OR_EQUALS promote(@c15 AS LONG) | UPDATE A | MAP (_.new.A3 AS A3)Édigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -26,7 +26,7 @@ e
 }µ
 T
 	unnamed-1GEXPLAIN update A set A2 = 42, A3 = 44 where A1 <= 2 returning "new".A3;Ü
-¥Ó§< µ²T(0Çé8@tSCAN(<,>) | DISTINCT BY PK | FILTER _.A1 LESS_THAN_OR_EQUALS promote(@c15 AS LONG) | UPDATE A | MAP (_.new.A3 AS A3)Édigraph G {
+¤˜î±J —ûM(0Æš8@tSCAN(<,>) | DISTINCT BY PK | FILTER _.A1 LESS_THAN_OR_EQUALS promote(@c15 AS LONG) | UPDATE A | MAP (_.new.A3 AS A3)Édigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -48,10 +48,10 @@ T
     rankDir=LR;
     3 -> 4 [ color="red" style="invis" ];
   }
-}ç
+}è
 p
-	unnamed-1cEXPLAIN update A set A2 = 42, A3 = 44 where A1 <= 2 returning "new".A3 + "new".A3 OPTIONS(DRY RUN);ò
-¢¯t< Ç±2(0üå8@SCAN(<,>) | DISTINCT BY PK | FILTER _.A1 LESS_THAN_OR_EQUALS promote(@c15 AS LONG) | UPDATE A | MAP (_.new.A3 + _.new.A3 AS _0)Õdigraph G {
+	unnamed-1cEXPLAIN update A set A2 = 42, A3 = 44 where A1 <= 2 returning "new".A3 + "new".A3 OPTIONS(DRY RUN);ó
+¤ß÷ÑJ ç´d(0í‰8@SCAN(<,>) | DISTINCT BY PK | FILTER _.A1 LESS_THAN_OR_EQUALS promote(@c15 AS LONG) | UPDATE A | MAP (_.new.A3 + _.new.A3 AS _0)Õdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -73,10 +73,10 @@ p
     rankDir=LR;
     3 -> 4 [ color="red" style="invis" ];
   }
-}Ö
+}×
 _
-	unnamed-1REXPLAIN update A set A2 = 42, A3 = 44 where A1 <= 2 returning "new".A3 + "new".A3;ò
-¢¯t< Ç±2(0üå8@SCAN(<,>) | DISTINCT BY PK | FILTER _.A1 LESS_THAN_OR_EQUALS promote(@c15 AS LONG) | UPDATE A | MAP (_.new.A3 + _.new.A3 AS _0)Õdigraph G {
+	unnamed-1REXPLAIN update A set A2 = 42, A3 = 44 where A1 <= 2 returning "new".A3 + "new".A3;ó
+¤ß÷ÑJ ç´d(0í‰8@SCAN(<,>) | DISTINCT BY PK | FILTER _.A1 LESS_THAN_OR_EQUALS promote(@c15 AS LONG) | UPDATE A | MAP (_.new.A3 + _.new.A3 AS _0)Õdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -98,10 +98,10 @@ _
     rankDir=LR;
     4 -> 3 [ color="red" style="invis" ];
   }
-}´
+}µ
 H
-	unnamed-1;EXPLAIN update A set A2 = 52 where A1 > 2 OPTIONS(DRY RUN);ç
-ÙÛÝf/ ØÈ2(0þƒ8@VSCAN(<,>) | DISTINCT BY PK | FILTER _.A1 GREATER_THAN promote(@c10 AS LONG) | UPDATE Aódigraph G {
+	unnamed-1;EXPLAIN update A set A2 = 52 where A1 > 2 OPTIONS(DRY RUN);è
+ã¸à”7 Ê‰H(0Ïì8@VSCAN(<,>) | DISTINCT BY PK | FILTER _.A1 GREATER_THAN promote(@c10 AS LONG) | UPDATE Aódigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -121,10 +121,10 @@ H
     rankDir=LR;
     2 -> 6 [ color="red" style="invis" ];
   }
-}£
+}¤
 7
-	unnamed-1*EXPLAIN update A set A2 = 52 where A1 > 2;ç
-ÙÛÝf/ ØÈ2(0þƒ8@VSCAN(<,>) | DISTINCT BY PK | FILTER _.A1 GREATER_THAN promote(@c10 AS LONG) | UPDATE Aódigraph G {
+	unnamed-1*EXPLAIN update A set A2 = 52 where A1 > 2;è
+ã¸à”7 Ê‰H(0Ïì8@VSCAN(<,>) | DISTINCT BY PK | FILTER _.A1 GREATER_THAN promote(@c10 AS LONG) | UPDATE Aódigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
