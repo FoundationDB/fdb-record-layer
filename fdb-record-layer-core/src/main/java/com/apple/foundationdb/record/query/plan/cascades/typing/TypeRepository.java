@@ -326,6 +326,7 @@ public class TypeRepository {
             enumDescriptorMapShort.remove(enumName);
         }
 
+        System.out.println("typeToNameMap keys:" + typeToNameMap.keySet() + " size:" + typeToNameMap.keySet().size());
         this.typeToNameMap = ImmutableMap.copyOf(typeToNameMap);
     }
 

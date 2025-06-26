@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.yamltests.command;
 
+import com.apple.cloudkit.recdb.generated.CKRecordDBMetaDataOptionsProto;
+import com.apple.cloudkit.recdb.generated.CKRecordDBProto;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
@@ -99,7 +101,11 @@ public class CommandUtil {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        return RecordMetaData.build(builder.build());
+        return RecordMetaData.newBuilder()
+                .addDependency(CKRecordDBProto.getDescriptor())
+                .addDependency(CKRecordDBMetaDataOptionsProto.getDescriptor())
+                .setRecords(builder.build())
+                .getRecordMetaData();
     }
 
     private static Pair<String, String> parseLoadTemplateString(String loadCommandString) {
