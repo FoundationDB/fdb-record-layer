@@ -44,8 +44,8 @@ public class JDBCAutoCommitTest {
     private static final String SYSDBPATH = "/" + RelationalKeyspaceProvider.SYS;
     private static final String TESTDB = "/FRL/jdbc_test_db";
     public static final String TEST_SCHEMA = "test_schema";
-    public static final String SYS_DB_URI = "jdbc:embed:" + SYSDBPATH + "?schema=" + RelationalKeyspaceProvider.CATALOG;
-    public static final String TEST_DB_URI = "jdbc:embed:" + TESTDB + "?schema=" + TEST_SCHEMA;
+    public static final String SYS_DB_URI = "jdbc:relational://" + SYSDBPATH + "?schema=" + RelationalKeyspaceProvider.CATALOG;
+    public static final String TEST_DB_URI = "jdbc:relational://" + TESTDB + "?schema=" + TEST_SCHEMA;
 
     /**
      * Load our JDBCDriver via ServiceLoader so available to test.
@@ -53,7 +53,7 @@ public class JDBCAutoCommitTest {
     @BeforeAll
     public static void beforeAll() throws Exception {
         // Load driver.
-        TestUtils.loadEmbeddedDriver();
+        JDBCRelationalDriverTest.getDriver();
     }
 
     @AfterAll
