@@ -117,16 +117,18 @@ message Options {
 message TransactionalRequest {
   oneof TransactionalMessage {
       StatementRequest executeRequest = 1;
-      CommitRequest commitRequest = 2;
-      RollbackRequest rollbackRequest = 3;
+      InsertRequest insertRequest = 2;
+      CommitRequest commitRequest = 3;
+      RollbackRequest rollbackRequest = 4;
   }
 }
 
 message TransactionalResponse {
   oneof TransactionalMessage {
       StatementResponse executeResponse = 1;
-      CommitResponse commitResponse = 2;
-      RollbackResponse rollbackResponse = 3;
+      InsertResponse insertResponse = 2;
+      CommitResponse commitResponse = 3;
+      RollbackResponse rollbackResponse = 4;
   }
 }
 
