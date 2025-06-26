@@ -93,7 +93,8 @@ message ListBytes {
 }
 
 message InsertResponse {
-  int32 row_count = 1;
+  optional string error_message = 1;
+  int32 row_count = 2;
 }
 
 // Parameters for PreparedStatement

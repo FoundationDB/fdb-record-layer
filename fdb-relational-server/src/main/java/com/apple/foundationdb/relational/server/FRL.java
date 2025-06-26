@@ -368,6 +368,16 @@ public class FRL implements AutoCloseable {
         }
     }
 
+    public int transactionalInsert(TransactionalToken token, String tableName, List<RelationalStruct> data)
+            throws SQLException {
+        assertValidToken(token);
+        try (Statement statement = token.transactionalConnection.createStatement()) {
+            try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
+                return relationalStatement.executeInsert(tableName, data, Options.NONE);
+            }
+        }
+    }
+
     public void transactionalCommit(TransactionalToken token) throws SQLException {
         assertValidToken(token);
         token.transactionalConnection.commit();

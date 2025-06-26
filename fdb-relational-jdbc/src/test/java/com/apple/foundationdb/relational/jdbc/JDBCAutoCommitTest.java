@@ -109,6 +109,31 @@ public class JDBCAutoCommitTest {
         }
     }
 
+    @Test
+    void insertMultiCommitRead() throws SQLException, IOException {
+        try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+            connection.setAutoCommit(false);
+
+            try (RelationalStatement statement = connection.createStatement()) {
+                insertOneRow(statement);
+                insert2ndRow(statement);
+                connection.commit();
+
+                RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM test_table");
+                Assertions.assertTrue(resultSet.next());
+                Assertions.assertEquals(100, resultSet.getLong(1));
+                Assertions.assertEquals("one hundred", resultSet.getString(2));
+
+                Assertions.assertTrue(resultSet.next());
+                Assertions.assertEquals(200, resultSet.getLong(1));
+                Assertions.assertEquals("two hundred", resultSet.getString(2));
+
+                Assertions.assertFalse(resultSet.next()); // end
+                connection.commit();
+            }
+        }
+    }
+
     /**
      * Run a test with rollback and then read.
      */
@@ -153,6 +178,15 @@ public class JDBCAutoCommitTest {
         RelationalStruct insert = JDBCRelationalStruct.newBuilder()
                 .addLong("REST_NO", 100)
                 .addString("NAME", "one hundred")
+                .build();
+        int res = statement.executeInsert("TEST_TABLE", insert);
+        Assertions.assertEquals(1, res);
+    }
+
+    private static void insert2ndRow(final RelationalStatement statement) throws SQLException {
+        RelationalStruct insert = JDBCRelationalStruct.newBuilder()
+                .addLong("REST_NO", 200)
+                .addString("NAME", "two hundred")
                 .build();
         int res = statement.executeInsert("TEST_TABLE", insert);
         Assertions.assertEquals(1, res);
