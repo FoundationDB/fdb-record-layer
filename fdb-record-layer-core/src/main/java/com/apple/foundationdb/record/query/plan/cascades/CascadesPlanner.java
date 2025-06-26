@@ -437,11 +437,16 @@ public class CascadesPlanner implements QueryPlanner {
                     Debugger.withDebugger(debugger -> debugger.onEvent(nextTask.toTaskEvent(Location.BEGIN)));
                     try {
                         nextTask.execute();
-                        Debugger.sanityCheck(() ->
-                                // This is a fairly expensive check, but it makes sure that the traversal
-                                // is up to date with the query DAG. This is used during memoization, so
-                                // it's important that it has an accurate view of the state of the world.
-                                traversal.verifyIntegrity());
+                        Debugger.sanityCheck(() -> {
+                            // This is a fairly expensive check, but it makes sure that the traversal
+                            // is up to date with the query DAG. This is used during memoization, so
+                            // it's important that it has an accurate view of the state of the world.
+                            // If this catches something, it may aid debugging to run this with every
+                            // task execution
+                            if (taskCount % 20 == 0) {
+                                traversal.verifyIntegrity();
+                            }
+                        });
                     } finally {
                         Debugger.withDebugger(debugger -> debugger.onEvent(nextTask.toTaskEvent(Location.END)));
                     }
