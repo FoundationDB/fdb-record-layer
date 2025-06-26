@@ -31,6 +31,7 @@ import com.google.common.collect.LinkedListMultimap;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
+import org.opentest4j.TestAbortedException;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
@@ -273,7 +274,7 @@ public final class YamlExecutionContext {
      * @return wrapped {@link YamlExecutionError}
      */
     @Nonnull
-    public YamlExecutionError wrapContext(@Nullable Throwable e, @Nonnull Supplier<String> msg, @Nonnull String identifier, int lineNumber) {
+    public RuntimeException wrapContext(@Nonnull Throwable e, @Nonnull Supplier<String> msg, @Nonnull String identifier, int lineNumber) {
         String fileName;
         if (resourcePath.contains("/")) {
             final String[] split = resourcePath.split("/");
@@ -281,16 +282,20 @@ public final class YamlExecutionContext {
         } else {
             fileName = resourcePath;
         }
-        if (e instanceof YamlExecutionError) {
-            final var oldStackTrace = e.getStackTrace();
+        try {
+            throw e;
+        } catch (TestAbortedException tAE) {
+            return tAE;
+        } catch (YamlExecutionError yEE) {
+            final var oldStackTrace = yEE.getStackTrace();
             final var newStackTrace = new StackTraceElement[oldStackTrace.length + 1];
             System.arraycopy(oldStackTrace, 0, newStackTrace, 0, oldStackTrace.length);
             newStackTrace[oldStackTrace.length] = new StackTraceElement("YAML_FILE", identifier, fileName, lineNumber);
-            e.setStackTrace(newStackTrace);
-            return (YamlExecutionError) e;
-        } else {
+            yEE.setStackTrace(newStackTrace);
+            return yEE;
+        } catch (Throwable t) {
             // wrap
-            final var wrapper = new YamlExecutionError(msg.get(), e);
+            final var wrapper = new YamlExecutionError(msg.get(), t);
             wrapper.setStackTrace(new StackTraceElement[]{new StackTraceElement("YAML_FILE", identifier, fileName, lineNumber)});
             return wrapper;
         }

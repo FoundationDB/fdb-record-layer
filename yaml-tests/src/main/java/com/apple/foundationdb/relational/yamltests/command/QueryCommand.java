@@ -35,6 +35,7 @@ import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
+import org.opentest4j.TestAbortedException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -136,6 +137,10 @@ public final class QueryCommand extends Command {
                 executeInternal(connection, checkCache, executor);
             }
         } catch (Throwable e) {
+            if (e instanceof TestAbortedException) {
+                // need to immediately rethrow if it's an aborted test
+                throw (TestAbortedException)e;
+            }
             if (maybeExecutionThrowable.get() == null) {
                 maybeExecutionThrowable.set(executionContext.wrapContext(e,
                         () -> "‼️ Error executing query command at line " + getLineNumber() + " against connection for versions " + connection.getVersions(),

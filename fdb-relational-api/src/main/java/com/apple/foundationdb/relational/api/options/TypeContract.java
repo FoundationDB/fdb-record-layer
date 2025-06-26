@@ -21,33 +21,38 @@
 package com.apple.foundationdb.relational.api.options;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.sql.SQLException;
+import java.util.function.Function;
 
 @API(API.Status.EXPERIMENTAL)
 public class TypeContract<T> implements OptionContract {
 
     @Nonnull
-    private static final TypeContract<Boolean> BOOLEAN_TYPE = new TypeContract<>(Boolean.class);
+    private static final TypeContract<Boolean> BOOLEAN_TYPE = new TypeContract<>(Boolean.class, Boolean::parseBoolean);
 
     @Nonnull
-    private static final TypeContract<Integer> INTEGER_TYPE = new TypeContract<>(Integer.class);
+    private static final TypeContract<Integer> INTEGER_TYPE = new TypeContract<>(Integer.class, Integer::parseInt);
 
     @Nonnull
-    private static final TypeContract<Long> LONG_TYPE = new TypeContract<>(Long.class);
+    private static final TypeContract<Long> LONG_TYPE = new TypeContract<>(Long.class, Long::parseLong);
 
     @Nonnull
-    private static final TypeContract<String> STRING_TYPE = new TypeContract<>(String.class);
+    private static final TypeContract<String> STRING_TYPE = new TypeContract<>(String.class, Function.identity());
 
+    @Nonnull
     private final Class<T> clazz;
 
-    public TypeContract(Class<T> clazz) {
-        this.clazz = clazz;
+    @Nonnull
+    private final Function<String, T> fromStringFunction;
 
+    private TypeContract(@Nonnull Class<T> clazz, @Nonnull Function<String, T> fromStringFunction) {
+        this.clazz = clazz;
+        this.fromStringFunction = fromStringFunction;
     }
 
     @Override
@@ -57,9 +62,14 @@ public class TypeContract<T> implements OptionContract {
         }
     }
 
+    @Nullable
+    public T fromString(String valueAsString) throws SQLException {
+        return fromStringFunction.apply(valueAsString);
+    }
+
     @Nonnull
-    public static <T> TypeContract<T> of(@Nonnull final Class<T> clazz) {
-        return new TypeContract<>(clazz);
+    public static <T> TypeContract<T> of(@Nonnull final Class<T> clazz, @Nonnull Function<String, T> fromStringFunction) {
+        return new TypeContract<>(clazz, fromStringFunction);
     }
 
     @Nonnull

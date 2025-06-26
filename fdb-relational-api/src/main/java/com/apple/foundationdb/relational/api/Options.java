@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.api.options.TypeContract;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 
 import javax.annotation.Nonnull;
@@ -262,6 +263,11 @@ public final class Options {
     private final Map<Name, Object> optionsMap;
 
     @Nonnull
+    public static Options none() {
+        return NONE;
+    }
+
+    @Nonnull
     public static Map<Name, Object> defaultOptions() {
         return OPTIONS_DEFAULT_VALUES;
     }
@@ -317,6 +323,12 @@ public final class Options {
         }
 
         @Nonnull
+        public Builder withOptionFromString(Name name, String valueAsString) throws SQLException {
+            final Object value = parseStringOption(name, valueAsString);
+            return withOption(name, value);
+        }
+
+        @Nonnull
         public Builder withOption(Name name, Object value) throws SQLException {
             validateOption(name, value);
             optionsMap.put(name, value);
@@ -346,6 +358,16 @@ public final class Options {
         }
     }
 
+    @Nullable
+    private static Object parseStringOption(@Nonnull final Name name, String valueAsString) throws SQLException {
+        for (OptionContract contract : Objects.requireNonNull(OPTIONS).get(name)) {
+            if (contract instanceof TypeContract<?>) {
+                return ((TypeContract<?>)contract).fromString(valueAsString);
+            }
+        }
+        throw new SQLException("option must have at least one type contract", ErrorCode.INTERNAL_ERROR.getErrorCode());
+    }
+
     private static void validateOption(@Nonnull final Name name, Object value) throws SQLException {
         for (OptionContract contract : Objects.requireNonNull(OPTIONS).get(name)) {
             contract.validate(name, value);
@@ -362,11 +384,20 @@ public final class Options {
         }
     }
 
+    @Nonnull
+    public Iterable<? extends Map.Entry<Name, ?>> entries() {
+        if (parentOptions != null) {
+            return Iterables.concat(parentOptions.entries(), optionsMap.entrySet());
+        } else {
+            return optionsMap.entrySet();
+        }
+    }
+
     private static Map<Name, List<OptionContract>> makeContracts() {
         EnumMap<Name, List<OptionContract>> data = new EnumMap<>(Name.class);
-        data.put(Name.CONTINUATION, List.of(new TypeContract<>(Continuation.class)));
+        data.put(Name.CONTINUATION, List.of(TypeContract.of(Continuation.class, ignored -> { throw new UnsupportedOperationException(); })));
         data.put(Name.MAX_ROWS, List.of(TypeContract.intType(), RangeContract.of(0, Integer.MAX_VALUE)));
-        data.put(Name.INDEX_FETCH_METHOD, List.of(new TypeContract<>(IndexFetchMethod.class)));
+        data.put(Name.INDEX_FETCH_METHOD, List.of(TypeContract.of(IndexFetchMethod.class, IndexFetchMethod::valueOf)));
         data.put(Name.DISABLE_PLANNER_REWRITING, List.of(TypeContract.booleanType()));
         data.put(Name.DISABLED_PLANNER_RULES, List.of(new CollectionContract(TypeContract.stringType())));
         data.put(Name.INDEX_HINT, List.of(TypeContract.stringType()));
