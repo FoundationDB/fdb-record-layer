@@ -58,7 +58,10 @@ public class DereferenceConstantObjectValueRule extends ValueSimplificationRule<
             //
             // We don't have access to the constant. This can happen when trying to plan a statement
             // that has not been fully prepared (that is, one is trying to generate a plan that is independent
-            // of particular constant values). In this case, we just leave the value alone
+            // of particular constant values). In this case, we just leave the value alone.
+            //
+            // Note that we have some tests that do this. In theory, we could fix them to set the constant
+            // value in their evaluation context if we don't think this is worth supporting.
             //
             return;
         }

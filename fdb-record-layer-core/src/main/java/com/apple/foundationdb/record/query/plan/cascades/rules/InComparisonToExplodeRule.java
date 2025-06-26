@@ -21,10 +21,8 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
@@ -44,9 +42,9 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
@@ -208,16 +206,13 @@ public class InComparisonToExplodeRule extends ExplorationCascadesRule<SelectExp
     private static List<QueryPredicate> createSimpleEqualitiesForRecordTypeValue(@Nonnull final Value value,
                                                                                  @Nonnull final Quantifier.ForEach newQuantifier) {
         Verify.verify(value.getResultType().isRecord(), "value should be of type record and not %s", value.getResultType());
-        Type.Record valueType = (Type.Record) value.getResultType();
-        List<Type.Record.Field> fields = valueType.getFields();
+        final List<Value> fieldValues = Values.deconstructRecord(value);
 
         List<Column<? extends FieldValue>> comparandValueChildren = newQuantifier.getFlowedColumns();
-        Verify.verify(fields.size() == comparandValueChildren.size(), "record type value and comparand should have matching number of fields");
+        Verify.verify(fieldValues.size() == comparandValueChildren.size(), "record type value and comparand should have matching number of fields");
         final var resultsBuilder = ImmutableList.<QueryPredicate>builder();
-        for (int i = 0; i < fields.size(); i++) {
-            // Extract the field value. Simplify to avoid, for example, a field value over an RCV
-            Value fieldValue = FieldValue.ofOrdinalNumber(value, i)
-                    .simplify(EvaluationContext.EMPTY, AliasMap.emptyMap(), ImmutableSet.of());
+        for (int i = 0; i < fieldValues.size(); i++) {
+            final Value fieldValue = fieldValues.get(i);
             BooleanValue currentVal = (BooleanValue) new RelOpValue.EqualsFn().encapsulate(List.of(fieldValue, comparandValueChildren.get(i).getValue()));
             Optional<QueryPredicate> currentQueryPredicate = currentVal.toQueryPredicate(null, Quantifier.current());
             Verify.verify(currentQueryPredicate.isPresent());

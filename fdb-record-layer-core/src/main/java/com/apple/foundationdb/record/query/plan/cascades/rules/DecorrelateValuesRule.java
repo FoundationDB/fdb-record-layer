@@ -33,10 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.AllOfMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcherWithPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
@@ -63,7 +60,9 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierWithoutDefaultOnEmptyOverRef;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.exploratoryMember;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcherWithPredicate.typedMatcherWithPredicate;
 
 /**
  * Rule to de-correlate any "values boxes" by pushing them into referencing expressions. In this case, a
@@ -136,9 +135,12 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpression> {
     // TODO: This could use filtered expression partitions, but we have to make modifications to the test infrastructure to ensure there are final children
+    // We currently use a predicate over the expressions in the reference rather than a matcher here because we don't
+    // want to create multiple matches if there happens to be a reference containing multiple range(1) values. Doing
+    // so would result in the rule being run multiple times with the same input
     @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> rangeOneMatcher = forEachQuantifierWithoutDefaultOnEmptyOverRef(
-            TypedMatcherWithPredicate.typedMatcherWithPredicate(Reference.class,
+            typedMatcherWithPredicate(Reference.class,
                     ref -> ref.getAllMemberExpressions().stream().anyMatch(expr -> expr instanceof TableFunctionExpression && CardinalitiesProperty.Cardinalities.exactlyOne().equals(CardinalitiesProperty.cardinalities().evaluate(expr))))
     );
 
@@ -154,20 +156,17 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
     // we'll end up pushing down the values box for each variation. We may want to have this
     // choose the "best" variation to avoid over-exploration
     @Nonnull
-    private static final BindingMatcher<SelectExpression> valuesExpressionMatcher = AllOfMatcher.matchingAllOf(SelectExpression.class,
-            selectExpression(empty(), only(rangeOneMatcher)),
-            TypedMatcherWithPredicate.typedMatcherWithPredicate(
-                    SelectExpression.class,
+    private static final BindingMatcher<SelectExpression> valuesExpressionMatcher =
+            selectExpression(empty(), only(rangeOneMatcher)).where(typedMatcherWithPredicate(SelectExpression.class,
                     expr -> {
                         // Values boxes' return value should not be correlated to its own child expression
                         final Quantifier childQun = Iterables.getOnlyElement(expr.getQuantifiers());
                         final Value resultValue = expr.getResultValue();
                         return !resultValue.isCorrelatedTo(childQun.getAlias());
-                    })
-    );
+                    }));
 
     @Nonnull
-    private static final BindingMatcher<Quantifier.ForEach> valuesQunMatcher = forEachQuantifierWithoutDefaultOnEmptyOverRef(ReferenceMatchers.exploratoryMember(valuesExpressionMatcher));
+    private static final BindingMatcher<Quantifier.ForEach> valuesQunMatcher = forEachQuantifierWithoutDefaultOnEmptyOverRef(exploratoryMember(valuesExpressionMatcher));
 
     // Match a select expression over the values boxes. Ideally, we'd also check each box's correlation sets to validate that
     // we don't match any that have references out to sibling quantifiers in the SelectExpression's root. However,
