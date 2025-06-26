@@ -812,19 +812,6 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     }
 
     @Nonnull
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public Quantifier translateGraph(@Nonnull final Memoizer memoizer,
-                                     @Nonnull final TranslationMap translationMap,
-                                     final boolean shouldSimplifyValues) {
-        final Reference rangesOver = getRangesOver();
-        final Reference translatedReference =
-                getRangesOver().translateGraph(memoizer, translationMap, shouldSimplifyValues);
-        return rangesOver == translatedReference
-               ? this
-               : overNewReference(translatedReference);
-    }
-
-    @Nonnull
     public static CorrelationIdentifier uniqueID() {
         return CorrelationIdentifier.uniqueID(Quantifier.class);
     }

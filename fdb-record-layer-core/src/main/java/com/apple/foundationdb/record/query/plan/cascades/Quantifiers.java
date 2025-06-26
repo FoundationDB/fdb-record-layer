@@ -79,6 +79,13 @@ public class Quantifiers {
     }
 
     @Nonnull
+    public static List<? extends Reference> rangesOver(@Nonnull final Iterable<? extends Quantifier> quantifiers) {
+        return StreamSupport.stream(quantifiers.spliterator(), false)
+                .map(Quantifier::getRangesOver)
+                .collect(ImmutableList.toImmutableList());
+    }
+
+    @Nonnull
     public static Map<CorrelationIdentifier, Quantifier> aliasToQuantifierMap(@Nonnull final Iterable<? extends Quantifier> quantifiers) {
         return DependencyUtils.computeAliasToElementMap(quantifiers, Quantifier::getAlias);
     }
@@ -510,7 +517,7 @@ public class Quantifiers {
                                                           @Nonnull final Memoizer memoizer,
                                                           @Nonnull final TranslationMap translationMap,
                                                           final boolean shouldSimplifyValues) {
-        final List<? extends Reference> oldReferences = quantifiers.stream().map(Quantifier::getRangesOver).collect(ImmutableList.toImmutableList());
+        final List<? extends Reference> oldReferences = rangesOver(quantifiers);
         final List<? extends Reference> newReferences = References.rebaseGraphs(oldReferences, memoizer, translationMap, shouldSimplifyValues);
 
         return Streams.zip(quantifiers.stream(), newReferences.stream(), (oldQun, newRef) -> {
