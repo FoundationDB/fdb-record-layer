@@ -81,7 +81,18 @@ public class FRL implements AutoCloseable {
     private final FdbConnection fdbDatabase;
     private final RelationalDriver registeredDriver;
     private boolean registeredJDBCEmbedDriver;
-    private RelationalConnection transactionalConnection;
+
+    public class TransactionalToken {
+        private RelationalConnection transactionalConnection;
+
+        private TransactionalToken(final RelationalConnection transactionalConnection) {
+            this.transactionalConnection = transactionalConnection;
+        }
+
+        public boolean expired() {
+            return transactionalConnection == null;
+        }
+    }
 
     public FRL() throws RelationalException {
         this(Options.NONE, null);
@@ -324,20 +335,24 @@ public class FRL implements AutoCloseable {
         }
     }
 
+    public TransactionalToken createTransactionalToken(String database, String schema, Options options) throws SQLException {
+        final var driver = (RelationalDriver) DriverManager.getDriver(createEmbeddedJDBCURI(database, schema));
+        RelationalConnection transactionalConnection = driver.connect(URI.create(createEmbeddedJDBCURI(database, schema)), options);
+        transactionalConnection.setAutoCommit(false);
+        return new TransactionalToken(transactionalConnection);
+    }
+
     @Nonnull
-    public Response transactionalExecute(String database, String schema, String sql, List<Parameter> parameters, Options options)
+    public Response transactionalExecute(TransactionalToken token, String sql, List<Parameter> parameters)
             throws SQLException {
+        assertValidToken(token);
         if (parameters == null) {
+            // Not supported yet
             throw new SQLException("Is that a non-prepared transaction?");
-        }
-        if (transactionalConnection == null) {
-            final var driver = (RelationalDriver) DriverManager.getDriver(createEmbeddedJDBCURI(database, schema));
-            transactionalConnection = driver.connect(URI.create(createEmbeddedJDBCURI(database, schema)), options);
-            transactionalConnection.setAutoCommit(false);
         }
         ResultSet resultSet;
         // If parameters, it's a prepared statement.
-        try (RelationalPreparedStatement statement = transactionalConnection.prepareStatement(sql)) {
+        try (RelationalPreparedStatement statement = token.transactionalConnection.prepareStatement(sql)) {
             int index = 1; // Parameter position is one-based.
             for (Parameter parameter : parameters) {
                 addPreparedStatementParameter(statement, parameter, index++);
@@ -353,22 +368,28 @@ public class FRL implements AutoCloseable {
         }
     }
 
-    public void transactionalCommit() throws SQLException {
-        if (transactionalConnection == null) {
-            throw new SQLException("Transaction not initialized");
-        }
-        transactionalConnection.commit();
-        transactionalConnection.close();
-        transactionalConnection = null;
+    public void transactionalCommit(TransactionalToken token) throws SQLException {
+        assertValidToken(token);
+        token.transactionalConnection.commit();
+        token.transactionalConnection.close();
+        token.transactionalConnection = null;
     }
 
-    public void transactionalRollback() throws SQLException {
-        if (transactionalConnection == null) {
-            throw new SQLException("Transaction not initialized");
+    public void transactionalRollback(TransactionalToken token) throws SQLException {
+        assertValidToken(token);
+        token.transactionalConnection.rollback();
+        token.transactionalConnection.close();
+        token.transactionalConnection = null;
+    }
+
+    private void assertValidToken(TransactionalToken token) throws SQLException {
+        if (token == null) {
+            // TODO: non SQLException exception?
+            throw new SQLException("Transaction was not initialized");
         }
-        transactionalConnection.rollback();
-        transactionalConnection.close();
-        transactionalConnection = null;
+        if (token.transactionalConnection == null) {
+            throw new SQLException("Transaction had expired");
+        }
     }
 
     @Override

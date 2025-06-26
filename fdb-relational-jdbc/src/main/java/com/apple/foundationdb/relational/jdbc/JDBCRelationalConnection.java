@@ -329,7 +329,6 @@ class JDBCRelationalConnection implements RelationalConnection {
             return;
         }
         this.closed = true;
-        this.setAutoCommit(true);
         try {
             if (requestSender != null) {
                 // rollback uncommitted changes if closed with some remaining work
