@@ -26,14 +26,12 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Bind
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.ConstantPredicateFoldingUtil.EffectiveConstant;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
-
 import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
@@ -104,113 +102,45 @@ public class ConstantFoldingMultiConstraintPredicateRule extends QueryPredicateS
 
     @Nonnull
     private Optional<ConstantPredicate> foldConjunctionRangesMaybe(final Value lhs, @Nonnull final RangeConstraints rangeConstraints) {
-        final var rangeCategoriesBuilder = ImmutableSet.<RangeCategory>builder();
-        final var lhsOperand = EffectiveConstant.from(lhs);
-
         // degenerate case, give up.
         if (rangeConstraints.getComparisons().isEmpty()) {
             return Optional.empty();
         }
 
-        for (final var comparison : rangeConstraints.getComparisons()) {
-            if (comparison.getType().isUnary()) {
-                if (comparison.getType() == Comparisons.Type.IS_NULL) {
-                    switch (lhsOperand) {
-                        case NULL:
-                            rangeCategoriesBuilder.add(RangeCategory.SINGLETON_TRUE);
-                            break;
-                        case TRUE: // fallthrough
-                        case FALSE: // fallthrough
-                        case NOT_NULL:
-                            rangeCategoriesBuilder.add(RangeCategory.SINGLETON_FALSE);
-                            break;
-                        default:
-                            break;
-                    }
-                } else {
-                    rangeCategoriesBuilder.add(RangeCategory.UNKNOWN);
-                }
-            } else {
-                if (!(comparison instanceof Comparisons.ValueComparison)) {
-                    rangeCategoriesBuilder.add(RangeCategory.UNKNOWN);
-                    continue;
-                }
-                final var valueComparison = (Comparisons.ValueComparison)comparison;
-                final var rhsOperand = EffectiveConstant.from(valueComparison.getValue());
-                switch (comparison.getType()) {
-                    case EQUALS:
-                        if (lhsOperand == EffectiveConstant.NULL || rhsOperand == EffectiveConstant.NULL) {
-                            rangeCategoriesBuilder.add(RangeCategory.SINGLETON_NULL);
-                            break;
-                        } else if (lhsOperand.equals(rhsOperand)) {
-                            rangeCategoriesBuilder.add(RangeCategory.SINGLETON_TRUE);
-                            break;
-                        } else {
-                            rangeCategoriesBuilder.add(RangeCategory.SINGLETON_FALSE);
-                            break;
-                        }
-                    case NOT_EQUALS:
-                        if (lhsOperand == EffectiveConstant.NULL || rhsOperand == EffectiveConstant.NULL) {
-                            rangeCategoriesBuilder.add(RangeCategory.SINGLETON_NULL);
-                            break;
-                        } else if (!lhsOperand.equals(rhsOperand)) {
-                            rangeCategoriesBuilder.add(RangeCategory.SINGLETON_TRUE);
-                            break;
-                        } else {
-                            rangeCategoriesBuilder.add(RangeCategory.SINGLETON_FALSE);
-                            break;
-                        }
-                    default:
-                        rangeCategoriesBuilder.add(RangeCategory.UNKNOWN);
-                }
-            }
+        final var predicateCategoriesBuilder = ImmutableSet.<ConstantPredicateFoldingUtil.PredicateCategory>builder();
+        for (Comparisons.Comparison comparison : rangeConstraints.getComparisons()) {
+            predicateCategoriesBuilder.add(ConstantPredicateFoldingUtil.foldComparisonMaybe(lhs, comparison));
+
         }
-        // if we have more than one distinct range then it is impossible to find a single value that satisfies all of them
-        final var rangeCategories = rangeCategoriesBuilder.build();
+        final var predicateCategories = predicateCategoriesBuilder.build();
+
+        // if we have only one distinct range, then that's the one we go with
+        if (predicateCategories.size() == 1) {
+            return Iterables.getOnlyElement(predicateCategories).getPredicateMaybe();
+        }
 
         // if at least one range is FALSE, the returned result must be FALSE
-        if (rangeCategories.contains(RangeCategory.SINGLETON_FALSE)) {
+        if (predicateCategories.contains(ConstantPredicateFoldingUtil.PredicateCategory.SINGLETON_FALSE)) {
             return Optional.of(ConstantPredicate.FALSE);
         }
 
         // if at least one range is UNKNOWN, give up.
-        if (rangeCategories.contains(RangeCategory.UNKNOWN)) {
+        if (predicateCategories.contains(ConstantPredicateFoldingUtil.PredicateCategory.UNKNOWN)) {
             return Optional.empty();
-        }
-
-        if (rangeCategories.size() == 1) {
-            final var singleRangeCategory = Iterables.getOnlyElement(rangeCategories);
-            switch (singleRangeCategory) {
-                case SINGLETON_TRUE:
-                    return Optional.of(ConstantPredicate.TRUE);
-                case SINGLETON_FALSE:
-                    return Optional.of(ConstantPredicate.FALSE);
-                case SINGLETON_NULL:
-                    return Optional.of(ConstantPredicate.NULL);
-                default:
-                    return Optional.empty();
-            }
         }
 
         // we have multiple disjoint singleton ranges then it is impossible to find a single value satisfying all
         // of them ...
 
         // ... unless we have a combination of TRUE and NULL then the result is NULL
-        if (rangeCategories.stream().noneMatch(p -> p == RangeCategory.SINGLETON_FALSE)) {
+        if (predicateCategories.stream().noneMatch(p -> p == ConstantPredicateFoldingUtil.PredicateCategory.SINGLETON_FALSE)) {
             // we must have TRUE and NULL
-            Verify.verify(rangeCategories.contains(RangeCategory.SINGLETON_TRUE));
-            Verify.verify(rangeCategories.contains(RangeCategory.SINGLETON_NULL));
+            Verify.verify(predicateCategories.contains(ConstantPredicateFoldingUtil.PredicateCategory.SINGLETON_TRUE));
+            Verify.verify(predicateCategories.contains(ConstantPredicateFoldingUtil.PredicateCategory.SINGLETON_NULL));
             return Optional.of(ConstantPredicate.NULL);
         }
 
         // ... ok range is impossible, bailout.
         return Optional.of(ConstantPredicate.FALSE);
-    }
-
-    private enum RangeCategory {
-        SINGLETON_NULL,
-        SINGLETON_TRUE,
-        SINGLETON_FALSE,
-        UNKNOWN
     }
 }

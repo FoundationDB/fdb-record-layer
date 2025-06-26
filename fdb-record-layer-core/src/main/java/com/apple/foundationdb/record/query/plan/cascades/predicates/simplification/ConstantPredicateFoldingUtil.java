@@ -39,6 +39,27 @@ import java.util.Optional;
 @API(API.Status.EXPERIMENTAL)
 public final class ConstantPredicateFoldingUtil {
 
+    public enum PredicateCategory {
+        SINGLETON_NULL(ConstantPredicate.NULL),
+        SINGLETON_TRUE(ConstantPredicate.TRUE),
+        SINGLETON_FALSE(ConstantPredicate.FALSE),
+        UNKNOWN(null),
+        ;
+
+        @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+        @Nonnull
+        private final Optional<ConstantPredicate> predicateMaybe;
+
+        PredicateCategory(@Nullable ConstantPredicate predicate) {
+            this.predicateMaybe = Optional.ofNullable(predicate);
+        }
+
+        @Nonnull
+        Optional<ConstantPredicate> getPredicateMaybe() {
+            return predicateMaybe;
+        }
+    }
+
     /**
      * Analyzes the provided operand and comparison to produce a simplified, semantically equivalent {@link QueryPredicate}.
      *
@@ -47,8 +68,8 @@ public final class ConstantPredicateFoldingUtil {
      * @return An {@code Optional} containing the simplified {@link QueryPredicate} if both the operand and comparison
      *         evaluate to constant values. Returns an empty {@code Optional} otherwise.
      */
-    public static Optional<QueryPredicate> foldComparisonMaybe(@Nonnull final Value operand,
-                                                               @Nonnull final Comparisons.Comparison comparison) {
+    public static PredicateCategory foldComparisonMaybe(@Nonnull final Value operand,
+                                                        @Nonnull final Comparisons.Comparison comparison) {
         final var comparisonType = comparison.getType();
         final var lhsOperand = EffectiveConstant.from(operand);
         if (comparisonType.isUnary()) {
@@ -56,27 +77,27 @@ public final class ConstantPredicateFoldingUtil {
                 case IS_NULL:
                     switch (lhsOperand) {
                         case NULL:
-                            return Optional.of(ConstantPredicate.TRUE);
+                            return PredicateCategory.SINGLETON_TRUE;
                         case TRUE: // fallthrough
                         case FALSE: // fallthrough
                         case NOT_NULL:
-                            return Optional.of(ConstantPredicate.FALSE);
+                            return PredicateCategory.SINGLETON_FALSE;
                         default:
-                            return Optional.empty();
+                            return PredicateCategory.UNKNOWN;
                     }
                 case NOT_NULL:
                     switch (lhsOperand) {
                         case NULL:
-                            return Optional.of(ConstantPredicate.FALSE);
+                            return PredicateCategory.SINGLETON_FALSE;
                         case TRUE: // fallthrough
                         case FALSE: // fallthrough
                         case NOT_NULL:
-                            return Optional.of(ConstantPredicate.TRUE);
+                            return PredicateCategory.SINGLETON_TRUE;
                         default:
-                            return Optional.empty();
+                            return PredicateCategory.UNKNOWN;
                     }
                 default:
-                    return Optional.empty();
+                    return PredicateCategory.UNKNOWN;
             }
         }
 
@@ -91,39 +112,39 @@ public final class ConstantPredicateFoldingUtil {
             final var rhsValue = simpleComparison.getComparand();
             rhsOperand = EffectiveConstant.from(rhsValue);
         } else {
-            return Optional.empty();
+            return PredicateCategory.UNKNOWN;
         }
 
         switch (comparisonType) {
             case EQUALS: // fallthrough
             case NOT_EQUALS:
                 if (lhsOperand == EffectiveConstant.NULL || rhsOperand == EffectiveConstant.NULL) {
-                    return Optional.of(ConstantPredicate.NULL);
+                    return PredicateCategory.SINGLETON_NULL;
                 }
                 break;
             default:
-                return Optional.empty();
+                return PredicateCategory.UNKNOWN;
         }
 
         if (rhsOperand.isUnknownLiteral() || lhsOperand.isUnknownLiteral()) {
-            return Optional.empty();
+            return PredicateCategory.UNKNOWN;
         }
 
         switch (comparisonType) {
             case EQUALS:
                 if (lhsOperand.equals(rhsOperand)) {
-                    return Optional.of(ConstantPredicate.TRUE);
+                    return PredicateCategory.SINGLETON_TRUE;
                 } else {
-                    return Optional.of(ConstantPredicate.FALSE);
+                    return PredicateCategory.SINGLETON_FALSE;
                 }
             case NOT_EQUALS:
                 if (!lhsOperand.equals(rhsOperand)) {
-                    return Optional.of(ConstantPredicate.TRUE);
+                    return PredicateCategory.SINGLETON_TRUE;
                 } else {
-                    return Optional.of(ConstantPredicate.FALSE);
+                    return PredicateCategory.SINGLETON_FALSE;
                 }
             default:
-                return Optional.empty();
+                return PredicateCategory.UNKNOWN;
         }
     }
 
