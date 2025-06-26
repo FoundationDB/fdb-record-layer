@@ -41,6 +41,9 @@ setup:
 ---
 test_block:
   name: nested-with-nulls-tests
+  options:
+    connection_options:
+      DISABLE_PLANNER_REWRITING: true
   tests:
     -
       - query: select id from t1 where a.a.a IS NULL

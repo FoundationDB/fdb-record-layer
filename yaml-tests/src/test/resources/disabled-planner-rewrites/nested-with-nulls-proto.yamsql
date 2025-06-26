@@ -44,6 +44,9 @@ setup:
 test_block:
   connect: "jdbc:embed:/FRL/NESTED_WITH_NULLS_PROTO_YAML?schema=TEST"
   name: nested-with-nulls-proto-tests
+  options:
+    connection_options:
+      DISABLE_PLANNER_REWRITING: true
   tests:
     -
       # Note: a.a.a is not nullable, so this predicate could be simplified to FALSE

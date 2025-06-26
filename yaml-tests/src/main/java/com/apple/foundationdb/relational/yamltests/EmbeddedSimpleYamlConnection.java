@@ -42,6 +42,7 @@ public class EmbeddedSimpleYamlConnection extends SimpleYamlConnection {
     }
 
     @Override
+    @SuppressWarnings("PMD.CloseResource")
     public void setConnectionOptions(@Nonnull final Options connectionOptions) throws SQLException {
         final RelationalConnection underlying = getUnderlying();
         for (Map.Entry<Options.Name, ?> entry : connectionOptions.entries()) {

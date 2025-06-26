@@ -136,11 +136,9 @@ public final class QueryCommand extends Command {
             } else {
                 executeInternal(connection, checkCache, executor);
             }
+        } catch (TestAbortedException tAE) {
+            throw tAE;
         } catch (Throwable e) {
-            if (e instanceof TestAbortedException) {
-                // need to immediately rethrow if it's an aborted test
-                throw (TestAbortedException)e;
-            }
             if (maybeExecutionThrowable.get() == null) {
                 maybeExecutionThrowable.set(executionContext.wrapContext(e,
                         () -> "‼️ Error executing query command at line " + getLineNumber() + " against connection for versions " + connection.getVersions(),

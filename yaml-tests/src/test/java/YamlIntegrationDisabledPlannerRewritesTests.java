@@ -131,17 +131,15 @@ public class YamlIntegrationDisabledPlannerRewritesTests {
     }
 
     @TestTemplate
-    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
     public void nestedWithNulls(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/nested-with-nulls.yamsql");
     }
 
     @TestTemplate
-    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
     public void nestedWithNullsProto(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/nested-with-nulls-proto.yamsql");
     }
-    
+
     @TestTemplate
     public void orderBy(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/orderby.yamsql");
