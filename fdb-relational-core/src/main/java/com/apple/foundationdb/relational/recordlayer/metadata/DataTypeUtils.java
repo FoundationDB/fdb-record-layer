@@ -123,7 +123,7 @@ public class DataTypeUtils {
                 // but since in RL we store the elements as a 'repeated' field, there is not a way to tell if an element is explicitly 'null'.
                 // The current RL behavior loses the nullability information even if the constituent of Type.Array is explicitly marked 'nullable'. Hence,
                 // the check here avoids silently swallowing the requirement.
-                Assert.thatUnchecked(!asArray.getElementType().isNullable(), ErrorCode.UNSUPPORTED_OPERATION, "No support for nullable array elements.");
+                Assert.thatUnchecked(asArray.getElementType().getCode() == DataType.Code.NULL || !asArray.getElementType().isNullable(), ErrorCode.UNSUPPORTED_OPERATION, "No support for nullable array elements.");
                 return new Type.Array(asArray.isNullable(), toRecordLayerType(asArray.getElementType()));
             case ENUM:
                 final var asEnum = (DataType.EnumType) type;
@@ -159,5 +159,6 @@ public class DataTypeUtils {
         primitivesMap.put(DataType.Primitives.NULLABLE_STRING.type(), Type.primitiveType(Type.TypeCode.STRING, true));
         primitivesMap.put(DataType.Primitives.NULLABLE_VERSION.type(), Type.primitiveType(Type.TypeCode.VERSION, true));
         primitivesMap.put(DataType.Primitives.NULLABLE_UUID.type(), Type.uuidType(true));
+        primitivesMap.put(DataType.Primitives.NULL.type(), Type.nullType());
     }
 }

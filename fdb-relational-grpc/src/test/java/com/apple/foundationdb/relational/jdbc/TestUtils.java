@@ -22,14 +22,23 @@ package com.apple.foundationdb.relational.jdbc;
 
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 
 import java.util.Arrays;
 import java.util.List;
 
 public class TestUtils {
-    public static RelationalResultSet resultSet(String typeName, List<Integer> columnTypes, Continuation continuation, MockResultSetRow... rows) {
+    public static RelationalResultSet resultSet(Continuation continuation, MockResultSetRow... rows) {
         return new MockResultSet(
-                new MockResultSetMetadata(typeName, columnTypes),
+<<<<<<< Updated upstream
+                new MockResultSetMetadata(),
+=======
+                new MockResultSetMetadata(DataType.StructType.from("TestType", List.of(
+                        DataType.StructType.Field.from("field1", DataType.Primitives.INTEGER.type(), 0),
+                        DataType.StructType.Field.from("field2", DataType.Primitives.INTEGER.type(), 1),
+                        DataType.StructType.Field.from("field3", DataType.Primitives.INTEGER.type(), 2)
+                ), false)),
+>>>>>>> Stashed changes
                 Arrays.stream(rows).iterator(),
                 continuation);
     }

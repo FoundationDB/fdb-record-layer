@@ -24,19 +24,20 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecordBuilder;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.relational.api.DynamicMessageBuilder;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.ProtobufDataBuilder;
-import com.apple.foundationdb.relational.api.SqlTypeSupport;
-import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalStruct;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
+import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.RecordTypeTable;
+import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
-
+import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -160,6 +161,6 @@ public class InMemoryTable {
         });
         orderedFieldMap.putAll(descriptorLookupMap);
         final Type.Record record = Type.Record.fromFieldDescriptorsMap(orderedFieldMap);
-        return SqlTypeSupport.recordToMetaData(record);
+        return RelationalStructMetaData.of((DataType.StructType) DataTypeUtils.toRelationalType(record));
     }
 }
