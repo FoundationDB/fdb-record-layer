@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.server.jdbc.v1;
 
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.CommitResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.RollbackResponse;
@@ -47,6 +49,7 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
 
     private StreamObserver<TransactionalResponse> responseObserver;
     private FRL frl;
+    private FRL.TransactionalToken transactionalToken;
 
     public TransactionRequestHandler(final StreamObserver<TransactionalResponse> responseObserver, final FRL frl) {
         this.responseObserver = responseObserver;
@@ -58,12 +61,19 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
         TransactionalResponse.Builder responseBuilder = TransactionalResponse.newBuilder();
         if (transactionRequest.hasExecuteRequest()) {
             final StatementRequest request = transactionRequest.getExecuteRequest();
-
+            if (logger.isInfoEnabled()) {
+                logger.info(KeyValueLogMessage.build("Handling execute request")
+                        .addKeyAndValue(LogMessageKeys.QUERY, request.getSql())
+                        .toString());
+            }
             try {
-                final FRL.Response response = frl.transactionalExecute(request.getDatabase(), request.getSchema(), request.getSql(),
-                        request.getParameters().getParameterList(),
-                        Options.builder()
-                                .withOption(Options.Name.MAX_ROWS, request.getOptions().getMaxRows()).build());
+                if (transactionalToken == null || transactionalToken.expired()) {
+                    // Every transactional multi commands should start with execute. Hence only this message contains the connection information
+                    final Options options = Options.builder().withOption(Options.Name.MAX_ROWS, request.getOptions().getMaxRows()).build();
+                    transactionalToken = frl.createTransactionalToken(request.getDatabase(), request.getSchema(), options);
+                }
+                final FRL.Response response = frl.transactionalExecute(transactionalToken, request.getSql(),
+                        request.getParameters().getParameterList());
 
                 StatementResponse.Builder statementResponseBuilder = StatementResponse.newBuilder()
                         .setRowCount(response.getRowCount());
@@ -80,7 +90,7 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
             // handle commit
             logger.info("Handling commit request");
             try {
-                frl.transactionalCommit();
+                frl.transactionalCommit(transactionalToken);
                 responseBuilder.setCommitResponse(CommitResponse.newBuilder().build());
             }  catch (SQLException | RuntimeException e) {
                 logger.warn("Commit: Error caught", e);
@@ -92,7 +102,7 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
             // handle rollback
             logger.info("Handling rollback request");
             try {
-                frl.transactionalRollback();
+                frl.transactionalRollback(transactionalToken);
                 responseBuilder.setRollbackResponse(RollbackResponse.newBuilder().build());
             }  catch (SQLException | RuntimeException e) {
                 logger.warn("Rollback: Error caught", e);
