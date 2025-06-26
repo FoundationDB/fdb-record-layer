@@ -48,7 +48,7 @@ test_block:
     -
       # Note: a.a.a is not nullable, so this predicate could be simplified to FALSE
       - query: select id from t1 where a.a.a IS NULL
-      - explain: "SCAN(<,>) | FILTER _.A.A.A IS_NULL | MAP (_.ID AS ID)"
+      - explain: "SCAN(<,>) | FILTER false | MAP (_.ID AS ID)"
       - result: []
     -
       - query: select id from t1 where a.a.b IS NULL
@@ -81,7 +81,7 @@ test_block:
     -
       # Note: a.a.a is not nullable, so this could be simplified to TRUE
       - query: select id from t1 where a.a.a IS NOT NULL
-      - explain: "SCAN(<,>) | FILTER _.A.A.A NOT_NULL | MAP (_.ID AS ID)"
+      - explain: "SCAN(<,>) | MAP (_.ID AS ID)"
       - unorderedResult: [{ ID: 100 }, { ID: 101 }, { ID: 102 }, { ID: 103 }, { ID: 104 }, { ID: 105 }, { ID: 106 }, { ID: 107 } ]
     -
       - query: select id from t1 where a.a.b IS NOT NULL
