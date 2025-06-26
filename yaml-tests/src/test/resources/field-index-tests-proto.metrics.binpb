@@ -1,7 +1,7 @@
-á
+Ü
 è
-field-index-tests-prototEXPLAIN select count(*) from (select * from (select * from (select * from "MyTable"  where ID = 5) as x) as y) as z;Ú
-ÑıãÙq ∆∫ƒ(0ª…8&@öSCAN([EQUALS promote(@c23 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)∑digraph G {
+field-index-tests-prototEXPLAIN select count(*) from (select * from (select * from (select * from "MyTable"  where ID = 5) as x) as y) as z;Ò
+˜ƒñ∫q ç£~(0ÁÉ8&@öSCAN([EQUALS promote(@c23 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)∑digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -19,7 +19,7 @@
 }ƒ
 C
 field-index-tests-proto(EXPLAIN select sum(COL1) from "MyTable";¸
-˚ûç®? ˇÀ(0∆¿8@^SCAN(<,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)ˇdigraph G {
+˜ñÒ§? ﬂ‰l(0÷»8@^SCAN(<,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)ˇdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -37,7 +37,7 @@ C
 }è
 E
 field-index-tests-proto*EXPLAIN select count(COL1) from "MyTable";≈
-˚◊£˙? ﬂ¸e(0úÃ8@ÇSCAN(<,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)£digraph G {
+˜•èÜ? Ì¡e(0‡∆8@ÇSCAN(<,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)£digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

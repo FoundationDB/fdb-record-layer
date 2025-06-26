@@ -4,7 +4,7 @@ standard-tests-metadata:
     explain: SCAN([EQUALS promote(@c23 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*)
         AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)
-    task_count: 388
+    task_count: 375
     task_total_time_ms: 14
     transform_count: 113
     transform_time_ms: 3

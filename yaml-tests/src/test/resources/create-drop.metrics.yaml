@@ -3,7 +3,7 @@ unnamed-4:
     explain: SCAN(<,>) | TFILTER TEMPLATES | FILTER _.TEMPLATE_NAME EQUALS promote(@c11
         AS STRING) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP
         (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
-    task_count: 335
+    task_count: 331
     task_total_time_ms: 3
     transform_count: 85
     transform_time_ms: 1
@@ -16,7 +16,7 @@ unnamed-10:
     explain: SCAN(<,>) | TFILTER DATABASES | FILTER _.DATABASE_ID EQUALS promote(@c11
         AS STRING) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP
         (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
-    task_count: 347
+    task_count: 343
     task_total_time_ms: 4
     transform_count: 92
     transform_time_ms: 2
@@ -31,8 +31,8 @@ unnamed-20:
         EQUALS promote(@c11 AS STRING) | FETCH | MAP (_ AS _0) | AGG (count_star(*)
         AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)'
-    task_count: 561
-    task_total_time_ms: 7
+    task_count: 557
+    task_total_time_ms: 6
     transform_count: 137
     transform_time_ms: 3
     transform_yield_count: 39

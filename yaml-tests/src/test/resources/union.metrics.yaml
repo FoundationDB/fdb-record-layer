@@ -7,10 +7,10 @@ union-tests:
         AS _0, count_star(*) AS _1) | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1,
         promote(0l AS LONG)) AS B) | MAP (_ AS _0) | AGG (sum_l(_._0.A) AS _0, sum_l(_._0.B)
         AS _1) | ON EMPTY NULL | MAP (_._0._0 AS A, _._0._1 AS B)
-    task_count: 777
-    task_total_time_ms: 24
+    task_count: 765
+    task_total_time_ms: 25
     transform_count: 189
-    transform_time_ms: 6
+    transform_time_ms: 7
     transform_yield_count: 53
     insert_time_ms: 0
     insert_new_count: 76
@@ -22,10 +22,10 @@ union-tests:
         | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) |
         ON EMPTY NULL | MAP (_._0._0 AS S)'
-    task_count: 788
+    task_count: 773
     task_total_time_ms: 32
     transform_count: 220
-    transform_time_ms: 13
+    transform_time_ms: 11
     transform_yield_count: 55
     insert_time_ms: 0
     insert_new_count: 68
@@ -37,10 +37,10 @@ union-tests:
         <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) |
         ON EMPTY NULL | MAP (_._0._0 AS S)
-    task_count: 816
-    task_total_time_ms: 27
+    task_count: 801
+    task_total_time_ms: 31
     transform_count: 203
-    transform_time_ms: 8
+    transform_time_ms: 9
     transform_yield_count: 60
     insert_time_ms: 1
     insert_new_count: 80
@@ -52,10 +52,10 @@ union-tests:
         <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) |
         ON EMPTY NULL | MAP (_._0._0 AS S)'
-    task_count: 1098
+    task_count: 1083
     task_total_time_ms: 41
     transform_count: 311
-    transform_time_ms: 14
+    transform_time_ms: 12
     transform_yield_count: 74
     insert_time_ms: 1
     insert_new_count: 104

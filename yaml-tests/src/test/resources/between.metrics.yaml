@@ -2,7 +2,7 @@ between-index-tests:
 -   query: EXPLAIN select * from t1 WHERE col1 BETWEEN 10 AND 10
     explain: ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c8 AS INT) && LESS_THAN_OR_EQUALS
         promote(@c8 AS INT)]])
-    task_count: 313
+    task_count: 311
     task_total_time_ms: 15
     transform_count: 76
     transform_time_ms: 5
@@ -13,7 +13,7 @@ between-index-tests:
 -   query: EXPLAIN select * from t1 WHERE col1 + 5 BETWEEN 10 AND 20
     explain: ISCAN(I1 <,>) | FILTER _.COL1 + @c8 GREATER_THAN_OR_EQUALS promote(@c10
         AS INT) AND _.COL1 + @c8 LESS_THAN_OR_EQUALS promote(@c12 AS INT)
-    task_count: 277
+    task_count: 275
     task_total_time_ms: 14
     transform_count: 72
     transform_time_ms: 5
@@ -24,7 +24,7 @@ between-index-tests:
 -   query: EXPLAIN select * from t1 WHERE col1 + 5 NOT BETWEEN 10 AND 20
     explain: ISCAN(I1 <,>) | FILTER _.COL1 + @c8 LESS_THAN promote(@c11 AS INT) OR
         _.COL1 + @c8 GREATER_THAN promote(@c13 AS INT)
-    task_count: 277
+    task_count: 275
     task_total_time_ms: 15
     transform_count: 73
     transform_time_ms: 6

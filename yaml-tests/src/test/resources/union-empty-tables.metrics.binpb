@@ -1,7 +1,7 @@
 ≠
 A
 	unnamed-14EXPLAIN select sum(col1) as a, count(*) as b from t1Á
-à†”Ô@ ›Ô`(0∞À8@±SCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0, count_star(*) AS _1) | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1, promote(0l AS LONG)) AS B)ñdigraph G {
+Ñ‰üå@ Ñ¿y(0ˆ∫8@±SCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0, count_star(*) AS _1) | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1, promote(0l AS LONG)) AS B)ñdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -21,7 +21,7 @@ A
 }‰J
 •
 	unnamed-1óEXPLAIN select sum(a) as a, sum(b) as b from (select sum(col1) as a, count(*) as b from t1 union all select sum(col1) as a, count(*) as b from t2) as xπI
-øÒã©Æ Ø⁄÷(*0Ö¶/8@@€SCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0, count_star(*) AS _1) | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1, promote(0l AS LONG)) AS B) ‚äé SCAN(<,>) | TFILTER T2 | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0, count_star(*) AS _1) | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1, promote(0l AS LONG)) AS B) | MAP (_ AS _0) | AGG (sum_l(_._0.A) AS _0, sum_l(_._0.B) AS _1) | ON EMPTY NULL | MAP (_._0._0 AS A, _._0._1 AS B)ºEdigraph G {
+≥Ìß≥Æ Ç≈∂(*0Œ¥58@@€SCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0, count_star(*) AS _1) | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1, promote(0l AS LONG)) AS B) ‚äé SCAN(<,>) | TFILTER T2 | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0, count_star(*) AS _1) | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1, promote(0l AS LONG)) AS B) | MAP (_ AS _0) | AGG (sum_l(_._0.A) AS _0, sum_l(_._0.B) AS _1) | ON EMPTY NULL | MAP (_._0._0 AS A, _._0._1 AS B)ºEdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -65,7 +65,7 @@ A
 }¢!
 R
 	unnamed-1EEXPLAIN select col1, col2 from t1 union all select col1, col2 from t1À 
-«üØÖP ©∆’(0æ˘28!@SCAN(<,>) | TFILTER T1 | MAP (_.COL1 AS COL1, _.COL2 AS COL2) ‚äé SCAN(<,>) | TFILTER T1 | MAP (_.COL1 AS COL1, _.COL2 AS COL2)¨digraph G {
+√Ω¿´P Ñ«¬(0Œ◊ 8!@SCAN(<,>) | TFILTER T1 | MAP (_.COL1 AS COL1, _.COL2 AS COL2) ‚äé SCAN(<,>) | TFILTER T1 | MAP (_.COL1 AS COL1, _.COL2 AS COL2)¨digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -89,7 +89,7 @@ R
 }˘
 A
 	unnamed-14EXPLAIN select * from t1 union all select * from t1;≥
-«•‰èP ∑áï(0˜è8@1SCAN(<,>) | TFILTER T1 ‚äé SCAN(<,>) | TFILTER T1‚digraph G {
+√Ì£⁄P ÂÇ≤(0å‰8@1SCAN(<,>) | TFILTER T1 ‚äé SCAN(<,>) | TFILTER T1‚digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -109,7 +109,7 @@ A
 }®
 N
 	unnamed-1AEXPLAIN select * from t1 union all select id, col1, col2 from t1;’
-„ÇçÂU ⁄‘Ü(0Öá8!@dSCAN(<,>) | TFILTER T1 ‚äé SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)—digraph G {
+ﬂ¨üæU ¬äÆ(0«æ8!@dSCAN(<,>) | TFILTER T1 ‚äé SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)—digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -131,7 +131,7 @@ N
 }®
 N
 	unnamed-1AEXPLAIN select id, col1, col2 from t1 union all select * from t1;’
-„⁄ò◊U óÓâ(0àò8!@dSCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) ‚äé SCAN(<,>) | TFILTER T1—digraph G {
+ﬂ¨ÌœU ®Ú∏(0‹ù8!@dSCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2) ‚äé SCAN(<,>) | TFILTER T1—digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -153,7 +153,7 @@ N
 }÷%
 ]
 	unnamed-1PEXPLAIN select id as W, col1 as X, col2 as Y from t1 union all select * from t1;Ù$
-«¸óÇv ó‚∑(0ÄÆ8'@µSCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ‚äé SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)û#digraph G {
+øûµùv íÂÕ(0é÷8'@µSCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ‚äé SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)û#digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -179,7 +179,7 @@ N
 }ÿ%
 _
 	unnamed-1REXPLAIN (select id as W, col1 as X, col2 as Y from t1) union all select * from t1;Ù$
-«…‹¨v Û£·(0ì∆#8'@µSCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ‚äé SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)û#digraph G {
+øÄ≠Óv ‹≥Ã(0å(8'@µSCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ‚äé SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)û#digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -205,7 +205,7 @@ _
 }ÿ%
 _
 	unnamed-1REXPLAIN select id as W, col1 as X, col2 as Y from t1 union all (select * from t1);Ù$
-«∏¨Êv ˜É√(0ª®8'@µSCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ‚äé SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)û#digraph G {
+øêÁØv Áéÿ(0˙®!8'@µSCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ‚äé SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)û#digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -231,7 +231,7 @@ _
 }⁄%
 a
 	unnamed-1TEXPLAIN (select id as W, col1 as X, col2 as Y from t1 union all (select * from t1));Ù$
-«óÛÿv ´ëú(0ãø8'@µSCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ‚äé SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)û#digraph G {
+øÆ§æv «…î(0Ä…8'@µSCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ‚äé SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)û#digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -257,7 +257,7 @@ a
 }⁄%
 a
 	unnamed-1TEXPLAIN ((select id as W, col1 as X, col2 as Y from t1) union all select * from t1);Ù$
-«°ä±v •Ö¬(0çà!8'@µSCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ‚äé SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)û#digraph G {
+ø˛Ç˚v æÕ‚(0÷ü$8'@µSCAN(<,>) | TFILTER T1 | MAP (_.ID AS W, _.COL1 AS X, _.COL2 AS Y) | MAP (_.W AS W, _.X AS X, _.Y AS Y) ‚äé SCAN(<,>) | TFILTER T1 | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)û#digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -283,7 +283,7 @@ a
 }†)
 F
 	unnamed-19EXPLAIN select a, b from t3 union all select a, b from t4’(
-ÌÍÅ˛É ΩËÑ('0»À 8,@√SCAN(<,>) | TFILTER T3 | MAP (_.A AS A, _.B AS B) | MAP (_.A AS A, promote(_.B AS DOUBLE) AS B) ‚äé SCAN(<,>) | TFILTER T4 | MAP (_.A AS A, _.B AS B) | MAP (promote(_.A AS DOUBLE) AS A, _.B AS B)&digraph G {
+Â‰∏¿	É áı•('0©‘%8,@√SCAN(<,>) | TFILTER T3 | MAP (_.A AS A, _.B AS B) | MAP (_.A AS A, promote(_.B AS DOUBLE) AS B) ‚äé SCAN(<,>) | TFILTER T4 | MAP (_.A AS A, _.B AS B) | MAP (promote(_.A AS DOUBLE) AS A, _.B AS B)&digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -311,7 +311,7 @@ F
 }Ï9
 ä
 	unnamed-1}EXPLAIN select sum(Y) as S from (select count(*) as Y from t3 where a < 10 group by a union all select count(*) from t4) as X‹8
-î¯”Ω‹ ˇ‰¶(70Ãà68D@œAISCAN(MV10 [[LESS_THAN promote(@c22 AS DOUBLE)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS Y) ‚äé SCAN(<,>) | TFILTER T4 | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)Î5digraph G {
+Öˇ‹Î‹ „°€(70ÛÊ78D@œAISCAN(MV10 [[LESS_THAN promote(@c22 AS DOUBLE)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS Y) ‚äé SCAN(<,>) | TFILTER T4 | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)Î5digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -347,7 +347,7 @@ F
 }πH
 r
 	unnamed-1eEXPLAIN select sum(Y) as S from (select count(*) as Y from t3 union all select count(*) from t1) as X¬G
-Ê¢üÆº •¯¬(10°“58D@ÌSCAN(<,>) | TFILTER T3 | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS Y) ‚äé SCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)≥Ddigraph G {
+◊Ö¬É	º ˚Ì‚(10˘˚/8D@ÌSCAN(<,>) | TFILTER T3 | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS Y) ‚äé SCAN(<,>) | TFILTER T1 | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)≥Ddigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -388,10 +388,10 @@ r
   18 -> 16 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   19 -> 17 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q26> label="q26" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}æ@
+}ø@
 Ö
-	unnamed-1xEXPLAIN select col2 from t1 where exists (select a from t3 where col2 <= id union all select b from t4 where col2 <= id)≥?
-ëÓÅ√Ê ∆Úﬂ(=0ﬂ™\8M@öSCAN(<,>) | TFILTER T1 | FLATMAP q0 -> { SCAN(<,>) | TFILTER T3 | FILTER _.ID GREATER_THAN_OR_EQUALS q0.COL2 | MAP (_.A AS A) ‚äé SCAN(<,>) | TFILTER T4 | FILTER _.ID GREATER_THAN_OR_EQUALS q0.COL2 | MAP (_.B AS B) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.COL2 AS COL2) }˜<digraph G {
+	unnamed-1xEXPLAIN select col2 from t1 where exists (select a from t3 where col2 <= id union all select b from t4 where col2 <= id)¥?
+Ö‚ÕÊ €Ç(=0óÛû8M@öSCAN(<,>) | TFILTER T1 | FLATMAP q0 -> { SCAN(<,>) | TFILTER T3 | FILTER _.ID GREATER_THAN_OR_EQUALS q0.COL2 | MAP (_.A AS A) ‚äé SCAN(<,>) | TFILTER T4 | FILTER _.ID GREATER_THAN_OR_EQUALS q0.COL2 | MAP (_.B AS B) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.COL2 AS COL2) }˜<digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

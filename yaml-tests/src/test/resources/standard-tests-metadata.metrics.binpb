@@ -1,7 +1,7 @@
 ˚
 à
 standard-tests-metadatamEXPLAIN select count(*) from (select * from (select * from (select * from T1  where ID = 5) as x) as y) as z;Ì
-Ñ∆Ÿáq ≤˜‡(0˘Ñ8&@öSCAN([EQUALS promote(@c23 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)≤digraph G {
+˜ù„ëq ´À·(0Â÷8&@öSCAN([EQUALS promote(@c23 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)≤digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
