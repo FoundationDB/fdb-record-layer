@@ -1,7 +1,7 @@
 Û
 X
 	unnamed-2KEXPLAIN select "__ROW_VERSION" as version, t1.col2 from t1 where col1 = 10;ñ
-Ω–’›≥ Ô¸ñ(:0÷‘X8L@XISCAN(I1 [EQUALS promote(@c14 AS LONG)]) | MAP (version([_]) AS VERSION, _.COL2 AS COL2)ù
+ª£Ò‚≥ ™Ø£(:0ÃËw8L@XISCAN(I1 [EQUALS promote(@c14 AS LONG)]) | MAP (version([_]) AS VERSION, _.COL2 AS COL2)ù
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -14,7 +14,7 @@ digraph G {
 }±
 9
 	unnamed-2,EXPLAIN select t1.* from t1 where col1 = 10;Û
-ΩõÖÇÇ ª¯≤(;0£¬Q8?@(ISCAN(I1 [EQUALS promote(@c10 AS LONG)])™digraph G {
+ªﬂ˙–Ç ˙ê∫(;0ÎÃO8?@(ISCAN(I1 [EQUALS promote(@c10 AS LONG)])™digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -24,7 +24,7 @@ digraph G {
 }°
 Ö
 	unnamed-2xEXPLAIN select s.version, s.col2 from (select "__ROW_VERSION" as version, t1.col2 as col2 from t1 where col1 = 10) AS s;ñ
-⁄¥ŒÑæ Ÿ‰(<0íˇ^8P@XISCAN(I1 [EQUALS promote(@c26 AS LONG)]) | MAP (version([_]) AS VERSION, _.COL2 AS COL2)ù
+’û∂áæ ›Ä¿(<0¢s8P@XISCAN(I1 [EQUALS promote(@c26 AS LONG)]) | MAP (version([_]) AS VERSION, _.COL2 AS COL2)ù
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -37,7 +37,7 @@ digraph G {
 }ß
 z
 	unnamed-2mEXPLAIN select s."__ROW_VERSION", s.col2 from (select "__ROW_VERSION", t1.col2 from t1 where col1 = 10) AS s;®
-⁄∑◊Áæ °˛Æ(<0Ãéu8P@^ISCAN(I1 [EQUALS promote(@c22 AS LONG)]) | MAP (version([_]) AS __ROW_VERSION, _.COL2 AS COL2)©
+’ÚŒùæ •é„(<0“™t8P@^ISCAN(I1 [EQUALS promote(@c22 AS LONG)]) | MAP (version([_]) AS __ROW_VERSION, _.COL2 AS COL2)©
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -50,7 +50,7 @@ digraph G {
 }™
 U
 	unnamed-2HEXPLAIN select "__ROW_VERSION" as version, t1.* from t1 where col1 = 20;–
-ΩΩÈ•≥ ß°ú(:0æ˙s8L@tISCAN(I1 [EQUALS promote(@c14 AS LONG)]) | MAP (version([_]) AS VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)ª
+ªﬁ¸÷≥ áêò(:0·õn8L@tISCAN(I1 [EQUALS promote(@c14 AS LONG)]) | MAP (version([_]) AS VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)ª
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -63,7 +63,7 @@ digraph G {
 }‰
 W
 	unnamed-2JEXPLAIN select "__ROW_VERSION" as version, (t1.*) from t1 where col1 = 20;à
-Ω„äª≥ ¸Œã(:0Ø˘p8L@QISCAN(I1 [EQUALS promote(@c16 AS LONG)]) | MAP (version([_]) AS VERSION, _ AS _1)ñ
+ªÄÇ˜≥ ‡ãË(:0ô≥w8L@QISCAN(I1 [EQUALS promote(@c16 AS LONG)]) | MAP (version([_]) AS VERSION, _ AS _1)ñ
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -76,7 +76,7 @@ digraph G {
 }±
 J
 	unnamed-2=EXPLAIN select "__ROW_VERSION", t1.* from t1 where col1 = 20;‚
-ΩÆò®≥ à»≤(:0¶˛t8L@zISCAN(I1 [EQUALS promote(@c12 AS LONG)]) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)«
+ªˆ≤Ê≥ Ã–Õ(:0Î˘i8L@zISCAN(I1 [EQUALS promote(@c12 AS LONG)]) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)«
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -89,7 +89,7 @@ digraph G {
 }Î
 L
 	unnamed-2?EXPLAIN select "__ROW_VERSION", (t1.*) from t1 where col1 = 20;ö
-Ω∞Ú≥ ˛¿Ã(:0√¡|8L@WISCAN(I1 [EQUALS promote(@c14 AS LONG)]) | MAP (version([_]) AS __ROW_VERSION, _ AS _1)¢
+ªÀªä≥ ªÈŒ(:0Õs8L@WISCAN(I1 [EQUALS promote(@c14 AS LONG)]) | MAP (version([_]) AS __ROW_VERSION, _ AS _1)¢
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -102,7 +102,7 @@ digraph G {
 }‰
 X
 	unnamed-2KEXPLAIN select "__ROW_VERSION", t1.id from t1 order by "__ROW_VERSION" ASC;á
-–®ÒÉ8 ﬁ¿◊( 0≤˜8@JISCAN(VERSION_INDEX <,>) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID)ù
+ŒÓ•√8 ¡∑Û( 0√ã8@JISCAN(VERSION_INDEX <,>) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID)ù
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -115,7 +115,7 @@ digraph G {
 }¢
 \
 	unnamed-2OEXPLAIN select t1."__ROW_VERSION", t1.id from t1 order by "__ROW_VERSION" DESC;¡
-–µÔ√8 ¥ÙÇ( 0—»8@RISCAN(VERSION_INDEX <,> REVERSE) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID)œ
+Œ¸πÃ8 ˇ¶…( 0Ôê8@RISCAN(VERSION_INDEX <,> REVERSE) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID)œ
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -128,7 +128,7 @@ digraph G {
 }µ
 k
 	unnamed-2^EXPLAIN select t1."__ROW_VERSION", t1.id from t1 where col1 = 20 order by "__ROW_VERSION" ASC;≈
-·óˇãe ‡∑ª('0∂˜8!@mISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c14 AS LONG)]) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID)∏
+ﬂÛàÎe ´—ø('0Õı8!@mISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c14 AS LONG)]) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID)∏
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -141,7 +141,7 @@ digraph G {
 }Ì
 i
 	unnamed-2\EXPLAIN select "__ROW_VERSION", t1.id from t1 where col1 = 20 order by "__ROW_VERSION" DESC;ˇ
-·π©â	e ©í¸('0ç˙ 8!@uISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c12 AS LONG)] REVERSE) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID)Í
+ﬂØÒ∫e ™ÜŸ('0ô∂8!@uISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c12 AS LONG)] REVERSE) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID)Í
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -154,7 +154,7 @@ digraph G {
 }Ù
 x
 	unnamed-2kEXPLAIN select "__ROW_VERSION", col1, t1.id from t1 where col1 > 10 order by col1 asc, "__ROW_VERSION" asc;˜
-ª¯¸Ã	U ø¿π(%0ÜÏ8@ÖISCAN(GROUPED_VERSION_INDEX [[GREATER_THAN promote(@c14 AS LONG)]]) | MAP (version([_]) AS __ROW_VERSION, _.COL1 AS COL1, _.ID AS ID)—
+π∑£—U ôÖ¡(%0ßΩ8@ÖISCAN(GROUPED_VERSION_INDEX [[GREATER_THAN promote(@c14 AS LONG)]]) | MAP (version([_]) AS __ROW_VERSION, _.COL1 AS COL1, _.ID AS ID)—
 digraph G {
   fontname=courier;
   rankdir=BT;

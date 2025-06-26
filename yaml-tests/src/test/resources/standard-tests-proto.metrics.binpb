@@ -1,7 +1,7 @@
 ä
 ]
 	unnamed-2PEXPLAIN select * from (select * from (select * from T1) as x where ID = 5) as y;‚
-ÂæğS ˜Ìç(0â(8@$SCAN([EQUALS promote(@c19 AS LONG)])¾digraph G {
+õ¼ØõS Å–ê(0Ûü%8@$SCAN([EQUALS promote(@c19 AS LONG)])¾digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -11,7 +11,7 @@
 }ä
 ]
 	unnamed-2PEXPLAIN select * from (select * from (select * from T1) as x) as y where ID = 5;‚
-°­’¹f ¬É(0ÁŠD8%@$SCAN([EQUALS promote(@c22 AS LONG)])¾digraph G {
+ŸÏëÏf æàı(0ò…<8%@$SCAN([EQUALS promote(@c22 AS LONG)])¾digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -21,7 +21,7 @@
 }ì
 z
 	unnamed-2mEXPLAIN select count(*) from (select * from (select * from (select * from T1  where ID = 5) as x) as y) as z;í
-„ÇÀq ˆéû(0Ô¤"8&@šSCAN([EQUALS promote(@c23 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)²digraph G {
+÷¹³ğq ó¹ß(0üú8&@šSCAN([EQUALS promote(@c23 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)²digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -39,7 +39,7 @@ z
 }‹
 t
 	unnamed-2gEXPLAIN select * from (select * from (select * from (select * from T1  where ID > 10) as x) as y) as z;’
-ù¾ŞN  ˆ×(0ÚË8@,SCAN([[GREATER_THAN promote(@c20 AS LONG)]])Ædigraph G {
+î÷½àN ™½Õ(0·Í8@,SCAN([[GREATER_THAN promote(@c20 AS LONG)]])Ædigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

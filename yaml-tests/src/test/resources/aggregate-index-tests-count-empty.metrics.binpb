@@ -1,7 +1,8 @@
 Ω
 >
 agg-index-tests-count-emptyEXPLAIN select count(*) from t1˙
-’¸èƒ	ã ñáŸ(+0˝Œ'8)@ÖAISCAN(MV1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)”digraph G {
+—îﬂ˘
+ã ‹ÍÑ(+0„‹38)@ÖAISCAN(MV1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)”digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -17,7 +18,7 @@
 }—
 L
 agg-index-tests-count-empty-EXPLAIN select count(*) from t1 group by col2Ä
-‡™÷ån é›à((0Ö∆8@KAISCAN(MV2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)ï
+‹û¶¥n »ü…((0°ã8@KAISCAN(MV2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)ï
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -30,7 +31,8 @@ digraph G {
 }¿
 A
 agg-index-tests-count-empty"EXPLAIN select count(col1) from t1˙
-’ºı	ã åéÓ(+0˜∂"8)@ÖAISCAN(MV3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)”digraph G {
+—ÔÒ˙
+ã çˆç(+0‘˚*8)@ÖAISCAN(MV3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)”digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -46,8 +48,8 @@ A
 }‘
 O
 agg-index-tests-count-empty0EXPLAIN select count(col1) from t1 group by col2Ä
-‡∏ø∫
-n ´√Ñ((0Ëã8@KAISCAN(MV4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)ï
+‹˝ª«
+n û˚Ô((0”®8@KAISCAN(MV4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)ï
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -60,7 +62,7 @@ digraph G {
 }Ó
 >
 agg-index-tests-count-emptyEXPLAIN select count(*) from t2´
-–Ÿú®N Ø´˘(0˚Ê8$@ÑISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)Üdigraph G {
+Ã¬Ù‚N ¶‘˙(0˝Æ8$@ÑISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)Üdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -78,7 +80,7 @@ digraph G {
 }∞
 L
 agg-index-tests-count-empty-EXPLAIN select count(*) from t2 group by col2ﬂ
-ï˚Ã±H ˆ¶Â(0ª”8@kISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0 AS _0)‘digraph G {
+ë¡ÍºH ÷‰ (0Û™8@kISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0 AS _0)‘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -94,7 +96,7 @@ L
 }˘
 A
 agg-index-tests-count-empty"EXPLAIN select count(col1) from t2≥
-–ﬁŒÓN ∏œÅ(0—∆8$@áISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)ãdigraph G {
+ÃÙÌ±N À¯ö(0Ò¡#8$@áISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)ãdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -112,7 +114,7 @@ A
 }ª
 O
 agg-index-tests-count-empty0EXPLAIN select count(col1) from t2 group by col2Á
-ïœﬂúH ¨íÊ(0¸«8@nISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0 AS _0)Ÿdigraph G {
+ëê¶±H €ÅÔ(0Ú¿8@nISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0 AS _0)Ÿdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

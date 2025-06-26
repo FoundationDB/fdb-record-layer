@@ -2,7 +2,7 @@ unnamed-2:
 -   query: EXPLAIN select * from (select * from (select * from T1) as x where ID =
         5) as y;
     explain: SCAN([EQUALS promote(@c19 AS LONG)])
-    task_count: 257
+    task_count: 245
     task_total_time_ms: 14
     transform_count: 83
     transform_time_ms: 3
@@ -13,12 +13,12 @@ unnamed-2:
 -   query: EXPLAIN select * from (select * from (select * from T1) as x) as y where
         ID = 5;
     explain: SCAN([EQUALS promote(@c22 AS LONG)])
-    task_count: 304
-    task_total_time_ms: 17
+    task_count: 287
+    task_total_time_ms: 15
     transform_count: 102
     transform_time_ms: 4
     transform_yield_count: 26
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 37
     insert_reused_count: 8
 -   query: EXPLAIN select count(*) from (select * from (select * from (select * from
@@ -26,10 +26,10 @@ unnamed-2:
     explain: SCAN([EQUALS promote(@c23 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*)
         AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)
-    task_count: 388
-    task_total_time_ms: 15
+    task_count: 375
+    task_total_time_ms: 14
     transform_count: 113
-    transform_time_ms: 4
+    transform_time_ms: 3
     transform_yield_count: 25
     insert_time_ms: 0
     insert_new_count: 38
@@ -37,7 +37,7 @@ unnamed-2:
 -   query: EXPLAIN select * from (select * from (select * from (select * from T1  where
         ID > 10) as x) as y) as z;
     explain: SCAN([[GREATER_THAN promote(@c20 AS LONG)]])
-    task_count: 249
+    task_count: 238
     task_total_time_ms: 14
     transform_count: 78
     transform_time_ms: 3
