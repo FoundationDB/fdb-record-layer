@@ -32,8 +32,10 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.ConstantFoldingRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -48,6 +50,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Optional;
 
 public class ConstantFoldingTestUtils {
@@ -55,9 +58,16 @@ public class ConstantFoldingTestUtils {
     private static int counter;
 
     @Nonnull
-    private static final Type.Record aType = Type.Record.fromFields(ImmutableList.of(
-            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("aInt")),
-            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("bString"))));
+    public static final Type.Record lowerType = Type.Record.fromFields(false, List.of(
+            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, false), Optional.of("a_non_null")),
+            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("b_nullable"))
+    ));
+
+    @Nonnull
+    public static final Type.Record upperType = Type.Record.fromFields(false, List.of(
+            Type.Record.Field.of(lowerType.withNullability(false), Optional.of("a_non_null")),
+            Type.Record.Field.of(lowerType.withNullability(true), Optional.of("b_nullable"))
+    ));
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     public static final class ValueWrapper {
@@ -88,6 +98,16 @@ public class ConstantFoldingTestUtils {
         public EvaluationContext getEvaluationContext() {
             Verify.verify(getEvaluationContextMaybe().isPresent());
             return getEvaluationContextMaybe().get();
+        }
+
+        @Nonnull
+        public EvaluationContext getEvaluationContextOrEmpty() {
+            return evaluationContext.orElse(EvaluationContext.EMPTY);
+        }
+
+        @Nonnull
+        public ValueWrapper withNewValue(@Nonnull Value value) {
+            return new ValueWrapper(value, evaluationContext);
         }
 
         @Override
@@ -234,6 +254,18 @@ public class ConstantFoldingTestUtils {
     public static ValueWrapper promoteToBoolean(@Nonnull ValueWrapper valueWrapper) {
         final var promoteValue = new PromoteValue(valueWrapper.value(), Type.primitiveType(Type.TypeCode.BOOLEAN), null);
         return ValueWrapper.of(valueWrapper.getEvaluationContextMaybe(), promoteValue);
+    }
+
+    @Nonnull
+    public static ValueWrapper qov(Type type) {
+        final QuantifiedObjectValue qov = QuantifiedObjectValue.of(Quantifier.current(), type);
+        return new ValueWrapper(qov, Optional.empty());
+    }
+
+    @Nonnull
+    public static ValueWrapper fieldValue(@Nonnull ValueWrapper baseValue, @Nonnull String fieldName) {
+        final FieldValue fieldValue = FieldValue.ofFieldNameAndFuseIfPossible(baseValue.value(), fieldName);
+        return baseValue.withNewValue(fieldValue);
     }
 
     @Nonnull

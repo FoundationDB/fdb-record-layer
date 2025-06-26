@@ -38,11 +38,12 @@ import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithChildren;
-import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.DerivedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
@@ -79,7 +80,26 @@ public class RecordQueryDefaultOnEmptyPlan implements RecordQueryPlanWithChild, 
         Verify.verify(inner.getFlowedObjectType().nullable().equals(onEmptyResultValue.getResultType().nullable()));
         this.inner = inner;
         this.onEmptyResultValue = onEmptyResultValue;
-        this.resultValue = new DerivedValue(ImmutableList.of(inner.getFlowedObjectValue(), onEmptyResultValue), inner.getFlowedObjectType());
+        this.resultValue = new DerivedValue(ImmutableList.of(inner.getFlowedObjectValue(), onEmptyResultValue), chooseNullableType(inner.getFlowedObjectType(), onEmptyResultValue.getResultType()));
+    }
+
+    /**
+     * Choose the type that is nullable, if any. That is, if one type is nullable and the other
+     * one is not, return the nullable one. Otherwise (that is, the two types have the same nullability),
+     * choose {@code type1}.
+     *
+     * @param type1 the first type
+     * @param type2 the second type
+     * @return whichever of {@code type1} and {@code type2} are nullable
+     *   or {@code type1} if both are not nullable (or both are nullable)
+     */
+    @Nonnull
+    private static Type chooseNullableType(@Nonnull Type type1, @Nonnull Type type2) {
+        if (type1.isNullable()) {
+            return type1;
+        } else {
+            return type2.isNullable() ? type2 : type1;
+        }
     }
 
     @Nonnull

@@ -216,6 +216,15 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     @Nonnull
     Type withNullability(boolean newIsNullable);
 
+    @Nonnull
+    default Type overrideIfNullable(boolean shouldBeNullable) {
+        if (shouldBeNullable && !isNullable()) {
+            return withNullability(true);
+        } else {
+            return this;
+        }
+    }
+
     /**
      * Safe-casts {@code this} into a {@link Array}.
      *
@@ -1906,6 +1915,9 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         @Nonnull
         @Override
         public Record withNullability(final boolean newIsNullable) {
+            if (isNullable == newIsNullable) {
+                return this;
+            }
             return new Record(name, newIsNullable, fields);
         }
 
@@ -2436,6 +2448,20 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                 }
             }
 
+            @Nonnull
+            public Field withNullability(boolean newNullability) {
+                if (getFieldType().isNullable() == newNullability) {
+                    return this;
+                }
+                var newFieldType = getFieldType().withNullability(newNullability);
+                return new Field(newFieldType, fieldNameOptional, fieldIndexOptional);
+            }
+
+            @Nonnull
+            public Field withOverriddenTypeIfNullable(boolean shouldBeNullable) {
+                return shouldBeNullable ? withNullability(true) : this;
+            }
+
             @Override
             public boolean equals(final Object o) {
                 if (o == null) {
@@ -2795,6 +2821,9 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         @Nonnull
         @Override
         public Array withNullability(final boolean newIsNullable) {
+            if (newIsNullable == isNullable) {
+                return this;
+            }
             return new Array(newIsNullable, elementType);
         }
 
