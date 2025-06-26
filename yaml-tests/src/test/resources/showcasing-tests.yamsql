@@ -169,8 +169,8 @@ test_block:
     # an individual test_block. This overrides the version specified in the file
     supported_version: 4.0.560.0
     # specifies the connection options. This may not be supported by every connection type
-    connection_options:
-      DISABLE_PLANNER_REWRITING: false
+    # connection_options:
+    #   DISABLE_PLANNER_REWRITING: false
   tests:
     -
       # We can selectively ignore part of the result set, by using the `!ignore dc` tag, which will cause

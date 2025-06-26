@@ -399,7 +399,7 @@ public final class Options {
         data.put(Name.MAX_ROWS, List.of(TypeContract.intType(), RangeContract.of(0, Integer.MAX_VALUE)));
         data.put(Name.INDEX_FETCH_METHOD, List.of(TypeContract.of(IndexFetchMethod.class, IndexFetchMethod::valueOf)));
         data.put(Name.DISABLE_PLANNER_REWRITING, List.of(TypeContract.booleanType()));
-        data.put(Name.DISABLED_PLANNER_RULES, List.of(new CollectionContract(TypeContract.stringType())));
+        data.put(Name.DISABLED_PLANNER_RULES, List.of(new CollectionContract<>(TypeContract.stringType())));
         data.put(Name.INDEX_HINT, List.of(TypeContract.stringType()));
         data.put(Name.PLAN_CACHE_PRIMARY_MAX_ENTRIES, List.of(TypeContract.intType(), RangeContract.of(0, Integer.MAX_VALUE)));
         data.put(Name.PLAN_CACHE_PRIMARY_TIME_TO_LIVE_MILLIS, List.of(TypeContract.longType(), RangeContract.of(10L, Long.MAX_VALUE)));

@@ -1,9 +1,9 @@
 /*
- * YamlIntegrationTests.java
+ * YamlIntegrationDisabledPlannerRewritesTests.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,9 @@ import com.apple.foundationdb.relational.yamltests.YamlTestConfigFilters;
 import org.junit.jupiter.api.TestTemplate;
 
 /**
- * Class covering the standard integration tests specified by yamsql files.
+ * Class covering the standard integration tests specified by yamsql files. This class temporarily provides coverage
+ * for the test suite of queries we normally run as part of CI, with the caveat that all rules in
+ * {@link com.apple.foundationdb.record.query.plan.cascades.RewritingRuleSet} that are deemed optional are disabled.
  * <br>
  * Note: Use {@link MaintainYamlTestConfig} using {@link YamlTestConfigFilters#CORRECT_EXPLAIN_AND_METRICS} or similar
  *       to correct explain strings and/or planner metrics. That annotation works both on class and on method level.
@@ -128,6 +130,18 @@ public class YamlIntegrationDisabledPlannerRewritesTests {
         runner.runYamsql(PREFIX + "/nested-tests.yamsql");
     }
 
+    @TestTemplate
+    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
+    public void nestedWithNulls(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/nested-with-nulls.yamsql");
+    }
+
+    @TestTemplate
+    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
+    public void nestedWithNullsProto(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql(PREFIX + "/nested-with-nulls-proto.yamsql");
+    }
+    
     @TestTemplate
     public void orderBy(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/orderby.yamsql");

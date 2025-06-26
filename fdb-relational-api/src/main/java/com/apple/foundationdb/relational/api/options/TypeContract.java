@@ -30,7 +30,7 @@ import java.sql.SQLException;
 import java.util.function.Function;
 
 @API(API.Status.EXPERIMENTAL)
-public class TypeContract<T> implements OptionContract {
+public class TypeContract<T> implements OptionContract, OptionContractWithConversion<T> {
 
     @Nonnull
     private static final TypeContract<Boolean> BOOLEAN_TYPE = new TypeContract<>(Boolean.class, Boolean::parseBoolean);
@@ -63,6 +63,7 @@ public class TypeContract<T> implements OptionContract {
     }
 
     @Nullable
+    @Override
     public T fromString(String valueAsString) throws SQLException {
         return fromStringFunction.apply(valueAsString);
     }
