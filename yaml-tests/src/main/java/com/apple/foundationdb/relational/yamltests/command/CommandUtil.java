@@ -36,7 +36,13 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 
 import javax.annotation.Nonnull;
+import javax.json.Json;
+import javax.json.JsonArray;
+import javax.json.JsonObject;
+import javax.json.JsonReader;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
@@ -100,6 +106,16 @@ public class CommandUtil {
             JsonFormat.parser().ignoringUnknownFields().merge(json, builder);
         } catch (IOException e) {
             throw new RuntimeException(e);
+        }
+        try (InputStream fis = new FileInputStream(jsonFileName);
+             JsonReader reader = Json.createReader(fis)) {
+            // Read the JSON object
+            JsonObject jsonObject = reader.readObject();
+            // Extract specific field
+            String name = jsonObject.getJsonObject("records").getString("dependency");
+            System.out.println("Name: " + name);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
         return RecordMetaData.newBuilder()
                 .addDependency(CKRecordDBProto.getDescriptor())
