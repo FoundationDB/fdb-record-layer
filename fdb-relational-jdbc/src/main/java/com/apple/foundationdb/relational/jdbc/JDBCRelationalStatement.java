@@ -300,22 +300,7 @@ class JDBCRelationalStatement implements RelationalStatement {
     public int executeInsert(@Nonnull String tableName, @Nonnull List<RelationalStruct> data, @Nonnull Options options)
             throws SQLException {
         checkOpen();
-        InsertResponse insertResponse;
-        try {
-            insertResponse = this.connection.getStub().insert(InsertRequest.newBuilder()
-                    .setDataResultSet(TypeConversion.toResultSetProtobuf(data))
-                    .setDatabase(this.connection.getDatabase())
-                    .setSchema(this.connection.getSchema())
-                    .setTableName(tableName)
-                    .build());
-        } catch (StatusRuntimeException statusRuntimeException) {
-            // Is this incoming statusRuntimeException carrying a SQLException?
-            SQLException sqlException = GrpcSQLExceptionUtil.map(statusRuntimeException);
-            if (sqlException == null) {
-                throw statusRuntimeException;
-            }
-            throw sqlException;
-        }
+        InsertResponse insertResponse = connection.insert(tableName, data);
         this.updateCount = insertResponse == null ? STATEMENT_NO_RESULT : insertResponse.getRowCount();
         return this.updateCount;
     }

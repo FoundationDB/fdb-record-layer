@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.CommitResponse;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.InsertRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.RollbackResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementResponse;
@@ -86,6 +87,14 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
                         .setErrorMessage(e.getMessage())
                 );
             }
+        } else if (transactionRequest.hasInsertRequest()) {
+            final InsertRequest request = transactionRequest.getInsertRequest();
+            if (logger.isInfoEnabled()) {
+                logger.info(KeyValueLogMessage.build("Handling insert request")
+                        .addKeyAndValue(LogMessageKeys.RECORD_TYPE, request.getTableName())
+                        .toString());
+            }
+
         } else if (transactionRequest.hasCommitRequest()) {
             // handle commit
             logger.info("Handling commit request");

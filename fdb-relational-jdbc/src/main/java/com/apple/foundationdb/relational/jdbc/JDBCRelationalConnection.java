@@ -24,12 +24,15 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.jdbc.grpc.GrpcConstants;
 import com.apple.foundationdb.relational.jdbc.grpc.GrpcSQLExceptionUtil;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.CommitRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.DatabaseMetaDataRequest;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.InsertRequest;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.InsertResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.JDBCServiceGrpc;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.Parameter;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.Parameters;
@@ -223,6 +226,36 @@ class JDBCRelationalConnection implements RelationalConnection {
             }
             throw sqlException;
         }
+    }
+
+    public InsertResponse insert(@Nonnull String tableName, @Nonnull List<RelationalStruct> data) throws SQLException {
+        InsertResponse insertResponse;
+        try {
+            InsertRequest.Builder builder = InsertRequest.newBuilder()
+                    .setDataResultSet(TypeConversion.toResultSetProtobuf(data))
+                    .setDatabase(getDatabase())
+                    .setSchema(getSchema())
+                    .setTableName(tableName);
+            if (getAutoCommit()) {
+                // insert using synchronous RPC command
+                insertResponse = getStub().insert(builder.build());
+            } else {
+                // Use the stateful sender
+                TransactionalRequest.Builder transactionalRequest = TransactionalRequest.newBuilder()
+                        .setInsertRequest(builder);
+                requestSender.onNext(transactionalRequest.build());
+                // Wait here until a response arrives
+                return serverResponses.getResponse().getInsertResponse();
+            }
+        } catch (StatusRuntimeException statusRuntimeException) {
+            // Is this incoming statusRuntimeException carrying a SQLException?
+            SQLException sqlException = GrpcSQLExceptionUtil.map(statusRuntimeException);
+            if (sqlException == null) {
+                throw statusRuntimeException;
+            }
+            throw sqlException;
+        }
+        return insertResponse;
     }
 
     /**
