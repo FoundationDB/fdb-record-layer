@@ -108,6 +108,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
     void testInsertDocuments(StoredFieldsType type) throws Exception {
         Index index = type.simpleIndex;
 
+        assertEquals(2, 3);
         Set<String> segments = new HashSet<>();
         final Set<Tuple> primaryKeys = new HashSet<>();
         try (FDBRecordContext context = openContext()) {
