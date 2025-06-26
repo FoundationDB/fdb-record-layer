@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionVisitorWithDefaults;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -116,12 +117,7 @@ public class PredicateComplexityProperty implements ExpressionProperty<Integer> 
     private static PredicateComplexityProperty newInstance() {
         return new PredicateComplexityProperty(
                 expr -> expr instanceof RelationalExpressionWithPredicates
-                        ? ((RelationalExpressionWithPredicates)expr)
-                                .getPredicates()
-                                .stream()
-                                .map(TreeLike::diameter)
-                                .max(Integer::compareTo)
-                                .orElse(0)
+                        ? AndPredicate.and(((RelationalExpressionWithPredicates)expr).getPredicates()).diameter()
                         : 0,
                 true);
     }

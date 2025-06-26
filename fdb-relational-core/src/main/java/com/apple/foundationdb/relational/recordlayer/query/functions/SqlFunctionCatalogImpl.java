@@ -157,7 +157,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
         final var functionCatalog = new SqlFunctionCatalogImpl();
         metadata.getInvokedRoutines().forEach(func ->
                 functionCatalog.registerUserDefinedFunction(
-                        Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(func.getName(), isCaseSensitive)),
+                        Assert.notNullUnchecked(func.getName()),
                         func.getCompilableSqlFunctionSupplier()));
         return functionCatalog;
     }
