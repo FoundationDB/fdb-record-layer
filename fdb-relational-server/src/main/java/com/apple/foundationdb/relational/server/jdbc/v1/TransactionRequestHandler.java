@@ -23,8 +23,10 @@ package com.apple.foundationdb.relational.server.jdbc.v1;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.jdbc.TypeConversion;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.CommitResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.InsertRequest;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.InsertResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.RollbackResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementResponse;
@@ -69,7 +71,7 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
             }
             try {
                 if (transactionalToken == null || transactionalToken.expired()) {
-                    // Every transactional multi commands should start with execute. Hence only this message contains the connection information
+                    // TODO: Wow there! should MAX_ROWS be part of the connection? It might make sense to move it elsewhere
                     final Options options = Options.builder().withOption(Options.Name.MAX_ROWS, request.getOptions().getMaxRows()).build();
                     transactionalToken = frl.createTransactionalToken(request.getDatabase(), request.getSchema(), options);
                 }
@@ -77,6 +79,7 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
                         request.getParameters().getParameterList());
 
                 StatementResponse.Builder statementResponseBuilder = StatementResponse.newBuilder()
+                        .setResultSet(response.getResultSet())
                         .setRowCount(response.getRowCount());
 
                 responseBuilder.setExecuteResponse(statementResponseBuilder);
@@ -94,7 +97,20 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
                         .addKeyAndValue(LogMessageKeys.RECORD_TYPE, request.getTableName())
                         .toString());
             }
-
+            try {
+                if (transactionalToken == null || transactionalToken.expired()) {
+                    // TODO: Wow there! hard setting the options to none. This contradicts the execute initialization.
+                    transactionalToken = frl.createTransactionalToken(request.getDatabase(), request.getSchema(), Options.NONE);
+                }
+                int recordsInserted = frl.transactionalInsert(transactionalToken, request.getTableName(), TypeConversion.fromResultSetProtobuf(request.getDataResultSet()));
+                responseBuilder.setInsertResponse(InsertResponse.newBuilder().setRowCount(recordsInserted));
+            } catch (SQLException | RuntimeException e) {
+                logger.warn("Execute: Error caught", e);
+                responseBuilder.setInsertResponse(InsertResponse.newBuilder()
+                        .setRowCount(0)
+                        .setErrorMessage(e.getMessage())
+                );
+            }
         } else if (transactionRequest.hasCommitRequest()) {
             // handle commit
             logger.info("Handling commit request");
