@@ -32,9 +32,11 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.ConstantFoldingRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.VariadicFunctionValue;
@@ -47,17 +49,29 @@ import org.assertj.core.api.Assertions;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.fail;
 
 public class ConstantFoldingTestUtils {
 
     private static int counter;
 
     @Nonnull
-    private static final Type.Record aType = Type.Record.fromFields(ImmutableList.of(
-            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("aInt")),
-            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("bString"))));
+    public static final Type.Record lowerType = Type.Record.fromFields(false, List.of(
+            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, false), Optional.of("a_non_null")),
+            Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING, true), Optional.of("b_nullable"))
+    ));
+
+    @Nonnull
+    public static final Type.Record upperType = Type.Record.fromFields(false, List.of(
+            Type.Record.Field.of(lowerType.withNullability(false), Optional.of("a_non_null")),
+            Type.Record.Field.of(lowerType.withNullability(true), Optional.of("b_nullable"))
+    ));
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     public static final class ValueWrapper {
@@ -88,6 +102,16 @@ public class ConstantFoldingTestUtils {
         public EvaluationContext getEvaluationContext() {
             Verify.verify(getEvaluationContextMaybe().isPresent());
             return getEvaluationContextMaybe().get();
+        }
+
+        @Nonnull
+        public EvaluationContext getEvaluationContextOrEmpty() {
+            return evaluationContext.orElse(EvaluationContext.EMPTY);
+        }
+
+        @Nonnull
+        public ValueWrapper withNewValue(@Nonnull Value value) {
+            return new ValueWrapper(value, evaluationContext);
         }
 
         @Override
@@ -201,6 +225,16 @@ public class ConstantFoldingTestUtils {
     }
 
     @Nonnull
+    public static ValueWrapper nonNullBoolean() {
+        return qov(Type.primitiveType(Type.TypeCode.BOOLEAN, false));
+    }
+
+    @Nonnull
+    public static ValueWrapper nullableBoolean() {
+        return qov(Type.primitiveType(Type.TypeCode.BOOLEAN, true));
+    }
+
+    @Nonnull
     public static ValueWrapper litString(@Nonnull final String value) {
         return ValueWrapper.of(LiteralValue.ofScalar(value));
     }
@@ -237,24 +271,46 @@ public class ConstantFoldingTestUtils {
     }
 
     @Nonnull
+    public static ValueWrapper qov(Type type) {
+        final QuantifiedObjectValue qov = QuantifiedObjectValue.of(Quantifier.current(), type);
+        return new ValueWrapper(qov, Optional.empty());
+    }
+
+    @Nonnull
+    public static ValueWrapper fieldValue(@Nonnull ValueWrapper baseValue, @Nonnull String fieldName) {
+        final FieldValue fieldValue = FieldValue.ofFieldNameAndFuseIfPossible(baseValue.value(), fieldName);
+        return baseValue.withNewValue(fieldValue);
+    }
+
+    @Nonnull
     public static RangeConstraints buildSingletonRange(@Nonnull Comparisons.Type comparisonType) {
         return buildSingletonRange(comparisonType, null);
     }
 
     @Nonnull
     public static RangeConstraints buildSingletonRange(@Nonnull Comparisons.Type comparisonType, @Nullable final Value comparand) {
-        final var singletonRangeBuilder = RangeConstraints.newBuilder();
+        Comparisons.Comparison comparison;
         switch (comparisonType) {
             case IS_NULL: // fallthrough
             case NOT_NULL:
-                singletonRangeBuilder.addComparisonMaybe(new Comparisons.NullComparison(comparisonType));
+                comparison = new Comparisons.NullComparison(comparisonType);
                 break;
             default:
-                singletonRangeBuilder.addComparisonMaybe(new Comparisons.ValueComparison(comparisonType, Verify.verifyNotNull(comparand)));
+                comparison = new Comparisons.ValueComparison(comparisonType, Verify.verifyNotNull(comparand));
         }
-        final var singletonRange = singletonRangeBuilder.build();
-        Assertions.assertThat(singletonRange).isPresent();
-        return singletonRange.get();
+        return buildMultiRange(Collections.singleton(comparison));
+    }
+
+    @Nonnull
+    public static RangeConstraints buildMultiRange(@Nonnull Collection<Comparisons.Comparison> comparisons) {
+        var constraintsBuilder = RangeConstraints.newBuilder();
+        for (Comparisons.Comparison comparison : comparisons) {
+            Assertions.assertThat(constraintsBuilder.addComparisonMaybe(comparison))
+                    .as("should be able to add comparison: %s", comparison)
+                    .isTrue();
+        }
+        return constraintsBuilder.build()
+                .orElseGet(() -> fail("unable to construct range constraints over: " + comparisons));
     }
 
     @Nonnull
@@ -275,7 +331,6 @@ public class ConstantFoldingTestUtils {
     @Nonnull
     public static QueryPredicate isNullAsRange(@Nonnull final Value value) {
         return PredicateWithValueAndRanges.ofRanges(value, ImmutableSet.of(buildSingletonRange(Comparisons.Type.IS_NULL)));
-
     }
 
     @Nonnull
@@ -286,7 +341,15 @@ public class ConstantFoldingTestUtils {
     @Nonnull
     public static QueryPredicate areEqualAsRange(@Nonnull final Value value1, @Nonnull final Value value2) {
         return PredicateWithValueAndRanges.ofRanges(value1, ImmutableSet.of(buildSingletonRange(Comparisons.Type.EQUALS, value2)));
+    }
 
+    @Nonnull
+    public static QueryPredicate areNotNullAndEqualAsRange(@Nonnull final Value value1, @Nonnull final Value value2) {
+        RangeConstraints multiRange = buildMultiRange(ImmutableSet.of(
+                new Comparisons.NullComparison(Comparisons.Type.NOT_NULL),
+                new Comparisons.ValueComparison(Comparisons.Type.EQUALS, value2)
+        ));
+        return PredicateWithValueAndRanges.ofRanges(value1, ImmutableSet.of(multiRange));
     }
 
     @Nonnull
