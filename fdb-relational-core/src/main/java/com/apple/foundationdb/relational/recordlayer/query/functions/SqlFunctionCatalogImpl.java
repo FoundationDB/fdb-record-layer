@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.BuiltInFunctionC
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
-import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableMap;
 
@@ -153,7 +152,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
     }
 
     @Nonnull
-    public static SqlFunctionCatalogImpl newInstance(@Nonnull RecordLayerSchemaTemplate metadata, boolean isCaseSensitive) {
+    public static SqlFunctionCatalogImpl newInstance(@Nonnull RecordLayerSchemaTemplate metadata) {
         final var functionCatalog = new SqlFunctionCatalogImpl();
         metadata.getInvokedRoutines().forEach(func ->
                 functionCatalog.registerUserDefinedFunction(
