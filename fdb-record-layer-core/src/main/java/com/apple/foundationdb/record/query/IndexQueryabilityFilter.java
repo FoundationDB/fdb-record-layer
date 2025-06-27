@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.QueryHashable;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 
@@ -31,7 +30,7 @@ import javax.annotation.Nonnull;
  * A filter used to determine whether an index should be considered when planning queries.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface IndexQueryabilityFilter extends QueryHashable {
+public interface IndexQueryabilityFilter {
 
     IndexQueryabilityFilter TRUE = new IndexQueryabilityFilter() {
         @Override
@@ -39,10 +38,6 @@ public interface IndexQueryabilityFilter extends QueryHashable {
             return true;
         }
 
-        @Override
-        public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            return 11;
-        }
     };
 
     IndexQueryabilityFilter FALSE = new IndexQueryabilityFilter() {
@@ -51,10 +46,6 @@ public interface IndexQueryabilityFilter extends QueryHashable {
             return false;
         }
 
-        @Override
-        public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            return 59;
-        }
     };
 
     /**
@@ -67,10 +58,6 @@ public interface IndexQueryabilityFilter extends QueryHashable {
             return index.getBooleanOption(IndexOptions.ALLOWED_FOR_QUERY_OPTION, true);
         }
 
-        @Override
-        public int queryHash(@Nonnull final QueryHashable.QueryHashKind hashKind) {
-            return "DEFAULT_INDEX_QUERYABILITY_FILTER".hashCode();
-        }
     };
 
     /**
@@ -81,15 +68,4 @@ public interface IndexQueryabilityFilter extends QueryHashable {
      */
     boolean isQueryable(@Nonnull Index index);
 
-    /**
-     * Default implementation of {@link QueryHashable#queryHash}. This implementation returns '0' so unless the specific concrete implementation of
-     * {@link IndexQueryabilityFilter} overrides it, there will be no impact on the total hashcode for the query.
-     * <p>Note:
-     * This should be overridden in specific implementations in order to be able to distinguish among various queries that
-     * differ only by their {@link IndexQueryabilityFilter}.
-     * @param hashKind the "kind" of hash to calculate. Ignored for this implementation.
-     * @return 0 as the calculated hash in all cases, to have no impact on query hashes.
-     */
-    @Override
-    int queryHash(@Nonnull QueryHashable.QueryHashKind hashKind);
 }
