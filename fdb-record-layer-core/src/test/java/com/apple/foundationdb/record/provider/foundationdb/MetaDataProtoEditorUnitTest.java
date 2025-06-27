@@ -372,6 +372,7 @@ public class MetaDataProtoEditorUnitTest {
     @ParameterizedTest
     @ValueSource(strings = {
             "UnnestedRenamed.json",
+            "UnnestedRenamedNested.json",
     })
     void unsupported(String name) throws IOException {
         final RecordMetaDataProto.MetaData.Builder builder = loadMetaData(name);

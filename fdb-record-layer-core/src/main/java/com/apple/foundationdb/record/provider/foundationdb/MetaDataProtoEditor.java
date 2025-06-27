@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.metadata.UnnestedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.DescriptorProtos;
@@ -431,8 +432,10 @@ public class MetaDataProtoEditor {
 
         // If the record type is a top level record type, change its usage elsewhere in the meta-data
         if (RecordMetaDataOptionsProto.RecordTypeOptions.Usage.RECORD.equals(usage)) {
-            renameTopLevelRecordType(metaDataBuilder, recordTypeName, newRecordTypeName);
+            renameTopLevelRecordType(metaDataBuilder, fileDescriptor, recordTypeName, newRecordTypeName);
         }
+        renameRecordTypeUsagesInUnnested(metaDataBuilder, fileDescriptor, recordTypeName, newRecordTypeName,
+                descriptorsByName.get(recordTypeName));
 
         // Update the file descriptor
         metaDataBuilder.setRecords(recordsBuilder);
@@ -517,6 +520,7 @@ public class MetaDataProtoEditor {
     }
 
     private static void renameTopLevelRecordType(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder,
+                                                 @Nonnull Descriptors.FileDescriptor fileDescriptor,
                                                  @Nonnull String recordTypeName, @Nonnull String newRecordTypeName) {
         List<RecordMetaDataProto.RecordType> recordTypes;
         boolean foundRecordType = false;
@@ -552,7 +556,7 @@ public class MetaDataProtoEditor {
         metaDataBuilder.addAllRecordTypes(recordTypes);
         metaDataBuilder.clearIndexes();
         metaDataBuilder.addAllIndexes(indexes);
-        updateUnnestedTypes(metaDataBuilder, recordTypeName, newRecordTypeName);
+        // unnested types have to be updated even if it's not a top-level type, so they have their own method
         updateJoinedRecordTypes(metaDataBuilder, recordTypeName, newRecordTypeName);
         if (metaDataBuilder.getUserDefinedFunctionsCount() > 0) {
             // UserDefinedFunctions may be a string that needs parsing to figure out the types it references
@@ -560,20 +564,42 @@ public class MetaDataProtoEditor {
         }
     }
 
-    private static void updateUnnestedTypes(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder,
-                                            @Nonnull String oldRecordTypeName,
-                                            @Nonnull String newRecordTypeName) {
+
+    private static void renameRecordTypeUsagesInUnnested(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder,
+                                                         @Nonnull Descriptors.FileDescriptor fileDescriptor,
+                                                         @Nonnull String oldRecordTypeName,
+                                                         @Nonnull String newRecordTypeName,
+                                                         @Nonnull Descriptors.Descriptor oldTypeDescriptor) {
         for (var unnested : metaDataBuilder.getUnnestedRecordTypesBuilderList()) {
             for (var constituent : unnested.getNestedConstituentsBuilderList()) {
                 // The nested constituents would most likely be nested types, not record types, and thus would not be
                 // renamed
                 if (constituent.getParent().isEmpty() && constituent.getTypeName().equals(oldRecordTypeName)) {
                     constituent.setTypeName(newRecordTypeName);
-                } else if (constituent.getTypeName().startsWith(metaDataBuilder.getRecords().getPackage()) &&
-                        constituent.getTypeName().endsWith(oldRecordTypeName)) {
-                    throw new MetaDataException("Renaming types used by non-parent unnested constituents is not supported");
+                } else {
+                    final Descriptors.Descriptor constituentTypeDescriptor = UnnestedRecordTypeBuilder.findDescriptorByName(fileDescriptor,
+                            constituent.getTypeName());
+                    if (constituentTypeDescriptor == null) {
+                        throw new MetaDataException("missing descriptor for nested constituent")
+                                .addLogInfo(LogMessageKeys.EXPECTED, constituent.getTypeName())
+                                .addLogInfo(LogMessageKeys.CONSTITUENT, constituent.getName());
+                    }
+                    if (isNested(constituentTypeDescriptor, oldTypeDescriptor)) {
+                        throw new MetaDataException("Renaming types used by non-parent unnested constituents is not supported");
+                    }
                 }
             }
+        }
+    }
+
+    private static boolean isNested(@Nonnull Descriptors.Descriptor typeDescriptor,
+                                    @Nonnull Descriptors.Descriptor targetDescriptor) {
+        if (typeDescriptor.equals(targetDescriptor)) {
+            return true;
+        } else if (typeDescriptor.getContainingType() == null) {
+            return false;
+        } else {
+            return isNested(typeDescriptor.getContainingType(), targetDescriptor);
         }
     }
 
