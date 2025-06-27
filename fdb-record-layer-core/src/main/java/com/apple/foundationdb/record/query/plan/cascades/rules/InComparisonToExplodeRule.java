@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
@@ -214,7 +215,7 @@ public class InComparisonToExplodeRule extends ExplorationCascadesRule<SelectExp
         for (int i = 0; i < fieldValues.size(); i++) {
             final Value fieldValue = fieldValues.get(i);
             BooleanValue currentVal = (BooleanValue) new RelOpValue.EqualsFn().encapsulate(List.of(fieldValue, comparandValueChildren.get(i).getValue()));
-            Optional<QueryPredicate> currentQueryPredicate = currentVal.toQueryPredicate(null, Quantifier.current());
+            Optional<QueryPredicate> currentQueryPredicate = currentVal.toQueryPredicate(null, ImmutableSet.of(Quantifier.current()));
             Verify.verify(currentQueryPredicate.isPresent());
             resultsBuilder.add(currentQueryPredicate.get());
         }

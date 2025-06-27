@@ -101,9 +101,9 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
         if (ctx.customType != null) {
             final var columnType = visitUid(ctx.customType);
-            return semanticAnalyzer.lookupType(columnType, false, false, metadataBuilder::findType);
+            return semanticAnalyzer.lookupType(columnType, true, false, metadataBuilder::findType);
         }
-        return visitPrimitiveType(ctx.primitiveType());
+        return visitPrimitiveType(ctx.primitiveType()).withNullable(true);
     }
 
     // TODO: remove

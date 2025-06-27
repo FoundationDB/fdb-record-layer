@@ -338,8 +338,8 @@ public class MaxMatchMap {
                                       @Nonnull final Value candidateValue,
                                       @Nonnull final Set<CorrelationIdentifier> rangedOverAliases,
                                       @Nonnull final ValueEquivalence valueEquivalence) {
-        if (logger.isDebugEnabled()) {
-            logger.debug("calculate begin queryValue={}, candidateValue={}", queryValue, candidateValue);
+        if (logger.isTraceEnabled()) {
+            logger.trace("calculate begin queryValue={}, candidateValue={}", queryValue, candidateValue);
         }
 
         MaxMatchMap bestMaxMatchMap = null;
@@ -376,8 +376,8 @@ public class MaxMatchMap {
                         QueryPlanConstraint.noConstraint(), valueEquivalence);
             }
         } finally {
-            if (logger.isDebugEnabled()) {
-                logger.debug("calculate end bestMaxMatchMap={}", bestMaxMatchMap);
+            if (logger.isTraceEnabled()) {
+                logger.trace("calculate end bestMaxMatchMap={}", bestMaxMatchMap);
             }
         }
 
@@ -512,8 +512,8 @@ public class MaxMatchMap {
 
         if (!anyParentsMatching) {
             if (knownValueMap.containsKey(currentQueryValue)) {
-                if (logger.isDebugEnabled()) {
-                    logger.debug("getting memoized info value={}", currentQueryValue);
+                if (logger.isTraceEnabled()) {
+                    logger.trace("getting memoized info value={}", currentQueryValue);
                 }
                 return knownValueMap.get(currentQueryValue);
             }
@@ -587,8 +587,8 @@ public class MaxMatchMap {
                          childrenIterator.hasNext(); i++) {
                     final var child = childrenIterator.next();
 
-                    if (logger.isDebugEnabled()) {
-                        logger.debug("recursing into child max_depth_bound={}, value={}", childrenMaxDepthBound, child);
+                    if (logger.isTraceEnabled()) {
+                        logger.trace("recursing into child max_depth_bound={}, value={}", childrenMaxDepthBound, child);
                     }
                     final var childrenResultsMap =
                             recurseQueryResultValue(child, candidateValue, rangedOverAliases, valueEquivalence,
@@ -655,8 +655,8 @@ public class MaxMatchMap {
                             ? Integer.MAX_VALUE
                             : (bestMatches.getCurrentMaxDepth() == Integer.MAX_VALUE ? maxDepthBound : bestMatches.getCurrentMaxDepth());
 
-                    if (logger.isDebugEnabled()) {
-                        logger.debug("recursing into variant max_depth_bound={}, value={}", currentMaxDepthBound,
+                    if (logger.isTraceEnabled()) {
+                        logger.trace("recursing into variant max_depth_bound={}, value={}", currentMaxDepthBound,
                                 expandedCurrentQueryValue);
                     }
 
@@ -682,8 +682,8 @@ public class MaxMatchMap {
 
         // memoize the result is appropriate
         if (!anyParentsMatching && !expandedValues.contains(currentQueryValue)) {
-            if (logger.isDebugEnabled()) {
-                logger.debug("memoizing value={}", currentQueryValue);
+            if (logger.isTraceEnabled()) {
+                logger.trace("memoizing value={}", currentQueryValue);
             }
             knownValueMap.put(currentQueryValue, resultMap);
         }

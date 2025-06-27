@@ -55,6 +55,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 
 /**
@@ -110,7 +111,8 @@ public class InOpValue extends AbstractValue implements BooleanValue {
 
     @SuppressWarnings("java:S3776")
     @Override
-    public Optional<QueryPredicate> toQueryPredicate(@Nullable TypeRepository typeRepository, @Nonnull final CorrelationIdentifier innermostAlias) {
+    public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository,
+                                                     @Nonnull final Set<CorrelationIdentifier> localAliases) {
         // we fail if the right side is not evaluable as we cannot create the comparison
 
         final var leftChildCorrelatedTo = probeValue.getCorrelatedTo();

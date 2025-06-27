@@ -177,7 +177,7 @@ public class DebuggerWithSymbolTables implements Debugger {
             return;
         }
         getCurrentState().addCurrentEvent(event);
-        if (logger.isDebugEnabled()) {
+        if (logger.isTraceEnabled()) {
             if (event.getLocation() == Location.END && event instanceof TransformRuleCallEvent) {
                 final TransformRuleCallEvent transformRuleCallEvent = (TransformRuleCallEvent)event;
                 final CascadesRuleCall ruleCall = transformRuleCallEvent.getRuleCall();
@@ -194,7 +194,7 @@ public class DebuggerWithSymbolTables implements Debugger {
 
                     logMessage.addKeyAndValue("expressions", Streams.stream(newExpressions)
                             .map(this::nameForObject).collect(Collectors.joining(", ")));
-                    logger.debug(logMessage.toString());
+                    logger.trace(logMessage.toString());
                 }
             }
         }

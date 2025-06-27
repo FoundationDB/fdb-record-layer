@@ -302,15 +302,15 @@ public class Expression {
 
         @Nonnull
         public static QueryPredicate toUnderlyingPredicate(@Nonnull final Expression expression,
-                                                           @Nonnull final CorrelationIdentifier innermostAlias,
+                                                           @Nonnull final Set<CorrelationIdentifier> localAliases,
                                                            boolean forDdl) {
             final var value = Assert.castUnchecked(expression.getUnderlying(), BooleanValue.class);
             if (forDdl) {
-                final var result = value.toQueryPredicate(ParseHelpers.EMPTY_TYPE_REPOSITORY, innermostAlias);
+                final var result = value.toQueryPredicate(ParseHelpers.EMPTY_TYPE_REPOSITORY, localAliases);
                 Assert.thatUnchecked(result.isPresent());
                 return result.get();
             } else {
-                final var result = value.toQueryPredicate(null, innermostAlias);
+                final var result = value.toQueryPredicate(null, localAliases);
                 Assert.thatUnchecked(result.isPresent());
                 return result.get();
             }

@@ -192,7 +192,6 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
                 .mapToOptional(queryPlanConstraint ->
                         PredicateMapping.regularMappingBuilder(originalQueryPredicate, this,
                                         candidatePredicate)
-                                .setPredicateCompensation(getDefaultPredicateCompensation(originalQueryPredicate))
                                 .setConstraint(queryPlanConstraint)
                                 .build());
     }

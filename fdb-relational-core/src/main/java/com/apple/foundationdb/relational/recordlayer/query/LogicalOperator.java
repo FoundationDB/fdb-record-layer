@@ -322,8 +322,8 @@ public class LogicalOperator {
         final var quantifiedObjectValues = quantifiers.stream().map(QuantifiedObjectValue::of).collect(ImmutableList.toImmutableList());
         final var selectBuilder = GraphExpansion.builder().addAllQuantifiers(quantifiers).addAllResultValues(quantifiedObjectValues);
         where.ifPresent(predicate -> {
-            final var innermostAlias = getInnermostAlias(logicalOperators);
-            selectBuilder.addPredicate(Expression.Utils.toUnderlyingPredicate(predicate, innermostAlias, isForDdl));
+            final var localAliases = quantifiers.stream().map(Quantifier::getAlias).collect(ImmutableSet.toImmutableSet());
+            selectBuilder.addPredicate(Expression.Utils.toUnderlyingPredicate(predicate, localAliases, isForDdl));
         });
         final var selectExpression = selectBuilder.build().buildSelect();
         final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(selectExpression));
@@ -377,11 +377,11 @@ public class LogicalOperator {
                                                        @Nonnull Optional<Identifier> alias,
                                                        @Nonnull Set<CorrelationIdentifier> outerCorrelations,
                                                        boolean isForDdl) {
-        final var selectBuilder = GraphExpansion.builder();
-        logicalOperators.forEach(logicalOperator -> selectBuilder.addQuantifier(logicalOperator.getQuantifier()));
+        final var quantifiers = logicalOperators.getQuantifiers();
+        final var selectBuilder = GraphExpansion.builder().addAllQuantifiers(quantifiers);
         where.ifPresent(predicate -> {
-            final var innermostAlias = getInnermostAlias(logicalOperators);
-            selectBuilder.addPredicate(Expression.Utils.toUnderlyingPredicate(predicate, innermostAlias, isForDdl));
+            final var localAliases = quantifiers.stream().map(Quantifier::getAlias).collect(ImmutableSet.toImmutableSet());
+            selectBuilder.addPredicate(Expression.Utils.toUnderlyingPredicate(predicate, localAliases, isForDdl));
         });
         final var expandedOutput = output.expanded();
         SelectExpression selectExpression;

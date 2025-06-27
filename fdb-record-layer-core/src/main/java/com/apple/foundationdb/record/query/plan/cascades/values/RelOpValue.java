@@ -138,13 +138,12 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
     @SuppressWarnings("java:S3776")
     @Override
     public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository,
-                                                     @Nonnull final CorrelationIdentifier innermostAlias) {
+                                                     @Nonnull final Set<CorrelationIdentifier> localAliases) {
         final Iterator<? extends Value> it = children.iterator();
         int childrenCount = Iterables.size(children);
         if (childrenCount == 1) {
             Value child = children.iterator().next();
-            final Set<CorrelationIdentifier> childCorrelatedTo = child.getCorrelatedTo();
-            if (!childCorrelatedTo.contains(innermostAlias) && typeRepository != null) {
+            if (child.getCorrelatedTo().isEmpty() && typeRepository != null) {
                 // it seems this is a constant expression, try to evaluate it.
                 return tryBoxSelfAsConstantPredicate(typeRepository);
             }
@@ -162,7 +161,8 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
             if (leftChildCorrelatedTo.isEmpty() && rightChildCorrelatedTo.isEmpty() && typeRepository != null) {
                 return tryBoxSelfAsConstantPredicate(typeRepository);
             }
-            if (rightChildCorrelatedTo.contains(innermostAlias) && !leftChildCorrelatedTo.contains(innermostAlias)) {
+            if (localAliases.containsAll(rightChildCorrelatedTo) &&
+                    localAliases.stream().noneMatch(leftChildCorrelatedTo::contains)) {
                 // the operands are swapped inside this if branch
                 return promoteOperandsAndCreatePredicate(leftChildCorrelatedTo.isEmpty() ? typeRepository : null,
                         rightChild,

@@ -72,6 +72,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
@@ -389,7 +390,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                     final var comparandValue = AbstractArrayConstructorValue.LightArrayConstructorValue.of(RecordConstructorValue.ofColumns(List.of(str1, n1)), RecordConstructorValue.ofColumns(List.of(str2, n2)));
 
                     final var encapsulatedIn = (BooleanValue)new InOpValue.InFn().encapsulate(ImmutableList.of(inArrayValue, comparandValue));
-                    graphExpansionBuilder.addPredicate(encapsulatedIn.toQueryPredicate(null, Quantifier.current()).orElseThrow());
+                    graphExpansionBuilder.addPredicate(encapsulatedIn.toQueryPredicate(null, ImmutableSet.of(Quantifier.current())).orElseThrow());
 
                     graphExpansionBuilder.addResultColumn(Column.unnamedOf(strValueIndexed));
                     graphExpansionBuilder.addResultColumn(Column.unnamedOf(numValue3Indexed));
@@ -439,7 +440,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                     final var comparandValue = AbstractArrayConstructorValue.LightArrayConstructorValue.of(RecordConstructorValue.ofColumns(List.of(str1, n1)), RecordConstructorValue.ofColumns(List.of(str2, n2)));
 
                     final var encapsulatedIn = (BooleanValue)new InOpValue.InFn().encapsulate(ImmutableList.of(inArrayValue, comparandValue));
-                    graphExpansionBuilder.addPredicate(encapsulatedIn.toQueryPredicate(null, Quantifier.current()).orElseThrow());
+                    graphExpansionBuilder.addPredicate(encapsulatedIn.toQueryPredicate(null, ImmutableSet.of(Quantifier.current())).orElseThrow());
 
                     graphExpansionBuilder.addResultColumn(Column.unnamedOf(strValueIndexed));
                     graphExpansionBuilder.addResultColumn(Column.unnamedOf(numValue3Indexed));
@@ -488,7 +489,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                     final var comparandValue = AbstractArrayConstructorValue.LightArrayConstructorValue.of(RecordConstructorValue.ofColumns(List.of(str1, n1)), RecordConstructorValue.ofColumns(List.of(str2, n2)));
 
                     final var encapsulatedIn = (BooleanValue)new InOpValue.InFn().encapsulate(ImmutableList.of(inArrayValue, comparandValue));
-                    graphExpansionBuilder.addPredicate(encapsulatedIn.toQueryPredicate(null, Quantifier.current()).orElseThrow());
+                    graphExpansionBuilder.addPredicate(encapsulatedIn.toQueryPredicate(null, ImmutableSet.of(Quantifier.current())).orElseThrow());
 
                     graphExpansionBuilder.addResultColumn(Column.unnamedOf(strValueIndexed));
                     graphExpansionBuilder.addResultColumn(Column.unnamedOf(numValue3Indexed));

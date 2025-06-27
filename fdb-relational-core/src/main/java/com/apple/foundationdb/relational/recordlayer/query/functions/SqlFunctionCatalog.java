@@ -69,14 +69,11 @@ public interface SqlFunctionCatalog {
      * looked up with {@link SqlFunctionCatalog#lookupFunction(String, Expressions)}, and their compiled version is
      * cached so it is done at most once.
      * @param metadata The metadata used to load any user-defined functions.
-     * @param isCaseSensitive {@code True} if the registered function names should be registered case-sensitive, otherwise
-     * {@code false}.
-     *
      * @return a new instance of {@link SqlFunctionCatalogImpl}.
      */
     @Nonnull
-    static SqlFunctionCatalog newInstance(@Nonnull final RecordLayerSchemaTemplate metadata, boolean isCaseSensitive) {
-        return SqlFunctionCatalogImpl.newInstance(metadata, isCaseSensitive);
+    static SqlFunctionCatalog newInstance(@Nonnull final RecordLayerSchemaTemplate metadata) {
+        return SqlFunctionCatalogImpl.newInstance(metadata);
     }
 
     /**
