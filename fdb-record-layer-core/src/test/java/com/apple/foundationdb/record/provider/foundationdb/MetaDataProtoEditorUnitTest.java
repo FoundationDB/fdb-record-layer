@@ -28,11 +28,14 @@ import com.apple.foundationdb.record.TestRecordsDoubleNestedProto;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.foundationdb.MetaDataProtoEditor.FieldTypeMatch;
+import com.apple.test.BooleanSource;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.util.JsonFormat;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
@@ -46,6 +49,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -353,18 +357,23 @@ public class MetaDataProtoEditorUnitTest {
         }
     }
 
+    public static Stream<String> renamableFiles() {
+        // Note: Explicitly having the .json here so that you can Cmd+click in the IDE to jump to the file
+        return Stream.of(
+                "OneBoringType.json",
+                "TwoBoringTypes.json",
+                "DuplicateUnionFields.json",
+                "OneTypeWithIndexes.json",
+                "MultiTypeIndex.json",
+                "UniversalIndex.json",
+                "UnnestedExternalType.json",
+                "UnnestedInternal.json",
+                "Joined.json"
+        );
+    }
+
     @ParameterizedTest
-    // Note: Explicitly having the .json here so that you can Cmd+click in the IDE to jump to the file
-    @ValueSource(strings = {"OneBoringType.json",
-            "TwoBoringTypes.json",
-            "DuplicateUnionFields.json",
-            "OneTypeWithIndexes.json",
-            "MultiTypeIndex.json",
-            "UniversalIndex.json",
-            "UnnestedExternalType.json",
-            "UnnestedInternal.json",
-            "Joined.json"
-    })
+    @MethodSource("renamableFiles")
     void simplePrefix(String name) throws IOException {
         runRename(name);
     }
@@ -378,9 +387,70 @@ public class MetaDataProtoEditorUnitTest {
         final RecordMetaDataProto.MetaData.Builder builder = loadMetaData(name);
         final RecordMetaDataProto.MetaData originalProto = builder.build();
         RecordMetaData.build(originalProto); // ensure original metadata is valid
-        final Function<String, String> renamer = oldName -> "__x_" + oldName;
-        assertThrows(MetaDataException.class, () -> MetaDataProtoEditor.renameRecordTypes(builder, renamer,
+        assertThrows(MetaDataException.class, () -> MetaDataProtoEditor.renameRecordTypes(builder,
+                MetaDataProtoEditorUnitTest::simpleRename,
                 RecordMetaDataBuilder.getDependencies(builder.build(), Map.of())));
+    }
+
+    @ParameterizedTest
+    @MethodSource("renamableFiles")
+    void doubleRename(String name) throws IOException {
+        final RecordMetaDataProto.MetaData.Builder builder = loadMetaData(name);
+        final RecordMetaDataProto.MetaData originalProto = builder.build();
+        final RecordMetaData originalMetaData = RecordMetaData.build(originalProto);
+        MetaDataProtoEditor.renameRecordTypes(builder, MetaDataProtoEditorUnitTest::simpleRename,
+                RecordMetaDataBuilder.getDependencies(originalProto, Map.of()));
+
+        final RecordMetaDataProto.MetaData firstRename = builder.build();
+        basicRenameAsserts(firstRename, originalMetaData,
+                MetaDataProtoEditorUnitTest::simpleRename,
+                MetaDataProtoEditorUnitTest::simpleRenameUndo);
+
+        // again
+        MetaDataProtoEditor.renameRecordTypes(builder, MetaDataProtoEditorUnitTest::simpleRename,
+                RecordMetaDataBuilder.getDependencies(originalProto, Map.of()));
+
+        final RecordMetaDataProto.MetaData secondRename = builder.build();
+        basicRenameAsserts(secondRename, RecordMetaData.build(firstRename),
+                MetaDataProtoEditorUnitTest::simpleRename,
+                MetaDataProtoEditorUnitTest::simpleRenameUndo);
+
+        final RecordMetaDataProto.MetaData.Builder restartBuilder = originalProto.toBuilder();
+        MetaDataProtoEditor.renameRecordTypes(restartBuilder,
+                oldName -> simpleRename(simpleRename(oldName)),
+                RecordMetaDataBuilder.getDependencies(originalProto, Map.of()));
+        assertEquals(builder.build(), secondRename);
+    }
+
+    @ParameterizedTest
+    @BooleanSource("t1Conflicts")
+    void conflictingName(boolean t1Conflicts) throws IOException {
+        // In the future we may want to make this work, but for now, I just want to assert that it either succeeds
+        // and produces a valid metadata, or fails with a clear exception. Currently, it is order dependent.
+        final String prefix = "__Q_";
+        final RecordMetaData withConflict = runRename(loadMetaData("TwoBoringTypes.json").build(),
+                oldName -> {
+                    if (t1Conflicts) {
+                        return !oldName.equals("T1") ? prefix + "T1" : oldName;
+                    } else {
+                        return oldName.equals("T1") ? prefix + "T2" : oldName;
+                    }
+                },
+                newName -> newName.startsWith(prefix) ? newName.substring(prefix.length()) : newName);
+        if (t1Conflicts) {
+            assertEquals(Set.of("T1", prefix + "T1"), withConflict.getRecordTypes().keySet());
+        } else {
+            assertEquals(Set.of("T2", prefix + "T2"), withConflict.getRecordTypes().keySet());
+        }
+        try {
+            runRename(withConflict.toProto(),
+                    oldName -> prefix + oldName,
+                    newName -> newName.substring(prefix.length()));
+        } catch (MetaDataException e) {
+            Assertions.assertThat(e)
+                    .hasMessageStartingWith("Cannot rename record type to ")
+                    .hasMessageEndingWith("as it already exists");
+        }
     }
 
     @Test
@@ -411,20 +481,45 @@ public class MetaDataProtoEditorUnitTest {
                 t1Field.getMessageType());
     }
 
+
+    @Nonnull
+    private static String simpleRenameUndo(final String newName) {
+        assertEquals("__x_", newName.substring(0, 4));
+        return newName.substring(4);
+    }
+
+    @Nonnull
+    private static String simpleRename(final String oldName) {
+        return "__x_" + oldName;
+    }
+
     @Nonnull
     private RecordMetaData runRename(final String name) throws IOException {
-        final RecordMetaDataProto.MetaData.Builder builder = loadMetaData(name);
-        final RecordMetaDataProto.MetaData originalProto = builder.build();
+        final RecordMetaDataProto.MetaData originalProto = loadMetaData(name).build();
+        return runRename(originalProto, MetaDataProtoEditorUnitTest::simpleRename, MetaDataProtoEditorUnitTest::simpleRenameUndo);
+    }
+
+    @Nonnull
+    private RecordMetaData runRename(final RecordMetaDataProto.MetaData originalProto,
+                                     final Function<String, String> rename,
+                                     final Function<String, String> undoRename) {
+        final RecordMetaDataProto.MetaData.Builder builder = originalProto.toBuilder();
         final RecordMetaData originalMetaData = RecordMetaData.build(originalProto);
-        final Function<String, String> renamer = oldName -> "__x_" + oldName;
-        final Function<String, String> undoRename = newName -> {
-            assertEquals("__x_", newName.substring(0, 4));
-            return newName.substring(4);
-        };
-        MetaDataProtoEditor.renameRecordTypes(builder, renamer,
+        MetaDataProtoEditor.renameRecordTypes(builder, rename,
                 RecordMetaDataBuilder.getDependencies(originalProto, Map.of()));
 
-        final RecordMetaData renamed = RecordMetaData.build(builder.build());
+        final RecordMetaDataProto.MetaData build = builder.build();
+        return basicRenameAsserts(build, originalMetaData,
+                rename,
+                undoRename);
+    }
+
+    @Nonnull
+    private static RecordMetaData basicRenameAsserts(final RecordMetaDataProto.MetaData build,
+                                                     final RecordMetaData originalMetaData,
+                                                     final Function<String, String> renamer,
+                                                     final Function<String, String> undoRename) {
+        final RecordMetaData renamed = RecordMetaData.build(build);
         final Set<String> expectedNewNames = originalMetaData.getRecordTypes().keySet()
                 .stream().map(renamer)
                 .collect(Collectors.toSet());
