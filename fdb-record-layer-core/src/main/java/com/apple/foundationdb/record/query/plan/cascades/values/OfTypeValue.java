@@ -94,11 +94,23 @@ public class OfTypeValue extends AbstractValue implements Value.RangeMatchableVa
             return expectedType.isRecord();
         }
         final var type = Type.fromObject(value);
+
+        if (type.isPrimitive() && expectedType.isPrimitive() && type.getTypeCode() != Type.TypeCode.NULL) {
+            return type.nullable().equals(expectedType.nullable());
+        }
+
         final var promotionNeeded = PromoteValue.isPromotionNeeded(type, expectedType);
         if (!promotionNeeded) {
             return true;
         }
+
         return PromoteValue.resolvePhysicalOperator(type, expectedType) != null;
+    }
+
+    @Nullable
+    @Override
+    public Boolean evalWithoutStore(@Nonnull final EvaluationContext context) {
+        return eval(null, context);
     }
 
     @Override

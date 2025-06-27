@@ -32,6 +32,18 @@ setup:
         (5, 'c', 6)
 ---
 test_block:
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select * from B where 6L = coalesce(5L, 6L)
+      - explain: "SCAN(<,>) | FILTER @c6 EQUALS coalesce_long(@c10, @c6)"
+      - result: []
+    -
+      - query: select * from B where 6 = coalesce(5, 6)
+      - explain: "SCAN(<,>) | FILTER @c6 EQUALS coalesce_int(@c10, @c6)"
+      - result: []
+---
+test_block:
   preset: single_repetition_parallelized
   tests:
     -
