@@ -24,8 +24,12 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Option contract that ensures that all elements of a collection match some contract.
@@ -33,12 +37,13 @@ import java.util.Collection;
  * of collection type and (2) every element in the collection satisfies the "element
  * contract" over which the contract is defined. For example, the child contract
  * may be that each element is of a given type or within a particular range.
+ * @param <T> the type parameter of the collection
  */
-public class CollectionContract implements OptionContract {
+public class CollectionContract<T> implements OptionContract, OptionContractWithConversion<Collection<T>> {
     @Nonnull
-    private final OptionContract elementContract;
+    private final TypeContract<T> elementContract;
 
-    public CollectionContract(@Nonnull OptionContract elementContract) {
+    public CollectionContract(@Nonnull TypeContract<T> elementContract) {
         this.elementContract = elementContract;
     }
 
@@ -55,5 +60,16 @@ public class CollectionContract implements OptionContract {
         } catch (SQLException err) {
             throw new SQLException("Element of collection option " + name + " violated contract: " + err.getMessage(), err.getSQLState(), err);
         }
+    }
+
+    @Nullable
+    @Override
+    public Collection<T> fromString(final String valueAsString) throws SQLException {
+        final List<T> results = new ArrayList<>(); // not null-phobic
+        for (final String split : valueAsString.split(",")) {
+            final String trimmedElementString = split.trim();
+            results.add(elementContract.fromString(trimmedElementString));
+        }
+        return Collections.unmodifiableCollection(results);
     }
 }

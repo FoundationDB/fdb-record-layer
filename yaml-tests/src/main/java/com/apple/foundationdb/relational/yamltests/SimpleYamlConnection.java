@@ -1,5 +1,5 @@
 /*
- * YamlConnection.java
+ * SimpleYamlConnection.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,12 +20,15 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
+import com.google.common.collect.Iterables;
+import org.junit.jupiter.api.Assumptions;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -54,9 +57,21 @@ public class SimpleYamlConnection implements YamlConnection {
         this.connectionLabel = connectionLabel;
     }
 
+    @Nonnull
+    protected RelationalConnection getUnderlying() {
+        return underlying;
+    }
+
     @Override
     public void close() throws SQLException {
         underlying.close();
+    }
+
+    @Override
+    public void setConnectionOptions(@Nonnull final Options connectionOptions) throws SQLException {
+        if (!Iterables.isEmpty(connectionOptions.entries())) {
+            Assumptions.abort("only embedded connections support the setting of connection options");
+        }
     }
 
     @Override
