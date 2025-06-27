@@ -136,17 +136,11 @@ public class MetaDataProtoEditor {
             throw new MetaDataException("Nested types in union type not supported");
         }
         for (DescriptorProtos.FieldDescriptorProto.Builder field : unionBuilder.getFieldBuilderList()) {
-            if (field.getTypeName().equals(recordTypeName)) {
-                if (foundField == null || field.getName().equals("_" + recordTypeName) || field.getNumber() > foundField.getNumber()) {
-                    foundField = field;
-                }
-            } else {
-                final FieldTypeMatch unionFieldMatch = fieldIsType(recordsBuilder, unionDescriptor, field, recordTypeName);
-                if (FieldTypeMatch.MATCHES.equals(unionFieldMatch)
-                        && (foundField == null || field.getName().equals("_" + recordTypeName) || field.getNumber() > foundField.getNumber())) {
-                    // Choose the matching field with either a matching name or the highest number.
-                    foundField = field;
-                }
+            final FieldTypeMatch unionFieldMatch = fieldIsType(recordsBuilder, unionDescriptor, field, recordTypeName);
+            if (FieldTypeMatch.MATCHES.equals(unionFieldMatch)
+                    && (foundField == null || field.getName().equals("_" + recordTypeName) || field.getNumber() > foundField.getNumber())) {
+                // Choose the matching field with either a matching name or the highest number.
+                foundField = field;
             }
         }
         return foundField;
@@ -465,8 +459,8 @@ public class MetaDataProtoEditor {
             final Descriptors.Descriptor descriptor = Objects.requireNonNull(descriptorsByName.get(messageTypeBuilder.getName()),
                     "Descriptor does not have type");
             // Change any fields referencing the old type so that they now reference the new type
-            renameRecordTypeUsages(namespace, messageTypeBuilder, oldRecordTypeName, fullOldRecordTypeName,
-                    fullNewRecordTypeName, false, descriptor);
+            renameRecordTypeUsages(namespace, messageTypeBuilder, fullOldRecordTypeName,
+                    fullNewRecordTypeName, descriptor);
             if (messageTypeBuilder.getName().equals(oldRecordTypeName)) {
                 // If renaming the union type, be sure that the record.usage option is set to UNION.
                 if (isUnion(messageTypeBuilder)) {
@@ -494,27 +488,19 @@ public class MetaDataProtoEditor {
 
     private static void renameRecordTypeUsages(@Nonnull String namespace,
                                                @Nonnull DescriptorProtos.DescriptorProto.Builder messageTypeBuilder,
-                                               @Nonnull String oldRecordTypeName,
                                                @Nonnull String fullOldRecordTypeName,
                                                @Nonnull String fullNewRecordTypeName,
-                                               boolean isHidden, final Descriptors.Descriptor descriptorForMessage) {
-        isHidden |= messageTypeBuilder.getNestedTypeList().stream()
-                .anyMatch(nestedType -> nestedType.getName().equals(oldRecordTypeName));
-
+                                               final Descriptors.Descriptor descriptorForMessage) {
         // Rename any fields within the record type to the new type name
         for (DescriptorProtos.FieldDescriptorProto.Builder field : messageTypeBuilder.getFieldBuilderList()) {
-            if (!isHidden && field.getTypeName().equals(oldRecordTypeName)) {
+            final FieldTypeMatch fieldTypeMatch = fieldIsType(descriptorForMessage, field, fullOldRecordTypeName);
+            if (FieldTypeMatch.MATCHES.equals(fieldTypeMatch)) {
                 field.setTypeName(fullNewRecordTypeName);
-            } else {
-                final FieldTypeMatch fieldTypeMatch = fieldIsType(descriptorForMessage, field, fullOldRecordTypeName);
-                if (FieldTypeMatch.MATCHES.equals(fieldTypeMatch)) {
-                    field.setTypeName(fullNewRecordTypeName);
-                } else if (FieldTypeMatch.MATCHES_AS_NESTED.equals(fieldTypeMatch)) {
-                    final String fullOldFieldTypeName = "." + descriptorForMessage.findFieldByNumber(field.getNumber())
-                            .getMessageType().getFullName();
-                    final String newFieldTypeName = fullNewRecordTypeName + fullOldFieldTypeName.substring(fullOldRecordTypeName.length());
-                    field.setTypeName(newFieldTypeName);
-                }
+            } else if (FieldTypeMatch.MATCHES_AS_NESTED.equals(fieldTypeMatch)) {
+                final String fullOldFieldTypeName = "." + descriptorForMessage.findFieldByNumber(field.getNumber())
+                        .getMessageType().getFullName();
+                final String newFieldTypeName = fullNewRecordTypeName + fullOldFieldTypeName.substring(fullOldRecordTypeName.length());
+                field.setTypeName(newFieldTypeName);
             }
         }
         // Rename the record type if used within any nested message types
@@ -524,8 +510,8 @@ public class MetaDataProtoEditor {
             for (DescriptorProtos.DescriptorProto.Builder nestedTypeBuilder : messageTypeBuilder.getNestedTypeBuilderList()) {
                 final Descriptors.Descriptor nestedDescriptor = Objects.requireNonNull(nestedTypesByName.get(nestedTypeBuilder.getName()),
                         "FileDescriptor does not have nested type that exists in protobuf");
-                renameRecordTypeUsages(nestedNamespace, nestedTypeBuilder, oldRecordTypeName,
-                        fullOldRecordTypeName, fullNewRecordTypeName, isHidden, nestedDescriptor);
+                renameRecordTypeUsages(nestedNamespace, nestedTypeBuilder,
+                        fullOldRecordTypeName, fullNewRecordTypeName, nestedDescriptor);
             }
         }
     }
