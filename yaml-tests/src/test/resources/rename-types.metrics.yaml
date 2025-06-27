@@ -1,0 +1,43 @@
+rename-types:
+-   query: EXPLAIN select * from T1_FOO WHERE my_string = 'boo';
+    explain: ISCAN(T1_FOO$MY_STRING [EQUALS promote(@c8 AS STRING)])
+    task_count: 501
+    task_total_time_ms: 180
+    transform_count: 126
+    transform_time_ms: 121
+    transform_yield_count: 37
+    insert_time_ms: 8
+    insert_new_count: 46
+    insert_reused_count: 6
+-   query: EXPLAIN select pkey, my_string from T1_FOO WHERE my_string = 'boo';
+    explain: 'COVERING(T1_FOO$MY_STRING [EQUALS promote(@c10 AS STRING)] -> [MY_STRING:
+        KEY[0], PKEY: KEY[1]]) | MAP (_.PKEY AS PKEY, _.MY_STRING AS MY_STRING)'
+    task_count: 558
+    task_total_time_ms: 31
+    transform_count: 131
+    transform_time_ms: 10
+    transform_yield_count: 38
+    insert_time_ms: 3
+    insert_new_count: 55
+    insert_reused_count: 5
+-   query: EXPLAIN select * from T2_bar WHERE here = 'what';
+    explain: ISCAN(HERE_IS_STUFF [EQUALS promote(@c8 AS STRING)])
+    task_count: 501
+    task_total_time_ms: 181
+    transform_count: 126
+    transform_time_ms: 122
+    transform_yield_count: 37
+    insert_time_ms: 7
+    insert_new_count: 46
+    insert_reused_count: 6
+-   query: EXPLAIN select * from T1_FOO WHERE "_UNDERSCORY" = 'Z';
+    explain: ISCAN(T1_FOO$MY_STRING <,>) | FILTER _._UNDERSCORY EQUALS promote(@c8
+        AS STRING)
+    task_count: 448
+    task_total_time_ms: 179
+    transform_count: 119
+    transform_time_ms: 117
+    transform_yield_count: 32
+    insert_time_ms: 9
+    insert_new_count: 42
+    insert_reused_count: 5

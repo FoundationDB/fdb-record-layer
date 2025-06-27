@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.ddl;
 import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
@@ -49,7 +50,7 @@ public class CreateDatabaseConstantAction implements ConstantAction {
     }
 
     @Override
-    public void execute(Transaction txn) throws RelationalException {
+    public void execute(Transaction txn, final Options options) throws RelationalException {
         // Probably not the best way to do so, we just need to verify if the database path is valid.
         // TODO (pranjal_gupta2): find a better way to do this validation
         RelationalKeyspaceProvider.toDatabasePath(dbUrl, keySpace);

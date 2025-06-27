@@ -34,6 +34,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -51,17 +52,39 @@ public class CommandUtil {
     /**
      * Create a SchemaTemplate object from {@code .proto} file.
      *
-     * @param loadCommandString input format is: "load: schema template ${SCHEMA_TEMPLATE_NAME} from ${PROTO_CLASS_NAME}"
+     * @param loadCommandString input format is: "load: schema template ${SCHEMA_TEMPLATE_NAME} from
+     * ${PROTO_CLASS_NAME}"
+     *
      * @return a SchemaTemplate object
      */
     public static SchemaTemplate fromProto(String loadCommandString) {
+        StringTokenizer tokenizer = new StringTokenizer(loadCommandString, " ");
+        String templateName = tokenizer.nextToken();
+        Assertions.assertEquals("from", tokenizer.nextToken(), "Expecting load command looking like X from Y");
+        String sourceName = tokenizer.nextToken();
+        final String tableNamePrefix = maybeParseTableNamePrefix(tokenizer);
+        return RecordLayerSchemaTemplate.fromRecordMetadata(parseMetaData(sourceName), templateName, 1, tableNamePrefix);
+    }
+
+    @Nullable
+    private static String maybeParseTableNamePrefix(final StringTokenizer tokenizer) {
+        String tableNamePrefix = null;
+        if (tokenizer.hasMoreTokens()) {
+            Assertions.assertEquals("with", tokenizer.nextToken(), "Expected X from Y[ with tableNamePrefix Z]");
+            Assertions.assertEquals("tableNamePrefix", tokenizer.nextToken(), "Expected X from Y[ with tableNamePrefix Z]");
+            tableNamePrefix = tokenizer.nextToken();
+        }
+        return tableNamePrefix;
+    }
+
+    @Nonnull
+    private static RecordMetaData parseMetaData(final String sourceName) {
         RecordMetaData metaData;
-        Pair<String, String> templateNameAndSourceName = parseLoadTemplateString(loadCommandString);
-        if (templateNameAndSourceName.getRight().endsWith(".json")) {
-            metaData = loadRecordMetaDataFromJson(templateNameAndSourceName.getRight());
+        if (sourceName.endsWith(".json")) {
+            metaData = loadRecordMetaDataFromJson(sourceName);
         } else {
             try {
-                Class<?> act = Class.forName(templateNameAndSourceName.getRight());
+                Class<?> act = Class.forName(sourceName);
                 Method method = act.getMethod("getDescriptor");
                 Descriptors.FileDescriptor o = (Descriptors.FileDescriptor) method.invoke(null);
                 metaData = RecordMetaData.build(o);
@@ -70,7 +93,7 @@ public class CommandUtil {
                 throw new RuntimeException(e);
             }
         }
-        return RecordLayerSchemaTemplate.fromRecordMetadata(metaData, templateNameAndSourceName.getLeft(), 1);
+        return metaData;
     }
 
     public static SchemaInstanceOuterClass.SchemaInstance fromJson(String loadCommandString) {
@@ -104,14 +127,15 @@ public class CommandUtil {
 
     private static Pair<String, String> parseLoadTemplateString(String loadCommandString) {
         StringTokenizer lcsTokenizer = new StringTokenizer(loadCommandString, " ");
-        if (lcsTokenizer.countTokens() != 3) {
-            Assertions.fail("Expecting load command consisting of 3 tokens");
+        if (lcsTokenizer.countTokens() != 3 && lcsTokenizer.countTokens() != 5) {
+            Assertions.fail("Expecting load command consisting of 3 or 5 tokens");
         }
         String first = lcsTokenizer.nextToken();
         if (!"from".equals(lcsTokenizer.nextToken())) {
             Assertions.fail("Expecting load command looking like X from Y");
         }
         String second = lcsTokenizer.nextToken();
+
         return new ImmutablePair<>(first, second);
     }
 

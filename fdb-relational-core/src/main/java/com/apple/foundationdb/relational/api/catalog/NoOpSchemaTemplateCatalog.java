@@ -33,6 +33,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.NoOpSchemaTemplate
 import com.apple.foundationdb.relational.transactionbound.catalog.HollowSchemaTemplateCatalog;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Implementation of Schema template catalog that ignores CRUD operations on templates. This is essentially used
@@ -65,7 +66,8 @@ public class NoOpSchemaTemplateCatalog extends HollowSchemaTemplateCatalog {
 
     @Nonnull
     @Override
-    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateId, int version) {
+    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateId, int version,
+                                             @Nullable String tableNamePrefix) {
         return new NoOpSchemaTemplate(templateId, version);
     }
 

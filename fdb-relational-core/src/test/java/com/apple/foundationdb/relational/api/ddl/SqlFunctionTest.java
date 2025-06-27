@@ -134,7 +134,7 @@ public class SqlFunctionTest {
             public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template,
                                                                         @Nonnull final Options ignored) {
                 t.set(template);
-                return txn -> {
+                return (txn, options) -> {
                 };
             }
         });

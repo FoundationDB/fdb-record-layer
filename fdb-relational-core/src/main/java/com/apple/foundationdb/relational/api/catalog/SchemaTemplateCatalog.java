@@ -27,6 +27,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * A Catalog for holding Schema Templates.
@@ -57,27 +58,32 @@ public interface SchemaTemplateCatalog {
     /**
      * Load the latest version of the schema template.
      *
-     * @param txn        the transaction
+     * @param txn the transaction
      * @param templateName the name of the template to be loaded
+     *
      * @return whether the template exists.
+     *
      * @throws RelationalException with {@link ErrorCode#UNKNOWN_SCHEMA_TEMPLATE} if the template cannot be found,
-     *                           or other error code if something else goes wrong.
+     * or other error code if something else goes wrong.
      */
     @Nonnull
-    SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException;
+    SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName, @Nullable final String tableNamePrefix) throws RelationalException;
 
     /**
      * Load a specific version of the schema template.
      *
-     * @param txn        the transaction
+     * @param txn the transaction
      * @param templateName the name of the template to be loaded
      * @param version the version of the template to be loaded
+     *
      * @return whether the template exists.
+     *
      * @throws RelationalException with {@link ErrorCode#UNKNOWN_SCHEMA_TEMPLATE} if the template cannot be found,
-     *                           or other error code if something else goes wrong.
+     * or other error code if something else goes wrong.
      */
     @Nonnull
-    SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName, int version) throws RelationalException;
+    SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName, int version,
+                                      @Nullable String tableNamePrefix) throws RelationalException;
 
     /**
      * Create the Schema template in the catalog associated with the templateId.

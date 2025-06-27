@@ -32,6 +32,7 @@ import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
 
 @API(API.Status.EXPERIMENTAL)
@@ -51,7 +52,7 @@ public class HollowStoreCatalog implements StoreCatalog {
 
     @Nonnull
     @Override
-    public Schema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName) throws RelationalException {
+    public Schema loadSchema(@Nonnull Transaction txn, @Nonnull URI databaseId, @Nonnull String schemaName, @Nullable String tableNamePrefix) throws RelationalException {
         return schemaTemplate.generateSchema(databaseId.toString(), schemaName);
     }
 

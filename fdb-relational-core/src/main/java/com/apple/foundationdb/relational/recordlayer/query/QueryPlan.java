@@ -684,8 +684,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
         @Override
         public Plan<RelationalResultSet> optimize(@Nonnull CascadesPlanner planner,
-                                                @Nonnull PlanContext planContext,
-                                                @Nonnull PlanHashMode currentPlanHashMode) {
+                                                  @Nonnull PlanContext planContext,
+                                                  @Nonnull PlanHashMode currentPlanHashMode) {
             return this;
         }
 
@@ -721,7 +721,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
         @Nonnull
         public static MetadataQueryPlan of(DdlQuery ddlQuery) {
-            return new MetadataQueryPlan(ddlQuery::executeAction, ddlQuery.getResultSetMetadata());
+            return new MetadataQueryPlan(txn -> ddlQuery.executeAction(txn, Options.NONE /* TODO */), ddlQuery.getResultSetMetadata());
         }
     }
 }

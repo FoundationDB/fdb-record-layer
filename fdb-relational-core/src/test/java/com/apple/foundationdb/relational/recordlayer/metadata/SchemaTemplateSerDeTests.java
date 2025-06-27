@@ -192,7 +192,8 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertEquals(enableLongRows, metaData.isSplitLongRecords());
 
         // Validate that when wrapping a met
-        RecordLayerSchemaTemplate wrappedMetaData = RecordLayerSchemaTemplate.fromRecordMetadata(metaData, schemaTemplate.getName(), schemaTemplate.getVersion());
+        RecordLayerSchemaTemplate wrappedMetaData = RecordLayerSchemaTemplate.fromRecordMetadata(metaData,
+                schemaTemplate.getName(), schemaTemplate.getVersion(), null);
         Assertions.assertEquals(enableLongRows, wrappedMetaData.isEnableLongRows());
         Assertions.assertEquals(schemaTemplate.getVersion(), wrappedMetaData.getVersion());
     }
@@ -208,7 +209,8 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertEquals(storeRowVersions, schemaTemplate.toRecordMetadata().isStoreRecordVersions());
 
         RecordMetaData metaData = schemaTemplate.toRecordMetadata();
-        RecordLayerSchemaTemplate wrappedMetaData = RecordLayerSchemaTemplate.fromRecordMetadata(metaData, schemaTemplate.getName(), schemaTemplate.getVersion());
+        RecordLayerSchemaTemplate wrappedMetaData = RecordLayerSchemaTemplate.fromRecordMetadata(
+                metaData, schemaTemplate.getName(), schemaTemplate.getVersion(), null);
         Assertions.assertEquals(storeRowVersions, wrappedMetaData.isStoreRowVersions());
         Assertions.assertEquals(schemaTemplate.getVersion(), wrappedMetaData.getVersion());
     }
@@ -321,7 +323,9 @@ public class SchemaTemplateSerDeTests {
                                 .build())
                 .build();
         final var proto = sampleRecordSchemaTemplate.toRecordMetadata();
-        final var deserializedTableType = RecordLayerSchemaTemplate.fromRecordMetadata(proto, "TestSchemaTemplate", 42).findTableByName("T1");
+        final var deserializedTableType = RecordLayerSchemaTemplate.fromRecordMetadata(
+                proto, "TestSchemaTemplate", 42, null)
+                .findTableByName("T1");
         Assertions.assertTrue(deserializedTableType.isPresent());
         final var column = deserializedTableType.get().getColumns().stream().findFirst();
         Assertions.assertTrue(column.isPresent());
@@ -331,6 +335,7 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertEquals("Subtype", typeName);
     }
 
+    // TODO tests with table name prefix
     @Test
     public void findTableByNameWorksCorrectly() {
         final var sampleRecordSchemaTemplate = RecordLayerSchemaTemplate.newBuilder()
@@ -510,7 +515,7 @@ public class SchemaTemplateSerDeTests {
         private final Map<String, Integer> invocationsCount;
 
         public RecordMetadataDeserializerWithPeekingFunctionSupplier(@Nonnull final RecordMetaData recordMetaData) {
-            super(recordMetaData);
+            super(recordMetaData, null);
             invocationsCount = new HashMap<>();
         }
 

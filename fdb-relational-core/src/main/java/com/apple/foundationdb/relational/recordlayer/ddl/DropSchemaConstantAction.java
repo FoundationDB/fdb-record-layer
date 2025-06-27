@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
@@ -55,7 +56,7 @@ public class DropSchemaConstantAction implements ConstantAction {
 
     @SuppressWarnings("PMD.CloseResource") // context lifetime managed by transaction
     @Override
-    public void execute(Transaction txn) throws RelationalException {
+    public void execute(Transaction txn, final Options options) throws RelationalException {
         if ("/__SYS".equals(dbUri.getPath())) {
             throw new RelationalException("Cannot drop /__SYS schemas", ErrorCode.INSUFFICIENT_PRIVILEGE);
         }

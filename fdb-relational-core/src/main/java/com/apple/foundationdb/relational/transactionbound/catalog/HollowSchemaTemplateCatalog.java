@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 @API(API.Status.EXPERIMENTAL)
 public class HollowSchemaTemplateCatalog implements SchemaTemplateCatalog {
@@ -47,13 +48,14 @@ public class HollowSchemaTemplateCatalog implements SchemaTemplateCatalog {
 
     @Nonnull
     @Override
-    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException {
+    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName, final @Nullable String tableNamePrefix) throws RelationalException {
         throw new OperationUnsupportedException("This Schema Template Catalog is hollow and does not support calls.");
     }
 
     @Nonnull
     @Override
-    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateId, int version) throws RelationalException {
+    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateId, int version,
+                                             @Nullable String tableNamePrefix) throws RelationalException {
         throw new OperationUnsupportedException("This Schema Template Catalog is hollow and does not support calls.");
     }
 

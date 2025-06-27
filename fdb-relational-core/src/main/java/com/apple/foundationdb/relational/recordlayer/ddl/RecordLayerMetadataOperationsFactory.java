@@ -50,7 +50,7 @@ public class RecordLayerMetadataOperationsFactory implements MetadataOperationsF
     @Nonnull
     @Override
     public ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, boolean throwIfDoesNotExist, @Nonnull Options options) {
-        return txn -> {
+        return (txn, options2) -> {
             catalog.getSchemaTemplateCatalog().deleteTemplate(txn, templateId, throwIfDoesNotExist);
         };
     }
