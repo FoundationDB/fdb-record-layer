@@ -36,7 +36,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -394,7 +393,6 @@ public class MetaDataProtoEditor {
             return;
         }
         final Descriptors.FileDescriptor fileDescriptor = RecordMetaDataBuilder.buildFileDescriptor(records, dependencies);
-        final Map<String, Descriptors.Descriptor> descriptorsByName = getDescriptorsByName(fileDescriptor.getMessageTypes());
         final DescriptorProtos.FileDescriptorProto.Builder recordsBuilder = records.toBuilder();
 
         // Determine the usage of the original record type by looking through the union builder.
@@ -404,7 +402,7 @@ public class MetaDataProtoEditor {
         if (unionBuilder.getName().equals(recordTypeName)) {
             usage = RecordMetaDataOptionsProto.RecordTypeOptions.Usage.UNION;
         } else {
-            final Descriptors.Descriptor unionDescriptor = getDescriptor(descriptorsByName, unionBuilder.getName());
+            final Descriptors.Descriptor unionDescriptor = getDescriptor(fileDescriptor, unionBuilder.getName());
             DescriptorProtos.FieldDescriptorProto.Builder unionFieldBuilder = fetchUnionFieldBuilder(recordsBuilder,
                     unionBuilder, unionDescriptor, recordTypeName);
             if (unionFieldBuilder == null) {
@@ -428,21 +426,21 @@ public class MetaDataProtoEditor {
             throw new MetaDataException("Cannot rename record type to the default union name", LogMessageKeys.RECORD_TYPE, recordTypeName);
         }
         // Rename the record type within the file
-        renameRecordTypeUsages(recordsBuilder, recordTypeName, newRecordTypeName, descriptorsByName);
+        renameRecordTypeUsages(recordsBuilder, recordTypeName, newRecordTypeName, fileDescriptor);
 
         // If the record type is a top level record type, change its usage elsewhere in the meta-data
         if (RecordMetaDataOptionsProto.RecordTypeOptions.Usage.RECORD.equals(usage)) {
             renameTopLevelRecordType(metaDataBuilder, recordTypeName, newRecordTypeName);
         }
         renameRecordTypeUsagesInUnnested(metaDataBuilder, fileDescriptor, recordTypeName, newRecordTypeName,
-                descriptorsByName.get(recordTypeName));
+                getDescriptor(fileDescriptor, recordTypeName));
 
         // Update the file descriptor
         metaDataBuilder.setRecords(recordsBuilder);
     }
 
-    private static Descriptors.Descriptor getDescriptor(final Map<String, Descriptors.Descriptor> descriptorsByName, String name) {
-        final Descriptors.Descriptor descriptor = descriptorsByName.get(name);
+    private static Descriptors.Descriptor getDescriptor(final Descriptors.FileDescriptor fileDescriptor, String name) {
+        final Descriptors.Descriptor descriptor = fileDescriptor.findMessageTypeByName(name);
         if (descriptor == null) {
             throw new MetaDataException("Could not find descriptor")
                     .addLogInfo(LogMessageKeys.NAME,  name);
@@ -452,15 +450,14 @@ public class MetaDataProtoEditor {
 
     private static void renameRecordTypeUsages(@Nonnull DescriptorProtos.FileDescriptorProto.Builder recordsBuilder,
                                                @Nonnull String oldRecordTypeName, @Nonnull String newRecordTypeName,
-                                               @Nonnull Map<String, Descriptors.Descriptor> descriptorsByName) {
+                                               @Nonnull Descriptors.FileDescriptor fileDescriptor) {
         final String namespace = recordsBuilder.getPackage();
         final String fullOldRecordTypeName = fullyQualifiedTypeName(namespace, oldRecordTypeName);
         final String fullNewRecordTypeName = fullyQualifiedTypeName(namespace, newRecordTypeName);
 
         // Rename the record type within the file
         for (DescriptorProtos.DescriptorProto.Builder messageTypeBuilder : recordsBuilder.getMessageTypeBuilderList()) {
-            final Descriptors.Descriptor descriptor = Objects.requireNonNull(descriptorsByName.get(messageTypeBuilder.getName()),
-                    "Descriptor does not have type");
+            final Descriptors.Descriptor descriptor = getDescriptor(fileDescriptor, messageTypeBuilder.getName());
             // Change any fields referencing the old type so that they now reference the new type
             renameRecordTypeUsages(namespace, messageTypeBuilder, fullOldRecordTypeName,
                     fullNewRecordTypeName, descriptor);
@@ -485,10 +482,6 @@ public class MetaDataProtoEditor {
         }
     }
 
-    private static Map<String, Descriptors.Descriptor> getDescriptorsByName(final List<Descriptors.Descriptor> messageTypes) {
-        return messageTypes.stream().collect(Collectors.toMap(Descriptors.Descriptor::getName, Function.identity()));
-    }
-
     private static void renameRecordTypeUsages(@Nonnull String namespace,
                                                @Nonnull DescriptorProtos.DescriptorProto.Builder messageTypeBuilder,
                                                @Nonnull String fullOldRecordTypeName,
@@ -509,9 +502,9 @@ public class MetaDataProtoEditor {
         // Rename the record type if used within any nested message types
         if (messageTypeBuilder.getNestedTypeCount() > 0) {
             final String nestedNamespace = namespace.isEmpty() ? messageTypeBuilder.getName() : (namespace + "." + messageTypeBuilder.getName());
-            final Map<String, Descriptors.Descriptor> nestedTypesByName = getDescriptorsByName(descriptorForMessage.getNestedTypes());
             for (DescriptorProtos.DescriptorProto.Builder nestedTypeBuilder : messageTypeBuilder.getNestedTypeBuilderList()) {
-                final Descriptors.Descriptor nestedDescriptor = Objects.requireNonNull(nestedTypesByName.get(nestedTypeBuilder.getName()),
+                final Descriptors.Descriptor nestedDescriptor = Objects.requireNonNull(
+                        descriptorForMessage.findNestedTypeByName(nestedTypeBuilder.getName()),
                         "FileDescriptor does not have nested type that exists in protobuf");
                 renameRecordTypeUsages(nestedNamespace, nestedTypeBuilder,
                         fullOldRecordTypeName, fullNewRecordTypeName, nestedDescriptor);
