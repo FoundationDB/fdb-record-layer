@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests.connectionfactory;
 
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
@@ -28,9 +29,11 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
+import com.google.common.collect.Iterables;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -206,6 +209,13 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
             logger.info("Sending operation {} to all connections", "close");
             for (var connection : underlyingConnections) {
                 connection.close();
+            }
+        }
+
+        @Override
+        public void setConnectionOptions(@Nonnull final Options connectionOptions) throws SQLException {
+            if (!Iterables.isEmpty(connectionOptions.entries())) {
+                Assumptions.abort("only embedded connections support the setting of connection options");
             }
         }
 
