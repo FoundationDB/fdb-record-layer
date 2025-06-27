@@ -168,7 +168,7 @@ test_block:
     -
       - query: select * from T1 where COL1 = 20 OR COL1 = 20
       # Ideally, we'd coalesce these two ranges on COL1 into a single range
-      - explain: "COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.COL1 EQUALS promote(@c8 AS LONG) OR _.COL1 EQUALS promote(@c8 AS LONG) | FETCH"
+      - explain: "ISCAN(I1 [EQUALS promote(@c8 AS LONG)])"
       - result: [
                {ID:  6, COL1: 20, COL2:  6},
                {ID:  7, COL1: 20, COL2:  7},
@@ -181,7 +181,7 @@ test_block:
         ]
     -
       - query: select * from T1 where COL1 = 20 OR COL1 = 20 ORDER BY COL1
-      - explain: "COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.COL1 EQUALS promote(@c8 AS LONG) OR _.COL1 EQUALS promote(@c8 AS LONG) | FETCH"
+      - explain: "ISCAN(I1 [EQUALS promote(@c8 AS LONG)])"
       - result: [
                {ID:  6, COL1: 20, COL2:  6},
                {ID:  7, COL1: 20, COL2:  7},

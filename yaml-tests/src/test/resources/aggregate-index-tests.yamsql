@@ -255,11 +255,11 @@ test_block:
       - result: [{COL3: 100, !l 1}, {COL3: 1, !l 1}]
     -
       - query: select t.* from (select col3, max(col2) as m from t2 where col1 = 1 group by col1, col3) as t where m < 2 order by m desc;
-      - explain: "AISCAN(MV9 [EQUALS promote(@c21 AS LONG)] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS M) | FILTER _.M LESS_THAN promote(@c33 AS LONG)"
+      - explain: "AISCAN(MV9 [EQUALS promote(@c21 AS LONG), [LESS_THAN promote(@c33 AS LONG)]] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS M)"
       - result: [{COL3: 100, !l 1}, {COL3: 1, !l 1}]
     -
       - query: select col3, m from (select col3, max(col2) as m from t2 where col1 = 1 group by col1, col3) as t order by m desc;
-      - explain: "AISCAN(MV9 [EQUALS promote(@c21 AS LONG)] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS M) | MAP (_.COL3 AS COL3, _.M AS M)"
+      - explain: "AISCAN(MV9 [EQUALS promote(@c21 AS LONG)] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS M)"
       - result: [{COL3: 200, M: 2}, {COL3: 2, M: 2}, {COL3: 100, M: 1}, {COL3: 1, M: 1}]
     -
       # Permuted max index can be used as a value index on the underlying columns
