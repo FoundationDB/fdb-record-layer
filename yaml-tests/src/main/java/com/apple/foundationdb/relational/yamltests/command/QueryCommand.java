@@ -35,6 +35,7 @@ import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
+import org.opentest4j.TestAbortedException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -135,6 +136,8 @@ public final class QueryCommand extends Command {
             } else {
                 executeInternal(connection, checkCache, executor);
             }
+        } catch (TestAbortedException tAE) {
+            throw tAE;
         } catch (Throwable e) {
             if (maybeExecutionThrowable.get() == null) {
                 maybeExecutionThrowable.set(executionContext.wrapContext(e,

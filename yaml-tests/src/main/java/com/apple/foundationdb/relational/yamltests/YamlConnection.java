@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -42,6 +43,8 @@ public interface YamlConnection extends AutoCloseable {
      */
     @Override
     void close() throws SQLException;
+
+    void setConnectionOptions(@Nonnull Options connectionOptions) throws SQLException;
 
     /**
      * Creates a statement (see {@link RelationalConnection#createStatement()}).
