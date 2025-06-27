@@ -173,8 +173,6 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
 
         // add the SELECT-WHERE part, where we expose grouping and grouped columns, allowing query fragments that governs
         // only these columns to properly bind to this part, similar to how value indices work.
-        final ImmutableList.Builder<CorrelationIdentifier> placeholders = ImmutableList.builder();
-        placeholders.addAll(baseExpansion.getPlaceholderAliases());
 
         if (index.hasPredicate()) {
             final var filteredIndexPredicate = Objects.requireNonNull(index.getPredicate()).toPredicate(baseQuantifier.getFlowedObjectValue());
