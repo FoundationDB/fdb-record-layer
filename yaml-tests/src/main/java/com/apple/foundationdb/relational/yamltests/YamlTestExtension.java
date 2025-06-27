@@ -45,6 +45,7 @@ import org.junit.jupiter.api.extension.ParameterResolutionException;
 import org.junit.jupiter.api.extension.ParameterResolver;
 import org.junit.jupiter.api.extension.TestTemplateInvocationContext;
 import org.junit.jupiter.api.extension.TestTemplateInvocationContextProvider;
+import org.opentest4j.TestAbortedException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -302,6 +303,8 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
                             config.getRunnerOptions());
                     try {
                         yamlRunner.run();
+                    } catch (TestAbortedException tAE) {
+                        throw tAE;
                     } catch (Exception e) {
                         logger.error("‼️ running test file '{}' was not successful", fileName, e);
                         throw e;
