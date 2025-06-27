@@ -438,15 +438,21 @@ public class CascadesPlanner implements QueryPlanner {
                     try {
                         nextTask.execute();
                         Debugger.sanityCheck(() -> {
-                            // This is a fairly expensive check, but it makes sure that the traversal
-                            // is up to date with the query DAG. This is used during memoization, so
-                            // it's important that it has an accurate view of the state of the world.
-                            // If this catches something, it may aid debugging to run this with every
-                            // task execution
-                            if (taskCount % 20 == 0) {
+                            if (nextTask instanceof InitiatePlannerPhase) {
+                                //
+                                // Validate that the memo structure and the query graph are aligned.
+                                // This is an expensive check, but if it finds anything, then it may
+                                // be useful to enable this check so that it runs after every task
+                                // to root out the underlying issue.
+                                //
+                                // Once we have sanity check levels, we should consider enabling
+                                // this check all the time at certain levels.
+                                // See: https://github.com/FoundationDB/fdb-record-layer/issues/3445
+                                //
                                 traversal.verifyIntegrity();
                             }
                         });
+
                     } finally {
                         Debugger.withDebugger(debugger -> debugger.onEvent(nextTask.toTaskEvent(Location.END)));
                     }
@@ -477,6 +483,9 @@ public class CascadesPlanner implements QueryPlanner {
                 pushInitialTasks();
             }
         }
+
+        // Also validate memo structure integrity at the end of planning
+        Debugger.sanityCheck(() -> traversal.verifyIntegrity());
     }
 
     private void pushInitialTasks() {
