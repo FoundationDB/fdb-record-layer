@@ -103,7 +103,7 @@ public abstract class SyntheticRecordTypeBuilder<C extends SyntheticRecordTypeBu
      * @return the newly added constituent
      */
     @Nonnull
-    protected C addConstituent(@Nonnull C constituent) {
+    protected final C addConstituent(@Nonnull C constituent) {
         constituents.add(constituent);
         return constituent;
     }
