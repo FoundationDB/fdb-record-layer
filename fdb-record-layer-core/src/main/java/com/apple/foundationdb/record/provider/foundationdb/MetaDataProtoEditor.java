@@ -432,7 +432,7 @@ public class MetaDataProtoEditor {
 
         // If the record type is a top level record type, change its usage elsewhere in the meta-data
         if (RecordMetaDataOptionsProto.RecordTypeOptions.Usage.RECORD.equals(usage)) {
-            renameTopLevelRecordType(metaDataBuilder, fileDescriptor, recordTypeName, newRecordTypeName);
+            renameTopLevelRecordType(metaDataBuilder, recordTypeName, newRecordTypeName);
         }
         renameRecordTypeUsagesInUnnested(metaDataBuilder, fileDescriptor, recordTypeName, newRecordTypeName,
                 descriptorsByName.get(recordTypeName));
@@ -520,7 +520,6 @@ public class MetaDataProtoEditor {
     }
 
     private static void renameTopLevelRecordType(@Nonnull RecordMetaDataProto.MetaData.Builder metaDataBuilder,
-                                                 @Nonnull Descriptors.FileDescriptor fileDescriptor,
                                                  @Nonnull String recordTypeName, @Nonnull String newRecordTypeName) {
         List<RecordMetaDataProto.RecordType> recordTypes;
         boolean foundRecordType = false;
