@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.ProtoVersionSupplier;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
-import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestNoUnionEvolvedIllegalProto;
 import com.apple.foundationdb.record.TestNoUnionEvolvedProto;
@@ -46,6 +45,7 @@ import com.apple.foundationdb.record.TestRecordsMultiProto;
 import com.apple.foundationdb.record.TestRecordsNestedAsRecord;
 import com.apple.foundationdb.record.TestRecordsOneOfProto;
 import com.apple.foundationdb.record.TestRecordsParentChildRelationshipProto;
+import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -77,7 +77,7 @@ import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -811,7 +811,10 @@ public class FDBMetaDataStoreTest {
     }
 
     private void deprecateRecordType(@Nonnull String recordType) {
-        metaDataStore.mutateMetaData((metaDataProto) -> MetaDataProtoEditor.deprecateRecordType(metaDataProto, recordType));
+        metaDataStore.mutateMetaData((metaDataProto) -> {
+            Descriptors.FileDescriptor[] dependencies = RecordMetaDataBuilder.getDependencies(metaDataProto.build(), Map.of());
+            MetaDataProtoEditor.deprecateRecordType(metaDataProto, recordType, dependencies);
+        });
     }
 
     private void addField(@Nonnull String recordType, @Nonnull DescriptorProtos.FieldDescriptorProto field) {
@@ -823,7 +826,9 @@ public class FDBMetaDataStoreTest {
     }
 
     private void renameRecordType(@Nonnull String recordType, @Nonnull String newRecordTypeName) {
-        metaDataStore.mutateMetaData((metaDataProto) -> MetaDataProtoEditor.renameRecordType(metaDataProto, recordType, newRecordTypeName));
+        metaDataStore.mutateMetaData((metaDataProto) ->
+                MetaDataProtoEditor.renameRecordType(metaDataProto, recordType, newRecordTypeName,
+                        RecordMetaDataBuilder.getDependencies(metaDataProto.build(), Map.of())));
     }
 
     private static void assertDeprecated(@Nonnull RecordMetaData metaData, @Nonnull String recordType) {
@@ -1958,74 +1963,6 @@ public class FDBMetaDataStoreTest {
         }
     }
 
-    private void unqualify(@Nonnull String packageName, @Nonnull String newPackage, @Nonnull DescriptorProtos.DescriptorProto.Builder messageTypeBuilder) {
-        for (DescriptorProtos.FieldDescriptorProto.Builder fieldBuilder : messageTypeBuilder.getFieldBuilderList()) {
-            if (fieldBuilder.hasTypeName()) {
-                String withoutPrefix;
-                if (fieldBuilder.getTypeName().startsWith("." + packageName + ".")) {
-                    withoutPrefix = fieldBuilder.getTypeName().substring(2 + packageName.length());
-                } else if (fieldBuilder.getTypeName().startsWith(packageName + ".")) {
-                    withoutPrefix = fieldBuilder.getTypeName().substring(1 + packageName.length());
-                } else {
-                    withoutPrefix = "";
-                }
-                if (!withoutPrefix.isEmpty()) {
-                    String newTypeName;
-                    if (newPackage.isEmpty()) {
-                        newTypeName = withoutPrefix;
-                    } else  {
-                        newTypeName = newPackage + "." + withoutPrefix;
-                    }
-                    fieldBuilder.setTypeName(newTypeName);
-                }
-            }
-        }
-        for (DescriptorProtos.DescriptorProto.Builder nestedTypeBuilder : messageTypeBuilder.getNestedTypeBuilderList()) {
-            unqualify(packageName, newPackage, nestedTypeBuilder);
-        }
-    }
-
-    private void unqualify(@Nonnull String newPackage, @Nonnull DescriptorProtos.FileDescriptorProto.Builder fileBuilder) {
-        for (DescriptorProtos.DescriptorProto.Builder messageTypeBuilder : fileBuilder.getMessageTypeBuilderList()) {
-            unqualify(fileBuilder.getPackage(), newPackage, messageTypeBuilder);
-        }
-    }
-
-    @Test
-    public void ambiguousTypes() {
-        try (FDBRecordContext context = fdb.openContext()) {
-            openMetaDataStore(context);
-            RecordMetaData metaData = RecordMetaData.build(TestRecordsDoubleNestedProto.getDescriptor());
-            metaDataStore.saveRecordMetaData(metaData);
-            context.commit();
-        }
-        try (FDBRecordContext context = fdb.openContext()) {
-            openMetaDataStore(context);
-            MetaDataProtoEditor.AmbiguousTypeNameException e = assertThrows(MetaDataProtoEditor.AmbiguousTypeNameException.class, () -> metaDataStore.mutateMetaData(protoBuilder -> {
-                final DescriptorProtos.FileDescriptorProto.Builder fileBuilder = protoBuilder.getRecordsBuilder();
-                unqualify("", fileBuilder);
-                MetaDataProtoEditor.renameRecordType(protoBuilder, "OtherRecord", "OtterRecord");
-            }));
-            assertThat(e.getMessage(), containsString("might be of type .com.apple.foundationdb.record.test.doublenested.OtherRecord"));
-            e = assertThrows(MetaDataProtoEditor.AmbiguousTypeNameException.class, () -> metaDataStore.mutateMetaData(protoBuilder -> {
-                final DescriptorProtos.FileDescriptorProto.Builder fileBuilder = protoBuilder.getRecordsBuilder();
-                fileBuilder.getMessageTypeBuilderList().forEach(message -> {
-                    if (message.getName().equals("OtherRecord")) {
-                        unqualify(fileBuilder.getPackage(), "", message);
-                    }
-                });
-                Optional<?> changedField = fileBuilder.getMessageTypeBuilderList().stream()
-                        .filter(message -> message.getName().equals("OtherRecord"))
-                        .flatMap(message -> message.getFieldBuilderList().stream())
-                        .filter(field -> field.getTypeName().equals("OuterRecord"))
-                        .findAny();
-                assertTrue(changedField.isPresent());
-                MetaDataProtoEditor.renameRecordType(protoBuilder, "OuterRecord", "OtterRecord");
-            }));
-            assertEquals("Field outer in message .com.apple.foundationdb.record.test.doublenested.OtherRecord of type OuterRecord might be of type .com.apple.foundationdb.record.test.doublenested.OuterRecord", e.getMessage());
-        }
-    }
-
     /**
      * Make sure the type rename can go all the way down.
      */
@@ -2089,7 +2026,7 @@ public class FDBMetaDataStoreTest {
                         .count(),
                         greaterThanOrEqualTo(1L));
 
-                MetaDataProtoEditor.renameRecordType(protoBuilder, "MiddleRecord", "MuddledRecord");
+                renameRecordType(protoBuilder, "MiddleRecord", "MuddledRecord");
             });
             RecordMetaData metaData = metaDataStore.getRecordMetaData();
             assertNotNull(metaData.getRecordsDescriptor().findMessageTypeByName("MuddledRecord"));
@@ -2179,7 +2116,7 @@ public class FDBMetaDataStoreTest {
         try (FDBRecordContext context = fdb.openContext()) {
             openMetaDataStore(context);
             metaDataStore.mutateMetaData(metaDataProtoBuilder -> {
-                MetaDataProtoEditor.renameRecordType(metaDataProtoBuilder, "MySimpleRecord", "MyNewSimpleRecord");
+                renameRecordType(metaDataProtoBuilder, "MySimpleRecord", "MyNewSimpleRecord");
                 assertThat(metaDataProtoBuilder.getRecordTypesList().stream().map(RecordMetaDataProto.RecordType::getName).collect(Collectors.toList()), hasItem("MySimpleRecord"));
                 for (RecordMetaDataProto.Index index : metaDataProtoBuilder.getIndexesList()) {
                     assertThat(index.getRecordTypeList(), not(hasItem("MyNewSimpleRecord")));
@@ -2365,5 +2302,12 @@ public class FDBMetaDataStoreTest {
             MetaDataException e = assertThrows(MetaDataException.class, () -> renameRecordType("MyNonExistentRecord", "SomethingElse"));
             assertEquals("No record type found with name MyNonExistentRecord", e.getMessage());
         }
+    }
+
+    private static void renameRecordType(final RecordMetaDataProto.MetaData.Builder protoBuilder,
+                                         final String oldRecordTypeName,
+                                         final String newRecordTypeName) {
+        MetaDataProtoEditor.renameRecordType(protoBuilder, oldRecordTypeName, newRecordTypeName,
+                RecordMetaDataBuilder.getDependencies(protoBuilder.build(), Map.of()));
     }
 }

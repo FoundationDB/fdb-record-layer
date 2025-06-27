@@ -403,8 +403,12 @@ public class RecordMetaDataBuilderTest {
         // Rename a record type
         RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         RecordMetaDataProto.MetaData.Builder protoBuilder = metaData.toProto().toBuilder();
-        MetaDataProtoEditor.renameRecordType(protoBuilder, "MySimpleRecord", "MyNewSimpleRecord");
-        Descriptors.FileDescriptor updatedFile = Descriptors.FileDescriptor.buildFrom(protoBuilder.getRecords(), TestRecords1Proto.getDescriptor().getDependencies().toArray(new Descriptors.FileDescriptor[0]));
+        final Descriptors.FileDescriptor[] dependencies = TestRecords1Proto.getDescriptor().getDependencies()
+                .toArray(new Descriptors.FileDescriptor[0]);
+        MetaDataProtoEditor.renameRecordType(protoBuilder, "MySimpleRecord", "MyNewSimpleRecord",
+                dependencies);
+        Descriptors.FileDescriptor updatedFile = Descriptors.FileDescriptor.buildFrom(protoBuilder.getRecords(),
+                dependencies);
 
         // Validate that the type name change happened
         assertNull(updatedFile.findMessageTypeByName("MySimpleRecord"));

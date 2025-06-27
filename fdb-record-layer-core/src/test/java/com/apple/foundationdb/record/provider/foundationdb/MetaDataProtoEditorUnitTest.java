@@ -25,12 +25,31 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsDoubleNestedProto;
+import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.foundationdb.MetaDataProtoEditor.FieldTypeMatch;
+import com.apple.test.BooleanSource;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
+import com.google.protobuf.util.JsonFormat;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -44,26 +63,37 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * are read from the database, edited, and written back, everything works. These tests focus on just the editor
  * itself.
  */
-public class MetaDataProtoEditorTest {
+public class MetaDataProtoEditorUnitTest {
 
     @Nonnull
-    private FieldTypeMatch fieldIsType(@Nonnull DescriptorProtos.FileDescriptorProtoOrBuilder file,
+    private FieldTypeMatch fieldIsType(@Nonnull DescriptorProtos.FileDescriptorProto.Builder file,
                                        @Nonnull String messageName, @Nonnull String fieldName,
-                                       @Nonnull String typeName) {
+                                       @Nonnull String typeName) throws Descriptors.DescriptorValidationException {
+        return fieldIsType(file.build(), messageName, fieldName, typeName);
+    }
+
+    @Nonnull
+    private FieldTypeMatch fieldIsType(@Nonnull DescriptorProtos.FileDescriptorProto file,
+                                       @Nonnull String messageName, @Nonnull String fieldName,
+                                       @Nonnull String typeName) throws Descriptors.DescriptorValidationException {
 
         final DescriptorProtos.DescriptorProto record = file.getMessageTypeList().stream()
                 .filter(message -> message.getName().equals(messageName))
                 .findAny()
-                .get();
+                .orElseThrow();
         final DescriptorProtos.FieldDescriptorProto field = record.getFieldList().stream()
                 .filter(f -> f.getName().equals(fieldName))
                 .findAny()
-                .get();
-        return MetaDataProtoEditor.fieldIsType(file, record, field, typeName);
+                .orElseThrow();
+        final Descriptors.FileDescriptor fileDescriptor = Descriptors.FileDescriptor.buildFrom(file, new Descriptors.FileDescriptor[0]);
+        final Descriptors.Descriptor typeDescriptor = fileDescriptor.getMessageTypes().stream()
+                .filter(type -> type.getName().equals(messageName))
+                .findAny().orElseThrow();
+        return MetaDataProtoEditor.fieldIsType(file, typeDescriptor, field, typeName);
     }
 
     @Test
-    public void fieldIsType() {
+    public void fieldIsType() throws Descriptors.DescriptorValidationException {
         final DescriptorProtos.FileDescriptorProto file = TestRecords1Proto.getDescriptor().toProto();
         assertEquals(FieldTypeMatch.MATCHES,
                 fieldIsType(file, RecordMetaDataBuilder.DEFAULT_UNION_NAME, "_MySimpleRecord", "MySimpleRecord"));
@@ -100,17 +130,17 @@ public class MetaDataProtoEditorTest {
         assertNotNull(simpleRecordDescriptor);
         assertSame(simpleRecordDescriptor, modifiedFileDescriptor.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME).findFieldByName("_MySimpleRecord").getMessageType());
 
-        assertEquals(FieldTypeMatch.MIGHT_MATCH,
+        assertEquals(FieldTypeMatch.MATCHES,
                 fieldIsType(fileBuilder, RecordMetaDataBuilder.DEFAULT_UNION_NAME, "_MySimpleRecord", "MySimpleRecord"));
-        assertEquals(FieldTypeMatch.MIGHT_MATCH,
+        assertEquals(FieldTypeMatch.MATCHES,
                 fieldIsType(fileBuilder, RecordMetaDataBuilder.DEFAULT_UNION_NAME, "_MySimpleRecord", ".com.apple.foundationdb.record.test1.MySimpleRecord"));
         assertEquals(FieldTypeMatch.DOES_NOT_MATCH,
                 fieldIsType(fileBuilder, RecordMetaDataBuilder.DEFAULT_UNION_NAME, "_MySimpleRecord", ".com.apple.foundationdb.record.test2.MySimpleRecord"));
         assertEquals(FieldTypeMatch.DOES_NOT_MATCH,
                 fieldIsType(fileBuilder, RecordMetaDataBuilder.DEFAULT_UNION_NAME, "_MySimpleRecord", "MyOtherRecord"));
-        assertEquals(FieldTypeMatch.MIGHT_MATCH,
+        assertEquals(FieldTypeMatch.DOES_NOT_MATCH,
                 fieldIsType(fileBuilder, RecordMetaDataBuilder.DEFAULT_UNION_NAME, "_MySimpleRecord", ".com.apple.foundationdb.record.test1.RecordTypeUnion.MySimpleRecord"));
-        assertEquals(FieldTypeMatch.MIGHT_MATCH_AS_NESTED,
+        assertEquals(FieldTypeMatch.DOES_NOT_MATCH,
                 fieldIsType(fileBuilder, RecordMetaDataBuilder.DEFAULT_UNION_NAME, "_MySimpleRecord", ".com.apple.foundationdb.record.test1.RecordTypeUnion"));
         assertEquals(FieldTypeMatch.DOES_NOT_MATCH,
                 fieldIsType(fileBuilder, RecordMetaDataBuilder.DEFAULT_UNION_NAME, "_MySimpleRecord", ".com.apple.foundationdb.record.test1.RecordTypeUnion.MySimpleRecord.InnerRecord"));
@@ -125,9 +155,9 @@ public class MetaDataProtoEditorTest {
         assertNotNull(simpleRecordDescriptor);
         assertSame(simpleRecordDescriptor, modifiedFileDescriptor.findMessageTypeByName(RecordMetaDataBuilder.DEFAULT_UNION_NAME).findFieldByName("_MySimpleRecord").getMessageType());
 
-        assertEquals(FieldTypeMatch.MIGHT_MATCH,
+        assertEquals(FieldTypeMatch.MATCHES,
                 fieldIsType(fileBuilder, RecordMetaDataBuilder.DEFAULT_UNION_NAME, "_MySimpleRecord", "MySimpleRecord"));
-        assertEquals(FieldTypeMatch.MIGHT_MATCH,
+        assertEquals(FieldTypeMatch.MATCHES,
                 fieldIsType(fileBuilder, RecordMetaDataBuilder.DEFAULT_UNION_NAME, "_MySimpleRecord", ".com.apple.foundationdb.record.test1.MySimpleRecord"));
         assertEquals(FieldTypeMatch.DOES_NOT_MATCH,
                 fieldIsType(fileBuilder, RecordMetaDataBuilder.DEFAULT_UNION_NAME, "_MySimpleRecord", ".com.apple.foundationdb.record.test2.MySimpleRecord"));
@@ -135,11 +165,11 @@ public class MetaDataProtoEditorTest {
                 fieldIsType(fileBuilder, RecordMetaDataBuilder.DEFAULT_UNION_NAME, "_MySimpleRecord", "MyOtherRecord"));
         assertEquals(FieldTypeMatch.DOES_NOT_MATCH,
                 fieldIsType(fileBuilder, RecordMetaDataBuilder.DEFAULT_UNION_NAME, "_MySimpleRecord", ".com.apple.foundationdb.record.test1.RecordTypeUnion.MySimpleRecord"));
-        assertEquals(FieldTypeMatch.MIGHT_MATCH_AS_NESTED,
+        assertEquals(FieldTypeMatch.DOES_NOT_MATCH,
                 fieldIsType(fileBuilder, RecordMetaDataBuilder.DEFAULT_UNION_NAME, "_MySimpleRecord", ".com.apple.foundationdb.record.test1.RecordTypeUnion"));
-        assertEquals(FieldTypeMatch.MIGHT_MATCH_AS_NESTED,
+        assertEquals(FieldTypeMatch.DOES_NOT_MATCH,
                 fieldIsType(fileBuilder, RecordMetaDataBuilder.DEFAULT_UNION_NAME, "_MySimpleRecord", ".com.apple.foundationdb.record.test1.RecordTypeUnion.test1"));
-        assertEquals(FieldTypeMatch.MIGHT_MATCH,
+        assertEquals(FieldTypeMatch.DOES_NOT_MATCH,
                 fieldIsType(fileBuilder, RecordMetaDataBuilder.DEFAULT_UNION_NAME, "_MySimpleRecord", ".com.apple.foundationdb.record.test1.RecordTypeUnion.test1.MySimpleRecord"));
         assertEquals(FieldTypeMatch.DOES_NOT_MATCH,
                 fieldIsType(fileBuilder, RecordMetaDataBuilder.DEFAULT_UNION_NAME, "_MySimpleRecord", ".com.apple.foundationdb.record.test1.RecordTypeUnion.MySimpleRecord.InnerRecord"));
@@ -150,7 +180,7 @@ public class MetaDataProtoEditorTest {
     }
 
     @Test
-    public void nestedFieldIsType() {
+    public void nestedFieldIsType() throws Descriptors.DescriptorValidationException {
         final DescriptorProtos.FileDescriptorProto file = TestRecordsDoubleNestedProto.getDescriptor().toProto();
         assertEquals(FieldTypeMatch.MATCHES,
                 fieldIsType(file, "OuterRecord", "inner", "OuterRecord.MiddleRecord.InnerRecord"));
@@ -190,35 +220,38 @@ public class MetaDataProtoEditorTest {
         innerBuilder.setTypeName("MiddleRecord.InnerRecord");
 
         // Ensure that the type actually resolves to the same type
-        Descriptors.FileDescriptor modifiedFileDescriptor = Descriptors.FileDescriptor.buildFrom(fileBuilder.build(), TestRecordsDoubleNestedProto.getDescriptor().getDependencies().toArray(new Descriptors.FileDescriptor[0]));
+        final Descriptors.FileDescriptor[] dependencies = TestRecordsDoubleNestedProto.getDescriptor().getDependencies().toArray(new Descriptors.FileDescriptor[0]);
+        Descriptors.FileDescriptor modifiedFileDescriptor = Descriptors.FileDescriptor.buildFrom(fileBuilder.build(), dependencies);
         Descriptors.Descriptor innerRecordDescriptor = modifiedFileDescriptor.findMessageTypeByName("OuterRecord").findNestedTypeByName("MiddleRecord").findNestedTypeByName("InnerRecord");
         assertNotNull(innerRecordDescriptor);
         assertSame(innerRecordDescriptor, modifiedFileDescriptor.findMessageTypeByName("OuterRecord").findFieldByName("inner").getMessageType());
 
-        assertEquals(FieldTypeMatch.MIGHT_MATCH,
+        assertEquals(FieldTypeMatch.MATCHES,
                 fieldIsType(fileBuilder, "OuterRecord", "inner", "OuterRecord.MiddleRecord.InnerRecord"));
-        assertEquals(FieldTypeMatch.MIGHT_MATCH_AS_NESTED,
+        assertEquals(FieldTypeMatch.MATCHES_AS_NESTED,
                 fieldIsType(fileBuilder, "OuterRecord", "inner", "OuterRecord.MiddleRecord"));
-        assertEquals(FieldTypeMatch.MIGHT_MATCH_AS_NESTED,
+        assertEquals(FieldTypeMatch.MATCHES_AS_NESTED,
                 fieldIsType(fileBuilder, "OuterRecord", "inner", "OuterRecord"));
-        assertEquals(FieldTypeMatch.MIGHT_MATCH,
+        // Note: MiddleRecord.InnerRecord does not exist, because `MiddleRecord` here qualifies to the root of the
+        // document, and thus, there is no InnerRecord inside it
+        assertEquals(FieldTypeMatch.DOES_NOT_MATCH,
                 fieldIsType(fileBuilder, "OuterRecord", "inner", "MiddleRecord.InnerRecord"));
-        assertEquals(FieldTypeMatch.MIGHT_MATCH_AS_NESTED,
+        assertEquals(FieldTypeMatch.DOES_NOT_MATCH,
                 fieldIsType(fileBuilder, "OuterRecord", "inner", "MiddleRecord"));
         assertEquals(FieldTypeMatch.DOES_NOT_MATCH,
                 fieldIsType(fileBuilder, "OuterRecord", "inner", ".com.apple.foundationdb.record.test.doublenested.OtherRecord"));
 
         innerBuilder.setTypeName("OuterRecord.MiddleRecord.InnerRecord");
-        modifiedFileDescriptor = Descriptors.FileDescriptor.buildFrom(fileBuilder.build(), TestRecordsDoubleNestedProto.getDescriptor().getDependencies().toArray(new Descriptors.FileDescriptor[0]));
+        modifiedFileDescriptor = Descriptors.FileDescriptor.buildFrom(fileBuilder.build(), dependencies);
         innerRecordDescriptor = modifiedFileDescriptor.findMessageTypeByName("OuterRecord").findNestedTypeByName("MiddleRecord").findNestedTypeByName("InnerRecord");
         assertNotNull(innerRecordDescriptor);
         assertSame(innerRecordDescriptor, modifiedFileDescriptor.findMessageTypeByName("OuterRecord").findFieldByName("inner").getMessageType());
 
-        assertEquals(FieldTypeMatch.MIGHT_MATCH,
+        assertEquals(FieldTypeMatch.MATCHES,
                 fieldIsType(fileBuilder, "OuterRecord", "inner", "OuterRecord.MiddleRecord.InnerRecord"));
-        assertEquals(FieldTypeMatch.MIGHT_MATCH_AS_NESTED,
+        assertEquals(FieldTypeMatch.MATCHES_AS_NESTED,
                 fieldIsType(fileBuilder, "OuterRecord", "inner", "OuterRecord.MiddleRecord"));
-        assertEquals(FieldTypeMatch.MIGHT_MATCH_AS_NESTED,
+        assertEquals(FieldTypeMatch.MATCHES_AS_NESTED,
                 fieldIsType(fileBuilder, "OuterRecord", "inner", "OuterRecord"));
         assertEquals(FieldTypeMatch.DOES_NOT_MATCH,
                 fieldIsType(fileBuilder, "OuterRecord", "inner", "MiddleRecord.InnerRecord"));
@@ -227,11 +260,36 @@ public class MetaDataProtoEditorTest {
         assertEquals(FieldTypeMatch.DOES_NOT_MATCH,
                 fieldIsType(fileBuilder, "OuterRecord", "inner", ".com.apple.foundationdb.record.test.doublenested.OtherRecord"));
 
+        int originalUnionFieldNumber = modifiedFileDescriptor.findMessageTypeByName("RecordTypeUnion").findFieldByName("_OuterRecord").getNumber();
         RecordMetaData metaData = RecordMetaData.build(modifiedFileDescriptor);
         RecordMetaDataProto.MetaData.Builder metaDataProtoBuilder = metaData.toProto().toBuilder();
-        MetaDataProtoEditor.AmbiguousTypeNameException e = assertThrows(MetaDataProtoEditor.AmbiguousTypeNameException.class,
-                () -> MetaDataProtoEditor.renameRecordType(metaDataProtoBuilder, "OuterRecord", "OtterRecord"));
-        assertEquals("Field inner in message .com.apple.foundationdb.record.test.doublenested.OuterRecord of type OuterRecord.MiddleRecord.InnerRecord might be of type .com.apple.foundationdb.record.test.doublenested.OuterRecord", e.getMessage());
+        MetaDataProtoEditor.renameRecordType(metaDataProtoBuilder, "OuterRecord", "OtterRecord",
+                getDependencies(metaData));
+        Descriptors.FileDescriptor renamedDescriptor = Descriptors.FileDescriptor.buildFrom(metaDataProtoBuilder.getRecords(), dependencies);
+        final Descriptors.Descriptor renamedUnionDescriptor = renamedDescriptor.findMessageTypeByName("RecordTypeUnion");
+        final Descriptors.FieldDescriptor unionField = renamedUnionDescriptor.findFieldByNumber(originalUnionFieldNumber);
+        assertEquals("_OtterRecord", unionField.getName());
+        assertSame(renamedDescriptor.findMessageTypeByName("OtterRecord"), unionField.getMessageType());
+        assertEquals(List.of(), renamedDescriptor.getMessageTypes().stream()
+                .filter(type -> type.getName().equals("OuterRecord")).collect(Collectors.toList()));
+        assertEquals(Set.of("_OtterRecord", "_MiddleRecord"), renamedUnionDescriptor.getFields().stream()
+                .map(Descriptors.FieldDescriptor::getName).collect(Collectors.toSet()));
+        assertEquals(Set.of("MiddleRecord"), getNestedTypeNames(renamedDescriptor.findMessageTypeByName("OtterRecord")));
+        assertEquals(Set.of("InnerRecord"), getNestedTypeNames(renamedDescriptor.findMessageTypeByName("OtterRecord")
+                .findNestedTypeByName("MiddleRecord")));
+    }
+
+    @Nonnull
+    private static Set<String> getNestedTypeNames(final Descriptors.Descriptor messageDescriptor) {
+        return messageDescriptor
+                .getNestedTypes().stream()
+                .map(Descriptors.Descriptor::getName)
+                .collect(Collectors.toSet());
+    }
+
+    @Nonnull
+    private static Descriptors.FileDescriptor[] getDependencies(final RecordMetaData metaData) {
+        return metaData.getRecordsDescriptor().getDependencies().toArray(new Descriptors.FileDescriptor[0]);
     }
 
     private void renameFieldTypes(@Nonnull DescriptorProtos.DescriptorProto.Builder messageTypeBuilder, @Nonnull String oldTypeName, @Nonnull String newTypeName) {
@@ -275,7 +333,223 @@ public class MetaDataProtoEditorTest {
 
         RecordMetaData metaData = RecordMetaData.build(modifiedFile);
         RecordMetaDataProto.MetaData.Builder metaDataProtoBuilder = metaData.toProto().toBuilder();
-        MetaDataProtoEditor.AmbiguousTypeNameException e = assertThrows(MetaDataProtoEditor.AmbiguousTypeNameException.class, () -> MetaDataProtoEditor.renameRecordType(metaDataProtoBuilder, "OuterRecord", "OtterRecord"));
-        assertEquals("Field middle in message .com.apple.foundationdb.record.test.doublenested.OuterRecord of type OuterRecord might be of type .com.apple.foundationdb.record.test.doublenested.OuterRecord", e.getMessage());
+        MetaDataProtoEditor.renameRecordType(metaDataProtoBuilder, "OuterRecord", "OtterRecord",
+                        getDependencies(metaData));
+        Descriptors.FileDescriptor renamedDescriptor = Descriptors.FileDescriptor.buildFrom(metaDataProtoBuilder.getRecords(), TestRecordsDoubleNestedProto.getDescriptor().getDependencies().toArray(new Descriptors.FileDescriptor[0]));
+        Descriptors.Descriptor renamedOuter = renamedDescriptor.findMessageTypeByName("OtterRecord");
+        Descriptors.Descriptor renamedOuterOuter = renamedOuter.findNestedTypeByName("OuterRecord");
+        assertSame(renamedOuterOuter, renamedOuter.findFieldByName("middle").getMessageType());
+        assertSame(renamedOuterOuter, renamedOuter.findFieldByName("many_middle").getMessageType());
+        assertSame(renamedDescriptor.findMessageTypeByName("OtherRecord"), renamedOuter.findFieldByName("other").getMessageType());
+        Descriptors.Descriptor renamedOuterOuterInner = renamedOuterOuter.findNestedTypeByName("InnerRecord");
+        assertSame(renamedOuterOuterInner, renamedOuterOuter.findFieldByName("inner").getMessageType());
+        assertSame(renamedOuter, renamedOuterOuterInner.findFieldByName("outer").getMessageType());
+
+    }
+
+    public static RecordMetaDataProto.MetaData.Builder loadMetaData(@Nonnull String name) throws IOException {
+        try (@Nullable InputStream input = MetaDataProtoEditorUnitTest.class.getResourceAsStream("/" + name);
+                InputStreamReader reader = new InputStreamReader(Objects.requireNonNull(input,
+                        () -> "No resource: " + name))) {
+            RecordMetaDataProto.MetaData.Builder builder = RecordMetaDataProto.MetaData.newBuilder();
+            JsonFormat.parser().ignoringUnknownFields().merge(reader, builder);
+            return builder;
+        }
+    }
+
+    public static Stream<String> renamableFiles() {
+        // Note: Explicitly having the .json here so that you can Cmd+click in the IDE to jump to the file
+        return Stream.of(
+                "OneBoringType.json",
+                "TwoBoringTypes.json",
+                "DuplicateUnionFields.json",
+                "OneTypeWithIndexes.json",
+                "MultiTypeIndex.json",
+                "UniversalIndex.json",
+                "UnnestedExternalType.json",
+                "UnnestedInternal.json",
+                "Joined.json"
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("renamableFiles")
+    void simplePrefix(String name) throws IOException {
+        runRename(name);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "UnnestedRenamed.json",
+            "UnnestedRenamedNested.json",
+    })
+    void unsupported(String name) throws IOException {
+        final RecordMetaDataProto.MetaData.Builder builder = loadMetaData(name);
+        final RecordMetaDataProto.MetaData originalProto = builder.build();
+        RecordMetaData.build(originalProto); // ensure original metadata is valid
+        assertThrows(MetaDataException.class, () -> MetaDataProtoEditor.renameRecordTypes(builder,
+                MetaDataProtoEditorUnitTest::simpleRename,
+                RecordMetaDataBuilder.getDependencies(builder.build(), Map.of())));
+    }
+
+    @ParameterizedTest
+    @MethodSource("renamableFiles")
+    void doubleRename(String name) throws IOException {
+        final RecordMetaDataProto.MetaData.Builder builder = loadMetaData(name);
+        final RecordMetaDataProto.MetaData originalProto = builder.build();
+        final RecordMetaData originalMetaData = RecordMetaData.build(originalProto);
+        MetaDataProtoEditor.renameRecordTypes(builder, MetaDataProtoEditorUnitTest::simpleRename,
+                RecordMetaDataBuilder.getDependencies(originalProto, Map.of()));
+
+        final RecordMetaDataProto.MetaData firstRename = builder.build();
+        basicRenameAsserts(firstRename, originalMetaData,
+                MetaDataProtoEditorUnitTest::simpleRename,
+                MetaDataProtoEditorUnitTest::simpleRenameUndo);
+
+        // again
+        MetaDataProtoEditor.renameRecordTypes(builder, MetaDataProtoEditorUnitTest::simpleRename,
+                RecordMetaDataBuilder.getDependencies(originalProto, Map.of()));
+
+        final RecordMetaDataProto.MetaData secondRename = builder.build();
+        basicRenameAsserts(secondRename, RecordMetaData.build(firstRename),
+                MetaDataProtoEditorUnitTest::simpleRename,
+                MetaDataProtoEditorUnitTest::simpleRenameUndo);
+
+        final RecordMetaDataProto.MetaData.Builder restartBuilder = originalProto.toBuilder();
+        MetaDataProtoEditor.renameRecordTypes(restartBuilder,
+                oldName -> simpleRename(simpleRename(oldName)),
+                RecordMetaDataBuilder.getDependencies(originalProto, Map.of()));
+        assertEquals(builder.build(), secondRename);
+    }
+
+    @ParameterizedTest
+    @BooleanSource("t1Conflicts")
+    void conflictingName(boolean t1Conflicts) throws IOException {
+        // In the future we may want to make this work, but for now, I just want to assert that it either succeeds
+        // and produces a valid metadata, or fails with a clear exception. Currently, it is order dependent.
+        final String prefix = "__Q_";
+        final RecordMetaData withConflict = runRename(loadMetaData("TwoBoringTypes.json").build(),
+                oldName -> {
+                    if (t1Conflicts) {
+                        return !oldName.equals("T1") ? prefix + "T1" : oldName;
+                    } else {
+                        return oldName.equals("T1") ? prefix + "T2" : oldName;
+                    }
+                },
+                newName -> newName.startsWith(prefix) ? newName.substring(prefix.length()) : newName);
+        if (t1Conflicts) {
+            assertEquals(Set.of("T1", prefix + "T1"), withConflict.getRecordTypes().keySet());
+        } else {
+            assertEquals(Set.of("T2", prefix + "T2"), withConflict.getRecordTypes().keySet());
+        }
+        try {
+            runRename(withConflict.toProto(),
+                    oldName -> prefix + oldName,
+                    newName -> newName.substring(prefix.length()));
+        } catch (MetaDataException e) {
+            Assertions.assertThat(e)
+                    .hasMessageStartingWith("Cannot rename record type to ")
+                    .hasMessageEndingWith("as it already exists");
+        }
+    }
+
+    @Test
+    void nestedAndRecordType() throws IOException {
+        final RecordMetaData renamed = runRename("NestedAndRecordType.json");
+        final Descriptors.FieldDescriptor t1Field = renamed.getRecordType("__x_T2").getDescriptor().getFields()
+                .stream().filter(field -> field.getName().equals("T1"))
+                .findFirst().orElseThrow();
+        // if this assertion fails, it does not have a good toString, but you can add `.toProto()` to both for a better
+        // toString
+        assertEquals(renamed.getRecordsDescriptor().getMessageTypes().stream()
+                        .filter(type -> type.getName().equals("__x_T1"))
+                        .findFirst().orElseThrow(),
+                t1Field.getMessageType());
+    }
+
+    @Test
+    void nestedMessage() throws IOException {
+        final RecordMetaData renamed = runRename("NestedMessage.json");
+        final Descriptors.FieldDescriptor t1Field = renamed.getRecordType("__x_T2").getDescriptor().getFields()
+                .stream().filter(field -> field.getName().equals("T1"))
+                .findFirst().orElseThrow();
+        // if this assertion fails, it does not have a good toString, but you can add `.toProto()` to both for a better
+        // toString
+        assertEquals(renamed.getRecordsDescriptor().getMessageTypes().stream()
+                        .filter(type -> type.getName().equals("T1"))
+                        .findFirst().orElseThrow(),
+                t1Field.getMessageType());
+    }
+
+
+    @Nonnull
+    private static String simpleRenameUndo(final String newName) {
+        assertEquals("__x_", newName.substring(0, 4));
+        return newName.substring(4);
+    }
+
+    @Nonnull
+    private static String simpleRename(final String oldName) {
+        return "__x_" + oldName;
+    }
+
+    @Nonnull
+    private RecordMetaData runRename(final String name) throws IOException {
+        final RecordMetaDataProto.MetaData originalProto = loadMetaData(name).build();
+        return runRename(originalProto, MetaDataProtoEditorUnitTest::simpleRename, MetaDataProtoEditorUnitTest::simpleRenameUndo);
+    }
+
+    @Nonnull
+    private RecordMetaData runRename(final RecordMetaDataProto.MetaData originalProto,
+                                     final Function<String, String> rename,
+                                     final Function<String, String> undoRename) {
+        final RecordMetaDataProto.MetaData.Builder builder = originalProto.toBuilder();
+        final RecordMetaData originalMetaData = RecordMetaData.build(originalProto);
+        MetaDataProtoEditor.renameRecordTypes(builder, rename,
+                RecordMetaDataBuilder.getDependencies(originalProto, Map.of()));
+
+        final RecordMetaDataProto.MetaData build = builder.build();
+        return basicRenameAsserts(build, originalMetaData,
+                rename,
+                undoRename);
+    }
+
+    @Nonnull
+    private static RecordMetaData basicRenameAsserts(final RecordMetaDataProto.MetaData build,
+                                                     final RecordMetaData originalMetaData,
+                                                     final Function<String, String> renamer,
+                                                     final Function<String, String> undoRename) {
+        final RecordMetaData renamed = RecordMetaData.build(build);
+        final Set<String> expectedNewNames = originalMetaData.getRecordTypes().keySet()
+                .stream().map(renamer)
+                .collect(Collectors.toSet());
+        assertEquals(expectedNewNames, renamed.getRecordTypes().keySet());
+        assertEquals(expectedNewNames,
+                renamed.getRecordTypes().values().stream().map(RecordType::getName)
+                        .collect(Collectors.toSet()));
+        for (final RecordType type : renamed.getRecordTypes().values()) {
+            assertEquals(type.getAllIndexes(),
+                    originalMetaData.getRecordType(undoRename.apply(type.getName()))
+                            .getAllIndexes());
+        }
+        assertEquals(originalMetaData.getUniversalIndexes(), renamed.getUniversalIndexes());
+        return renamed;
+    }
+
+    /**
+     * This test solely exists to decrease the chance that someone will add something to the metadata protobuf, and not
+     * update the {@link MetaDataProtoEditor}.
+     */
+    @Test
+    void validateMetaDataCoverage() {
+        assertEquals(Set.of(
+                        "split_long_records", "version", "former_indexes", "record_count_key",
+                        "store_record_versions", "dependencies", "subspace_key_counter", "uses_subspace_key_counter",
+                        // the below reference record types
+                        "records", "indexes", "record_types", "joined_record_types", "unnested_record_types",
+                        "user_defined_functions"),
+                RecordMetaDataProto.MetaData.getDescriptor().getFields().stream()
+                        .map(Descriptors.FieldDescriptor::getName)
+                .collect(Collectors.toSet()));
     }
 }

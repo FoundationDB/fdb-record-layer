@@ -47,6 +47,7 @@ dependencies {
     testImplementation(libs.apache.commonsMath3)
     testImplementation(libs.jline)
     testImplementation(libs.junit.platform)
+    testImplementation(libs.protobuf.util)
     testCompileOnly(libs.spotbugs.annotations)
 
     testAnnotationProcessor(libs.autoService)

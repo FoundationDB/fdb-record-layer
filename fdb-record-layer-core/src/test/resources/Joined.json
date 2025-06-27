@@ -1,0 +1,118 @@
+{
+  "records": {
+    "dependency": [
+      "record_metadata_options.proto"
+    ],
+    "message_type": [
+      {
+        "name": "RecordTypeUnion",
+        "field": [
+          {
+            "name": "_T1",
+            "number": 1,
+            "type": "TYPE_MESSAGE",
+            "type_name": "T1"
+          },
+          {
+            "name": "_T2",
+            "number": 2,
+            "type": "TYPE_MESSAGE",
+            "type_name": "T2"
+          }
+        ]
+      },
+      {
+        "name": "T1",
+        "field": [
+          {
+            "name": "ID",
+            "number": 1,
+            "type": "TYPE_INT64"
+          },
+          {
+            "name": "T2",
+            "number": 2,
+            "type": "TYPE_INT64"
+          },
+          {
+            "name": "A",
+            "number": 3,
+            "type": "TYPE_INT64"
+          }
+        ]
+      },
+      {
+        "name": "T2",
+        "field": [
+          {
+            "name": "ID",
+            "number": 1,
+            "type": "TYPE_INT64"
+          },
+          {
+            "name": "B",
+            "number": 2,
+            "type": "TYPE_INT64"
+          }
+        ]
+      }
+    ]
+  },
+
+  "joined_record_types": [
+    {
+      "name": "JOIN",
+      "record_type_key": {
+        "long_value": -1
+      },
+      "join_constituents": [
+        {
+          "name": "T1",
+          "record_type": "T1"
+        },
+        {
+          "name": "T2",
+          "record_type": "T2"
+        }
+      ],
+      "joins": [
+        {
+          "left": "T1",
+          "left_expression": {
+            "field": {
+              "field_name": "T2",
+              "fan_type": "SCALAR"
+            }
+          },
+          "right": "textSearch",
+          "right_expression": {
+            "field": {
+              "field_name": "ID",
+              "fan_type": "SCALAR"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "record_types": [
+    {
+      "name": "T1",
+      "primary_key": {
+        "field": {
+          "field_name": "ID",
+          "fan_type": "SCALAR"
+        }
+      }
+    },
+    {
+      "name": "T2",
+      "primary_key": {
+        "field": {
+          "field_name": "ID",
+          "fan_type": "SCALAR"
+        }
+      }
+    }
+  ]
+}
