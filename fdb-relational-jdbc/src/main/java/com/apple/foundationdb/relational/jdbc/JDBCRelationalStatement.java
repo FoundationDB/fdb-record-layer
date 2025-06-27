@@ -30,7 +30,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.jdbc.grpc.GrpcSQLExceptionUtil;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.GetRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.GetResponse;
-import com.apple.foundationdb.relational.jdbc.grpc.v1.InsertRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.InsertResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.Parameter;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ScanRequest;
