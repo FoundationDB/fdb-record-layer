@@ -29,6 +29,7 @@ option java_outer_classname = "RelationalJDBCService";
 
 import "grpc/relational/jdbc/v1/result_set.proto";
 import "grpc/relational/jdbc/v1/column.proto";
+import "google/protobuf/any.proto";
 
 service JDBCService {
   rpc getMetaData(DatabaseMetaDataRequest) returns (DatabaseMetaDataResponse) {}
@@ -130,6 +131,7 @@ message TransactionalResponse {
       InsertResponse insertResponse = 2;
       CommitResponse commitResponse = 3;
       RollbackResponse rollbackResponse = 4;
+      google.protobuf.Any errorResponse = 5;
   }
 }
 

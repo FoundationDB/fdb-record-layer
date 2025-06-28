@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.jdbc.TypeConversion;
+import com.apple.foundationdb.relational.jdbc.grpc.GrpcSQLExceptionUtil;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.CommitResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.InsertRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.InsertResponse;
@@ -33,6 +34,8 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.TransactionalRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.TransactionalResponse;
 import com.apple.foundationdb.relational.server.FRL;
+import com.google.protobuf.Any;
+import com.google.rpc.Status;
 import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,11 +44,11 @@ import java.sql.SQLException;
 
 /**
  * Handles client requests in transactional (autoCommit=off) mode.
- * Note: This class can only handle EXECUTE, COMMIT and ROLLBACK requests at this time. Additional message types
- * (such as INSERT and UPDATE) may be necessary.
  * This class is the server-side state that is maintained when the client enters transactional mode. It is created
  * once the client connection enters transactional mode (via handleAutoCommitOff call) and gets destroyed
  * when the client connection exits that mode or the connection is terminated.
+ * In order to maintain a connection, SQLExceptions are passed back as payload. {@link StreamObserver#onError}
+ * is only called in case of processing error and will terminate the connection.
  */
 public class TransactionRequestHandler implements StreamObserver<TransactionalRequest> {
     private static final Logger logger = LoggerFactory.getLogger(TransactionRequestHandler.class);
@@ -62,14 +65,14 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
     @Override
     public void onNext(final TransactionalRequest transactionRequest) {
         TransactionalResponse.Builder responseBuilder = TransactionalResponse.newBuilder();
-        if (transactionRequest.hasExecuteRequest()) {
-            final StatementRequest request = transactionRequest.getExecuteRequest();
-            if (logger.isInfoEnabled()) {
-                logger.info(KeyValueLogMessage.build("Handling execute request")
-                        .addKeyAndValue(LogMessageKeys.QUERY, request.getSql())
-                        .toString());
-            }
-            try {
+        try {
+            if (transactionRequest.hasExecuteRequest()) {
+                final StatementRequest request = transactionRequest.getExecuteRequest();
+                if (logger.isInfoEnabled()) {
+                    logger.info(KeyValueLogMessage.build("Handling execute request")
+                            .addKeyAndValue(LogMessageKeys.QUERY, request.getSql())
+                            .toString());
+                }
                 if (transactionalToken == null || transactionalToken.expired()) {
                     // TODO: Wow there! should MAX_ROWS be part of the connection? It might make sense to move it elsewhere
                     final Options options = Options.builder().withOption(Options.Name.MAX_ROWS, request.getOptions().getMaxRows()).build();
@@ -82,75 +85,58 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
                         .setResultSet(response.getResultSet())
                         .setRowCount(response.getRowCount());
 
+//                throw new SQLException("reason", "state", 132, new RuntimeException("Blah"));
+//                throw new RuntimeException("Blah");
                 responseBuilder.setExecuteResponse(statementResponseBuilder);
-            } catch (SQLException | RuntimeException e) {
-                logger.warn("Execute: Error caught", e);
-                responseBuilder.setExecuteResponse(StatementResponse.newBuilder()
-                        .setRowCount(0)
-                        .setErrorMessage(e.getMessage())
-                );
-            }
-        } else if (transactionRequest.hasInsertRequest()) {
-            final InsertRequest request = transactionRequest.getInsertRequest();
-            if (logger.isInfoEnabled()) {
-                logger.info(KeyValueLogMessage.build("Handling insert request")
-                        .addKeyAndValue(LogMessageKeys.RECORD_TYPE, request.getTableName())
-                        .toString());
-            }
-            try {
+            } else if (transactionRequest.hasInsertRequest()) {
+                final InsertRequest request = transactionRequest.getInsertRequest();
+                if (logger.isInfoEnabled()) {
+                    logger.info(KeyValueLogMessage.build("Handling insert request")
+                            .addKeyAndValue(LogMessageKeys.RECORD_TYPE, request.getTableName())
+                            .toString());
+                }
                 if (transactionalToken == null || transactionalToken.expired()) {
                     // TODO: Wow there! hard setting the options to none. This contradicts the execute initialization.
                     transactionalToken = frl.createTransactionalToken(request.getDatabase(), request.getSchema(), Options.NONE);
                 }
                 int recordsInserted = frl.transactionalInsert(transactionalToken, request.getTableName(), TypeConversion.fromResultSetProtobuf(request.getDataResultSet()));
                 responseBuilder.setInsertResponse(InsertResponse.newBuilder().setRowCount(recordsInserted));
-            } catch (SQLException | RuntimeException e) {
-                logger.warn("Execute: Error caught", e);
-                responseBuilder.setInsertResponse(InsertResponse.newBuilder()
-                        .setRowCount(0)
-                        .setErrorMessage(e.getMessage())
-                );
-            }
-        } else if (transactionRequest.hasCommitRequest()) {
-            // handle commit
-            logger.info("Handling commit request");
-            try {
+            } else if (transactionRequest.hasCommitRequest()) {
+                // handle commit
+                logger.info("Handling commit request");
                 frl.transactionalCommit(transactionalToken);
                 responseBuilder.setCommitResponse(CommitResponse.newBuilder().build());
-            }  catch (SQLException | RuntimeException e) {
-                logger.warn("Commit: Error caught", e);
-                responseBuilder.setCommitResponse(CommitResponse.newBuilder()
-                        .setErrorMessage(e.getMessage())
-                        .build());
-            }
-        } else if (transactionRequest.hasRollbackRequest()) {
-            // handle rollback
-            logger.info("Handling rollback request");
-            try {
+            } else if (transactionRequest.hasRollbackRequest()) {
+                // handle rollback
+                logger.info("Handling rollback request");
                 frl.transactionalRollback(transactionalToken);
                 responseBuilder.setRollbackResponse(RollbackResponse.newBuilder().build());
-            }  catch (SQLException | RuntimeException e) {
-                logger.warn("Rollback: Error caught", e);
-                responseBuilder.setRollbackResponse(RollbackResponse.newBuilder()
-                        .setErrorMessage(e.getMessage())
-                        .build());
+            } else {
+                throw new IllegalArgumentException("Unknown transactional request type in" + transactionRequest);
             }
-        } else {
-            throw new IllegalArgumentException("Unknown transactional request type in" + transactionRequest);
+            responseObserver.onNext(responseBuilder.build());
+        } catch (SQLException e) {
+            // SQL exceptions are returned as payload as the connection can stay open
+            logger.info("Caught SQL exception: returning to client: " + e.getMessage());
+            Status status = GrpcSQLExceptionUtil.create(e);
+            responseBuilder.setErrorResponse(Any.pack(status));
+            responseObserver.onNext(responseBuilder.build());
+        } catch (RuntimeException e) {
+            logger.warn("Caught unknown exception", e);
+            throw JDBCService.handleUncaughtException(e);
         }
-        responseObserver.onNext(responseBuilder.build());
     }
 
     @Override
     public void onError(final Throwable throwable) {
         logger.warn("executeInTransaction: onError called", throwable);
         // todo: Rollback uncommitted stuff?
+        // TODO: FRL.close connection???
     }
 
     @Override
     public void onCompleted() {
-        // todo: If uncommitted stuff, rollback
-
+        // TODO: RL.close connection???
         // Close the client connection
         responseObserver.onCompleted();
     }
