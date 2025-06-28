@@ -288,4 +288,9 @@ public class YamlIntegrationTests {
     public void literalTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("literal-tests.yamsql");
     }
+
+    @TestTemplate
+    public void transactionalCallsTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("transactions-tests.yamsql");
+    }
 }
