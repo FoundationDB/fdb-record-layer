@@ -47,9 +47,6 @@ public class JDBCAutoCommitTest {
     public static final String SYS_DB_URI = "jdbc:relational://" + SYSDBPATH + "?schema=" + RelationalKeyspaceProvider.CATALOG;
     public static final String TEST_DB_URI = "jdbc:relational://" + TESTDB + "?schema=" + TEST_SCHEMA;
 
-    /**
-     * Load our JDBCDriver via ServiceLoader so available to test.
-     */
     @BeforeAll
     public static void beforeAll() throws Exception {
         // Load driver.
@@ -157,7 +154,7 @@ public class JDBCAutoCommitTest {
      * Run a test with reverting to auto-commit on.
      */
     @Test
-    public void revertToAutoCommitOn() throws SQLException, IOException {
+    public void revertToAutoCommitOn() throws Exception {
         try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
             connection.setAutoCommit(false);
 
@@ -170,6 +167,76 @@ public class JDBCAutoCommitTest {
                 Assertions.assertEquals(100, resultSet.getLong(1));
                 Assertions.assertEquals("one hundred", resultSet.getString(2));
                 Assertions.assertFalse(resultSet.next());
+            }
+        }
+    }
+
+    @Test
+    public void insertError() throws Exception {
+        try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+            connection.setAutoCommit(false);
+            try (RelationalStatement statement = connection.createStatement()) {
+                RelationalStruct insert = JDBCRelationalStruct.newBuilder()
+                        .addLong("BLAH", 100)
+                        .build();
+                Assertions.assertThrows(SQLException.class, () -> statement.executeInsert("TEST_TABLE", insert));
+            }
+        }
+    }
+
+    @Test
+    public void queryError() throws Exception {
+        try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+            connection.setAutoCommit(false);
+            try (RelationalStatement statement = connection.createStatement()) {
+                Assertions.assertThrows(SQLException.class, () -> statement.executeQuery("BLAH"));
+            }
+        }
+    }
+
+    @Test
+    public void continueAfterSqlError() throws Exception {
+        try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+            connection.setAutoCommit(false);
+            try (RelationalStatement statement = connection.createStatement()) {
+                insertOneRow(statement);
+                Assertions.assertThrows(SQLException.class, () -> statement.executeQuery("BLAH"));
+                // Connection should remain open after an error
+                RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM test_table");
+                Assertions.assertTrue(resultSet.next());
+                Assertions.assertEquals(100, resultSet.getLong(1));
+            }
+        }
+    }
+
+    @Test
+    void commitError() throws Exception {
+        try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+            connection.setAutoCommit(false);
+            try (RelationalStatement statement = connection.createStatement()) {
+                // commit with no SQL statement is an error
+                Assertions.assertThrows(SQLException.class, () -> connection.commit());
+                // Connection should remain open after an error
+                insertOneRow(statement);
+                RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM test_table");
+                Assertions.assertTrue(resultSet.next());
+                Assertions.assertEquals(100, resultSet.getLong(1));
+            }
+        }
+    }
+
+    @Test
+    void rollbackError() throws Exception {
+        try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+            connection.setAutoCommit(false);
+            try (RelationalStatement statement = connection.createStatement()) {
+                // rollback with no SQL statement is an error
+                Assertions.assertThrows(SQLException.class, () -> connection.rollback());
+                // Connection should remain open after an error
+                insertOneRow(statement);
+                RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM test_table");
+                Assertions.assertTrue(resultSet.next());
+                Assertions.assertEquals(100, resultSet.getLong(1));
             }
         }
     }

@@ -279,7 +279,7 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
         return true;
     }
 
-    private static StatusRuntimeException handleUncaughtException(Throwable t) {
+    static StatusRuntimeException handleUncaughtException(Throwable t) {
         return Status.INTERNAL.withDescription("Uncaught exception")
                 .augmentDescription(GrpcSQLExceptionUtil.stacktraceToString(t))
                 .withCause(t).asRuntimeException();
