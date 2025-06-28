@@ -29,9 +29,6 @@ import com.apple.foundationdb.relational.yamltests.generated.schemainstance.Sche
 
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.util.JsonFormat;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
-import org.junit.jupiter.api.Assertions;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
@@ -40,9 +37,10 @@ import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.StringTokenizer;
 
 /**
  * Util class for yaml-tests commands.
@@ -56,12 +54,12 @@ public class CommandUtil {
      */
     public static SchemaTemplate fromProto(String loadCommandString) {
         RecordMetaData metaData;
-        Pair<String, String> templateNameAndSourceName = parseLoadTemplateString(loadCommandString);
-        if (templateNameAndSourceName.getRight().endsWith(".json")) {
-            metaData = loadRecordMetaDataFromJson(templateNameAndSourceName.getRight());
+        LoadTemplateTokens loadTemplateTokens = LoadTemplateTokens.of(loadCommandString);
+        if (loadTemplateTokens.getJsonFileName().endsWith(".json")) {
+            metaData = loadRecordMetaDataFromJson(loadTemplateTokens.getJsonFileName(), loadTemplateTokens.getDependencies());
         } else {
             try {
-                Class<?> act = Class.forName(templateNameAndSourceName.getRight());
+                Class<?> act = Class.forName(loadTemplateTokens.getJsonFileName());
                 Method method = act.getMethod("getDescriptor");
                 Descriptors.FileDescriptor o = (Descriptors.FileDescriptor) method.invoke(null);
                 metaData = RecordMetaData.build(o);
@@ -70,7 +68,7 @@ public class CommandUtil {
                 throw new RuntimeException(e);
             }
         }
-        return RecordLayerSchemaTemplate.fromRecordMetadata(metaData, templateNameAndSourceName.getLeft(), 1);
+        return RecordLayerSchemaTemplate.fromRecordMetadata(metaData, loadTemplateTokens.getTemplateName(), 1);
     }
 
     public static SchemaInstanceOuterClass.SchemaInstance fromJson(String loadCommandString) {
@@ -91,7 +89,7 @@ public class CommandUtil {
         return result;
     }
 
-    private static RecordMetaData loadRecordMetaDataFromJson(String jsonFileName) {
+    private static RecordMetaData loadRecordMetaDataFromJson(String jsonFileName, List<String> dependencies) {
         RecordMetaDataProto.MetaData.Builder builder = RecordMetaDataProto.MetaData.newBuilder();
         try {
             String json = Files.readString(Paths.get(jsonFileName), StandardCharsets.UTF_8);
@@ -99,20 +97,23 @@ public class CommandUtil {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        return RecordMetaData.build(builder.build());
-    }
 
-    private static Pair<String, String> parseLoadTemplateString(String loadCommandString) {
-        StringTokenizer lcsTokenizer = new StringTokenizer(loadCommandString, " ");
-        if (lcsTokenizer.countTokens() != 3) {
-            Assertions.fail("Expecting load command consisting of 3 tokens");
+        List<Descriptors.FileDescriptor> fileDescriptors = new ArrayList<>();
+        for (String dep: dependencies) {
+            try {
+                Class<?> act = Class.forName(dep);
+                Method method = act.getMethod("getDescriptor");
+                fileDescriptors.add((Descriptors.FileDescriptor) method.invoke(null));
+            } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException |
+                     ClassNotFoundException e) {
+                throw new RuntimeException(e);
+            }
         }
-        String first = lcsTokenizer.nextToken();
-        if (!"from".equals(lcsTokenizer.nextToken())) {
-            Assertions.fail("Expecting load command looking like X from Y");
-        }
-        String second = lcsTokenizer.nextToken();
-        return new ImmutablePair<>(first, second);
+
+        return RecordMetaData.newBuilder()
+                .addDependencies(fileDescriptors.toArray(new Descriptors.FileDescriptor[0]))
+                .setRecords(builder.build())
+                .getRecordMetaData();
     }
 
     /**
