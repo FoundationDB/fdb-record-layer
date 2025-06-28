@@ -27,6 +27,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.StringTokenizer;
 
+/**
+ * The class holds parsed tokens in load schema template commands.
+ */
 public class LoadTemplateTokens {
     private final String templateName;
     private final String jsonFileName;

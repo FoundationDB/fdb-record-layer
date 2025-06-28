@@ -195,9 +195,8 @@ public class GroupByQueryTests {
     @Test
     void groupByClauseWithPredicateWorks() throws Exception {
         final String schemaTemplate =
-                "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))\n" +
-                        "CREATE INDEX idx1 as select a, b, c from t1 order by a, b, c\n" +
-                        "CREATE INDEX idx2 as select count(*) from t1 where b = 1 group by a, c\n";
+                "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))" +
+                        "CREATE INDEX idx1 as select a, b, c from t1 order by a, b, c";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 insertT1Record(statement, 2, 1, 1, 20);
@@ -208,7 +207,7 @@ public class GroupByQueryTests {
                 insertT1Record(statement, 7, 2, 1, 40);
                 insertT1Record(statement, 8, 2, 1, 20);
                 insertT1Record(statement, 9, 2, 1, 90);
-                Assertions.assertTrue(statement.execute("select count(*) from t1 where b = 1 group by a, c"), "Did not return a result set from a select statement!");
+                Assertions.assertTrue(statement.execute("SELECT a AS OK, b, MAX(c) FROM T1 WHERE a > 1 GROUP BY a, b HAVING MIN(c) < 50"), "Did not return a result set from a select statement!");
                 try (final RelationalResultSet resultSet = statement.getResultSet()) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
                             .isRowExactly(2L, 1L, 90L)

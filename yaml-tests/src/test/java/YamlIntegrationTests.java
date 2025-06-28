@@ -67,24 +67,6 @@ public class YamlIntegrationTests {
         runner.runYamsql("null-operator-tests.yamsql");
     }
 
-    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
-    @TestTemplate
-    public void contacts(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("contacts_metadata.yamsql");
-    }
-
-    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
-    @TestTemplate
-    public void calendar(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("calendar_metadata.yamsql");
-    }
-
-    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
-    @TestTemplate
-    public void mail(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("mail-msgstate_metadata.yamsql");
-    }
-
     @TestTemplate
     @Disabled // TODO ([Wave 1] Relational returns deprecated fields for SELECT *)
     public void deprecatedFieldsTestsWithProto(YamlTest.Runner runner) throws Exception {

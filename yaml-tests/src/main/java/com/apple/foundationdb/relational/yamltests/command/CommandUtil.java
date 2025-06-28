@@ -111,8 +111,6 @@ public class CommandUtil {
         }
 
         return RecordMetaData.newBuilder()
-               // .addDependency(CKRecordDBProto.getDescriptor())
-               // .addDependency(CKRecordDBMetaDataOptionsProto.getDescriptor())
                 .addDependencies(fileDescriptors.toArray(new Descriptors.FileDescriptor[0]))
                 .setRecords(builder.build())
                 .getRecordMetaData();
