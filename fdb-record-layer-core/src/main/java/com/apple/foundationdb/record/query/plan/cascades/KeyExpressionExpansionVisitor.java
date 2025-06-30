@@ -297,58 +297,13 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                     final SelectExpression selectExpression =
                             sealedBaseAndChildExpansion.buildSelect();
                     final Quantifier childQuantifier = Quantifier.forEach(Reference.initialOf(selectExpression));
-
-                    final var childExpansionValues =
-                            childExpansion.getResultColumns()
-                                    .stream()
-                                    .map(Column::getValue)
-                                    .collect(ImmutableList.toImmutableList());
                     final var childResultValue = selectExpression.getResultValue();
-                    final var pulledUpValuesMap =
-                            childResultValue.pullUp(childExpansionValues, EvaluationContext.empty(),
-                                    AliasMap.emptyMap(), ImmutableSet.of(), childQuantifier.getAlias());
-                    final ImmutableList<Column<? extends Value>> pulledUpExpansionColumns =
-                            childExpansionValues.stream()
-                                    .map(value -> {
-                                        if (!pulledUpValuesMap.containsKey(value)) {
-                                            throw new RecordCoreException("could not pull expansion value " + value)
-                                                    .addLogInfo(LogMessageKeys.VALUE, value);
-                                        }
-                                        return pulledUpValuesMap.get(value);
-                                    })
-                                    .map(Column::unnamedOf)
-                                    .collect(ImmutableList.toImmutableList());
 
-                    final var childExpansionPlaceholderValuesMap =
-                            childExpansion.getPlaceholders()
-                                    .stream()
-                                    .collect(Collectors.toMap(PredicateWithValueAndRanges::getValue,
-                                            Placeholder::getParameterAlias,
-                                            (l, r) -> {
-                                                if (l.equals(r)) {
-                                                    return l;
-                                                }
-                                                throw new RecordCoreException("ambiguous values in placeholder map");
-                                            },
-                                            LinkedIdentityMap::new));
-                    final var childExpansionPlaceholderValues = childExpansionPlaceholderValuesMap.keySet();
-                    final var pulledUpPlaceholderValuesMap =
-                            childResultValue.pullUp(childExpansionPlaceholderValues, EvaluationContext.empty(),
-                                    AliasMap.emptyMap(), ImmutableSet.of(), childQuantifier.getAlias());
-                    final ImmutableList<Placeholder> pulledUpPlaceholders =
-                            childExpansionPlaceholderValues
-                                    .stream()
-                                    .map(value -> {
-                                        if (!pulledUpPlaceholderValuesMap.containsKey(value)) {
-                                            throw new RecordCoreException("could not pull expansion value " + value)
-                                                    .addLogInfo(LogMessageKeys.VALUE, value);
-                                        }
-                                        final var pulledUpValue = pulledUpPlaceholderValuesMap.get(value);
-                                        final var parameterAlias =
-                                                Objects.requireNonNull(childExpansionPlaceholderValuesMap.get(value));
-                                        return Placeholder.newInstanceWithoutRanges(pulledUpValue, parameterAlias);
-                                    })
-                                    .collect(ImmutableList.toImmutableList());
+                    final var pulledUpExpansionColumns =
+                            pullUpResultColumns(childExpansion, childResultValue, childQuantifier);
+
+                    final var pulledUpPlaceholders =
+                            pullUpPlaceholders(childExpansion, childResultValue, childQuantifier);
 
                     return GraphExpansion.builder()
                             .addQuantifier(childQuantifier)
@@ -361,6 +316,65 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
             default:
                 throw new RecordCoreException("unsupported fan type");
         }
+    }
+
+    @Nonnull
+    private static ImmutableList<Placeholder> pullUpPlaceholders(@Nonnull final GraphExpansion childExpansion,
+                                                                 @Nonnull final Value childResultValue,
+                                                                 @Nonnull final Quantifier childQuantifier) {
+        final var childExpansionPlaceholderValuesMap =
+                childExpansion.getPlaceholders()
+                        .stream()
+                        .collect(Collectors.toMap(PredicateWithValueAndRanges::getValue,
+                                Placeholder::getParameterAlias,
+                                (l, r) -> {
+                                    if (l.equals(r)) {
+                                        return l;
+                                    }
+                                    throw new RecordCoreException("ambiguous values in placeholder map");
+                                },
+                                LinkedIdentityMap::new));
+        final var childExpansionPlaceholderValues = childExpansionPlaceholderValuesMap.keySet();
+        final var pulledUpPlaceholderValuesMap =
+                childResultValue.pullUp(childExpansionPlaceholderValues, EvaluationContext.empty(),
+                        AliasMap.emptyMap(), ImmutableSet.of(), childQuantifier.getAlias());
+        return childExpansionPlaceholderValues
+                .stream()
+                .map(value -> {
+                    if (!pulledUpPlaceholderValuesMap.containsKey(value)) {
+                        throw new RecordCoreException("could not pull expansion value " + value)
+                                .addLogInfo(LogMessageKeys.VALUE, value);
+                    }
+                    final var pulledUpValue = pulledUpPlaceholderValuesMap.get(value);
+                    final var parameterAlias =
+                            Objects.requireNonNull(childExpansionPlaceholderValuesMap.get(value));
+                    return Placeholder.newInstanceWithoutRanges(pulledUpValue, parameterAlias);
+                })
+                .collect(ImmutableList.toImmutableList());
+    }
+
+    @Nonnull
+    private static ImmutableList<Column<? extends Value>> pullUpResultColumns(@Nonnull final GraphExpansion childExpansion,
+                                                                              @Nonnull final Value childResultValue,
+                                                                              @Nonnull final Quantifier childQuantifier) {
+        final var childExpansionValues =
+                childExpansion.getResultColumns()
+                        .stream()
+                        .map(Column::getValue)
+                        .collect(ImmutableList.toImmutableList());
+        final var pulledUpValuesMap =
+                childResultValue.pullUp(childExpansionValues, EvaluationContext.empty(),
+                        AliasMap.emptyMap(), ImmutableSet.of(), childQuantifier.getAlias());
+        return childExpansionValues.stream()
+                .map(value -> {
+                    if (!pulledUpValuesMap.containsKey(value)) {
+                        throw new RecordCoreException("could not pull expansion value " + value)
+                                .addLogInfo(LogMessageKeys.VALUE, value);
+                    }
+                    return pulledUpValuesMap.get(value);
+                })
+                .map(Column::unnamedOf)
+                .collect(ImmutableList.toImmutableList());
     }
 
     @Nonnull
