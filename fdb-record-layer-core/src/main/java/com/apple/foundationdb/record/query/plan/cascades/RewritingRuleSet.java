@@ -37,9 +37,8 @@ import java.util.Set;
 @SuppressWarnings("java:S1452")
 public class RewritingRuleSet extends CascadesRuleSet {
     private static final Set<ExplorationCascadesRule<? extends RelationalExpression>> EXPLORATION_RULES = ImmutableSet.of(
-    //            new PredicatePushDownRule(),
-    //            new DecorrelateValuesRule(),
-    //            new QueryPredicateSimplificationRule()
+    // new PredicatePushDownRule(),
+    // new RemoveRangeOneRule()
     );
     private static final Set<CascadesRule<? extends RelationalExpression>> PREORDER_RULES = ImmutableSet.of();
 
