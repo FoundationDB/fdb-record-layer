@@ -59,6 +59,8 @@ public class StatefulServerConnection implements StreamObserver<TransactionalRes
 
     public StatefulServerConnection(Function<StreamObserver<TransactionalResponse>, StreamObserver<TransactionalRequest>> connectionFactory) {
         // Create the request sender. This should be the last statement in the constructor.
+        // The use of the factory (as opposed to straight calling of the method) is because the gRPC API requires a receiving
+        // stream (this) in order to create the sending one (the result of the RPC call). We want to manage both streams from this class.
         this.requestSender = connectionFactory.apply(this);
     }
 

@@ -94,8 +94,7 @@ message ListBytes {
 }
 
 message InsertResponse {
-  optional string error_message = 1;
-  int32 row_count = 2;
+  int32 row_count = 1;
 }
 
 // Parameters for PreparedStatement
@@ -147,23 +146,20 @@ message StatementRequest {
 
 // FYI: RS from Spanner https://github.com/googleapis/googleapis/blob/master/google/spanner/v1/result_set.proto
 message StatementResponse {
-  optional string error_message = 1;
-  int32 row_count = 2;
-  grpc.relational.jdbc.v1.ResultSet result_set = 3;
+  int32 row_count = 1;
+  grpc.relational.jdbc.v1.ResultSet result_set = 2;
 }
 
 message CommitRequest {
 }
 
 message CommitResponse {
-  optional string error_message = 1;
 }
 
 message RollbackRequest {
 }
 
 message RollbackResponse {
-  optional string error_message = 1;
 }
 
 message CommitRequest {

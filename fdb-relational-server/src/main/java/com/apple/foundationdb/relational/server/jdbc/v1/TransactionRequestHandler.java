@@ -85,8 +85,6 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
                         .setResultSet(response.getResultSet())
                         .setRowCount(response.getRowCount());
 
-//                throw new SQLException("reason", "state", 132, new RuntimeException("Blah"));
-//                throw new RuntimeException("Blah");
                 responseBuilder.setExecuteResponse(statementResponseBuilder);
             } else if (transactionRequest.hasInsertRequest()) {
                 final InsertRequest request = transactionRequest.getInsertRequest();
