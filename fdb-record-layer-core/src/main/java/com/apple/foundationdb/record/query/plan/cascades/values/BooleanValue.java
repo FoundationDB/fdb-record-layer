@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -49,4 +50,16 @@ public interface BooleanValue extends Value {
      */
     Optional<QueryPredicate> toQueryPredicate(@Nullable TypeRepository typeRepository,
                                               @Nonnull Set<CorrelationIdentifier> localAliases);
+
+    /**
+     * Translates the {@link BooleanValue} into a {@link QueryPredicate}.
+     *
+     * @param typeRepository a type repository that can be passed to e.g. compile-time evaluable functions
+     * @param localAlias the alias that is immediately visible to the expression.
+     * @return A {@link QueryPredicate} that is equivalent to this {@link BooleanValue} expression.
+     */
+    default Optional<QueryPredicate> toQueryPredicate(@Nullable TypeRepository typeRepository,
+                                              @Nonnull CorrelationIdentifier localAlias) {
+        return toQueryPredicate(typeRepository, ImmutableSet.of(localAlias));
+    }
 }
