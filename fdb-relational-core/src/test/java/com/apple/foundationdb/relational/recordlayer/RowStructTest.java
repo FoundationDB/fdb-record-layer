@@ -20,18 +20,17 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.ImmutableRowStruct;
 import com.apple.foundationdb.relational.api.MutableRowStruct;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.RowStruct;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
-import java.sql.Types;
+import java.util.List;
 
 public class RowStructTest {
 
@@ -53,10 +52,11 @@ public class RowStructTest {
     }
 
     private static RowStruct createStruct(boolean mutable) {
-        final var metadata = new RelationalStructMetaData(
-                FieldDescription.primitive("fInt", Types.INTEGER, DatabaseMetaData.columnNullable),
-                FieldDescription.primitive("fLong", Types.BIGINT, DatabaseMetaData.columnNullable)
-        );
+        final var type = DataType.StructType.from("BLAH", List.of(
+                DataType.StructType.Field.from("fInt", DataType.Primitives.NULLABLE_INTEGER.type(), 0),
+                DataType.StructType.Field.from("fInt", DataType.Primitives.NULLABLE_LONG.type(), 1)
+        ), true);
+        final var metadata = RelationalStructMetaData.of(type);
         final var row = new ArrayRow(null, 1L);
         if (mutable) {
             final var toReturn = new MutableRowStruct(metadata);

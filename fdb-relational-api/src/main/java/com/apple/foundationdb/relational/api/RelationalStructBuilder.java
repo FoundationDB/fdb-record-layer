@@ -40,8 +40,6 @@ public interface RelationalStructBuilder {
 
     RelationalStructBuilder addBoolean(String fieldName, boolean b) throws SQLException;
 
-    RelationalStructBuilder addShort(String fieldName, short b) throws SQLException;
-
     RelationalStructBuilder addLong(String fieldName, long l) throws SQLException;
 
     RelationalStructBuilder addFloat(String fieldName, float f) throws SQLException;
@@ -52,7 +50,7 @@ public interface RelationalStructBuilder {
 
     RelationalStructBuilder addString(String fieldName, @Nullable String s) throws SQLException;
 
-    RelationalStructBuilder addObject(String fieldName, @Nullable Object obj, int targetSqlType) throws SQLException;
+    RelationalStructBuilder addObject(String fieldName, @Nullable Object obj) throws SQLException;
 
     RelationalStructBuilder addStruct(String fieldName, @Nonnull RelationalStruct struct) throws SQLException;
 

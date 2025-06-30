@@ -67,7 +67,6 @@ import javax.annotation.Nullable;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
-import java.sql.Types;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
@@ -661,7 +660,7 @@ public class BackingLocatableResolverStoreTest {
     private void insertResolverState(RelationalStatement statement, long version, String lock) throws SQLException {
         final var struct = EmbeddedRelationalStruct.newBuilder()
                 .addInt(LocatableResolverMetaDataProvider.VERSION_FIELD_NAME, (int) version)
-                .addObject(LocatableResolverMetaDataProvider.LOCK_FIELD_NAME, lock, Types.OTHER)
+                .addObject(LocatableResolverMetaDataProvider.LOCK_FIELD_NAME, lock)
                 .build();
         Options options = Options.builder()
                 .withOption(Options.Name.REPLACE_ON_DUPLICATE_PK, true)

@@ -42,7 +42,9 @@ public interface RelationalArrayBuilder {
 
     RelationalArrayBuilder addString(@Nonnull String value) throws SQLException;
 
-    RelationalArrayBuilder addLong(@Nonnull long value) throws SQLException;
+    RelationalArrayBuilder addLong(long value) throws SQLException;
+
+    RelationalArrayBuilder addObject(@Nonnull Object value) throws SQLException;
 
     RelationalArrayBuilder addStruct(RelationalStruct struct) throws SQLException;
 }
