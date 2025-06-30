@@ -50,7 +50,7 @@ public class LoadTemplateTokens {
         }
         String jsonFileName = lcsTokenizer.nextToken();
         List<String> dependencies = new ArrayList<>();
-        while(lcsTokenizer.hasMoreTokens()) {
+        while (lcsTokenizer.hasMoreTokens()) {
             dependencies.add(lcsTokenizer.nextToken());
         }
         return new LoadTemplateTokens(templateName, jsonFileName, dependencies);
