@@ -167,7 +167,6 @@ test_block:
         ]
     -
       - query: select * from T1 where COL1 = 20 OR COL1 = 20
-      # Ideally, we'd coalesce these two ranges on COL1 into a single range
       - explain: "ISCAN(I1 [EQUALS promote(@c8 AS LONG)])"
       - result: [
                {ID:  6, COL1: 20, COL2:  6},
