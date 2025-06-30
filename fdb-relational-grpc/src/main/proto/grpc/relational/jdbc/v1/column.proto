@@ -26,12 +26,29 @@ option java_multiple_files = true;
 option java_package = "com.apple.foundationdb.relational.jdbc.grpc.v1.column";
 option java_outer_classname = "ColumnProto";
 
+enum Type {
+  NO_TYPE = 0;
+  INTEGER = 1;
+  LONG = 2;
+  FLOAT = 3;
+  DOUBLE = 4;
+  STRING = 5;
+  BOOLEAN = 6;
+  BYTES = 7;
+  UUID = 8;
+  ENUM = 9;
+  VERSION = 10;
+  STRUCT = 11;
+  ARRAY = 12;
+  NULL = 13;
+}
+
 message ColumnMetadata {
   string name = 1;
   string label = 2;
   //taken from java.sql.Types
   int32 java_sql_types_code = 3;
-  int32 nullable = 4;
+  bool nullable = 4;
   // Indicates a column that isn't part of the DDL for a query, but is part of the returned
   // tuple (and therefore necessary to keep so that our positional ordering is intact)
   bool phantom = 5;
@@ -39,7 +56,9 @@ message ColumnMetadata {
   oneof metadata {
     ListColumnMetadata structMetadata = 6;
     ColumnMetadata arrayMetadata = 7;
+    EnumMetadata enumMetadata = 8;
   }
+  Type type = 9;
 }
 
 // Relational Struct.
@@ -105,4 +124,9 @@ message ListColumn {
 
 message ListColumnMetadata {
   repeated ColumnMetadata columnMetadata = 1;
+}
+
+message EnumMetadata {
+  string name = 1;
+  repeated string values = 2;
 }

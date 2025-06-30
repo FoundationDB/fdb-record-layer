@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.relational.api.metadata.DataType;
+
 import java.sql.SQLException;
 import java.sql.Wrapper;
 
@@ -87,4 +89,6 @@ public interface StructMetaData extends Wrapper {
     default int getLeadingPhantomColumnCount() {
         return 0;
     }
+
+    DataType.StructType getRelationalDataType() throws SQLException;
 }

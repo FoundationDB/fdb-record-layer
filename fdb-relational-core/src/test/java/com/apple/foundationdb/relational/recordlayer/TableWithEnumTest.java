@@ -31,15 +31,14 @@ import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.sql.SQLException;
-import java.sql.Types;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
@@ -67,7 +66,7 @@ public class TableWithEnumTest {
 
     @Test
     void canInsertViaDirectAccess() throws Exception {
-        final var inserted = insertCard(42, "HEARTS", 8);
+        insertCard(42, "HEARTS", 8);
 
         KeySet keys = new KeySet()
                 .setKeyColumn("ID", 42);
@@ -75,7 +74,7 @@ public class TableWithEnumTest {
         try (RelationalResultSet resultSet = statement.executeGet("CARD", keys, Options.NONE)) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
-                    .isRowExactly(inserted)
+                    .hasColumns(Map.of("ID", 42L, "SUIT", "HEARTS", "RANK", 8L))
                     .hasNoNextRow();
         }
     }
@@ -83,12 +82,11 @@ public class TableWithEnumTest {
     @Test
     void canInsertViaQuerySimpleStatement() throws SQLException {
         statement.execute("INSERT INTO CARD (id, suit, rank) VALUES (1, 'HEARTS', 4)");
-        final var expectedStruct = getStructToInsert(1, "HEARTS", 4);
 
         try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM CARD WHERE ID = 1")) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
-                    .isRowExactly(expectedStruct)
+                    .hasColumns(Map.of("ID", 1L, "SUIT", "HEARTS", "RANK", 4L))
                     .hasNoNextRow();
         }
     }
@@ -102,11 +100,10 @@ public class TableWithEnumTest {
         final var count = preparedStmt.executeUpdate();
         assertThat(count).isEqualTo(1);
 
-        final var expectedStruct = getStructToInsert(1, "HEARTS", 4);
         try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM CARD WHERE ID = 1")) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
-                    .isRowExactly(expectedStruct)
+                    .hasColumns(Map.of("ID", 1L, "SUIT", "HEARTS", "RANK", 4L))
                     .hasNoNextRow();
         }
     }
@@ -228,7 +225,7 @@ public class TableWithEnumTest {
     private RelationalStruct getStructToInsert(long id, Object suit, int rank) throws SQLException {
         return EmbeddedRelationalStruct.newBuilder()
                 .addLong("ID", id)
-                .addObject("SUIT", suit, Types.OTHER)
+                .addObject("SUIT", suit)
                 .addLong("RANK", rank)
                 .build();
 

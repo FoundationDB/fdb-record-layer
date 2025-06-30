@@ -21,11 +21,11 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 
-import java.sql.Array;
-import java.sql.Struct;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.sql.Types;
-import java.util.UUID;
 
 /**
  * Class to host method taken from SqlTypeSupport needed by
@@ -96,31 +96,35 @@ public final class SqlTypeNamesSupport {
         }
     }
 
-    public static int getSqlTypeCodeFromObject(Object obj) {
-        if (obj == null) {
-            return Types.NULL;
-        } else if (obj instanceof Long) {
-            return Types.BIGINT;
-        } else if (obj instanceof Integer) {
-            return Types.INTEGER;
-        } else if (obj instanceof Boolean) {
-            return Types.BOOLEAN;
-        } else if (obj instanceof byte[]) {
-            return Types.BINARY;
-        } else if (obj instanceof Float) {
-            return Types.FLOAT;
-        } else if (obj instanceof Double) {
-            return Types.DOUBLE;
-        } else if (obj instanceof String) {
-            return Types.VARCHAR;
-        } else if (obj instanceof Array) {
-            return Types.ARRAY;
-        } else if (obj instanceof Struct) {
-            return Types.STRUCT;
-        } else if (obj instanceof UUID) {
-            return Types.OTHER;
-        } else {
-            throw new IllegalStateException("Unexpected object type: " + obj.getClass().getName());
+    /**
+     * This method does the best-case effort to match the JDBC SQL Type name with the corresponding non-nullable version
+     * of the DataType. As evident, we cannot actually match all the type, like composite type struct and array. In
+     * that case, we simply return a {@code null}.
+     *
+     * @param sqlTypeName the name of the JDBC-supported SQL types takem from {@link Types}
+     * @return the equivalent {@link DataType} for the type name
+     */
+    @Nullable
+    public static DataType getDataTypeFromSqlTypeName(@Nonnull String sqlTypeName) {
+        switch (sqlTypeName) {
+            case "INTEGER":
+                return DataType.Primitives.INTEGER.type();
+            case "BINARY":
+                return DataType.Primitives.BYTES.type();
+            case "BIGINT":
+                return DataType.Primitives.LONG.type();
+            case "FLOAT":
+                return DataType.Primitives.FLOAT.type();
+            case "DOUBLE":
+                return DataType.Primitives.DOUBLE.type();
+            case "STRING":
+                return DataType.Primitives.STRING.type();
+            case "BOOLEAN":
+                return DataType.Primitives.BOOLEAN.type();
+            case "NULL":
+                return DataType.Primitives.NULL.type();
+            default:
+                return null;
         }
     }
 }
