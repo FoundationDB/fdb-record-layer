@@ -211,10 +211,10 @@ test_block:
     -
       - query: select * from T1 where (COL1 = 20 OR COL1 = 10) AND (COL1 = 20 OR COL1 = 10)
       - explain: "COVERING(I1 [EQUALS promote(@c9 AS LONG)] -> [COL1: KEY[0], ID: KEY[2]]) ⊎ COVERING(I1 [EQUALS promote(@c13 AS LONG)] -> [COL1: KEY[0], ID: KEY[2]]) | DISTINCT BY PK | FETCH"
-      - initialVersionLessThan: !current_version
-      # Prior to !current_version, there was an error that would result in this query failing due to an illegal argument exception
+      - initialVersionLessThan: 4.3.6.0
+      # Prior to 4.3.6.0, there was an error that would result in this query failing due to an illegal argument exception
       # The error is currently not propagated as a SQLException, so we can't even assert on the error code
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.3.6.0
       - unorderedResult: [
                {ID:  1, COL1: 10, COL2:  1},
                {ID:  2, COL1: 10, COL2:  2},
@@ -233,10 +233,10 @@ test_block:
     -
       - query: select * from T1 where (COL1 = 20 OR COL1 = 10) AND (COL1 = 20 OR COL1 = 10) ORDER BY COL1
       - explain: "ISCAN(I1 [EQUALS promote(@c9 AS LONG)]) ∪ ISCAN(I1 [EQUALS promote(@c13 AS LONG)]) COMPARE BY (_.COL1, recordType(_), _.ID)"
-      - initialVersionLessThan: !current_version
-      # Prior to !current_version, there was an error that would result in this query failing due to an illegal argument exception
+      - initialVersionLessThan: 4.3.6.0
+      # Prior to 4.3.6.0, there was an error that would result in this query failing due to an illegal argument exception
       # The error is currently not propagated as a SQLException, so we can't even assert on the error code
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.3.6.0
       - result: [
                {ID:  1, COL1: 10, COL2:  1},
                {ID:  2, COL1: 10, COL2:  2},
