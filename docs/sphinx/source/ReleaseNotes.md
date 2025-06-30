@@ -7,6 +7,63 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.3
 
+### 4.3.6.0
+
+<h4> Breaking Changes </h4>
+
+* Support calling table functions without parentheses when no parameters are required - [PR #3409](https://github.com/FoundationDB/fdb-record-layer/pull/3409)
+<h4> New Features </h4>
+
+* Type specifier suffix for `long` and `int` literals - [PR #3434](https://github.com/FoundationDB/fdb-record-layer/pull/3434)
+* Simplification rules for constant `coalesce` and `promote` expressions - [PR #3425](https://github.com/FoundationDB/fdb-record-layer/pull/3425)
+* Scoring and costing query predicates - [PR #3427](https://github.com/FoundationDB/fdb-record-layer/pull/3427)
+* Add new `Option`s to disable planner rules through the Relational API - [PR #3421](https://github.com/FoundationDB/fdb-record-layer/pull/3421)
+* Introduce value-specific plan cache constraints - [PR #3413](https://github.com/FoundationDB/fdb-record-layer/pull/3413)
+* Planner rewrite rule for simplifying `SelectExpression` predicates - [PR #3411](https://github.com/FoundationDB/fdb-record-layer/pull/3411)
+* `QueryPredicate` constant folding - [PR #3403](https://github.com/FoundationDB/fdb-record-layer/pull/3403)
+* `EvaluationContext` and constraints for simplifications - [PR #3387](https://github.com/FoundationDB/fdb-record-layer/pull/3387)
+* introduce `SelectMergeRule` - [PR #3388](https://github.com/FoundationDB/fdb-record-layer/pull/3388)
+* Introduce a new planner rewrite rule to facilitate in-lining function parameter values - [PR #3381](https://github.com/FoundationDB/fdb-record-layer/pull/3381)
+* Temporary SQL Functions - [PR #3364](https://github.com/FoundationDB/fdb-record-layer/pull/3364)
+<h4> Bug Fixes </h4>
+
+* `OfTypeValue` distinguishes `long` and `int` - [PR #3448](https://github.com/FoundationDB/fdb-record-layer/pull/3448)
+* Address planner bugs encountered while integrating rewrite rules - [PR #3435](https://github.com/FoundationDB/fdb-record-layer/pull/3435)
+* Avoid Boolean simplification that would lead to expressions like `x IS TRUE` being simplified to `FALSE` - [PR #3436](https://github.com/FoundationDB/fdb-record-layer/pull/3436)
+* Address nullability of null-on-empty quantifiers and nested fields - [PR #3426](https://github.com/FoundationDB/fdb-record-layer/pull/3426)
+* Address case where `markIndexReadable` could ignore `allowUniquePending` parameter - [PR #3423](https://github.com/FoundationDB/fdb-record-layer/pull/3423)
+* addressing matching problems when integrating `REWRITING` phase - [PR #3422](https://github.com/FoundationDB/fdb-record-layer/pull/3422)
+* Allow version repair to operate while the store is locked - [PR #3396](https://github.com/FoundationDB/fdb-record-layer/pull/3396)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Update code version before running tests in release build - [PR #3450](https://github.com/FoundationDB/fdb-record-layer/pull/3450)
+* Added ability to hand in connection options through the yaml framework and temporary tests that disable all rewrite rules - [PR #3438](https://github.com/FoundationDB/fdb-record-layer/pull/3438)
+* Run expensive `Traversal` verification sanity check less often - [PR #3442](https://github.com/FoundationDB/fdb-record-layer/pull/3442)
+* Separate out Lucene tests so they run separately in PRB - [PR #3440](https://github.com/FoundationDB/fdb-record-layer/pull/3440)
+* Allow MaintainYamlTestConfig with quickTest - [PR #3416](https://github.com/FoundationDB/fdb-record-layer/pull/3416)
+* Bring in 4.3.3.1 release notes - [PR #3399](https://github.com/FoundationDB/fdb-record-layer/pull/3399)
+
+</details>
+
+
+**[Full Changelog (4.3.5.0...4.3.6.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.3.5.0...4.3.6.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.2.2.1`, ❌`4.2.3.0`, ❌`4.2.4.0`, ✅`4.2.5.0`, ✅`4.2.6.0`, ✅`4.2.8.0`, ✅`4.3.2.0`, ✅`4.3.3.0`, ✅`4.3.3.1`, ✅`4.3.5.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/15967719430)
+
+
+
 ### 4.3.5.0
 
 
