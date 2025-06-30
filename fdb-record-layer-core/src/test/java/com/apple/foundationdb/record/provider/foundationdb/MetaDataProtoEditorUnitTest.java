@@ -35,6 +35,7 @@ import com.google.protobuf.util.JsonFormat;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -47,11 +48,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -357,25 +360,67 @@ public class MetaDataProtoEditorUnitTest {
         }
     }
 
-    public static Stream<String> renamableFiles() {
+    public static Stream<Arguments> renamableFiles() {
         // Note: Explicitly having the .json here so that you can Cmd+click in the IDE to jump to the file
-        return Stream.of(
-                "OneBoringType.json",
-                "TwoBoringTypes.json",
-                "DuplicateUnionFields.json",
-                "OneTypeWithIndexes.json",
-                "MultiTypeIndex.json",
-                "UniversalIndex.json",
-                "UnnestedExternalType.json",
-                "UnnestedInternal.json",
-                "Joined.json"
-        );
+        return Stream.concat(
+                Stream.of(
+                        "OneBoringType.json",
+                        "TwoBoringTypes.json",
+                        "TwoBoringTypesInPackage.json",
+                        "DuplicateUnionFields.json",
+                        "OneTypeWithIndexes.json",
+                        "MultiTypeIndex.json",
+                        "UniversalIndex.json",
+                        "UnnestedExternalType.json",
+                        "UnnestedInternal.json",
+                        "Joined.json"
+                ).map(filename -> Arguments.of(filename, (Consumer<RecordMetaData>) renamed -> { })),
+                Stream.of(
+                        Arguments.of("AlsoInDependency.json",
+                                (Consumer<RecordMetaData>) renamed -> {
+                                    final Descriptors.Descriptor uuidType = getMessage(renamed, simpleRename("UUID"));
+                                    assertEquals(uuidType,
+                                            getFieldMessageType(renamed, simpleRename("T2"), "uuid"));
+                                    assertNotEquals(uuidType,
+                                            getFieldMessageType(renamed, simpleRename("T2"), "uuid2"));
+                                }),
+                        Arguments.of("NestedAndRecordType.json",
+                                (Consumer<RecordMetaData>) renamed -> {
+                                    // if this assertion fails, it does not have a good toString, but you can add `.toProto()` to both for a better
+                                    // toString
+                                    assertEquals(getMessage(renamed, simpleRename("T1")),
+                                            getFieldMessageType(renamed, simpleRename("T2"), "T1"));
+                                }),
+                        Arguments.of("NestedMessage.json",
+                                (Consumer<RecordMetaData>) renamed -> {
+                                    // if this assertion fails, it does not have a good toString, but you can add `.toProto()` to both for a better
+                                    // toString
+                                    assertEquals(getMessage(renamed, "T1"),
+                                            getFieldMessageType(renamed, simpleRename("T2"), "T1"));
+                                })
+                ));
     }
 
-    @ParameterizedTest
+    @Nonnull
+    private static Descriptors.Descriptor getMessage(final RecordMetaData renamed, final String T1) {
+        return renamed.getRecordsDescriptor().getMessageTypes().stream()
+                .filter(type -> type.getName().equals(T1))
+                .findFirst().orElseThrow();
+    }
+
+    @Nonnull
+    private static Descriptors.Descriptor getFieldMessageType(final RecordMetaData renamed, String typeName, String fieldName) {
+        return renamed.getRecordType(typeName)
+                .getDescriptor().getFields()
+                .stream().filter(field -> field.getName().equals(fieldName))
+                .findFirst().orElseThrow().getMessageType();
+    }
+
+    @ParameterizedTest(name = "{0}")
     @MethodSource("renamableFiles")
-    void simplePrefix(String name) throws IOException {
-        runRename(name);
+    void simplePrefix(String name, Consumer<RecordMetaData> extraAssertions) throws IOException {
+        final RecordMetaData renamed = runRename(name);
+        extraAssertions.accept(renamed);
     }
 
     @ParameterizedTest
@@ -392,7 +437,7 @@ public class MetaDataProtoEditorUnitTest {
                 RecordMetaDataBuilder.getDependencies(builder.build(), Map.of())));
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "{0}")
     @MethodSource("renamableFiles")
     void doubleRename(String name) throws IOException {
         final RecordMetaDataProto.MetaData.Builder builder = loadMetaData(name);
@@ -420,6 +465,7 @@ public class MetaDataProtoEditorUnitTest {
                 oldName -> simpleRename(simpleRename(oldName)),
                 RecordMetaDataBuilder.getDependencies(originalProto, Map.of()));
         assertEquals(builder.build(), secondRename);
+
     }
 
     @ParameterizedTest
@@ -451,34 +497,6 @@ public class MetaDataProtoEditorUnitTest {
                     .hasMessageStartingWith("Cannot rename record type to ")
                     .hasMessageEndingWith("as it already exists");
         }
-    }
-
-    @Test
-    void nestedAndRecordType() throws IOException {
-        final RecordMetaData renamed = runRename("NestedAndRecordType.json");
-        final Descriptors.FieldDescriptor t1Field = renamed.getRecordType("__x_T2").getDescriptor().getFields()
-                .stream().filter(field -> field.getName().equals("T1"))
-                .findFirst().orElseThrow();
-        // if this assertion fails, it does not have a good toString, but you can add `.toProto()` to both for a better
-        // toString
-        assertEquals(renamed.getRecordsDescriptor().getMessageTypes().stream()
-                        .filter(type -> type.getName().equals("__x_T1"))
-                        .findFirst().orElseThrow(),
-                t1Field.getMessageType());
-    }
-
-    @Test
-    void nestedMessage() throws IOException {
-        final RecordMetaData renamed = runRename("NestedMessage.json");
-        final Descriptors.FieldDescriptor t1Field = renamed.getRecordType("__x_T2").getDescriptor().getFields()
-                .stream().filter(field -> field.getName().equals("T1"))
-                .findFirst().orElseThrow();
-        // if this assertion fails, it does not have a good toString, but you can add `.toProto()` to both for a better
-        // toString
-        assertEquals(renamed.getRecordsDescriptor().getMessageTypes().stream()
-                        .filter(type -> type.getName().equals("T1"))
-                        .findFirst().orElseThrow(),
-                t1Field.getMessageType());
     }
 
 

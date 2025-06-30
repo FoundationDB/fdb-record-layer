@@ -584,6 +584,12 @@ public class MetaDataProtoEditor {
         }
     }
 
+    /**
+     * Whether the {@code targetDescriptor} is equal to or nested within {@code typeDescriptor}.
+     * @param typeDescriptor a type
+     * @param targetDescriptor a type that may or may not be nested in {@code typeDescriptor}
+     * @return {@code true} if the {@code targetDescriptor} is the same as {@code typeDescriptor} or a nested type of it
+     */
     private static boolean isNested(@Nonnull Descriptors.Descriptor typeDescriptor,
                                     @Nonnull Descriptors.Descriptor targetDescriptor) {
         if (typeDescriptor.equals(targetDescriptor)) {
