@@ -50,10 +50,10 @@ import org.opentest4j.TestAbortedException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -97,16 +97,16 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
         if (Boolean.parseBoolean(System.getProperty("tests.runQuick", "false"))) {
             testConfigs = List.of(new EmbeddedConfig(clusterFile));
         } else {
-            AtomicInteger serverPort = new AtomicInteger(1111);
             List<File> jars = ExternalServer.getAvailableServers();
             // Fail the test if there are no available servers. This would force the execution in "runQuick" mode in case
             // we don't have access to the artifacts.
             // Potentially, we can relax this a little if all tests are disabled for multi-server execution, but this is
             // not a likely scenario.
             Assertions.assertFalse(jars.isEmpty(), "There are no external servers available to run");
-            servers = jars.stream()
-                    .map(jar -> new ExternalServer(jar, serverPort.getAndIncrement(), serverPort.getAndIncrement(), clusterFile))
-                    .collect(Collectors.toList());
+            servers = new ArrayList<>();
+            for (File jar : jars) {
+                servers.add(new ExternalServer(jar, clusterFile));
+            }
             for (ExternalServer server : servers) {
                 server.start();
             }
