@@ -128,7 +128,9 @@ public class StatefulServerConnection implements StreamObserver<TransactionalRes
      */
     @Override
     public void onError(final Throwable t) {
-        logger.warn("Got error from server: {}", t.getMessage());
+        if (logger.isWarnEnabled()) {
+            logger.warn("Got error from server: {}", t.getMessage());
+        }
         try {
             // Put the failure on the queue so that the client will get it and stop waiting
             responseQueue.offer(CompletableFuture.failedFuture(t), TIMEOUT_IN_SECONDS, TimeUnit.SECONDS);

@@ -1,5 +1,5 @@
 /*
- * JDBCSimpleStatementTest.java
+ * JDBCAutoCommitTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -44,8 +44,6 @@ public class JDBCAutoCommitTest {
     private static final String SYSDBPATH = "/" + RelationalKeyspaceProvider.SYS;
     private static final String TESTDB = "/FRL/jdbc_test_db";
     public static final String TEST_SCHEMA = "test_schema";
-    public static final String SYS_DB_URI = "jdbc:relational://" + SYSDBPATH + "?schema=" + RelationalKeyspaceProvider.CATALOG;
-    public static final String TEST_DB_URI = "jdbc:relational://" + TESTDB + "?schema=" + TEST_SCHEMA;
 
     @BeforeAll
     public static void beforeAll() throws Exception {
@@ -72,7 +70,7 @@ public class JDBCAutoCommitTest {
      */
     @Test
     void autoCommitOn() throws SQLException, IOException {
-        try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection connection = DriverManager.getConnection(getTestDbUri()).unwrap(RelationalConnection.class)) {
             try (RelationalStatement statement = connection.createStatement()) {
                 insertOneRow(statement);
                 RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM test_table");
@@ -87,7 +85,7 @@ public class JDBCAutoCommitTest {
      */
     @Test
     void commitThenRead() throws SQLException, IOException {
-        try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection connection = DriverManager.getConnection(getTestDbUri()).unwrap(RelationalConnection.class)) {
             connection.setAutoCommit(false);
 
             try (RelationalStatement statement = connection.createStatement()) {
@@ -104,7 +102,7 @@ public class JDBCAutoCommitTest {
 
     @Test
     void insertMultiCommitRead() throws SQLException, IOException {
-        try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection connection = DriverManager.getConnection(getTestDbUri()).unwrap(RelationalConnection.class)) {
             connection.setAutoCommit(false);
 
             try (RelationalStatement statement = connection.createStatement()) {
@@ -126,7 +124,7 @@ public class JDBCAutoCommitTest {
      */
     @Test
     void rollbackThenRead() throws SQLException, IOException {
-        try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection connection = DriverManager.getConnection(getTestDbUri()).unwrap(RelationalConnection.class)) {
             connection.setAutoCommit(false);
 
             try (RelationalStatement statement = connection.createStatement()) {
@@ -145,7 +143,7 @@ public class JDBCAutoCommitTest {
      */
     @Test
     void revertToAutoCommitOn() throws Exception {
-        try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection connection = DriverManager.getConnection(getTestDbUri()).unwrap(RelationalConnection.class)) {
             connection.setAutoCommit(false);
 
             try (RelationalStatement statement = connection.createStatement()) {
@@ -161,7 +159,7 @@ public class JDBCAutoCommitTest {
 
     @Test
     void insertError() throws Exception {
-        try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection connection = DriverManager.getConnection(getTestDbUri()).unwrap(RelationalConnection.class)) {
             connection.setAutoCommit(false);
             try (RelationalStatement statement = connection.createStatement()) {
                 RelationalStruct insert = JDBCRelationalStruct.newBuilder()
@@ -174,7 +172,7 @@ public class JDBCAutoCommitTest {
 
     @Test
     void insertErrorAfterSuccess() throws Exception {
-        try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection connection = DriverManager.getConnection(getTestDbUri()).unwrap(RelationalConnection.class)) {
             connection.setAutoCommit(false);
             try (RelationalStatement statement = connection.createStatement()) {
                 insertOneRow(statement);
@@ -193,7 +191,7 @@ public class JDBCAutoCommitTest {
 
     @Test
     void queryError() throws Exception {
-        try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection connection = DriverManager.getConnection(getTestDbUri()).unwrap(RelationalConnection.class)) {
             connection.setAutoCommit(false);
             try (RelationalStatement statement = connection.createStatement()) {
                 Assertions.assertThrows(SQLException.class, () -> statement.executeQuery("BLAH"));
@@ -203,7 +201,7 @@ public class JDBCAutoCommitTest {
 
     @Test
     void continueAfterSqlError() throws Exception {
-        try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection connection = DriverManager.getConnection(getTestDbUri()).unwrap(RelationalConnection.class)) {
             connection.setAutoCommit(false);
             try (RelationalStatement statement = connection.createStatement()) {
                 insertOneRow(statement);
@@ -218,7 +216,7 @@ public class JDBCAutoCommitTest {
 
     @Test
     void commitError() throws Exception {
-        try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection connection = DriverManager.getConnection(getTestDbUri()).unwrap(RelationalConnection.class)) {
             connection.setAutoCommit(false);
             try (RelationalStatement statement = connection.createStatement()) {
                 // commit with no SQL statement is an error
@@ -234,7 +232,7 @@ public class JDBCAutoCommitTest {
 
     @Test
     void rollbackError() throws Exception {
-        try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection connection = DriverManager.getConnection(getTestDbUri()).unwrap(RelationalConnection.class)) {
             connection.setAutoCommit(false);
             try (RelationalStatement statement = connection.createStatement()) {
                 // rollback with no SQL statement is an error
@@ -250,14 +248,14 @@ public class JDBCAutoCommitTest {
 
     @Test
     void rollbackOnConnectionClose() throws Exception {
-        try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection connection = DriverManager.getConnection(getTestDbUri()).unwrap(RelationalConnection.class)) {
             connection.setAutoCommit(false);
             try (RelationalStatement statement = connection.createStatement()) {
                 // no commit, closing session should roll back
                 insertOneRow(statement);
             }
         }
-        try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection connection = DriverManager.getConnection(getTestDbUri()).unwrap(RelationalConnection.class)) {
             try (RelationalStatement statement = connection.createStatement()) {
                 RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM test_table");
                 assertNoNextResult(resultSet);
@@ -267,14 +265,14 @@ public class JDBCAutoCommitTest {
 
     @Test
     void twoConnectionsInSequence() throws Exception {
-        try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection connection = DriverManager.getConnection(getTestDbUri()).unwrap(RelationalConnection.class)) {
             connection.setAutoCommit(false);
             try (RelationalStatement statement = connection.createStatement()) {
                 insertOneRow(statement);
                 connection.commit();
             }
         }
-        try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection connection = DriverManager.getConnection(getTestDbUri()).unwrap(RelationalConnection.class)) {
             connection.setAutoCommit(false);
             try (RelationalStatement statement = connection.createStatement()) {
                 insert2ndRow(statement);
@@ -289,8 +287,8 @@ public class JDBCAutoCommitTest {
 
     @Test
     void twoConcurrentConnections() throws Exception {
-        try (RelationalConnection connection1 = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class);
-                RelationalConnection connection2 = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection connection1 = DriverManager.getConnection(getTestDbUri()).unwrap(RelationalConnection.class);
+                RelationalConnection connection2 = DriverManager.getConnection(getTestDbUri()).unwrap(RelationalConnection.class)) {
             connection1.setAutoCommit(false);
             connection2.setAutoCommit(false);
             try (RelationalStatement statement1 = connection1.createStatement();
@@ -301,7 +299,7 @@ public class JDBCAutoCommitTest {
                 connection2.commit();
             }
         }
-        try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection connection = DriverManager.getConnection(getTestDbUri()).unwrap(RelationalConnection.class)) {
             connection.setAutoCommit(false);
             try (RelationalStatement statement = connection.createStatement()) {
                 RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM test_table");
@@ -310,6 +308,18 @@ public class JDBCAutoCommitTest {
                 assertNoNextResult(resultSet);
             }
         }
+    }
+
+    protected String getSysDbUri() {
+        return "jdbc:relational://" + getHostPort() + SYSDBPATH + "?schema=" + RelationalKeyspaceProvider.CATALOG;
+    }
+
+    protected String getTestDbUri() {
+        return "jdbc:relational://" + getHostPort() + TESTDB + "?schema=" + TEST_SCHEMA;
+    }
+
+    protected String getHostPort() {
+        return "";
     }
 
     private static void insertOneRow(final RelationalStatement statement) throws SQLException {
@@ -331,7 +341,7 @@ public class JDBCAutoCommitTest {
     }
 
     private void createDatabase() throws SQLException {
-        try (RelationalConnection connection = DriverManager.getConnection(SYS_DB_URI)
+        try (RelationalConnection connection = DriverManager.getConnection(getSysDbUri())
                 .unwrap(RelationalConnection.class)) {
             try (RelationalStatement statement = connection.createStatement()) {
                 statement.executeUpdate("Drop database if exists \"" + TESTDB + "\"");
@@ -346,7 +356,7 @@ public class JDBCAutoCommitTest {
     }
 
     private void cleanup() throws SQLException {
-        try (RelationalConnection connection = DriverManager.getConnection(SYS_DB_URI)
+        try (RelationalConnection connection = DriverManager.getConnection(getSysDbUri())
                 .unwrap(RelationalConnection.class)) {
             try (RelationalStatement statement = connection.createStatement()) {
                 statement.executeUpdate("Drop database \"" + TESTDB + "\"");

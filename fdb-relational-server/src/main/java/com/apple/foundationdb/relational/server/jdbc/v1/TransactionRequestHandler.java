@@ -115,7 +115,9 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
             responseObserver.onNext(responseBuilder.build());
         } catch (SQLException e) {
             // SQL exceptions are returned as payload as the connection can stay open
-            logger.info("Caught SQL exception: returning to client: " + e.getMessage());
+            if (logger.isInfoEnabled()) {
+                logger.info("Caught SQL exception: returning to client: " + e.getMessage());
+            }
             Status status = GrpcSQLExceptionUtil.create(e);
             responseBuilder.setErrorResponse(Any.pack(status));
             responseObserver.onNext(responseBuilder.build());
