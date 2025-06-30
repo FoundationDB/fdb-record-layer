@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nullable;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -86,7 +87,9 @@ public class StatefulServerConnection implements StreamObserver<TransactionalRes
         }
 
         try {
+            // Wait for the response
             final CompletableFuture<TransactionalResponse> response = responseQueue.poll(TIMEOUT_IN_SECONDS, TimeUnit.SECONDS);
+            // timed out waiting
             if (response == null) {
                 final JdbcConnectionException exception = new JdbcConnectionException("Timed out waiting for response from server");
                 close(exception);
@@ -98,6 +101,16 @@ public class StatefulServerConnection implements StreamObserver<TransactionalRes
             close(exception);
             Thread.currentThread().interrupt();
             throw exception;
+        } catch (CompletionException e) {
+            // join failed
+            Throwable cause = e.getCause();
+            if (cause instanceof StatusRuntimeException) {
+                // RPC error - just throw the cause (will be dealt with at the caller
+                throw (StatusRuntimeException)cause;
+            } else {
+                // Some other unknown error
+                throw e;
+            }
         }
     }
 

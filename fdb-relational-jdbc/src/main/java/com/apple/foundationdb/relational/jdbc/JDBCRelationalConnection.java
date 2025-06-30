@@ -47,10 +47,12 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.rpc.Status;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import io.grpc.StatusRuntimeException;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.protobuf.StatusProto;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -196,20 +198,29 @@ class JDBCRelationalConnection implements RelationalConnection {
             builder.setParameters(Parameters.newBuilder().addAllParameter(parameters).build());
         }
 
-        if (getAutoCommit()) {
-            // execute using synchronous RPC call using a single transaction
-            return getStub().execute(builder.build());
-        } else {
-            // Use the stateful sender to send the requests as part of a transaction
-            TransactionalRequest.Builder transactionRequest = TransactionalRequest.newBuilder()
-                    .setExecuteRequest(builder);
-            // Wait here until a response arrives
-            final TransactionalResponse response = serverConnection.sendRequest(transactionRequest.build());
-            checkForResponseError(response);
-            if (!response.hasExecuteResponse()) {
-                throw new JdbcConnectionException("Wrong kind of response received, expected ExecuteResponse");
+        try {
+            if (getAutoCommit()) {
+                // execute using synchronous RPC call using a single transaction
+                return getStub().execute(builder.build());
+            } else {
+                // Use the stateful sender to send the requests as part of a transaction
+                TransactionalRequest.Builder transactionRequest = TransactionalRequest.newBuilder()
+                        .setExecuteRequest(builder);
+                // Wait here until a response arrives
+                final TransactionalResponse response = serverConnection.sendRequest(transactionRequest.build());
+                checkForResponseError(response);
+                if (!response.hasExecuteResponse()) {
+                    throw new JdbcConnectionException("Wrong kind of response received, expected ExecuteResponse");
+                }
+                return response.getExecuteResponse();
             }
-            return response.getExecuteResponse();
+        } catch (StatusRuntimeException statusRuntimeException) {
+            final SQLException sqlException = toSQLException(statusRuntimeException);
+            if (sqlException != null) {
+                throw sqlException;
+            } else {
+                throw statusRuntimeException;
+            }
         }
     }
 
@@ -219,51 +230,78 @@ class JDBCRelationalConnection implements RelationalConnection {
                 .setDatabase(getDatabase())
                 .setSchema(getSchema())
                 .setTableName(tableName);
-        if (getAutoCommit()) {
-            // insert using synchronous RPC command
-            return getStub().insert(builder.build());
-        } else {
-            // Use the stateful sender
-            TransactionalRequest.Builder transactionalRequest = TransactionalRequest.newBuilder()
-                    .setInsertRequest(builder);
-            // Wait here until a response arrives
-            final TransactionalResponse response = serverConnection.sendRequest(transactionalRequest.build());
-            checkForResponseError(response);
-            if (!response.hasInsertResponse()) {
-                throw new JdbcConnectionException("Wrong kind of response received, expected InsertResponse");
+        try {
+            if (getAutoCommit()) {
+                // insert using synchronous RPC command
+                return getStub().insert(builder.build());
+            } else {
+                // Use the stateful sender
+                TransactionalRequest.Builder transactionalRequest = TransactionalRequest.newBuilder()
+                        .setInsertRequest(builder);
+                // Wait here until a response arrives
+                final TransactionalResponse response = serverConnection.sendRequest(transactionalRequest.build());
+                checkForResponseError(response);
+                if (!response.hasInsertResponse()) {
+                    throw new JdbcConnectionException("Wrong kind of response received, expected InsertResponse");
+                }
+                return response.getInsertResponse();
             }
-            return response.getInsertResponse();
+        } catch (StatusRuntimeException statusRuntimeException) {
+            final SQLException sqlException = toSQLException(statusRuntimeException);
+            if (sqlException != null) {
+                throw sqlException;
+            } else {
+                throw statusRuntimeException;
+            }
         }
     }
 
     @Override
     @ExcludeFromJacocoGeneratedReport
     public void commit() throws SQLException {
-        if (getAutoCommit()) {
-            throw new SQLException("Commit cannot be called when auto commit is ON");
-        } else {
-            TransactionalRequest.Builder transactionRequest = TransactionalRequest.newBuilder()
-                    .setCommitRequest(CommitRequest.newBuilder().build());
-            // wait here for response
-            final TransactionalResponse response = serverConnection.sendRequest(transactionRequest.build());
-            checkForResponseError(response);
-            if (!response.hasCommitResponse()) {
-                throw new JdbcConnectionException("Wrong kind of response received, expected CommitResponse");
+        try {
+            if (getAutoCommit()) {
+                throw new SQLException("Commit cannot be called when auto commit is ON");
+            } else {
+                TransactionalRequest.Builder transactionRequest = TransactionalRequest.newBuilder()
+                        .setCommitRequest(CommitRequest.newBuilder().build());
+                // wait here for response
+                final TransactionalResponse response = serverConnection.sendRequest(transactionRequest.build());
+                checkForResponseError(response);
+                if (!response.hasCommitResponse()) {
+                    throw new JdbcConnectionException("Wrong kind of response received, expected CommitResponse");
+                }
+            }
+        } catch (StatusRuntimeException statusRuntimeException) {
+            final SQLException sqlException = toSQLException(statusRuntimeException);
+            if (sqlException != null) {
+                throw sqlException;
+            } else {
+                throw statusRuntimeException;
             }
         }
     }
 
     @Override
     public void rollback() throws SQLException {
-        if (getAutoCommit()) {
-            throw new SQLException("Rollback cannot be called when auto commit is ON");
-        } else {
-            TransactionalRequest.Builder transactionRequest = TransactionalRequest.newBuilder()
-                    .setRollbackRequest(RollbackRequest.newBuilder().build());
-            final TransactionalResponse response = serverConnection.sendRequest(transactionRequest.build());
-            checkForResponseError(response);
-            if (!response.hasRollbackResponse()) {
-                throw new JdbcConnectionException("Wrong kind of response received, expected RollbackResponse");
+        try {
+            if (getAutoCommit()) {
+                throw new SQLException("Rollback cannot be called when auto commit is ON");
+            } else {
+                TransactionalRequest.Builder transactionRequest = TransactionalRequest.newBuilder()
+                        .setRollbackRequest(RollbackRequest.newBuilder().build());
+                final TransactionalResponse response = serverConnection.sendRequest(transactionRequest.build());
+                checkForResponseError(response);
+                if (!response.hasRollbackResponse()) {
+                    throw new JdbcConnectionException("Wrong kind of response received, expected RollbackResponse");
+                }
+            }
+        } catch (StatusRuntimeException statusRuntimeException) {
+            final SQLException sqlException = toSQLException(statusRuntimeException);
+            if (sqlException != null) {
+                throw sqlException;
+            } else {
+                throw statusRuntimeException;
             }
         }
     }
@@ -443,6 +481,20 @@ class JDBCRelationalConnection implements RelationalConnection {
         this.transactionIsolationLevel = level;
     }
 
+    /**
+     * Convert runtime errors to SQLException in cases that may apply.
+     * @param statusRuntimeException the caught RPC exception
+     * @return SQLException in case the error has a SQLException payload, null otherwise
+     */
+    @Nullable
+    private SQLException toSQLException(final StatusRuntimeException statusRuntimeException) {
+        // Is this incoming statusRuntimeException carrying a SQLException?
+        return GrpcSQLExceptionUtil.map(statusRuntimeException);
+    }
+
+    /**
+     * Handle errors that are coming in as part of the payload.
+     */
     private void checkForResponseError(final TransactionalResponse response) throws SQLException {
         if (response.hasErrorResponse()) {
             try {
