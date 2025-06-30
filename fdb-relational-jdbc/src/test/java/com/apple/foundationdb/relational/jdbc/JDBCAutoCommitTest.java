@@ -71,15 +71,13 @@ public class JDBCAutoCommitTest {
      * Run a test with the default (auto-commit on) for sanity.
      */
     @Test
-    public void autoCommitOn() throws SQLException, IOException {
+    void autoCommitOn() throws SQLException, IOException {
         try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
             try (RelationalStatement statement = connection.createStatement()) {
                 insertOneRow(statement);
                 RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM test_table");
-                Assertions.assertTrue(resultSet.next());
-                Assertions.assertEquals(100, resultSet.getLong(1));
-                Assertions.assertEquals("one hundred", resultSet.getString(2));
-                Assertions.assertFalse(resultSet.next());
+                assertNextResult(resultSet, 100, "one hundred");
+                assertNoNextResult(resultSet);
             }
         }
     }
@@ -88,7 +86,7 @@ public class JDBCAutoCommitTest {
      * Run a test with commit and then read.
      */
     @Test
-    public void commitThenRead() throws SQLException, IOException {
+    void commitThenRead() throws SQLException, IOException {
         try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
             connection.setAutoCommit(false);
 
@@ -97,10 +95,8 @@ public class JDBCAutoCommitTest {
                 connection.commit();
 
                 RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM test_table");
-                Assertions.assertTrue(resultSet.next());
-                Assertions.assertEquals(100, resultSet.getLong(1));
-                Assertions.assertEquals("one hundred", resultSet.getString(2));
-                Assertions.assertFalse(resultSet.next());
+                assertNextResult(resultSet, 100, "one hundred");
+                assertNoNextResult(resultSet);
                 connection.commit();
             }
         }
@@ -117,15 +113,9 @@ public class JDBCAutoCommitTest {
                 connection.commit();
 
                 RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM test_table");
-                Assertions.assertTrue(resultSet.next());
-                Assertions.assertEquals(100, resultSet.getLong(1));
-                Assertions.assertEquals("one hundred", resultSet.getString(2));
-
-                Assertions.assertTrue(resultSet.next());
-                Assertions.assertEquals(200, resultSet.getLong(1));
-                Assertions.assertEquals("two hundred", resultSet.getString(2));
-
-                Assertions.assertFalse(resultSet.next()); // end
+                assertNextResult(resultSet, 100, "one hundred");
+                assertNextResult(resultSet, 200, "two hundred");
+                assertNoNextResult(resultSet);
                 connection.commit();
             }
         }
@@ -135,7 +125,7 @@ public class JDBCAutoCommitTest {
      * Run a test with rollback and then read.
      */
     @Test
-    public void rollbackThenRead() throws SQLException, IOException {
+    void rollbackThenRead() throws SQLException, IOException {
         try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
             connection.setAutoCommit(false);
 
@@ -144,7 +134,7 @@ public class JDBCAutoCommitTest {
                 connection.rollback();
 
                 RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM test_table");
-                Assertions.assertFalse(resultSet.next());
+                assertNoNextResult(resultSet);
                 connection.commit();
             }
         }
@@ -154,7 +144,7 @@ public class JDBCAutoCommitTest {
      * Run a test with reverting to auto-commit on.
      */
     @Test
-    public void revertToAutoCommitOn() throws Exception {
+    void revertToAutoCommitOn() throws Exception {
         try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
             connection.setAutoCommit(false);
 
@@ -163,16 +153,14 @@ public class JDBCAutoCommitTest {
                 connection.setAutoCommit(true);
 
                 RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM test_table");
-                Assertions.assertTrue(resultSet.next());
-                Assertions.assertEquals(100, resultSet.getLong(1));
-                Assertions.assertEquals("one hundred", resultSet.getString(2));
-                Assertions.assertFalse(resultSet.next());
+                assertNextResult(resultSet, 100, "one hundred");
+                assertNoNextResult(resultSet);
             }
         }
     }
 
     @Test
-    public void insertError() throws Exception {
+    void insertError() throws Exception {
         try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
             connection.setAutoCommit(false);
             try (RelationalStatement statement = connection.createStatement()) {
@@ -185,7 +173,26 @@ public class JDBCAutoCommitTest {
     }
 
     @Test
-    public void queryError() throws Exception {
+    void insertErrorAfterSuccess() throws Exception {
+        try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+            connection.setAutoCommit(false);
+            try (RelationalStatement statement = connection.createStatement()) {
+                insertOneRow(statement);
+                RelationalStruct insert = JDBCRelationalStruct.newBuilder()
+                        .addLong("BLAH", 100)
+                        .build();
+                Assertions.assertThrows(SQLException.class, () -> statement.executeInsert("TEST_TABLE", insert));
+
+                connection.commit();
+                RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM test_table");
+                assertNextResult(resultSet, 100, "one hundred");
+                assertNoNextResult(resultSet);
+            }
+        }
+    }
+
+    @Test
+    void queryError() throws Exception {
         try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
             connection.setAutoCommit(false);
             try (RelationalStatement statement = connection.createStatement()) {
@@ -195,16 +202,16 @@ public class JDBCAutoCommitTest {
     }
 
     @Test
-    public void continueAfterSqlError() throws Exception {
+    void continueAfterSqlError() throws Exception {
         try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
             connection.setAutoCommit(false);
             try (RelationalStatement statement = connection.createStatement()) {
                 insertOneRow(statement);
                 Assertions.assertThrows(SQLException.class, () -> statement.executeQuery("BLAH"));
+                connection.commit();
                 // Connection should remain open after an error
                 RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM test_table");
-                Assertions.assertTrue(resultSet.next());
-                Assertions.assertEquals(100, resultSet.getLong(1));
+                assertNextResult(resultSet, 100, "one hundred");
             }
         }
     }
@@ -218,9 +225,9 @@ public class JDBCAutoCommitTest {
                 Assertions.assertThrows(SQLException.class, () -> connection.commit());
                 // Connection should remain open after an error
                 insertOneRow(statement);
+                connection.commit();
                 RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM test_table");
-                Assertions.assertTrue(resultSet.next());
-                Assertions.assertEquals(100, resultSet.getLong(1));
+                assertNextResult(resultSet, 100, "one hundred");
             }
         }
     }
@@ -234,9 +241,73 @@ public class JDBCAutoCommitTest {
                 Assertions.assertThrows(SQLException.class, () -> connection.rollback());
                 // Connection should remain open after an error
                 insertOneRow(statement);
+                connection.commit();
                 RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM test_table");
-                Assertions.assertTrue(resultSet.next());
-                Assertions.assertEquals(100, resultSet.getLong(1));
+                assertNextResult(resultSet, 100, "one hundred");
+            }
+        }
+    }
+
+    @Test
+    void rollbackOnConnectionClose() throws Exception {
+        try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+            connection.setAutoCommit(false);
+            try (RelationalStatement statement = connection.createStatement()) {
+                // no commit, closing session should roll back
+                insertOneRow(statement);
+            }
+        }
+        try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+            try (RelationalStatement statement = connection.createStatement()) {
+                RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM test_table");
+                assertNoNextResult(resultSet);
+            }
+        }
+    }
+
+    @Test
+    void twoConnectionsInSequence() throws Exception {
+        try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+            connection.setAutoCommit(false);
+            try (RelationalStatement statement = connection.createStatement()) {
+                insertOneRow(statement);
+                connection.commit();
+            }
+        }
+        try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+            connection.setAutoCommit(false);
+            try (RelationalStatement statement = connection.createStatement()) {
+                insert2ndRow(statement);
+                connection.commit();
+                RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM test_table");
+                assertNextResult(resultSet, 100, "one hundred");
+                assertNextResult(resultSet, 200, "two hundred");
+                assertNoNextResult(resultSet);
+            }
+        }
+    }
+
+    @Test
+    void twoConcurrentConnections() throws Exception {
+        try (RelationalConnection connection1 = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class);
+                RelationalConnection connection2 = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+            connection1.setAutoCommit(false);
+            connection2.setAutoCommit(false);
+            try (RelationalStatement statement1 = connection1.createStatement();
+                    RelationalStatement statement2 = connection2.createStatement()) {
+                insertOneRow(statement1);
+                insert2ndRow(statement2);
+                connection1.commit();
+                connection2.commit();
+            }
+        }
+        try (RelationalConnection connection = DriverManager.getConnection(TEST_DB_URI).unwrap(RelationalConnection.class)) {
+            connection.setAutoCommit(false);
+            try (RelationalStatement statement = connection.createStatement()) {
+                RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM test_table");
+                assertNextResult(resultSet, 100, "one hundred");
+                assertNextResult(resultSet, 200, "two hundred");
+                assertNoNextResult(resultSet);
             }
         }
     }
@@ -281,5 +352,16 @@ public class JDBCAutoCommitTest {
                 statement.executeUpdate("Drop database \"" + TESTDB + "\"");
             }
         }
+    }
+
+
+    private static void assertNextResult(final RelationalResultSet resultSet, final int longValue, final String stringValue) throws SQLException {
+        Assertions.assertTrue(resultSet.next());
+        Assertions.assertEquals(longValue, resultSet.getLong(1));
+        Assertions.assertEquals(stringValue, resultSet.getString(2));
+    }
+
+    private static void assertNoNextResult(final RelationalResultSet resultSet) throws SQLException {
+        Assertions.assertFalse(resultSet.next());
     }
 }
