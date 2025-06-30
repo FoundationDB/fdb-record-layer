@@ -499,6 +499,30 @@ public class MetaDataProtoEditorUnitTest {
         }
     }
 
+    @Test
+    void withAnnotations() {
+        final RecordMetaDataProto.MetaData original = RecordMetaData.newBuilder()
+                .setRecords(TestRecords1Proto.getDescriptor())
+                .build().toProto();
+
+        assertNotEquals(0, original.getIndexesCount());
+        final RecordMetaData renamed = runRename(original,
+                MetaDataProtoEditorUnitTest::simpleRename,
+                MetaDataProtoEditorUnitTest::simpleRenameUndo);
+
+        assertEquals(original.getIndexesList(),
+                renamed.toProto().getIndexesList()
+                        .stream().map(renamedIndex -> {
+                            final RecordMetaDataProto.Index.Builder builder = renamedIndex.toBuilder();
+                            final List<String> newTypes = builder.getRecordTypeList().stream()
+                                    .map(MetaDataProtoEditorUnitTest::simpleRenameUndo)
+                                    .collect(Collectors.toList());
+                            builder.clearRecordType();
+                            builder.addAllRecordType(newTypes);
+                            return builder.build();
+                        })
+                        .collect(Collectors.toList()));
+    }
 
     @Nonnull
     private static String simpleRenameUndo(final String newName) {
