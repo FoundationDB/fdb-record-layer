@@ -376,6 +376,7 @@ public final class PlanGenerator {
                                                  @Nonnull Options options) throws RelationalException {
         // todo (yhatem) TODO (Interaction between planner configurations and query cache)
         Options.IndexFetchMethod indexFetchMethod = options.getOption(Options.Name.INDEX_FETCH_METHOD);
+        boolean kvCursorContinuationSerializeToNew = options.getOption(Options.Name.KEYVALUE_CURSOR_CONTINUATION_SERIALIZE_TO_NEW);
         CascadesPlanner planner = new CascadesPlanner(metaData, recordStoreState);
         // TODO: TODO (Expose planner configuration parameters like index scan preference)
         RecordQueryPlannerConfiguration.Builder configuration = RecordQueryPlannerConfiguration.builder()

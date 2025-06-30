@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.KeyRange;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
@@ -42,6 +43,7 @@ import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
@@ -65,18 +67,22 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
     // the pointer may be mutated, but the actual array must never be mutated or continuations will break
     @Nullable
     private byte[] lastKey;
+    @Nonnull
+    private final SerializationMode serializationMode;
 
     protected KeyValueCursorBase(@Nonnull final FDBRecordContext context,
                                  @Nonnull final AsyncIterator<K> iterator,
                                  int prefixLength,
                                  @Nonnull final CursorLimitManager limitManager,
-                                 int valuesLimit) {
+                                 int valuesLimit,
+                                 @Nonnull SerializationMode serializationMode) {
         super(context.getExecutor(), iterator);
 
         this.context = context;
         this.prefixLength = prefixLength;
         this.limitManager = limitManager;
         this.valuesLimit = valuesLimit;
+        this.serializationMode = serializationMode;
 
         context.instrument(FDBStoreTimer.DetailEvents.GET_SCAN_RANGE_RAW_FIRST_CHUNK, iterator.onHasNext());
     }
@@ -131,21 +137,23 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
 
     @Nonnull
     private RecordCursorContinuation continuationHelper() {
-        return new Continuation(lastKey, prefixLength);
+        return new Continuation(lastKey, prefixLength, serializationMode);
     }
 
-    private static class Continuation implements RecordCursorContinuation {
+    public static class Continuation implements RecordCursorContinuation {
         @Nullable
         private final byte[] lastKey;
         private final int prefixLength;
+        private final SerializationMode serializationMode;
 
-        public Continuation(@Nullable final byte[] lastKey, final int prefixLength) {
+        public Continuation(@Nullable final byte[] lastKey, final int prefixLength, final SerializationMode serializationMode) {
             // Note that doing this without a full copy is dangerous if the array is ever mutated.
             // Currently, this never happens and the only thing that changes is which array lastKey points to.
             // However, if logic in KeyValueCursor or KeyValue changes, this could break continuations.
             // To resolve it, we could resort to doing a full copy here, although that's somewhat expensive.
             this.lastKey = lastKey;
             this.prefixLength = prefixLength;
+            this.serializationMode = serializationMode;
         }
 
         @Override
@@ -156,6 +164,43 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         @Nonnull
         @Override
         public ByteString toByteString() {
+            System.out.println("Keyvaluecursor toByteString serialization mode:" + serializationMode.name());
+            if (serializationMode == SerializationMode.TO_OLD) {
+                if (lastKey == null) {
+                    return ByteString.EMPTY;
+                }
+                ByteString base = ZeroCopyByteString.wrap(lastKey);
+                return base.substring(prefixLength, lastKey.length);
+            } else {
+                return toProto().toByteString();
+            }
+        }
+
+        @Nullable
+        @Override
+        public byte[] toBytes() {
+            if (serializationMode == SerializationMode.TO_OLD) {
+                if (lastKey == null) {
+                    return null;
+                }
+                return Arrays.copyOfRange(lastKey, prefixLength, lastKey.length);
+            } else {
+                byte[] result = toProto().toByteArray();
+                System.out.println("result:" + result);
+                return toProto().toByteArray();
+            }
+        }
+
+        @Nullable
+        public byte[] getInnerContinuationInBytes() {
+            if (lastKey == null) {
+                return null;
+            }
+            return Arrays.copyOfRange(lastKey, prefixLength, lastKey.length);
+        }
+
+        @Nonnull
+        public ByteString getInnerContinuationInByteString() {
             if (lastKey == null) {
                 return ByteString.EMPTY;
             }
@@ -163,14 +208,35 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             return base.substring(prefixLength, lastKey.length);
         }
 
-        @Nullable
-        @Override
-        public byte[] toBytes() {
-            if (lastKey == null) {
-                return null;
+        public static byte[] fromRawBytes(@Nonnull byte[] rawBytes, SerializationMode serializationMode) {
+            if (serializationMode == SerializationMode.TO_OLD) {
+                return rawBytes;
             }
-            return Arrays.copyOfRange(lastKey, prefixLength, lastKey.length);
+            try {
+                RecordCursorProto.KeyValueCursorContinuation continuationProto = RecordCursorProto.KeyValueCursorContinuation.parseFrom(rawBytes);
+                return continuationProto.getContinuation().toByteArray();
+            } catch (InvalidProtocolBufferException ipbe) {
+                return rawBytes;
+            }
         }
+
+        @Nonnull
+        private RecordCursorProto.KeyValueCursorContinuation toProto() {
+            RecordCursorProto.KeyValueCursorContinuation.Builder builder = RecordCursorProto.KeyValueCursorContinuation.newBuilder();
+            if (lastKey == null) {
+                builder.setIsEnd(true);
+            } else {
+                ByteString base = ZeroCopyByteString.wrap(lastKey);
+                builder.setContinuation(base.substring(prefixLength, lastKey.length))
+                        .setIsEnd(false);
+            }
+            return builder.build();
+        }
+    }
+
+    public enum SerializationMode {
+        TO_OLD,
+        TO_NEW
     }
 
     /**
@@ -208,6 +274,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         private StreamingMode streamingMode;
         private KeySelector begin;
         private KeySelector end;
+        protected SerializationMode serializationMode;
 
         protected Builder(@Nonnull Subspace subspace) {
             this.subspace = subspace;
@@ -247,10 +314,27 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             prefixLength = calculatePrefixLength();
 
             reverse = scanProperties.isReverse();
+            serializationMode = scanProperties.getExecuteProperties().isKvCursorContSerializeToNew() ? SerializationMode.TO_NEW : SerializationMode.TO_OLD;
+
             if (continuation != null) {
-                final byte[] continuationBytes = new byte[prefixLength + continuation.length];
+                byte[] realContinuation;
+                if (serializationMode == SerializationMode.TO_OLD) {
+                    realContinuation = continuation;
+                } else {
+                    try {
+                        RecordCursorProto.KeyValueCursorContinuation keyValueCursorContinuation = RecordCursorProto.KeyValueCursorContinuation.parseFrom(continuation);
+                        if (keyValueCursorContinuation.hasIsEnd()) {
+                            realContinuation = keyValueCursorContinuation.getContinuation().toByteArray();
+                        } else {
+                            realContinuation = continuation;
+                        }
+                    } catch (InvalidProtocolBufferException ex) {
+                        realContinuation = continuation;
+                    }
+                }
+                final byte[] continuationBytes = new byte[prefixLength + realContinuation.length];
                 System.arraycopy(lowBytes, 0, continuationBytes, 0, prefixLength);
-                System.arraycopy(continuation, 0, continuationBytes, prefixLength, continuation.length);
+                System.arraycopy(realContinuation, 0, continuationBytes, prefixLength, realContinuation.length);
                 if (reverse) {
                     highBytes = continuationBytes;
                     highEndpoint = EndpointType.CONTINUATION;
@@ -331,6 +415,11 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         public T setHigh(@Nonnull byte[] highBytes, @Nonnull EndpointType highEndpoint) {
             this.highBytes = highBytes;
             this.highEndpoint = highEndpoint;
+            return self();
+        }
+
+        public T setSerializationMode(@Nonnull final SerializationMode serializationMode) {
+            this.serializationMode = serializationMode;
             return self();
         }
 

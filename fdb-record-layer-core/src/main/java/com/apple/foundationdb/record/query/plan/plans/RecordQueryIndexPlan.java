@@ -57,6 +57,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
+import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursorBase;
 import com.apple.foundationdb.record.provider.foundationdb.MultidimensionalIndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.UnsupportedRemoteFetchIndexException;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
@@ -161,6 +162,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
 
     @Nonnull
     private final Supplier<ComparisonRanges> comparisonRangesSupplier;
+
 
     public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull final IndexScanParameters scanParameters, final boolean reverse) {
         this(indexName, null, scanParameters, IndexFetchMethod.SCAN_AND_FETCH, FetchIndexRecords.PRIMARY_KEY, reverse, false);
@@ -328,7 +330,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                                                                                     @Nonnull FDBRecordStoreBase<M> store, @Nonnull Index index,
                                                                                     @Nullable byte[] continuation, @Nonnull ExecuteProperties executeProperties) {
         final byte[] prefixBytes = getRangePrefixBytes(tupleScanRange);
-        final IndexScanContinuationConvertor continuationConvertor = new IndexScanContinuationConvertor(prefixBytes);
+        final IndexScanContinuationConvertor continuationConvertor = new IndexScanContinuationConvertor(prefixBytes, executeProperties.isKvCursorContSerializeToNew() ? KeyValueCursorBase.SerializationMode.TO_NEW : KeyValueCursorBase.SerializationMode.TO_OLD);
 
         // Scan a wider range, and then halt when either this scans outside the given range
         final IndexScanRange newScanRange = new IndexScanRange(IndexScanType.BY_VALUE, widenedScanRange);
@@ -745,9 +747,12 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
     private static class IndexScanContinuationConvertor implements RecordCursor.ContinuationConvertor {
         @Nonnull
         private final byte[] prefixBytes;
+        @Nonnull
+        private final KeyValueCursorBase.SerializationMode serializationMode;
 
-        public IndexScanContinuationConvertor(@Nonnull byte[] prefixBytes) {
+        public IndexScanContinuationConvertor(@Nonnull byte[] prefixBytes, @Nonnull final KeyValueCursorBase.SerializationMode serializationMode) {
             this.prefixBytes = prefixBytes;
+            this.serializationMode = serializationMode;
         }
 
         @Nullable
@@ -757,7 +762,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                 return null;
             }
             // Add the prefix back to the inner continuation
-            return ByteArrayUtil.join(prefixBytes, continuation);
+            byte[] innerContinuation = KeyValueCursorBase.Continuation.fromRawBytes(continuation, serializationMode);
+            return ByteArrayUtil.join(prefixBytes, innerContinuation);
         }
 
         @Override
@@ -765,7 +771,12 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
             if (continuation.isEnd()) {
                 return continuation;
             }
-            final byte[] continuationBytes = continuation.toBytes();
+            byte[] continuationBytes;
+            if (continuation instanceof KeyValueCursorBase.Continuation) {
+                continuationBytes = ((KeyValueCursorBase.Continuation) continuation).getInnerContinuationInBytes();
+            } else {
+                continuationBytes = continuation.toBytes();
+            }
             if (continuationBytes != null && ByteArrayUtil.startsWith(continuationBytes, prefixBytes)) {
                 // Strip away the prefix. Note that ByteStrings re-use the underlying ByteArray, so this can
                 // save a copy.
@@ -796,7 +807,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                 if (bytes == null) {
                     synchronized (this) {
                         if (bytes == null) {
-                            byte[] baseContinuationBytes = baseContinuation.toBytes();
+                            byte[] baseContinuationBytes = baseContinuation instanceof KeyValueCursorBase.Continuation ? ((KeyValueCursorBase.Continuation) baseContinuation).getInnerContinuationInBytes() : baseContinuation.toBytes();
                             if (baseContinuationBytes == null) {
                                 return null;
                             }
@@ -810,7 +821,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
             @Nonnull
             @Override
             public ByteString toByteString() {
-                return baseContinuation.toByteString().substring(prefixLength);
+                return (baseContinuation instanceof KeyValueCursorBase.Continuation) ? ((KeyValueCursorBase.Continuation) baseContinuation).getInnerContinuationInByteString().substring(prefixLength) : baseContinuation.toByteString().substring(prefixLength);
             }
 
             @Override
