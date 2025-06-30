@@ -185,7 +185,7 @@ test_block:
 test_block:
   name: parenthesis-less-function-calls
   options:
-    supported_version: !current_version
+    supported_version: 4.3.6.0
   tests:
     -
       - query: select * from f5;
