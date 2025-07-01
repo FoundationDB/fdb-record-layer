@@ -82,18 +82,6 @@ public class FRL implements AutoCloseable {
     private final RelationalDriver registeredDriver;
     private boolean registeredJDBCEmbedDriver;
 
-    public static class TransactionalToken {
-        private RelationalConnection transactionalConnection;
-
-        private TransactionalToken(final RelationalConnection transactionalConnection) {
-            this.transactionalConnection = transactionalConnection;
-        }
-
-        public boolean expired() {
-            return transactionalConnection == null;
-        }
-    }
-
     public FRL() throws RelationalException {
         this(Options.NONE, null);
     }
@@ -209,41 +197,44 @@ public class FRL implements AutoCloseable {
         // Third transaction is then created to run the sql. Transaction closes when connection closes so do all our
         // work inside here including reading all out of the ResultSet while under transaction else callers who try
         // to read the ResultSet after the transaction has closed will get a 'transactions is not active'.
-        // TODO: Transaction handling.
         final var driver = (RelationalDriver) DriverManager.getDriver(createEmbeddedJDBCURI(database, schema));
         try (var connection = driver.connect(URI.create(createEmbeddedJDBCURI(database, schema)), options)) {
-            ResultSet resultSet;
-            if (parameters != null) {
-                // If parameters, it's a prepared statement.
-                try (RelationalPreparedStatement statement = connection.prepareStatement(sql)) {
-                    int index = 1; // Parameter position is one-based.
-                    for (Parameter parameter : parameters) {
-                        addPreparedStatementParameter(statement, parameter, index++);
-                    }
-                    if (statement.execute()) {
-                        try (RelationalResultSet rs = statement.getResultSet()) {
+            return executeInternal(connection, sql, parameters);
+        }
+    }
+
+    private Response executeInternal(RelationalConnection connection, String sql, List<Parameter> parameters) throws SQLException {
+        ResultSet resultSet;
+        if (parameters == null) {
+            try (Statement statement = connection.createStatement()) {
+                try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
+                    if (relationalStatement.execute(sql)) {
+                        try (RelationalResultSet rs = relationalStatement.getResultSet()) {
                             resultSet = TypeConversion.toProtobuf(rs);
                             return Response.query(resultSet);
                         }
                     } else {
-                        return Response.mutation(statement.getUpdateCount());
-                    }
-                }
-            } else {
-                try (Statement statement = connection.createStatement()) {
-                    try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
-                        if (relationalStatement.execute(sql)) {
-                            try (RelationalResultSet rs = relationalStatement.getResultSet()) {
-                                resultSet = TypeConversion.toProtobuf(rs);
-                                return Response.query(resultSet);
-                            }
-                        } else {
-                            return Response.mutation(relationalStatement.getUpdateCount());
-                        }
+                        return Response.mutation(relationalStatement.getUpdateCount());
                     }
                 }
             }
         }
+        // If parameters, it's a prepared statement.
+        try (RelationalPreparedStatement statement = connection.prepareStatement(sql)) {
+            int index = 1; // Parameter position is one-based.
+            for (Parameter parameter : parameters) {
+                addPreparedStatementParameter(statement, parameter, index++);
+            }
+            if (statement.execute()) {
+                try (RelationalResultSet rs = statement.getResultSet()) {
+                    resultSet = TypeConversion.toProtobuf(rs);
+                    return Response.query(resultSet);
+                }
+            } else {
+                return Response.mutation(statement.getUpdateCount());
+            }
+        }
+
     }
 
     private static void addPreparedStatementParameter(RelationalPreparedStatement relationalPreparedStatement,
@@ -346,32 +337,13 @@ public class FRL implements AutoCloseable {
     public Response transactionalExecute(TransactionalToken token, String sql, List<Parameter> parameters)
             throws SQLException {
         assertValidToken(token);
-        if (parameters == null) {
-            // Not supported yet
-            throw new SQLException("Is that a non-prepared transaction?");
-        }
-        ResultSet resultSet;
-        // If parameters, it's a prepared statement.
-        try (RelationalPreparedStatement statement = token.transactionalConnection.prepareStatement(sql)) {
-            int index = 1; // Parameter position is one-based.
-            for (Parameter parameter : parameters) {
-                addPreparedStatementParameter(statement, parameter, index++);
-            }
-            if (statement.execute()) {
-                try (RelationalResultSet rs = statement.getResultSet()) {
-                    resultSet = TypeConversion.toProtobuf(rs);
-                    return Response.query(resultSet);
-                }
-            } else {
-                return Response.mutation(statement.getUpdateCount());
-            }
-        }
+        return executeInternal(token.getConnection(), sql, parameters);
     }
 
     public int transactionalInsert(TransactionalToken token, String tableName, List<RelationalStruct> data)
             throws SQLException {
         assertValidToken(token);
-        try (Statement statement = token.transactionalConnection.createStatement()) {
+        try (Statement statement = token.getConnection().createStatement()) {
             try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
                 return relationalStatement.executeInsert(tableName, data, Options.NONE);
             }
@@ -380,16 +352,19 @@ public class FRL implements AutoCloseable {
 
     public void transactionalCommit(TransactionalToken token) throws SQLException {
         assertValidToken(token);
-        token.transactionalConnection.commit();
-        token.transactionalConnection.close();
-        token.transactionalConnection = null;
+        token.getConnection().commit();
     }
 
     public void transactionalRollback(TransactionalToken token) throws SQLException {
         assertValidToken(token);
-        token.transactionalConnection.rollback();
-        token.transactionalConnection.close();
-        token.transactionalConnection = null;
+        token.getConnection().rollback();
+    }
+
+    public void transactionalClose(TransactionalToken token) throws SQLException {
+        if (token != null && !token.expired()) {
+            token.close();
+        }
+
     }
 
     private void assertValidToken(TransactionalToken token) throws SQLException {
@@ -397,7 +372,7 @@ public class FRL implements AutoCloseable {
             // TODO: non SQLException exception?
             throw new SQLException("Transaction was not initialized");
         }
-        if (token.transactionalConnection == null) {
+        if (token.expired()) {
             throw new SQLException("Transaction had expired");
         }
     }

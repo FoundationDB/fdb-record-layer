@@ -83,11 +83,6 @@ public class EmbeddedRelationalPreparedStatement extends AbstractEmbeddedStateme
     }
 
     @Override
-    public void setAutoCommit(final boolean autoCommit) {
-        setAutoCommitInternal(autoCommit);
-    }
-
-    @Override
     public void setBoolean(int parameterIndex, boolean x) throws SQLException {
         checkOpen();
         parameters.put(parameterIndex, x);

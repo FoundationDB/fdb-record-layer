@@ -74,11 +74,6 @@ class JDBCRelationalPreparedStatement implements RelationalPreparedStatement {
     }
 
     @Override
-    public void setAutoCommit(final boolean autoCommit) {
-        // No op
-    }
-
-    @Override
     public int executeUpdate() throws SQLException {
         return this.statement.executeUpdate(this.sql, this.parameters.values());
     }

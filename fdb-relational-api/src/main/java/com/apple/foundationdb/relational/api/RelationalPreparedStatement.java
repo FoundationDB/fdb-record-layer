@@ -58,8 +58,6 @@ public interface RelationalPreparedStatement extends java.sql.PreparedStatement 
     @Override
     boolean execute() throws SQLException;
 
-    void setAutoCommit(boolean autoCommit);
-
     @Override
     RelationalResultSet getResultSet() throws SQLException;
 

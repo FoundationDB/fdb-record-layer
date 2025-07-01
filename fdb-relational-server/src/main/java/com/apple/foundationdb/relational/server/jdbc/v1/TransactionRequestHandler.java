@@ -34,6 +34,7 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.TransactionalRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.TransactionalResponse;
 import com.apple.foundationdb.relational.server.FRL;
+import com.apple.foundationdb.relational.server.TransactionalToken;
 import com.google.protobuf.Any;
 import com.google.rpc.Status;
 import io.grpc.stub.StreamObserver;
@@ -55,7 +56,7 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
 
     private StreamObserver<TransactionalResponse> responseObserver;
     private FRL frl;
-    private FRL.TransactionalToken transactionalToken;
+    private TransactionalToken transactionalToken;
 
     public TransactionRequestHandler(final StreamObserver<TransactionalResponse> responseObserver, final FRL frl) {
         this.responseObserver = responseObserver;
@@ -131,13 +132,23 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
     public void onError(final Throwable throwable) {
         logger.warn("executeInTransaction: onError called", throwable);
         // todo: Rollback uncommitted stuff?
-        // TODO: FRL.close connection???
+        closeConnectionIfExists();
     }
 
     @Override
     public void onCompleted() {
-        // TODO: RL.close connection???
         // Close the client connection
         responseObserver.onCompleted();
+        closeConnectionIfExists();
+    }
+
+    private void closeConnectionIfExists() {
+        try {
+            frl.transactionalClose(transactionalToken);
+        } catch (SQLException e) {
+            if (logger.isWarnEnabled()) {
+                logger.warn(KeyValueLogMessage.build("Error while closing transactional connection").toString(), e);
+            }
+        }
     }
 }
