@@ -23,7 +23,11 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.rules.DecorrelateValuesRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.FinalizeExpressionsRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.PredicatePushDownRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.QueryPredicateSimplificationRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.SelectMergeRule;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 
@@ -37,13 +41,14 @@ import java.util.Set;
 @SuppressWarnings("java:S1452")
 public class RewritingRuleSet extends CascadesRuleSet {
     private static final Set<ExplorationCascadesRule<? extends RelationalExpression>> EXPLORATION_RULES = ImmutableSet.of(
-    // new PredicatePushDownRule(),
-    // new RemoveRangeOneRule()
+            new QueryPredicateSimplificationRule(),
+            new PredicatePushDownRule(),
+            new DecorrelateValuesRule()
     );
     private static final Set<CascadesRule<? extends RelationalExpression>> PREORDER_RULES = ImmutableSet.of();
 
     private static final Set<ImplementationCascadesRule<? extends RelationalExpression>> IMPLEMENTATION_RULES = ImmutableSet.of(
-            //new SelectMergeRule(),
+            new SelectMergeRule(),
             new FinalizeExpressionsRule()
     );
 
