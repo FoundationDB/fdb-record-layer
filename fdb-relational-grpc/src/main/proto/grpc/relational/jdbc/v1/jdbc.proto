@@ -154,14 +154,12 @@ message CommitRequest {
 }
 
 message CommitResponse {
-  optional string error_message = 1;
 }
 
 message RollbackRequest {
 }
 
 message RollbackResponse {
-  optional string error_message = 1;
 }
 
 message DatabaseMetaDataRequest {}

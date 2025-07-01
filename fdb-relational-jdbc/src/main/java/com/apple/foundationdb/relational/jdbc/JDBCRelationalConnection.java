@@ -407,7 +407,6 @@ class JDBCRelationalConnection implements RelationalConnection {
         this.closed = true;
         try {
             if (serverConnection != null) {
-                // todo: rollback uncommitted changes if closed with some remaining work???
                 serverConnection.close();
                 serverConnection = null;
             }
