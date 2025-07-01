@@ -82,7 +82,7 @@ public class FRL implements AutoCloseable {
     private final RelationalDriver registeredDriver;
     private boolean registeredJDBCEmbedDriver;
 
-    public class TransactionalToken {
+    public static class TransactionalToken {
         private RelationalConnection transactionalConnection;
 
         private TransactionalToken(final RelationalConnection transactionalConnection) {
