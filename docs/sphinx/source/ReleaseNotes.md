@@ -5,59 +5,6 @@ This document contains a log of changes to the FoundationDB Record Layer. It aim
 
 As the [versioning guide](Versioning.md) details, it cannot always be determined solely by looking at the version numbers whether one Record Layer version contains all changes included in another. In particular, bug fixes and backwards-compatible changes might be back-ported to or introduced as patches against older versions. To track when a patch version has been included in the main release train, some releases will say as a note that they contain all changes from a specific patch.
 
-## 4.4
-
-### 4.4.2.0
-
-
-
-**[Full Changelog (4.4.1.0...4.4.2.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.4.1.0...4.4.2.0)**
-
-#### Mixed Mode Test Results
-
-Mixed mode testing run against the following previous versions:
-
-❌`4.2.3.0`, ❌`4.2.4.0`, ✅`4.2.5.0`, ✅`4.2.6.0`, ✅`4.2.8.0`, ✅`4.3.2.0`, ✅`4.3.3.0`, ✅`4.3.3.1`, ✅`4.3.5.0`, ✅`4.3.6.0`
-
-[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16003773419)
-
-
-
-### 4.4.1.0
-
-<h4> New Features </h4>
-
-* Improve MetaDataProtoEditor handling of unqualified types and add support for renaming all the types - [PR #3402](https://github.com/FoundationDB/fdb-record-layer/pull/3402)
-* Enable the Planner Rewrite Rules - [PR #3401](https://github.com/FoundationDB/fdb-record-layer/pull/3401)
-<h4> Bug Fixes </h4>
-
-* add placeholders in all appropriate select expressions - [PR #3451](https://github.com/FoundationDB/fdb-record-layer/pull/3451)
-
-<details>
-<summary>
-
-<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
-
-</summary>
-
-* Pick correct locally generated build for `!current_version` tests - [PR #3455](https://github.com/FoundationDB/fdb-record-layer/pull/3455)
-* Have ExternalServer dynamically find available ports - [PR #3398](https://github.com/FoundationDB/fdb-record-layer/pull/3398)
-
-</details>
-
-
-**[Full Changelog (4.3.6.0...4.4.1.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.3.6.0...4.4.1.0)**
-
-#### Mixed Mode Test Results
-
-Mixed mode testing run against the following previous versions:
-
-❌`4.2.3.0`, ❌`4.2.4.0`, ✅`4.2.5.0`, ✅`4.2.6.0`, ✅`4.2.8.0`, ✅`4.3.2.0`, ✅`4.3.3.0`, ✅`4.3.3.1`, ✅`4.3.5.0`, ✅`4.3.6.0`
-
-[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16002338481)
-
-
-
 ## 4.3
 
 ### 4.3.6.0
