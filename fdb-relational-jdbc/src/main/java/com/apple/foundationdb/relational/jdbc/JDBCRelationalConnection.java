@@ -121,7 +121,7 @@ class JDBCRelationalConnection implements RelationalConnection {
     private Closeable closeable;
 
     @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "Should consider refactoring but throwing exceptions for now")
-    JDBCRelationalConnection(URI uri) throws SQLException {
+    JDBCRelationalConnection(URI uri) {
         this.database = uri.getPath();
         Map<String, List<String>> queryParams = JDBCURI.splitQuery(uri);
         this.schema = JDBCURI.getFirstValue("schema", queryParams);

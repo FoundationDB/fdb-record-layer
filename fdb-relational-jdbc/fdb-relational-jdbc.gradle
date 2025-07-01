@@ -41,7 +41,6 @@ dependencies {
     testCompileOnly(libs.bundles.test.compileOnly)
     // Server in the TEST context ONLY!!
     testImplementation project(":fdb-relational-server")
-    testImplementation project(":fdb-record-layer-core")
     testImplementation(testFixtures(project(":fdb-relational-server")))
     // FDB Relational core test fixture in the TEST context only -- not in main!!!!
     testImplementation(testFixtures(project(":fdb-relational-core")))
