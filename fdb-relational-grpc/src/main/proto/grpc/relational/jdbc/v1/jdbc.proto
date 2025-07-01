@@ -154,18 +154,6 @@ message CommitRequest {
 }
 
 message CommitResponse {
-}
-
-message RollbackRequest {
-}
-
-message RollbackResponse {
-}
-
-message CommitRequest {
-}
-
-message CommitResponse {
   optional string error_message = 1;
 }
 
