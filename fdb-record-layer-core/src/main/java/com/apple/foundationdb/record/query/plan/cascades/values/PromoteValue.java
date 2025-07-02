@@ -222,6 +222,7 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public PromoteValue withNewChild(@Nonnull final Value newChild) {
         if (getChild() == newChild) {
             return this;
