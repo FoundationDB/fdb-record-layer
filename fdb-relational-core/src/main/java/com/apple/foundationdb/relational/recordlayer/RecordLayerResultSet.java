@@ -94,7 +94,7 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
         } catch (RelationalException e) {
             throw e.toSqlException();
         }
-        if (connection != null && connection.canCommit() && connection.inActiveTransaction()) {
+        if (connection != null && connection.shouldCommit() && connection.inActiveTransaction()) {
             connection.commitInternal();
         }
         this.closed = true;

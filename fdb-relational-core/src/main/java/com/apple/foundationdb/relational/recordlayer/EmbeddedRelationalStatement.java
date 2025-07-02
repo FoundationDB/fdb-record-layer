@@ -335,7 +335,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
                 } catch (SQLException sqle) {
                     exception.addSuppressed(sqle);
                 }
-            } else if (conn.canCommit()) {
+            } else if (conn.shouldCommit()) {
                 conn.commitInternal();
             }
         }
