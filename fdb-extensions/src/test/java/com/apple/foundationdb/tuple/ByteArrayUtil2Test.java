@@ -97,7 +97,7 @@ public class ByteArrayUtil2Test {
         assertFalse(loggable.contains("="), "loggable string should not contain equals sign");
         assertFalse(loggable.contains("\""), "loggable string should not contain quote");
 
-        if (!printable.contains("=") && !printable.contains("\"")) {
+        if (!printable.contains("=") && !printable.contains("\"") && !printable.contains("\'")) {
             assertEquals(printable, loggable);
         }
     }

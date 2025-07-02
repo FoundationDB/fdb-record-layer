@@ -129,6 +129,8 @@ public class ByteArrayUtil2 {
                 c = loggedBytes.charAt(i);
                 if (c == '\\') {
                     bytes.add((byte)'\\');
+                } else if (c == '\'') {
+                    bytes.add((byte)'\'');
                 } else if (c == 'x') {
                     i++;
                     bytes.add((byte)Integer.parseInt(loggedBytes.substring(i, i + 2), 16));
