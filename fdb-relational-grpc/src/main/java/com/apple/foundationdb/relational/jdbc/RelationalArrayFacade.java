@@ -79,7 +79,7 @@ class RelationalArrayFacade implements RelationalArray {
 
     @Nullable
     private DataType.ArrayType computeType() {
-        return delegateMetadata.getType() == Type.NO_TYPE ? null :
+        return delegateMetadata.getType() == Type.UNKNOWN ? null :
                DataType.ArrayType.from(RelationalStructFacade.RelationalStructFacadeMetaData.getDataType(delegateMetadata.getType(), delegateMetadata, delegateMetadata.getNullable()));
     }
 

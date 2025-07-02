@@ -475,7 +475,7 @@ public class TypeConversion {
         final var structFields = new ArrayList<DataType.StructType.Field>();
         for (int i = 0; i < columnMetadataList.size(); i++) {
             final var colMetadata = columnMetadataList.get(i);
-            if (colMetadata.getType() == Type.NO_TYPE) {
+            if (colMetadata.getType() == Type.UNKNOWN) {
                 return null;
             }
             final var dataType = getDataType(colMetadata.getType(), colMetadata, colMetadata.getNullable());
