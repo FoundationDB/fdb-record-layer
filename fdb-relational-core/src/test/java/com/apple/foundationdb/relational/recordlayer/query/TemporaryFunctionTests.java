@@ -864,6 +864,7 @@ public class TemporaryFunctionTests {
             for (int row = 0; row <= expectedResults.length - 2; row += 2) {
                 ResultSetAssert.assertThat(resultSet)
                         .hasNextRow()
+                        .as("checking result %d", row / 2)
                         .isRowExactly(expectedResults[row], expectedResults[row + 1]);
             }
         } else {
