@@ -21,12 +21,13 @@
 package com.apple.foundationdb.relational.server;
 
 import com.apple.foundationdb.annotation.API;
+
 import io.prometheus.client.CollectorRegistry;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.net.BindException;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * Stand up a server for downstream modules to use in test.
