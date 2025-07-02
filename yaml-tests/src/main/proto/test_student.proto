@@ -1,5 +1,5 @@
 /*
- * standard_tests.proto
+ * test_student.proto
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -26,20 +26,11 @@ syntax = "proto3";
 // suffixing the namespace with your test name is important for segregating similarly-named
 // generated-Java-classes (such as RecordTypeUnion) into separate packages, otherwise you
 // get an error from `protoc`.
-package com.apple.foundationdb.relational.yamltests.generated.standardtests;
+package com.apple.foundationdb.relational.yamltests.generated.teststudent;
 
-option java_outer_classname = "StandardTestsProto";
+option java_outer_classname = "TestStudentProto";
 
-import "record_metadata_options.proto";
-import "test_student.proto";
-
-message T1 {
-  int64 ID = 1 [(com.apple.foundationdb.record.field).primary_key = true];
-  int64 COL1 = 2;
-  int64 COL2 = 3;
-  com.apple.foundationdb.relational.yamltests.generated.teststudent.Student student = 4;
-}
-
-message RecordTypeUnion {
-  T1 _T1 = 1;
+message Student {
+  int64 ID = 1;
+  string name = 2;
 }

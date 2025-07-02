@@ -79,6 +79,12 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
+    public void contactsDebug(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("calendar_metadata.yamsql");
+    }
+
+    @TestTemplate
     public void scenarioTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("scenario-tests.yamsql");
     }
