@@ -23,10 +23,8 @@ package com.apple.foundationdb.record.query.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.QueryHashable;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
-import com.apple.foundationdb.record.util.HashUtils;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.MessageOrBuilder;
 
@@ -133,19 +131,5 @@ public abstract class BaseField implements PlanHashable, QueryComponent {
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
-    }
-
-    /**
-     * Base implementation of {@link #queryHash}.
-     * This implementation makes each concrete subclass implement its own version of {@link #queryHash} so that they are
-     * guided to add their own class modifier (See {@link com.apple.foundationdb.record.ObjectPlanHash ObjectPlanHash}).
-     * This implementation is meant to give subclasses common functionality for their own implementation.
-     * @param hashKind the query hash kind to use
-     * @param baseHash the subclass' base hash (concrete identifier)
-     * @param hashables the rest of the subclass' hashable parameters (if any)
-     * @return the query hash value calculated
-     */
-    protected int baseQueryHash(@Nonnull final QueryHashable.QueryHashKind hashKind, ObjectPlanHash baseHash, Object... hashables) {
-        return HashUtils.queryHash(hashKind, baseHash, fieldName, hashables);
     }
 }

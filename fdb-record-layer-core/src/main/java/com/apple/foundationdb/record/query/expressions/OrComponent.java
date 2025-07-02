@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
-import com.apple.foundationdb.record.util.HashUtils;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -114,8 +113,4 @@ public class OrComponent extends AndOrComponent {
         }
     }
 
-    @Override
-    public int queryHash(@Nonnull final QueryHashKind hashKind) {
-        return HashUtils.queryHash(hashKind, BASE_HASH, getChildren());
-    }
 }
