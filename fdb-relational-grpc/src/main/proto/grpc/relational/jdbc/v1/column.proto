@@ -27,7 +27,7 @@ option java_package = "com.apple.foundationdb.relational.jdbc.grpc.v1.column";
 option java_outer_classname = "ColumnProto";
 
 enum Type {
-  NO_TYPE = 0;
+  UNKNOWN = 0;
   INTEGER = 1;
   LONG = 2;
   FLOAT = 3;
@@ -52,7 +52,7 @@ message ColumnMetadata {
   // Indicates a column that isn't part of the DDL for a query, but is part of the returned
   // tuple (and therefore necessary to keep so that our positional ordering is intact)
   bool phantom = 5;
-  // If this column has a Struct or an Array, their metadata is here.
+  // If this column has a Struct or Array, or is of Enum type, their metadata is here.
   oneof metadata {
     ListColumnMetadata structMetadata = 6;
     ColumnMetadata arrayMetadata = 7;

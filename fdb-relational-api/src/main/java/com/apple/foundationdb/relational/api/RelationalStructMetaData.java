@@ -139,6 +139,7 @@ public class RelationalStructMetaData implements StructMetaData {
         return leadingPhantomColumnOffset;
     }
 
+    @Nonnull
     @Override
     public DataType.StructType getRelationalDataType() throws SQLException {
         return type;

@@ -242,7 +242,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
                                 // wrap array in a struct and call toDynamicMessage again
                                 final var wrapper = new ImmutableRowStruct(new ArrayRow(array), RelationalStructMetaData.of(
                                         DataType.StructType.from("STRUCT", List.of(
-                                                DataType.StructType.Field.from(NullableArrayUtils.REPEATED_FIELD_NAME, array.getMetaData().getRelationalDataType(), 0)
+                                                DataType.StructType.Field.from(NullableArrayUtils.REPEATED_FIELD_NAME, array.getMetaData().asRelationalType(), 0)
                                         ), true)));
                                 builder.setField(fd, toDynamicMessage(wrapper, fd.getMessageType()));
                             } else {
