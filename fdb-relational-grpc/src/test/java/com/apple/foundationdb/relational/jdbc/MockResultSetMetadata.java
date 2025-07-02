@@ -21,10 +21,13 @@
 package com.apple.foundationdb.relational.jdbc;
 
 import com.apple.foundationdb.relational.api.ArrayMetaData;
-import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
+import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 
+import javax.annotation.Nonnull;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.List;
 
@@ -32,17 +35,19 @@ import java.util.List;
  * A testing implementation of an result set metadata. The columns are all assumed to be integers.
  */
 public class MockResultSetMetadata implements RelationalResultSetMetaData {
-    private final String typeName;
-    private final List<Integer> columnTypes;
+    private final DataType.StructType type;
 
-    public MockResultSetMetadata(String typeName, List<Integer> columnTypes) {
-        this.typeName = typeName;
-        this.columnTypes = columnTypes;
+    public MockResultSetMetadata() {
+        this.type = DataType.StructType.from("testType", List.of(
+                DataType.StructType.Field.from("f1", DataType.Primitives.INTEGER.type(), 0),
+                DataType.StructType.Field.from("f2", DataType.Primitives.INTEGER.type(), 1),
+                DataType.StructType.Field.from("f2", DataType.Primitives.INTEGER.type(), 2)
+        ), false);
     }
 
     @Override
     public String getTypeName() throws SQLException {
-        return typeName;
+        return type.getName();
     }
 
     @Override
@@ -55,9 +60,15 @@ public class MockResultSetMetadata implements RelationalResultSetMetaData {
         throw new SQLException("Unsupported operation", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 
+    @Nonnull
+    @Override
+    public DataType.StructType getRelationalDataType() throws SQLException {
+        return type;
+    }
+
     @Override
     public int getColumnCount() throws SQLException {
-        return columnTypes.size();
+        return type.getFields().size();
     }
 
     @Override
@@ -67,6 +78,11 @@ public class MockResultSetMetadata implements RelationalResultSetMetaData {
 
     @Override
     public int getColumnType(int column) throws SQLException {
-        return columnTypes.get(column - 1);
+        return type.getFields().get(column - 1).getType().getJdbcSqlCode();
+    }
+
+    @Override
+    public int isNullable(int column) {
+        return type.getFields().get(column - 1).getType().isNullable() ? ResultSetMetaData.columnNullable : ResultSetMetaData.columnNoNulls;
     }
 }
