@@ -96,6 +96,8 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
         );
         if (Boolean.parseBoolean(System.getProperty("tests.runQuick", "false"))) {
             testConfigs = List.of(new EmbeddedConfig(clusterFile));
+        } else if (Boolean.parseBoolean(System.getProperty("tests.runRPC", "false"))) {
+            testConfigs = List.of(new JDBCInProcessConfig(clusterFile));
         } else {
             List<File> jars = ExternalServer.getAvailableServers();
             // Fail the test if there are no available servers. This would force the execution in "runQuick" mode in case
