@@ -119,7 +119,7 @@ public class PredicateComplexityProperty implements ExpressionProperty<Integer> 
                         ? ((RelationalExpressionWithPredicates)expr)
                                 .getPredicates()
                                 .stream()
-                                .map(TreeLike::diameter)
+                                .map(TreeLike::diameterWithLevelCounting)
                                 .max(Integer::compareTo)
                                 .orElse(0)
                         : 0,

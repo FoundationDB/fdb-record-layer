@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.google.common.base.Verify;
@@ -59,8 +58,7 @@ public class EvaluateConstantPromotionRule extends ValueSimplificationRule<Promo
             return;
         }
 
-        if (childValue instanceof LiteralValue<?>
-                && childValue.getResultType().nullable().equals(promoteValue.getResultType().nullable())) {
+        if (childValue.getResultType().nullable().equals(promoteValue.getResultType().nullable())) {
 
             // both types are the same, either type (but not both) must be not nullable, otherwise the promotion would
             // not be necessary.
@@ -69,11 +67,10 @@ public class EvaluateConstantPromotionRule extends ValueSimplificationRule<Promo
             // Returns the child value with its original non-nullable type, overriding any nullable type requested by promotion.
             // This intentional restriction is acceptable because it allows for subsequent simplifications and optimizations.
             // For example, IsNull(Promote('42L, NullableLong)) can be simplified to 'False' due to this type restriction.
-            final var childLiteralValue = (LiteralValue<?>)childValue;
             if (childValue.getResultType().isNotNullable()) {
-                call.yieldResult(childLiteralValue);
+                call.yieldResult(childValue);
             } else {
-                call.yieldResult(new LiteralValue<>(promoteValue.getResultType(), childLiteralValue.getLiteralValue()));
+                childValue.overrideTypeMaybe(promoteValue.getResultType()).ifPresent(call::yieldResult);
             }
         }
     }

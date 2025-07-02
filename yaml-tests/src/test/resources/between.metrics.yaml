@@ -2,33 +2,33 @@ between-index-tests:
 -   query: EXPLAIN select * from t1 WHERE col1 BETWEEN 10 AND 10
     explain: ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c8 AS INT) && LESS_THAN_OR_EQUALS
         promote(@c8 AS INT)]])
-    task_count: 311
-    task_total_time_ms: 15
-    transform_count: 76
-    transform_time_ms: 5
-    transform_yield_count: 30
+    task_count: 334
+    task_total_time_ms: 17
+    transform_count: 90
+    transform_time_ms: 7
+    transform_yield_count: 33
     insert_time_ms: 0
-    insert_new_count: 31
-    insert_reused_count: 4
+    insert_new_count: 37
+    insert_reused_count: 5
 -   query: EXPLAIN select * from t1 WHERE col1 + 5 BETWEEN 10 AND 20
     explain: ISCAN(I1 <,>) | FILTER _.COL1 + @c8 GREATER_THAN_OR_EQUALS promote(@c10
         AS INT) AND _.COL1 + @c8 LESS_THAN_OR_EQUALS promote(@c12 AS INT)
-    task_count: 275
-    task_total_time_ms: 14
-    transform_count: 72
-    transform_time_ms: 5
-    transform_yield_count: 27
+    task_count: 298
+    task_total_time_ms: 11
+    transform_count: 86
+    transform_time_ms: 4
+    transform_yield_count: 30
     insert_time_ms: 0
-    insert_new_count: 29
-    insert_reused_count: 4
+    insert_new_count: 35
+    insert_reused_count: 5
 -   query: EXPLAIN select * from t1 WHERE col1 + 5 NOT BETWEEN 10 AND 20
     explain: ISCAN(I1 <,>) | FILTER _.COL1 + @c8 LESS_THAN promote(@c11 AS INT) OR
         _.COL1 + @c8 GREATER_THAN promote(@c13 AS INT)
-    task_count: 275
-    task_total_time_ms: 15
-    transform_count: 73
-    transform_time_ms: 6
-    transform_yield_count: 27
+    task_count: 298
+    task_total_time_ms: 14
+    transform_count: 87
+    transform_time_ms: 7
+    transform_yield_count: 30
     insert_time_ms: 0
-    insert_new_count: 29
-    insert_reused_count: 4
+    insert_new_count: 35
+    insert_reused_count: 5

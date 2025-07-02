@@ -778,7 +778,8 @@ class BooleanValueTest {
             Typed value = function.encapsulate(args);
             Assertions.assertTrue(value instanceof BooleanValue);
             value = verifySerialization((Value)value);
-            Optional<QueryPredicate> maybePredicate = ((BooleanValue)value).toQueryPredicate(typeRepositoryBuilder.build(), Quantifier.current());
+            Optional<QueryPredicate> maybePredicate = ((BooleanValue)value).toQueryPredicate(typeRepositoryBuilder.build(),
+                    Quantifier.current());
             Assertions.assertFalse(maybePredicate.isEmpty());
             Assertions.assertEquals(result, maybePredicate.get());
         } else {
@@ -813,7 +814,8 @@ class BooleanValueTest {
         if (result != null) {
             Typed value = function.encapsulate(args);
             Assertions.assertTrue(value instanceof BooleanValue);
-            Optional<QueryPredicate> maybePredicate = ((BooleanValue)value).toQueryPredicate(typeRepositoryBuilder.build(), Quantifier.current());
+            Optional<QueryPredicate> maybePredicate = ((BooleanValue)value).toQueryPredicate(typeRepositoryBuilder.build(),
+                    Quantifier.current());
             Assertions.assertFalse(maybePredicate.isEmpty());
             Assertions.assertEquals(result, maybePredicate.get());
         } else {
