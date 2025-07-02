@@ -1,0 +1,122 @@
+¦
+@
+	unnamed-33EXPLAIN select * from B where 6L = coalesce(5L, 6L)á
+
+£Ð°¼/. óîë'(0á×q8@6SCAN(<,>) | FILTER @c6 EQUALS coalesce_long(@c10, @c6)‹
+digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE @c6 EQUALS coalesce_long(@c10, @c6)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-âˆž, âˆž&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [B]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}¡
+=
+	unnamed-30EXPLAIN select * from B where 6 = coalesce(5, 6)ß
+
+£¾‹£. ¤œü(0Àµ(8@5SCAN(<,>) | FILTER @c6 EQUALS coalesce_int(@c10, @c6)Š
+digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE @c6 EQUALS coalesce_int(@c10, @c6)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-âˆž, âˆž&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [B]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}¦
+@
+	unnamed-43EXPLAIN select * from B where 6L = coalesce(5L, 6L)á
+
+£Ð°¼/. óîë'(0á×q8@6SCAN(<,>) | FILTER @c6 EQUALS coalesce_long(@c10, @c6)‹
+digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE @c6 EQUALS coalesce_long(@c10, @c6)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-âˆž, âˆž&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [B]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}È
+@
+	unnamed-43EXPLAIN select * from B where 6L = coalesce(5I, 6I)ƒ
+£§Ã“. Ó³ž(0€ï%8@GSCAN(<,>) | FILTER @c6 EQUALS promote(coalesce_int(@c10, @c12) AS LONG)œ
+digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE @c6 EQUALS promote(coalesce_int(@c10, @c12) AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-âˆž, âˆž&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [B]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Æ
+>
+	unnamed-41EXPLAIN select * from B where 6L = coalesce(5, 6)ƒ
+£§‚œ. ¸×¹(0àÃ 8@GSCAN(<,>) | FILTER @c6 EQUALS promote(coalesce_int(@c10, @c12) AS LONG)œ
+digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE @c6 EQUALS promote(coalesce_int(@c10, @c12) AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-âˆž, âˆž&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [B]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}è
+>
+	unnamed-41EXPLAIN select * from B where 6 = coalesce(5L, 6)¥
+£úÒ—. ®óÛ(0¨î*8@XSCAN(<,>) | FILTER promote(@c6 AS LONG) EQUALS coalesce_long(@c10, promote(@c6 AS LONG))­
+digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE promote(@c6 AS LONG) EQUALS coalesce_long(@c10, promote(@c6 AS LONG))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-âˆž, âˆž&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [B]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ê
+@
+	unnamed-43EXPLAIN select * from B where 6I = coalesce(5L, 6I)¥
+££€Ö. Ó‘À(0×â$8@XSCAN(<,>) | FILTER promote(@c6 AS LONG) EQUALS coalesce_long(@c10, promote(@c6 AS LONG))­
+digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE promote(@c6 AS LONG) EQUALS coalesce_long(@c10, promote(@c6 AS LONG))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-âˆž, âˆž&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [B]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ê
+@
+	unnamed-43EXPLAIN select * from B where 6i = coalesce(5l, 6i)¥
+£Æú™. ïšö(0ƒË#8@XSCAN(<,>) | FILTER promote(@c6 AS LONG) EQUALS coalesce_long(@c10, promote(@c6 AS LONG))­
+digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE promote(@c6 AS LONG) EQUALS coalesce_long(@c10, promote(@c6 AS LONG))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-âˆž, âˆž&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [B]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}¡
+=
+	unnamed-40EXPLAIN select * from B where 6 = coalesce(5, 6)ß
+
+£¾‹£. ¤œü(0Àµ(8@5SCAN(<,>) | FILTER @c6 EQUALS coalesce_int(@c10, @c6)Š
+digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=polyline;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE @c6 EQUALS coalesce_int(@c10, @c6)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">range: &lt;-âˆž, âˆž&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [B]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS B1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}

@@ -87,11 +87,12 @@ public class RecordVersionValidator implements RecordValidator {
                 }
                 // Create a new version
                 // Save the record with the existing data and the new version
-                // This uses the DEFAULT behavior to follow the metadata direction on whether to store the version
+                // Override the lock as it may happen that the store is locked under the repair protocol
+                // Use the DEFAULT behavior to follow the metadata direction on whether to store the version
                 final FDBRecordVersion newVersion = FDBRecordVersion.incomplete(store.getContext().claimLocalVersion());
                 return store.loadRecordAsync(validationResult.getPrimaryKey())
                         .thenCompose(rec ->
-                                store.saveRecordAsync(rec.getRecord(), newVersion, FDBRecordStoreBase.VersionstampSaveBehavior.DEFAULT))
+                                store.overrideLockSaveRecordAsync(rec.getRecord(), FDBRecordStoreBase.RecordExistenceCheck.NONE, newVersion, FDBRecordStoreBase.VersionstampSaveBehavior.DEFAULT))
                         .thenApply(ignore ->
                                 validationResult.withRepair(RecordRepairResult.REPAIR_VERSION_CREATED));
             default:

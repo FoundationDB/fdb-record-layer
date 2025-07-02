@@ -171,7 +171,9 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
     @Nonnull
     private static List<? extends Value> injectPromotions(@Nonnull Iterable<? extends Value> children, @Nonnull final Type elementType) {
         return Streams.stream(children)
-                .map(child -> PromoteValue.inject(child, elementType))
+                .map(child -> child.getResultType().nullable().equals(elementType.nullable())
+                              ? child
+                              : PromoteValue.inject(child, elementType))
                 .collect(ImmutableList.toImmutableList());
     }
 
@@ -213,7 +215,11 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
                 return this;
             }
             Verify.verify(resolveElementType(newChildren).equals(getElementType()));
-            return new LightArrayConstructorValue(AbstractArrayConstructorValue.injectPromotions(newChildren, getElementType()), getElementType());
+            final var newChildrenPromoted = injectPromotions(newChildren, getElementType());
+            if (elementsArePairwiseReferenceEqual(newChildrenPromoted, getChildren())) {
+                return this;
+            }
+            return new LightArrayConstructorValue(newChildrenPromoted, getElementType());
         }
 
         @Override
@@ -241,6 +247,15 @@ public abstract class AbstractArrayConstructorValue extends AbstractValue implem
         @Override
         public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
             return PValue.newBuilder().setLightArrayConstructorValue(toProto(serializationContext)).build();
+        }
+
+        @SuppressWarnings("UnstableApiUsage")
+        private static boolean elementsArePairwiseReferenceEqual(@Nonnull final Iterable<? extends Value> first,
+                                                                 @Nonnull final Iterable<? extends Value> second) {
+            return Iterables.size(first) == Iterables.size(second)
+                    && Streams.zip(Streams.stream(first), Streams.stream(second),
+                            (firstItem, secondItem) -> firstItem == secondItem)
+                    .allMatch(Boolean.TRUE::equals);
         }
 
         @Nonnull

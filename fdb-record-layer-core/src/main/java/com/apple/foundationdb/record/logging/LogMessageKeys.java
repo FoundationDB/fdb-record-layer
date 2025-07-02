@@ -47,6 +47,7 @@ public enum LogMessageKeys {
     OLD,
     NEW,
     MESSAGE,
+    NAME,
     CODE,
     DESCRIPTION,
     UNKNOWN_FIELDS,

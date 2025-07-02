@@ -140,6 +140,16 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void nestedWithNulls(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("nested-with-nulls.yamsql");
+    }
+
+    @TestTemplate
+    public void nestedWithNullsProto(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("nested-with-nulls-proto.yamsql");
+    }
+
+    @TestTemplate
     public void orderBy(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("orderby.yamsql");
     }
@@ -272,5 +282,15 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void sqlFunctionsTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("sql-functions.yamsql");
+    }
+
+    @TestTemplate
+    public void literalTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("literal-tests.yamsql");
+    }
+
+    @TestTemplate
+    public void transactionalCallsTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("transactions-tests.yamsql");
     }
 }

@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.planprotos.PAndOrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -89,11 +89,11 @@ public abstract class AndOrPredicate extends AbstractQueryPredicate {
 
     @Nonnull
     @Override
-    public BooleanWithConstraint equalsForChildren(@Nonnull final QueryPredicate other,
-                                                   @Nonnull final ValueEquivalence valueEquivalence) {
+    public ConstrainedBoolean equalsForChildren(@Nonnull final QueryPredicate other,
+                                                @Nonnull final ValueEquivalence valueEquivalence) {
         final var andOrPredicateOptional = other.narrowMaybe(AndOrPredicate.class);
         if (andOrPredicateOptional.isEmpty()) {
-            return BooleanWithConstraint.falseValue();
+            return ConstrainedBoolean.falseValue();
         }
         final var that = andOrPredicateOptional.get();
 

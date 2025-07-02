@@ -104,7 +104,7 @@ public final class Star extends Expression {
      */
     @Nonnull
     @Override
-    public Expressions dereferenced(@Nonnull QueryExecutionContext.Literals literals) {
+    public Expressions dereferenced(@Nonnull Literals literals) {
         return Expressions.of(expansion).dereferenced(literals);
     }
 

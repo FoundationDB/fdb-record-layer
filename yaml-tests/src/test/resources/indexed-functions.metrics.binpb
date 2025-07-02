@@ -1,7 +1,8 @@
 ƒ
 5
 	unnamed-2(EXPLAIN select * from t where b + c > 7;ä
-È™å¨ó ‹ÕÛ(O0≤ø8c@4ISCAN(BPLUSC [[GREATER_THAN promote(@c10 AS LONG)]])¥digraph G {
+‡¢ìºï ï¨£(C0·◊Ñ8H@
+4ISCAN(BPLUSC [[GREATER_THAN promote(@c10 AS LONG)]])¥digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -11,7 +12,7 @@
 }‹
 T
 	unnamed-2GEXPLAIN select a, b + c AS sum from t where e = 'alpha' order by b + c;É
-õ¡√øq π¬ˆ(/0ÑØ18%@TISCAN(BPLUSCBYE [EQUALS promote(@c14 AS STRING)]) | MAP (_.A AS A, _.B + _.C AS SUM)è
+Ç¨Çàw µà«(00´Í=8'@TISCAN(BPLUSCBYE [EQUALS promote(@c14 AS STRING)]) | MAP (_.A AS A, _.B + _.C AS SUM)è
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -24,17 +25,19 @@ digraph G {
 }¥
 5
 	unnamed-2(EXPLAIN select * from t where d & 1 = 0;˙
-È˜ÖÍò º‰€(O0˘”ú8c@,ISCAN(DMASK1 [EQUALS promote(@c10 AS LONG)])¨digraph G {
+‡ôòÆ%ñ Ë˜ø(C0¿€ö8H@
+,ISCAN(DMASK1 [EQUALS promote(@c10 AS LONG)])¨digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c10 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">DMASK1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¥
+}≥
 5
-	unnamed-2(EXPLAIN select * from t where d & 2 = 0;˙
-È´ˆ–ò °‚Ó(O0¬∂∞8c@,ISCAN(DMASK2 [EQUALS promote(@c10 AS LONG)])¨digraph G {
+	unnamed-2(EXPLAIN select * from t where d & 2 = 0;˘
+‡¡Ô§ñ ˛Â·(C0¯®P8H@
+,ISCAN(DMASK2 [EQUALS promote(@c10 AS LONG)])¨digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

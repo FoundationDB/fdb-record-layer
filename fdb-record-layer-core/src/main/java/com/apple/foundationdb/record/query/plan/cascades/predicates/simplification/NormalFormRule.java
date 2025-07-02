@@ -21,15 +21,11 @@
 package com.apple.foundationdb.record.query.plan.cascades.predicates.simplification;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.planning.BooleanPredicateNormalizer;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyPredicate;
@@ -39,7 +35,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class NormalFormRule extends QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, QueryPredicate> {
+public class NormalFormRule extends QueryPredicateSimplificationRule<QueryPredicate> {
     @Nonnull
     private static final BindingMatcher<QueryPredicate> anyPredicateMatcher = anyPredicate();
     @Nonnull
@@ -58,7 +54,7 @@ public class NormalFormRule extends QueryPredicateComputationRule<EvaluationCont
     }
 
     @Override
-    public void onMatch(@Nonnull final QueryPredicateComputationRuleCall<EvaluationContext, List<QueryPlanConstraint>> call) {
+    public void onMatch(@Nonnull final QueryPredicateSimplificationRuleCall call) {
         if (!call.isRoot()) {
             return;
         }
@@ -67,6 +63,8 @@ public class NormalFormRule extends QueryPredicateComputationRule<EvaluationCont
         final var predicate = bindings.get(anyPredicateMatcher);
 
         final var normalizedPredicateMaybe = normalizer.normalize(predicate, false);
-        normalizedPredicateMaybe.ifPresent(normalizedPredicate ->  call.yieldPredicateAndReExplore(normalizedPredicateMaybe.get(), ImmutableList.of(QueryPlanConstraint.tautology())));
+        normalizedPredicateMaybe.ifPresent(normalizedPredicate ->
+                // note that dues to the nature of this rule and it being run first we won't use constraints here
+                call.yieldResultAndReExplore(normalizedPredicateMaybe.get()));
     }
 }

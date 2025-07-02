@@ -47,7 +47,6 @@ import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalPlanFragment;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
-import com.apple.foundationdb.relational.recordlayer.query.QueryExecutionContext;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.recordlayer.query.StringTrieNode;
 import com.apple.foundationdb.relational.recordlayer.query.TautologicalValue;
@@ -513,7 +512,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             semanticAnalyzer.validateInListItems(inListItems);
             final var arrayType = semanticAnalyzer.resolveArrayTypeFromValues(inListItems);
             result = Expression.ofUnnamed(getDelegate().getPlanGenerationContext()
-                    .processComplexLiteral(QueryExecutionContext.OrderedLiteral.constantId(tokenIndex), arrayType));
+                    .processComplexLiteral(tokenIndex, arrayType));
         } else {
             final var inListItems = visitExpressions(ctx.expressions());
             result = getDelegate().resolveFunction("__internal_array", inListItems.asList().toArray(new Expression[0]));

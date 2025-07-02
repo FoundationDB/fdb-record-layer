@@ -102,6 +102,11 @@ public class VariadicFunctionValue extends AbstractValue {
     }
 
     @Nonnull
+    public ComparisonFunction getComparisonFunction() {
+        return operator.getComparisonFunction();
+    }
+
+    @Nonnull
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return children;
@@ -118,7 +123,7 @@ public class VariadicFunctionValue extends AbstractValue {
     public int hashCodeWithoutChildren() {
         return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, operator);
     }
-    
+
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, operator, children);
@@ -181,15 +186,21 @@ public class VariadicFunctionValue extends AbstractValue {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction,
                                      @Nonnull final List<? extends Typed> arguments) {
         Verify.verify(arguments.size() >= 2);
         Type resultType = null;
         for (final var arg : arguments) {
             Type argType = arg.getResultType();
-            if (resultType == null || resultType.isUnresolved()) {
+            // This logic allows one (but not all) of the arguments to be of `NullType`
+            // (e.g., a 'null' literal). In such cases, `Type.maximumType` will correctly
+            // determine the appropriate concrete type *and* set its nullability to `true`,
+            // due to the presence of the `NullType` argument.
+            Verify.verify(argType == Type.NULL || !argType.isUnresolved());
+            if (resultType == null) {
                 resultType = argType;
-            } else if (!argType.isUnresolved()) {
+            } else {
                 resultType = Type.maximumType(resultType, argType);
                 SemanticException.check(resultType != null, SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
             }

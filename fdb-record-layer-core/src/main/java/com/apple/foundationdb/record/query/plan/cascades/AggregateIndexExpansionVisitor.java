@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
@@ -172,8 +173,6 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
 
         // add the SELECT-WHERE part, where we expose grouping and grouped columns, allowing query fragments that governs
         // only these columns to properly bind to this part, similar to how value indices work.
-        final ImmutableList.Builder<CorrelationIdentifier> placeholders = ImmutableList.builder();
-        placeholders.addAll(baseExpansion.getPlaceholderAliases());
 
         if (index.hasPredicate()) {
             final var filteredIndexPredicate = Objects.requireNonNull(index.getPredicate()).toPredicate(baseQuantifier.getFlowedObjectValue());
@@ -233,7 +232,8 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
             final var aliasMap = AliasMap.identitiesFor(Sets.union(selectWhereQun.getCorrelatedTo(),
                     groupedValue.getCorrelatedTo()));
             final var result = selectWhereQun.getRangesOver().get().getResultValue()
-                    .pullUp(List.of(groupedValue), aliasMap, ImmutableSet.of(), selectWhereQun.getAlias());
+                    .pullUp(List.of(groupedValue), EvaluationContext.empty(), aliasMap, ImmutableSet.of(),
+                            selectWhereQun.getAlias());
             if (!result.containsKey(groupedValue)) {
                 throw new RecordCoreException("could not pull grouped value " + groupedValue)
                         .addLogInfo(LogMessageKeys.VALUE, groupedValue);
@@ -252,8 +252,12 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
                 .map(Column::getValue)
                 .collect(ImmutableList.toImmutableList());
         final var selectQunValue = selectWhereQun.getRangesOver().get().getResultValue();
-        final var aliasMap = AliasMap.identitiesFor(Sets.union(selectQunValue.getCorrelatedTo(), groupingValues.stream().flatMap(v -> v.getCorrelatedTo().stream()).collect(ImmutableSet.toImmutableSet())));
-        final var pulledUpGroupingValuesMap = selectQunValue.pullUp(groupingValues, aliasMap, ImmutableSet.of(), selectWhereQun.getAlias());
+        final var aliasMap = AliasMap.identitiesFor(Sets.union(selectQunValue.getCorrelatedTo(),
+                groupingValues.stream()
+                        .flatMap(v -> v.getCorrelatedTo().stream())
+                        .collect(ImmutableSet.toImmutableSet())));
+        final var pulledUpGroupingValuesMap = selectQunValue.pullUp(groupingValues,
+                EvaluationContext.empty(), aliasMap, ImmutableSet.of(), selectWhereQun.getAlias());
         final var pulledUpGroupingValues = groupingValues.stream().map(groupingValue -> {
             if (!pulledUpGroupingValuesMap.containsKey(groupingValue)) {
                 throw new RecordCoreException("could not pull grouping value " + groupingValue)

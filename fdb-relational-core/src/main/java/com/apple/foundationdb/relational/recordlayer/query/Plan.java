@@ -104,7 +104,7 @@ public abstract class Plan<T> {
     public abstract QueryPlanConstraint getConstraint();
 
     @Nonnull
-    public abstract Plan<T> withQueryExecutionParameters(@Nonnull QueryExecutionContext parameters);
+    public abstract Plan<T> withExecutionContext(@Nonnull QueryExecutionContext queryExecutionContext);
 
     @Nonnull
     public abstract String explain();

@@ -84,7 +84,7 @@ import java.util.stream.Collectors;
  *     to be used to execute all statements and procedure. For consumer perspective, this is equivalent to {@code autoCommit}
  *     being set to {@code true} since the {@link Connection#commit()} and {@link Connection#rollback()} wont be applicable.
  *     However, all statements run within the external transaction. For internal usage, the consumer should check
- *     {@link EmbeddedRelationalConnection#canCommit()} to see if they are allowed to manage a transaction.</li>
+ *     {@link EmbeddedRelationalConnection#shouldCommit()} to see if they are allowed to manage a transaction.</li>
  * </ul>
  */
 @API(API.Status.EXPERIMENTAL)
@@ -185,7 +185,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
      * @return {@code true} if the transaction can be committed by internal stakeholders, else {@code false}.
      * @throws SQLException if the connection is closed.
      */
-    boolean canCommit() throws SQLException {
+    boolean shouldCommit() throws SQLException {
         checkOpen();
         return !usingAnExternalTransaction && this.autoCommit;
     }
@@ -492,7 +492,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
      */
     boolean ensureTransactionActive() throws RelationalException, SQLException {
         if (inActiveTransaction()) {
-            if (canCommit()) {
+            if (shouldCommit()) {
                 // canCommit() = true means that there is no external transaction and autoCommit is enabled, meaning
                 // that the internal stakeholders can manage the transactions when required to.
                 // As this implies that autoCommit is enabled, if there is an existing transaction in such a case, that

@@ -1,361 +1,189 @@
-©
+Ú
 R
-basic-sql-function-tests6EXPLAIN select col1, col2 from f1(a => 103, b => 'b');“
-ã
-À∆À ª ßﬁª(V0™∫ﬁ8é@	ÓTF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c10 AS LONG) AS A, @c14 AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2) } | MAP (_.COL1 AS COL1, _.COL2 AS COL2)¿digraph G {
+basic-sql-function-tests6EXPLAIN select col1, col2 from f1(a => 103, b => 'b');õ
+	⁄Ù›@„ Ã–ú(j0Ù–˛8≠@™COVERING(T1_IDX1 [EQUALS promote(@c14 AS STRING), [LESS_THAN promote(@c10 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)Õ
+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q13.COL1 AS COL1, q13.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q11.COL1 AS COL1, q11.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(@c10 AS LONG) AS A, @c14 AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q171.COL1 AS COL1, q171.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 -> 2 [ label=<&nbsp;q0> label="q0" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 2 [ label=<&nbsp;q11> label="q11" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 3 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q171> label="q171" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q13> label="q13" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    rank=same;
-    rankDir=LR;
-    3 -> 4 [ color="red" style="invis" ];
-  }
-}©
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q180.COL1 AS COL1, q180.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c14 AS STRING), [LESS_THAN promote(@c10 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q180> label="q180" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ú
 R
-basic-sql-function-tests6EXPLAIN select col1, col2 from f1(b => 'b', a => 103);“
-ã
-‘ûõ"ª ‘â‘(V0á”√8é@	ÓTF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c14 AS LONG) AS A, @c10 AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2) } | MAP (_.COL1 AS COL1, _.COL2 AS COL2)¿digraph G {
+basic-sql-function-tests6EXPLAIN select col1, col2 from f1(b => 'b', a => 103);õ
+	© ˆ„ ªÀÓ(j0ìç8≠@™COVERING(T1_IDX1 [EQUALS promote(@c10 AS STRING), [LESS_THAN promote(@c14 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)Õ
+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q13.COL1 AS COL1, q13.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q11.COL1 AS COL1, q11.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(@c14 AS LONG) AS A, @c10 AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q171.COL1 AS COL1, q171.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 -> 2 [ label=<&nbsp;q0> label="q0" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 2 [ label=<&nbsp;q11> label="q11" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 3 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q171> label="q171" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q13> label="q13" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    rank=same;
-    rankDir=LR;
-    3 -> 4 [ color="red" style="invis" ];
-  }
-}ù
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q180.COL1 AS COL1, q180.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c10 AS STRING), [LESS_THAN promote(@c14 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q180> label="q180" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ê
 H
-basic-sql-function-tests,EXPLAIN select col1, col2 from f1(103, 'b');–
-ã
-‚ñÇ ª ﬂ¥Ä(V0∫∆≥8é@	ÌTF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c8 AS LONG) AS A, @c10 AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2) } | MAP (_.COL1 AS COL1, _.COL2 AS COL2)ødigraph G {
+basic-sql-function-tests,EXPLAIN select col1, col2 from f1(103, 'b');ô
+	˛˚Œ}„ ≥Á(j0öø˚/8≠@©COVERING(T1_IDX1 [EQUALS promote(@c10 AS STRING), [LESS_THAN promote(@c8 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)Ã
+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q13.COL1 AS COL1, q13.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q11.COL1 AS COL1, q11.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(@c8 AS LONG) AS A, @c10 AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q171.COL1 AS COL1, q171.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 -> 2 [ label=<&nbsp;q0> label="q0" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 2 [ label=<&nbsp;q11> label="q11" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 3 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q171> label="q171" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q13> label="q13" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    rank=same;
-    rankDir=LR;
-    3 -> 4 [ color="red" style="invis" ];
-  }
-}™
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q180.COL1 AS COL1, q180.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c10 AS STRING), [LESS_THAN promote(@c8 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q180> label="q180" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}∞
 M
-basic-sql-function-tests1EXPLAIN select col1 + 10, col2 from f1(103, 'b');ÿ
-ã
-¿¯£ª –Â˝(V0⁄ıØ8é@	ÚTF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c10 AS LONG) AS A, @c12 AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2) } | MAP (_.COL1 + @c4 AS _0, _.COL2 AS COL2)¬digraph G {
+basic-sql-function-tests1EXPLAIN select col1 + 10, col2 from f1(103, 'b');ﬁ
+ÿï…¬o“ π Œ&(`0ﬂ¡Õ8ô@}ISCAN(T1_IDX1 [EQUALS promote(@c12 AS STRING), [LESS_THAN promote(@c10 AS LONG)]]) | MAP (_.COL1 + @c4 AS _0, _.COL2 AS COL2)æ
+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q13.COL1 + @c4 AS _0, q13.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q11.COL1 AS COL1, q11.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(@c10 AS LONG) AS A, @c12 AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q171.COL1 AS COL1, q171.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 -> 2 [ label=<&nbsp;q0> label="q0" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 2 [ label=<&nbsp;q11> label="q11" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 3 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q171> label="q171" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q13> label="q13" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    rank=same;
-    rankDir=LR;
-    3 -> 4 [ color="red" style="invis" ];
-  }
-}É
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q4.COL1 + @c4 AS _0, q4.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c12 AS STRING), [LESS_THAN promote(@c10 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}€
 ?
-basic-sql-function-tests#EXPLAIN select * from f1(103, 'b');ø
-ç
-ø»–ª ÒÚ‡(V0˚áΩ8ç@	≈TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c6 AS LONG) AS A, @c8 AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2) }÷digraph G {
+basic-sql-function-tests#EXPLAIN select * from f1(103, 'b');ó
+	´˝à>„ È¡¥(j0·÷ö8≠@®COVERING(T1_IDX1 [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(@c6 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)À
+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q11.COL1 AS COL1, q11.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(@c6 AS LONG) AS A, @c8 AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q171.COL1 AS COL1, q171.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 -> 2 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q171> label="q171" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 1 [ label=<&nbsp;q11> label="q11" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    rank=same;
-    rankDir=LR;
-    2 -> 4 [ color="red" style="invis" ];
-  }
-}™
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q180.COL1 AS COL1, q180.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(@c6 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q180> label="q180" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}‰
 O
-basic-sql-function-tests3EXPLAIN select * from f1(103, 'b') where col1 = 101÷
-ã
-åîŒª ˜¿ (V0Ïåò8é@	ÚTF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c6 AS LONG) AS A, @c8 AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2) } | FILTER _.COL1 EQUALS promote(@c13 AS LONG)¿digraph G {
+basic-sql-function-tests3EXPLAIN select * from f1(103, 'b') where col1 = 101ê
+ø©‚ÂäÂ ãÜ».({0±ﬁã8Ï@#§COVERING(T1_IDX1 [EQUALS promote(@c8 AS STRING), EQUALS promote(@c13 AS LONG)] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)«
+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q13.COL1 EQUALS promote(@c13 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q11.COL1 AS COL1, q11.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(@c6 AS LONG) AS A, @c8 AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q171.COL1 AS COL1, q171.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 -> 2 [ label=<&nbsp;q0> label="q0" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 2 [ label=<&nbsp;q11> label="q11" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 3 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q171> label="q171" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q13> label="q13" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    rank=same;
-    rankDir=LR;
-    3 -> 4 [ color="red" style="invis" ];
-  }
-}î
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q201.COL1 AS COL1, q201.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c8 AS STRING), EQUALS promote(@c13 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q201> label="q201" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ï
 B
-basic-sql-function-tests&EXPLAIN select * from f1(103 + 1, 'b')Õ
-ç
-ªÖî!ª ¥ñ˛(V0Ò¢∞8ç@	ÃTF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c6 + @c8 AS LONG) AS A, @c10 AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2) }›digraph G {
+basic-sql-function-tests&EXPLAIN select * from f1(103 + 1, 'b')•
+	∫å„ —Ó∫1(j0Û‰®28≠@ØCOVERING(T1_IDX1 [EQUALS promote(@c10 AS STRING), [LESS_THAN promote(@c6 + @c8 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)“
+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q11.COL1 AS COL1, q11.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(@c6 + @c8 AS LONG) AS A, @c10 AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q171.COL1 AS COL1, q171.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 -> 2 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q171> label="q171" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 1 [ label=<&nbsp;q11> label="q11" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    rank=same;
-    rankDir=LR;
-    2 -> 4 [ color="red" style="invis" ];
-  }
-}€
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q180.COL1 AS COL1, q180.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c10 AS STRING), [LESS_THAN promote(@c6 + @c8 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q180> label="q180" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ê
 h
-basic-sql-function-testsLEXPLAIN select * from (select * from f1(103 + 1, 'b')) as x where col1 < 105Ó
-’
-úö°… æ¸Ê(X0‰Å´8ë@	˛TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c10 + @c12 AS LONG) AS A, @c14 AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2) } | FILTER _.COL1 LESS_THAN promote(@c22 AS LONG)Ãdigraph G {
+basic-sql-function-testsLEXPLAIN select * from (select * from f1(103 + 1, 'b')) as x where col1 < 105˘
+◊†Æ‹ãû ËË)(Ü0˛—‹8è@)‘COVERING(T1_IDX1 [EQUALS promote(@c14 AS STRING), [LESS_THAN promote(@c10 + @c12 AS LONG) && LESS_THAN promote(@c22 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)ˇ
+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q15.COL1 LESS_THAN promote(@c22 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q11.COL1 AS COL1, q11.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(@c10 + @c12 AS LONG) AS A, @c14 AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q174.COL1 AS COL1, q174.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 -> 2 [ label=<&nbsp;q0> label="q0" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 2 [ label=<&nbsp;q11> label="q11" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 3 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q174> label="q174" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q15> label="q15" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    rank=same;
-    rankDir=LR;
-    3 -> 4 [ color="red" style="invis" ];
-  }
-}ì>
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q218.COL1 AS COL1, q218.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c14 AS STRING), [LESS_THAN promote(@c10 + @c12 AS LONG) &amp;&amp; LESS_THAN promote(@c22 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q218> label="q218" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}–
 ó
-basic-sql-function-tests{EXPLAIN select A.col1 AS W, A.col2 AS X, B.col1 AS Y, B.col2 AS Z from f1(103, 'b') A, f1(103, 'b') B where A.col1 = B.col1ˆ<
-Á’âÉD• Ω¢Û(Æ0ª‰ó8©@àTF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c28 AS LONG) AS A, @c30 AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2) } | FLATMAP q2 -> { TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c28 AS LONG) AS A, @c30 AS B) | FLATMAP q3 -> { COVERING(T1_IDX1 [EQUALS promote(q3.B AS STRING), [LESS_THAN promote(q3.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q4 RETURN (q4.COL1 AS COL1, q4.COL2 AS COL2) } | FILTER q2.COL1 EQUALS _.COL1 AS q5 RETURN (q2.COL1 AS W, q2.COL2 AS X, q5.COL1 AS Y, q5.COL2 AS Z) }…6digraph G {
+basic-sql-function-tests{EXPLAIN select A.col1 AS W, A.col2 AS X, B.col1 AS Y, B.col2 AS Z from f1(103, 'b') A, f1(103, 'b') B where A.col1 = B.col1≥
+ì’Ì’L• èÔ¢(ü0ÓèÉ8´@¡ISCAN(T1_IDX1 <,>) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(@c30 AS STRING), EQUALS q0.COL1] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | FILTER q0.COL1 LESS_THAN promote(@c28 AS LONG) AND q0.COL2 EQUALS promote(@c30 AS STRING) | FETCH AS q1 RETURN (q1.COL1 AS W, q1.COL2 AS X, q0.COL1 AS Y, q0.COL2 AS Z) }Õdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q13.COL1 AS W, q13.COL2 AS X, q28.COL1 AS Y, q28.COL2 AS Z)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS W, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q11.COL1 AS COL1, q11.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(@c28 AS LONG) AS A, @c30 AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q297.COL1 AS COL1, q297.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q4.COL1 AS W, q4.COL2 AS X, q19.COL1 AS Y, q19.COL2 AS Z)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS W, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS COL1, )" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q19.COL1 LESS_THAN promote(@c28 AS LONG) AND q19.COL2 EQUALS promote(@c30 AS STRING)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c30 AS STRING), EQUALS q19.COL1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
   7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q13.COL1 EQUALS q28.COL1</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q26.COL1 AS COL1, q26.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(@c28 AS LONG) AS A, @c30 AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q192.COL1 AS COL1, q192.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  13 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(q15.B AS STRING), [LESS_THAN promote(q15.A AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  14 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 -> 2 [ label=<&nbsp;q0> label="q0" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 2 [ label=<&nbsp;q11> label="q11" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 3 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q297> label="q297" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q19> label="q19" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q262> label="q262" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q260> label="q260" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q13> label="q13" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  9 -> 8 [ label=<&nbsp;q28> label="q28" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  10 -> 9 [ label=<&nbsp;q15> label="q15" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  11 -> 9 [ label=<&nbsp;q26> label="q26" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  12 -> 10 [ label=<&nbsp;q23> label="q23" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  13 -> 11 [ label=<&nbsp;q192> label="q192" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  14 -> 13 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  8 -> 1 [ label=<&nbsp;q28> label="q28" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 1 [ label=<&nbsp;q4> label="q4" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
     rank=same;
     rankDir=LR;
-    10 -> 11 [ color="red" style="invis" ];
+    2 -> 4 [ color="red" style="invis" ];
   }
-  {
-    rank=same;
-    rankDir=LR;
-    3 -> 4 [ color="red" style="invis" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    2 -> 8 [ color="red" style="invis" ];
-  }
-}®>
+}Ê
 ¨
-basic-sql-function-testsèEXPLAIN select A.col1 AS W, A.col2 AS X, B.col1 AS Y, B.col2 AS Z from f1(a => 103, b => 'b') A, f1(a => 103, b => 'b') B where A.col1 = B.col1ˆ<
-Áæ™ÿD• ã£˚(Æ0ﬁƒ±8©@àTF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c30 AS LONG) AS A, @c34 AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2) } | FLATMAP q2 -> { TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c30 AS LONG) AS A, @c34 AS B) | FLATMAP q3 -> { COVERING(T1_IDX1 [EQUALS promote(q3.B AS STRING), [LESS_THAN promote(q3.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q4 RETURN (q4.COL1 AS COL1, q4.COL2 AS COL2) } | FILTER q2.COL1 EQUALS _.COL1 AS q5 RETURN (q2.COL1 AS W, q2.COL2 AS X, q5.COL1 AS Y, q5.COL2 AS Z) }…6digraph G {
+basic-sql-function-testsèEXPLAIN select A.col1 AS W, A.col2 AS X, B.col1 AS Y, B.col2 AS Z from f1(a => 103, b => 'b') A, f1(a => 103, b => 'b') B where A.col1 = B.col1¥
+ì˘†¿®• ‹Œ√n(ü0˘¡ì8´@¡ISCAN(T1_IDX1 <,>) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(@c34 AS STRING), EQUALS q0.COL1] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | FILTER q0.COL1 LESS_THAN promote(@c30 AS LONG) AND q0.COL2 EQUALS promote(@c34 AS STRING) | FETCH AS q1 RETURN (q1.COL1 AS W, q1.COL2 AS X, q0.COL1 AS Y, q0.COL2 AS Z) }Õdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q13.COL1 AS W, q13.COL2 AS X, q28.COL1 AS Y, q28.COL2 AS Z)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS W, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q11.COL1 AS COL1, q11.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(@c30 AS LONG) AS A, @c34 AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q297.COL1 AS COL1, q297.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q4.COL1 AS W, q4.COL2 AS X, q19.COL1 AS Y, q19.COL2 AS Z)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS W, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS COL1, )" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q19.COL1 LESS_THAN promote(@c30 AS LONG) AND q19.COL2 EQUALS promote(@c34 AS STRING)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c34 AS STRING), EQUALS q19.COL1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
   7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q13.COL1 EQUALS q28.COL1</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q26.COL1 AS COL1, q26.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(@c30 AS LONG) AS A, @c34 AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q192.COL1 AS COL1, q192.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  13 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(q15.B AS STRING), [LESS_THAN promote(q15.A AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  14 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 -> 2 [ label=<&nbsp;q0> label="q0" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 2 [ label=<&nbsp;q11> label="q11" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 3 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q297> label="q297" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q19> label="q19" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q262> label="q262" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q260> label="q260" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q13> label="q13" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  9 -> 8 [ label=<&nbsp;q28> label="q28" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  10 -> 9 [ label=<&nbsp;q15> label="q15" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  11 -> 9 [ label=<&nbsp;q26> label="q26" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  12 -> 10 [ label=<&nbsp;q23> label="q23" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  13 -> 11 [ label=<&nbsp;q192> label="q192" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  14 -> 13 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  8 -> 1 [ label=<&nbsp;q28> label="q28" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 1 [ label=<&nbsp;q4> label="q4" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
     rank=same;
     rankDir=LR;
-    10 -> 11 [ color="red" style="invis" ];
+    2 -> 4 [ color="red" style="invis" ];
   }
-  {
-    rank=same;
-    rankDir=LR;
-    3 -> 4 [ color="red" style="invis" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    2 -> 8 [ color="red" style="invis" ];
-  }
-}≤
+}˚
 j
-basic-sql-function-testsNEXPLAIN with x(y, z) as (select * from f1(b => 'b', a => 103)) select * from x√
-’
-Ì—ﬁ… ˛·ﬂ(X0Ææ™8ë@	ËTF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c21 AS LONG) AS A, @c17 AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2) } | MAP (_.COL1 AS Y, _.COL2 AS Z)∑digraph G {
+basic-sql-function-testsNEXPLAIN with x(y, z) as (select * from f1(b => 'b', a => 103)) select * from xå
+ö
+Ô‹ D˜ ≈À˜(n0ÌÍ◊8µ@§COVERING(T1_IDX1 [EQUALS promote(@c17 AS STRING), [LESS_THAN promote(@c21 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS Y, _.COL2 AS Z)ƒ
+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q17.COL1 AS Y, q17.COL2 AS Z)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS Y, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q11.COL1 AS COL1, q11.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(@c21 AS LONG) AS A, @c17 AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q176.COL1 AS COL1, q176.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 -> 2 [ label=<&nbsp;q0> label="q0" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 2 [ label=<&nbsp;q11> label="q11" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 3 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q176> label="q176" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q17> label="q17" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    rank=same;
-    rankDir=LR;
-    3 -> 4 [ color="red" style="invis" ];
-  }
-}®
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q186.COL1 AS Y, q186.COL2 AS Z)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS Y, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c17 AS STRING), [LESS_THAN promote(@c21 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q186> label="q186" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ò
 `
-basic-sql-function-testsDEXPLAIN with x(y, z) as (select * from f1(103, 'b')) select * from x√
-’
-“∂Ú … ˝€‚(X0í¯∫8ë@	ËTF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c15 AS LONG) AS A, @c17 AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2) } | MAP (_.COL1 AS Y, _.COL2 AS Z)∑digraph G {
+basic-sql-function-testsDEXPLAIN with x(y, z) as (select * from f1(103, 'b')) select * from xå
+ö
+À≈âE˜ Œ†≥ (n0›º8µ@§COVERING(T1_IDX1 [EQUALS promote(@c17 AS STRING), [LESS_THAN promote(@c15 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS Y, _.COL2 AS Z)ƒ
+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q17.COL1 AS Y, q17.COL2 AS Z)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS Y, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q11.COL1 AS COL1, q11.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(@c15 AS LONG) AS A, @c17 AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q176.COL1 AS COL1, q176.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 -> 2 [ label=<&nbsp;q0> label="q0" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 2 [ label=<&nbsp;q11> label="q11" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 3 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q176> label="q176" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q17> label="q17" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    rank=same;
-    rankDir=LR;
-    3 -> 4 [ color="red" style="invis" ];
-  }
-}ß,
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q186.COL1 AS Y, q186.COL2 AS Z)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS Y, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c17 AS STRING), [LESS_THAN promote(@c15 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q186> label="q186" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}À
 Z
-basic-sql-function-tests>EXPLAIN select * from t2 where exists (select * from f2(t2.z))»+
-·à≤º § Î‰Œ	({0˝≥ì8ù@ÕISCAN(T2_IDX1 <,>) | FLATMAP q0 -> { TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(q0.Z AS LONG) AS K) | FLATMAP q1 -> { ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3 AS LONG) EQUALS promote(q1.K AS LONG) AS q2 RETURN (q2.COL1 AS COL1, q2.COL2 AS COL2, q2.COL3 AS COL3) } | DEFAULT NULL | FILTER _ NOT_NULL AS q3 RETURN q0 }◊(digraph G {
+basic-sql-function-tests>EXPLAIN select * from t2 where exists (select * from f2(t2.z))Ï
+≈≠âÍTº ™Îõ:(s0ÖÂ·8û@ôISCAN(T2_IDX1 <,>) | FLATMAP q0 -> { ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3 AS LONG) EQUALS q0.Z | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 }Ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -364,37 +192,25 @@ Z
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS X, )" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q21 NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">FIRST $q21 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q15.COL1 AS COL1, q15.COL2 AS COL2, q15.COL3 AS COL3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(q2.Z AS LONG) AS K)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS K)" ];
-  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE promote(q8.COL3 AS LONG) EQUALS promote(q4.K AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE promote(q8.COL3 AS LONG) EQUALS q2.Z</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ label=<&nbsp;q21> label="q21" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ label=<&nbsp;q21> label="q21" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 6 [ label=<&nbsp;q4> label="q4" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  8 -> 6 [ label=<&nbsp;q15> label="q15" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  9 -> 7 [ label=<&nbsp;q12> label="q12" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  10 -> 8 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  11 -> 10 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q21> label="q21" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    rank=same;
-    rankDir=LR;
-    7 -> 8 [ color="red" style="invis" ];
-  }
   {
     rank=same;
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}´,
+}—
 _
-basic-sql-function-testsCEXPLAIN select * from t2 where exists (select * from f2(k => t2.z))«+
-·€à«!§ à‘Ü
-({0 ·Ë8ù@ÕISCAN(T2_IDX1 <,>) | FLATMAP q0 -> { TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(q0.Z AS LONG) AS K) | FLATMAP q1 -> { ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3 AS LONG) EQUALS promote(q1.K AS LONG) AS q2 RETURN (q2.COL1 AS COL1, q2.COL2 AS COL2, q2.COL3 AS COL3) } | DEFAULT NULL | FILTER _ NOT_NULL AS q3 RETURN q0 }÷(digraph G {
+basic-sql-function-testsCEXPLAIN select * from t2 where exists (select * from f2(k => t2.z))Ì
+≈‘π¯îº £ºØ(s0˚…›8û@ôISCAN(T2_IDX1 <,>) | FLATMAP q0 -> { ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3 AS LONG) EQUALS q0.Z | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN q0 }Ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -403,442 +219,211 @@ _
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T2_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS X, )" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q21 NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">FIRST $q21 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q15.COL1 AS COL1, q15.COL2 AS COL2, q15.COL3 AS COL3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE promote(q8.COL3 AS LONG) EQUALS promote(q4.K AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(q2.Z AS LONG) AS K)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS K)" ];
-  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE promote(q8.COL3 AS LONG) EQUALS q2.Z</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ label=<&nbsp;q21> label="q21" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ label=<&nbsp;q21> label="q21" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 6 [ label=<&nbsp;q15> label="q15" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  8 -> 6 [ label=<&nbsp;q4> label="q4" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  9 -> 7 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  10 -> 8 [ label=<&nbsp;q12> label="q12" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  11 -> 9 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q21> label="q21" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
     rank=same;
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-  {
-    rank=same;
-    rankDir=LR;
-    8 -> 7 [ color="red" style="invis" ];
-  }
-}¯E
+}ÿ
 A
-basic-sql-function-tests%EXPLAIN select * from f3(103, 'b', 4)≤E
-îíú¨;˝ Ü…Ô(©0·œ◊8ä@∂TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c6 AS LONG) AS A, @c8 AS B, promote(@c10 AS LONG) AS C) | FLATMAP q0 -> { TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (q0.A AS A, q0.B AS B) | FLATMAP q1 -> { COVERING(T1_IDX1 [EQUALS promote(q1.B AS STRING), [LESS_THAN promote(q1.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q2 RETURN (q2.COL1 AS COL1, q2.COL2 AS COL2) } | FLATMAP q3 -> { TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (q0.C AS K) | FLATMAP q4 -> { ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3 AS LONG) EQUALS promote(q4.K AS LONG) AS q5 RETURN (q5.COL1 AS COL1, q5.COL2 AS COL2, q5.COL3 AS COL3) } AS q6 RETURN (q3.COL1 AS COL1, q3.COL2 AS COL2, q6.COL3 AS COL3) } AS q7 RETURN (q7.COL1 AS COL1, q7.COL2 AS COL2, q7.COL3 AS COL3) }◊>digraph G {
+basic-sql-function-tests%EXPLAIN select * from f3(103, 'b', 4)í
+¥öÖ¸ñﬂ á˚¢L(Ë0ôœ≤/8ø@1∞ISCAN(T1_IDX1 <,>) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(@c6 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | FILTER promote(q0.COL3 AS LONG) EQUALS promote(@c10 AS LONG) | FETCH AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2, q0.COL3 AS COL3) }ºdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q37.COL1 AS COL1, q37.COL2 AS COL2, q37.COL3 AS COL3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(@c6 AS LONG) AS A, @c8 AS B, promote(@c10 AS LONG) AS C)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q15.COL1 AS COL1, q15.COL2 AS COL2, q30.COL3 AS COL3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q28.COL1 AS COL1, q28.COL2 AS COL2, q28.COL3 AS COL3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q13.COL1 AS COL1, q13.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE promote(q21.COL3 AS LONG) EQUALS promote(q17.K AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q0.C AS K)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS K)" ];
-  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q285.COL1 AS COL1, q285.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q0.A AS A, q0.B AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  13 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(q2.B AS STRING), [LESS_THAN promote(q2.A AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  14 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  15 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  16 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 -> 2 [ label=<&nbsp;q34> label="q34" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q30> label="q30" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q15> label="q15" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 5 [ label=<&nbsp;q28> label="q28" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  8 -> 5 [ label=<&nbsp;q17> label="q17" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  9 -> 6 [ label=<&nbsp;q13> label="q13" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  10 -> 6 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  11 -> 7 [ label=<&nbsp;q21> label="q21" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  12 -> 8 [ label=<&nbsp;q25> label="q25" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  13 -> 9 [ label=<&nbsp;q285> label="q285" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  14 -> 10 [ label=<&nbsp;q10> label="q10" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  15 -> 11 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  16 -> 13 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 1 [ label=<&nbsp;q37> label="q37" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    rank=same;
-    rankDir=LR;
-    10 -> 9 [ color="red" style="invis" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    8 -> 7 [ color="red" style="invis" ];
-  }
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q6.COL1 AS COL1, q6.COL2 AS COL2, q21.COL3 AS COL3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS COL1, )" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE promote(q21.COL3 AS LONG) EQUALS promote(@c10 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(@c6 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q21> label="q21" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q396> label="q396" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q394> label="q394" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
     rank=same;
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-  {
-    rank=same;
-    rankDir=LR;
-    6 -> 5 [ color="red" style="invis" ];
-  }
-}∞T
+}é
 D
-basic-sql-function-tests(EXPLAIN select * from f4(103, 'b', 2, 2)ÁS
-«îÇÛ>Ø ¯Ã¸(±0úõñ8ô@íTF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c6 AS LONG) AS A, @c8 AS B, promote(@c10 AS LONG) AS C, promote(@c10 AS LONG) AS D) | FLATMAP q0 -> { TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (q0.A AS A, q0.B AS B, promote(q0.C + q0.D AS LONG) AS C) | FLATMAP q1 -> { TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (q1.A AS A, q1.B AS B) | FLATMAP q2 -> { COVERING(T1_IDX1 [EQUALS promote(q2.B AS STRING), [LESS_THAN promote(q2.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q3 RETURN (q3.COL1 AS COL1, q3.COL2 AS COL2) } | FLATMAP q4 -> { TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (q1.C AS K) | FLATMAP q5 -> { ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3 AS LONG) EQUALS promote(q5.K AS LONG) AS q6 RETURN (q6.COL1 AS COL1, q6.COL2 AS COL2, q6.COL3 AS COL3) } AS q7 RETURN (q4.COL1 AS COL1, q4.COL2 AS COL2, q7.COL3 AS COL3) } AS q8 RETURN (q8.COL1 AS COL1, q8.COL2 AS COL2, q8.COL3 AS COL3) } AS q9 RETURN (q9.COL1 AS COL1, q9.COL2 AS COL2, q9.COL3 AS COL3) }∞Kdigraph G {
+basic-sql-function-tests(EXPLAIN select * from f4(103, 'b', 2, 2)≈
+!Ë.¸Ó´·ÿ öÌùñ(˜0≤Á’õ8Ñ@ »ISCAN(T1_IDX1 <,>) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(@c6 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | FILTER promote(q0.COL3 AS LONG) EQUALS promote(@c10 AS LONG) + promote(@c10 AS LONG) | FETCH AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2, q0.COL3 AS COL3) }‘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q48.COL1 AS COL1, q48.COL2 AS COL2, q48.COL3 AS COL3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(@c6 AS LONG) AS A, @c8 AS B, promote(@c10 AS LONG) AS C, promote(@c10 AS LONG) AS D)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q39.COL1 AS COL1, q39.COL2 AS COL2, q39.COL3 AS COL3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q0.A AS A, q0.B AS B, promote(q0.C + q0.D AS LONG) AS C)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q17.COL1 AS COL1, q17.COL2 AS COL2, q32.COL3 AS COL3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q15.COL1 AS COL1, q15.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q30.COL1 AS COL1, q30.COL2 AS COL2, q30.COL3 AS COL3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.A AS A, q2.B AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q301.COL1 AS COL1, q301.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.C AS K)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS K)" ];
-  13 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE promote(q23.COL3 AS LONG) EQUALS promote(q19.K AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  14 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  15 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(q4.B AS STRING), [LESS_THAN promote(q4.A AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  16 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  17 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  18 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  19 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 -> 2 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q39> label="q39" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 5 [ label=<&nbsp;q36> label="q36" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  8 -> 6 [ label=<&nbsp;q17> label="q17" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  9 -> 6 [ label=<&nbsp;q32> label="q32" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  10 -> 8 [ label=<&nbsp;q4> label="q4" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  11 -> 8 [ label=<&nbsp;q15> label="q15" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  12 -> 9 [ label=<&nbsp;q19> label="q19" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  13 -> 9 [ label=<&nbsp;q30> label="q30" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  14 -> 10 [ label=<&nbsp;q12> label="q12" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  15 -> 11 [ label=<&nbsp;q301> label="q301" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  16 -> 12 [ label=<&nbsp;q27> label="q27" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  17 -> 13 [ label=<&nbsp;q23> label="q23" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  18 -> 15 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  19 -> 17 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 1 [ label=<&nbsp;q48> label="q48" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q8.COL1 AS COL1, q8.COL2 AS COL2, q23.COL3 AS COL3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS COL1, )" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE promote(q23.COL3 AS LONG) EQUALS promote(@c10 AS LONG) + promote(@c10 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(@c6 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q23> label="q23" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q978> label="q978" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q976> label="q976" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 1 [ label=<&nbsp;q8> label="q8" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
     rank=same;
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-  {
-    rank=same;
-    rankDir=LR;
-    5 -> 6 [ color="red" style="invis" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    8 -> 9 [ color="red" style="invis" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    10 -> 11 [ color="red" style="invis" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    12 -> 13 [ color="red" style="invis" ];
-  }
-}∆T
+}§
 X
-basic-sql-function-tests<EXPLAIN select * from f4(a => 103, b => 'b', c => 2, d => 2)ÈS
-«≤ö≥=Ø ◊ˆ—(±0à‡Ù8ô@ìTF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c8 AS LONG) AS A, @c12 AS B, promote(@c16 AS LONG) AS C, promote(@c16 AS LONG) AS D) | FLATMAP q0 -> { TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (q0.A AS A, q0.B AS B, promote(q0.C + q0.D AS LONG) AS C) | FLATMAP q1 -> { TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (q1.A AS A, q1.B AS B) | FLATMAP q2 -> { COVERING(T1_IDX1 [EQUALS promote(q2.B AS STRING), [LESS_THAN promote(q2.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q3 RETURN (q3.COL1 AS COL1, q3.COL2 AS COL2) } | FLATMAP q4 -> { TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (q1.C AS K) | FLATMAP q5 -> { ISCAN(T1_IDX1 <,>) | FILTER promote(_.COL3 AS LONG) EQUALS promote(q5.K AS LONG) AS q6 RETURN (q6.COL1 AS COL1, q6.COL2 AS COL2, q6.COL3 AS COL3) } AS q7 RETURN (q4.COL1 AS COL1, q4.COL2 AS COL2, q7.COL3 AS COL3) } AS q8 RETURN (q8.COL1 AS COL1, q8.COL2 AS COL2, q8.COL3 AS COL3) } AS q9 RETURN (q9.COL1 AS COL1, q9.COL2 AS COL2, q9.COL3 AS COL3) }±Kdigraph G {
+basic-sql-function-tests<EXPLAIN select * from f4(a => 103, b => 'b', c => 2, d => 2)«
+!Ë.√±Ûáÿ òÖõÆ(˜0õóØÒ8Ñ@ …ISCAN(T1_IDX1 <,>) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(@c12 AS STRING), [LESS_THAN promote(@c8 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | FILTER promote(q0.COL3 AS LONG) EQUALS promote(@c16 AS LONG) + promote(@c16 AS LONG) | FETCH AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2, q0.COL3 AS COL3) }’digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q48.COL1 AS COL1, q48.COL2 AS COL2, q48.COL3 AS COL3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(@c8 AS LONG) AS A, @c12 AS B, promote(@c16 AS LONG) AS C, promote(@c16 AS LONG) AS D)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q39.COL1 AS COL1, q39.COL2 AS COL2, q39.COL3 AS COL3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q17.COL1 AS COL1, q17.COL2 AS COL2, q32.COL3 AS COL3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q0.A AS A, q0.B AS B, promote(q0.C + q0.D AS LONG) AS C)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q15.COL1 AS COL1, q15.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q30.COL1 AS COL1, q30.COL2 AS COL2, q30.COL3 AS COL3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.A AS A, q2.B AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q301.COL1 AS COL1, q301.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.C AS K)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS K)" ];
-  13 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE promote(q23.COL3 AS LONG) EQUALS promote(q19.K AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  14 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  15 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(q4.B AS STRING), [LESS_THAN promote(q4.A AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  16 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  17 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  18 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  19 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 -> 2 [ label=<&nbsp;q45> label="q45" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q39> label="q39" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 5 [ label=<&nbsp;q17> label="q17" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  8 -> 5 [ label=<&nbsp;q32> label="q32" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  9 -> 6 [ label=<&nbsp;q36> label="q36" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  10 -> 7 [ label=<&nbsp;q4> label="q4" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  11 -> 7 [ label=<&nbsp;q15> label="q15" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  12 -> 8 [ label=<&nbsp;q19> label="q19" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  13 -> 8 [ label=<&nbsp;q30> label="q30" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  14 -> 10 [ label=<&nbsp;q12> label="q12" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  15 -> 11 [ label=<&nbsp;q301> label="q301" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  16 -> 12 [ label=<&nbsp;q27> label="q27" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  17 -> 13 [ label=<&nbsp;q23> label="q23" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  18 -> 15 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  19 -> 17 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 1 [ label=<&nbsp;q48> label="q48" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    rank=same;
-    rankDir=LR;
-    12 -> 13 [ color="red" style="invis" ];
-  }
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q8.COL1 AS COL1, q8.COL2 AS COL2, q23.COL3 AS COL3)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS COL1, )" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE promote(q23.COL3 AS LONG) EQUALS promote(@c16 AS LONG) + promote(@c16 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c12 AS STRING), [LESS_THAN promote(@c8 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q23> label="q23" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q978> label="q978" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q976> label="q976" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 1 [ label=<&nbsp;q8> label="q8" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
     rank=same;
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-  {
-    rank=same;
-    rankDir=LR;
-    6 -> 5 [ color="red" style="invis" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    7 -> 8 [ color="red" style="invis" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    10 -> 11 [ color="red" style="invis" ];
-  }
-}É
+}€
 7
-basic-sql-function-testsEXPLAIN select * from f5();«
-ç
-¿‘≥ª ±˝∑(V0ö£ı8ç@	≈TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(103 AS LONG) AS A, 'b' AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2) }ﬁdigraph G {
+basic-sql-function-testsEXPLAIN select * from f5();ü
+	÷íËA„ ÇºÄ(j0Ö”À8≠@®COVERING(T1_IDX1 [EQUALS promote('b' AS STRING), [LESS_THAN promote(103 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)”
+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q11.COL1 AS COL1, q11.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(103 AS LONG) AS A, &#39;b&#39; AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q171.COL1 AS COL1, q171.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 -> 2 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q171> label="q171" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 1 [ label=<&nbsp;q11> label="q11" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    rank=same;
-    rankDir=LR;
-    2 -> 4 [ color="red" style="invis" ];
-  }
-}Ü
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q180.COL1 AS COL1, q180.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(&#39;b&#39; AS STRING), [LESS_THAN promote(103 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q180> label="q180" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ﬁ
 :
-basic-sql-function-testsEXPLAIN select * from f5(103);«
-ç
-ø∫˝ ª ˆã—	(V0”±¥8ç@	≈TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c6 AS LONG) AS A, 'b' AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2) }ﬁdigraph G {
+basic-sql-function-testsEXPLAIN select * from f5(103);ü
+	ä¯éx„ ’√˜G(j0„◊Î8≠@®COVERING(T1_IDX1 [EQUALS promote('b' AS STRING), [LESS_THAN promote(@c6 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)”
+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q11.COL1 AS COL1, q11.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(@c6 AS LONG) AS A, &#39;b&#39; AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q171.COL1 AS COL1, q171.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 -> 2 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q171> label="q171" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 1 [ label=<&nbsp;q11> label="q11" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    rank=same;
-    rankDir=LR;
-    2 -> 4 [ color="red" style="invis" ];
-  }
-}É
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q180.COL1 AS COL1, q180.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(&#39;b&#39; AS STRING), [LESS_THAN promote(@c6 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q180> label="q180" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}€
 ?
-basic-sql-function-tests#EXPLAIN select * from f5(b => 'b');ø
-ç
-À¡åª ¸ˆû(V0≠˙í8ç@	≈TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(103 AS LONG) AS A, @c8 AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2) }÷digraph G {
+basic-sql-function-tests#EXPLAIN select * from f5(b => 'b');ó
+	ñùÁo„ ±¢Î8(j0‹ÿÎ8≠@®COVERING(T1_IDX1 [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(103 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)À
+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q11.COL1 AS COL1, q11.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(103 AS LONG) AS A, @c8 AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q171.COL1 AS COL1, q171.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 -> 2 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q171> label="q171" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 1 [ label=<&nbsp;q11> label="q11" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    rank=same;
-    rankDir=LR;
-    2 -> 4 [ color="red" style="invis" ];
-  }
-}è
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q180.COL1 AS COL1, q180.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(103 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q180> label="q180" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Á
 I
-basic-sql-function-tests-EXPLAIN select * from f5(b => 'b', a => 103);¡
-ç
-ùΩ∫ª åÙ€(V0À®∏8ç@	∆TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c12 AS LONG) AS A, @c8 AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2) }◊digraph G {
+basic-sql-function-tests-EXPLAIN select * from f5(b => 'b', a => 103);ô
+	…˛ˆ<„ ∏”ç(j0À††8≠@©COVERING(T1_IDX1 [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(@c12 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)Ã
+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q11.COL1 AS COL1, q11.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(@c12 AS LONG) AS A, @c8 AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q171.COL1 AS COL1, q171.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 -> 2 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q171> label="q171" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 1 [ label=<&nbsp;q11> label="q11" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    rank=same;
-    rankDir=LR;
-    2 -> 4 [ color="red" style="invis" ];
-  }
-}è
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q180.COL1 AS COL1, q180.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(@c12 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q180> label="q180" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Á
 I
-basic-sql-function-tests-EXPLAIN select * from f5(b => 'b', a => 102);¡
-ç
-ùΩ∫ª åÙ€(V0À®∏8ç@	∆TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c12 AS LONG) AS A, @c8 AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2) }◊digraph G {
+basic-sql-function-tests-EXPLAIN select * from f5(b => 'b', a => 102);ô
+	…˛ˆ<„ ∏”ç(j0À††8≠@©COVERING(T1_IDX1 [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(@c12 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)Ã
+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q11.COL1 AS COL1, q11.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(@c12 AS LONG) AS A, @c8 AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q171.COL1 AS COL1, q171.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 -> 2 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q171> label="q171" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 1 [ label=<&nbsp;q11> label="q11" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    rank=same;
-    rankDir=LR;
-    2 -> 4 [ color="red" style="invis" ];
-  }
-}è
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q180.COL1 AS COL1, q180.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(@c12 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q180> label="q180" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Á
 I
-basic-sql-function-tests-EXPLAIN select * from f5(b => 'a', a => 102);¡
-ç
-ùΩ∫ª åÙ€(V0À®∏8ç@	∆TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c12 AS LONG) AS A, @c8 AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2) }◊digraph G {
+basic-sql-function-tests-EXPLAIN select * from f5(b => 'a', a => 102);ô
+	…˛ˆ<„ ∏”ç(j0À††8≠@©COVERING(T1_IDX1 [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(@c12 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)Ã
+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q11.COL1 AS COL1, q11.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(@c12 AS LONG) AS A, @c8 AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q171.COL1 AS COL1, q171.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 -> 2 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q171> label="q171" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 1 [ label=<&nbsp;q11> label="q11" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    rank=same;
-    rankDir=LR;
-    2 -> 4 [ color="red" style="invis" ];
-  }
-}è
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q180.COL1 AS COL1, q180.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(@c12 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q180> label="q180" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Á
 I
-basic-sql-function-tests-EXPLAIN select * from f5(a => 102, b => 'a');¡
-ç
-ó˜ºª ®˝â(V0„é’8ç@	∆TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c8 AS LONG) AS A, @c12 AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2) }◊digraph G {
+basic-sql-function-tests-EXPLAIN select * from f5(a => 102, b => 'a');ô
+	Ù°Å_„ êı (j0˜¡ñ8≠@©COVERING(T1_IDX1 [EQUALS promote(@c12 AS STRING), [LESS_THAN promote(@c8 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)Ã
+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q11.COL1 AS COL1, q11.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(@c8 AS LONG) AS A, @c12 AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q171.COL1 AS COL1, q171.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 -> 2 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q171> label="q171" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 1 [ label=<&nbsp;q11> label="q11" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    rank=same;
-    rankDir=LR;
-    2 -> 4 [ color="red" style="invis" ];
-  }
-}Ü
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q180.COL1 AS COL1, q180.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c12 AS STRING), [LESS_THAN promote(@c8 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q180> label="q180" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ﬁ
 :
-basic-sql-function-testsEXPLAIN select * from f5(102);«
-ç
-ø∫˝ ª ˆã—	(V0”±¥8ç@	≈TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c6 AS LONG) AS A, 'b' AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2) }ﬁdigraph G {
+basic-sql-function-testsEXPLAIN select * from f5(102);ü
+	ä¯éx„ ’√˜G(j0„◊Î8≠@®COVERING(T1_IDX1 [EQUALS promote('b' AS STRING), [LESS_THAN promote(@c6 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)”
+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q11.COL1 AS COL1, q11.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(@c6 AS LONG) AS A, &#39;b&#39; AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q171.COL1 AS COL1, q171.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 -> 2 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q171> label="q171" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 1 [ label=<&nbsp;q11> label="q11" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    rank=same;
-    rankDir=LR;
-    2 -> 4 [ color="red" style="invis" ];
-  }
-}É
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q180.COL1 AS COL1, q180.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(&#39;b&#39; AS STRING), [LESS_THAN promote(@c6 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q180> label="q180" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}€
 ?
-basic-sql-function-tests#EXPLAIN select * from f5(102, 'a');ø
-ç
-˜—â"ª ˚ÓÀ(V0˚ËØ8ç@	≈TF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c6 AS LONG) AS A, @c8 AS B) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) AS q1 RETURN (q1.COL1 AS COL1, q1.COL2 AS COL2) }÷digraph G {
+basic-sql-function-tests#EXPLAIN select * from f5(102, 'a');ó
+	–ºäq„ œÀÉ(j0‡Œò	8≠@®COVERING(T1_IDX1 [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(@c6 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], COL3: KEY[2]]) | MAP (_.COL1 AS COL1, _.COL2 AS COL2)À
+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q11.COL1 AS COL1, q11.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(@c6 AS LONG) AS A, @c8 AS B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q171.COL1 AS COL1, q171.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(q0.B AS STRING), [LESS_THAN promote(q0.A AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
-  3 -> 2 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q0> label="q0" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q171> label="q171" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 1 [ label=<&nbsp;q11> label="q11" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  {
-    rank=same;
-    rankDir=LR;
-    2 -> 4 [ color="red" style="invis" ];
-  }
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q180.COL1 AS COL1, q180.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c8 AS STRING), [LESS_THAN promote(@c6 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q180> label="q180" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }

@@ -6,14 +6,14 @@ recursive-cte-tests:
         | INSERT INTO TEMP q1 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q2 -> {
         TEMP SCAN base() | FILTER _.ID EQUALS q2.PARENT AS q3 RETURN (q2.ID AS ID,
         q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)
-    task_count: 1861
-    task_total_time_ms: 23
-    transform_count: 475
-    transform_time_ms: 9
-    transform_yield_count: 116
-    insert_time_ms: 2
-    insert_new_count: 219
-    insert_reused_count: 16
+    task_count: 1334
+    task_total_time_ms: 24
+    transform_count: 325
+    transform_time_ms: 10
+    transform_yield_count: 98
+    insert_time_ms: 1
+    insert_new_count: 185
+    insert_reused_count: 9
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where id = 250
         union all select b.id, b.parent from c1 as a, t1 as b where a.parent = b.id)
         select id from c1
@@ -21,14 +21,14 @@ recursive-cte-tests:
         | INSERT INTO TEMP q1 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q2 -> {
         TEMP SCAN base() | FILTER _.PARENT EQUALS q2.ID AS q3 RETURN (q2.ID AS ID,
         q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)
-    task_count: 1861
-    task_total_time_ms: 19
-    transform_count: 475
-    transform_time_ms: 6
-    transform_yield_count: 116
-    insert_time_ms: 2
-    insert_new_count: 219
-    insert_reused_count: 16
+    task_count: 1334
+    task_total_time_ms: 23
+    transform_count: 325
+    transform_time_ms: 7
+    transform_yield_count: 98
+    insert_time_ms: 1
+    insert_new_count: 185
+    insert_reused_count: 9
 -   query: EXPLAIN with recursive allDescendants as ( with recursive ancestorsOf250
         as ( select id, parent from t1 where id = 250 union all select b.id, b.parent
         from ancestorsOf250 as a, t1 as b where a.parent = b.id) select id, parent
@@ -42,14 +42,14 @@ recursive-cte-tests:
         ISCAN(CHILDIDX <,>) | FLATMAP q6 -> { TEMP SCAN base() | FILTER _.ID EQUALS
         q6.PARENT AS q7 RETURN (q6.ID AS ID, q6.PARENT AS PARENT) } | INSERT INTO
         TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT)
-    task_count: 2919
-    task_total_time_ms: 22
-    transform_count: 755
-    transform_time_ms: 6
-    transform_yield_count: 176
+    task_count: 2122
+    task_total_time_ms: 29
+    transform_count: 533
+    transform_time_ms: 9
+    transform_yield_count: 150
     insert_time_ms: 2
-    insert_new_count: 349
-    insert_reused_count: 26
+    insert_new_count: 300
+    insert_reused_count: 15
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where parent =
         -1 union all select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent)
         select id from c1
@@ -57,14 +57,14 @@ recursive-cte-tests:
         | INSERT INTO TEMP q1 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q2 -> {
         TEMP SCAN base() | FILTER _.ID EQUALS q2.PARENT AS q3 RETURN (q2.ID AS ID,
         q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)
-    task_count: 1861
-    task_total_time_ms: 23
-    transform_count: 475
-    transform_time_ms: 9
-    transform_yield_count: 116
-    insert_time_ms: 2
-    insert_new_count: 219
-    insert_reused_count: 16
+    task_count: 1334
+    task_total_time_ms: 24
+    transform_count: 325
+    transform_time_ms: 10
+    transform_yield_count: 98
+    insert_time_ms: 1
+    insert_new_count: 185
+    insert_reused_count: 9
 -   query: EXPLAIN with recursive allDescendants as ( with recursive ancestorsOf250
         as ( select id, parent from t1 where id = 250 union all select b.id, b.parent
         from ancestorsOf250 as a, t1 as b where a.parent = b.id) select id, parent
@@ -78,11 +78,11 @@ recursive-cte-tests:
         ISCAN(CHILDIDX <,>) | FLATMAP q6 -> { TEMP SCAN base() | FILTER _.ID EQUALS
         q6.PARENT AS q7 RETURN (q6.ID AS ID, q6.PARENT AS PARENT) } | INSERT INTO
         TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT)
-    task_count: 2919
-    task_total_time_ms: 22
-    transform_count: 755
-    transform_time_ms: 6
-    transform_yield_count: 176
+    task_count: 2122
+    task_total_time_ms: 29
+    transform_count: 533
+    transform_time_ms: 9
+    transform_yield_count: 150
     insert_time_ms: 2
-    insert_new_count: 349
-    insert_reused_count: 26
+    insert_new_count: 300
+    insert_reused_count: 15

@@ -37,7 +37,7 @@ import com.apple.foundationdb.record.provider.common.text.TextCollatorRegistry;
 import com.apple.foundationdb.record.provider.common.text.TextCollatorRegistryJRE;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
@@ -174,7 +174,7 @@ public class CollateValue extends AbstractValue {
 
     @Nonnull
     @Override
-    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
         return super.equalsWithoutChildren(other).filter(ignored -> {
             CollateValue otherCollate = (CollateValue)other;
             return collatorRegistry.equals(otherCollate.collatorRegistry);

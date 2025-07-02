@@ -89,6 +89,9 @@ public class ComposeFieldValueOverFieldValueRule extends ValueSimplificationRule
         Verify.verify(child instanceof FieldValue);
         Verify.verify(!outerFieldPathOrdinals.isEmpty());
         Verify.verify(!outerFieldPathTypes.isEmpty());
-        call.yieldResult(FieldValue.ofFields(grandChild, ((FieldValue)(child)).getFieldPath().withSuffix(outer.getFieldPath())));
+        call.yieldResultBuilder()
+                .addConstraintsFrom(outer, child)
+                .yieldResult(FieldValue.ofFields(grandChild,
+                        ((FieldValue)(child)).getFieldPath().withSuffix(outer.getFieldPath())));
     }
 }

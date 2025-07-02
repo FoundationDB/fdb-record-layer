@@ -54,6 +54,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
@@ -98,7 +99,8 @@ public class LikeOperatorValue extends AbstractValue implements BooleanValue {
     }
 
     @Override
-    public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository, @Nonnull final CorrelationIdentifier innermostAlias) {
+    public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository,
+                                                     @Nonnull final Set<CorrelationIdentifier> localAliases) {
         return Optional.of(new ValuePredicate(srcChild, new Comparisons.ValueComparison(Comparisons.Type.LIKE, patternChild)));
     }
 

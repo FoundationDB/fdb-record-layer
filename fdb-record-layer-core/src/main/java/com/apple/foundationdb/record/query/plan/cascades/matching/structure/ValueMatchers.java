@@ -23,13 +23,18 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ToOrderedBytesValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.VariadicFunctionValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.VersionValue;
 import com.apple.foundationdb.tuple.TupleOrdering;
 import com.google.common.collect.ImmutableList;
@@ -41,11 +46,13 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcher.typed;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcherWithExtractAndDownstream.typedWithDownstream;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcherWithPredicate.typedMatcherWithPredicate;
 
 /**
  * Matchers for descendants of {@link Value}.
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class ValueMatchers {
     private ValueMatchers() {
         // do not instantiate
@@ -59,6 +66,50 @@ public class ValueMatchers {
     @Nonnull
     public static BindingMatcher<FieldValue> anyFieldValue() {
         return typed(FieldValue.class);
+    }
+
+    @Nonnull
+    public static BindingMatcher<ConstantObjectValue> anyConstantObjectValue() {
+        return typed(ConstantObjectValue.class);
+    }
+
+    @Nonnull
+    public static BindingMatcher<PromoteValue> anyPromoteValue() {
+        return typed(PromoteValue.class);
+    }
+
+    @Nonnull
+    public static BindingMatcher<VariadicFunctionValue> anyVariadicFunction() {
+        return typed(VariadicFunctionValue.class);
+    }
+
+    @Nonnull
+    public static BindingMatcher<VariadicFunctionValue> variadicFunction(
+            @Nonnull final VariadicFunctionValue.ComparisonFunction comparisonFunction) {
+        return typedMatcherWithPredicate(VariadicFunctionValue.class,
+                variadicFunctionValue -> variadicFunctionValue.getComparisonFunction() == comparisonFunction);
+    }
+
+    @Nonnull
+    public static BindingMatcher<VariadicFunctionValue> coalesceFunction() {
+        return variadicFunction(VariadicFunctionValue.ComparisonFunction.COALESCE);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Nonnull
+    public static BindingMatcher<LiteralValue<Boolean>> anyBooleanLiteralValue() {
+        return typedMatcherWithPredicate((Class<LiteralValue<Boolean>>)(Class<?>)LiteralValue.class,
+                t -> t.getResultType().getTypeCode() == Type.TypeCode.BOOLEAN);
+    }
+
+    @Nonnull
+    public static BindingMatcher<NullValue> nullValue() {
+        return typed(NullValue.class);
+    }
+
+    @Nonnull
+    public static BindingMatcher<Value> anyNotNullableValue() {
+        return typedMatcherWithPredicate(Value.class, value -> !value.getResultType().isNullable());
     }
 
     @Nonnull

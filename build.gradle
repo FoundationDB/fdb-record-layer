@@ -310,8 +310,8 @@ if (Boolean.parseBoolean(centralPublish)) {
     nexusPublishing {
         repositories {
             sonatype {
-                username = System.getenv("MAVEN_USER")
-                password = System.getenv("MAVEN_PASSWORD")
+                // Update the URL now that the OSSRH service has been sunset: https://central.sonatype.org/news/20250326_ossrh_sunset/
+                nexusUrl.set(uri("https://ossrh-staging-api.central.sonatype.com/service/local/"))
             }
         }
     }

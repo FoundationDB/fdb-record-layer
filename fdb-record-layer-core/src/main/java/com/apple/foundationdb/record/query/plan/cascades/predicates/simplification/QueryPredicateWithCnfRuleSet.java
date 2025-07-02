@@ -21,17 +21,13 @@
 package com.apple.foundationdb.record.query.plan.cascades.predicates.simplification;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.planning.BooleanPredicateNormalizer;
-import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -40,35 +36,36 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("java:S1452")
 public class QueryPredicateWithCnfRuleSet extends DefaultQueryPredicateRuleSet {
-    protected static final QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, QueryPredicate> cnfRule = new NormalFormRule(BooleanPredicateNormalizer.getDefaultInstanceForCnf());
+    protected static final QueryPredicateSimplificationRule<QueryPredicate> cnfRule = new NormalFormRule(BooleanPredicateNormalizer.getDefaultInstanceForCnf());
 
-    protected static final Set<QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, ? extends QueryPredicate>> COMPUTATION_WITH_CNF_RULES =
-            ImmutableSet.<QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, ? extends QueryPredicate>>builder()
-                    .addAll(COMPUTATION_RULES)
+    protected static final Set<QueryPredicateSimplificationRule<? extends QueryPredicate>> SIMPLIFICATION_WITH_CNF_RULES =
+            ImmutableSet.<QueryPredicateSimplificationRule<? extends QueryPredicate>>builder()
+                    .addAll(SIMPLIFICATION_RULES)
                     .add(cnfRule)
                     .build();
 
-    protected static final SetMultimap<QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, ? extends QueryPredicate>, QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, ? extends QueryPredicate>> COMPUTATION_WITH_CNF_DEPENDS_ON;
+    protected static final SetMultimap<QueryPredicateSimplificationRule<? extends QueryPredicate>, QueryPredicateSimplificationRule<? extends QueryPredicate>> SIMPLIFICATION_WITH_CNF_DEPENDS_ON;
 
     static {
-        final var computationDependsOnBuilder =
-                ImmutableSetMultimap.<QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, ? extends QueryPredicate>, QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, ? extends QueryPredicate>>builder();
-        computationDependsOnBuilder.putAll(COMPUTATION_DEPENDS_ON);
+        final var simplificationDependsOnBuilder =
+                ImmutableSetMultimap.<QueryPredicateSimplificationRule<? extends QueryPredicate>, QueryPredicateSimplificationRule<? extends QueryPredicate>>builder();
+        simplificationDependsOnBuilder.putAll(SIMPLIFICATION_DEPENDS_ON);
 
-        COMPUTATION_RULES.forEach(existingRule -> computationDependsOnBuilder.put(existingRule, cnfRule));
-        COMPUTATION_WITH_CNF_DEPENDS_ON = computationDependsOnBuilder.build();
+        SIMPLIFICATION_RULES.forEach(existingRule -> simplificationDependsOnBuilder.put(existingRule, cnfRule));
+        SIMPLIFICATION_WITH_CNF_DEPENDS_ON = simplificationDependsOnBuilder.build();
     }
 
     private QueryPredicateWithCnfRuleSet() {
-        this(COMPUTATION_WITH_CNF_RULES, COMPUTATION_WITH_CNF_DEPENDS_ON);
+        this(SIMPLIFICATION_WITH_CNF_RULES, SIMPLIFICATION_WITH_CNF_DEPENDS_ON);
     }
 
-    protected QueryPredicateWithCnfRuleSet(@Nonnull final Set<? extends AbstractQueryPredicateRule<NonnullPair<QueryPredicate, List<QueryPlanConstraint>>, QueryPredicateComputationRuleCall<EvaluationContext, List<QueryPlanConstraint>>, ? extends QueryPredicate>> abstractQueryPredicateRules,
-                                           @Nonnull final SetMultimap<? extends AbstractQueryPredicateRule<NonnullPair<QueryPredicate, List<QueryPlanConstraint>>, QueryPredicateComputationRuleCall<EvaluationContext, List<QueryPlanConstraint>>, ? extends QueryPredicate>, ? extends AbstractQueryPredicateRule<NonnullPair<QueryPredicate, List<QueryPlanConstraint>>, QueryPredicateComputationRuleCall<EvaluationContext, List<QueryPlanConstraint>>, ? extends QueryPredicate>> dependsOn) {
+    protected QueryPredicateWithCnfRuleSet(@Nonnull final Set<? extends AbstractQueryPredicateRule<QueryPredicate, QueryPredicateSimplificationRuleCall, ? extends QueryPredicate>> abstractQueryPredicateRules,
+                                           @Nonnull final SetMultimap<? extends AbstractQueryPredicateRule<QueryPredicate, QueryPredicateSimplificationRuleCall, ? extends QueryPredicate>, ? extends AbstractQueryPredicateRule<QueryPredicate, QueryPredicateSimplificationRuleCall, ? extends QueryPredicate>> dependsOn) {
         super(abstractQueryPredicateRules, dependsOn);
     }
 
-    public static QueryPredicateWithCnfRuleSet ofComputationRules() {
+    @Nonnull
+    public static QueryPredicateWithCnfRuleSet ofSimplificationRules() {
         return new QueryPredicateWithCnfRuleSet();
     }
 }
