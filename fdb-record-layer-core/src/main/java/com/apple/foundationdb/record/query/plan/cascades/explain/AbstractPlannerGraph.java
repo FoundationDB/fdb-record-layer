@@ -109,7 +109,7 @@ public class AbstractPlannerGraph<N extends AbstractPlannerGraph.AbstractNode, E
         }
 
         @Nonnull
-        public PlannerGraphBuilder<N, E, B> addNode(@Nonnull final N node) {
+        public final PlannerGraphBuilder<N, E, B> addNode(@Nonnull final N node) {
             network.addNode(node);
             return this;
         }

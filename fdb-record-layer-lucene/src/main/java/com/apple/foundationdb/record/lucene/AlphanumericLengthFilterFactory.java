@@ -36,6 +36,7 @@ public class AlphanumericLengthFilterFactory extends TokenFilterFactory {
     public static final String MIN_KEY = "min";
     public static final String MAX_KEY = "max";
 
+    @SuppressWarnings("this-escape")
     public AlphanumericLengthFilterFactory(Map<String, String> args) {
         super(args);
         min = requireInt(args, MIN_KEY);
