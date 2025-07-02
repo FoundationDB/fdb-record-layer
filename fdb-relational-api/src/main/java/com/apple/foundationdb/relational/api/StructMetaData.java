@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.metadata.DataType;
 
+import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.sql.Wrapper;
 
@@ -90,5 +91,12 @@ public interface StructMetaData extends Wrapper {
         return 0;
     }
 
+    /**
+     * Get the {@link DataType} object equivalent of this metadata.
+     *
+     * @return the datatype object.
+     * @throws SQLException if something goes wrong.
+     */
+    @Nonnull
     DataType.StructType getRelationalDataType() throws SQLException;
 }

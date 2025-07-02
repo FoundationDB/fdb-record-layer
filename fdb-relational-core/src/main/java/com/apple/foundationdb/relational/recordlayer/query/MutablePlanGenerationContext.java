@@ -184,7 +184,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         final var arrayElements = new ArrayList<>();
         try {
             if (type == null) {
-                resolvedType = (Type.Array) DataTypeUtils.toRecordLayerType(((RelationalArray) param).getMetaData().getRelationalDataType());
+                resolvedType = (Type.Array) DataTypeUtils.toRecordLayerType(((RelationalArray) param).getMetaData().asRelationalType());
             }
             try (ResultSet rs = param.getResultSet()) {
                 while (rs.next()) {

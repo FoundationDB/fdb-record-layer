@@ -176,7 +176,9 @@ public abstract class DataType {
          *
          * @return {@code true} if the {@link DataType} has identical shape, else {@code false}
          */
-        boolean hasIdenticalStructure(Object object);
+        default boolean hasIdenticalStructure(Object object) {
+            return this.equals(object);
+        }
     }
 
     @Nonnull
@@ -201,7 +203,7 @@ public abstract class DataType {
             } else if (obj instanceof RelationalStruct) {
                 return ((RelationalStruct) obj).getMetaData().getRelationalDataType();
             } else if (obj instanceof RelationalArray) {
-                return ((RelationalArray) obj).getMetaData().getRelationalDataType();
+                return ((RelationalArray) obj).getMetaData().asRelationalType();
             } else {
                 throw new IllegalStateException("Unexpected object type: " + obj.getClass().getName());
             }

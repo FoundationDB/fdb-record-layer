@@ -656,6 +656,7 @@ class RelationalStructFacade implements RelationalStruct {
             return -1000;
         }
 
+        @Nonnull
         @Override
         public DataType.StructType getRelationalDataType() {
             return type.get();

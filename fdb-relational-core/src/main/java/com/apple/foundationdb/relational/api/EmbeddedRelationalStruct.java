@@ -101,7 +101,7 @@ public interface EmbeddedRelationalStruct extends RelationalStruct {
 
         @Override
         public Builder addArray(String fieldName, @Nonnull RelationalArray array) throws SQLException {
-            addField(fieldName, array.getMetaData().getRelationalDataType(), array);
+            addField(fieldName, array.getMetaData().asRelationalType(), array);
             return this;
         }
 

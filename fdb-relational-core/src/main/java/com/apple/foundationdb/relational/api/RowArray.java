@@ -72,7 +72,7 @@ public class RowArray implements RelationalArray, EmbeddedRelationalArray {
                 .collect(Collectors.toList());
         final var type = DataType.StructType.from("ARRAY_ROW", List.of(
                 DataType.StructType.Field.from("INDEX", DataType.Primitives.INTEGER.type(), 0),
-                DataType.StructType.Field.from("VALUE", arrayMetaData.getRelationalDataType().getElementType(), 1)
+                DataType.StructType.Field.from("VALUE", arrayMetaData.asRelationalType().getElementType(), 1)
         ), true);
         return new IteratorResultSet(RelationalStructMetaData.of(type), slice.iterator(), 0);
     }

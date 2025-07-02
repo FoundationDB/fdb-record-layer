@@ -110,7 +110,7 @@ public final class RelationalArrayMetaData implements ArrayMetaData {
 
     @Nonnull
     @Override
-    public DataType.ArrayType getRelationalDataType() throws SQLException {
+    public DataType.ArrayType asRelationalType() throws SQLException {
         return type;
     }
 

@@ -90,7 +90,7 @@ public class StructFieldGenerator implements FieldGenerator {
         if (arrayMetaData.getElementType() == Types.STRUCT) {
             componentGenerator = getStructFieldGenerator("na", arrayMetaData.getElementStructMetaData());
         } else {
-            componentGenerator = getPrimitiveFieldGenerator("na", arrayMetaData.getRelationalDataType());
+            componentGenerator = getPrimitiveFieldGenerator("na", arrayMetaData.asRelationalType());
         }
         return new ArrayFieldGenerator(name, componentGenerator, randomSource, maxArraySize);
     }

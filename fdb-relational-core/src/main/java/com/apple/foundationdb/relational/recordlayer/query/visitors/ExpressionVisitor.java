@@ -862,8 +862,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                 (resultType.isPrimitive() && PromoteValue.isPromotionNeeded(resultType, targetType))) {
             return PromoteValue.inject(value, targetType);
         }
-        if (resultType.isArray() && value instanceof AbstractArrayConstructorValue) {
-
+        if (resultType.isArray() && PromoteValue.isPromotionNeeded(resultType, targetType) && value instanceof AbstractArrayConstructorValue) {
             Assert.thatUnchecked(targetType.isArray(), "Cannot convert array type to non-array type");
             final var targetElementType = ((Type.Array) targetType).getElementType();
             return AbstractArrayConstructorValue.LightArrayConstructorValue.of(Streams.stream(value.getChildren()).map(c -> coerceValueIfNecessary(c, targetElementType)).collect(Collectors.toList()));

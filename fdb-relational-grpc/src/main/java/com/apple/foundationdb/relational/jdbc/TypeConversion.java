@@ -71,13 +71,13 @@ import static com.apple.foundationdb.relational.jdbc.RelationalStructFacade.Rela
 public class TypeConversion {
     /**
      * Return {@link RelationalStruct} instance found at <code>rowIndex</code> and <code>oneBasedColumn</code> offsets.
+     * Manipulation of protobufs. Exploits package-private internal attributes of {@link RelationalStructFacade}.
      * @param resultSet Protobuf ResultSet to fetch {@link RelationalStruct} from.
      * @param rowIndex Current 'row' offset into <code>resultSet</code>
      * @param oneBasedColumn One-based column index where we'll find the {@link RelationalStruct} instance.
      * @return {@link RelationalStruct} instance pulled from <code>resultSet</code>
      * @throws SQLException If failed get of <code>resultSet</code> metadata.
      */
-    // Manipulation of protobufs. Exploits package-private internal attributes of {@link RelationalStructFacade}.
     static RelationalStruct getStruct(ResultSet resultSet, int rowIndex, int oneBasedColumn) throws SQLException {
         int index = PositionalIndex.toProtobuf(oneBasedColumn);
         var metadata =
@@ -240,7 +240,7 @@ public class TypeConversion {
         var columnMetadataBuilder = ColumnMetadata.newBuilder()
                 .setName(metadata.getElementName())
                 .setJavaSqlTypesCode(metadata.getElementType())
-                .setType(toProtobufType(metadata.getRelationalDataType().getElementType()))
+                .setType(toProtobufType(metadata.asRelationalType().getElementType()))
                 .setNullable(metadata.isElementNullable() == DatabaseMetaData.columnNullable);
         // TODO phantom.
         // TODO: label

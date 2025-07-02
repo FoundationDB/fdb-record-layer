@@ -247,8 +247,8 @@ public class FRL implements AutoCloseable {
         }
     }
 
-    private static void addPreparedStatementParameter(RelationalPreparedStatement relationalPreparedStatement,
-                                                      Parameter parameter, int index) throws SQLException {
+    private static void addPreparedStatementParameter(@Nonnull RelationalPreparedStatement relationalPreparedStatement,
+                                                      @Nonnull Parameter parameter, int index) throws SQLException {
         final var oneOfValue = parameter.getParameter();
         if (oneOfValue.hasString()) {
             relationalPreparedStatement.setString(index, oneOfValue.getString());

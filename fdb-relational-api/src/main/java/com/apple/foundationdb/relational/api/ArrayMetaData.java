@@ -62,6 +62,12 @@ public interface ArrayMetaData extends Wrapper {
      */
     ArrayMetaData getElementArrayMetaData() throws SQLException;
 
+    /**
+     * Get the {@link DataType} object equivalent of this metadata.
+     *
+     * @return the datatype object.
+     * @throws SQLException if something goes wrong.
+     */
     @Nonnull
-    DataType.ArrayType getRelationalDataType() throws SQLException;
+    DataType.ArrayType asRelationalType() throws SQLException;
 }
