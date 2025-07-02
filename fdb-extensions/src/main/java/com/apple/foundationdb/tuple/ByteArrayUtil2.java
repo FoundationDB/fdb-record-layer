@@ -35,6 +35,7 @@ public class ByteArrayUtil2 {
 
     private static final byte EQUALS_CHARACTER = (byte)'=';
     private static final byte DOUBLE_QUOTE_CHARACTER = (byte)'"';
+    private static final byte SINGLE_QUOTE_CHARACTER = (byte)'\'';
     private static final byte BACKSLASH_CHARACTER = (byte)'\\';
     private static final byte MINIMUM_PRINTABLE_CHARACTER = 32;
     private static final int MAXIMUM_PRINTABLE_CHARACTER = 127;
@@ -71,7 +72,7 @@ public class ByteArrayUtil2 {
      * Creates a human-readable representation of {@code bytes} for logging purposes.
      * This differs from {@link ByteArrayUtil#printable(byte[])} in tha it excludes the
      * {@code =} and {@code "} characters, which can cause trouble when included as a
-     * key or value in log messages with keys and values.
+     * key or value in log messages with keys and values. For the same purpose, {@code '} is escaped as well.
      *
      * @param bytes a {@code byte} array
      * @return a hex representation of {@code bytes}
@@ -88,10 +89,12 @@ public class ByteArrayUtil2 {
             for (byte b : bytes) {
                 // remove '=' and '"' because they confuse parsing of key=value log messages
                 if (b >= MINIMUM_PRINTABLE_CHARACTER && b < MAXIMUM_PRINTABLE_CHARACTER &&
-                        b != BACKSLASH_CHARACTER && b != EQUALS_CHARACTER && b != DOUBLE_QUOTE_CHARACTER) {
+                        b != BACKSLASH_CHARACTER && b != EQUALS_CHARACTER && b != DOUBLE_QUOTE_CHARACTER && b != SINGLE_QUOTE_CHARACTER) {
                     sb.append((char)b);
                 } else if (b == BACKSLASH_CHARACTER) {
                     sb.append("\\\\");
+                } else if (b == SINGLE_QUOTE_CHARACTER) {
+                    sb.append("\\'");
                 } else {
                     sb.append("\\x").append(LOWER_CASE_HEX_CHARS[(b >>> 4) & 0x0F]).append(LOWER_CASE_HEX_CHARS[b & 0x0F]);
                 }
