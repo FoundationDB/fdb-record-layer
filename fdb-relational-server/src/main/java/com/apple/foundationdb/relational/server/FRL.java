@@ -199,15 +199,20 @@ public class FRL implements AutoCloseable {
         // to read the ResultSet after the transaction has closed will get a 'transactions is not active'.
         final var driver = (RelationalDriver) DriverManager.getDriver(createEmbeddedJDBCURI(database, schema));
         try (var connection = driver.connect(URI.create(createEmbeddedJDBCURI(database, schema)), options)) {
-            return executeInternal(connection, sql, parameters);
+            // Options are given to the connection, don't override them in the statement
+            return executeInternal(connection, sql, parameters, null);
         }
     }
 
-    private Response executeInternal(RelationalConnection connection, String sql, List<Parameter> parameters) throws SQLException {
+    private Response executeInternal(@Nonnull RelationalConnection connection,
+                                     @Nonnull String sql,
+                                     @Nullable List<Parameter> parameters,
+                                     @Nullable Options options) throws SQLException {
         ResultSet resultSet;
         if (parameters == null) {
             try (Statement statement = connection.createStatement()) {
                 try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
+                    setStatementOptions(options, statement);
                     if (relationalStatement.execute(sql)) {
                         try (RelationalResultSet rs = relationalStatement.getResultSet()) {
                             resultSet = TypeConversion.toProtobuf(rs);
@@ -225,6 +230,7 @@ public class FRL implements AutoCloseable {
             for (Parameter parameter : parameters) {
                 addPreparedStatementParameter(statement, parameter, index++);
             }
+            setStatementOptions(options, statement);
             if (statement.execute()) {
                 try (RelationalResultSet rs = statement.getResultSet()) {
                     resultSet = TypeConversion.toProtobuf(rs);
@@ -234,7 +240,12 @@ public class FRL implements AutoCloseable {
                 return Response.mutation(statement.getUpdateCount());
             }
         }
+    }
 
+    private static void setStatementOptions(final @Nullable Options options, final Statement statement) throws SQLException {
+        if (options != null) {
+            statement.setMaxRows(options.getOption(Options.Name.MAX_ROWS));
+        }
     }
 
     private static void addPreparedStatementParameter(RelationalPreparedStatement relationalPreparedStatement,
@@ -334,10 +345,10 @@ public class FRL implements AutoCloseable {
     }
 
     @Nonnull
-    public Response transactionalExecute(TransactionalToken token, String sql, List<Parameter> parameters)
+    public Response transactionalExecute(TransactionalToken token, String sql, List<Parameter> parameters, @Nullable Options options)
             throws SQLException {
         assertValidToken(token);
-        return executeInternal(token.getConnection(), sql, parameters);
+        return executeInternal(token.getConnection(), sql, parameters, options);
     }
 
     public int transactionalInsert(TransactionalToken token, String tableName, List<RelationalStruct> data)

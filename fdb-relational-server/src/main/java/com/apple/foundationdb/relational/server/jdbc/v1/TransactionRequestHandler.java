@@ -41,6 +41,7 @@ import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
 import java.sql.SQLException;
 
 /**
@@ -75,12 +76,11 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
                             .toString());
                 }
                 if (transactionalToken == null || transactionalToken.expired()) {
-                    // TODO: Wow there! should MAX_ROWS be part of the connection? It might make sense to move it elsewhere
-                    final Options options = Options.builder().withOption(Options.Name.MAX_ROWS, request.getOptions().getMaxRows()).build();
-                    transactionalToken = frl.createTransactionalToken(request.getDatabase(), request.getSchema(), options);
+                    // TODO: connection-wide options are not passed in for now
+                    transactionalToken = frl.createTransactionalToken(request.getDatabase(), request.getSchema(), Options.NONE);
                 }
                 final FRL.Response response = frl.transactionalExecute(transactionalToken, request.getSql(),
-                        request.getParameters().getParameterList());
+                        request.getParameters().getParameterList(), fromProto(request.getOptions()));
 
                 StatementResponse.Builder statementResponseBuilder = StatementResponse.newBuilder()
                         .setResultSet(response.getResultSet())
@@ -95,7 +95,7 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
                             .toString());
                 }
                 if (transactionalToken == null || transactionalToken.expired()) {
-                    // TODO: Wow there! hard setting the options to none. This contradicts the execute initialization.
+                    // TODO: connection-wide options are not passed in for now
                     transactionalToken = frl.createTransactionalToken(request.getDatabase(), request.getSchema(), Options.NONE);
                 }
                 int recordsInserted = frl.transactionalInsert(transactionalToken, request.getTableName(), TypeConversion.fromResultSetProtobuf(request.getDataResultSet()));
@@ -117,7 +117,7 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
         } catch (SQLException e) {
             // SQL exceptions are returned as payload as the connection can stay open
             if (logger.isInfoEnabled()) {
-                logger.info("Caught SQL exception: returning to client: " + e.getMessage());
+                logger.info("Caught SQL exception: returning to client: {}", e.getMessage());
             }
             Status status = GrpcSQLExceptionUtil.create(e);
             responseBuilder.setErrorResponse(Any.pack(status));
@@ -150,5 +150,16 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
                 logger.warn(KeyValueLogMessage.build("Error while closing transactional connection").toString(), e);
             }
         }
+    }
+
+    private Options fromProto(@Nullable com.apple.foundationdb.relational.jdbc.grpc.v1.Options proto) throws SQLException {
+        if (proto == null) {
+            return null;
+        }
+        final Options.Builder builder = Options.builder();
+        if (proto.hasMaxRows()) {
+            builder.withOption(Options.Name.MAX_ROWS, proto.getMaxRows());
+        }
+        return builder.build();
     }
 }

@@ -340,6 +340,7 @@ class JDBCRelationalConnection implements RelationalConnection {
 
         if (!autoCommit) {
             // Create handlers for requests and responses (as local state, they will stay around)
+            // TODO: Connection options are not being passed in yet
             serverConnection = new StatefulServerConnection(asyncStub::handleAutoCommitOff);
             this.autoCommit = false;
         } else {
