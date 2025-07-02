@@ -36,11 +36,11 @@ test_block:
   tests:
     -
       - query: select * from B where 6L = coalesce(5L, 6L)
-      - explain: "SCAN(<,>) | FILTER @c6 EQUALS coalesce_long(@c10, @c6)"
+      - explain: "SCAN(<,>) | FILTER coalesce_long(@c10, @c6) EQUALS @c6"
       - result: []
     -
       - query: select * from B where 6 = coalesce(5, 6)
-      - explain: "SCAN(<,>) | FILTER @c6 EQUALS coalesce_int(@c10, @c6)"
+      - explain: "SCAN(<,>) | FILTER coalesce_int(@c10, @c6) EQUALS @c6"
       - result: []
 ---
 test_block:
@@ -53,30 +53,30 @@ test_block:
                  {5, 'c', !l 6}]
     -
       - query: select * from B where 6L = coalesce(5L, 6L)
-      - explain: "SCAN(<,>) | FILTER @c6 EQUALS coalesce_long(@c10, @c6)"
+      - explain: "SCAN(<,>) | FILTER coalesce_long(@c10, @c6) EQUALS @c6"
       - result: []
     -
       - query: select * from B where 6L = coalesce(5I, 6I)
-      - explain: "SCAN(<,>) | FILTER @c6 EQUALS promote(coalesce_int(@c10, @c12) AS LONG)"
+      - explain: "SCAN(<,>) | FILTER promote(coalesce_int(@c10, @c12) AS LONG) EQUALS @c6"
       - result: []
     -
       - query: select * from B where 6L = coalesce(5, 6)
-      - explain: "SCAN(<,>) | FILTER @c6 EQUALS promote(coalesce_int(@c10, @c12) AS LONG)"
+      - explain: "SCAN(<,>) | FILTER promote(coalesce_int(@c10, @c12) AS LONG) EQUALS @c6"
       - result: []
     -
       - query: select * from B where 6 = coalesce(5L, 6)
-      - explain: "SCAN(<,>) | FILTER promote(@c6 AS LONG) EQUALS coalesce_long(@c10, promote(@c6 AS LONG))"
+      - explain: "SCAN(<,>) | FILTER coalesce_long(@c10, promote(@c6 AS LONG)) EQUALS promote(@c6 AS LONG)"
       - result: []
     -
       - query: select * from B where 6I = coalesce(5L, 6I)
-      - explain: "SCAN(<,>) | FILTER promote(@c6 AS LONG) EQUALS coalesce_long(@c10, promote(@c6 AS LONG))"
+      - explain: "SCAN(<,>) | FILTER coalesce_long(@c10, promote(@c6 AS LONG)) EQUALS promote(@c6 AS LONG)"
       - result: []
     -
       - query: select * from B where 6i = coalesce(5l, 6i)
-      - explain: "SCAN(<,>) | FILTER promote(@c6 AS LONG) EQUALS coalesce_long(@c10, promote(@c6 AS LONG))"
+      - explain: "SCAN(<,>) | FILTER coalesce_long(@c10, promote(@c6 AS LONG)) EQUALS promote(@c6 AS LONG)"
       - result: []
     -
       - query: select * from B where 6 = coalesce(5, 6)
-      - explain: "SCAN(<,>) | FILTER @c6 EQUALS coalesce_int(@c10, @c6)"
+      - explain: "SCAN(<,>) | FILTER coalesce_int(@c10, @c6) EQUALS @c6"
       - result: []
 ...

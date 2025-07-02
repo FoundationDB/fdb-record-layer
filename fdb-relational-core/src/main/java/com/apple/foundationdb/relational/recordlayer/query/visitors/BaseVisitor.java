@@ -161,7 +161,7 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     public SqlFunctionCatalog createFunctionCatalog(@Nonnull final RecordLayerSchemaTemplate metadata) {
-        return SqlFunctionCatalog.newInstance(metadata, caseSensitive);
+        return SqlFunctionCatalog.newInstance(metadata);
     }
 
     @Nonnull
