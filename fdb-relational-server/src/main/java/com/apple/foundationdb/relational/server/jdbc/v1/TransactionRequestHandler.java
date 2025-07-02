@@ -55,8 +55,8 @@ import java.sql.SQLException;
 public class TransactionRequestHandler implements StreamObserver<TransactionalRequest> {
     private static final Logger logger = LoggerFactory.getLogger(TransactionRequestHandler.class);
 
-    private StreamObserver<TransactionalResponse> responseObserver;
-    private FRL frl;
+    private final StreamObserver<TransactionalResponse> responseObserver;
+    private final FRL frl;
     private TransactionalToken transactionalToken;
 
     public TransactionRequestHandler(final StreamObserver<TransactionalResponse> responseObserver, final FRL frl) {
@@ -131,7 +131,6 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
     @Override
     public void onError(final Throwable throwable) {
         logger.warn("executeInTransaction: onError called", throwable);
-        // todo: Rollback uncommitted stuff?
         closeConnectionIfExists();
     }
 
