@@ -93,8 +93,6 @@ public class ByteArrayUtil2 {
                     sb.append((char)b);
                 } else if (b == BACKSLASH_CHARACTER) {
                     sb.append("\\\\");
-                } else if (b == SINGLE_QUOTE_CHARACTER) {
-                    sb.append("\\'");
                 } else {
                     sb.append("\\x").append(LOWER_CASE_HEX_CHARS[(b >>> 4) & 0x0F]).append(LOWER_CASE_HEX_CHARS[b & 0x0F]);
                 }
@@ -129,8 +127,6 @@ public class ByteArrayUtil2 {
                 c = loggedBytes.charAt(i);
                 if (c == '\\') {
                     bytes.add((byte)'\\');
-                } else if (c == '\'') {
-                    bytes.add((byte)'\'');
                 } else if (c == 'x') {
                     i++;
                     bytes.add((byte)Integer.parseInt(loggedBytes.substring(i, i + 2), 16));

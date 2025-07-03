@@ -51,7 +51,7 @@ public class ByteArrayUtil2Test {
         for (int i = (byte)'"' + 1; i < (byte)'\''; i++) {
             assertEquals(Character.toString((char) i), ByteArrayUtil2.loggable(new byte[]{(byte)i}));
         }
-        assertEquals("\\'", ByteArrayUtil2.loggable(new byte[]{(byte)'\''}));
+        assertEquals("\\x27", ByteArrayUtil2.loggable(new byte[]{(byte)'\''}));
         for (int i = (byte)'\'' + 1; i < (byte)'='; i++) {
             assertEquals(Character.toString((char) i), ByteArrayUtil2.loggable(new byte[]{(byte)i}));
         }
