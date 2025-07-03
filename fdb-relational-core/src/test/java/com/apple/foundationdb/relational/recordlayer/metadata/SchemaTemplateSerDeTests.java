@@ -38,6 +38,7 @@ import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.serde.RecordMetadataDeserializer;
 import com.apple.foundationdb.relational.recordlayer.query.Literals;
+import com.apple.foundationdb.relational.recordlayer.query.OptionsUtils;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
@@ -555,10 +556,10 @@ public class SchemaTemplateSerDeTests {
                     .withDbUri(URI.create(""))
                     .withMetadata(getRecordMetaData())
                     .withSchemaTemplate(getSchemaTemplate("testSchema", 42))
-                    .withPlannerConfiguration(PlannerConfiguration.ofAllAvailableIndexes())
+                    .withPlannerConfiguration(PlannerConfiguration.ofAllAvailableIndexes(OptionsUtils.createPlannerConfigurations(Options.none())))
                     .withUserVersion(0)
                     .build();
-            return PlanGenerator.of(Optional.empty(), ctx, ctx.getMetaData(), new RecordStoreState(null, Map.of()), Options.NONE);
+            return PlanGenerator.create(Optional.empty(), ctx, ctx.getMetaData(), new RecordStoreState(null, Map.of()), Options.NONE);
         }
     }
 }

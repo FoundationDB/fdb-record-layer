@@ -282,6 +282,15 @@ public class RecordQueryPlannerConfiguration {
     }
 
     /**
+     * Returns the set of disabled transformation rules.
+     * @return set of disabled transformation rules.
+     */
+    @Nonnull
+    public Set<String> getDisabledTransformationRules() {
+        return disabledTransformationRules;
+    }
+
+    /**
      * Return whether the query planner should defer cross products during join enumeration.
      * <br>
      * Cross products are joins of data sources that are completely independent of one another, i.e., the data sources

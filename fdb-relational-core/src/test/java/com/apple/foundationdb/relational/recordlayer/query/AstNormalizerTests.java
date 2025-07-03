@@ -53,7 +53,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.Base64;
-import java.util.BitSet;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
@@ -98,7 +97,15 @@ public class AstNormalizerTests {
             .build();
 
     @Nonnull
-    private static final BitSet emptyBitSet = new BitSet();
+    private static final PlannerConfiguration plannerConfiguration;
+
+    static {
+        try {
+            plannerConfiguration = PlannerConfiguration.ofAllAvailableIndexes(OptionsUtils.createPlannerConfigurations(Options.none()));
+        } catch (RelationalException e) {
+            throw e.toUncheckedWrappedException();
+        }
+    }
 
     private static void validate(@Nonnull final String query,
                                  @Nonnull final String expectedCanonicalRepresentation) throws RelationalException {
@@ -223,7 +230,7 @@ public class AstNormalizerTests {
                                  @Nonnull final List<Map<String, Object>> expectedParametersList,
                                  @Nullable final String expectedContinuation,
                                  int limit,
-                                 @Nullable EnumSet<AstNormalizer.Result.QueryCachingFlags> queryCachingFlags) throws RelationalException {
+                                 @Nullable EnumSet<AstNormalizer.NormalizationResult.QueryCachingFlags> queryCachingFlags) throws RelationalException {
         validate(queries, preparedParameters, expectedCanonicalRepresentation, expectedParametersList, expectedContinuation, limit, queryCachingFlags, null);
     }
 
@@ -233,7 +240,7 @@ public class AstNormalizerTests {
                                  @Nonnull final List<Map<String, Object>> expectedParametersList,
                                  @Nullable final String expectedContinuation,
                                  int limit,
-                                 @Nullable EnumSet<AstNormalizer.Result.QueryCachingFlags> queryCachingFlags,
+                                 @Nullable EnumSet<AstNormalizer.NormalizationResult.QueryCachingFlags> queryCachingFlags,
                                  @Nullable Map<Options.Name, Object> queryOptions) throws RelationalException {
         final var schemaTemplates = ImmutableList.<SchemaTemplate>builder();
         // test all queries against the same schema template.
@@ -248,7 +255,7 @@ public class AstNormalizerTests {
                                  @Nonnull final List<Map<String, Object>> expectedParametersList,
                                  @Nullable final String expectedContinuation,
                                  int limit,
-                                 @Nullable EnumSet<AstNormalizer.Result.QueryCachingFlags> queryCachingFlags,
+                                 @Nullable EnumSet<AstNormalizer.NormalizationResult.QueryCachingFlags> queryCachingFlags,
                                  @Nullable Map<Options.Name, Object> queryOptions,
                                  @Nonnull final List<SchemaTemplate> schemaTemplates,
                                  @Nonnull final String auxiliaryMetadata) throws RelationalException {
@@ -260,7 +267,7 @@ public class AstNormalizerTests {
             final var query = queries.get(i);
             final var expectedParameters = expectedParametersList.get(i);
             final var hashResults = AstNormalizer.normalizeAst(schemaTemplates.get(i), QueryParser.parse(query).getRootContext(),
-                    PreparedParams.copyOf(preparedParameters), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0, query);
+                    PreparedParams.copyOf(preparedParameters), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query);
             Assertions.assertThat(hashResults.getQueryCacheKey().getCanonicalQueryString()).isEqualTo(expectedCanonicalRepresentation);
             Assertions.assertThat(hashResults.getQueryCacheKey().getAuxiliaryMetadata()).isEqualTo(auxiliaryMetadata);
             final var execParams = hashResults.getQueryExecutionContext();
@@ -310,7 +317,7 @@ public class AstNormalizerTests {
     private static void shouldFail(@Nonnull final String query, @Nonnull final String errorMessage) {
         try {
             AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query).getRootContext(),
-                    PreparedParams.empty(), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0, query);
+                    PreparedParams.empty(), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query);
             Assertions.fail(String.format(Locale.ROOT, "expected %s to fail with %s, but it succeeded!", query, errorMessage));
         } catch (RelationalException | UncheckedRelationalException e) {
             Assertions.assertThat(e.getMessage()).contains(errorMessage);
@@ -334,9 +341,9 @@ public class AstNormalizerTests {
                                             @Nonnull PreparedParams preparedParams2) throws RelationalException {
 
         final var result1 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query1).getRootContext(),
-                PreparedParams.copyOf(preparedParams1), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0, query1);
+                PreparedParams.copyOf(preparedParams1), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query1);
         final var result2 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query2).getRootContext(),
-                PreparedParams.copyOf(preparedParams2), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0, query2);
+                PreparedParams.copyOf(preparedParams2), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query2);
         Assertions.assertThat(result1.getQueryCacheKey().getHash()).isNotEqualTo(result2.getQueryCacheKey().getHash());
     }
 
@@ -349,9 +356,9 @@ public class AstNormalizerTests {
                                          @Nonnull final String query2,
                                          @Nonnull PreparedParams preparedParams) throws RelationalException {
         final var result1 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query1).getRootContext(),
-                PreparedParams.copyOf(preparedParams), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0, query1);
+                PreparedParams.copyOf(preparedParams), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query1);
         final var result2 = AstNormalizer.normalizeAst(fakeSchemaTemplate, QueryParser.parse(query2).getRootContext(),
-                PreparedParams.copyOf(preparedParams), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0, query2);
+                PreparedParams.copyOf(preparedParams), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query2);
         Assertions.assertThat(result1.getQueryCacheKey()).isNotEqualTo(result2.getQueryCacheKey());
     }
 
@@ -361,9 +368,9 @@ public class AstNormalizerTests {
                                          @Nonnull final RecordLayerSchemaTemplate schemaTemplate2,
                                          @Nonnull PreparedParams preparedParams) throws RelationalException {
         final var result1 = AstNormalizer.normalizeAst(schemaTemplate1, QueryParser.parse(query1).getRootContext(),
-                PreparedParams.copyOf(preparedParams), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0, query1);
+                PreparedParams.copyOf(preparedParams), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query1);
         final var result2 = AstNormalizer.normalizeAst(schemaTemplate2, QueryParser.parse(query2).getRootContext(),
-                PreparedParams.copyOf(preparedParams), 0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0, query2);
+                PreparedParams.copyOf(preparedParams), 0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, query2);
         Assertions.assertThat(result1.getQueryCacheKey()).isNotEqualTo(result2.getQueryCacheKey());
     }
 
@@ -395,7 +402,7 @@ public class AstNormalizerTests {
         final String canonicalFunctionDdl;
         if (isTemporary) {
             final var normalizer = AstNormalizer.normalizeAst(schemaTemplate, QueryParser.parse(functionDdl).getRootContext(), PreparedParams.empty(),
-                    0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0, functionDdl);
+                    0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, functionDdl);
             canonicalFunctionDdl = normalizer.getQueryCacheKey().getCanonicalQueryString();
         } else {
             canonicalFunctionDdl = functionDdl;
@@ -618,7 +625,7 @@ public class AstNormalizerTests {
                 List.of(Map.of(constantId(37), 42)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DDL_STATEMENT));
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DDL_STATEMENT));
     }
 
     @Test
@@ -630,7 +637,7 @@ public class AstNormalizerTests {
                 List.of(Map.of(constantId(7), 42), Map.of(constantId(7), 42)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT));
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT));
     }
 
     @Test
@@ -642,8 +649,8 @@ public class AstNormalizerTests {
                 List.of(Map.of(constantId(7), 42), Map.of(constantId(7), 42)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT,
-                        AstNormalizer.Result.QueryCachingFlags.WITH_NO_CACHE_OPTION));
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT,
+                        AstNormalizer.NormalizationResult.QueryCachingFlags.WITH_NO_CACHE_OPTION));
     }
 
     @Test
@@ -655,7 +662,7 @@ public class AstNormalizerTests {
                 List.of(Map.of(), Map.of()),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_ADMIN_STATEMENT));
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_ADMIN_STATEMENT));
     }
 
     @Test
@@ -666,7 +673,7 @@ public class AstNormalizerTests {
                 List.of(Map.of(constantId(8), 42), Map.of(constantId(8), 42)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_UTILITY_STATEMENT));
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_UTILITY_STATEMENT));
     }
 
     @Test
@@ -678,7 +685,7 @@ public class AstNormalizerTests {
                 List.of(Map.of(constantId(7), 42), Map.of(constantId(7), 42)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT),
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
                 Map.of(Options.Name.LOG_QUERY, false));
     }
 
@@ -691,7 +698,7 @@ public class AstNormalizerTests {
                 List.of(Map.of(constantId(7), 42), Map.of(constantId(7), 42)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT),
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
                 Map.of(Options.Name.LOG_QUERY, true));
     }
 
@@ -703,7 +710,7 @@ public class AstNormalizerTests {
                 List.of(Map.of(constantId(5), 52, constantId(9), 2)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_UPDATE_STATEMENT),
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_UPDATE_STATEMENT),
                 Map.of(Options.Name.DRY_RUN, false));
     }
 
@@ -715,7 +722,7 @@ public class AstNormalizerTests {
                 List.of(Map.of(constantId(5), 52, constantId(9), 2)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_UPDATE_STATEMENT),
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_UPDATE_STATEMENT),
                 Map.of(Options.Name.DRY_RUN, true));
     }
 
@@ -727,7 +734,7 @@ public class AstNormalizerTests {
                 List.of(Map.of(constantId(5), 52, constantId(9), 2)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_UPDATE_STATEMENT, AstNormalizer.Result.QueryCachingFlags.WITH_NO_CACHE_OPTION),
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_UPDATE_STATEMENT, AstNormalizer.NormalizationResult.QueryCachingFlags.WITH_NO_CACHE_OPTION),
                 Map.of(Options.Name.DRY_RUN, true, Options.Name.LOG_QUERY, true));
     }
 
@@ -739,7 +746,7 @@ public class AstNormalizerTests {
                 List.of(Map.of(constantId(5), 52, constantId(9), 2)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_UPDATE_STATEMENT));
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_UPDATE_STATEMENT));
     }
 
     @Test
@@ -750,7 +757,7 @@ public class AstNormalizerTests {
                 List.of(Map.of(constantId(5), 42, constantId(7), "foo")),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_INSERT_STATEMENT));
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_INSERT_STATEMENT));
     }
 
     @Test
@@ -761,7 +768,7 @@ public class AstNormalizerTests {
                 List.of(Map.of(constantId(6), 42)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DELETE_STATEMENT));
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DELETE_STATEMENT));
     }
 
     @Test
@@ -970,7 +977,7 @@ public class AstNormalizerTests {
                 List.of(Map.of(constantId(7), 42, constantId(9), 43)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT));
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT));
     }
 
     @Test
@@ -1020,7 +1027,7 @@ public class AstNormalizerTests {
                 List.of(Map.of(constantId(37), 43, constantId(41), 42)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DDL_STATEMENT));
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DDL_STATEMENT));
     }
 
     @Test
@@ -1033,7 +1040,7 @@ public class AstNormalizerTests {
                         Map.of(constantId(7), 43, constantId(11), 42)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT));
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT));
     }
 
     @Test
@@ -1046,8 +1053,8 @@ public class AstNormalizerTests {
                         Map.of(constantId(7), 43, constantId(11), 42)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT,
-                        AstNormalizer.Result.QueryCachingFlags.WITH_NO_CACHE_OPTION));
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT,
+                        AstNormalizer.NormalizationResult.QueryCachingFlags.WITH_NO_CACHE_OPTION));
     }
 
     @Test
@@ -1059,7 +1066,7 @@ public class AstNormalizerTests {
                         Map.of(constantId(7), 43, constantId(11), 42)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT),
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
                 Map.of(Options.Name.LOG_QUERY, false));
     }
 
@@ -1072,7 +1079,7 @@ public class AstNormalizerTests {
                         Map.of(constantId(7), 43, constantId(11), 42)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT),
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
                 Map.of(Options.Name.LOG_QUERY, true));
     }
 
@@ -1088,7 +1095,7 @@ public class AstNormalizerTests {
                         Map.of(constantId(8), 43, constantId(12), 42)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_UTILITY_STATEMENT));
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_UTILITY_STATEMENT));
     }
 
     @Test
@@ -1106,7 +1113,7 @@ public class AstNormalizerTests {
                 List.of(Map.of(constantId(7), 42)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT),
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
                 Map.of(Options.Name.LOG_QUERY, false),
                 List.of(schemaTemplate1), normalizeQuery(tempFunctionDefinition));
     }
@@ -1121,7 +1128,7 @@ public class AstNormalizerTests {
                 List.of(Map.of(constantId(7), 42)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT),
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
                 Map.of(Options.Name.LOG_QUERY, false),
                 List.of(schemaTemplate1), "");
     }
@@ -1143,7 +1150,7 @@ public class AstNormalizerTests {
                 List.of(Map.of(constantId(7), 42)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT),
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
                 Map.of(Options.Name.LOG_QUERY, false),
                 List.of(schemaTemplate), normalizeQuery(tmpFunction1) + "||" + normalizeQuery(tmpFunction2) + "||" +
                         normalizeQuery(tmpFunction3) + "||" + normalizeQuery(tmpFunction4));
@@ -1170,7 +1177,7 @@ public class AstNormalizerTests {
                 List.of(Map.of(constantId(7), 42)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT),
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
                 Map.of(Options.Name.LOG_QUERY, false),
                 List.of(schemaTemplate), normalizeQuery(tmpFunction1) + "||" + normalizeQuery(tmpFunction2)
                         + "||" + normalizeQuery(tmpFunction3) + "||" + normalizeQuery(tmpFunction4));
@@ -1199,7 +1206,7 @@ public class AstNormalizerTests {
                 List.of(Map.of(constantId(7), 42), Map.of(constantId(7), 42)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT),
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
                 Map.of(Options.Name.LOG_QUERY, false),
                 List.of(schemaTemplate1, schemaTemplate2), normalizeQuery(tmpFunction1) + "||" +
                         normalizeQuery(tmpFunction2) + "||" + normalizeQuery(tmpFunction3));
@@ -1220,7 +1227,7 @@ public class AstNormalizerTests {
                 List.of(Map.of(constantId(7), 42)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DQL_STATEMENT),
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT),
                 Map.of(Options.Name.LOG_QUERY, false),
                 List.of(schemaTemplate), normalizeQuery(tmpFunctionA) + "||" + normalizeQuery(tmpFunctionZ));
     }
@@ -1247,7 +1254,7 @@ public class AstNormalizerTests {
                 List.of(Map.of(constantId(21, Optional.of("tmpFunction1")), 40)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DDL_STATEMENT),
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DDL_STATEMENT),
                 Map.of(Options.Name.LOG_QUERY, false));
     }
 
@@ -1263,7 +1270,7 @@ public class AstNormalizerTests {
                         constantId(31, Optional.of("tmpFunction1")), 500)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DDL_STATEMENT),
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DDL_STATEMENT),
                 Map.of(Options.Name.LOG_QUERY, false));
     }
 
@@ -1281,7 +1288,7 @@ public class AstNormalizerTests {
                         constantId(39, Optional.of("tmpFunction1")), 500)),
                 null,
                 -1,
-                EnumSet.of(AstNormalizer.Result.QueryCachingFlags.IS_DDL_STATEMENT),
+                EnumSet.of(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DDL_STATEMENT),
                 Map.of(Options.Name.LOG_QUERY, false));
     }
 
@@ -1289,7 +1296,7 @@ public class AstNormalizerTests {
     private String normalizeQuery(@Nonnull final String functionDdl) throws RelationalException {
         final var normalizer = AstNormalizer.normalizeAst(fakeSchemaTemplate,
                 QueryParser.parse(functionDdl).getRootContext(), PreparedParams.empty(),
-                0, emptyBitSet, false, PlanHashable.PlanHashMode.VC0, functionDdl);
+                0, plannerConfiguration, false, PlanHashable.PlanHashMode.VC0, functionDdl);
         return normalizer.getQueryCacheKey().getCanonicalQueryString();
     }
 }

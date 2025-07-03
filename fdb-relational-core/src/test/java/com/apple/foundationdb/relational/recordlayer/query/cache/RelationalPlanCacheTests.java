@@ -42,6 +42,7 @@ import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnectio
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.RelationalConnectionRule;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.query.OptionsUtils;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
@@ -344,13 +345,13 @@ public class RelationalPlanCacheTests {
         final PlanContext planContext = PlanContext.Builder
                 .create()
                 .fromDatabase(database)
-                .fromRecordStore(store)
+                .fromRecordStore(store, Options.none())
                 .withSchemaTemplate(embeddedConnection.getTransaction().getBoundSchemaTemplateMaybe().orElse(schemaTemplate))
                 .withMetricsCollector(Assert.notNullUnchecked(embeddedConnection.getMetricCollector()))
-                .withPlannerConfiguration(PlannerConfiguration.from(Optional.of(readableIndexes)))
+                .withPlannerConfiguration(PlannerConfiguration.of(Optional.of(readableIndexes), OptionsUtils.createPlannerConfigurations(Options.none())))
                 .withUserVersion(userVersion)
                 .build();
-        return Pair.of(PlanGenerator.of(Optional.of(cache), planContext,
+        return Pair.of(PlanGenerator.create(Optional.of(cache), planContext,
                         store.getRecordMetaData(), storeState, Options.builder().build()),
                 schemaTemplate.getIndexEntriesAsBitset(Optional.of(readableIndexes)));
     }
@@ -395,7 +396,7 @@ public class RelationalPlanCacheTests {
                                 key,
                                 secondaryKey.getSchemaTemplateVersion(),
                                 secondaryKey.getUserVersion(),
-                                secondaryKey.getReadableIndexes(),
+                                secondaryKey.getPlannerConfiguration(),
                                 secondaryKey.getAuxiliaryMetadata()),
                         cache.getStats().getAllTertiaryMappings(key, secondaryKey)
                                 .entrySet()

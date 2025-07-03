@@ -339,7 +339,7 @@ public class QueryLoggingTest {
         try (var schema = conn.getRecordLayerDatabase().loadSchema(conn.getSchema())) {
             final var store = schema.loadStore().unwrap(FDBRecordStoreBase.class);
             final var planContext = PlanContext.Builder.create()
-                    .fromRecordStore(store)
+                    .fromRecordStore(store, conn.getOptions())
                     .fromDatabase(conn.getRecordLayerDatabase())
                     .withMetricsCollector(conn.getMetricCollector())
                     .withSchemaTemplate(conn.getSchemaTemplate())
