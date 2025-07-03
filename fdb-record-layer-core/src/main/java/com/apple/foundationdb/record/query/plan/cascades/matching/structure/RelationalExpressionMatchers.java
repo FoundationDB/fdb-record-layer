@@ -222,6 +222,11 @@ public class RelationalExpressionMatchers {
     }
 
     @Nonnull
+    public static BindingMatcher<RelationalExpressionWithPredicates> withPredicatesExpression() {
+        return ofType(RelationalExpressionWithPredicates.class);
+    }
+
+    @Nonnull
     public static BindingMatcher<SelectExpression> selectExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(SelectExpression.class, any(downstream));
     }

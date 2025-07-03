@@ -317,11 +317,82 @@ public interface TreeLike<T extends TreeLike<T>> {
     }
 
     /**
-     * returns the height of the tree.
+     * returns the height of the tree rooted at {@code this} {@code TreeLike}.
      * @return the height of the tree.
      */
     default int height() {
-        return Streams.stream(getChildren()).mapToInt(TreeLike::height).max().orElse(0) + 1;
+        if (Iterables.isEmpty(getChildren())) {
+            return 0;
+        }
+        return 1 + Streams.stream(getChildren()).mapToInt(TreeLike::height).max().orElseThrow();
+    }
+
+    /**
+     * Returns the diameter of the tree. i.e. the maximum path between two leaves in the tree.
+     *
+     * @return the diameter of the tree.
+     */
+    default int diameter() {
+        return diameterWithConnectingEdgeFunction(current -> Math.min(Iterables.size(current.getChildren()), 2));
+    }
+
+    /**
+     * Calculates the diameter of the tree, incorporating the number of children of each node in the calculation.
+     * <p>
+     * Unlike a standard diameter calculation, this method considers <em>all</em> edges between a node and its children
+     * when determining the diameter. This means that when calculating the diameter at a node 'n', the edges connecting
+     * 'n' to its left and right subtrees are included, as well as the edges *within* those subtrees.  Effectively, this
+     * adds the "level" or "depth" of the node to the diameter calculation.
+     *
+     * @return The diameter of the tree, calculated with level counting enabled.
+     */
+    default int diameterWithLevelCounting() {
+        return diameterWithConnectingEdgeFunction(current -> Iterables.size(current.getChildren()));
+    }
+
+    /**
+     * Calculates the diameter of the tree, which is the longest path between any two leaves.
+     * <p>
+     * This method provides flexibility in how the root node connects to the heights of its left and right subtrees
+     * when computing the overall diameter.  By default, this connection is assumed to be a fixed cost (e.g., the number
+     * of edges required to connect the left and right heights through the root).
+     * <p>
+     * However, the {@code customConnectingEdgeFunc} parameter allows for overriding this default behavior.  This is
+     * useful for scenarios where the connection cost should be dynamically adjusted based on other factors, such as the
+     * tree's width or other relevant properties.
+     * <p>
+     * Using a custom connection function can be beneficial for scoring or evaluating the tree based on criteria beyond
+     * the traditional diameter definition.  However, be aware that modifying the connection cost may cause the returned
+     * value to deviate from the strictly defined diameter of the tree.
+     *
+     * @param customConnectingEdgeFunc A function that determines the connection cost between the current root and the
+     *                                 heights of its left and right subtrees. This function allows for customizing
+     *                                 the diameter calculation based on tree-specific properties.
+     * @return The diameter of the tree, calculated using the specified connection function.
+     */
+    default int diameterWithConnectingEdgeFunction(Function<TreeLike<T>, Integer> customConnectingEdgeFunc) {
+        if (Iterables.isEmpty(getChildren())) {
+            return 0;
+        }
+        int maxChildDiameter = 0;
+        int maxChildHeight = 0;
+        int secondMaxChildHeight = 0;
+        int connectingEdgesCount = customConnectingEdgeFunc.apply(this);
+        for (final var child : getChildren()) {
+            int diameter = child.diameterWithConnectingEdgeFunction(customConnectingEdgeFunc);
+            if (diameter > maxChildDiameter) {
+                maxChildDiameter = diameter;
+            }
+            int height = child.height();
+            if (height > maxChildHeight) {
+                secondMaxChildHeight = maxChildHeight;
+                maxChildHeight = height;
+            } else if (height > secondMaxChildHeight) {
+                secondMaxChildHeight = height;
+            }
+        }
+        return Math.max(connectingEdgesCount + maxChildHeight + secondMaxChildHeight,
+                maxChildDiameter);
     }
 
     /**

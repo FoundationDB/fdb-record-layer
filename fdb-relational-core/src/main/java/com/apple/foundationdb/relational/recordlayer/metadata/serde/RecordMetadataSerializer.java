@@ -88,6 +88,10 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
 
     @Override
     public void visit(@Nonnull final InvokedRoutine invokedRoutine) {
+        // do not serialize temporary routines in the record metadata.
+        if (invokedRoutine.isTemporary()) {
+            return;
+        }
         final var recordLayerInvokedRoutine = Assert.castUnchecked(invokedRoutine, RecordLayerInvokedRoutine.class);
         getBuilder().addUserDefinedFunction(recordLayerInvokedRoutine.asRawFunction());
     }

@@ -1,41 +1,41 @@
-unnamed-3:
+unnamed-4:
 -   query: EXPLAIN select count(*) from "TEMPLATES" where template_name = 'TEMP1'
     explain: SCAN(<,>) | TFILTER TEMPLATES | FILTER _.TEMPLATE_NAME EQUALS promote(@c11
         AS STRING) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP
         (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
-    task_count: 360
-    task_total_time_ms: 155
-    transform_count: 86
-    transform_time_ms: 93
-    transform_yield_count: 20
-    insert_time_ms: 10
-    insert_new_count: 33
-    insert_reused_count: 2
-unnamed-9:
+    task_count: 354
+    task_total_time_ms: 181
+    transform_count: 99
+    transform_time_ms: 111
+    transform_yield_count: 22
+    insert_time_ms: 12
+    insert_new_count: 36
+    insert_reused_count: 3
+unnamed-10:
 -   query: EXPLAIN select count(*) from "DATABASES" where database_id = '/FRL/DB'
     explain: SCAN(<,>) | TFILTER DATABASES | FILTER _.DATABASE_ID EQUALS promote(@c11
         AS STRING) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP
         (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
-    task_count: 372
+    task_count: 366
     task_total_time_ms: 42
-    transform_count: 93
+    transform_count: 106
     transform_time_ms: 29
-    transform_yield_count: 26
+    transform_yield_count: 28
     insert_time_ms: 2
-    insert_new_count: 33
-    insert_reused_count: 2
-unnamed-19:
+    insert_new_count: 36
+    insert_reused_count: 3
+unnamed-20:
 -   query: EXPLAIN select count(*) from "SCHEMAS" where database_id = '/FRL/DB'
     explain: 'COVERING(TEMPLATES_VALUE_INDEX <,> -> [DATABASE_ID: KEY[2], SCHEMA_NAME:
         KEY[3], TEMPLATE_NAME: KEY[0], TEMPLATE_VERSION: KEY[1]]) | FILTER _.DATABASE_ID
         EQUALS promote(@c11 AS STRING) | FETCH | MAP (_ AS _0) | AGG (count_star(*)
         AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)'
-    task_count: 642
-    task_total_time_ms: 70
-    transform_count: 154
-    transform_time_ms: 32
+    task_count: 580
+    task_total_time_ms: 78
+    transform_count: 151
+    transform_time_ms: 41
     transform_yield_count: 42
     insert_time_ms: 4
-    insert_new_count: 66
+    insert_new_count: 65
     insert_reused_count: 4

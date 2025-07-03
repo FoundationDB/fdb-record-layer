@@ -39,6 +39,7 @@ jobs:
   #   a) all the tests
   #   b) the mixed-mode tests
   test:
+    needs: [get-update-type]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -50,6 +51,12 @@ jobs:
         uses: ./actions/setup-base-env
       - name: Setup FDB
         uses: ./actions/setup-fdb
+      # Increment the version here so that the version used in tests matches the eventually published version.
+      # This is actually important in order to correctly choose appropriate external server versions during
+      # mixed mode tests (see: https://github.com/FoundationDB/fdb-record-layer/issues/3449)
+      - name: Increment version
+        shell: bash
+        run: python build/versionutils.py gradle.properties --increment -u ${{ needs.get-update-type.outputs.update-type }}
       - name: Run Gradle Test
         uses: ./actions/gradle-test
         with:
@@ -182,9 +189,9 @@ jobs:
         env:
           ORG_GRADLE_PROJECT_signingKey: ${{ secrets.GPG_PRIVATE_KEY }}
           ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.GPG_PASSPHRASE }}
+          ORG_GRADLE_PROJECT_sonatypeUsername: ${{ secrets.SONATYPE_USERNAME }}
+          ORG_GRADLE_PROJECT_sonatypePassword: ${{ secrets.SONATYPE_PASSWORD }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          MAVEN_USER: ${{ secrets.MAVEN_USER }}
-          MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
   
       # Post release: Update various files which reference version
       # Updating the yaml files has to be done after the tests complete, or it will mark tests as failing that aren't

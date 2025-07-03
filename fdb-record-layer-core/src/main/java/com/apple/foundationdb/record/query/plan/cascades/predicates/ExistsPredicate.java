@@ -33,7 +33,7 @@ import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
@@ -140,13 +140,13 @@ public class ExistsPredicate extends AbstractQueryPredicate implements LeafQuery
 
     @Nonnull
     @Override
-    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final QueryPredicate other,
-                                                       @Nonnull final ValueEquivalence valueEquivalence) {
+    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final QueryPredicate other,
+                                                    @Nonnull final ValueEquivalence valueEquivalence) {
         return LeafQueryPredicate.super.equalsWithoutChildren(other, valueEquivalence)
                 .compose(ignored ->  {
                     final ExistsPredicate that = (ExistsPredicate)other;
                     if (existentialAlias.equals(that.existentialAlias)) {
-                        return BooleanWithConstraint.alwaysTrue();
+                        return ConstrainedBoolean.alwaysTrue();
                     }
                     return valueEquivalence.isDefinedEqual(existentialAlias, that.existentialAlias);
                 });

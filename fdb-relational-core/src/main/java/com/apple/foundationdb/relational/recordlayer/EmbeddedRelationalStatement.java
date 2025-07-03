@@ -63,7 +63,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
                 .fromRecordStore(store)
                 .fromDatabase(conn.getRecordLayerDatabase())
                 .withMetricsCollector(Assert.notNullUnchecked(conn.getMetricCollector()))
-                .withSchemaTemplate(conn.getSchemaTemplate())
+                .withSchemaTemplate(conn.getTransaction().getBoundSchemaTemplateMaybe().orElse(conn.getSchemaTemplate()))
                 .build();
     }
 
@@ -335,7 +335,7 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
                 } catch (SQLException sqle) {
                     exception.addSuppressed(sqle);
                 }
-            } else if (conn.canCommit()) {
+            } else if (conn.shouldCommit()) {
                 conn.commitInternal();
             }
         }

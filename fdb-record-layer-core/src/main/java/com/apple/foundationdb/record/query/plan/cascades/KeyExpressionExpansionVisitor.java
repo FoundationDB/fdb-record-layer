@@ -20,8 +20,10 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
@@ -33,18 +35,22 @@ import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionExpansionVisitor.VisitorState;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Expansion visitor that implements the shared logic between primary scan data access and value index access.
@@ -262,21 +268,113 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                                     .pullUpQuantifier(childBaseQuantifier)
                                     .build();
                     baseAndChildExpansion = GraphExpansion.ofOthers(baseExpansion, childExpansion);
+
+                    final GraphExpansion.Sealed sealedBaseAndChildExpansion = baseAndChildExpansion.seal();
+                    final SelectExpression selectExpression =
+                            sealedBaseAndChildExpansion.buildSelect();
+                    final Quantifier childQuantifier = Quantifier.forEach(Reference.initialOf(selectExpression));
+                    return sealedBaseAndChildExpansion
+                            .builderWithInheritedPlaceholders()
+                            .pullUpQuantifier(childQuantifier)
+                            .build();
                 } else {
-                    baseAndChildExpansion = childExpansion.withBase(childBaseQuantifier);
+                    //
+                    // The child expansion retains all predicates (and placeholders) defined on that child and
+                    // returns all of its original columns. We then pull up the result values so that they are now
+                    // defined using (new) child quantifier and can be put at the parent level. This is more
+                    // advantageous to matching as all columns flow from child to parent.
+                    //
+                    final var baseAndChildExpansionBuilder =
+                            GraphExpansion.builder()
+                                    .addAllPredicates(childExpansion.getPredicates())
+                                    .addAllPlaceholders(childExpansion.getPlaceholders());
+                    baseAndChildExpansionBuilder.pullUpQuantifier(childBaseQuantifier);
+                    childExpansion.getQuantifiers()
+                            .forEach(baseAndChildExpansionBuilder::pullUpQuantifier);
+                    baseAndChildExpansion = baseAndChildExpansionBuilder.build();
+
+                    final GraphExpansion.Sealed sealedBaseAndChildExpansion = baseAndChildExpansion.seal();
+                    final SelectExpression selectExpression =
+                            sealedBaseAndChildExpansion.buildSelect();
+                    final Quantifier childQuantifier = Quantifier.forEach(Reference.initialOf(selectExpression));
+                    final var childResultValue = selectExpression.getResultValue();
+
+                    final var pulledUpExpansionColumns =
+                            pullUpResultColumns(childExpansion, childResultValue, childQuantifier);
+
+                    final var pulledUpPlaceholders =
+                            pullUpPlaceholders(childExpansion, childResultValue, childQuantifier);
+
+                    return GraphExpansion.builder()
+                            .addQuantifier(childQuantifier)
+                            .addAllPredicates(pulledUpPlaceholders)
+                            .addAllPlaceholders(pulledUpPlaceholders)
+                            .addAllResultColumns(pulledUpExpansionColumns)
+                            .build();
                 }
-                final GraphExpansion.Sealed sealedBaseAndChildExpansion = baseAndChildExpansion.seal();
-                final SelectExpression selectExpression =
-                        sealedBaseAndChildExpansion.buildSelect();
-                final Quantifier childQuantifier = Quantifier.forEach(Reference.initialOf(selectExpression));
-                return sealedBaseAndChildExpansion
-                        .builderWithInheritedPlaceholders()
-                        .pullUpQuantifier(childQuantifier)
-                        .build();
             case Concatenate:
             default:
                 throw new RecordCoreException("unsupported fan type");
         }
+    }
+
+    @Nonnull
+    private static ImmutableList<Placeholder> pullUpPlaceholders(@Nonnull final GraphExpansion childExpansion,
+                                                                 @Nonnull final Value childResultValue,
+                                                                 @Nonnull final Quantifier childQuantifier) {
+        final var childExpansionPlaceholderValuesMap =
+                childExpansion.getPlaceholders()
+                        .stream()
+                        .collect(Collectors.toMap(PredicateWithValueAndRanges::getValue,
+                                Placeholder::getParameterAlias,
+                                (l, r) -> {
+                                    if (l.equals(r)) {
+                                        return l;
+                                    }
+                                    throw new RecordCoreException("ambiguous values in placeholder map");
+                                },
+                                LinkedIdentityMap::new));
+        final var childExpansionPlaceholderValues = childExpansionPlaceholderValuesMap.keySet();
+        final var pulledUpPlaceholderValuesMap =
+                childResultValue.pullUp(childExpansionPlaceholderValues, EvaluationContext.empty(),
+                        AliasMap.emptyMap(), ImmutableSet.of(), childQuantifier.getAlias());
+        return childExpansionPlaceholderValues
+                .stream()
+                .map(value -> {
+                    if (!pulledUpPlaceholderValuesMap.containsKey(value)) {
+                        throw new RecordCoreException("could not pull expansion value " + value)
+                                .addLogInfo(LogMessageKeys.VALUE, value);
+                    }
+                    final var pulledUpValue = pulledUpPlaceholderValuesMap.get(value);
+                    final var parameterAlias =
+                            Objects.requireNonNull(childExpansionPlaceholderValuesMap.get(value));
+                    return Placeholder.newInstanceWithoutRanges(pulledUpValue, parameterAlias);
+                })
+                .collect(ImmutableList.toImmutableList());
+    }
+
+    @Nonnull
+    private static ImmutableList<Column<? extends Value>> pullUpResultColumns(@Nonnull final GraphExpansion childExpansion,
+                                                                              @Nonnull final Value childResultValue,
+                                                                              @Nonnull final Quantifier childQuantifier) {
+        final var childExpansionValues =
+                childExpansion.getResultColumns()
+                        .stream()
+                        .map(Column::getValue)
+                        .collect(ImmutableList.toImmutableList());
+        final var pulledUpValuesMap =
+                childResultValue.pullUp(childExpansionValues, EvaluationContext.empty(),
+                        AliasMap.emptyMap(), ImmutableSet.of(), childQuantifier.getAlias());
+        return childExpansionValues.stream()
+                .map(value -> {
+                    if (!pulledUpValuesMap.containsKey(value)) {
+                        throw new RecordCoreException("could not pull expansion value " + value)
+                                .addLogInfo(LogMessageKeys.VALUE, value);
+                    }
+                    return pulledUpValuesMap.get(value);
+                })
+                .map(Column::unnamedOf)
+                .collect(ImmutableList.toImmutableList());
     }
 
     @Nonnull

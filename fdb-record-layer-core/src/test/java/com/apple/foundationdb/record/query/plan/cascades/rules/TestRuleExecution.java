@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.Traversal;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -40,17 +41,27 @@ import java.util.Iterator;
  * {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner}.
  */
 public class TestRuleExecution {
-    private final boolean ruleMatched;
+    private final int ruleMatchedCount;
+    private final boolean hasYielded;
     @Nonnull
     private final Reference result;
 
-    private TestRuleExecution(boolean ruleMatched, @Nonnull Reference result) {
-        this.ruleMatched = ruleMatched;
+    private TestRuleExecution(int ruleMatchedCount, boolean hasYielded, @Nonnull Reference result) {
+        this.ruleMatchedCount = ruleMatchedCount;
+        this.hasYielded = hasYielded;
         this.result = result;
     }
 
     public boolean isRuleMatched() {
-        return ruleMatched;
+        return ruleMatchedCount > 0;
+    }
+
+    public int getRuleMatchedCount() {
+        return ruleMatchedCount;
+    }
+
+    public boolean hasYielded() {
+        return hasYielded;
     }
 
     @Nonnull
@@ -73,17 +84,27 @@ public class TestRuleExecution {
                                               @Nonnull CascadesRule<? extends RelationalExpression> rule,
                                               @Nonnull Reference group,
                                               @Nonnull final EvaluationContext evaluationContext) {
-        boolean ruleMatched = false;
+        int matchesCount = 0;
+        boolean hasYielded = false;
         for (RelationalExpression expression : group.getAllMemberExpressions()) {
-            final Iterator<CascadesRuleCall> ruleCalls = rule.getMatcher().bindMatches(context.getPlannerConfiguration(), PlannerBindings.empty(), expression)
-                    .map(bindings -> new CascadesRuleCall(PlannerPhase.REWRITING, context, rule, group,
-                            Traversal.withRoot(group), new ArrayDeque<>(), bindings, evaluationContext))
-                    .iterator();
+            final Iterator<CascadesRuleCall> ruleCalls =
+                    rule.getMatcher()
+                            .bindMatches(context.getPlannerConfiguration(),
+                                    PlannerBindings.newBuilder()
+                                            .put(ReferenceMatchers.getCurrentReferenceMatcher(), group)
+                                            .build(),
+                                    expression)
+                            .map(bindings -> new CascadesRuleCall(PlannerPhase.REWRITING, context, rule, group,
+                                    Traversal.withRoot(group), new ArrayDeque<>(), bindings, evaluationContext))
+                            .iterator();
             while (ruleCalls.hasNext()) {
-                ruleCalls.next().run();
-                ruleMatched = true;
+                final var ruleCall = ruleCalls.next();
+                ruleCall.run();
+                hasYielded |= !ruleCall.getNewExploratoryExpressions().isEmpty() ||
+                        !ruleCall.getNewFinalExpressions().isEmpty();
+                matchesCount++;
             }
         }
-        return new TestRuleExecution(ruleMatched, group);
+        return new TestRuleExecution(matchesCount, hasYielded, group);
     }
 }

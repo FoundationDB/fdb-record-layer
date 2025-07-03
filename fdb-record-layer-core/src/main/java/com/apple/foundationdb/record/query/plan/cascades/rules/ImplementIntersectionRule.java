@@ -44,7 +44,7 @@ import javax.annotation.Nonnull;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.filterPartition;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.filterPlanPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.rollUpPartitionsTo;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
@@ -63,7 +63,7 @@ public class ImplementIntersectionRule extends ImplementationCascadesRule<Logica
 
     @Nonnull
     private static final BindingMatcher<Reference> intersectionLegReferenceMatcher =
-            planPartitions(filterPartition(planPartition -> planPartition.getPartitionPropertyValue(StoredRecordProperty.storedRecord()),
+            planPartitions(filterPlanPartitions(planPartition -> planPartition.getPartitionPropertyValue(StoredRecordProperty.storedRecord()),
                     rollUpPartitionsTo(any(intersectionLegPlanPartitionMatcher), PlanPropertiesMap.allAttributesExcept(DistinctRecordsProperty.distinctRecords(), OrderingProperty.ordering()))));
     @Nonnull
     private static final CollectionMatcher<Quantifier.ForEach> allForEachQuantifiersMatcher =

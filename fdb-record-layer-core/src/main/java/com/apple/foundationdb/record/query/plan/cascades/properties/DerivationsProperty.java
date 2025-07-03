@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.properties;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
@@ -845,7 +846,8 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
             final var simplifiedLocalValuesBuilder = ImmutableList.<Value>builder();
             for (final var localValue : getLocalValues()) {
                 final var aliasMap = AliasMap.emptyMap();
-                simplifiedLocalValuesBuilder.add(localValue.simplify(aliasMap, ImmutableSet.of()));
+                simplifiedLocalValuesBuilder.add(localValue.simplify(EvaluationContext.empty(), aliasMap,
+                        ImmutableSet.of()));
             }
             return simplifiedLocalValuesBuilder.build();
         }

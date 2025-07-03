@@ -22,14 +22,41 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 
 import javax.annotation.Nonnull;
+import java.util.Optional;
 
 public interface Transaction extends AutoCloseable {
 
     void commit() throws RelationalException;
 
     void abort() throws RelationalException;
+
+    /**
+     * Retrieves an `Optional` containing the bound schema template, if one exists.
+     * <br>
+     * This method allows access to the schema template that has been bound to this {@link Transaction}.
+     * If no schema template is currently bound, an empty {@code Optional} is returned.
+     *
+     * @return An {@code Optional} containing the bound {@link SchemaTemplate}, or an empty {@link Optional} if no
+     * template is bound.
+     */
+    @Nonnull
+    Optional<SchemaTemplate> getBoundSchemaTemplateMaybe();
+
+    /**
+     * Sets, or replaces the bound schema template.
+     * <br>
+     * This method binds the provided {@link SchemaTemplate} to this {@link Transaction}, any subsequent operation
+     * that requires interaction with the metadata, within the scope of this {@link Transaction} will use the bound
+     * {@link SchemaTemplate} from now on.
+     * <br>
+     * if there is already a {@link SchemaTemplate} bound to this transaction, it will be replaced by the provided
+     * {@link SchemaTemplate} argument.
+     * @param schemaTemplate The {@link SchemaTemplate} to bind.  Must not be null.
+     */
+    void setBoundSchemaTemplate(@Nonnull SchemaTemplate schemaTemplate);
 
     @Override
     void close() throws RelationalException;

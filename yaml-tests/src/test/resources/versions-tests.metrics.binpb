@@ -1,7 +1,7 @@
-Ù
+Û
 X
-	unnamed-2KEXPLAIN select "__ROW_VERSION" as version, t1.col2 from t1 where col1 = 10;ó
-É‹œÈ Úƒ˜(A0ä í8[@	XISCAN(I1 [EQUALS promote(@c14 AS LONG)]) | MAP (version([_]) AS VERSION, _.COL2 AS COL2)ù
+	unnamed-2KEXPLAIN select "__ROW_VERSION" as version, t1.col2 from t1 where col1 = 10;ñ
+ª£Ò‚≥ ™Ø£(:0ÃËw8L@XISCAN(I1 [EQUALS promote(@c14 AS LONG)]) | MAP (version([_]) AS VERSION, _.COL2 AS COL2)ù
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -11,48 +11,46 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}≤
+}±
 9
-	unnamed-2,EXPLAIN select t1.* from t1 where col1 = 10;Ù
-áÖ¸•Ì Û¬Ó(G0˙ °8W@(ISCAN(I1 [EQUALS promote(@c10 AS LONG)])™digraph G {
+	unnamed-2,EXPLAIN select t1.* from t1 where col1 = 10;Û
+ªﬂ˙–Ç ˙ê∫(;0ÎÃO8?@(ISCAN(I1 [EQUALS promote(@c10 AS LONG)])™digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c10 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
   2 -> 1 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¿
+}°
 Ö
-	unnamed-2xEXPLAIN select s.version, s.col2 from (select "__ROW_VERSION" as version, t1.col2 as col2 from t1 where col1 = 10) AS s;µ
-¯˜Ëﬂˇ ê©Ä(@0∂˚Ÿ8q@ÖISCAN(I1 [EQUALS promote(@c26 AS LONG)]) | MAP (version([_]) AS VERSION, _.COL2 AS COL2) | MAP (_.VERSION AS VERSION, _.COL2 AS COL2)çdigraph G {
+	unnamed-2xEXPLAIN select s.version, s.col2 from (select "__ROW_VERSION" as version, t1.col2 as col2 from t1 where col1 = 10) AS s;ñ
+’û∂áæ ›Ä¿(<0¢s8P@XISCAN(I1 [EQUALS promote(@c26 AS LONG)]) | MAP (version([_]) AS VERSION, _.COL2 AS COL2)ù
+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q4.VERSION AS VERSION, q4.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(VERSION AS VERSION, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (version([q2]) AS VERSION, q2.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(VERSION AS VERSION, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c26 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‰
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (version([q2]) AS VERSION, q2.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(VERSION AS VERSION, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c26 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ß
 z
-	unnamed-2mEXPLAIN select s."__ROW_VERSION", s.col2 from (select "__ROW_VERSION", t1.col2 from t1 where col1 = 10) AS s;Â
-¯ùË∫ˇ ÿ˘µ(@0÷≤‡8q@óISCAN(I1 [EQUALS promote(@c22 AS LONG)]) | MAP (version([_]) AS __ROW_VERSION, _.COL2 AS COL2) | MAP (_.__ROW_VERSION AS __ROW_VERSION, _.COL2 AS COL2)´digraph G {
+	unnamed-2mEXPLAIN select s."__ROW_VERSION", s.col2 from (select "__ROW_VERSION", t1.col2 from t1 where col1 = 10) AS s;®
+’ÚŒùæ •é„(<0“™t8P@^ISCAN(I1 [EQUALS promote(@c22 AS LONG)]) | MAP (version([_]) AS __ROW_VERSION, _.COL2 AS COL2)©
+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q4.__ROW_VERSION AS __ROW_VERSION, q4.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(VERSION AS __ROW_VERSION, )" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (version([q2]) AS __ROW_VERSION, q2.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(VERSION AS __ROW_VERSION, )" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c22 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
-  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}´
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (version([q2]) AS __ROW_VERSION, q2.COL2 AS COL2)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(VERSION AS __ROW_VERSION, )" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c22 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}™
 U
-	unnamed-2HEXPLAIN select "__ROW_VERSION" as version, t1.* from t1 where col1 = 20;—
-É∑›¡È ©“è(A0†ı¢8[@	tISCAN(I1 [EQUALS promote(@c14 AS LONG)]) | MAP (version([_]) AS VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)ª
+	unnamed-2HEXPLAIN select "__ROW_VERSION" as version, t1.* from t1 where col1 = 20;–
+ªﬁ¸÷≥ áêò(:0·õn8L@tISCAN(I1 [EQUALS promote(@c14 AS LONG)]) | MAP (version([_]) AS VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)ª
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -62,10 +60,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Â
+}‰
 W
-	unnamed-2JEXPLAIN select "__ROW_VERSION" as version, (t1.*) from t1 where col1 = 20;â
-É”ÛÙÈ Ñ’®(A0Ê∏§8[@	QISCAN(I1 [EQUALS promote(@c16 AS LONG)]) | MAP (version([_]) AS VERSION, _ AS _1)ñ
+	unnamed-2JEXPLAIN select "__ROW_VERSION" as version, (t1.*) from t1 where col1 = 20;à
+ªÄÇ˜≥ ‡ãË(:0ô≥w8L@QISCAN(I1 [EQUALS promote(@c16 AS LONG)]) | MAP (version([_]) AS VERSION, _ AS _1)ñ
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -75,10 +73,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}≤
+}±
 J
-	unnamed-2=EXPLAIN select "__ROW_VERSION", t1.* from t1 where col1 = 20;„
-ÉöôøÈ ÷Ô•(A0‹∆ó8[@	zISCAN(I1 [EQUALS promote(@c12 AS LONG)]) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)«
+	unnamed-2=EXPLAIN select "__ROW_VERSION", t1.* from t1 where col1 = 20;‚
+ªˆ≤Ê≥ Ã–Õ(:0Î˘i8L@zISCAN(I1 [EQUALS promote(@c12 AS LONG)]) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)«
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -88,10 +86,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, )" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ï
+}Î
 L
-	unnamed-2?EXPLAIN select "__ROW_VERSION", (t1.*) from t1 where col1 = 20;õ
-É·ùΩÈ Ç∂£(A0◊Ô¢8[@	WISCAN(I1 [EQUALS promote(@c14 AS LONG)]) | MAP (version([_]) AS __ROW_VERSION, _ AS _1)¢
+	unnamed-2?EXPLAIN select "__ROW_VERSION", (t1.*) from t1 where col1 = 20;ö
+ªÀªä≥ ªÈŒ(:0Õs8L@WISCAN(I1 [EQUALS promote(@c14 AS LONG)]) | MAP (version([_]) AS __ROW_VERSION, _ AS _1)¢
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -104,7 +102,7 @@ digraph G {
 }‰
 X
 	unnamed-2KEXPLAIN select "__ROW_VERSION", t1.id from t1 order by "__ROW_VERSION" ASC;á
-˛îŒÁB ø‹ø("0’Ω8@JISCAN(VERSION_INDEX <,>) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID)ù
+ŒÓ•√8 ¡∑Û( 0√ã8@JISCAN(VERSION_INDEX <,>) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID)ù
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -117,7 +115,7 @@ digraph G {
 }¢
 \
 	unnamed-2OEXPLAIN select t1."__ROW_VERSION", t1.id from t1 order by "__ROW_VERSION" DESC;¡
-˛ø»¡B —Åå("0£Å8@RISCAN(VERSION_INDEX <,> REVERSE) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID)œ
+Œ¸πÃ8 ˇ¶…( 0Ôê8@RISCAN(VERSION_INDEX <,> REVERSE) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID)œ
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -130,7 +128,7 @@ digraph G {
 }µ
 k
 	unnamed-2^EXPLAIN select t1."__ROW_VERSION", t1.id from t1 where col1 = 20 order by "__ROW_VERSION" ASC;≈
-è¶ÊÙm Üàã()0îù"8%@mISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c14 AS LONG)]) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID)∏
+ﬂÛàÎe ´—ø('0Õı8!@mISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c14 AS LONG)]) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID)∏
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -143,7 +141,7 @@ digraph G {
 }Ì
 i
 	unnamed-2\EXPLAIN select "__ROW_VERSION", t1.id from t1 where col1 = 20 order by "__ROW_VERSION" DESC;ˇ
-è≤—Úm ëß∂()0é¨8%@uISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c12 AS LONG)] REVERSE) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID)Í
+ﬂØÒ∫e ™ÜŸ('0ô∂8!@uISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c12 AS LONG)] REVERSE) | MAP (version([_]) AS __ROW_VERSION, _.ID AS ID)Í
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -156,7 +154,7 @@ digraph G {
 }Ù
 x
 	unnamed-2kEXPLAIN select "__ROW_VERSION", col1, t1.id from t1 where col1 > 10 order by col1 asc, "__ROW_VERSION" asc;˜
-È˝”ë] ´¨…('0¥æ8@ÖISCAN(GROUPED_VERSION_INDEX [[GREATER_THAN promote(@c14 AS LONG)]]) | MAP (version([_]) AS __ROW_VERSION, _.COL1 AS COL1, _.ID AS ID)—
+π∑£—U ôÖ¡(%0ßΩ8@ÖISCAN(GROUPED_VERSION_INDEX [[GREATER_THAN promote(@c14 AS LONG)]]) | MAP (version([_]) AS __ROW_VERSION, _.COL1 AS COL1, _.ID AS ID)—
 digraph G {
   fontname=courier;
   rankdir=BT;

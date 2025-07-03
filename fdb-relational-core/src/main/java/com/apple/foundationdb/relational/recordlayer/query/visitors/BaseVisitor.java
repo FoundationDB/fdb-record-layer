@@ -121,7 +121,7 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
         this.queryVisitor = QueryVisitor.of(this);
         this.metadataPlanVisitor = MetadataPlanVisitor.of(this);
         this.ddlVisitor = DdlVisitor.of(this, metadataOperationsFactory, dbUri);
-        this.semanticAnalyzer = new SemanticAnalyzer(getCatalog(), createFunctionCatalog(getCatalog()));
+        this.semanticAnalyzer = new SemanticAnalyzer(getSchemaTemplate(), createFunctionCatalog(getSchemaTemplate()), mutablePlanGenerationContext);
         this.logicalOperatorCatalog = LogicalOperatorCatalog.newInstance();
     }
 
@@ -137,15 +137,15 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     }
 
     @Nonnull
-    public RecordLayerSchemaTemplate getCatalog() {
+    public RecordLayerSchemaTemplate getSchemaTemplate() {
         return metadata;
     }
 
     @Nonnull
-    public RecordLayerSchemaTemplate replaceCatalog(@Nonnull RecordLayerSchemaTemplate newCatalog) {
+    public RecordLayerSchemaTemplate replaceSchemaTemplate(@Nonnull RecordLayerSchemaTemplate newCatalog) {
         final var oldMetadata = metadata;
         metadata = newCatalog;
-        semanticAnalyzer = new SemanticAnalyzer(metadata, createFunctionCatalog(metadata));
+        semanticAnalyzer = new SemanticAnalyzer(metadata, createFunctionCatalog(metadata), mutablePlanGenerationContext);
         return oldMetadata;
     }
 
@@ -161,7 +161,7 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     public SqlFunctionCatalog createFunctionCatalog(@Nonnull final RecordLayerSchemaTemplate metadata) {
-        return SqlFunctionCatalog.newInstance(metadata, caseSensitive);
+        return SqlFunctionCatalog.newInstance(metadata);
     }
 
     @Nonnull
@@ -413,8 +413,18 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     }
 
     @Override
+    public ProceduralPlan visitCreateTempFunction(final RelationalParser.CreateTempFunctionContext ctx) {
+        return ddlVisitor.visitCreateTempFunction(ctx);
+    }
+
+    @Override
     public CompiledSqlFunction visitCreateFunction(final RelationalParser.CreateFunctionContext ctx) {
         return ddlVisitor.visitCreateFunction(ctx);
+    }
+
+    @Override
+    public CompiledSqlFunction visitTempSqlInvokedFunction(final RelationalParser.TempSqlInvokedFunctionContext ctx) {
+        return ddlVisitor.visitTempSqlInvokedFunction(ctx);
     }
 
     @Override

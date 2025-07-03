@@ -194,6 +194,10 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
      */
     boolean isNullable();
 
+    default boolean isNotNullable() {
+        return !isNullable();
+    }
+
     default Type nullable() {
         return withNullability(true);
     }
@@ -211,6 +215,15 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
      */
     @Nonnull
     Type withNullability(boolean newIsNullable);
+
+    @Nonnull
+    default Type overrideIfNullable(boolean shouldBeNullable) {
+        if (shouldBeNullable && !isNullable()) {
+            return withNullability(true);
+        } else {
+            return this;
+        }
+    }
 
     /**
      * Safe-casts {@code this} into a {@link Array}.
@@ -510,6 +523,10 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     @Nullable
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     static Type maximumType(@Nonnull final Type t1, @Nonnull final Type t2) {
+        if (t1.getTypeCode() == TypeCode.NULL && t2.getTypeCode() == TypeCode.NULL) {
+            return Type.nullType();
+        }
+
         if (t1.getTypeCode() == TypeCode.NULL && PromoteValue.isPromotable(t1, t2)) {
             return t2.withNullability(true);
         }
@@ -1898,6 +1915,9 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         @Nonnull
         @Override
         public Record withNullability(final boolean newIsNullable) {
+            if (isNullable == newIsNullable) {
+                return this;
+            }
             return new Record(name, newIsNullable, fields);
         }
 
@@ -2428,6 +2448,20 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                 }
             }
 
+            @Nonnull
+            public Field withNullability(boolean newNullability) {
+                if (getFieldType().isNullable() == newNullability) {
+                    return this;
+                }
+                var newFieldType = getFieldType().withNullability(newNullability);
+                return new Field(newFieldType, fieldNameOptional, fieldIndexOptional);
+            }
+
+            @Nonnull
+            public Field withOverriddenTypeIfNullable(boolean shouldBeNullable) {
+                return shouldBeNullable ? withNullability(true) : this;
+            }
+
             @Override
             public boolean equals(final Object o) {
                 if (o == null) {
@@ -2787,6 +2821,9 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         @Nonnull
         @Override
         public Array withNullability(final boolean newIsNullable) {
+            if (newIsNullable == isNullable) {
+                return this;
+            }
             return new Array(newIsNullable, elementType);
         }
 

@@ -32,9 +32,9 @@ import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
+import com.apple.foundationdb.record.query.plan.cascades.PlanningRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.StableSelectorCostModel;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
@@ -48,7 +48,6 @@ import com.apple.foundationdb.relational.continuation.CompiledStatement;
 import com.apple.foundationdb.relational.continuation.TypedQueryArgument;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.query.QueryExecutionContext.OrderedLiteral;
 import com.apple.foundationdb.relational.recordlayer.query.cache.PhysicalPlanEquivalence;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor;
@@ -56,6 +55,7 @@ import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.RelationalLoggingUtil;
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.logging.log4j.LogManager;
@@ -65,6 +65,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -158,9 +159,9 @@ public final class PlanGenerator {
 
             // shortcut plan cache if the query is determined not-cacheable or the cache is not set (disabled).
             if (shouldNotCache(astHashResult.getQueryCachingFlags()) || cache.isEmpty()) {
-                Plan<?> plan = generatePhysicalPlan(astHashResult, validPlanHashModes,
-                        currentPlanHashMode);
-                RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.SKIP, stepTimeMicros(), 0);
+                Plan<?> plan = generatePhysicalPlan(astHashResult, validPlanHashModes, currentPlanHashMode);
+                RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.SKIP,
+                        stepTimeMicros(), 0);
                 return plan;
             }
 
@@ -168,7 +169,7 @@ public final class PlanGenerator {
             RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.HIT, -1, cache.get().getStats().numEntries());
 
             // otherwise, lookup the query in the cache
-            final var planEquivalence = PhysicalPlanEquivalence.of(astHashResult.getQueryExecutionParameters().getEvaluationContext());
+            final var planEquivalence = PhysicalPlanEquivalence.of(astHashResult.getQueryExecutionContext().getEvaluationContext());
             return planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.CACHE_LOOKUP, () ->
                     cache.get().reduce(
                             astHashResult.getSchemaTemplateName(),
@@ -184,7 +185,7 @@ public final class PlanGenerator {
                                 RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.MISS, stepTimeMicros(), cache.get().getStats().numEntries());
                                 return NonnullPair.of(planEquivalence.withConstraint(physicalPlan.getConstraint()), physicalPlan);
                             },
-                            value -> value.withQueryExecutionParameters(astHashResult.getQueryExecutionParameters()),
+                            value -> value.withExecutionContext(astHashResult.getQueryExecutionContext()),
                             plans -> plans.reduce(null, (acc, candidate) -> {
                                 if (candidate instanceof QueryPlan.PhysicalQueryPlan) {
                                     final var result = (QueryPlan.PhysicalQueryPlan) candidate;
@@ -231,9 +232,10 @@ public final class PlanGenerator {
                                                                @Nonnull PlanHashable.PlanHashMode currentPlanHashMode) {
         // The hash value used accounts for the values that identify the query and not part of the execution context (e.g.
         // literal and parameter values without LIMIT and CONTINUATION)
-        final var parameterHash = ast.getQueryExecutionParameters().getParameterHash();
+        final var parameterHash = ast.getQueryExecutionContext().getParameterHash();
+
         final var planGenerationContext = new MutablePlanGenerationContext(planContext.getPreparedStatementParameters(),
-                currentPlanHashMode, ast.getQuery(), parameterHash);
+                currentPlanHashMode, ast.getQuery(), ast.getQueryCacheKey().getCanonicalQueryString(), parameterHash);
         final var metadata = Assert.castUnchecked(planContext.getSchemaTemplate(), RecordLayerSchemaTemplate.class);
         try {
             final var maybePlan = planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.GENERATE_LOGICAL_PLAN, () ->
@@ -256,7 +258,7 @@ public final class PlanGenerator {
                                                                                    @Nonnull Set<PlanHashable.PlanHashMode> validPlanHashModes,
                                                                                    @Nonnull PlanHashable.PlanHashMode currentPlanHashMode)
             throws RelationalException {
-        final var queryHasherContext = ast.getQueryExecutionParameters();
+        final var queryHasherContext = ast.getQueryExecutionContext();
         final var continuationProto = queryHasherContext.getContinuation();
         final ContinuationImpl continuation;
         try {
@@ -310,8 +312,7 @@ public final class PlanGenerator {
 
         for (int i = 0; i < typedQueryArguments.length; i++) {
             final TypedQueryArgument typedQueryArgument = typedQueryArguments[i];
-            orderedLiterals[i] = deserializeTypedQueryArgument(serializationContext, typeRepository,
-                    typedQueryArgument);
+            orderedLiterals[i] = OrderedLiteral.fromProto(serializationContext, typeRepository, typedQueryArgument);
         }
 
         final var preparedStatementParameters =
@@ -320,9 +321,9 @@ public final class PlanGenerator {
         final var planGenerationContext = new MutablePlanGenerationContext(preparedStatementParameters,
                 currentPlanHashMode,
                 ast.getQuery(),
-                Objects.requireNonNull(continuation.getBindingHash()));
-        planGenerationContext.setForExplain(ast.getQueryExecutionParameters().isForExplain());
-        Arrays.stream(orderedLiterals).forEach(planGenerationContext::addStrippedLiteralOrParameter);
+                ast.getQueryCacheKey().getCanonicalQueryString(), Objects.requireNonNull(continuation.getBindingHash()));
+        planGenerationContext.setForExplain(ast.getQueryExecutionContext().isForExplain());
+        Arrays.stream(orderedLiterals).forEach(literal -> planGenerationContext.getLiteralsBuilder().addLiteral(literal));
         planGenerationContext.setContinuation(continuationProto);
         final var continuationPlanConstraint =
                 QueryPlanConstraint.fromProto(serializationContext, compiledStatement.getPlanConstraint());
@@ -348,26 +349,6 @@ public final class PlanGenerator {
 
     private long totalTimeMicros() {
         return TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - beginTime);
-    }
-
-    @Nonnull
-    private static OrderedLiteral deserializeTypedQueryArgument(@Nonnull PlanSerializationContext serializationContext,
-                                                                @Nonnull TypeRepository typeRepository,
-                                                                @Nonnull TypedQueryArgument argumentProto) {
-        final var argumentType = Type.fromTypeProto(serializationContext, argumentProto.getType());
-        if (argumentProto.hasUnnamedParameterIndex()) {
-            return OrderedLiteral.forUnnamedParameter(argumentType,
-                    LiteralsUtils.objectFromLiteralObjectProto(typeRepository, argumentType, argumentProto.getObject()),
-                    argumentProto.getUnnamedParameterIndex(), argumentProto.getTokenIndex());
-        } else if (argumentProto.hasParameterName()) {
-            return OrderedLiteral.forNamedParameter(argumentType,
-                    LiteralsUtils.objectFromLiteralObjectProto(typeRepository, argumentType, argumentProto.getObject()),
-                    argumentProto.getParameterName(), argumentProto.getTokenIndex());
-        } else {
-            return OrderedLiteral.forQueryLiteral(argumentType,
-                    LiteralsUtils.objectFromLiteralObjectProto(typeRepository, argumentType, argumentProto.getObject()),
-                    argumentProto.getTokenIndex());
-        }
     }
 
     @Nonnull
@@ -397,12 +378,15 @@ public final class PlanGenerator {
         Options.IndexFetchMethod indexFetchMethod = options.getOption(Options.Name.INDEX_FETCH_METHOD);
         CascadesPlanner planner = new CascadesPlanner(metaData, recordStoreState);
         // TODO: TODO (Expose planner configuration parameters like index scan preference)
-        RecordQueryPlannerConfiguration configuration = RecordQueryPlannerConfiguration.builder()
+        RecordQueryPlannerConfiguration.Builder configuration = RecordQueryPlannerConfiguration.builder()
                 .setIndexScanPreference(QueryPlanner.IndexScanPreference.PREFER_INDEX)
                 .setIndexFetchMethod(toRecLayerIndexFetchMethod(indexFetchMethod))
                 .setAttemptFailedInJoinAsUnionMaxSize(24)
-                .build();
-        planner.setConfiguration(configuration);
+                .setDisabledTransformationRuleNames(ImmutableSet.copyOf(options.<Collection<String>>getOption(Options.Name.DISABLED_PLANNER_RULES)), PlanningRuleSet.DEFAULT);
+        if (options.getOption(Options.Name.DISABLE_PLANNER_REWRITING)) {
+            configuration.disableRewritingRules();
+        }
+        planner.setConfiguration(configuration.build());
         return planner;
     }
 

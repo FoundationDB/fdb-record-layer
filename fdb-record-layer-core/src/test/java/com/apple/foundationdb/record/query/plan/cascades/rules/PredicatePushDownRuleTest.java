@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
+import com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
@@ -68,12 +69,12 @@ import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQuery
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.forEachWithNullOnEmpty;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.projectColumn;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.selectWithPredicates;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.EQUALS_42;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.EQUALS_PARAM;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.GREATER_THAN_HELLO;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.baseT;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.baseTau;
-import static com.apple.foundationdb.record.query.plan.cascades.rules.RuleTestHelper.join;
+import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.EQUALS_42;
+import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.EQUALS_PARAM;
+import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.GREATER_THAN_HELLO;
+import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.baseT;
+import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.baseTau;
+import static com.apple.foundationdb.record.query.plan.cascades.RuleTestHelper.join;
 
 /**
  * Tests of the {@link PredicatePushDownRule}. These operate by constructing expressions that
@@ -259,7 +260,7 @@ public class PredicatePushDownRuleTest {
                 baseQun, List.of("a", "b", "c"),
                 new ConstantPredicate(true)
         );
-        Reference lowerRef = Reference.ofExploratoryExpressions(PlannerStage.CANONICAL, ImmutableSet.of(lower1, lower2));
+        Reference lowerRef = Reference.ofFinalExpressions(PlannerStage.INITIAL, ImmutableSet.of(lower1, lower2));
         Quantifier lowerQun = Quantifier.forEach(lowerRef);
 
         SelectExpression higher = selectWithPredicates(
@@ -276,7 +277,7 @@ public class PredicatePushDownRuleTest {
                 new ConstantPredicate(true),
                 fieldPredicate(baseQun, "a", EQUALS_42)
         );
-        Reference newLowerRef = Reference.ofExploratoryExpressions(PlannerStage.CANONICAL, ImmutableSet.of(newLower1, newLower2));
+        Reference newLowerRef = Reference.ofFinalExpressions(PlannerStage.CANONICAL, ImmutableSet.of(newLower1, newLower2));
         Quantifier newLowerQun = Quantifier.forEach(newLowerRef);
 
         SelectExpression newHigher = selectWithPredicates(
@@ -294,14 +295,13 @@ public class PredicatePushDownRuleTest {
     @Test
     void canPushDownToSomeChildren() {
         Quantifier baseQun = baseT();
-        baseQun.getRangesOver().advancePlannerStage(PlannerStage.CANONICAL);
 
         // Add a second expression to the baseQun quantifier. It is identical
         // to the original quantifier contents, except it inserts an additional
         // select (which does no filtering or projection).
         Quantifier baseQun2 = baseT();
         SelectExpression selectAllT = selectWithPredicates(baseQun2);
-        baseQun.getRangesOver().insertExploratoryExpression(selectAllT);
+        baseQun.getRangesOver().insertFinalExpression(selectAllT);
 
         SelectExpression higher = selectWithPredicates(
                 baseQun, List.of("a", "c"),

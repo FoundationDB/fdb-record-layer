@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.BuiltInFunctionC
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
-import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableMap;
 
@@ -75,7 +74,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
 
     @Nonnull
     private Optional<? extends CatalogedFunction> lookupBuiltInFunction(@Nonnull final String name,
-                                                                                         @Nonnull final Expressions expressions) {
+                                                                        @Nonnull final Expressions expressions) {
         final var functionValidator = builtInSynonyms.get(name.toLowerCase(Locale.ROOT));
         if (functionValidator == null) {
             return Optional.empty();
@@ -86,7 +85,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
 
     @Nonnull
     private Optional<? extends CatalogedFunction> lookupUserDefinedFunction(@Nonnull final String name,
-                                                                                             @Nonnull final Expressions expressions) {
+                                                                            @Nonnull final Expressions expressions) {
         return userDefinedFunctionCatalog.lookup(name, expressions);
     }
 
@@ -153,11 +152,11 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
     }
 
     @Nonnull
-    public static SqlFunctionCatalogImpl newInstance(@Nonnull RecordLayerSchemaTemplate metadata, boolean isCaseSensitive) {
+    public static SqlFunctionCatalogImpl newInstance(@Nonnull RecordLayerSchemaTemplate metadata) {
         final var functionCatalog = new SqlFunctionCatalogImpl();
         metadata.getInvokedRoutines().forEach(func ->
                 functionCatalog.registerUserDefinedFunction(
-                        Assert.notNullUnchecked(SemanticAnalyzer.normalizeString(func.getName(), isCaseSensitive)),
+                        Assert.notNullUnchecked(func.getName()),
                         func.getCompilableSqlFunctionSupplier()));
         return functionCatalog;
     }

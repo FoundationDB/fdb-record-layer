@@ -500,7 +500,23 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     public CompletableFuture<FDBStoredRecord<Message>> dryRunSaveRecordAsync(@Nonnull final Message rec, @Nonnull RecordExistenceCheck existenceCheck,
                                                                              @Nullable FDBRecordVersion version, @Nonnull VersionstampSaveBehavior behavior) {
-        return saveTypedRecord(serializer, rec, existenceCheck, null, VersionstampSaveBehavior.DEFAULT, true);
+        return saveTypedRecord(serializer, rec, existenceCheck, null, VersionstampSaveBehavior.DEFAULT, true, false);
+    }
+
+    /**
+     * Internal flavor of the {@link #saveRecordAsync} method that allows bypassing of the record update lock.
+     * This is used by internal repair processes to ensure we can repair records outside the normal data flow.
+     * @param rec the record to save
+     * @param existenceCheck whether to throw an exception if a record with the same primary key does or does not already exist
+     * @param version the associated record version
+     * @param behavior the save behavior w.r.t. the given <code>version</code>
+     * @return a future that completes with the stored record form of the saved record
+     */
+    @Nonnull
+    @API(API.Status.INTERNAL)
+    public CompletableFuture<FDBStoredRecord<Message>> overrideLockSaveRecordAsync(@Nonnull final Message rec, @Nonnull RecordExistenceCheck existenceCheck,
+                                                                                   @Nullable FDBRecordVersion version, @Nonnull final VersionstampSaveBehavior behavior) {
+        return saveTypedRecord(serializer, rec, existenceCheck, version, behavior, false, true);
     }
 
     @Nonnull
@@ -510,7 +526,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                                         @Nonnull RecordExistenceCheck existenceCheck,
                                                                                         @Nullable FDBRecordVersion version,
                                                                                         @Nonnull VersionstampSaveBehavior behavior) {
-        return saveTypedRecord(typedSerializer, rec, existenceCheck, version, behavior, false);
+        return saveTypedRecord(typedSerializer, rec, existenceCheck, version, behavior, false, false);
     }
 
     @Nonnull
@@ -520,7 +536,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                                         @Nonnull RecordExistenceCheck existenceCheck,
                                                                                         @Nullable FDBRecordVersion version,
                                                                                         @Nonnull VersionstampSaveBehavior behavior,
-                                                                                        boolean isDryRun) {
+                                                                                        boolean isDryRun,
+                                                                                        boolean overrideLock) {
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
         final Descriptors.Descriptor recordDescriptor = rec.getDescriptorForType();
         final RecordType recordType = metaData.getRecordTypeForDescriptor(recordDescriptor);
@@ -555,7 +572,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 return CompletableFuture.completedFuture(newRecord);
             }
             return getRecordStoreStateAsync().thenCompose(recordStoreState -> {
-                validateRecordUpdateAllowed(recordStoreState);
+                if (!overrideLock) {
+                    validateRecordUpdateAllowed(recordStoreState);
+                }
                 final FDBStoredRecord<M> newRecord = serializeAndSaveRecord(typedSerializer, recordBuilder, metaData, oldRecord);
                 if (oldRecord == null) {
                     addRecordCount(metaData, newRecord, LITTLE_ENDIAN_INT64_ONE);
@@ -3617,7 +3636,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     private CompletableFuture<Boolean> markIndexReadable(@Nonnull Index index, boolean allowUniquePending) {
         if (recordStoreStateRef.get() == null) {
-            return preloadRecordStoreStateAsync().thenCompose(vignore -> markIndexReadable(index));
+            return preloadRecordStoreStateAsync().thenCompose(vignore -> markIndexReadable(index, allowUniquePending));
         }
 
         addIndexStateReadConflict(index.getName());

@@ -194,6 +194,14 @@ public class QuantifiedObjectValue extends AbstractValue implements QuantifiedVa
         return new QuantifiedObjectValue(alias, resultType);
     }
 
+    public static boolean isSimpleQuantifiedObjectValueOver(@Nonnull final Value value,
+                                                            @Nonnull final CorrelationIdentifier alias) {
+        if (!(value instanceof QuantifiedObjectValue)) {
+            return false;
+        }
+        return ((QuantifiedObjectValue)value).getAlias().equals(alias);
+    }
+
     /**
      * Deserializer.
      */

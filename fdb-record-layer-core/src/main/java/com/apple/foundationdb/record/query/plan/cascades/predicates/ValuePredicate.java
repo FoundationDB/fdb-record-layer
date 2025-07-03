@@ -31,7 +31,7 @@ import com.apple.foundationdb.record.planprotos.PValuePredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -175,7 +175,7 @@ public class ValuePredicate extends AbstractQueryPredicate implements PredicateW
 
     @Nonnull
     @Override
-    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final ValueEquivalence valueEquivalence) {
+    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final ValueEquivalence valueEquivalence) {
         return PredicateWithValue.super.equalsWithoutChildren(other, valueEquivalence)
                 .compose(ignored -> {
                     final ValuePredicate that = (ValuePredicate)other;

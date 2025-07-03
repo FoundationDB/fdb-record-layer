@@ -37,7 +37,7 @@ import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Set;
 
-import static com.apple.foundationdb.relational.recordlayer.query.QueryExecutionContext.OrderedLiteral.constantId;
+import static com.apple.foundationdb.relational.recordlayer.query.OrderedLiteral.constantId;
 
 /**
  * This contains a set of tests the verify equality semantics which is necessary for secondary cache load, lookup,
@@ -69,7 +69,7 @@ public class PhysicalPlanEquivalenceTests {
             new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 400));
 
     @Nonnull
-    private static final QueryPlanConstraint trueConstraint = QueryPlanConstraint.tautology();
+    private static final QueryPlanConstraint trueConstraint = QueryPlanConstraint.noConstraint();
 
     @Nonnull
     private static final QueryPlanConstraint lt100Constraint = QueryPlanConstraint.ofPredicate(lt00);

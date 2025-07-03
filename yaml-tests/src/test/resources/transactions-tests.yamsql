@@ -1,0 +1,57 @@
+#
+# transacitons-tests.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# you can add comments like this one to your scripts.
+#
+# The file is split into "documents" wherein each document is describes a block. A type of block exhibits a unique
+# functional behavior. At the top-level, there are 2 types of blocks:
+#   - setup_block: These blocks are used to control the environment needed to run the test blocks. For instance, they
+#       are used to "setup", "populate" and "destruct" the databases and tables. A file can have multiple of these to
+#       `tweak` the environment as needed by the testing block.
+#   - test_block: Defines a scope for a group of tests by setting the knobs that determines how those tests are run.
+#
+# The config block can be of the following types:
+#   - schema_template: This block carries the definition of the template based on which the database and schemas are setup
+#       automatically on the execution for the following `test_block` to use. Note that a file can have multiple of these
+#       blocks, each creating a database and schema with a different name scheme. Consequently, cleaning up of multiple
+#       of these blocks happens after all the blocks in the file has been executed, in the order of their definition.
+#       That is, 1st `schema_template` gets cleaned first, then second, then third and so on.
+#   - setup: This block gives more flexibility to the tester to setup the tests. Compared to `schema_template`, which are
+#       opaque as to how and where schemas are created, `setup` setup block gives the tester the option to execute
+#       whatever statements they want in whichever location.
+---
+options:
+    supported_version: 4.3.5.0
+---
+schema_template:
+    create table t1(id bigint, col1 bigint, primary key(id))
+---
+setup:
+  # `connect` is default and defaults to 1. Value 0 has a special meaning and depicts connection to the catalog.
+  connect: 1
+  steps:
+    - query: INSERT INTO T1 VALUES (10, 20), (30, 40), (50, 60)
+---
+test_block:
+  name: transactions-tests
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select * from t1 where id > 15;
+...

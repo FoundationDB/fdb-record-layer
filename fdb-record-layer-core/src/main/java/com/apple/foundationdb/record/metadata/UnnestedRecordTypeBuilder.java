@@ -166,8 +166,9 @@ public class UnnestedRecordTypeBuilder extends SyntheticRecordTypeBuilder<Unnest
         }
     }
 
+    @API(API.Status.INTERNAL)
     @Nullable
-    private static Descriptors.Descriptor findDescriptorByName(@Nonnull Descriptors.FileDescriptor fileDescriptor, @Nonnull String fullName) {
+    public static Descriptors.Descriptor findDescriptorByName(@Nonnull Descriptors.FileDescriptor fileDescriptor, @Nonnull String fullName) {
         // Use the seen set to protect against circular dependencies. Files should be added to the set right before they are searched through, so
         // each file will be visited at most once
         Set<Descriptors.FileDescriptor> seen = new HashSet<>();

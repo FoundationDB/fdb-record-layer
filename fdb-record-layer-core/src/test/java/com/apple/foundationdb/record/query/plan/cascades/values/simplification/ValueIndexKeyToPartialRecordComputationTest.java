@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -55,8 +56,8 @@ class ValueIndexKeyToPartialRecordComputationTest {
         final var _a_aa_aaa = FieldValue.ofFieldNames(qov, ImmutableList.of("a", "aa", "aaa"));
 
         final var resultOptional =
-                _a_aa_aaa.extractFromIndexEntryMaybe(qov, AliasMap.emptyMap(), ImmutableSet.of(),
-                        IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(1));
+                _a_aa_aaa.extractFromIndexEntryMaybe(qov, EvaluationContext.empty(), AliasMap.emptyMap(),
+                        ImmutableSet.of(), IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(1));
         Assertions.assertTrue(resultOptional.isPresent());
         final var expectedResult = new IndexEntryObjectValue(Quantifier.current(), IndexKeyValueToPartialRecord.TupleSource.KEY,
                 ImmutableIntArray.of(1), Type.primitiveType(Type.TypeCode.STRING));
@@ -73,8 +74,8 @@ class ValueIndexKeyToPartialRecordComputationTest {
         final var toOrderingBytesValue = new ToOrderedBytesValue(_a_aa_aaa, TupleOrdering.Direction.DESC_NULLS_FIRST);
 
         final var resultOptional =
-                toOrderingBytesValue.extractFromIndexEntryMaybe(qov, AliasMap.emptyMap(), ImmutableSet.of(),
-                        IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(1));
+                toOrderingBytesValue.extractFromIndexEntryMaybe(qov, EvaluationContext.empty(), AliasMap.emptyMap(),
+                        ImmutableSet.of(), IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(1));
         final var expectedResult =
                 new FromOrderedBytesValue(new IndexEntryObjectValue(Quantifier.current(),
                         IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(1),
@@ -96,8 +97,8 @@ class ValueIndexKeyToPartialRecordComputationTest {
         final var toOrderingBytesValue = new ToOrderedBytesValue(_a_aa__aaa, TupleOrdering.Direction.DESC_NULLS_FIRST);
 
         final var resultOptional =
-                toOrderingBytesValue.extractFromIndexEntryMaybe(qov, AliasMap.emptyMap(), ImmutableSet.of(),
-                        IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(1));
+                toOrderingBytesValue.extractFromIndexEntryMaybe(qov, EvaluationContext.empty(), AliasMap.emptyMap(),
+                        ImmutableSet.of(), IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(1));
         final var expectedResult =
                 new FromOrderedBytesValue(new IndexEntryObjectValue(Quantifier.current(),
                         IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(1),

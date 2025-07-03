@@ -222,7 +222,7 @@ public class EmbeddedRelationalPreparedStatement extends AbstractEmbeddedStateme
                 .fromDatabase(conn.getRecordLayerDatabase())
                 .withMetricsCollector(Assert.notNullUnchecked(conn.getMetricCollector()))
                 .withPreparedParameters(PreparedParams.of(parameters, namedParameters))
-                .withSchemaTemplate(conn.getSchemaTemplate())
+                .withSchemaTemplate(conn.getTransaction().getBoundSchemaTemplateMaybe().orElse(conn.getSchemaTemplate()))
                 .build();
     }
 

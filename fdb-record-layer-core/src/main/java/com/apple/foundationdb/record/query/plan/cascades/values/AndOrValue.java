@@ -55,6 +55,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 
 /**
@@ -212,10 +213,10 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
     @SuppressWarnings("java:S3776")
     @Override
     public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository,
-                                                     @Nonnull final CorrelationIdentifier innermostAlias) {
+                                                     @Nonnull final Set<CorrelationIdentifier> localAliases) {
         Verify.verify(leftChild instanceof BooleanValue);
         Verify.verify(rightChild instanceof BooleanValue);
-        final Optional<QueryPredicate> leftPredicateOptional = ((BooleanValue)leftChild).toQueryPredicate(typeRepository, innermostAlias);
+        final Optional<QueryPredicate> leftPredicateOptional = ((BooleanValue)leftChild).toQueryPredicate(typeRepository, localAliases);
         if (leftPredicateOptional.isPresent()) {
             final QueryPredicate leftPredicate = leftPredicateOptional.get();
             if (operator == Operator.AND && leftPredicate.equals(ConstantPredicate.FALSE)) {
@@ -224,7 +225,7 @@ public class AndOrValue extends AbstractValue implements BooleanValue {
             if (operator == Operator.OR && leftPredicate.equals(ConstantPredicate.TRUE)) {
                 return leftPredicateOptional; // short-cut, even if RHS evaluates to null.
             }
-            final Optional<QueryPredicate> rightPredicateOptional = ((BooleanValue)rightChild).toQueryPredicate(typeRepository, innermostAlias);
+            final Optional<QueryPredicate> rightPredicateOptional = ((BooleanValue)rightChild).toQueryPredicate(typeRepository, localAliases);
             if (rightPredicateOptional.isPresent()) {
                 final QueryPredicate rightPredicate = rightPredicateOptional.get();
                 if (operator == Operator.AND && rightPredicate.equals(ConstantPredicate.FALSE)) {

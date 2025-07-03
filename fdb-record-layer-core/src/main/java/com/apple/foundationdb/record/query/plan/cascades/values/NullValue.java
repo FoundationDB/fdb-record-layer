@@ -31,7 +31,7 @@ import com.apple.foundationdb.record.planprotos.PNullValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -84,7 +84,7 @@ public class NullValue extends AbstractValue implements LeafValue {
 
     @Nonnull
     @Override
-    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
         return super.equalsWithoutChildren(other)
                 .filter(ignored -> resultType.equals(other.getResultType()));
     }

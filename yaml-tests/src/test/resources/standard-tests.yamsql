@@ -80,6 +80,211 @@ test_block:
                  {ID: 12, NEWCOL: !null x},
                  {ID: 13, NEWCOL: !null x} ]
     -
+      - query: select * from T1 where COL1 = 20
+      - explain: "ISCAN(I1 [EQUALS promote(@c8 AS LONG)])"
+      - result: [
+               {ID:  6, COL1: 20, COL2:  6},
+               {ID:  7, COL1: 20, COL2:  7},
+               {ID:  8, COL1: 20, COL2:  8},
+               {ID:  9, COL1: 20, COL2:  9},
+               {ID: 10, COL1: 20, COL2: 10},
+               {ID: 11, COL1: 20, COL2: 11},
+               {ID: 12, COL1: 20, COL2: 12},
+               {ID: 13, COL1: 20, COL2: 13},
+        ]
+    -
+      - query: select * from T1 where COL1 >= 10 OR COL1 <= 20
+      - explain: "COVERING(I1 [[GREATER_THAN_OR_EQUALS promote(@c9 AS LONG)]] -> [COL1: KEY[0], ID: KEY[2]]) ⊎ COVERING(I1 [[LESS_THAN_OR_EQUALS promote(@c14 AS LONG)]] -> [COL1: KEY[0], ID: KEY[2]]) | DISTINCT BY PK | FETCH"
+      - maxRows: 0 # Force continuations mode fails here. This is because we get duplicate results when we resume from a continuation
+      - unorderedResult: [
+               {ID:  1, COL1: 10, COL2:  1},
+               {ID:  2, COL1: 10, COL2:  2},
+               {ID:  3, COL1: 10, COL2:  3},
+               {ID:  4, COL1: 10, COL2:  4},
+               {ID:  5, COL1: 10, COL2:  5},
+               {ID:  6, COL1: 20, COL2:  6},
+               {ID:  7, COL1: 20, COL2:  7},
+               {ID:  8, COL1: 20, COL2:  8},
+               {ID:  9, COL1: 20, COL2:  9},
+               {ID: 10, COL1: 20, COL2: 10},
+               {ID: 11, COL1: 20, COL2: 11},
+               {ID: 12, COL1: 20, COL2: 12},
+               {ID: 13, COL1: 20, COL2: 13},
+        ]
+    -
+      - query: select * from T1 where COL1 >= 10 OR COL1 <= 20 ORDER BY COL1
+      - explain: "ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c9 AS LONG)]]) ∪ ISCAN(I1 [[LESS_THAN_OR_EQUALS promote(@c14 AS LONG)]]) COMPARE BY (_.COL1, recordType(_), _.ID)"
+      - result: [
+               {ID:  1, COL1: 10, COL2:  1},
+               {ID:  2, COL1: 10, COL2:  2},
+               {ID:  3, COL1: 10, COL2:  3},
+               {ID:  4, COL1: 10, COL2:  4},
+               {ID:  5, COL1: 10, COL2:  5},
+               {ID:  6, COL1: 20, COL2:  6},
+               {ID:  7, COL1: 20, COL2:  7},
+               {ID:  8, COL1: 20, COL2:  8},
+               {ID:  9, COL1: 20, COL2:  9},
+               {ID: 10, COL1: 20, COL2: 10},
+               {ID: 11, COL1: 20, COL2: 11},
+               {ID: 12, COL1: 20, COL2: 12},
+               {ID: 13, COL1: 20, COL2: 13},
+        ]
+    -
+      - query: select * from T1 where COL1 >= 10 AND COL1 <= 20
+      - explain: "ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c9 AS LONG) && LESS_THAN_OR_EQUALS promote(@c14 AS LONG)]])"
+      - unorderedResult: [
+               {ID:  1, COL1: 10, COL2:  1},
+               {ID:  2, COL1: 10, COL2:  2},
+               {ID:  3, COL1: 10, COL2:  3},
+               {ID:  4, COL1: 10, COL2:  4},
+               {ID:  5, COL1: 10, COL2:  5},
+               {ID:  6, COL1: 20, COL2:  6},
+               {ID:  7, COL1: 20, COL2:  7},
+               {ID:  8, COL1: 20, COL2:  8},
+               {ID:  9, COL1: 20, COL2:  9},
+               {ID: 10, COL1: 20, COL2: 10},
+               {ID: 11, COL1: 20, COL2: 11},
+               {ID: 12, COL1: 20, COL2: 12},
+               {ID: 13, COL1: 20, COL2: 13},
+        ]
+    -
+      - query: select * from T1 where COL1 >= 10 AND COL1 <= 20 ORDER BY COL1
+      - explain: "ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c9 AS LONG) && LESS_THAN_OR_EQUALS promote(@c14 AS LONG)]])"
+      - result: [
+               {ID:  1, COL1: 10, COL2:  1},
+               {ID:  2, COL1: 10, COL2:  2},
+               {ID:  3, COL1: 10, COL2:  3},
+               {ID:  4, COL1: 10, COL2:  4},
+               {ID:  5, COL1: 10, COL2:  5},
+               {ID:  6, COL1: 20, COL2:  6},
+               {ID:  7, COL1: 20, COL2:  7},
+               {ID:  8, COL1: 20, COL2:  8},
+               {ID:  9, COL1: 20, COL2:  9},
+               {ID: 10, COL1: 20, COL2: 10},
+               {ID: 11, COL1: 20, COL2: 11},
+               {ID: 12, COL1: 20, COL2: 12},
+               {ID: 13, COL1: 20, COL2: 13},
+        ]
+    -
+      - query: select * from T1 where COL1 = 20 OR COL1 = 20
+      - explain: "ISCAN(I1 [EQUALS promote(@c8 AS LONG)])"
+      - result: [
+               {ID:  6, COL1: 20, COL2:  6},
+               {ID:  7, COL1: 20, COL2:  7},
+               {ID:  8, COL1: 20, COL2:  8},
+               {ID:  9, COL1: 20, COL2:  9},
+               {ID: 10, COL1: 20, COL2: 10},
+               {ID: 11, COL1: 20, COL2: 11},
+               {ID: 12, COL1: 20, COL2: 12},
+               {ID: 13, COL1: 20, COL2: 13},
+        ]
+    -
+      - query: select * from T1 where COL1 = 20 OR COL1 = 20 ORDER BY COL1
+      - explain: "ISCAN(I1 [EQUALS promote(@c8 AS LONG)])"
+      - result: [
+               {ID:  6, COL1: 20, COL2:  6},
+               {ID:  7, COL1: 20, COL2:  7},
+               {ID:  8, COL1: 20, COL2:  8},
+               {ID:  9, COL1: 20, COL2:  9},
+               {ID: 10, COL1: 20, COL2: 10},
+               {ID: 11, COL1: 20, COL2: 11},
+               {ID: 12, COL1: 20, COL2: 12},
+               {ID: 13, COL1: 20, COL2: 13},
+        ]
+    -
+      - query: select * from T1 where COL1 = 20 AND COL1 = 20
+      - explain: "ISCAN(I1 [EQUALS promote(@c8 AS LONG)])"
+      - result: [
+               {ID:  6, COL1: 20, COL2:  6},
+               {ID:  7, COL1: 20, COL2:  7},
+               {ID:  8, COL1: 20, COL2:  8},
+               {ID:  9, COL1: 20, COL2:  9},
+               {ID: 10, COL1: 20, COL2: 10},
+               {ID: 11, COL1: 20, COL2: 11},
+               {ID: 12, COL1: 20, COL2: 12},
+               {ID: 13, COL1: 20, COL2: 13},
+        ]
+    -
+      - query: select * from T1 where (COL1 = 20 OR COL1 = 10) AND (COL1 = 20 OR COL1 = 10)
+      - explain: "COVERING(I1 [EQUALS promote(@c9 AS LONG)] -> [COL1: KEY[0], ID: KEY[2]]) ⊎ COVERING(I1 [EQUALS promote(@c13 AS LONG)] -> [COL1: KEY[0], ID: KEY[2]]) | DISTINCT BY PK | FETCH"
+      - initialVersionLessThan: 4.3.6.0
+      # Prior to 4.3.6.0, there was an error that would result in this query failing due to an illegal argument exception
+      # The error is currently not propagated as a SQLException, so we can't even assert on the error code
+      - initialVersionAtLeast: 4.3.6.0
+      - unorderedResult: [
+               {ID:  1, COL1: 10, COL2:  1},
+               {ID:  2, COL1: 10, COL2:  2},
+               {ID:  3, COL1: 10, COL2:  3},
+               {ID:  4, COL1: 10, COL2:  4},
+               {ID:  5, COL1: 10, COL2:  5},
+               {ID:  6, COL1: 20, COL2:  6},
+               {ID:  7, COL1: 20, COL2:  7},
+               {ID:  8, COL1: 20, COL2:  8},
+               {ID:  9, COL1: 20, COL2:  9},
+               {ID: 10, COL1: 20, COL2: 10},
+               {ID: 11, COL1: 20, COL2: 11},
+               {ID: 12, COL1: 20, COL2: 12},
+               {ID: 13, COL1: 20, COL2: 13},
+        ]
+    -
+      - query: select * from T1 where (COL1 = 20 OR COL1 = 10) AND (COL1 = 20 OR COL1 = 10) ORDER BY COL1
+      - explain: "ISCAN(I1 [EQUALS promote(@c9 AS LONG)]) ∪ ISCAN(I1 [EQUALS promote(@c13 AS LONG)]) COMPARE BY (_.COL1, recordType(_), _.ID)"
+      - initialVersionLessThan: 4.3.6.0
+      # Prior to 4.3.6.0, there was an error that would result in this query failing due to an illegal argument exception
+      # The error is currently not propagated as a SQLException, so we can't even assert on the error code
+      - initialVersionAtLeast: 4.3.6.0
+      - result: [
+               {ID:  1, COL1: 10, COL2:  1},
+               {ID:  2, COL1: 10, COL2:  2},
+               {ID:  3, COL1: 10, COL2:  3},
+               {ID:  4, COL1: 10, COL2:  4},
+               {ID:  5, COL1: 10, COL2:  5},
+               {ID:  6, COL1: 20, COL2:  6},
+               {ID:  7, COL1: 20, COL2:  7},
+               {ID:  8, COL1: 20, COL2:  8},
+               {ID:  9, COL1: 20, COL2:  9},
+               {ID: 10, COL1: 20, COL2: 10},
+               {ID: 11, COL1: 20, COL2: 11},
+               {ID: 12, COL1: 20, COL2: 12},
+               {ID: 13, COL1: 20, COL2: 13},
+        ]
+    -
+      - query: select * from T1 where (COL1 >= 10 AND COL1 <= 20) OR (COL1 >= 10 AND COL1 <= 20)
+      - explain: "ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c10 AS LONG) && LESS_THAN_OR_EQUALS promote(@c15 AS LONG)]])"
+      - result: [
+               {ID:  1, COL1: 10, COL2:  1},
+               {ID:  2, COL1: 10, COL2:  2},
+               {ID:  3, COL1: 10, COL2:  3},
+               {ID:  4, COL1: 10, COL2:  4},
+               {ID:  5, COL1: 10, COL2:  5},
+               {ID:  6, COL1: 20, COL2:  6},
+               {ID:  7, COL1: 20, COL2:  7},
+               {ID:  8, COL1: 20, COL2:  8},
+               {ID:  9, COL1: 20, COL2:  9},
+               {ID: 10, COL1: 20, COL2: 10},
+               {ID: 11, COL1: 20, COL2: 11},
+               {ID: 12, COL1: 20, COL2: 12},
+               {ID: 13, COL1: 20, COL2: 13},
+        ]
+    -
+      - query: select * from T1 where (COL1 >= 10 AND COL1 <= 20) OR (COL1 >= 10 AND COL1 <= 20) ORDER BY COL1
+      - explain: "ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c10 AS LONG) && LESS_THAN_OR_EQUALS promote(@c15 AS LONG)]])"
+      - result: [
+               {ID:  1, COL1: 10, COL2:  1},
+               {ID:  2, COL1: 10, COL2:  2},
+               {ID:  3, COL1: 10, COL2:  3},
+               {ID:  4, COL1: 10, COL2:  4},
+               {ID:  5, COL1: 10, COL2:  5},
+               {ID:  6, COL1: 20, COL2:  6},
+               {ID:  7, COL1: 20, COL2:  7},
+               {ID:  8, COL1: 20, COL2:  8},
+               {ID:  9, COL1: 20, COL2:  9},
+               {ID: 10, COL1: 20, COL2: 10},
+               {ID: 11, COL1: 20, COL2: 11},
+               {ID: 12, COL1: 20, COL2: 12},
+               {ID: 13, COL1: 20, COL2: 13},
+        ]
+    -
       - query: select * from (select * from (select * from T1) as x where ID = 5) as y;
       - explain: "COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.ID EQUALS promote(@c19 AS LONG) | FETCH"
       - result: [{ID: !l 5, !l 10, !l 5}]

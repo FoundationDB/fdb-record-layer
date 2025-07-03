@@ -7,57 +7,56 @@ union-tests:
         AS _0, count_star(*) AS _1) | ON EMPTY NULL | MAP (_._0._0 AS A, coalesce_long(_._0._1,
         promote(0l AS LONG)) AS B) | MAP (_ AS _0) | AGG (sum_l(_._0.A) AS _0, sum_l(_._0.B)
         AS _1) | ON EMPTY NULL | MAP (_._0._0 AS A, _._0._1 AS B)
-    task_count: 835
-    task_total_time_ms: 11
-    transform_count: 201
-    transform_time_ms: 4
-    transform_yield_count: 57
+    task_count: 765
+    task_total_time_ms: 25
+    transform_count: 189
+    transform_time_ms: 7
+    transform_yield_count: 53
     insert_time_ms: 0
-    insert_new_count: 86
-    insert_reused_count: 7
+    insert_new_count: 76
+    insert_reused_count: 6
 -   query: EXPLAIN select sum(Y) as S from (select count(*) as Y from t3 where a <
         10 group by a union all select count(*) from t4) as X
     explain: 'AISCAN(MV10 [[LESS_THAN promote(@c22 AS DOUBLE)]] BY_GROUP -> [_0: KEY:[0],
-        _1: VALUE:[0]]) | MAP (_._1 AS Y) | MAP (_.Y AS Y) ⊎ SCAN(<,>) | TFILTER T4
-        | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
+        _1: VALUE:[0]]) | MAP (_._1 AS Y) ⊎ SCAN(<,>) | TFILTER T4 | MAP (_ AS _0)
+        | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
         promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) |
         ON EMPTY NULL | MAP (_._0._0 AS S)'
-    task_count: 831
-    task_total_time_ms: 22
-    transform_count: 207
-    transform_time_ms: 7
-    transform_yield_count: 56
-    insert_time_ms: 1
-    insert_new_count: 73
-    insert_reused_count: 5
+    task_count: 773
+    task_total_time_ms: 32
+    transform_count: 220
+    transform_time_ms: 11
+    transform_yield_count: 55
+    insert_time_ms: 0
+    insert_new_count: 68
+    insert_reused_count: 4
 -   query: EXPLAIN select sum(Y) as S from (select count(*) as Y from t3 union all
         select count(*) from t1) as X
     explain: SCAN(<,>) | TFILTER T3 | MAP (_ AS _0) | AGG (count_star(*) AS _0) |
-        ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS Y) | MAP
-        (_.Y AS Y) ⊎ ISCAN(VI1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) |
-        ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) |
-        MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS
-        S)
-    task_count: 912
-    task_total_time_ms: 22
-    transform_count: 220
-    transform_time_ms: 5
-    transform_yield_count: 64
+        ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS Y) ⊎ ISCAN(VI1
+        <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
+        promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) |
+        ON EMPTY NULL | MAP (_._0._0 AS S)
+    task_count: 801
+    task_total_time_ms: 31
+    transform_count: 203
+    transform_time_ms: 9
+    transform_yield_count: 60
     insert_time_ms: 1
-    insert_new_count: 90
+    insert_new_count: 80
     insert_reused_count: 7
 -   query: EXPLAIN select sum(Y) as S from (select count(*) as Y from t6 union all
         select count(*) from t7) as X
     explain: 'AISCAN(MV11 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
-        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS Y) | MAP (_.Y AS
-        Y) ⊎ AISCAN(MV12 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
-        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0) | MAP (_ AS
-        _0) | AGG (sum_l(_._0.Y) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS S)'
-    task_count: 1208
-    task_total_time_ms: 20
-    transform_count: 318
-    transform_time_ms: 7
-    transform_yield_count: 76
+        NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS Y) ⊎ AISCAN(MV12
+        <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0,
+        promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) |
+        ON EMPTY NULL | MAP (_._0._0 AS S)'
+    task_count: 1083
+    task_total_time_ms: 41
+    transform_count: 311
+    transform_time_ms: 12
+    transform_yield_count: 74
     insert_time_ms: 1
-    insert_new_count: 112
-    insert_reused_count: 10
+    insert_new_count: 104
+    insert_reused_count: 9
