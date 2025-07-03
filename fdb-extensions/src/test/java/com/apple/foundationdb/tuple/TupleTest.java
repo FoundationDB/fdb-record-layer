@@ -89,7 +89,7 @@ public class TupleTest {
             .add(new ExpectedTupleEncoding<>(Double.MIN_NORMAL, "!\\x80\\x10\\x00\\x00\\x00\\x00\\x00\\x00"))
             .add(new ExpectedTupleEncoding<>(0.11577446748173348d, "!\\xbf\\xbd\\xa3e?\\x8b\\xbd\\x88"))
             // TODO: Add tests for Tuple encoding of BigIntegers (https://github.com/FoundationDB/fdb-record-layer/issues/18)
-            .add(new ExpectedTupleEncoding<>(true, "'"))
+            .add(new ExpectedTupleEncoding<>(true, "\\'"))
             .add(new ExpectedTupleEncoding<>(false, "&"))
             .add(new ExpectedTupleEncoding<>(Versionstamp.complete(
                     ByteArrayUtil2.unprint("\\x93\\x82\\x8db\\x97;\\xc5\\xfbt\\x9a"), 5180),
@@ -99,11 +99,11 @@ public class TupleTest {
             .add(new ExpectedTupleEncoding<>(new ArrayList<>(0), "\\x05\\x00"))
             .add(new ExpectedTupleEncoding<>(
                     Arrays.asList(0, 1, "String " + zeroByteCharacter + " andZero", true, null, new byte[] {0, 0x03}),
-                    "\\x05\\x14\\x15\\x01\\x02String \\x00\\xff andZero\\x00'\\x00\\xff\\x01\\x00\\xff\\x03\\x00\\x00"))
+                    "\\x05\\x14\\x15\\x01\\x02String \\x00\\xff andZero\\x00\\'\\x00\\xff\\x01\\x00\\xff\\x03\\x00\\x00"))
             .add(new ExpectedTupleEncoding<>(Tuple.from(), "\\x05\\x00"))
             .add(new ExpectedTupleEncoding<>(
                     Tuple.fromList(Arrays.asList(0, 1, "String " + zeroByteCharacter + " andZero", true, null, new byte[] {0, 0x03})),
-                    "\\x05\\x14\\x15\\x01\\x02String \\x00\\xff andZero\\x00'\\x00\\xff\\x01\\x00\\xff\\x03\\x00\\x00"))
+                    "\\x05\\x14\\x15\\x01\\x02String \\x00\\xff andZero\\x00\\'\\x00\\xff\\x01\\x00\\xff\\x03\\x00\\x00"))
             .add()
             .build();
 
