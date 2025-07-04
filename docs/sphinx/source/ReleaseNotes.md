@@ -7,6 +7,40 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.4
 
+### 4.4.4.0
+
+<h4> New Features </h4>
+
+* Add support for AutoCommit(false)  - [PR #3429](https://github.com/FoundationDB/fdb-record-layer/pull/3429)
+<h4> Bug Fixes </h4>
+
+* Escape the ' character in the loggable method to help with log parser frameworks. - [PR #3460](https://github.com/FoundationDB/fdb-record-layer/pull/3460)
+* Fix eager constant folding in `RelOpValue` and other fixes - [PR #3443](https://github.com/FoundationDB/fdb-record-layer/pull/3443)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Rename shouldCommit back to canCommit - [PR #3464](https://github.com/FoundationDB/fdb-record-layer/pull/3464)
+
+</details>
+
+
+**[Full Changelog (4.4.3.0...4.4.4.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.4.3.0...4.4.4.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.2.4.0`, ✅`4.2.5.0`, ✅`4.2.6.0`, ✅`4.2.8.0`, ✅`4.3.2.0`, ✅`4.3.3.0`, ✅`4.3.3.1`, ✅`4.3.5.0`, ✅`4.3.6.0`, ✅`4.4.3.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16072652789)
+
+
+
 ### 4.4.3.0
 
 <h4> New Features </h4>
