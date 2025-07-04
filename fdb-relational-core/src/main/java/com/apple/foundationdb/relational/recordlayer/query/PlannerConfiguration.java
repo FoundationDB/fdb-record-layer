@@ -49,13 +49,18 @@ import java.util.Set;
 public final class PlannerConfiguration {
 
     @Nonnull
-    private static final PlannerConfiguration ALL_AVAILABLE_INDEXES = new PlannerConfiguration(Optional.empty());
-
-    @Nonnull
     private final Optional<Set<String>> readableIndexes;
 
-    private PlannerConfiguration(@Nonnull Optional<Set<String>> readableIndexes) {
+    @Nonnull
+    private final RecordQueryPlannerConfiguration recordQueryPlannerConfiguration;
+
+    private final int memoizedHash;
+
+    private PlannerConfiguration(@Nonnull final Optional<Set<String>> readableIndexes,
+                                 @Nonnull final RecordQueryPlannerConfiguration recordQueryPlannerConfiguration) {
         this.readableIndexes = readableIndexes;
+        this.recordQueryPlannerConfiguration = recordQueryPlannerConfiguration;
+        this.memoizedHash = computeHash();
     }
 
     @Nonnull
@@ -63,33 +68,51 @@ public final class PlannerConfiguration {
         return readableIndexes;
     }
 
+    @Nonnull
+    public RecordQueryPlannerConfiguration getRecordQueryPlannerConfiguration() {
+        return recordQueryPlannerConfiguration;
+    }
+
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
+    public boolean equals(Object other) {
+        if (this == other) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
+        if (other == null || getClass() != other.getClass()) {
             return false;
         }
-        PlannerConfiguration that = (PlannerConfiguration) o;
-        return Objects.equals(readableIndexes, that.readableIndexes);
+        final var that = (PlannerConfiguration) other;
+        return Objects.equals(readableIndexes, that.readableIndexes)
+                && this.recordQueryPlannerConfiguration.getIndexFetchMethod()
+                     .equals(that.recordQueryPlannerConfiguration.getIndexFetchMethod())
+                && this.recordQueryPlannerConfiguration.getDisabledTransformationRules()
+                     .equals(that.recordQueryPlannerConfiguration.getDisabledTransformationRules());
+    }
+
+    private int computeHash() {
+        return Objects.hash(readableIndexes, recordQueryPlannerConfiguration.getIndexFetchMethod(),
+                recordQueryPlannerConfiguration.getDisabledTransformationRules());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(readableIndexes);
+        return memoizedHash;
     }
 
     @Nonnull
-    public static PlannerConfiguration from(@Nonnull final Optional<Set<String>> readableIndexes) {
-        if (readableIndexes.isEmpty()) {
-            return ALL_AVAILABLE_INDEXES;
-        }
-        return new PlannerConfiguration(readableIndexes);
+    public static PlannerConfiguration of(@Nonnull final Optional<Set<String>> readableIndexesMaybe,
+                                          @Nonnull final RecordQueryPlannerConfiguration recordQueryPlannerConfiguration) {
+        return new PlannerConfiguration(readableIndexesMaybe, recordQueryPlannerConfiguration);
     }
 
     @Nonnull
-    public static PlannerConfiguration ofAllAvailableIndexes() {
-        return ALL_AVAILABLE_INDEXES;
+    public static PlannerConfiguration of(@Nonnull final Set<String> readableIndexes,
+                                          @Nonnull final RecordQueryPlannerConfiguration recordQueryPlannerConfiguration) {
+        return new PlannerConfiguration(Optional.of(readableIndexes), recordQueryPlannerConfiguration);
+    }
+
+    @Nonnull
+    public static PlannerConfiguration ofAllAvailableIndexes(@Nonnull final RecordQueryPlannerConfiguration recordQueryPlannerConfiguration) {
+        return new PlannerConfiguration(Optional.empty(), recordQueryPlannerConfiguration);
     }
 }

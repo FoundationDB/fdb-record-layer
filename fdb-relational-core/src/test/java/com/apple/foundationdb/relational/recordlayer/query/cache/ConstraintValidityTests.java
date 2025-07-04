@@ -43,7 +43,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
-import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
@@ -113,13 +112,12 @@ public class ConstraintValidityTests {
         final PlanContext planContext = PlanContext.Builder
                 .create()
                 .fromDatabase(database)
-                .fromRecordStore(store)
+                .fromRecordStore(store, Options.none())
                 .withSchemaTemplate(schemaTemplate)
                 .withMetricsCollector(embeddedConnection.getMetricCollector())
-                .withPlannerConfiguration(PlannerConfiguration.from(Optional.of(readableIndexes)))
                 .withUserVersion(44)
                 .build();
-        return PlanGenerator.of(Optional.of(cache), planContext, store.getRecordMetaData(), storeState, Options.builder().build());
+        return PlanGenerator.create(Optional.of(cache), planContext, store.getRecordMetaData(), storeState, Options.builder().build());
     }
 
     private void planQuery(@Nonnull final RelationalPlanCache cache,

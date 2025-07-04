@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.query.OptionsUtils;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
@@ -67,7 +68,7 @@ public class DdlTestUtil {
         return PlanContext.Builder.create()
                 .withMetadata(RecordMetaData.build(md))
                 .withMetricsCollector(Assert.notNullUnchecked(connection.getMetricCollector()))
-                .withPlannerConfiguration(PlannerConfiguration.ofAllAvailableIndexes())
+                .withPlannerConfiguration(PlannerConfiguration.ofAllAvailableIndexes(OptionsUtils.createPlannerConfigurations(Options.none())))
                 .withUserVersion(0)
                 .withDbUri(URI.create(databaseUri))
                 .withDdlQueryFactory(NoOpQueryFactory.INSTANCE)
@@ -85,7 +86,7 @@ public class DdlTestUtil {
         final var storeState = new RecordStoreState(null, Map.of());
         try (var schema = embeddedConnection.getRecordLayerDatabase().loadSchema(embeddedConnection.getSchema())) {
             final var metadata = schema.loadStore().getRecordMetaData();
-            return PlanGenerator.of(Optional.empty(), planContext, metadata, storeState, Options.NONE);
+            return PlanGenerator.create(Optional.empty(), planContext, metadata, storeState, Options.NONE);
         }
     }
 
@@ -108,7 +109,7 @@ public class DdlTestUtil {
         final var storeState = new RecordStoreState(null, Map.of());
         try (var schema = embeddedConnection.getRecordLayerDatabase().loadSchema(embeddedConnection.getSchema())) {
             final var metadata = schema.loadStore().getRecordMetaData();
-            return PlanGenerator.of(Optional.empty(), planContext, metadata, storeState, Options.NONE);
+            return PlanGenerator.create(Optional.empty(), planContext, metadata, storeState, Options.NONE);
         }
     }
 
@@ -122,7 +123,7 @@ public class DdlTestUtil {
         final var storeState = new RecordStoreState(null, Map.of());
         try (var schema = embeddedConnection.getRecordLayerDatabase().loadSchema(embeddedConnection.getSchema())) {
             final var metadata = schema.loadStore().getRecordMetaData();
-            return PlanGenerator.of(Optional.empty(), planContext, metadata, storeState, Options.NONE);
+            return PlanGenerator.create(Optional.empty(), planContext, metadata, storeState, Options.NONE);
         }
     }
 

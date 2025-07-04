@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanHashable.PlanHashMode;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -81,7 +80,6 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
@@ -92,7 +90,6 @@ import java.sql.SQLException;
 import java.sql.Struct;
 import java.sql.Types;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -275,7 +272,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                     recordQueryPlan, queryExecutionContext, currentPlanHashMode, validPlanHashModes);
 
             final var options = executionContext.getOptions();
-            final var continuationsContainCompiledStatements = getContinuationsContainsCompiledStatements(options);
+            final var continuationsContainCompiledStatements = OptionsUtils.getContinuationsContainsCompiledStatements(options);
             if (continuationsContainCompiledStatements && !parsedContinuation.atBeginning()) {
                 // if we are here it means that the current execution is from a regular planned plan, i.e. not
                 // an EXECUTE CONTINUATION statement but it uses a continuation that is not at the beginning.
@@ -368,7 +365,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
             final var options = executionContext.getOptions();
 
-            validatePlanAgainstEnvironment(parsedContinuation, fdbRecordStore, executionContext, getValidPlanHashModes(options));
+            validatePlanAgainstEnvironment(parsedContinuation, fdbRecordStore, executionContext, OptionsUtils.getValidPlanHashModes(options));
 
             final RecordCursor<QueryResult> cursor;
             final var executeProperties = connection.getExecuteProperties().toBuilder()
@@ -379,13 +376,13 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                     RelationalMetric.RelationalEvent.EXECUTE_RECORD_QUERY_PLAN, () -> recordQueryPlan.executePlan(fdbRecordStore, evaluationContext,
                             parsedContinuation.getExecutionState(),
                             executeProperties));
-            final var currentPlanHashMode = getCurrentPlanHashMode(options);
+            final var currentPlanHashMode = OptionsUtils.getCurrentPlanHashMode(options);
             final var metaData = SqlTypeSupport.typeToMetaData(type);
             return executionContext.metricCollector.clock(RelationalMetric.RelationalEvent.CREATE_RESULT_SET_ITERATOR, () -> {
                 final ResumableIterator<Row> iterator = RecordLayerIterator.create(cursor, messageFDBQueriedRecord -> new MessageTuple(messageFDBQueriedRecord.getMessage()));
                 return new RecordLayerResultSet(metaData, iterator, connection,
                         (continuation, reason) -> enrichContinuation(continuation,
-                                currentPlanHashMode, reason, getContinuationsContainsCompiledStatements(options)));
+                                currentPlanHashMode, reason, OptionsUtils.getContinuationsContainsCompiledStatements(options)));
             });
         }
 
@@ -438,29 +435,6 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             return recordQueryPlan.planHash(currentPlanHashMode);
         }
 
-        @Nonnull
-        public static PlanHashMode getCurrentPlanHashMode(@Nonnull final Options options) {
-            final String planHashModeAsString = options.getOption(Options.Name.CURRENT_PLAN_HASH_MODE);
-            return planHashModeAsString == null ?
-                    PlanHashable.CURRENT_FOR_CONTINUATION :
-                    PlanHashMode.valueOf(planHashModeAsString);
-        }
-
-        @Nonnull
-        public static Set<PlanHashMode> getValidPlanHashModes(@Nonnull final Options options) {
-            final String planHashModesAsString = options.getOption(Options.Name.VALID_PLAN_HASH_MODES);
-            if (planHashModesAsString == null) {
-                return ImmutableSet.of(PlanHashable.CURRENT_FOR_CONTINUATION);
-            }
-
-            return Arrays.stream(planHashModesAsString.split(","))
-                    .map(planHashModeAsString -> PlanHashMode.valueOf(planHashModeAsString.trim()))
-                    .collect(ImmutableSet.toImmutableSet());
-        }
-
-        public static boolean getContinuationsContainsCompiledStatements(@Nonnull final Options options) {
-            return Objects.requireNonNull(options.getOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS));
-        }
     }
 
     public static class ContinuedPhysicalQueryPlan extends PhysicalQueryPlan {
@@ -570,7 +544,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                 try {
                     planResult = planner.planGraph(() ->
                                     Reference.initialOf(relationalExpression),
-                            planContext.getPlannerConfiguration().getReadableIndexes().map(s -> s),
+                            planContext.getReadableIndexes().map(s -> s),
                             IndexQueryabilityFilter.TRUE,
                             typedEvaluationContext);
                 } catch (RecordCoreException ex) {

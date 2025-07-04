@@ -34,6 +34,7 @@ import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 import com.apple.foundationdb.relational.recordlayer.MessageTuple;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.query.OptionsUtils;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
@@ -111,11 +112,11 @@ public class InMemoryRelationalStatement implements RelationalStatement {
                     .withDbUri(relationalConn.getDatabaseUri())
                     .withMetadata(relationalConn.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toRecordMetadata())
                     .withSchemaTemplate(relationalConn.getSchemaTemplate())
-                    .withPlannerConfiguration(PlannerConfiguration.ofAllAvailableIndexes())
+                    .withPlannerConfiguration(PlannerConfiguration.ofAllAvailableIndexes(OptionsUtils.createPlannerConfigurations(Options.none())))
                     .withUserVersion(0)
                     .build();
 
-            final var planGenerator = PlanGenerator.of(Optional.empty(), ctx, ctx.getMetaData(), new RecordStoreState(null, Map.of()), Options.NONE);
+            final var planGenerator = PlanGenerator.create(Optional.empty(), ctx, ctx.getMetaData(), new RecordStoreState(null, Map.of()), Options.NONE);
             final Plan<?> plan = planGenerator.getPlan(sql);
             if (plan instanceof QueryPlan) {
                 throw new SQLFeatureNotSupportedException("Cannot execute queries in the InMemory Relational version, it's only good for Direct Access API");
