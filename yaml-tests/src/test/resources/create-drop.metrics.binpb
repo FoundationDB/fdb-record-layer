@@ -1,7 +1,7 @@
-Ÿ
+⁄
 S
-	unnamed-4FEXPLAIN select count(*) from "TEMPLATES" where template_name = 'TEMP1'Å
-‚Ó…êc Äåí(0˚—/8$@ÀSCAN(<,>) | TFILTER TEMPLATES | FILTER _.TEMPLATE_NAME EQUALS promote(@c11 AS STRING) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)ïdigraph G {
+	unnamed-4FEXPLAIN select count(*) from "TEMPLATES" where template_name = 'TEMP1'Ç
+‚ÔÌ±>c €ˆ¸&(0ú€˘8$@ÀSCAN(<,>) | TFILTER TEMPLATES | FILTER _.TEMPLATE_NAME EQUALS promote(@c11 AS STRING) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)ïdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -24,7 +24,8 @@ S
 T
 
 unnamed-10FEXPLAIN select count(*) from "DATABASES" where database_id = '/FRL/DB'Ò
-Óïﬁ™j ˚‰´(0Ÿ˝8$@…SCAN(<,>) | TFILTER DATABASES | FILTER _.DATABASE_ID EQUALS promote(@c11 AS STRING) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)ádigraph G {
+Ó¸‰°j ÷µ‡
+(0ˆ∆p8$@…SCAN(<,>) | TFILTER DATABASES | FILTER _.DATABASE_ID EQUALS promote(@c11 AS STRING) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)ádigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -43,11 +44,12 @@ unnamed-10FEXPLAIN select count(*) from "DATABASES" where database_id = '/FRL/D
   7 -> 6 [ label=<&nbsp;q34> label="q34" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   8 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ó 
+}ò 
 R
 
-unnamed-20DEXPLAIN select count(*) from "SCHEMAS" where database_id = '/FRL/DB'¿
-ƒ„ú¢ó ˜∆Œ(*0®Ü,8A@∂COVERING(TEMPLATES_VALUE_INDEX <,> -> [DATABASE_ID: KEY[2], SCHEMA_NAME: KEY[3], TEMPLATE_NAME: KEY[0], TEMPLATE_VERSION: KEY[1]]) | FILTER _.DATABASE_ID EQUALS promote(@c11 AS STRING) | FETCH | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)Ëdigraph G {
+unnamed-20DEXPLAIN select count(*) from "SCHEMAS" where database_id = '/FRL/DB'¡
+ƒÚîÍó ˆÍœ
+(*0≠Äù8A@∂COVERING(TEMPLATES_VALUE_INDEX <,> -> [DATABASE_ID: KEY[2], SCHEMA_NAME: KEY[3], TEMPLATE_NAME: KEY[0], TEMPLATE_VERSION: KEY[1]]) | FILTER _.DATABASE_ID EQUALS promote(@c11 AS STRING) | FETCH | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)Ëdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
