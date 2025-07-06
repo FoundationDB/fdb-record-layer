@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,11 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.debug;
+package com.apple.foundationdb.record.query.plan.cascades.debug;
 
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.InitiatePlannerPhaseEvent;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.AdjustMatchEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.ExecutingTaskEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.ExploreExpressionEvent;
@@ -385,6 +385,32 @@ public class Processors {
         @Override
         public Class<InsertIntoMemoEvent> getEventType() {
             return InsertIntoMemoEvent.class;
+        }
+    }
+
+    /**
+     * Processor for {@link InitiatePlannerPhaseEvent}.
+     */
+    @AutoService(Processor.class)
+    public static class InitiatePlannerPhaseProcessor implements Processor<InitiatePlannerPhaseEvent> {
+        @Override
+        public void onDetail(final PlannerRepl plannerRepl, final InitiatePlannerPhaseEvent event) {
+            plannerRepl.printlnKeyValue("event", event.getShorthand().name().toLowerCase(Locale.ROOT));
+            plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT));
+            plannerRepl.printlnKeyValue("description", event.getDescription());
+            plannerRepl.printlnKeyValue("planner phase", event.getPlannerPhase().name().toLowerCase(Locale.ROOT));
+        }
+
+        @Override
+        public void onList(final PlannerRepl plannerRepl, final InitiatePlannerPhaseEvent event) {
+            plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase(Locale.ROOT) + "; ");
+            plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase(Locale.ROOT) + "; ");
+            plannerRepl.printKeyValue("planner phase", event.getPlannerPhase().name().toLowerCase(Locale.ROOT));
+        }
+
+        @Override
+        public Class<InitiatePlannerPhaseEvent> getEventType() {
+            return InitiatePlannerPhaseEvent.class;
         }
     }
 }

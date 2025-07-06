@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,11 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.debug;
+package com.apple.foundationdb.record.query.plan.cascades.debug;
 
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.cascades.debug.RestartException;
-import com.apple.foundationdb.record.query.plan.cascades.debug.StatsMaps;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.util.ServiceLoaderProvider;
@@ -475,7 +472,7 @@ public class PlannerRepl implements Debugger {
 
     private void reset() {
         this.stateStack.clear();
-        this.stateStack.push(State.initial(true, false, null));
+        this.stateStack.push(State.initial(true, true, null));
         this.breakPoints.clear();
         this.currentBreakPointIndex = 0;
         this.currentInternalBreakPointIndex = -1;
@@ -793,11 +790,12 @@ public class PlannerRepl implements Debugger {
         @Override
         public boolean onCallback(final PlannerRepl plannerRepl, final Event event) {
             if (super.onCallback(plannerRepl, event)) {
+                if (referenceName == null) {
+                    return true;
+                }
                 if (event instanceof EventWithCurrentGroupReference) {
                     final EventWithCurrentGroupReference eventWithCurrentGroupReference = (EventWithCurrentGroupReference)event;
-                    if (referenceName == null || referenceName.equals(plannerRepl.nameForObject(eventWithCurrentGroupReference.getCurrentReference()))) {
-                        return true;
-                    }
+                    return referenceName.equals(plannerRepl.nameForObject(eventWithCurrentGroupReference.getCurrentReference()));
                 }
             }
             return false;

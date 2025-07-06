@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,17 +18,13 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.debug;
+package com.apple.foundationdb.record.query.plan.cascades.debug;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.debug.BrowserHelper;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Stats;
-import com.apple.foundationdb.record.query.plan.cascades.debug.StatsMaps;
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PEvent;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.util.pair.Pair;
@@ -55,7 +51,7 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.function.IntUnaryOperator;
 
-class State {
+public class State {
     @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(State.class);
 

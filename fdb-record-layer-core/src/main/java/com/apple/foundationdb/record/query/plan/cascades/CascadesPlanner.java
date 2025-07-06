@@ -563,7 +563,7 @@ public class CascadesPlanner implements QueryPlanner {
         @Override
         @Nonnull
         public Debugger.Event toTaskEvent(final Location location) {
-            return new Debugger.InitiatePlannerPhaseEvent(plannerPhase, currentRoot, taskStack);
+            return new Debugger.InitiatePlannerPhaseEvent(plannerPhase, currentRoot, taskStack, location);
         }
 
         @Override

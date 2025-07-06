@@ -41,6 +41,7 @@ dependencies {
     // fdb-relational-jdbc module that wants no server/core pollution.
     implementation project(":fdb-relational-server")
     implementation project(":fdb-relational-jdbc")
+    implementation project(":fdb-record-layer-debugger")
     implementation project(coreProject)
     // we currently pack the Cascades debugger in this package, maybe in the future we should
     // move it to a more appropriate package such as utils or something similar so we can

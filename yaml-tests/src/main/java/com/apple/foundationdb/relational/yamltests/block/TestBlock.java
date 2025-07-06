@@ -372,6 +372,11 @@ public final class TestBlock extends ConnectedBlock {
                 }
                 Assert.thatUnchecked(resolvedCommand instanceof QueryCommand, "Illegal Format: Test is expected to start with a query.");
                 final QueryCommand queryCommand = (QueryCommand)resolvedCommand;
+                if (queryCommand.isNeedsSerialEnvironment()) {
+                    options.mode = ExecutionMode.ORDERED;
+                    options.repetition = 1;
+                }
+
                 queryCommands.add(queryCommand);
                 var runAsPreparedMix = getRunAsPreparedMix(options.statementType, options.repetition, randomGenerator);
                 for (int i = 0; i < options.repetition; i++) {
@@ -387,6 +392,9 @@ public final class TestBlock extends ConnectedBlock {
                 Collections.shuffle(executables, randomGenerator);
                 Collections.shuffle(executableTestsWithCacheCheck, randomGenerator);
             }
+
+
+
             Assert.thatUnchecked(!executables.isEmpty(), "‼️ Test block at line " + lineNumber + " have no tests to execute");
             return new TestBlock(lineNumber, blockName, queryCommands, executables, executableTestsWithCacheCheck,
                     executionContext.inferConnectionURI(testsMap.getOrDefault(BLOCK_CONNECT, null)), options, executionContext);

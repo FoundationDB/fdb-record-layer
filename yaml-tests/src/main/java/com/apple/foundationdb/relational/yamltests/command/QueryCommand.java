@@ -20,9 +20,8 @@
 
 package com.apple.foundationdb.relational.yamltests.command;
 
-import com.apple.foundationdb.record.TestHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
+import com.apple.foundationdb.record.query.plan.cascades.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
@@ -42,6 +41,7 @@ import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -71,6 +71,7 @@ public final class QueryCommand extends Command {
     private final QueryInterpreter queryInterpreter;
     @Nonnull
     private final AtomicReference<Throwable> maybeExecutionThrowable = new AtomicReference<>();
+    private final boolean needsSerialEnvironment;
 
     @Nullable
     public Throwable getMaybeExecutionThrowable() {
@@ -101,7 +102,10 @@ public final class QueryCommand extends Command {
                         ((QueryConfig.SkipConfig)skipConfigs.get(0)).getMessage(),
                         queryInterpreter.getQuery());
             }
-            return new QueryCommand(lineNumber, queryInterpreter, configs, executionContext);
+            final boolean hasDebuggerConfig =
+                    configs.stream()
+                            .anyMatch(config -> Objects.equals(config.getConfigName(), QueryConfig.QUERY_CONFIG_DEBUGGER));
+            return new QueryCommand(lineNumber, queryInterpreter, configs, executionContext, hasDebuggerConfig);
         } catch (Exception e) {
             throw executionContext.wrapContext(e,
                     () -> "‼️ Error parsing query command at line " + lineNumber, "query", lineNumber);
@@ -111,17 +115,18 @@ public final class QueryCommand extends Command {
     public static QueryCommand withQueryString(int lineNumber, @Nonnull String singleExecutableCommand,
                                                @Nonnull final YamlExecutionContext executionContext) {
         return new QueryCommand(lineNumber, QueryInterpreter.withQueryString(lineNumber, singleExecutableCommand, executionContext),
-                List.of(QueryConfig.getNoCheckConfig(lineNumber, executionContext)), executionContext);
+                List.of(QueryConfig.getNoCheckConfig(lineNumber, executionContext)), executionContext, false);
     }
 
     private QueryCommand(int lineNumber, @Nonnull QueryInterpreter interpreter, @Nonnull List<QueryConfig> configs,
-                         @Nonnull final YamlExecutionContext executionContext) {
+                         @Nonnull final YamlExecutionContext executionContext, final boolean needsSerialEnvironment) {
         super(lineNumber, executionContext);
         if (Debugger.getDebugger() != null) {
             Debugger.getDebugger().onSetup(); // clean all symbols before the next query.
         }
         this.queryInterpreter = interpreter;
         this.queryConfigs = configs;
+        this.needsSerialEnvironment = needsSerialEnvironment;
         Assert.thatUnchecked(queryConfigs.stream().noneMatch(config -> config instanceof QueryConfig.SkipConfig),
                 "SkipConfig should not have gotten into QueryCommand " + lineNumber);
     }
@@ -161,6 +166,14 @@ public final class QueryCommand extends Command {
         Integer maxRows = null;
         boolean exhausted = false;
         boolean errored = false;
+
+        final DebuggerImplementation debuggerImplementation =
+                queryConfigs.stream()
+                        .filter(config -> Objects.equals(config.getConfigName(), QueryConfig.QUERY_CONFIG_DEBUGGER))
+                        .map(config -> (DebuggerImplementation)Objects.requireNonNull(config.getVal()))
+                        .findFirst()
+                        .orElse(DebuggerImplementation.SANE);
+
         var queryConfigsIterator = queryConfigs.listIterator();
         while (queryConfigsIterator.hasNext()) {
             var queryConfig = queryConfigsIterator.next();
@@ -176,19 +189,23 @@ public final class QueryCommand extends Command {
             Assert.that(!errored, "ERROR config should be the last config specified.");
             if (QueryConfig.QUERY_CONFIG_MAX_ROWS.equals(queryConfig.getConfigName())) {
                 maxRows = Integer.parseInt(queryConfig.getValueString());
+            } else if (QueryConfig.QUERY_CONFIG_DEBUGGER.equals(queryConfig.getConfigName())) {
+                // do nothing
             } else if (QueryConfig.QUERY_CONFIG_PLAN_HASH.equals(queryConfig.getConfigName())) {
                 Assert.that(!queryIsRunning, "Plan hash test should not be intermingled with query result tests");
                 // Ignore debugger configuration, always set the debugger for plan hashes. Executing the plan hash
                 // can result in the explain plan being put into the plan cache, so running without the debugger
                 // can pollute cache and thus interfere with the explain's results
                 Integer finalMaxRows = maxRows;
-                runWithDebugger(() -> executor.execute(connection, null, queryConfig, checkCache, finalMaxRows));
+                runWithDebugger(debuggerImplementation,
+                        () -> executor.execute(connection, null, queryConfig, checkCache, finalMaxRows));
             } else if (QueryConfig.QUERY_CONFIG_EXPLAIN.equals(queryConfig.getConfigName()) || QueryConfig.QUERY_CONFIG_EXPLAIN_CONTAINS.equals(queryConfig.getConfigName())) {
                 Assert.that(!queryIsRunning, "Explain test should not be intermingled with query result tests");
                 // ignore debugger configuration, always set the debugger for explain, so we can always get consistent
                 // results
                 Integer finalMaxRows1 = maxRows;
-                runWithDebugger(() -> executor.execute(connection, null, queryConfig, checkCache, finalMaxRows1));
+                runWithDebugger(debuggerImplementation,
+                        () -> executor.execute(connection, null, queryConfig, checkCache, finalMaxRows1));
             } else if (QueryConfig.QUERY_CONFIG_NO_OP.equals(queryConfig.getConfigName())) {
                 // Do nothing for noop execution.
                 continue;
@@ -237,10 +254,14 @@ public final class QueryCommand extends Command {
         }
     }
 
-    private static void runWithDebugger(@Nonnull TestHelpers.DangerousRunnable r) throws SQLException {
+    public boolean isNeedsSerialEnvironment() {
+        return needsSerialEnvironment;
+    }
+
+    private static void runWithDebugger(@Nonnull DebuggerImplementation debuggerImplementation, @Nonnull ThrowingRunnable r) throws SQLException {
         final var savedDebugger = Debugger.getDebugger();
         try {
-            Debugger.setDebugger(DebuggerWithSymbolTables.withoutSanityChecks());
+            Debugger.setDebugger(debuggerImplementation.newDebugger());
             Debugger.setup();
             r.run();
         } catch (Exception t) {
@@ -248,6 +269,11 @@ public final class QueryCommand extends Command {
         } finally {
             Debugger.setDebugger(savedDebugger);
         }
+    }
+
+    @FunctionalInterface
+    public interface ThrowingRunnable {
+        void run() throws Exception;
     }
 
     /**
