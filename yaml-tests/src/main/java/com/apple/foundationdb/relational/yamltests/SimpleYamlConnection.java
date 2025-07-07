@@ -35,6 +35,7 @@ import javax.annotation.Nullable;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.function.Function;
 
 /**
  * A simple version of {@link YamlConnection} for interacting with a single {@link RelationalConnection}.
@@ -115,6 +116,22 @@ public class SimpleYamlConnection implements YamlConnection {
     @Override
     public SemanticVersion getInitialVersion() {
         return versions.get(0);
+    }
+
+    @Override
+    public <T> T executeTransactionally(final Function<YamlConnection, T> transactionalWork) throws SQLException {
+        underlying.setAutoCommit(false);
+        T result;
+        try {
+            result = transactionalWork.apply(this);
+            underlying.commit();
+        } catch (final SQLException e) {
+            underlying.rollback();
+            throw e;
+        } finally {
+            underlying.setAutoCommit(true);
+        }
+        return result;
     }
 
     @Override

@@ -345,7 +345,8 @@ class JDBCRelationalConnection implements RelationalConnection {
             this.autoCommit = false;
         } else {
             // commit any remaining work
-            commit();
+            // TODO do we need better protection if there is uncommitted work
+            //      does the autoCommit-ness need to be passed down
             this.autoCommit = true;
             serverConnection.close();
             serverConnection = null;

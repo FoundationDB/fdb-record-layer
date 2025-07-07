@@ -32,6 +32,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.function.Function;
 
 /**
  * A wrapper around {@link java.sql.Connection} to support yaml tests.
@@ -104,4 +105,6 @@ public interface YamlConnection extends AutoCloseable {
      */
     @Nonnull
     SemanticVersion getInitialVersion();
+
+    <T> T executeTransactionally(Function<YamlConnection, T> transactionalWork) throws SQLException;
 }

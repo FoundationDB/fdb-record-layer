@@ -192,6 +192,9 @@ public final class QueryCommand extends Command {
             } else if (QueryConfig.QUERY_CONFIG_NO_OP.equals(queryConfig.getConfigName())) {
                 // Do nothing for noop execution.
                 continue;
+            } else if (QueryConfig.QUERY_CONFIG_SETUP.equals(queryConfig.getConfigName())) {
+                Assert.that(!queryIsRunning, "Transaction setup should not be intermingled with query results");
+                executor.addSetup(Matchers.string(queryConfig.getVal(), "Transaction setup"));
             } else if (!QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION.equals(queryConfig.getConfigName())) {
                 if (QueryConfig.QUERY_CONFIG_ERROR.equals(queryConfig.getConfigName())) {
                     errored = true;

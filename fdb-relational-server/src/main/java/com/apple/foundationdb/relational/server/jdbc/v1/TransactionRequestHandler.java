@@ -82,9 +82,13 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
                 final FRL.Response response = frl.transactionalExecute(transactionalToken, request.getSql(),
                         request.getParameters().getParameterList(), fromProto(request.getOptions()));
 
-                StatementResponse.Builder statementResponseBuilder = StatementResponse.newBuilder()
-                        .setResultSet(response.getResultSet())
-                        .setRowCount(response.getRowCount());
+                StatementResponse.Builder statementResponseBuilder = StatementResponse.newBuilder();
+                if (response.isQuery()) {
+                    statementResponseBuilder.setResultSet(response.getResultSet());
+                }
+                if (response.isMutation()) {
+                    statementResponseBuilder.setRowCount(response.getRowCount());
+                }
 
                 responseBuilder.setExecuteResponse(statementResponseBuilder);
             } else if (transactionRequest.hasInsertRequest()) {

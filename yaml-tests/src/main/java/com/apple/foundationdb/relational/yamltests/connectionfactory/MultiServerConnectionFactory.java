@@ -43,6 +43,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -202,6 +203,11 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
         @Override
         public SemanticVersion getInitialVersion() {
             return versions.get(0);
+        }
+
+        @Override
+        public <T> T executeTransactionally(final Function<YamlConnection, T> transactionalWork) throws SQLException {
+            return getCurrentConnection(true, "transactional work").executeTransactionally(transactionalWork);
         }
 
         @Override

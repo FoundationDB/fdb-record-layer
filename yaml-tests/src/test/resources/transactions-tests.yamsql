@@ -40,18 +40,26 @@ options:
     supported_version: 4.3.5.0
 ---
 schema_template:
-    create table t1(id bigint, col1 bigint, primary key(id))
+    create table table_t1(id bigint, col1 bigint, primary key(id))
+---
+transaction_setups:
+  t1_less_than_50: create temporary function t1() on commit drop function AS SELECT * FROM table_t1 where id < 50
 ---
 setup:
   # `connect` is default and defaults to 1. Value 0 has a special meaning and depicts connection to the catalog.
   connect: 1
   steps:
-    - query: INSERT INTO T1 VALUES (10, 20), (30, 40), (50, 60)
+    - query: INSERT INTO table_T1 VALUES (10, 20), (30, 40), (50, 60)
 ---
 test_block:
   name: transactions-tests
-  preset: single_repetition_ordered
   tests:
     -
       - query: select * from t1 where id > 15;
+      - setupReference: t1_less_than_50
+      - result: [{id: 30, col1: 40}]
+    -
+      - query: select * from t1 where id > 15;
+      - setup: create temporary function t1() on commit drop function AS SELECT * FROM table_t1 where id < 30;
+      - result: []
 ...

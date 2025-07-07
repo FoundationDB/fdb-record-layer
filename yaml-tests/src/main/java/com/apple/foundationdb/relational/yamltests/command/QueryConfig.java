@@ -85,6 +85,8 @@ public abstract class QueryConfig {
     public static final String QUERY_CONFIG_INITIAL_VERSION_AT_LEAST = "initialVersionAtLeast";
     public static final String QUERY_CONFIG_INITIAL_VERSION_LESS_THAN = "initialVersionLessThan";
     public static final String QUERY_CONFIG_NO_OP = "noOp";
+    public static final String QUERY_CONFIG_SETUP = "setup";
+    public static final String QUERY_CONFIG_SETUP_REFERENCE = "setupReference";
 
     private static final Set<String> RESULT_CONFIGS = ImmutableSet.of(QUERY_CONFIG_ERROR, QUERY_CONFIG_COUNT, QUERY_CONFIG_RESULT, QUERY_CONFIG_UNORDERED_RESULT);
     private static final Set<String> VERSION_DEPENDENT_RESULT_CONFIGS = ImmutableSet.of(QUERY_CONFIG_INITIAL_VERSION_AT_LEAST, QUERY_CONFIG_INITIAL_VERSION_LESS_THAN);
@@ -465,6 +467,16 @@ public abstract class QueryConfig {
         };
     }
 
+    private static QueryConfig getSetupConfig(final Object value, final int lineNumber, final YamlExecutionContext executionContext) {
+        return new QueryConfig(QUERY_CONFIG_SETUP, value, lineNumber, executionContext) {
+            @Override
+            void checkResultInternal(@Nonnull final String currentQuery, @Nonnull final Object actual,
+                                     @Nonnull final String queryDescription) throws SQLException {
+                Assert.failUnchecked("No results to check on a setup config");
+            }
+        };
+    }
+
     @Nonnull
     public static QueryConfig getSupportedVersionConfig(Object rawVersion, final int lineNumber, final YamlExecutionContext executionContext) {
         final SupportedVersionCheck check = SupportedVersionCheck.parse(rawVersion, executionContext);
@@ -579,8 +591,12 @@ public abstract class QueryConfig {
             return getCheckResultConfig(false, key, value, lineNumber, executionContext);
         } else if (QUERY_CONFIG_MAX_ROWS.equals(key)) {
             return getMaxRowConfig(value, lineNumber, executionContext);
+        } else if (QUERY_CONFIG_SETUP.equals(key)) {
+            return getSetupConfig(value, lineNumber, executionContext);
+        } else if (QUERY_CONFIG_SETUP_REFERENCE.equals(key)) {
+            return getSetupConfig(executionContext.getTransactionSetup(value), lineNumber, executionContext);
         } else {
-            throw Assert.failUnchecked("‼️ '%s' is not a valid configuration");
+            throw Assert.failUnchecked("‼️ '" + key + "' is not a valid configuration");
         }
     }
 
