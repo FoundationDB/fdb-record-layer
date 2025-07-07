@@ -24,6 +24,7 @@ import com.apple.foundationdb.test.TestExecutors;
 import com.apple.test.ParameterizedTestUtils;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.hamcrest.Matcher;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -273,8 +274,56 @@ public class MoreAsyncUtilTest {
                         throw new RuntimeException();
                     }).get();
         }
+    }
 
+    @Test
+    void closeAllNoIssue() throws Exception {
+        SimpleCloseable c1 = new SimpleCloseable(false, null);
+        SimpleCloseable c2 = new SimpleCloseable(false, null);
+        SimpleCloseable c3 = new SimpleCloseable(false, null);
 
+        MoreAsyncUtil.closeAll(c1, c2, c3);
+
+        Assertions.assertTrue(c1.isClosed());
+        Assertions.assertTrue(c2.isClosed());
+        Assertions.assertTrue(c3.isClosed());
+    }
+
+    @Test
+    void closeAllFailed() throws Exception {
+        SimpleCloseable c1 = new SimpleCloseable(true, "c1");
+        SimpleCloseable c2 = new SimpleCloseable(true, "c2");
+        SimpleCloseable c3 = new SimpleCloseable(true, "c3");
+
+        final MoreAsyncUtil.CloseException exception = assertThrows(MoreAsyncUtil.CloseException.class, () -> MoreAsyncUtil.closeAll(c1, c2, c3));
+
+        Assertions.assertEquals("c1", exception.getCause().getMessage());
+        final Throwable[] suppressed = exception.getSuppressed();
+        Assertions.assertEquals(2, suppressed.length);
+        Assertions.assertEquals("c2", suppressed[0].getMessage());
+        Assertions.assertEquals("c3", suppressed[1].getMessage());
+
+        Assertions.assertTrue(c1.isClosed());
+        Assertions.assertTrue(c2.isClosed());
+        Assertions.assertTrue(c3.isClosed());
+    }
+
+    @Test
+    void closeSomeFailed() throws Exception {
+        SimpleCloseable c1 = new SimpleCloseable(true, "c1");
+        SimpleCloseable c2 = new SimpleCloseable(false, null);
+        SimpleCloseable c3 = new SimpleCloseable(true, "c3");
+
+        final MoreAsyncUtil.CloseException exception = assertThrows(MoreAsyncUtil.CloseException.class, () -> MoreAsyncUtil.closeAll(c1, c2, c3));
+
+        Assertions.assertEquals("c1", exception.getCause().getMessage());
+        final Throwable[] suppressed = exception.getSuppressed();
+        Assertions.assertEquals(1, suppressed.length);
+        Assertions.assertEquals("c3", suppressed[0].getMessage());
+
+        Assertions.assertTrue(c1.isClosed());
+        Assertions.assertTrue(c2.isClosed());
+        Assertions.assertTrue(c3.isClosed());
     }
 
     private static void assertSwallowedOrNot(final CompletableFuture<Void> completedExceptionally1, final RuntimeException runtimeException1) throws InterruptedException, ExecutionException {
@@ -294,5 +343,28 @@ public class MoreAsyncUtilTest {
     @Nonnull
     private static Matcher<String> isCurrentThreadNameOr(@Nonnull Matcher<String> threadMatcher) {
         return either(threadMatcher).or(equalTo(Thread.currentThread().getName()));
+    }
+
+    private class SimpleCloseable implements AutoCloseable {
+        private final boolean fail;
+        private final String message;
+        private boolean closed = false;
+
+        public SimpleCloseable(boolean fail, String message) {
+            this.fail = fail;
+            this.message = message;
+        }
+
+        @Override
+        public void close() {
+            closed = true;
+            if (fail) {
+                throw new RuntimeException(message);
+            }
+        }
+
+        public boolean isClosed() {
+            return closed;
+        }
     }
 }

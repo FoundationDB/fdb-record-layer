@@ -115,7 +115,14 @@ public abstract class RecordRepair implements AutoCloseable {
 
     @Override
     public void close() {
-        throttledIterator.close();
+        try {
+            throttledIterator.close();
+        } catch (Exception e) {
+            if (logger.isWarnEnabled()) {
+                logger.warn("Failed to close the throttled iterator", e);
+            }
+            // Do not rethrow. We are trying to close the runner and the exception should log all errors
+        }
     }
 
     @Nonnull

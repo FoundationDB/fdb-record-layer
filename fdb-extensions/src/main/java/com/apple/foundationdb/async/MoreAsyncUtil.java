@@ -913,6 +913,31 @@ public class MoreAsyncUtil {
     }
 
     /**
+     * A utility to close multiple {@link AutoCloseable} objects, preserving all the caught exceptions.
+     * The method would attempt to close all closeables in order, even if some failed.
+     * @param closeables the given sequence of {@link AutoCloseable}
+     * @throws CloseException in case any exception was caught during the process. The first exception will be added
+     * as a {@code cause}. In case more than one exception was caught, it will be added as Suppressed.
+     */
+    public static void closeAll(AutoCloseable... closeables) throws CloseException {
+        CloseException accumulatedException = null;
+        for (AutoCloseable closeable: closeables) {
+            try {
+                closeable.close();
+            } catch (Exception e) {
+                if (accumulatedException == null) {
+                    accumulatedException = new CloseException(e);
+                } else {
+                    accumulatedException.addSuppressed(e);
+                }
+            }
+        }
+        if (accumulatedException != null) {
+            throw accumulatedException;
+        }
+    }
+
+    /**
      * This is supposed to replicate the semantics of {@link java.util.concurrent.CompletionStage#whenComplete(BiConsumer)}
      * but to handle the case where the completion handler might itself contain async work.
      * @param future future to compose the handler onto
@@ -1079,6 +1104,18 @@ public class MoreAsyncUtil {
         private DeadlineExceededException(long deadlineTimeMillis) {
             super("deadline exceeded");
             addLogInfo("deadlineTimeMillis", deadlineTimeMillis);
+        }
+    }
+
+    /**
+     * Exception thrown when the {@link #closeAll} method catches an exception.
+     * This exception will have the cause set to the first exception thrown during {@code closeAll} and any further
+     * exception thrown will be added as {@Suppressed}.
+     */
+    @SuppressWarnings("serial")
+    public static class CloseException extends Exception {
+        public CloseException(final Throwable cause) {
+            super(cause);
         }
     }
 }
