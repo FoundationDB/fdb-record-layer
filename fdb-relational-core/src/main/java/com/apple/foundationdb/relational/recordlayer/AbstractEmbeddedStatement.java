@@ -109,7 +109,7 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
                         resultSetRetrieved = true;
                         //ddl statements are updates that don't return results, so they get 0 for row count
                         currentRowCount = 0;
-                        if (conn.shouldCommit()) {
+                        if (conn.canCommit()) {
                             conn.commitInternal();
                         }
                         return false;
@@ -117,7 +117,7 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
                 }
             } catch (RelationalException | SQLException | RuntimeException ex) {
                 try {
-                    if (conn.inActiveTransaction() && conn.shouldCommit()) {
+                    if (conn.inActiveTransaction() && conn.canCommit()) {
                         conn.rollbackInternal();
                     }
                 } catch (SQLException e) {
@@ -170,7 +170,7 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
             closeOpenResultSets();
             closed = true;
         } catch (RuntimeException ex) {
-            if (conn.shouldCommit()) {
+            if (conn.canCommit()) {
                 try {
                     conn.rollbackInternal();
                 } catch (SQLException e) {
@@ -209,12 +209,12 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
             while (resultSet.next()) {
                 count++;
             }
-            if (conn.shouldCommit()) {
+            if (conn.canCommit()) {
                 conn.commitInternal();
             }
             return count;
         } catch (SQLException | RuntimeException ex) {
-            if (conn.shouldCommit()) {
+            if (conn.canCommit()) {
                 conn.rollbackInternal();
             }
             throw ExceptionUtil.toRelationalException(ex).toSqlException();

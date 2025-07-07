@@ -51,11 +51,11 @@ test_block:
   tests:
     -
       - query: select id, col1, col2 from (select * from (select * from T1) as x where ID = 5) as y;
-      - explain: "SCAN(<,>) | FILTER _.ID EQUALS promote(@c23 AS LONG) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
+      - explain: "SCAN([EQUALS promote(@c23 AS LONG)]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
       - result: [{ID: !l 5, !l 10, !l 5}]
     -
       - query: select id, col1, col2 from (select * from (select * from T1) as x) as y where ID = 5;
-      - explain: "SCAN(<,>) | FILTER _.ID EQUALS promote(@c26 AS LONG) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
+      - explain: "SCAN([EQUALS promote(@c26 AS LONG)]) | MAP (_.ID AS ID, _.COL1 AS COL1, _.COL2 AS COL2)"
       - result: [{ID: !l 5, !l 10, !l 5}]
     -
       - query: select count(*) from (select * from (select * from (select * from T1  where ID = 5) as x) as y) as z;

@@ -44,10 +44,14 @@ public class ByteArrayUtil2Test {
             assertTrue(l.matches(hexRegex), l + " matches /" + hexRegex + "/");
         }
         for (int i = (byte)' '; i < (byte)'"'; i++) {
-            assertEquals(Character.toString((char) i), ByteArrayUtil2.loggable(new byte[]{(byte)i}));
+            assertEquals(Character.toString((char) i), ByteArrayUtil2.loggable(new byte[] {(byte)i}));
         }
         assertEquals("\\x22", ByteArrayUtil2.loggable(new byte[]{(byte)'"'}));
-        for (int i = (byte)'"' + 1; i < (byte)'='; i++) {
+        for (int i = (byte)'"' + 1; i < (byte)'\''; i++) {
+            assertEquals(Character.toString((char) i), ByteArrayUtil2.loggable(new byte[]{(byte)i}));
+        }
+        assertEquals("\\x27", ByteArrayUtil2.loggable(new byte[]{(byte)'\''}));
+        for (int i = (byte)'\'' + 1; i < (byte)'='; i++) {
             assertEquals(Character.toString((char) i), ByteArrayUtil2.loggable(new byte[]{(byte)i}));
         }
         assertEquals("\\x3d", ByteArrayUtil2.loggable(new byte[]{(byte)'='}));
@@ -91,8 +95,9 @@ public class ByteArrayUtil2Test {
         assertArrayEquals(bytes, unlogged, "Unprinting loggable bytes should reconstruct original array");
         assertFalse(loggable.contains("="), "loggable string should not contain equals sign");
         assertFalse(loggable.contains("\""), "loggable string should not contain quote");
+        assertFalse(loggable.contains("\'"), "loggable string should not contain single quote");
 
-        if (!printable.contains("=") && !printable.contains("\"")) {
+        if (!printable.contains("=") && !printable.contains("\"") && !printable.contains("\'")) {
             assertEquals(printable, loggable);
         }
     }
