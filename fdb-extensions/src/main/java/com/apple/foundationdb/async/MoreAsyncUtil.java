@@ -919,6 +919,7 @@ public class MoreAsyncUtil {
      * @throws CloseException in case any exception was caught during the process. The first exception will be added
      * as a {@code cause}. In case more than one exception was caught, it will be added as Suppressed.
      */
+    @SuppressWarnings("PMD.CloseResource")
     public static void closeAll(AutoCloseable... closeables) throws CloseException {
         CloseException accumulatedException = null;
         for (AutoCloseable closeable: closeables) {
