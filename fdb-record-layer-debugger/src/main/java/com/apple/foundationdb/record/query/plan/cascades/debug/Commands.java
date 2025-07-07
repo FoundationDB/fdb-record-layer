@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.debug;
 
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.Event;
@@ -526,7 +527,7 @@ public class Commands {
                                       @Nonnull final ParsedLine parsedLine) {
             final List<String> words = parsedLine.words();
             if (words.size() < 2) {
-                plannerRepl.printlnError("usage show [(exp|ref|qun)id] | graph | matches | plans");
+                plannerRepl.printlnError("usage show [(exp|ref|qun)id] | graph | matches | finals");
                 return false;
             }
 
@@ -540,7 +541,7 @@ public class Commands {
                     final EventWithState eventWithState = (EventWithState)event;
                     final Reference rootReference = eventWithState.getRootReference();
                     if ("GRAPH".equals(word1)) {
-                        PlannerGraphVisitor.show(PlannerGraphVisitor.RENDER_SINGLE_GROUPS, rootReference);
+                        PlannerGraphVisitor.show(PlannerGraphVisitor.EMPTY_FLAGS, rootReference);
                         return false;
                     } else if ("MATCH".equals(word1) && words.size() == 3) {
                         final String word2 = words.get(2);
@@ -559,8 +560,8 @@ public class Commands {
                     } else if ("MATCHES".equals(word1)) {
                         PlannerGraphVisitor.show(true, rootReference, Objects.requireNonNull(plannerRepl.getPlanContext()).getMatchCandidates());
                         return false;
-                    } else if ("PLANS".equals(word1)) {
-                        PlannerGraphVisitor.show(PlannerGraphVisitor.REMOVE_LOGICAL_EXPRESSIONS, rootReference);
+                    } else if ("FINALS".equals(word1)) {
+                        PlannerGraphVisitor.show(PlannerGraphVisitor.REMOVE_EXPLORATORY_EXPRESSIONS, rootReference);
                         return false;
                     }
                 }
@@ -667,6 +668,46 @@ public class Commands {
         @Override
         public void printUsage(@Nonnull final PlannerRepl plannerRepl) {
             plannerRepl.printlnKeyValue("step [<number>]", "continue execution by the number of specified steps (default: 1)");
+        }
+    }
+
+    /**
+     * Continue the specified (or one) number of steps.
+     * {@code step [<number>]} continue execution for the next number of steps.
+     */
+    @AutoService(Command.class)
+    public static class PhaseCommand implements Command<Event> {
+        @Override
+        public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
+                                      @Nonnull final Event event,
+                                      @Nonnull final ParsedLine parsedLine) {
+            final List<String> words = parsedLine.words();
+            final PlannerPhase plannerPhase;
+            if (words.size() == 2) {
+                try {
+                    plannerPhase = PlannerPhase.valueOf(words.get(1).toUpperCase(Locale.ROOT));
+                } catch (IllegalArgumentException e) {
+                    plannerRepl.printlnError("usage phase [rewriting|planning]");
+                    return false;
+                }
+            } else {
+                plannerPhase = null;
+            }
+
+            plannerRepl.addInternalBreakPoint(new PlannerRepl.OnPhaseBreakPoint(Location.BEGIN, plannerPhase));
+            return true;
+        }
+
+        @Nonnull
+        @Override
+        public String getCommandToken() {
+            return "PHASE";
+        }
+
+        @Override
+        public void printUsage(@Nonnull final PlannerRepl plannerRepl) {
+            plannerRepl.printlnKeyValue("phase [rewriting, planning]",
+                    "continue execution until the next initphase of the desired planner phae occurs.");
         }
     }
 

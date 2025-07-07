@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.debug;
 
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
@@ -748,7 +749,7 @@ public class PlannerRepl implements Debugger {
     }
 
     /**
-     * TBD.
+     * Breakpoint that breaks on a particular event.
      */
     public static class OnEventTypeBreakPoint extends BreakPoint {
         @Nonnull
@@ -829,6 +830,71 @@ public class PlannerRepl implements Debugger {
         @Override
         public int hashCode() {
             return Objects.hash(getShorthand(), getReferenceName(), getLocation());
+        }
+    }
+
+    /**
+     * Breakpoint that breaks on a particular event.
+     */
+    public static class OnPhaseBreakPoint extends BreakPoint {
+        @Nonnull
+        private final Debugger.Location location;
+        @Nullable
+        private final PlannerPhase plannerPhase;
+
+        public OnPhaseBreakPoint(@Nonnull final Location location,
+                                 @Nullable final PlannerPhase plannerPhase) {
+            super(event -> (event instanceof InitiatePlannerPhaseEvent) &&
+                    event.getShorthand() == Shorthand.INITPHASE &&
+                    (location == Location.ANY || event.getLocation() == location) &&
+                    (plannerPhase == null || ((InitiatePlannerPhaseEvent)event).getPlannerPhase() == plannerPhase), 1);
+            this.location = location;
+            this.plannerPhase = plannerPhase;
+        }
+
+        @Nonnull
+        public Shorthand getShorthand() {
+            return Shorthand.INITPHASE;
+        }
+
+        @Nonnull
+        public Location getLocation() {
+            return location;
+        }
+
+        @Nullable
+        public PlannerPhase getPlannerPhase() {
+            return plannerPhase;
+        }
+
+        @Override
+        public void onList(final PlannerRepl plannerRepl) {
+            super.onList(plannerRepl);
+            plannerRepl.print("; ");
+            plannerRepl.printKeyValue("shorthand", getShorthand().name().toLowerCase(Locale.ROOT) + "; ");
+            plannerRepl.printKeyValue("location", getLocation().name().toLowerCase(Locale.ROOT) + "; ");
+            plannerRepl.printKeyValue("plannerPhase",
+                    (getPlannerPhase() == null ? getPlannerPhase().name() : "any").toLowerCase(Locale.ROOT));
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            final var that = (OnPhaseBreakPoint)o;
+            return getShorthand().equals(that.getShorthand()) &&
+                    getLocation() == that.getLocation() &&
+                    getPlannerPhase() == that.getPlannerPhase();
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(getShorthand(), getLocation(),
+                    getPlannerPhase() == null ? null : getPlannerPhase().name());
         }
     }
 

@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph.Ed
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph.Node;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph.PartialMatchEdge;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.base.Verify;
@@ -77,9 +76,9 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
      * Indicates if {@link Reference} instances that contain exactly one variation
      * are rendered.
      */
-    public static final int RENDER_SINGLE_GROUPS       = 0x0002;
-    public static final int REMOVE_PLANS               = 0x0004;
-    public static final int REMOVE_LOGICAL_EXPRESSIONS = 0x0008;
+    public static final int RENDER_SINGLE_GROUPS           = 0x0002;
+    public static final int REMOVE_FINAL_EXPRESSIONS = 0x0004;
+    public static final int REMOVE_EXPLORATORY_EXPRESSIONS = 0x0008;
 
     private final int flags;
 
@@ -102,7 +101,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
      * @param flags the flags to validate
      */
     private static boolean validateFlags(final int flags) {
-        if ((flags & REMOVE_PLANS) != 0 && (flags & REMOVE_LOGICAL_EXPRESSIONS) != 0) {
+        if ((flags & REMOVE_FINAL_EXPRESSIONS) != 0 && (flags & REMOVE_EXPLORATORY_EXPRESSIONS) != 0) {
             return false;
         }
         return true;
@@ -412,7 +411,7 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
 
     public static PlannerGraphVisitor forInternalShow(final boolean renderSingleGroups, final boolean removePlans) {
         return new PlannerGraphVisitor((renderSingleGroups ? RENDER_SINGLE_GROUPS : 0) |
-                                        (removePlans ? REMOVE_PLANS : 0));
+                                        (removePlans ? REMOVE_FINAL_EXPRESSIONS : 0));
     }
 
     /**
@@ -436,12 +435,12 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
         return (flags & RENDER_SINGLE_GROUPS) != 0;
     }
 
-    public boolean removePlansIfPossible() {
-        return (flags & REMOVE_PLANS) != 0;
+    public boolean removeFinalExpressionsIfPossible() {
+        return (flags & REMOVE_FINAL_EXPRESSIONS) != 0;
     }
 
-    public boolean removeLogicalExpressions() {
-        return (flags & REMOVE_LOGICAL_EXPRESSIONS) != 0;
+    public boolean removeExploratoryExpressions() {
+        return (flags & REMOVE_EXPLORATORY_EXPRESSIONS) != 0;
     }
 
     @Nonnull
@@ -471,12 +470,12 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
             return PlannerGraph.builder(new PlannerGraph.ReferenceHeadNode(ref)).build();
         }
 
-        if (removePlansIfPossible()) {
+        if (removeFinalExpressionsIfPossible()) {
             final List<PlannerGraph> filteredMemberResults = memberResults.stream()
                     .filter(graph -> graph.getRoot() instanceof PlannerGraph.WithExpression)
                     .filter(graph -> {
                         final RelationalExpression expression = ((PlannerGraph.WithExpression)graph.getRoot()).getExpression();
-                        return !(expression instanceof RecordQueryPlan);
+                        return expression != null && ref.isExploratory(expression);
                     })
                     .collect(Collectors.toList());
 
@@ -484,10 +483,13 @@ public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph
             if (!filteredMemberResults.isEmpty()) {
                 memberResults = filteredMemberResults;
             }
-        } else if (removeLogicalExpressions()) {
+        } else if (removeExploratoryExpressions()) {
             final List<PlannerGraph> filteredMemberResults = memberResults.stream()
                     .filter(graph -> graph.getRoot() instanceof PlannerGraph.WithExpression)
-                    .filter(graph -> ((PlannerGraph.WithExpression)graph.getRoot()).getExpression() instanceof RecordQueryPlan)
+                    .filter(graph -> {
+                        final var expression = ((PlannerGraph.WithExpression)graph.getRoot()).getExpression();
+                        return expression != null && ref.isFinal(expression);
+                    })
                     .collect(Collectors.toList());
 
             // if we filtered down to empty it is better to just show the physical plan, otherwise try to avoid it
