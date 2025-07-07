@@ -189,27 +189,26 @@ public final class QueryCommand extends Command {
             Assert.that(!errored, "ERROR config should be the last config specified.");
             if (QueryConfig.QUERY_CONFIG_MAX_ROWS.equals(queryConfig.getConfigName())) {
                 maxRows = Integer.parseInt(queryConfig.getValueString());
-            } else if (QueryConfig.QUERY_CONFIG_DEBUGGER.equals(queryConfig.getConfigName())) {
-                // do nothing
             } else if (QueryConfig.QUERY_CONFIG_PLAN_HASH.equals(queryConfig.getConfigName())) {
                 Assert.that(!queryIsRunning, "Plan hash test should not be intermingled with query result tests");
                 // Ignore debugger configuration, always set the debugger for plan hashes. Executing the plan hash
                 // can result in the explain plan being put into the plan cache, so running without the debugger
                 // can pollute cache and thus interfere with the explain's results
                 Integer finalMaxRows = maxRows;
-                runWithDebugger(debuggerImplementation,
+                runWithDebugger(executionContext, debuggerImplementation,
                         () -> executor.execute(connection, null, queryConfig, checkCache, finalMaxRows));
             } else if (QueryConfig.QUERY_CONFIG_EXPLAIN.equals(queryConfig.getConfigName()) || QueryConfig.QUERY_CONFIG_EXPLAIN_CONTAINS.equals(queryConfig.getConfigName())) {
                 Assert.that(!queryIsRunning, "Explain test should not be intermingled with query result tests");
                 // ignore debugger configuration, always set the debugger for explain, so we can always get consistent
                 // results
                 Integer finalMaxRows1 = maxRows;
-                runWithDebugger(debuggerImplementation,
+                runWithDebugger(executionContext, debuggerImplementation,
                         () -> executor.execute(connection, null, queryConfig, checkCache, finalMaxRows1));
             } else if (QueryConfig.QUERY_CONFIG_NO_OP.equals(queryConfig.getConfigName())) {
                 // Do nothing for noop execution.
                 continue;
-            } else if (!QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION.equals(queryConfig.getConfigName())) {
+            } else if (!QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION.equals(queryConfig.getConfigName()) &&
+                    !QueryConfig.QUERY_CONFIG_DEBUGGER.equals(queryConfig.getConfigName())) {
                 if (QueryConfig.QUERY_CONFIG_ERROR.equals(queryConfig.getConfigName())) {
                     errored = true;
                 }
@@ -258,10 +257,12 @@ public final class QueryCommand extends Command {
         return needsSerialEnvironment;
     }
 
-    private static void runWithDebugger(@Nonnull DebuggerImplementation debuggerImplementation, @Nonnull ThrowingRunnable r) throws SQLException {
+    private static void runWithDebugger(@Nonnull YamlExecutionContext executionContext,
+                                        @Nonnull DebuggerImplementation debuggerImplementation,
+                                        @Nonnull ThrowingRunnable r) throws SQLException {
         final var savedDebugger = Debugger.getDebugger();
         try {
-            Debugger.setDebugger(debuggerImplementation.newDebugger());
+            Debugger.setDebugger(debuggerImplementation.newDebugger(executionContext));
             Debugger.setup();
             r.run();
         } catch (Exception t) {

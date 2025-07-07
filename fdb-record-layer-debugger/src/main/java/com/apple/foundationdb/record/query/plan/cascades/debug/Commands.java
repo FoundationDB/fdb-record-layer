@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.debug;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
@@ -86,7 +87,7 @@ public class Commands {
         @Nonnull
         String getCommandToken();
 
-        void printUsage(@Nonnull final PlannerRepl plannerRepl);
+        void printUsage(@Nonnull PlannerRepl plannerRepl);
     }
 
     /**
@@ -115,7 +116,7 @@ public class Commands {
             }
 
             if (words.size() >= 2) {
-                final String word1 = words.get(1).toUpperCase();
+                final String word1 = words.get(1).toUpperCase(Locale.ROOT);
                 if (words.size() == 2) {
                     if ("LIST".equalsIgnoreCase(word1)) {
                         listBreakPoints(plannerRepl);
@@ -589,6 +590,7 @@ public class Commands {
      * Print the current state of the task stack.
      */
     @AutoService(Command.class)
+    @SuppressWarnings("PMD.ForLoopCanBeForeach") // false positive due to the descending iteration
     public static class TasksCommand implements Command<Event> {
         @Override
         public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
@@ -753,6 +755,8 @@ public class Commands {
      * List out all quantifiers.
      */
     @AutoService(Command.class)
+    @SpotBugsSuppressWarnings("DM_EXIT")
+    @SuppressWarnings("PMD.DoNotTerminateVM")
     public static class QuitCommand implements Command<Event> {
         @Override
         public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,

@@ -63,9 +63,9 @@ public class Processors {
             plannerRepl.println();
         }
 
-        void onList(final PlannerRepl plannerRepl, final E event);
+        void onList(PlannerRepl plannerRepl, E event);
 
-        void onDetail(final PlannerRepl plannerRepl, final E event);
+        void onDetail(PlannerRepl plannerRepl, E event);
 
         Class<E> getEventType();
     }

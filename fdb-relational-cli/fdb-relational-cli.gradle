@@ -88,6 +88,7 @@ jar {
 
     dependsOn ':fdb-extensions:jar'
     dependsOn ':fdb-record-layer-core:jar'
+    dependsOn ':fdb-record-layer-debugger:jar'
     dependsOn ':fdb-relational-api:jar'
     dependsOn ':fdb-relational-core:jar'
     dependsOn ':fdb-relational-grpc:jar'

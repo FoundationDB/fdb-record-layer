@@ -23,16 +23,20 @@ package com.apple.foundationdb.relational.yamltests.command;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.record.query.plan.cascades.debug.PlannerRepl;
+import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import org.jline.terminal.TerminalBuilder;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
-import java.util.function.Supplier;
+import java.util.function.Function;
 
 public enum DebuggerImplementation {
-    INSANE(DebuggerWithSymbolTables::withSanityChecks),
-    SANE(DebuggerWithSymbolTables::withoutSanityChecks),
-    REPL(() -> {
+    INSANE(context -> DebuggerWithSymbolTables.withSanityChecks()),
+    SANE(context -> DebuggerWithSymbolTables.withoutSanityChecks()),
+    REPL(context -> {
+        if (context.isNightly()) {
+            throw new UnsupportedOperationException("somebody checked in a test with a debugger option");
+        }
         try {
             return new PlannerRepl(TerminalBuilder.builder().dumb(true).build(), false);
         } catch (IOException e) {
@@ -41,14 +45,14 @@ public enum DebuggerImplementation {
     });
 
     @Nonnull
-    private final Supplier<Debugger> debuggerSupplier;
+    private final Function<YamlExecutionContext, Debugger> debuggerSupplier;
 
-    DebuggerImplementation(@Nonnull final Supplier<Debugger> debuggerSupplier) {
-        this.debuggerSupplier = debuggerSupplier;
+    DebuggerImplementation(@Nonnull final Function<YamlExecutionContext, Debugger> debuggerCreator) {
+        this.debuggerSupplier = debuggerCreator;
     }
 
     @Nonnull
-    public Debugger newDebugger() {
-        return debuggerSupplier.get();
+    public Debugger newDebugger(@Nonnull YamlExecutionContext context) {
+        return debuggerSupplier.apply(context);
     }
 }

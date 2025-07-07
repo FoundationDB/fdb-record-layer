@@ -467,7 +467,7 @@ public abstract class QueryConfig {
     }
 
     private static QueryConfig getDebuggerConfig(@Nonnull Object value, int lineNumber, @Nonnull YamlExecutionContext executionContext) {
-        return new QueryConfig(QUERY_CONFIG_DEBUGGER, DebuggerImplementation.valueOf(((String)value).toUpperCase()),
+        return new QueryConfig(QUERY_CONFIG_DEBUGGER, DebuggerImplementation.valueOf(((String)value).toUpperCase(Locale.ROOT)),
                 lineNumber, executionContext) {
             @Override
             void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual, @Nonnull String queryDescription) throws SQLException {

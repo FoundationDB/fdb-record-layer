@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@
  * limitations under the License.
  */
 
-apply from: rootProject.file('gradle/proto.gradle')
 apply from: rootProject.file('gradle/publishing.gradle')
 
 def coreProject = ":${ext.coreProjectName}"
@@ -42,7 +41,7 @@ publishing {
     publications {
         library(MavenPublication) {
             pom {
-                description = 'Spatial index support for fdb-record-layer'
+                description = 'Debugger implementation for the planner in fdb-record-layer'
             }
         }
     }

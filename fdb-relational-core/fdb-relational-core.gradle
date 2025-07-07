@@ -46,7 +46,6 @@ dependencies {
     testImplementation(libs.bundles.test.impl)
     testImplementation(libs.bundles.test.runtime)
     testCompileOnly(libs.bundles.test.compileOnly)
-    //testImplementation project(path: coreProject, configuration: 'tests')
 
     testImplementation(testFixtures(project(":fdb-relational-api")))
     testImplementation(libs.guava.testlib)

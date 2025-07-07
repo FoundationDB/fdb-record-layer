@@ -397,6 +397,7 @@ public class PlannerRepl implements Debugger {
 
 
     @Nullable
+    @Override
     public String nameForObject(@Nonnull final Object object) {
         final State state = getCurrentState();
         if (object instanceof RelationalExpression) {
@@ -587,26 +588,32 @@ public class PlannerRepl implements Debugger {
         println("");
     }
 
+    @SuppressWarnings({"CallToPrintStackTrace", "PMD.AvoidPrintStackTrace"})
     private void doSilently(@Nonnull final String actionName, @Nonnull final RunnableWithException runnable) {
         try {
             runnable.run();
         } catch (final RestartException rE) {
             throw rE;
-        } catch (final Throwable t) {
-            logger.warn("unable to " + actionName + ": " + t.getMessage());
-            t.printStackTrace();
+        } catch (final Exception e) {
+            if (logger.isWarnEnabled()) {
+                logger.warn("unable to {}: {}", actionName, e.getMessage());
+            }
+            e.printStackTrace();
         }
     }
 
     @Nonnull
+    @SuppressWarnings({"CallToPrintStackTrace", "PMD.AvoidPrintStackTrace"})
     private <T> Optional<T> getSilently(@Nonnull final String actionName, @Nonnull final SupplierWithException<T> supplier) {
         try {
             return Optional.ofNullable(supplier.get());
         } catch (final RestartException rE) {
             throw rE;
-        } catch (final Throwable t) {
-            logger.warn("unable to get " + actionName + ": " + t.getMessage());
-            t.printStackTrace();
+        } catch (final Exception e) {
+            if (logger.isWarnEnabled()) {
+                logger.warn("unable to get {}: {}", actionName, e.getMessage());
+            }
+            e.printStackTrace();
             return Optional.empty();
         }
     }
@@ -614,12 +621,14 @@ public class PlannerRepl implements Debugger {
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static ImmutableMap<String, Commands.Command<Event>> loadCommands() {
         final ImmutableMap.Builder<String, Commands.Command<Event>> commandsMapBuilder = ImmutableMap.builder();
-        final Iterable<Commands.Command> loader
-                = ServiceLoaderProvider.load(Commands.Command.class);
+        final Iterable<Commands.Command> loader =
+                ServiceLoaderProvider.load(Commands.Command.class);
 
         loader.forEach(command -> {
             commandsMapBuilder.put(command.getCommandToken(), command);
-            logger.info("loaded command " + command.getCommandToken());
+            if (logger.isInfoEnabled()) {
+                logger.info("loaded command {}", command.getCommandToken());
+            }
         });
 
         return commandsMapBuilder.build();
@@ -639,7 +648,9 @@ public class PlannerRepl implements Debugger {
 
         loader.forEach(processor -> {
             processorsMap.put(processor.getEventType(), processor);
-            logger.info("loaded processor for " + processor.getEventType().getSimpleName());
+            if (logger.isInfoEnabled()) {
+                logger.info("loaded processor for {}", processor.getEventType().getSimpleName());
+            }
         });
 
         return processorsMap;
@@ -723,7 +734,7 @@ public class PlannerRepl implements Debugger {
         // force extending classes to override equals() and hashCode();
 
         @Override
-        public abstract boolean equals(final Object o);
+        public abstract boolean equals(Object o);
 
         @Override
         public abstract int hashCode();
@@ -834,7 +845,8 @@ public class PlannerRepl implements Debugger {
     }
 
     /**
-     * Breakpoint that breaks on a particular event.
+     * Breakpoint that breaks on reaching an {@link Shorthand#INITPHASE} event. The breakpoint can be configured
+     * to break on any such event or on an event initiating a particular new {@link PlannerPhase}.
      */
     public static class OnPhaseBreakPoint extends BreakPoint {
         @Nonnull

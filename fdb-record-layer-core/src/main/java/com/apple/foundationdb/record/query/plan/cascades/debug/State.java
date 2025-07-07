@@ -43,7 +43,6 @@ import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -51,6 +50,7 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.function.IntUnaryOperator;
 
+@SuppressWarnings("PMD.SystemPrintln")
 public class State {
     @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(State.class);
@@ -144,8 +144,8 @@ public class State {
                   @Nullable final List<Debugger.Event> events,
                   @Nullable final List<PEvent> eventProtos,
                   @Nullable final Iterable<PEvent> prerecordedEventProtoIterable,
-                  @Nonnull final LinkedHashMap<Class<? extends Debugger.Event>, MutableStats> eventClassStatsMap,
-                  @Nonnull final LinkedHashMap<Class<? extends CascadesRule<?>>, MutableStats> plannerRuleClassStatsMap,
+                  @Nonnull final Map<Class<? extends Debugger.Event>, MutableStats> eventClassStatsMap,
+                  @Nonnull final Map<Class<? extends CascadesRule<?>>, MutableStats> plannerRuleClassStatsMap,
                   @Nonnull final Deque<Pair<Class<? extends Debugger.Event>, EventDurations>> eventProfilingStack,
                   final int currentTick,
                   final long startTs) {
@@ -323,6 +323,7 @@ public class State {
                 break;
             default:
                 updateCounts(event);
+                break;
         }
     }
 

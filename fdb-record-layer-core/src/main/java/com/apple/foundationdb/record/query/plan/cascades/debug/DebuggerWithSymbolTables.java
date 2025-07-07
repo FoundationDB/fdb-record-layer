@@ -63,6 +63,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.Refer
  * Implementation of a debugger that maintains symbol tables for easier human consumption e.g. in test cases and/or
  * while debugging.
  */
+@SuppressWarnings("PMD.SystemPrintln")
 public class DebuggerWithSymbolTables implements Debugger {
     private static final Logger logger = LoggerFactory.getLogger(DebuggerWithSymbolTables.class);
 
@@ -169,6 +170,7 @@ public class DebuggerWithSymbolTables implements Debugger {
     }
 
     @Override
+    @SuppressWarnings("PMD.GuardLogStatement") // false positive
     public void onEvent(final Event event) {
         if ((queryAsString == null) || (planContext == null) || stateStack.isEmpty()) {
             return;
@@ -198,7 +200,7 @@ public class DebuggerWithSymbolTables implements Debugger {
     }
 
     @Nullable
-    private static <T> T lookupInCache(final Cache<Integer, T> cache, final String identifier, final String prefix) {
+    static <T> T lookupInCache(final Cache<Integer, T> cache, final String identifier, final String prefix) {
         @Nullable final Integer refId = getIdFromIdentifier(identifier, prefix);
         if (refId == null) {
             return null;
@@ -233,6 +235,7 @@ public class DebuggerWithSymbolTables implements Debugger {
     }
 
     @Nullable
+    @Override
     public String nameForObject(@Nonnull final Object object) {
         final State state = getCurrentState();
         if (object instanceof RelationalExpression) {
@@ -253,10 +256,12 @@ public class DebuggerWithSymbolTables implements Debugger {
     public void onDone() {
         if (!stateStack.isEmpty() && queryAsString != null) {
             final var state = Objects.requireNonNull(stateStack.peek());
-            logger.info(KeyValueLogMessage.of("planning done",
-                    "query", Objects.requireNonNull(queryAsString).substring(0, Math.min(queryAsString.length(), 30)),
-                    "duration-in-ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - state.getStartTs()),
-                    "ticks", state.getCurrentTick()));
+            if (logger.isInfoEnabled()) {
+                logger.info(KeyValueLogMessage.of("planning done",
+                        "query", Objects.requireNonNull(queryAsString).substring(0, Math.min(queryAsString.length(), 30)),
+                        "duration-in-ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - state.getStartTs()),
+                        "ticks", state.getCurrentTick()));
+            }
 
             final var eventProtos = state.getEventProtos();
             if (eventProtos != null) {
@@ -275,7 +280,7 @@ public class DebuggerWithSymbolTables implements Debugger {
     private static void writeEventsDelimitedToFile(final List<PEvent> eventProtos) {
         try {
             final var tempFile = File.createTempFile("events-", ".bin");
-            try (final var fos = new FileOutputStream(tempFile)) {
+            try (var fos = new FileOutputStream(tempFile)) {
                 for (final var eventProto : eventProtos) {
                     eventProto.writeDelimitedTo(fos);
                 }
@@ -290,7 +295,7 @@ public class DebuggerWithSymbolTables implements Debugger {
         return () -> readEventsDelimitedFromFile(fileName);
     }
 
-    @SuppressWarnings("resource")
+    @SuppressWarnings({"resource", "PMD.CloseResource"})
     @Nonnull
     private static Iterator<PEvent> readEventsDelimitedFromFile(@Nonnull final String fileName) {
         final var file = new File(fileName);
@@ -345,18 +350,23 @@ public class DebuggerWithSymbolTables implements Debugger {
     }
 
     void logQuery() {
-        logger.debug(KeyValueLogMessage.of("planning started", "query", queryAsString));
+        if (logger.isDebugEnabled()) {
+            logger.debug(KeyValueLogMessage.of("planning started", "query", queryAsString));
+        }
     }
 
     @Nonnull
+    @SuppressWarnings({"PMD.AvoidPrintStackTrace", "unused", "CallToPrintStackTrace"})
     private <T> Optional<T> getSilently(@Nonnull final String actionName, @Nonnull final SupplierWithException<T> supplier) {
         try {
             return Optional.ofNullable(supplier.get());
         } catch (final RestartException rE) {
             throw rE;
-        } catch (final Throwable t) {
-            logger.warn("unable to get " + actionName + ": " + t.getMessage());
-            t.printStackTrace();
+        } catch (final Exception e) {
+            if (logger.isWarnEnabled()) {
+                logger.warn("unable to get {}: {}", actionName, e.getMessage());
+            }
+            e.printStackTrace();
             return Optional.empty();
         }
     }

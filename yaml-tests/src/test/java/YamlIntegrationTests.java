@@ -22,14 +22,15 @@ import com.apple.foundationdb.relational.yamltests.MaintainYamlTestConfig;
 import com.apple.foundationdb.relational.yamltests.YamlTest;
 import com.apple.foundationdb.relational.yamltests.YamlTestConfigFilters;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.TestTemplate;
 
 /**
  * Class covering the standard integration tests specified by yamsql files.
  * <br>
  * Note: Use {@link MaintainYamlTestConfig} using {@link YamlTestConfigFilters#CORRECT_EXPLAIN_AND_METRICS} or similar
- *       to correct explain strings and/or planner metrics. That annotation works both on class and on method level.
+ * to correct explain strings and/or planner metrics. That annotation works both on class and on method level.
+ * Note: Use {@link com.apple.foundationdb.relational.yamltests.DebugPlanner} on a specific test in this class to bring
+ * up the {@link com.apple.foundationdb.record.query.plan.cascades.debug.PlannerRepl} debugger implementation.
  */
 @YamlTest
 public class YamlIntegrationTests {
@@ -246,7 +247,6 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    @Tag("debug")
     public void cte(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("cte.yamsql");
     }
