@@ -165,10 +165,10 @@ public class QueryExecutor {
         try {
             if (parameters == null) {
                 logger.debug("⏳ Executing query '{}'", this.toString());
-                continuationAfter = executeWithSetup(connection, () -> {
-                    try (var s = connection.createStatement()) {
-                        final var queryResult = executeStatementAndCheckCacheIfNeeded(s, false, connection, currentQuery, checkCache, maxRows);
-                        config.checkResult(currentQuery, queryResult, this.toString(), connection);
+                continuationAfter = executeWithSetup(connection, singleConnection -> {
+                    try (var s = singleConnection.createStatement()) {
+                        final var queryResult = executeStatementAndCheckCacheIfNeeded(s, false, singleConnection, currentQuery, checkCache, maxRows);
+                        config.checkResult(currentQuery, queryResult, this.toString(), singleConnection);
                         if (queryResult instanceof RelationalResultSet) {
                             return ((RelationalResultSet) queryResult).getContinuation();
                         }
@@ -177,11 +177,11 @@ public class QueryExecutor {
                 });
             } else {
                 logger.debug("⏳ Executing query '{}'", this.toString());
-                continuationAfter = executeWithSetup(connection, () -> {
-                    try (var s = connection.prepareStatement(currentQuery)) {
+                continuationAfter = executeWithSetup(connection, singleConnection -> {
+                    try (var s = singleConnection.prepareStatement(currentQuery)) {
                         setParametersInPreparedStatement(s);
-                        final var queryResult = executeStatementAndCheckCacheIfNeeded(s, true, connection, currentQuery, checkCache, maxRows);
-                        config.checkResult(currentQuery, queryResult, this.toString(), connection);
+                        final var queryResult = executeStatementAndCheckCacheIfNeeded(s, true, singleConnection, currentQuery, checkCache, maxRows);
+                        config.checkResult(currentQuery, queryResult, this.toString(), singleConnection);
                         if (queryResult instanceof RelationalResultSet) {
                             return ((RelationalResultSet)queryResult).getContinuation();
                         }
@@ -198,7 +198,7 @@ public class QueryExecutor {
 
     @Nullable
     private Continuation executeWithSetup(final @Nonnull YamlConnection connection,
-                                          SQLSupplier<Continuation> execute) throws SQLException, RelationalException {
+                                          SQLFunction<YamlConnection, Continuation> execute) throws SQLException, RelationalException {
         if (!setup.isEmpty()) {
             return connection.executeTransactionally(singleConnection -> {
                 for (var setupStatement : setup) {
@@ -210,13 +210,13 @@ public class QueryExecutor {
                     }
                 }
                 try {
-                    return execute.get();
+                    return execute.apply(singleConnection);
                 } catch (SQLException | RelationalException e) {
                     throw new RuntimeException(e);
                 }
             });
         } else {
-            return execute.get();
+            return execute.apply(connection);
         }
     }
 

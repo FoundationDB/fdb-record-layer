@@ -37,7 +37,7 @@
 #       whatever statements they want in whichever location.
 ---
 options:
-    supported_version: 4.3.5.0
+    supported_version: !current_version
 ---
 schema_template:
     create table table_t1(id bigint, col1 bigint, primary key(id))

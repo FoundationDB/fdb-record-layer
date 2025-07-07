@@ -25,6 +25,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import java.sql.SQLException;
 
 @FunctionalInterface
-public interface SQLSupplier<T> {
-    T get() throws SQLException, RelationalException;
+public interface SQLFunction<T, R> {
+    R apply(T t) throws SQLException, RelationalException;
 }
