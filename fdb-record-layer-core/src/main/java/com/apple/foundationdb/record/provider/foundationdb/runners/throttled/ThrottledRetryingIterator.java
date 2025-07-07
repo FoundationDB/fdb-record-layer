@@ -149,30 +149,13 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
     }
 
     @Override
-    public void close() {
+    public void close() throws MoreAsyncUtil.CloseException {
         if (closed) {
             return;
         }
         closed = true;
         // Ensure we call both close() methods, capturing all exceptions
-        RuntimeException caught = null;
-        try {
-            futureManager.close();
-        } catch (RuntimeException e) {
-            caught = e;
-        }
-        try {
-            transactionalRunner.close();
-        } catch (RuntimeException e) {
-            if (caught != null) {
-                caught.addSuppressed(e);
-            } else {
-                caught = e;
-            }
-        }
-        if (caught != null) {
-            throw caught;
-        }
+        MoreAsyncUtil.closeAll(futureManager, transactionalRunner);
     }
 
     /**
