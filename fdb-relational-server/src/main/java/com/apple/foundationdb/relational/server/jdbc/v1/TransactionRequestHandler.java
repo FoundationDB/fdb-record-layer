@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.jdbc.TypeConversion;
 import com.apple.foundationdb.relational.jdbc.grpc.GrpcSQLExceptionUtil;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.CommitResponse;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.EnableAutoCommitResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.InsertRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.InsertResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.RollbackResponse;
@@ -110,8 +111,12 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
                 logger.info("Handling rollback request");
                 frl.transactionalRollback(transactionalToken);
                 responseBuilder.setRollbackResponse(RollbackResponse.newBuilder().build());
+            } else if (transactionRequest.hasEnableAutoCommitRequest()) {
+                logger.info("Enabling autoCommit");
+                frl.enableAutoCommit(transactionalToken);
+                responseBuilder.setEnableAutoCommitResponse(EnableAutoCommitResponse.newBuilder().build());
             } else {
-                throw new IllegalArgumentException("Unknown transactional request type in" + transactionRequest);
+                throw new IllegalArgumentException("Unknown transactional request type: " + transactionRequest);
             }
             responseObserver.onNext(responseBuilder.build());
         } catch (SQLException e) {

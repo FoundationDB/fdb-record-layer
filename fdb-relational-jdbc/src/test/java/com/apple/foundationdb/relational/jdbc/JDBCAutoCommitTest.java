@@ -207,7 +207,7 @@ public class JDBCAutoCommitTest {
 
             try (RelationalStatement statement = connection.createStatement()) {
                 insertOneRow(statement);
-                connection.setAutoCommit(true);
+                connection.setAutoCommit(true); // this should commit
 
                 RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM test_table");
                 assertNextResult(resultSet, 100, "one hundred");
