@@ -21,8 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.values.translation;
 
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -294,12 +292,12 @@ public class MaxMatchMap {
     }
 
     @Nonnull
-    public Optional<TranslationMap> pullUpMaybe(@Nonnull final CorrelationIdentifier queryAlias,
-                                                @Nonnull final CorrelationIdentifier candidateAlias) {
+    public Optional<RegularTranslationMap> pullUpMaybe(@Nonnull final CorrelationIdentifier queryAlias,
+                                                       @Nonnull final CorrelationIdentifier candidateAlias) {
         final var translatedQueryValueOptional = translateQueryValueMaybe(candidateAlias);
         return translatedQueryValueOptional
                 .map(translatedQueryValue ->
-                        TranslationMap.builder()
+                        RegularTranslationMap.builder()
                                 .when(queryAlias).then(TranslationMap.TranslationFunction.adjustValueType(translatedQueryValue))
                                 .build());
     }
@@ -805,12 +803,8 @@ public class MaxMatchMap {
         }
 
         final var unmatchedHandlerResult = unmatchedHandlerFunction.apply(currentQueryValue);
-        return unmatchedHandlerResult.map(value -> Pair.of(BooleanWithConstraint.alwaysTrue(), value))
-                .orElseGet(() -> Pair.of(BooleanWithConstraint.falseValue(), null));
-
-//        if (currentQueryValue instanceof IndexableAggregateValue) {
-//            return Pair.of(ConstrainedBoolean.alwaysTrue(), new UnmatchedAggregateValue(ImmutableList.of()));
-//        }
+        return unmatchedHandlerResult.map(value -> Pair.of(ConstrainedBoolean.alwaysTrue(), value))
+                .orElseGet(() -> Pair.of(ConstrainedBoolean.falseValue(), null));
     }
 
     /**

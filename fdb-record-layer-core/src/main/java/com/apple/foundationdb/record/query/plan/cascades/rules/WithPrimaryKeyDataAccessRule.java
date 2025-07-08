@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.RegularTranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -224,7 +225,7 @@ public class WithPrimaryKeyDataAccessRule extends AbstractDataAccessRule<Relatio
     @Nonnull
     private static TranslationMap matchedToRealizedTranslationMap(@Nonnull final List<Vectored<SingleMatchedAccess>> partition,
                                                                   @Nonnull final CorrelationIdentifier realizedAlias) {
-        final var translationMapBuilder = TranslationMap.builder();
+        final var translationMapBuilder = RegularTranslationMap.builder();
         for (final var singleMatchedAccessWithIndex : partition) {
             translationMapBuilder.when(singleMatchedAccessWithIndex.getElement().getCandidateTopAlias())
                     .then((sourceAlias, leafValue) -> leafValue.rebaseLeaf(

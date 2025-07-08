@@ -55,6 +55,7 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.Cardinality;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.RegularTranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
@@ -686,7 +687,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     }
 
     @Nonnull
-    private static Optional<TranslationMap> computeTopToTopTranslationMapMaybe(final PartialMatch partialMatch) {
+    private static Optional<RegularTranslationMap> computeTopToTopTranslationMapMaybe(final PartialMatch partialMatch) {
         final var maxMatchMap = partialMatch.getMatchInfo().getMaxMatchMap();
         return maxMatchMap.pullUpMaybe(Quantifier.current(), Quantifier.current());
     }
@@ -1007,6 +1008,9 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
 
     @Nonnull
     private static Optional<Set<CorrelationIdentifier>> unmatchedIdsMaybe(@Nonnull final IntersectionInfo intersectionInfo) {
+        if (!intersectionInfo.getCompensation().isNeeded()) {
+            return Optional.of(ImmutableSet.of());
+        }
         final var compensationOptional = compensationMaybe(intersectionInfo);
         return compensationOptional.map(compensation ->
                 compensation.getGroupByMappings().getUnmatchedAggregatesMap().keySet());

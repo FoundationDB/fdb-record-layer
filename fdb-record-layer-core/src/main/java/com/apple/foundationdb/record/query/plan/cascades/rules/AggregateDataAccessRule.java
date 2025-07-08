@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObject
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.RegularTranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMultiIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -361,7 +362,7 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalEx
                                                         @Nonnull final List<CorrelationIdentifier> candidateTopAliases,
                                                         @Nonnull final Type.Record intersectionResultType,
                                                         final int numGrouped) {
-        final var builder = TranslationMap.builder();
+        final var builder = RegularTranslationMap.builder();
         final var deconstructedIntersectionValues =
                 Values.deconstructRecord(QuantifiedObjectValue.of(intersectionAlias, intersectionResultType));
         for (int quantifierIndex = 0; quantifierIndex < quantifiers.size(); quantifierIndex++) {

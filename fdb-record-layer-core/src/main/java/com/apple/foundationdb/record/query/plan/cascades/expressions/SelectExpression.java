@@ -891,11 +891,11 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
             final var pulledUpTranslatedResultValue = pulledUpTranslatedResultValueOptional.get();
 
             if (QuantifiedObjectValue.isSimpleQuantifiedObjectValueOver(pulledUpTranslatedResultValue,
-                    rootPullUp.getCandidateAlias())) {
+                    rootOfMatchPullUp.getCandidateAlias())) {
                 resultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
             } else {
                 resultCompensationFunction =
-                        ResultCompensationFunction.ofTranslation(pulledUpTranslatedResultValue, rootPullUp.getCandidateAlias());
+                        ResultCompensationFunction.ofValue(pulledUpTranslatedResultValue);
             }
             isAnyCompensationFunctionImpossible |= resultCompensationFunction.isImpossible();
 

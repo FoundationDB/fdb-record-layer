@@ -158,7 +158,7 @@ public class SelectMergeRule extends ImplementationCascadesRule<SelectExpression
                         // childSelectExpression. If one does, we need to assign a new alias
                         // to it. Choose one here
                         //
-                        CorrelationIdentifier newAlias = Quantifier.uniqueID();
+                        CorrelationIdentifier newAlias = Quantifier.uniqueId();
                         childAliasMapBuilder.put(childQun.getAlias(), newAlias);
                         newQunAliases.add(newAlias);
                     }
