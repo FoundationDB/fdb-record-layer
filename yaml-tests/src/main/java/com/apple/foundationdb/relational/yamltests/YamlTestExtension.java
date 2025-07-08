@@ -24,7 +24,7 @@ import com.apple.foundationdb.relational.yamltests.configs.CorrectExplains;
 import com.apple.foundationdb.relational.yamltests.configs.CorrectExplainsAndMetrics;
 import com.apple.foundationdb.relational.yamltests.configs.CorrectMetrics;
 import com.apple.foundationdb.relational.yamltests.configs.EmbeddedConfig;
-import com.apple.foundationdb.relational.yamltests.configs.ExternalSingleServerConfig;
+import com.apple.foundationdb.relational.yamltests.configs.ExternalMultiServerConfig;
 import com.apple.foundationdb.relational.yamltests.configs.ForceContinuations;
 import com.apple.foundationdb.relational.yamltests.configs.JDBCInProcessConfig;
 import com.apple.foundationdb.relational.yamltests.configs.JDBCMultiServerConfig;
@@ -143,8 +143,8 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
                     // Create an ExternalServer config with two servers of the same version for each server
                     // (with and without forced continuations)
                     .flatMap(server ->
-                            Stream.of(new ExternalSingleServerConfig(server),
-                                    new ForceContinuations(new ExternalSingleServerConfig(server))));
+                            Stream.of(new ExternalMultiServerConfig(0, server, server),
+                                    new ForceContinuations(new ExternalMultiServerConfig(0, server, server))));
         } else {
             return servers.stream().flatMap(server ->
                     // (4 configs for each server available)
