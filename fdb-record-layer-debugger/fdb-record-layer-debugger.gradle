@@ -20,6 +20,13 @@
 
 apply from: rootProject.file('gradle/publishing.gradle')
 
+configurations {
+    // JUnit includes the slf4j implementation as an implementation dependency. We don't want any
+    // downstream projects that rely on the "tests" configuration for the ReplRunner to pick it up
+    // transitively, so exclude it here.
+    tests.exclude group: "org.apache.logging.log4j", module: "log4j-slf4j-impl"
+}
+
 def coreProject = ":${ext.coreProjectName}"
 dependencies {
     api project(coreProject)
