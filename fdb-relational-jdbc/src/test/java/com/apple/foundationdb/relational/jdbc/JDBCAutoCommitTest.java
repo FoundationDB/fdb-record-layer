@@ -84,12 +84,33 @@ public class JDBCAutoCommitTest {
      * Run a test with commit and then read.
      */
     @Test
-    void commitThenRead() throws SQLException, IOException {
+    void directInsertCommitThenRead() throws SQLException, IOException {
         try (RelationalConnection connection = DriverManager.getConnection(getTestDbUri()).unwrap(RelationalConnection.class)) {
             connection.setAutoCommit(false);
 
             try (RelationalStatement statement = connection.createStatement()) {
                 insertOneRow(statement);
+                connection.commit();
+
+                RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM test_table");
+                assertNextResult(resultSet, 100, "one hundred");
+                assertNoNextResult(resultSet);
+                connection.commit();
+            }
+        }
+    }
+
+    /**
+     * Run a test with commit and then read.
+     */
+    @Test
+    void queryInsertCommitThenRead() throws SQLException, IOException {
+        try (RelationalConnection connection = DriverManager.getConnection(getTestDbUri()).unwrap(RelationalConnection.class)) {
+            connection.setAutoCommit(false);
+
+            try (RelationalStatement statement = connection.createStatement()) {
+                Assertions.assertFalse(statement.execute("INSERT INTO test_table VALUES (100, 'one hundred')"));
+                Assertions.assertEquals(1, statement.getUpdateCount());
                 connection.commit();
 
                 RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM test_table");
