@@ -1,5 +1,5 @@
 /*
- * MultiServerConfig.java
+ * ExternalSingleServerConfig.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -23,26 +23,19 @@ package com.apple.foundationdb.relational.yamltests.configs;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.connectionfactory.ExternalServerYamlConnectionFactory;
-import com.apple.foundationdb.relational.yamltests.connectionfactory.MultiServerConnectionFactory;
 import com.apple.foundationdb.relational.yamltests.server.ExternalServer;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 
 /**
- * Run against multiple external servers, alternating commands that go against each.
+ * Run against a single external server.
  */
-public class ExternalMultiServerConfig implements YamlTestConfig {
+public class ExternalSingleServerConfig implements YamlTestConfig {
 
-    private final int initialConnection;
-    private final ExternalServer server0;
-    private final ExternalServer server1;
+    private final ExternalServer server;
 
-    public ExternalMultiServerConfig(final int initialConnection, ExternalServer server0, ExternalServer server1) {
-        super();
-        this.initialConnection = initialConnection;
-        this.server0 = server0;
-        this.server1 = server1;
+    public ExternalSingleServerConfig(ExternalServer server) {
+        this.server = server;
     }
 
     @Override
@@ -55,20 +48,12 @@ public class ExternalMultiServerConfig implements YamlTestConfig {
 
     @Override
     public YamlConnectionFactory createConnectionFactory() {
-        return new MultiServerConnectionFactory(
-                MultiServerConnectionFactory.ConnectionSelectionPolicy.ALTERNATE,
-                initialConnection,
-                new ExternalServerYamlConnectionFactory(server0),
-                List.of(new ExternalServerYamlConnectionFactory(server1)));
+        return new ExternalServerYamlConnectionFactory(server);
     }
 
     @Override
     public String toString() {
-        if (initialConnection == 0) {
-            return "MultiServer (" + server0.getVersion() + " then " + server1.getVersion() + ")";
-        } else {
-            return "MultiServer (" + server1.getVersion() + " then " + server0.getVersion() + ")";
-        }
+        return "ExternalServer (" + server.getVersion() + ")";
     }
 
     @Override
