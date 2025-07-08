@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.translation.Tran
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
@@ -372,13 +371,6 @@ public class PredicateMultiMap {
 
         @Nonnull
         Value applyCompensationForResult(@Nonnull TranslationMap translationMap);
-
-        @Nonnull
-        static ResultCompensationFunction ofTranslation(@Nonnull final Value resultValue,
-                                                        @Nonnull final CorrelationIdentifier nestingAlias) {
-            return of(baseAlias -> resultValue.translateCorrelations(
-                    TranslationMap.ofAliases(nestingAlias, baseAlias), false));
-        }
 
         @Nonnull
         static ResultCompensationFunction ofValue(@Nonnull final Value value) {

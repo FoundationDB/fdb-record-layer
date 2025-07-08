@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
@@ -114,6 +115,7 @@ public interface MatchInfo {
             final var candidateLowerResultValue = candidateLowerExpression.getResultValue();
             final var candidatePullUpMap =
                     candidateLowerResultValue.pullUp(ImmutableList.of(candidateAggregateValue),
+                            EvaluationContext.empty(),
                             AliasMap.emptyMap(),
                             Sets.difference(candidateAggregateValue.getCorrelatedToWithoutChildren(),
                                     candidateLowerExpression.getCorrelatedTo()),
@@ -499,7 +501,8 @@ public interface MatchInfo {
             for (final var unmatchedAggregateMapEntry : groupByMappings.getUnmatchedAggregatesMap().entrySet()) {
                 final var queryAggregateValue = unmatchedAggregateMapEntry.getValue();
                 final var pullUpMap =
-                        resultValue.pullUp(ImmutableList.of(queryAggregateValue), AliasMap.emptyMap(),
+                        resultValue.pullUp(ImmutableList.of(queryAggregateValue), EvaluationContext.empty(),
+                                AliasMap.emptyMap(),
                                 Sets.difference(queryAggregateValue.getCorrelatedToWithoutChildren(),
                                         queryExpression.getCorrelatedTo()), queryAlias);
                 final var pulledUpQueryAggregateValue = pullUpMap.get(queryAggregateValue);
@@ -522,8 +525,8 @@ public interface MatchInfo {
             for (final var entry : matchedValueMap.entrySet()) {
                 final var queryValue = entry.getKey();
                 final var pullUpMap =
-                        queryResultValue.pullUp(ImmutableList.of(queryValue), AliasMap.emptyMap(), constantAliases,
-                                queryAlias);
+                        queryResultValue.pullUp(ImmutableList.of(queryValue), EvaluationContext.empty(),
+                                AliasMap.emptyMap(), constantAliases, queryAlias);
                 final Value pulledUpQueryValue = pullUpMap.get(queryValue);
                 if (pulledUpQueryValue == null) {
                     continue;
@@ -535,6 +538,7 @@ public interface MatchInfo {
                 final var candidateLowerResultValue = candidateLowerExpression.getResultValue();
                 final var candidatePullUpMap =
                         candidateLowerResultValue.pullUp(ImmutableList.of(candidateAggregateValue),
+                                EvaluationContext.empty(),
                                 AliasMap.emptyMap(),
                                 Sets.difference(candidateAggregateValue.getCorrelatedToWithoutChildren(),
                                         candidateLowerExpression.getCorrelatedTo()),

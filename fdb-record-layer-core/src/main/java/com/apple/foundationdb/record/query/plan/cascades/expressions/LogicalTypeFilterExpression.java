@@ -221,11 +221,11 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
             final var pulledUpTranslatedResultValue = pulledUpTranslatedResultValueOptional.get();
 
             if (QuantifiedObjectValue.isSimpleQuantifiedObjectValueOver(pulledUpTranslatedResultValue,
-                    rootPullUp.getCandidateAlias())) {
+                    rootOfMatchPullUp.getCandidateAlias())) {
                 resultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
             } else {
                 resultCompensationFunction =
-                        ResultCompensationFunction.ofTranslation(pulledUpTranslatedResultValue, rootPullUp.getCandidateAlias());
+                        ResultCompensationFunction.ofValue(pulledUpTranslatedResultValue);
             }
             isCompensationImpossible |= resultCompensationFunction.isImpossible();
 

@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FirstOrDefaultVa
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.RegularTranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan;
@@ -584,7 +585,7 @@ public class DerivationsProperty implements ExpressionProperty<DerivationsProper
                     CrossProduct.crossProduct(resultDerivationsBuilder.build());
 
             for (final var element : crossProductIterable) {
-                final var translationMapBuilder = TranslationMap.builder();
+                final var translationMapBuilder = RegularTranslationMap.builder();
                 for (int i = 0; i < quantifiers.size(); i++) {
                     final var quantifier = quantifiers.get(i);
                     final var derivationResultValue = element.get(i);

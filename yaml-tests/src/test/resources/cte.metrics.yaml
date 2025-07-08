@@ -3,19 +3,19 @@ cte-tests:
     explain: 'COVERING(I1 <,> -> [COL1: KEY[1], COL2: KEY[0], ID: KEY[3]]) | MAP (_.COL1
         AS COL1, _.COL2 AS COL2)'
     task_count: 267
-    task_total_time_ms: 150
-    transform_count: 68
-    transform_time_ms: 79
+    task_total_time_ms: 87
+    transform_count: 72
+    transform_time_ms: 59
     transform_yield_count: 27
-    insert_time_ms: 8
+    insert_time_ms: 6
     insert_new_count: 29
     insert_reused_count: 5
 -   query: EXPLAIN select col1 from t1 where col2 < 3
     explain: 'COVERING(I1 [[LESS_THAN promote(@c8 AS LONG)]] -> [COL1: KEY[1], COL2:
         KEY[0], ID: KEY[3]]) | MAP (_.COL1 AS COL1)'
     task_count: 439
-    task_total_time_ms: 10
-    transform_count: 107
+    task_total_time_ms: 12
+    transform_count: 111
     transform_time_ms: 5
     transform_yield_count: 34
     insert_time_ms: 0
@@ -26,11 +26,11 @@ cte-tests:
     explain: 'COVERING(I1 [[LESS_THAN promote(@c21 AS LONG)]] -> [COL1: KEY[1], COL2:
         KEY[0], ID: KEY[3]]) | MAP (_.COL1 AS X)'
     task_count: 498
-    task_total_time_ms: 14
-    transform_count: 134
-    transform_time_ms: 6
+    task_total_time_ms: 11
+    transform_count: 138
+    transform_time_ms: 5
     transform_yield_count: 39
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 56
     insert_reused_count: 7
 -   query: EXPLAIN with c1(x, y) as (select col1, col2 from t1) select x from c1 where
@@ -38,8 +38,8 @@ cte-tests:
     explain: 'COVERING(I1 [[LESS_THAN promote(@c24 AS LONG)]] -> [COL1: KEY[1], COL2:
         KEY[0], ID: KEY[3]]) | MAP (_.COL1 AS X)'
     task_count: 498
-    task_total_time_ms: 12
-    transform_count: 134
+    task_total_time_ms: 11
+    transform_count: 138
     transform_time_ms: 5
     transform_yield_count: 39
     insert_time_ms: 1

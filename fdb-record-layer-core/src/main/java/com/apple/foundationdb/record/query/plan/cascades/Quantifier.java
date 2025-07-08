@@ -240,7 +240,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         @Override
         @Nonnull
         public Optional<RegularTranslationMap> pullUpMaxMatchMapMaybe(@Nonnull final MaxMatchMap maxMatchMap,
-                                                               @Nonnull final CorrelationIdentifier candidateAlias) {
+                                                                      @Nonnull final CorrelationIdentifier candidateAlias) {
             return maxMatchMap.pullUpMaybe(getAlias(), candidateAlias);
         }
 

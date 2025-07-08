@@ -87,9 +87,6 @@ import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
-import static com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean.alwaysTrue;
-import static com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean.falseValue;
-
 /**
  * A logical {@code group by} expression that represents grouping incoming tuples and aggregating each group.
  */
@@ -347,7 +344,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                 ImmutableBiMap.<CorrelationIdentifier, Value>builder();
         final var unmatchedTranslatedAggregatesValueMapBuilder =
                 ImmutableMap.<Value, CorrelationIdentifier>builder();
-        var subsumedAggregations = BooleanWithConstraint.falseValue();
+        var subsumedAggregations = ConstrainedBoolean.falseValue();
         for (final var primitiveAggregateValue : aggregateValues) {
             final var translatedPrimitiveAggregateValue =
                     primitiveAggregateValue.translateCorrelations(translationMap, true);
@@ -369,7 +366,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         }
 
         final var subsumedGroupingsResult =
-                subsumedGroupings(candidateInnerQuantifier,
+                groupingSubsumedBy(candidateInnerQuantifier,
                         Objects.requireNonNull(partialMatchMap.getUnwrapped(innerQuantifier)),
                         candidateGroupingValue, translationMap, valueEquivalence, evaluationContext);
         final var subsumedGroupings = Objects.requireNonNull(subsumedGroupingsResult.getSubsumedGroups());
@@ -423,7 +420,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                                                        @Nonnull final ValueEquivalence valueEquivalence,
                                                        @Nonnull final EvaluationContext evaluationContext) {
         if (groupingValue == null && candidateGroupingValue == null) {
-            return SubsumedGroupingsResult.withoutRollUp(BooleanWithConstraint.alwaysTrue(), ImmutableBiMap.of());
+            return SubsumedGroupingsResult.withoutRollUp(ConstrainedBoolean.alwaysTrue(), ImmutableBiMap.of());
         }
         if (candidateGroupingValue == null) {
             return SubsumedGroupingsResult.noSubsumption();
@@ -441,8 +438,8 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                             .collect(ImmutableList.toImmutableList());
             for (final var primitiveGroupingValue : groupingValues) {
                 final var translatedPrimitiveGroupingValue =
-                        primitiveGroupingValue.translateCorrelations(translationMap, true)
-                                .simplify(AliasMap.emptyMap(), ImmutableSet.of());
+                        primitiveGroupingValue.translateCorrelations(translationMap, true);
+                // TODO is this needed?.simplify(evaluationContext, AliasMap.emptyMap(), ImmutableSet.of());
                 translatedGroupingsValuesBuilder.add(translatedPrimitiveGroupingValue);
                 matchedGroupingsMapBuilder.put(primitiveGroupingValue, translatedPrimitiveGroupingValue);
             }
@@ -490,7 +487,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         // 3. For each candidate grouping value in the set of (yet) unmatched candidate group values, try to find a
         //    predicate that binds that groupingValue.
         //
-        var booleanWithConstraint = BooleanWithConstraint.alwaysTrue();
+        var booleanWithConstraint = ConstrainedBoolean.alwaysTrue();
         for (final var translatedGroupingValue : translatedGroupingValuesSet) {
             var found = false;
 
@@ -671,11 +668,11 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
             final var pulledUpTranslatedResultValue = pulledUpTranslatedResultValueOptional.get();
 
             if (QuantifiedObjectValue.isSimpleQuantifiedObjectValueOver(pulledUpTranslatedResultValue,
-                    rootPullUp.getCandidateAlias())) {
+                    rootOfMatchPullUp.getCandidateAlias())) {
                 resultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
             } else {
                 resultCompensationFunction =
-                        ResultCompensationFunction.ofTranslation(pulledUpTranslatedResultValue, rootPullUp.getCandidateAlias());
+                        ResultCompensationFunction.ofValue(pulledUpTranslatedResultValue);
             }
             isCompensationImpossible |= resultCompensationFunction.isImpossible();
 
@@ -809,13 +806,13 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
     private static class SubsumedGroupingsResult {
         @Nonnull
-        private final BooleanWithConstraint subsumedGroups;
+        private final ConstrainedBoolean subsumedGroups;
         @Nonnull
         private final BiMap<Value, Value> matchedGroupingsMap;
         @Nullable
         private final List<Value> rollUpToValues;
 
-        private SubsumedGroupingsResult(@Nonnull final BooleanWithConstraint subsumedGroups,
+        private SubsumedGroupingsResult(@Nonnull final ConstrainedBoolean subsumedGroups,
                                         @Nonnull final BiMap<Value, Value> matchedGroupingsMap,
                                         @Nullable final List<Value> rollUpToValues) {
             this.subsumedGroups = subsumedGroups;
@@ -824,7 +821,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         }
 
         @Nonnull
-        public BooleanWithConstraint getSubsumedGroups() {
+        public ConstrainedBoolean getSubsumedGroups() {
             return subsumedGroups;
         }
 
@@ -840,17 +837,17 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
         @Nonnull
         public static SubsumedGroupingsResult noSubsumption() {
-            return of(BooleanWithConstraint.falseValue(), ImmutableBiMap.of(), null);
+            return of(ConstrainedBoolean.falseValue(), ImmutableBiMap.of(), null);
         }
 
         @Nonnull
-        public static SubsumedGroupingsResult withoutRollUp(@Nonnull final BooleanWithConstraint subsumedGroups,
+        public static SubsumedGroupingsResult withoutRollUp(@Nonnull final ConstrainedBoolean subsumedGroups,
                                                             @Nonnull final BiMap<Value, Value> matchedGroupingsMap) {
             return of(subsumedGroups, matchedGroupingsMap, null);
         }
 
         @Nonnull
-        public static SubsumedGroupingsResult of(@Nonnull final BooleanWithConstraint subsumedGroups,
+        public static SubsumedGroupingsResult of(@Nonnull final ConstrainedBoolean subsumedGroups,
                                                  @Nonnull final BiMap<Value, Value> matchedGroupingsMap,
                                                  @Nullable final List<Value> rollUpToValues) {
             return new SubsumedGroupingsResult(subsumedGroups, ImmutableBiMap.copyOf(matchedGroupingsMap),

@@ -171,6 +171,7 @@ public class PullUp {
             final var currentCandidateAlias = currentPullUp.getCandidateAlias();
             final var candidatePullUpMap =
                     currentPullThroughValue.pullUp(ImmutableList.of(currentValue),
+                            EvaluationContext.empty(),
                             AliasMap.emptyMap(),
                             Sets.difference(currentValue.getCorrelatedToWithoutChildren(),
                                     currentRangedOverAliases),

@@ -459,7 +459,8 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
 
             return RecordQueryStreamingAggregationPlan.ofFlattened(aggregateIndexScanQuantifier,
                     RecordConstructorValue.ofColumns(rollUpGroupingColumnsBuilder.build(), resultType.isNullable()),
-                    rollUpAggregateValueOptional.orElseThrow(() -> new RecordCoreException("unknown rollup operation")));
+                    rollUpAggregateValueOptional.orElseThrow(() -> new RecordCoreException("unknown rollup operation")),
+                    RecordQueryStreamingAggregationPlan.SerializationMode.TO_NEW);
         }
         return plan;
     }
