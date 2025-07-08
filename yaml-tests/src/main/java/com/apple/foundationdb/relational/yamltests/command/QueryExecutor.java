@@ -202,18 +202,10 @@ public class QueryExecutor {
         if (!setup.isEmpty()) {
             return connection.executeTransactionally(singleConnection -> {
                 for (var setupStatement : setup) {
-                    try {
-                        final RelationalStatement statement = singleConnection.createStatement();
-                        statement.execute(setupStatement);
-                    } catch (SQLException e) {
-                        throw new RuntimeException(e);
-                    }
+                    final RelationalStatement statement = singleConnection.createStatement();
+                    statement.execute(setupStatement);
                 }
-                try {
-                    return execute.apply(singleConnection);
-                } catch (SQLException | RelationalException e) {
-                    throw new RuntimeException(e);
-                }
+                return execute.apply(singleConnection);
             });
         } else {
             return execute.apply(connection);

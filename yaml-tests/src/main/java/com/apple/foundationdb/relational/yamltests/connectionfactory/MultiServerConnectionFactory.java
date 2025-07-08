@@ -23,11 +23,13 @@ package com.apple.foundationdb.relational.yamltests.connectionfactory;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlConnectionFactory;
+import com.apple.foundationdb.relational.yamltests.command.SQLFunction;
 import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 import com.google.common.collect.Iterables;
 import org.apache.logging.log4j.LogManager;
@@ -43,7 +45,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -206,7 +207,8 @@ public class MultiServerConnectionFactory implements YamlConnectionFactory {
         }
 
         @Override
-        public <T> T executeTransactionally(final Function<YamlConnection, T> transactionalWork) throws SQLException {
+        public <T> T executeTransactionally(final SQLFunction<YamlConnection, T> transactionalWork)
+                throws SQLException, RelationalException {
             return getCurrentConnection(true, "transactional work").executeTransactionally(transactionalWork);
         }
 

@@ -24,8 +24,10 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
+import com.apple.foundationdb.relational.yamltests.command.SQLFunction;
 import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 import com.google.common.collect.Iterables;
 import org.junit.jupiter.api.Assumptions;
@@ -35,7 +37,6 @@ import javax.annotation.Nullable;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
-import java.util.function.Function;
 
 /**
  * A simple version of {@link YamlConnection} for interacting with a single {@link RelationalConnection}.
@@ -119,16 +120,18 @@ public class SimpleYamlConnection implements YamlConnection {
     }
 
     @Override
-    public <T> T executeTransactionally(final Function<YamlConnection, T> transactionalWork) throws SQLException {
+    public <T> T executeTransactionally(final SQLFunction<YamlConnection, T> transactionalWork) throws SQLException, RelationalException {
         underlying.setAutoCommit(false);
         T result;
         try {
             result = transactionalWork.apply(this);
-            underlying.commit();
-        } catch (final SQLException e) {
+        } catch (final SQLException | RelationalException e) {
             underlying.rollback();
             throw e;
         } finally {
+            // enabling autoCommit will commit if there is outstanding work
+            // It would probably be good to commit earlier, but https://github.com/FoundationDB/fdb-record-layer/pull/3477
+            // causes the setAutoCommit to fail if you do that
             underlying.setAutoCommit(true);
         }
         return result;
