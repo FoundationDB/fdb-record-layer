@@ -21,7 +21,10 @@
 <HTML>
 <BODY>
 
-Implementations for specific planner debuggers.
+Implementations for specific planner debuggers (in particular the repl debugger for the planner). The Debugger interface
+provides a hook mechanism which is used by planner logic to inform a debugger implementation about events that occur
+during the planning of a query. The planner repl allows a developer to set breakpoints, step through planner rules,
+introspect expressions, references and other objects as well as to show planner graphs of during planning.
 
 </BODY>
 </HTML>

@@ -393,8 +393,6 @@ public final class TestBlock extends ConnectedBlock {
                 Collections.shuffle(executableTestsWithCacheCheck, randomGenerator);
             }
 
-
-
             Assert.thatUnchecked(!executables.isEmpty(), "‼️ Test block at line " + lineNumber + " have no tests to execute");
             return new TestBlock(lineNumber, blockName, queryCommands, executables, executableTestsWithCacheCheck,
                     executionContext.inferConnectionURI(testsMap.getOrDefault(BLOCK_CONNECT, null)), options, executionContext);

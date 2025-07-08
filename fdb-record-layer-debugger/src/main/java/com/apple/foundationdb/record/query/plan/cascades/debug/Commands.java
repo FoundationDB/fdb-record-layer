@@ -674,8 +674,9 @@ public class Commands {
     }
 
     /**
-     * Continue the specified (or one) number of steps.
-     * {@code step [<number>]} continue execution for the next number of steps.
+     * Continue execution until the next
+     * {@link com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.Shorthand#INITPHASE} of the desired
+     * planner phase occurs.
      */
     @AutoService(Command.class)
     public static class PhaseCommand implements Command<Event> {
@@ -693,6 +694,7 @@ public class Commands {
                     return false;
                 }
             } else {
+                // if no planner phase is given, we set it to null to indicate to stop at any initphase.
                 plannerPhase = null;
             }
 
@@ -709,7 +711,7 @@ public class Commands {
         @Override
         public void printUsage(@Nonnull final PlannerRepl plannerRepl) {
             plannerRepl.printlnKeyValue("phase [rewriting, planning]",
-                    "continue execution until the next initphase of the desired planner phae occurs.");
+                    "continue execution until the next initphase of the desired planner phase occurs.");
         }
     }
 

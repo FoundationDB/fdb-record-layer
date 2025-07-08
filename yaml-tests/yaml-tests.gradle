@@ -40,16 +40,6 @@ tasks.named("sourcesJar") {
 
 apply from: rootProject.file('gradle/publishing.gradle')
 
-//configurations {
-//    // The :fdb-relational-grpc project includes the slf4j bindings transitively through :fdb-relational-cli.
-//    // Excluding it from the individual project seems to be insufficient (and results in a runtime
-//    // warning about there being multiple implementations present from slf4j), so this applies the
-//    // exclusion globally
-//    runtime.exclude group: "org.apache.logging.log4j", module: "log4j-slf4j-impl"
-//    testImplementation.exclude group: "org.apache.logging.log4j", module: "log4j-slf4j-impl"
-//    testRuntime.exclude group: "org.apache.logging.log4j", module: "log4j-slf4j-impl"
-//}
-
 def coreProject = ":${ext.coreProjectName}"
 dependencies {
     implementation project(coreProject)

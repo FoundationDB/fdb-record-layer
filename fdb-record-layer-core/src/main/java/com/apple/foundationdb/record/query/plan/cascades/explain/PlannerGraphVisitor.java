@@ -64,20 +64,20 @@ import java.util.stream.Collectors;
 @SuppressWarnings({"UnstableApiUsage"})
 public class PlannerGraphVisitor implements SimpleExpressionVisitor<PlannerGraph> {
 
-    public static final int EMPTY_FLAGS                = 0x0000;
+    public static final int EMPTY_FLAGS                    = 0x0000;
 
     /**
      * Indicates if this property is computed for the purpose of creating an explain
      * of the execution plan.
      */
-    public static final int FOR_EXPLAIN                = 0x0001;
+    public static final int FOR_EXPLAIN                    = 0x0001;
 
     /**
      * Indicates if {@link Reference} instances that contain exactly one variation
      * are rendered.
      */
     public static final int RENDER_SINGLE_GROUPS           = 0x0002;
-    public static final int REMOVE_FINAL_EXPRESSIONS = 0x0004;
+    public static final int REMOVE_FINAL_EXPRESSIONS       = 0x0004;
     public static final int REMOVE_EXPLORATORY_EXPRESSIONS = 0x0008;
 
     private final int flags;
