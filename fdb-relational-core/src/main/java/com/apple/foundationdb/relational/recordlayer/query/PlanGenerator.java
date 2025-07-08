@@ -215,6 +215,11 @@ public final class PlanGenerator {
     }
 
     @Nonnull
+    public PlannerConfiguration getPlannerConfigurations() {
+        return planContext.getPlannerConfiguration();
+    }
+
+    @Nonnull
     private Plan<?> generatePhysicalPlanForCompilableStatement(@Nonnull AstNormalizer.NormalizationResult ast,
                                                                boolean caseSensitive,
                                                                @Nonnull PlanHashable.PlanHashMode currentPlanHashMode) {

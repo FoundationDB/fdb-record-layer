@@ -133,9 +133,6 @@ public final class Options {
          * By default, no rules are disabled, and the user should be able to leave this
          * unset. This is intended as an escape hatch in case the introduction of a new
          * planner rule causes trouble for an existing query.
-         * <p>
-         * This option is experimental, and is meant to be used for debugging purposes only.
-         * <p>
          * Scope: Connection, Query
          */
         DISABLED_PLANNER_RULES,
