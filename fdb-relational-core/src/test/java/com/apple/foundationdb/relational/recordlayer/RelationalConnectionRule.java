@@ -102,6 +102,11 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
     }
 
     @Override
+    public void commit(final boolean onlyIfActive) throws SQLException {
+        connection.commit(onlyIfActive);
+    }
+
+    @Override
     public void rollback() throws SQLException {
         connection.rollback();
     }

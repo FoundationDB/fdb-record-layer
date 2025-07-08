@@ -191,13 +191,17 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
     }
 
     @Override
-    public void commit() throws SQLException {
+    public void commit(boolean onlyIfActive) throws SQLException {
         checkOpen();
         if (getAutoCommit()) {
             throw new RelationalException("commit called when the Connection is in auto-commit mode!", ErrorCode.CANNOT_COMMIT_ROLLBACK_WITH_AUTOCOMMIT).toSqlException();
         }
         if (!inActiveTransaction()) {
-            throw new RelationalException("No transaction to commit", ErrorCode.TRANSACTION_INACTIVE).toSqlException();
+            if (onlyIfActive) {
+                return;
+            } else {
+                throw new RelationalException("No transaction to commit", ErrorCode.TRANSACTION_INACTIVE).toSqlException();
+            }
         }
         commitInternal();
     }

@@ -158,6 +158,13 @@ public interface RelationalConnection extends java.sql.Connection {
     }
 
     @Override
+    default void commit() throws SQLException {
+        commit(false);
+    }
+
+    void commit(boolean onlyIfActive) throws SQLException;
+
+    @Override
     @ExcludeFromJacocoGeneratedReport
     default String nativeSQL(String sql) throws SQLException {
         throw new SQLFeatureNotSupportedException("Not implemented in the relational layer", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());

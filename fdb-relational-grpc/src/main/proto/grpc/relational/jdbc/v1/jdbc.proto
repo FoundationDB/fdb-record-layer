@@ -151,6 +151,8 @@ message StatementResponse {
 }
 
 message CommitRequest {
+  // If true, this will only commit if there is an active transaction
+  bool only_if_active = 1;
 }
 
 message CommitResponse {

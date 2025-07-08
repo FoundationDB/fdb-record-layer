@@ -257,15 +257,15 @@ class JDBCRelationalConnection implements RelationalConnection {
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
-    public void commit() throws SQLException {
+    public void commit(final boolean onlyIfActive) throws SQLException {
         try {
             if (getAutoCommit()) {
                 throw new SQLException("Commit cannot be called when auto commit is ON");
             } else {
                 TransactionalRequest.Builder transactionRequest = TransactionalRequest.newBuilder()
-                        .setCommitRequest(CommitRequest.newBuilder().build());
-                // wait here for response
+                        .setCommitRequest(CommitRequest.newBuilder()
+                                .setOnlyIfActive(onlyIfActive).build());
+                // wait here for responsea
                 final TransactionalResponse response = serverConnection.sendRequest(transactionRequest.build());
                 checkForResponseError(response);
                 if (!response.hasCommitResponse()) {
@@ -345,7 +345,7 @@ class JDBCRelationalConnection implements RelationalConnection {
             this.autoCommit = false;
         } else {
             // commit any remaining work
-            commit();
+            commit(true);
             this.autoCommit = true;
             serverConnection.close();
             serverConnection = null;

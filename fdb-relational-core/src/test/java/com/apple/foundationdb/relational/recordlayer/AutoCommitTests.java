@@ -520,7 +520,7 @@ public class AutoCommitTests {
             // since the resultSet is closed but autoCommit is off, transaction will remain open.
             Assertions.assertTrue(conn.inActiveTransaction());
         }
-        Assertions.assertDoesNotThrow(conn::commit);
+        Assertions.assertDoesNotThrow(() -> conn.commit());
     }
 
     @Test
@@ -670,7 +670,7 @@ public class AutoCommitTests {
         } else {
             Assertions.assertFalse(connection.getAutoCommit());
             if (transactionType == TransactionType.AUTO_COMMIT_OFF_WITH_EXPLICIT_COMMIT) {
-                Assertions.assertDoesNotThrow(connection::commit);
+                Assertions.assertDoesNotThrow(() -> connection.commit());
             }
         }
     }

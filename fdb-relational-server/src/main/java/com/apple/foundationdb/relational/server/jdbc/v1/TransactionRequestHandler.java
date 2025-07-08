@@ -103,7 +103,8 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
             } else if (transactionRequest.hasCommitRequest()) {
                 // handle commit
                 logger.info("Handling commit request");
-                frl.transactionalCommit(transactionalToken);
+                frl.transactionalCommit(transactionalToken,
+                        transactionRequest.getCommitRequest().getOnlyIfActive());
                 responseBuilder.setCommitResponse(CommitResponse.newBuilder().build());
             } else if (transactionRequest.hasRollbackRequest()) {
                 // handle rollback
