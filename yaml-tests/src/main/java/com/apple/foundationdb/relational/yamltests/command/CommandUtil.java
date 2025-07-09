@@ -33,6 +33,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.util.JsonFormat;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 
@@ -48,7 +49,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.StringTokenizer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -65,7 +65,7 @@ public class CommandUtil {
      */
     public static SchemaTemplate fromProto(String loadCommandString) {
         RecordMetaData metaData;
-        Pair<String, String> templateNameAndSourceName = parseLoadTemplateCommand(loadCommandString);
+        Pair<String, String> templateNameAndSourceName = parseLoadTemplateString(loadCommandString);
         if (templateNameAndSourceName.getRight().endsWith(".json")) {
             metaData = loadRecordMetaDataFromJson(templateNameAndSourceName.getRight());
         } else {
@@ -137,15 +137,17 @@ public class CommandUtil {
                 .getRecordMetaData();
     }
 
-    @Nonnull
-    private static Pair<String, String> parseLoadTemplateCommand(@Nonnull String loadCommandString) {
+    private static Pair<String, String> parseLoadTemplateString(String loadCommandString) {
         StringTokenizer lcsTokenizer = new StringTokenizer(loadCommandString, " ");
-        String templateName = lcsTokenizer.nextToken();
+        if (lcsTokenizer.countTokens() != 3) {
+            Assertions.fail("Expecting load command consisting of 3 tokens");
+        }
+        String first = lcsTokenizer.nextToken();
         if (!"from".equals(lcsTokenizer.nextToken())) {
             Assertions.fail("Expecting load command looking like X from Y");
         }
-        String jsonFileName = lcsTokenizer.nextToken();
-        return Pair.of(templateName, jsonFileName);
+        String second = lcsTokenizer.nextToken();
+        return new ImmutablePair<>(first, second);
     }
 
     private static String getFullClassName(String protoFileName) throws IOException {
