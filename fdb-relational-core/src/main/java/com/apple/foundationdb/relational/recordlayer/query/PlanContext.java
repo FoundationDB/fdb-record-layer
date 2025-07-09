@@ -25,6 +25,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -58,7 +60,6 @@ public final class PlanContext {
     private final URI dbUri;
     @Nonnull
     private final PreparedParams preparedStatementParameters;
-
     @Nonnull
     private final SchemaTemplate schemaTemplate;
 
@@ -116,6 +117,16 @@ public final class PlanContext {
     @Nonnull
     public PlannerConfiguration getPlannerConfiguration() {
         return plannerConfiguration;
+    }
+
+    @Nonnull
+    public Optional<Set<String>> getReadableIndexes() {
+        return plannerConfiguration.getReadableIndexes();
+    }
+
+    @Nonnull
+    public RecordQueryPlannerConfiguration getRecordQueryPlannerConfiguration() {
+        return plannerConfiguration.getRecordQueryPlannerConfiguration();
     }
 
     @Nonnull
@@ -251,10 +262,10 @@ public final class PlanContext {
         }
 
         @Nonnull
-        public Builder fromRecordStore(@Nonnull FDBRecordStoreBase<?> recordStore) {
+        public Builder fromRecordStore(@Nonnull FDBRecordStoreBase<?> recordStore, @Nonnull final Options options) throws RelationalException {
             final var plannerConfig = recordStore.getRecordStoreState().allIndexesReadable() ?
-                    PlannerConfiguration.ofAllAvailableIndexes() :
-                    PlannerConfiguration.from(getReadableIndexes(recordStore.getRecordMetaData(), recordStore.getRecordStoreState()));
+                    PlannerConfiguration.ofAllAvailableIndexes(options) :
+                    PlannerConfiguration.of(getReadableIndexes(recordStore.getRecordMetaData(), recordStore.getRecordStoreState()), options);
             return withPlannerConfiguration(plannerConfig)
                     .withMetadata(recordStore.getRecordMetaData())
                     .withUserVersion(recordStore.getRecordStoreState().getStoreHeader().getUserVersion());
