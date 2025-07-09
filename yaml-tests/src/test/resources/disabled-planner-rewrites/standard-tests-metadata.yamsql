@@ -24,7 +24,7 @@ setup:
     - query: drop schema template if exists standard_tests_metadata_template
     - query: drop database if exists /FRL/STANDARD_METADATA_YAML
     - query: create database /FRL/STANDARD_METADATA_YAML
-    - load schema template: STANDARD_TESTS_METADATA_TEMPLATE from src/main/resources/standard_tests_metadata.json com.apple.foundationdb.relational.yamltests.generated.teststudent.TestStudentProto
+    - load schema template: STANDARD_TESTS_METADATA_TEMPLATE from src/main/resources/standard_tests_metadata.json
     - query: create schema /FRL/STANDARD_METADATA_YAML/test with template STANDARD_TESTS_METADATA_TEMPLATE
     - set schema state: "{\"name\": \"TEST\", \"database_id\": \"/FRL/STANDARD_METADATA_YAML\", \"template_name\": \"STANDARD_TESTS_METADATA_TEMPLATE\", \"store_info\" : {\"formatVersion\": 2}}"
 ---
