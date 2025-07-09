@@ -29,7 +29,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.query.OptionsUtils;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
@@ -68,7 +67,7 @@ public class DdlTestUtil {
         return PlanContext.Builder.create()
                 .withMetadata(RecordMetaData.build(md))
                 .withMetricsCollector(Assert.notNullUnchecked(connection.getMetricCollector()))
-                .withPlannerConfiguration(PlannerConfiguration.ofAllAvailableIndexes(OptionsUtils.createPlannerConfigurations(Options.none())))
+                .withPlannerConfiguration(PlannerConfiguration.ofAllAvailableIndexes())
                 .withUserVersion(0)
                 .withDbUri(URI.create(databaseUri))
                 .withDdlQueryFactory(NoOpQueryFactory.INSTANCE)

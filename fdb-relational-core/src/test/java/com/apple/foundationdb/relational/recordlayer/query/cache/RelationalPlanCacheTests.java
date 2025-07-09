@@ -42,7 +42,6 @@ import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnectio
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.RelationalConnectionRule;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.query.OptionsUtils;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
@@ -336,11 +335,7 @@ public class RelationalPlanCacheTests {
 
     @Nonnull
     private PlannerConfiguration configOf(@Nonnull final Set<String> readableIndexes, @Nonnull final Options options) {
-        try {
-            return PlannerConfiguration.of(readableIndexes, OptionsUtils.createPlannerConfigurations(options));
-        } catch (RelationalException e) {
-            throw new RuntimeException(e);
-        }
+        return PlannerConfiguration.of(Optional.of(readableIndexes), options);
     }
 
     @Nonnull
@@ -362,7 +357,7 @@ public class RelationalPlanCacheTests {
                 .fromRecordStore(store, options)
                 .withSchemaTemplate(embeddedConnection.getTransaction().getBoundSchemaTemplateMaybe().orElse(schemaTemplate))
                 .withMetricsCollector(Assert.notNullUnchecked(embeddedConnection.getMetricCollector()))
-                .withPlannerConfiguration(PlannerConfiguration.of(Optional.of(readableIndexes), OptionsUtils.createPlannerConfigurations(options)))
+                .withPlannerConfiguration(PlannerConfiguration.of(Optional.of(readableIndexes), options))
                 .withUserVersion(userVersion)
                 .build();
         return PlanGenerator.create(Optional.of(cache), planContext, store.getRecordMetaData(), storeState, options);

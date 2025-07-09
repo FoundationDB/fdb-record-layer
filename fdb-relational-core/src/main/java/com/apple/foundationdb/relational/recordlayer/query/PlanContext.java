@@ -263,11 +263,9 @@ public final class PlanContext {
 
         @Nonnull
         public Builder fromRecordStore(@Nonnull FDBRecordStoreBase<?> recordStore, @Nonnull final Options options) throws RelationalException {
-            final var plannerConfigurations = OptionsUtils.createPlannerConfigurations(options);
             final var plannerConfig = recordStore.getRecordStoreState().allIndexesReadable() ?
-                    PlannerConfiguration.ofAllAvailableIndexes(plannerConfigurations) :
-                    PlannerConfiguration.of(getReadableIndexes(recordStore.getRecordMetaData(), recordStore.getRecordStoreState()),
-                            plannerConfigurations);
+                    PlannerConfiguration.ofAllAvailableIndexes(options) :
+                    PlannerConfiguration.of(getReadableIndexes(recordStore.getRecordMetaData(), recordStore.getRecordStoreState()), options);
             return withPlannerConfiguration(plannerConfig)
                     .withMetadata(recordStore.getRecordMetaData())
                     .withUserVersion(recordStore.getRecordStoreState().getStoreHeader().getUserVersion());

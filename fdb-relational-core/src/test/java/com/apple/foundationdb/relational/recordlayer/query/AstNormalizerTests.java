@@ -97,15 +97,7 @@ public class AstNormalizerTests {
             .build();
 
     @Nonnull
-    private static final PlannerConfiguration plannerConfiguration;
-
-    static {
-        try {
-            plannerConfiguration = PlannerConfiguration.ofAllAvailableIndexes(OptionsUtils.createPlannerConfigurations(Options.none()));
-        } catch (RelationalException e) {
-            throw e.toUncheckedWrappedException();
-        }
-    }
+    private static final PlannerConfiguration plannerConfiguration = PlannerConfiguration.ofAllAvailableIndexes();
 
     private static void validate(@Nonnull final String query,
                                  @Nonnull final String expectedCanonicalRepresentation) throws RelationalException {

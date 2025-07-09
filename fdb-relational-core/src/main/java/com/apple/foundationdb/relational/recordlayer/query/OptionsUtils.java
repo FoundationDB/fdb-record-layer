@@ -20,22 +20,20 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.query.plan.QueryPlanner;
-import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
-import com.apple.foundationdb.record.query.plan.cascades.PlanningRuleSet;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Objects;
 import java.util.Set;
 
+@API(API.Status.INTERNAL)
 public final class OptionsUtils {
 
     @Nonnull
@@ -63,37 +61,21 @@ public final class OptionsUtils {
     }
 
     @Nonnull
-    public static RecordQueryPlannerConfiguration createPlannerConfigurations(@Nonnull final Options options)
-            throws RelationalException {
-        final var configurationBuilder = RecordQueryPlannerConfiguration.builder()
-                .setIndexScanPreference(QueryPlanner.IndexScanPreference.PREFER_INDEX)
-                .setAttemptFailedInJoinAsUnionMaxSize(24);
-        // TODO: Interaction between planner configurations and query cache
+    public static IndexFetchMethod getIndexFetchMethod(@Nonnull final Options options) {
         Options.IndexFetchMethod indexFetchMethod = options.getOption(Options.Name.INDEX_FETCH_METHOD);
         if (indexFetchMethod == null) {
-            configurationBuilder.setIndexFetchMethod(IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK);
-        } else {
-            switch (indexFetchMethod) {
-                case SCAN_AND_FETCH:
-                    configurationBuilder.setIndexFetchMethod(IndexFetchMethod.SCAN_AND_FETCH);
-                    break;
-                case USE_REMOTE_FETCH:
-                    configurationBuilder.setIndexFetchMethod(IndexFetchMethod.USE_REMOTE_FETCH);
-                    break;
-                case USE_REMOTE_FETCH_WITH_FALLBACK:
-                    configurationBuilder.setIndexFetchMethod(IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK);
-                    break;
-                default:
-                    Assert.fail("Can not convert index fetch method '" + indexFetchMethod.name() + "' to planner configuration");
-                    break; // make pmd happy.
-            }
+            return IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK;
         }
-        // TODO: Expose planner configuration parameters like index scan preference
-        configurationBuilder.setDisabledTransformationRuleNames(ImmutableSet.copyOf(options.<Collection<String>>getOption(Options.Name.DISABLED_PLANNER_RULES)),
-                PlanningRuleSet.DEFAULT);
-        if (options.getOption(Options.Name.DISABLE_PLANNER_REWRITING)) {
-            configurationBuilder.disableRewritingRules();
+        switch (indexFetchMethod) {
+            case SCAN_AND_FETCH:
+                return IndexFetchMethod.SCAN_AND_FETCH;
+            case USE_REMOTE_FETCH:
+                return IndexFetchMethod.USE_REMOTE_FETCH;
+            case USE_REMOTE_FETCH_WITH_FALLBACK:
+                return IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK;
+            default:
+                throw new RelationalException("Can not convert index fetch method '" + indexFetchMethod.name() + "' to planner configuration",
+                        ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
         }
-        return configurationBuilder.build();
     }
 }

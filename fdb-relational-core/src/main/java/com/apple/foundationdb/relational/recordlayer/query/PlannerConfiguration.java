@@ -22,12 +22,20 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
 
+import com.apple.foundationdb.record.IndexFetchMethod;
+import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.query.plan.cascades.PlanningRuleSet;
+import com.apple.foundationdb.relational.api.Options;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import java.util.Collection;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+
+import static com.apple.foundationdb.relational.api.Options.Name.DISABLE_PLANNER_REWRITING;
 
 /**
  * This contains a set of configurations given to the planner that fine-tunes its behavior.
@@ -37,12 +45,6 @@ import java.util.Set;
  * more configurations will be added, mostly reflecting what is already defined in {@link RecordQueryPlannerConfiguration}
  * and consolidate some of the configurations defined in {@link com.apple.foundationdb.relational.api.Options}.
  * </p>
- * <br>
- * Relevant Issues:
- * <ul>
- *     <li>TODO (Expose planner configuration parameters like index scan preference)</li>
- *     <li>TODO (Interaction between planner configurations and query cache)</li>
- * </ul>
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
@@ -52,15 +54,28 @@ public final class PlannerConfiguration {
     private final Optional<Set<String>> readableIndexes;
 
     @Nonnull
+    private final IndexFetchMethod indexFetchMethod;
+
+    private final boolean disabledAllPlannerRules;
+
+    @Nonnull
+    private final Set<String> disabledPlannerRewriteRules;
+
+    @Nonnull
     private final RecordQueryPlannerConfiguration recordQueryPlannerConfiguration;
 
     private final int memoizedHash;
 
     private PlannerConfiguration(@Nonnull final Optional<Set<String>> readableIndexes,
-                                 @Nonnull final RecordQueryPlannerConfiguration recordQueryPlannerConfiguration) {
+                                 @Nonnull final IndexFetchMethod indexFetchMethod,
+                                 @Nonnull final Set<String> disabledPlannerRewriteRules,
+                                 boolean disabledAllPlannerRules) {
         this.readableIndexes = readableIndexes;
-        this.recordQueryPlannerConfiguration = recordQueryPlannerConfiguration;
+        this.indexFetchMethod = indexFetchMethod;
+        this.disabledAllPlannerRules = disabledAllPlannerRules;
+        this.disabledPlannerRewriteRules = ImmutableSet.copyOf(disabledPlannerRewriteRules);
         this.memoizedHash = computeHash();
+        this.recordQueryPlannerConfiguration = buildRecordQueryPlannerConfiguration();
     }
 
     @Nonnull
@@ -83,15 +98,13 @@ public final class PlannerConfiguration {
         }
         final var that = (PlannerConfiguration) other;
         return Objects.equals(readableIndexes, that.readableIndexes)
-                && this.recordQueryPlannerConfiguration.getIndexFetchMethod()
-                     .equals(that.recordQueryPlannerConfiguration.getIndexFetchMethod())
-                && this.recordQueryPlannerConfiguration.getDisabledTransformationRules()
-                     .equals(that.recordQueryPlannerConfiguration.getDisabledTransformationRules());
+                && this.indexFetchMethod.equals(that.indexFetchMethod)
+                && this.disabledAllPlannerRules == that.disabledAllPlannerRules
+                && this.disabledPlannerRewriteRules.equals(that.disabledPlannerRewriteRules);
     }
 
     private int computeHash() {
-        return Objects.hash(readableIndexes, recordQueryPlannerConfiguration.getIndexFetchMethod(),
-                recordQueryPlannerConfiguration.getDisabledTransformationRules());
+        return Objects.hash(readableIndexes, indexFetchMethod, disabledAllPlannerRules, disabledPlannerRewriteRules);
     }
 
     @Override
@@ -100,19 +113,33 @@ public final class PlannerConfiguration {
     }
 
     @Nonnull
+    private RecordQueryPlannerConfiguration buildRecordQueryPlannerConfiguration() {
+        final var configurationBuilder = RecordQueryPlannerConfiguration.builder()
+                .setIndexScanPreference(QueryPlanner.IndexScanPreference.PREFER_INDEX)
+                .setAttemptFailedInJoinAsUnionMaxSize(24);
+        configurationBuilder.setIndexFetchMethod(indexFetchMethod);
+        configurationBuilder.setDisabledTransformationRuleNames(disabledPlannerRewriteRules, PlanningRuleSet.DEFAULT);
+        if (disabledAllPlannerRules) {
+            configurationBuilder.disableRewritingRules();
+        }
+        return configurationBuilder.build();
+    }
+
+    @Nonnull
     public static PlannerConfiguration of(@Nonnull final Optional<Set<String>> readableIndexesMaybe,
-                                          @Nonnull final RecordQueryPlannerConfiguration recordQueryPlannerConfiguration) {
-        return new PlannerConfiguration(readableIndexesMaybe, recordQueryPlannerConfiguration);
+                                          @Nonnull final Options options) {
+        final var disabledPlannerRules = ImmutableSet.copyOf(options.<Collection<String>>getOption(Options.Name.DISABLED_PLANNER_RULES));
+        return new PlannerConfiguration(readableIndexesMaybe, OptionsUtils.getIndexFetchMethod(options),
+                disabledPlannerRules, options.getOption(DISABLE_PLANNER_REWRITING));
     }
 
     @Nonnull
-    public static PlannerConfiguration of(@Nonnull final Set<String> readableIndexes,
-                                          @Nonnull final RecordQueryPlannerConfiguration recordQueryPlannerConfiguration) {
-        return new PlannerConfiguration(Optional.of(readableIndexes), recordQueryPlannerConfiguration);
+    public static PlannerConfiguration ofAllAvailableIndexes() {
+        return of(Optional.empty(), Options.none());
     }
 
     @Nonnull
-    public static PlannerConfiguration ofAllAvailableIndexes(@Nonnull final RecordQueryPlannerConfiguration recordQueryPlannerConfiguration) {
-        return new PlannerConfiguration(Optional.empty(), recordQueryPlannerConfiguration);
+    public static PlannerConfiguration ofAllAvailableIndexes(@Nonnull final Options options) {
+        return of(Optional.empty(), options);
     }
 }

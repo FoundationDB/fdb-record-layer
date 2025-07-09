@@ -34,7 +34,6 @@ import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 import com.apple.foundationdb.relational.recordlayer.MessageTuple;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.query.OptionsUtils;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
@@ -112,7 +111,7 @@ public class InMemoryRelationalStatement implements RelationalStatement {
                     .withDbUri(relationalConn.getDatabaseUri())
                     .withMetadata(relationalConn.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toRecordMetadata())
                     .withSchemaTemplate(relationalConn.getSchemaTemplate())
-                    .withPlannerConfiguration(PlannerConfiguration.ofAllAvailableIndexes(OptionsUtils.createPlannerConfigurations(Options.none())))
+                    .withPlannerConfiguration(PlannerConfiguration.ofAllAvailableIndexes())
                     .withUserVersion(0)
                     .build();
 
