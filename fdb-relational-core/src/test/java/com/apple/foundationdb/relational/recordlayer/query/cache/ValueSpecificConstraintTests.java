@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.cache;
 
+import com.apple.foundationdb.record.query.plan.cascades.predicates.simplification.ConstantFoldingValuePredicateRule;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.LogAppenderRule;
@@ -27,6 +29,7 @@ import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
@@ -259,6 +262,34 @@ public class ValueSpecificConstraintTests {
             // 'null' is included in the constraints, therefore, we must not pick the query from the cache when using 'not-null'
             preparedQueryShouldMissCache(connection, "select a + 43 from t where a = ?", ImmutableMap.of(1, 42));
             preparedQueryShouldHitCache(connection, "select a + 43 from t where a = ?", ImmutableMap.of(1, 45)); // different literals are ok here (no index filters)
+        }
+    }
+
+    @Test
+    void sameQueryDifferentRewriteRulesEnablement() throws Exception {
+        final String schemaTemplate = "create table t(pk bigint, a bigint, b boolean, primary key(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final Map<Integer, Object> map = new TreeMap<>();
+            map.put(1, null);
+
+            // 1. disable planner rules.
+            connection.setOption(Options.Name.DISABLE_PLANNER_REWRITING, true);
+            preparedQueryShouldMissCache(connection, "select a + 43 from t where a = ?", map);
+            // should get a cache hit, since the connection options did not change.
+            preparedQueryShouldHitCache(connection, "select a + 43 from t where a = ?", map);
+
+            // enabling the planner rewrite rules must result in a cache miss when attempting to
+            // execute the same query.
+            connection.setOption(Options.Name.DISABLE_PLANNER_REWRITING, false);
+            preparedQueryShouldMissCache(connection, "select a + 43 from t where a = ?", map);
+
+            // same, when we're selective about which rules are activated.
+            connection.setOption(Options.Name.DISABLED_PLANNER_RULES, ImmutableSet.of(ConstantFoldingValuePredicateRule.class.getSimpleName()));
+            preparedQueryShouldMissCache(connection, "select a + 43 from t where a = ?", map);
+
+            // should get a plan cache hit when attempting to plan the query with the same options.
+            preparedQueryShouldHitCache(connection, "select a + 43 from t where a = ?", map);
         }
     }
 }

@@ -13,6 +13,7 @@
             <option value="$PROJECT_DIR$/fdb-java-annotations" />
             <option value="$PROJECT_DIR$/fdb-record-layer-core" />
             <option value="$PROJECT_DIR$/fdb-record-layer-core-shaded" />
+            <option value="$PROJECT_DIR$/fdb-record-layer-debugger" />
             <option value="$PROJECT_DIR$/fdb-record-layer-icu" />
             <option value="$PROJECT_DIR$/fdb-record-layer-jmh" />
             <option value="$PROJECT_DIR$/fdb-record-layer-lucene" />

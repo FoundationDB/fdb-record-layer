@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,12 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.debug;
+package com.apple.foundationdb.record.query.plan.cascades.debug;
 
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.cascades.debug.RestartException;
-import com.apple.foundationdb.record.query.plan.cascades.debug.StatsMaps;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.util.ServiceLoaderProvider;
@@ -399,6 +397,7 @@ public class PlannerRepl implements Debugger {
 
 
     @Nullable
+    @Override
     public String nameForObject(@Nonnull final Object object) {
         final State state = getCurrentState();
         if (object instanceof RelationalExpression) {
@@ -475,7 +474,7 @@ public class PlannerRepl implements Debugger {
 
     private void reset() {
         this.stateStack.clear();
-        this.stateStack.push(State.initial(true, false, null));
+        this.stateStack.push(State.initial(true, true, null));
         this.breakPoints.clear();
         this.currentBreakPointIndex = 0;
         this.currentInternalBreakPointIndex = -1;
@@ -589,26 +588,32 @@ public class PlannerRepl implements Debugger {
         println("");
     }
 
+    @SuppressWarnings({"CallToPrintStackTrace", "PMD.AvoidPrintStackTrace"})
     private void doSilently(@Nonnull final String actionName, @Nonnull final RunnableWithException runnable) {
         try {
             runnable.run();
         } catch (final RestartException rE) {
             throw rE;
-        } catch (final Throwable t) {
-            logger.warn("unable to " + actionName + ": " + t.getMessage());
-            t.printStackTrace();
+        } catch (final Exception e) {
+            if (logger.isWarnEnabled()) {
+                logger.warn("unable to {}: {}", actionName, e.getMessage());
+            }
+            e.printStackTrace();
         }
     }
 
     @Nonnull
+    @SuppressWarnings({"CallToPrintStackTrace", "PMD.AvoidPrintStackTrace"})
     private <T> Optional<T> getSilently(@Nonnull final String actionName, @Nonnull final SupplierWithException<T> supplier) {
         try {
             return Optional.ofNullable(supplier.get());
         } catch (final RestartException rE) {
             throw rE;
-        } catch (final Throwable t) {
-            logger.warn("unable to get " + actionName + ": " + t.getMessage());
-            t.printStackTrace();
+        } catch (final Exception e) {
+            if (logger.isWarnEnabled()) {
+                logger.warn("unable to get {}: {}", actionName, e.getMessage());
+            }
+            e.printStackTrace();
             return Optional.empty();
         }
     }
@@ -616,12 +621,14 @@ public class PlannerRepl implements Debugger {
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static ImmutableMap<String, Commands.Command<Event>> loadCommands() {
         final ImmutableMap.Builder<String, Commands.Command<Event>> commandsMapBuilder = ImmutableMap.builder();
-        final Iterable<Commands.Command> loader
-                = ServiceLoaderProvider.load(Commands.Command.class);
+        final Iterable<Commands.Command> loader =
+                ServiceLoaderProvider.load(Commands.Command.class);
 
         loader.forEach(command -> {
             commandsMapBuilder.put(command.getCommandToken(), command);
-            logger.info("loaded command " + command.getCommandToken());
+            if (logger.isInfoEnabled()) {
+                logger.info("loaded command {}", command.getCommandToken());
+            }
         });
 
         return commandsMapBuilder.build();
@@ -641,7 +648,9 @@ public class PlannerRepl implements Debugger {
 
         loader.forEach(processor -> {
             processorsMap.put(processor.getEventType(), processor);
-            logger.info("loaded processor for " + processor.getEventType().getSimpleName());
+            if (logger.isInfoEnabled()) {
+                logger.info("loaded processor for {}", processor.getEventType().getSimpleName());
+            }
         });
 
         return processorsMap;
@@ -725,7 +734,7 @@ public class PlannerRepl implements Debugger {
         // force extending classes to override equals() and hashCode();
 
         @Override
-        public abstract boolean equals(final Object o);
+        public abstract boolean equals(Object o);
 
         @Override
         public abstract int hashCode();
@@ -751,7 +760,7 @@ public class PlannerRepl implements Debugger {
     }
 
     /**
-     * TBD.
+     * Breakpoint that breaks on a particular event.
      */
     public static class OnEventTypeBreakPoint extends BreakPoint {
         @Nonnull
@@ -793,11 +802,12 @@ public class PlannerRepl implements Debugger {
         @Override
         public boolean onCallback(final PlannerRepl plannerRepl, final Event event) {
             if (super.onCallback(plannerRepl, event)) {
+                if (referenceName == null) {
+                    return true;
+                }
                 if (event instanceof EventWithCurrentGroupReference) {
                     final EventWithCurrentGroupReference eventWithCurrentGroupReference = (EventWithCurrentGroupReference)event;
-                    if (referenceName == null || referenceName.equals(plannerRepl.nameForObject(eventWithCurrentGroupReference.getCurrentReference()))) {
-                        return true;
-                    }
+                    return referenceName.equals(plannerRepl.nameForObject(eventWithCurrentGroupReference.getCurrentReference()));
                 }
             }
             return false;
@@ -831,6 +841,72 @@ public class PlannerRepl implements Debugger {
         @Override
         public int hashCode() {
             return Objects.hash(getShorthand(), getReferenceName(), getLocation());
+        }
+    }
+
+    /**
+     * Breakpoint that breaks on reaching an {@link Shorthand#INITPHASE} event. The breakpoint can be configured
+     * to break on any such event or on an event initiating a particular new {@link PlannerPhase}.
+     */
+    public static class OnPhaseBreakPoint extends BreakPoint {
+        @Nonnull
+        private final Debugger.Location location;
+        @Nullable
+        private final PlannerPhase plannerPhase;
+
+        public OnPhaseBreakPoint(@Nonnull final Location location,
+                                 @Nullable final PlannerPhase plannerPhase) {
+            super(event -> (event instanceof InitiatePlannerPhaseEvent) &&
+                    event.getShorthand() == Shorthand.INITPHASE &&
+                    (location == Location.ANY || event.getLocation() == location) &&
+                    (plannerPhase == null || ((InitiatePlannerPhaseEvent)event).getPlannerPhase() == plannerPhase), 1);
+            this.location = location;
+            this.plannerPhase = plannerPhase;
+        }
+
+        @Nonnull
+        public Shorthand getShorthand() {
+            return Shorthand.INITPHASE;
+        }
+
+        @Nonnull
+        public Location getLocation() {
+            return location;
+        }
+
+        @Nullable
+        public PlannerPhase getPlannerPhase() {
+            return plannerPhase;
+        }
+
+        @Override
+        public void onList(final PlannerRepl plannerRepl) {
+            super.onList(plannerRepl);
+            plannerRepl.print("; ");
+            plannerRepl.printKeyValue("shorthand", getShorthand().name().toLowerCase(Locale.ROOT) + "; ");
+            plannerRepl.printKeyValue("location", getLocation().name().toLowerCase(Locale.ROOT) + "; ");
+            plannerRepl.printKeyValue("plannerPhase",
+                    (getPlannerPhase() == null ? getPlannerPhase().name() : "any").toLowerCase(Locale.ROOT));
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            final var that = (OnPhaseBreakPoint)o;
+            return getShorthand().equals(that.getShorthand()) &&
+                    getLocation() == that.getLocation() &&
+                    getPlannerPhase() == that.getPlannerPhase();
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(getShorthand(), getLocation(),
+                    getPlannerPhase() == null ? null : getPlannerPhase().name());
         }
     }
 

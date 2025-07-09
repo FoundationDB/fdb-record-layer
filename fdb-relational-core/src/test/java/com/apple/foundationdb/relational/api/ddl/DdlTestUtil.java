@@ -85,7 +85,7 @@ public class DdlTestUtil {
         final var storeState = new RecordStoreState(null, Map.of());
         try (var schema = embeddedConnection.getRecordLayerDatabase().loadSchema(embeddedConnection.getSchema())) {
             final var metadata = schema.loadStore().getRecordMetaData();
-            return PlanGenerator.of(Optional.empty(), planContext, metadata, storeState, Options.NONE);
+            return PlanGenerator.create(Optional.empty(), planContext, metadata, storeState, Options.NONE);
         }
     }
 
@@ -108,7 +108,7 @@ public class DdlTestUtil {
         final var storeState = new RecordStoreState(null, Map.of());
         try (var schema = embeddedConnection.getRecordLayerDatabase().loadSchema(embeddedConnection.getSchema())) {
             final var metadata = schema.loadStore().getRecordMetaData();
-            return PlanGenerator.of(Optional.empty(), planContext, metadata, storeState, Options.NONE);
+            return PlanGenerator.create(Optional.empty(), planContext, metadata, storeState, Options.NONE);
         }
     }
 
@@ -122,7 +122,7 @@ public class DdlTestUtil {
         final var storeState = new RecordStoreState(null, Map.of());
         try (var schema = embeddedConnection.getRecordLayerDatabase().loadSchema(embeddedConnection.getSchema())) {
             final var metadata = schema.loadStore().getRecordMetaData();
-            return PlanGenerator.of(Optional.empty(), planContext, metadata, storeState, Options.NONE);
+            return PlanGenerator.create(Optional.empty(), planContext, metadata, storeState, Options.NONE);
         }
     }
 

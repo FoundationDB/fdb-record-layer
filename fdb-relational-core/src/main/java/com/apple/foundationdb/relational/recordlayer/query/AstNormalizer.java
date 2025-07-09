@@ -59,7 +59,6 @@ import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Struct;
-import java.util.BitSet;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
@@ -78,7 +77,7 @@ import java.util.function.Supplier;
  *     <li>understand parameters necessary for execution: limit, offset, continuation, and explain flag. These parameters are
  *     necessary for Relational to prepare the plan for execution.</li>
  *     <li>process in-predicate and generate array literal of the in-list contains simple constants.</li>
- *     <li>identify query caching flags that might influence its interaction with plan cache (see {@link Result.QueryCachingFlags}).</li>
+ *     <li>identify query caching flags that might influence its interaction with plan cache (see {@link NormalizationResult.QueryCachingFlags}).</li>
  * </ul>
  * <p>
  * The visitor is designed to be very fast;
@@ -135,7 +134,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     private final PreparedParams preparedStatementParameters;
 
     @Nonnull
-    private final Set<Result.QueryCachingFlags> queryCachingFlags;
+    private final Set<NormalizationResult.QueryCachingFlags> queryCachingFlags;
 
     @Nonnull
     private final Options.Builder queryOptions;
@@ -165,7 +164,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         this.preparedStatementParameters = preparedStatementParameters;
         allowTokenAddition = true;
         allowLiteralAddition = true;
-        queryCachingFlags = EnumSet.noneOf(Result.QueryCachingFlags.class);
+        queryCachingFlags = EnumSet.noneOf(NormalizationResult.QueryCachingFlags.class);
         queryOptions = Options.builder();
         this.caseSensitive = caseSensitive;
     }
@@ -224,7 +223,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Nonnull
-    public Set<Result.QueryCachingFlags> getQueryCachingFlags() {
+    public Set<NormalizationResult.QueryCachingFlags> getQueryCachingFlags() {
         return queryCachingFlags;
     }
 
@@ -267,7 +266,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     @Override
     public Object visitQuery(@Nonnull RelationalParser.QueryContext ctx) {
         if (queryCachingFlags.isEmpty()) {
-            queryCachingFlags.add(Result.QueryCachingFlags.IS_DQL_STATEMENT);
+            queryCachingFlags.add(NormalizationResult.QueryCachingFlags.IS_DQL_STATEMENT);
         }
         if (ctx.ctes() != null) {
             visit(ctx.ctes());
@@ -296,7 +295,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     public Object visitQueryOption(@Nonnull RelationalParser.QueryOptionContext ctx) {
         try {
             if (ctx.NOCACHE() != null) {
-                queryCachingFlags.add(Result.QueryCachingFlags.WITH_NO_CACHE_OPTION);
+                queryCachingFlags.add(NormalizationResult.QueryCachingFlags.WITH_NO_CACHE_OPTION);
             }
             if (ctx.LOG() != null) {
                 queryOptions.withOption(Options.Name.LOG_QUERY, true);
@@ -315,37 +314,37 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Object visitDdlStatement(@Nonnull RelationalParser.DdlStatementContext ctx) {
-        queryCachingFlags.add(Result.QueryCachingFlags.IS_DDL_STATEMENT);
+        queryCachingFlags.add(NormalizationResult.QueryCachingFlags.IS_DDL_STATEMENT);
         return visitChildren(ctx);
     }
 
     @Override
     public Object visitInsertStatement(final RelationalParser.InsertStatementContext ctx) {
-        queryCachingFlags.add(Result.QueryCachingFlags.IS_INSERT_STATEMENT);
+        queryCachingFlags.add(NormalizationResult.QueryCachingFlags.IS_INSERT_STATEMENT);
         return super.visitInsertStatement(ctx);
     }
 
     @Override
     public Object visitUpdateStatement(final RelationalParser.UpdateStatementContext ctx) {
-        queryCachingFlags.add(Result.QueryCachingFlags.IS_UPDATE_STATEMENT);
+        queryCachingFlags.add(NormalizationResult.QueryCachingFlags.IS_UPDATE_STATEMENT);
         return super.visitUpdateStatement(ctx);
     }
 
     @Override
     public Object visitDeleteStatement(final RelationalParser.DeleteStatementContext ctx) {
-        queryCachingFlags.add(Result.QueryCachingFlags.IS_DELETE_STATEMENT);
+        queryCachingFlags.add(NormalizationResult.QueryCachingFlags.IS_DELETE_STATEMENT);
         return super.visitDeleteStatement(ctx);
     }
 
     @Override
     public Object visitAdministrationStatement(@Nonnull RelationalParser.AdministrationStatementContext ctx) {
-        queryCachingFlags.add(Result.QueryCachingFlags.IS_ADMIN_STATEMENT);
+        queryCachingFlags.add(NormalizationResult.QueryCachingFlags.IS_ADMIN_STATEMENT);
         return visitChildren(ctx);
     }
 
     @Override
     public Object visitUtilityStatement(@Nonnull RelationalParser.UtilityStatementContext ctx) {
-        queryCachingFlags.add(Result.QueryCachingFlags.IS_UTILITY_STATEMENT);
+        queryCachingFlags.add(NormalizationResult.QueryCachingFlags.IS_UTILITY_STATEMENT);
         return visitChildren(ctx);
     }
 
@@ -486,8 +485,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     @Override
     public Object visitExecuteContinuationStatement(@Nonnull RelationalParser.ExecuteContinuationStatementContext ctx) {
-        queryCachingFlags.add(Result.QueryCachingFlags.IS_EXECUTE_CONTINUATION_STATEMENT);
-        queryCachingFlags.add(Result.QueryCachingFlags.WITH_NO_CACHE_OPTION);
+        queryCachingFlags.add(NormalizationResult.QueryCachingFlags.IS_EXECUTE_CONTINUATION_STATEMENT);
+        queryCachingFlags.add(NormalizationResult.QueryCachingFlags.WITH_NO_CACHE_OPTION);
         if (ctx.queryOptions() != null) {
             ctx.queryOptions().accept(this);
         }
@@ -575,10 +574,10 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
      * @return The query parse tree along with contextual information required for planning and executing it.
      */
     @Nonnull
-    public static Result normalizeQuery(@Nonnull final PlanContext context,
-                                        @Nonnull final String query,
-                                        boolean isCaseSensitive,
-                                        @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode) throws RelationalException {
+    public static NormalizationResult normalizeQuery(@Nonnull final PlanContext context,
+                                                     @Nonnull final String query,
+                                                     boolean isCaseSensitive,
+                                                     @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode) throws RelationalException {
         // lexing, parsing, and normalization are profiled through the metric collector.
         final var metricCollector = context.getMetricsCollector();
         final var rootContext = metricCollector.clock(RelationalMetric.RelationalEvent.LEX_PARSE,
@@ -588,7 +587,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                         context.getSchemaTemplate(), rootContext,
                         PreparedParams.copyOf(context.getPreparedStatementParameters()),
                         context.getUserVersion(),
-                        context.getSchemaTemplate().getIndexEntriesAsBitset(context.getPlannerConfiguration().getReadableIndexes()),
+                        context.getPlannerConfiguration(),
                         isCaseSensitive,
                         currentPlanHashMode,
                         query
@@ -597,14 +596,14 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
 
     @Nonnull
     @VisibleForTesting
-    public static Result normalizeAst(@Nonnull final SchemaTemplate schemaTemplate,
-                                      @Nonnull final RelationalParser.RootContext context,
-                                      @Nonnull final PreparedParams preparedStatementParameters,
-                                      int userVersion,
-                                      @Nonnull final BitSet readableIndexes,
-                                      boolean caseSensitive,
-                                      @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode,
-                                      @Nonnull final String query) {
+    public static NormalizationResult normalizeAst(@Nonnull final SchemaTemplate schemaTemplate,
+                                                   @Nonnull final RelationalParser.RootContext context,
+                                                   @Nonnull final PreparedParams preparedStatementParameters,
+                                                   int userVersion,
+                                                   @Nonnull final PlannerConfiguration plannerConfiguration,
+                                                   boolean caseSensitive,
+                                                   @Nonnull final PlanHashable.PlanHashMode currentPlanHashMode,
+                                                   @Nonnull final String query) {
         final var astNormalizer = new AstNormalizer(preparedStatementParameters, caseSensitive, currentPlanHashMode);
         astNormalizer.visit(context);
         final var recordLayerSchemaTemplate = Assert.castUnchecked(schemaTemplate, RecordLayerSchemaTemplate.class);
@@ -632,11 +631,11 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             final var compiledFunction = recordLayerRoutine.getCompilableSqlFunctionSupplier().get();
             astNormalizer.queryHasherContextBuilder.getLiteralsBuilder().importLiterals(compiledFunction.getAuxiliaryLiterals());
         }
-        return new Result(
+        return new NormalizationResult(
                 recordLayerSchemaTemplate.getName(),
-                QueryCacheKey.of(astNormalizer.getCanonicalSqlString(), astNormalizer.getHash(),
-                        recordLayerSchemaTemplate.getVersion(), readableIndexes, userVersion,
-                        recordLayerSchemaTemplate.getTransactionBoundMetadataAsString()),
+                QueryCacheKey.of(astNormalizer.getCanonicalSqlString(), plannerConfiguration,
+                        recordLayerSchemaTemplate.getTransactionBoundMetadataAsString(), astNormalizer.getHash(),
+                        recordLayerSchemaTemplate.getVersion(), userVersion),
                 astNormalizer.getQueryExecutionParameters(),
                 context,
                 astNormalizer.getQueryCachingFlags(),
@@ -644,7 +643,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                 query);
     }
 
-    public static final class Result {
+    public static final class NormalizationResult {
 
         /**
          * A set of flags that determine how the query should interact with the plan cache.
@@ -687,13 +686,13 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         @Nonnull
         private final String query;
 
-        public Result(@Nonnull final String schemaTemplateName,
-                      @Nonnull final QueryCacheKey queryCacheKey,
-                      @Nonnull final QueryExecutionContext queryExecutionContext,
-                      @Nonnull final ParseTree parseTree,
-                      @Nonnull final Set<QueryCachingFlags> queryCachingFlags,
-                      @Nonnull final Options queryOptions,
-                      @Nonnull final String query) {
+        public NormalizationResult(@Nonnull final String schemaTemplateName,
+                                   @Nonnull final QueryCacheKey queryCacheKey,
+                                   @Nonnull final QueryExecutionContext queryExecutionContext,
+                                   @Nonnull final ParseTree parseTree,
+                                   @Nonnull final Set<QueryCachingFlags> queryCachingFlags,
+                                   @Nonnull final Options queryOptions,
+                                   @Nonnull final String query) {
             this.schemaTemplateName = schemaTemplateName;
             this.queryCacheKey = queryCacheKey;
             this.queryExecutionContext = queryExecutionContext;
@@ -703,6 +702,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             this.query = query;
         }
 
+        @Nonnull
         public String getSchemaTemplateName() {
             return schemaTemplateName;
         }
