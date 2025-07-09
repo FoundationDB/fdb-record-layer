@@ -7,6 +7,25 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.4
 
+### 4.4.6.0
+
+<h4> New Features </h4>
+
+* Include planner configuration in the `QueryCacheKey` - [PR #3463](https://github.com/FoundationDB/fdb-record-layer/pull/3463)
+
+
+**[Full Changelog (4.4.5.0...4.4.6.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.4.5.0...4.4.6.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.2.5.0`, ✅`4.2.6.0`, ✅`4.2.8.0`, ✅`4.3.2.0`, ✅`4.3.3.0`, ✅`4.3.3.1`, ✅`4.3.5.0`, ✅`4.3.6.0`, ✅`4.4.3.0`, ✅`4.4.4.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16176108904)
+
+
+
 ### 4.4.5.0
 
 <h4> New Features </h4>
