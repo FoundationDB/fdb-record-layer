@@ -48,6 +48,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.StringTokenizer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -64,12 +65,12 @@ public class CommandUtil {
      */
     public static SchemaTemplate fromProto(String loadCommandString) {
         RecordMetaData metaData;
-        Pair<String, String> templateTokens = parseLoadTemplateCommand(loadCommandString);
-        if (templateTokens.getRight().endsWith(".json")) {
-            metaData = loadRecordMetaDataFromJson(templateTokens.getRight());
+        Pair<String, String> templateNameAndSourceName = parseLoadTemplateCommand(loadCommandString);
+        if (templateNameAndSourceName.getRight().endsWith(".json")) {
+            metaData = loadRecordMetaDataFromJson(templateNameAndSourceName.getRight());
         } else {
             try {
-                Class<?> act = Class.forName(templateTokens.getRight());
+                Class<?> act = Class.forName(templateNameAndSourceName.getRight());
                 Method method = act.getMethod("getDescriptor");
                 Descriptors.FileDescriptor o = (Descriptors.FileDescriptor) method.invoke(null);
                 metaData = RecordMetaData.build(o);
@@ -78,17 +79,7 @@ public class CommandUtil {
                 throw new RuntimeException(e);
             }
         }
-        return RecordLayerSchemaTemplate.fromRecordMetadata(metaData, templateTokens.getLeft(), 1);
-    }
-
-    private static Pair<String, String> parseLoadTemplateCommand(String loadCommandString) {
-        StringTokenizer lcsTokenizer = new StringTokenizer(loadCommandString, " ");
-        String templateName = lcsTokenizer.nextToken();
-        if (!"from".equals(lcsTokenizer.nextToken())) {
-            Assertions.fail("Expecting load command looking like X from Y");
-        }
-        String jsonFileName = lcsTokenizer.nextToken();
-        return Pair.of(templateName, jsonFileName);
+        return RecordLayerSchemaTemplate.fromRecordMetadata(metaData, templateNameAndSourceName.getLeft(), 1);
     }
 
     public static SchemaInstanceOuterClass.SchemaInstance fromJson(String loadCommandString) {
@@ -146,39 +137,57 @@ public class CommandUtil {
                 .getRecordMetaData();
     }
 
+    @Nonnull
+    private static Pair<String, String> parseLoadTemplateCommand(@Nonnull String loadCommandString) {
+        StringTokenizer lcsTokenizer = new StringTokenizer(loadCommandString, " ");
+        String templateName = lcsTokenizer.nextToken();
+        if (!"from".equals(lcsTokenizer.nextToken())) {
+            Assertions.fail("Expecting load command looking like X from Y");
+        }
+        String jsonFileName = lcsTokenizer.nextToken();
+        return Pair.of(templateName, jsonFileName);
+    }
+
     private static String getFullClassName(String protoFileName) throws IOException {
         String fullProtoFileName = "src/test/proto/" + protoFileName;
         final Path path = Paths.get(fullProtoFileName);
         String content = Files.readString(path);
 
-        // Match package
+        // Match 'package my.package.name;'
         Pattern packagePattern = Pattern.compile("package\\s+([\\w\\.]+);");
         Matcher packageMatcher = packagePattern.matcher(content);
 
-        String packageName = null;
+        String protoPackage;
         if (packageMatcher.find()) {
-            packageName = packageMatcher.group(1);
+            protoPackage = packageMatcher.group(1);
+        } else {
+            throw new IllegalArgumentException("unable to find package name in proto file:" + fullProtoFileName);
         }
 
-        if (packageName == null) {
-            throw new RuntimeException("Couldn't find package name in proto file " + fullProtoFileName);
+        // Match 'option java_package = "com.example";'
+        Pattern javaPackagePattern = Pattern.compile("option\\s+java_package\\s*=\\s*\"([^\"]+)\";");
+        Matcher javaPackageMatcher = javaPackagePattern.matcher(content);
+
+        String javaPackage = null;
+        if (javaPackageMatcher.find()) {
+            javaPackage = javaPackageMatcher.group(1);
         }
+
+        // Final package name: java_package if exists, otherwise proto package
+        String effectivePackage = javaPackage != null ? javaPackage : protoPackage;
 
         // Match java_outer_classname
         Pattern outerClassPattern = Pattern.compile("option\\s+java_outer_classname\\s*=\\s*\"([^\"]+)\";");
         Matcher outerClassMatcher = outerClassPattern.matcher(content);
 
-        String outerClassName = null;
+        String outerClassName;
         if (outerClassMatcher.find()) {
             outerClassName = outerClassMatcher.group(1);
+        } else {
+            // fallback: default outer class if not explicitly defined
+            outerClassName = protoFileName.replace(".proto", "").replaceAll("[^A-Za-z0-9]", "");
         }
-
-        // Optional fallback: default outer class if not explicitly defined
-        if (outerClassName == null) {
-            String fileName = path.getFileName().toString();
-            outerClassName = fileName.replace(".proto", "").replaceAll("[^A-Za-z0-9]", "");
-        }
-        return packageName + "." + outerClassName;
+        return effectivePackage + "." + outerClassName;
     }
 
     /**
