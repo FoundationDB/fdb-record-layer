@@ -28,7 +28,9 @@ import org.junit.jupiter.api.TestTemplate;
  * Class covering the standard integration tests specified by yamsql files.
  * <br>
  * Note: Use {@link MaintainYamlTestConfig} using {@link YamlTestConfigFilters#CORRECT_EXPLAIN_AND_METRICS} or similar
- *       to correct explain strings and/or planner metrics. That annotation works both on class and on method level.
+ * to correct explain strings and/or planner metrics. That annotation works both on class and on method level.
+ * Note: Use {@link com.apple.foundationdb.relational.yamltests.DebugPlanner} on a specific test in this class to bring
+ * up the {@link com.apple.foundationdb.record.query.plan.cascades.debug.PlannerRepl} debugger implementation.
  */
 @YamlTest
 public class YamlIntegrationTests {

@@ -24,10 +24,6 @@ plugins {
 apply from: rootProject.file('gradle/proto.gradle')
 apply from: rootProject.file('gradle/publishing.gradle')
 
-configurations {
-    repl.extendsFrom testRuntimeOnly
-}
-
 dependencies {
     annotationProcessor project(':fdb-java-annotations')
     api project(':fdb-extensions')
@@ -45,13 +41,11 @@ dependencies {
     testCompileOnly(libs.bundles.test.compileOnly)
     testImplementation(libs.jcommander)
     testImplementation(libs.apache.commonsMath3)
-    testImplementation(libs.jline)
     testImplementation(libs.junit.platform)
     testImplementation(libs.protobuf.util)
     testCompileOnly(libs.spotbugs.annotations)
 
     testAnnotationProcessor(libs.autoService)
-    repl(libs.junit.engine)
 }
 
 sourceSets {
@@ -72,18 +66,6 @@ task testShadowJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.Shadow
     }
     mergeServiceFiles()
     exclude 'log4j.properties'
-}
-
-task replJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
-    archiveClassifier = 'repl'
-    from sourceSets.main.output
-    from sourceSets.test.output
-    configurations = [ project.configurations.repl ]
-    manifest {
-        inheritFrom project.tasks.jar.manifest
-        attributes 'Main-Class': 'com.apple.foundationdb.record.query.plan.debug.ReplRunner'
-    }
-    mergeServiceFiles()
 }
 
 publishing {
