@@ -53,13 +53,13 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    public void fieldIndexTestsProto(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("field-index-tests-proto.yamsql");
+    public void standardTestsWithMetaData(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("standard-tests-metadata.yamsql");
     }
 
     @TestTemplate
-    public void standardTestsWithMetaData(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("standard-tests-metadata.yamsql");
+    public void fieldIndexTestsProto(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("field-index-tests-proto.yamsql");
     }
 
     @TestTemplate
