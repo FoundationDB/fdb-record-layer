@@ -140,10 +140,6 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
             return !index.getType().equals(IndexTypes.MULTIDIMENSIONAL);
         }
 
-        @Override
-        public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            return 0;
-        }
     };
 
     private static final long epochMean = 1690360647L;  // 2023/07/26

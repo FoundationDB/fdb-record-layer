@@ -76,11 +76,6 @@ public class LongArithmethicFunctionKeyExpression extends FunctionKeyExpression 
     }
 
     @Override
-    public int queryHash(@Nonnull final QueryHashKind hashKind) {
-        return super.baseQueryHash(hashKind, BASE_HASH);
-    }
-
-    @Override
     public int getMinArguments() {
         return minArguments;
     }

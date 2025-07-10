@@ -29,7 +29,7 @@ import java.util.Objects;
  * member of the model apart. Using this class we can implement a stable (withstand JVM restart and class refactorings)
  * base hash for each object that can be added to the rest of the plan.
  */
-public class ObjectPlanHash implements PlanHashable, QueryHashable {
+public class ObjectPlanHash implements PlanHashable {
     @Nonnull
     private final Object id;
     private final int hashCode;
@@ -41,11 +41,6 @@ public class ObjectPlanHash implements PlanHashable, QueryHashable {
 
     @Override
     public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
-        return hashCode;
-    }
-
-    @Override
-    public int queryHash(@Nonnull final QueryHashable.QueryHashKind hashKind) {
         return hashCode;
     }
 
