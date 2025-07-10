@@ -371,6 +371,16 @@ public class FRL implements AutoCloseable {
         token.getConnection().rollback();
     }
 
+    public void enableAutoCommit(TransactionalToken token) throws SQLException {
+        // we don't actually call setAutoCommit(false) until an operation happens, so if there is no token
+        // there's no connection that needs updating
+        if (token == null) {
+            return;
+        }
+        assertValidToken(token);
+        token.getConnection().setAutoCommit(true);
+    }
+
     public void transactionalClose(TransactionalToken token) throws SQLException {
         if (token != null && !token.expired()) {
             token.close();
