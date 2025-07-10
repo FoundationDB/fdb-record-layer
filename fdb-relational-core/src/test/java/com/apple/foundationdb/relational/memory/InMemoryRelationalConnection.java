@@ -78,7 +78,7 @@ public class InMemoryRelationalConnection implements RelationalConnection {
     }
 
     @Override
-    public void commit() throws SQLException {
+    public void commit(final boolean onlyIfActive) throws SQLException {
 
     }
 

@@ -361,9 +361,11 @@ public class FRL implements AutoCloseable {
         }
     }
 
-    public void transactionalCommit(TransactionalToken token) throws SQLException {
-        assertValidToken(token);
-        token.getConnection().commit();
+    public void transactionalCommit(TransactionalToken token, final boolean onlyIfActive) throws SQLException {
+        if (!(onlyIfActive && token == null)) {
+            assertValidToken(token);
+            token.getConnection().commit(onlyIfActive);
+        }
     }
 
     public void transactionalRollback(TransactionalToken token) throws SQLException {
