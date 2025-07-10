@@ -3,31 +3,33 @@ recursive-cte-tests:
         -1 union all select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent)
         select id from c1
     explain: RUNION q0, q1 { INITIAL { ISCAN(PARENTIDX [EQUALS promote(@c15 AS LONG)])
-        | INSERT INTO TEMP q1 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q2 -> {
-        TEMP SCAN base() | FILTER _.ID EQUALS q2.PARENT AS q3 RETURN (q2.ID AS ID,
-        q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)
-    task_count: 1334
-    task_total_time_ms: 24
+        ∩ ISCAN(CHILDIDX <,>) COMPARE BY (_.ID, recordType(_)) | INSERT INTO TEMP
+        q1 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q2 -> { TEMP SCAN base() |
+        FILTER _.ID EQUALS q2.PARENT AS q3 RETURN (q2.ID AS ID, q2.PARENT AS PARENT)
+        } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)
+    task_count: 1299
+    task_total_time_ms: 14
     transform_count: 325
-    transform_time_ms: 10
-    transform_yield_count: 98
-    insert_time_ms: 1
-    insert_new_count: 185
+    transform_time_ms: 5
+    transform_yield_count: 95
+    insert_time_ms: 0
+    insert_new_count: 177
     insert_reused_count: 9
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where id = 250
         union all select b.id, b.parent from c1 as a, t1 as b where a.parent = b.id)
         select id from c1
     explain: RUNION q0, q1 { INITIAL { ISCAN(CHILDIDX [EQUALS promote(@c15 AS LONG)])
-        | INSERT INTO TEMP q1 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q2 -> {
-        TEMP SCAN base() | FILTER _.PARENT EQUALS q2.ID AS q3 RETURN (q2.ID AS ID,
-        q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)
-    task_count: 1334
-    task_total_time_ms: 23
+        ∩ ISCAN(PARENTIDX <,>) COMPARE BY (_.PARENT, recordType(_)) | INSERT INTO
+        TEMP q1 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q2 -> { TEMP SCAN base()
+        | FILTER _.PARENT EQUALS q2.ID AS q3 RETURN (q2.ID AS ID, q2.PARENT AS PARENT)
+        } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)
+    task_count: 1299
+    task_total_time_ms: 13
     transform_count: 325
-    transform_time_ms: 7
-    transform_yield_count: 98
-    insert_time_ms: 1
-    insert_new_count: 185
+    transform_time_ms: 4
+    transform_yield_count: 95
+    insert_time_ms: 0
+    insert_new_count: 177
     insert_reused_count: 9
 -   query: EXPLAIN with recursive allDescendants as ( with recursive ancestorsOf250
         as ( select id, parent from t1 where id = 250 union all select b.id, b.parent
@@ -35,35 +37,37 @@ recursive-cte-tests:
         from ancestorsOf250 union all select b.id, b.parent from allDescendants as
         a, t1 as b where a.id = b.parent) select id, parent from allDescendants
     explain: RUNION q0, q1 { INITIAL { RUNION q2, q3 { INITIAL { ISCAN(CHILDIDX [EQUALS
-        promote(@c20 AS LONG)]) | INSERT INTO TEMP q3 } RECURSIVE  { ISCAN(CHILDIDX
-        <,>) | FLATMAP q4 -> { TEMP SCAN base() | FILTER _.PARENT EQUALS q4.ID AS
-        q5 RETURN (q4.ID AS ID, q4.PARENT AS PARENT) } | INSERT INTO TEMP q3 }} |
-        MAP (_.ID AS ID, _.PARENT AS PARENT) | INSERT INTO TEMP q1 } RECURSIVE  {
-        ISCAN(CHILDIDX <,>) | FLATMAP q6 -> { TEMP SCAN base() | FILTER _.ID EQUALS
-        q6.PARENT AS q7 RETURN (q6.ID AS ID, q6.PARENT AS PARENT) } | INSERT INTO
-        TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT)
-    task_count: 2122
-    task_total_time_ms: 29
-    transform_count: 533
-    transform_time_ms: 9
-    transform_yield_count: 150
-    insert_time_ms: 2
-    insert_new_count: 300
+        promote(@c20 AS LONG)]) ∩ ISCAN(PARENTIDX <,>) COMPARE BY (_.PARENT, recordType(_))
+        | INSERT INTO TEMP q3 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q4 -> {
+        TEMP SCAN base() | FILTER _.PARENT EQUALS q4.ID AS q5 RETURN (q4.ID AS ID,
+        q4.PARENT AS PARENT) } | INSERT INTO TEMP q3 }} | MAP (_.ID AS ID, _.PARENT
+        AS PARENT) | INSERT INTO TEMP q1 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP
+        q6 -> { TEMP SCAN base() | FILTER _.ID EQUALS q6.PARENT AS q7 RETURN (q6.ID
+        AS ID, q6.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID,
+        _.PARENT AS PARENT)
+    task_count: 2087
+    task_total_time_ms: 18
+    transform_count: 536
+    transform_time_ms: 6
+    transform_yield_count: 147
+    insert_time_ms: 1
+    insert_new_count: 292
     insert_reused_count: 15
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where parent =
         -1 union all select b.id, b.parent from c1 as a, t1 as b where a.id = b.parent)
         select id from c1
     explain: RUNION q0, q1 { INITIAL { ISCAN(PARENTIDX [EQUALS promote(@c15 AS LONG)])
-        | INSERT INTO TEMP q1 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q2 -> {
-        TEMP SCAN base() | FILTER _.ID EQUALS q2.PARENT AS q3 RETURN (q2.ID AS ID,
-        q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)
-    task_count: 1334
-    task_total_time_ms: 24
+        ∩ ISCAN(CHILDIDX <,>) COMPARE BY (_.ID, recordType(_)) | INSERT INTO TEMP
+        q1 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q2 -> { TEMP SCAN base() |
+        FILTER _.ID EQUALS q2.PARENT AS q3 RETURN (q2.ID AS ID, q2.PARENT AS PARENT)
+        } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)
+    task_count: 1299
+    task_total_time_ms: 14
     transform_count: 325
-    transform_time_ms: 10
-    transform_yield_count: 98
-    insert_time_ms: 1
-    insert_new_count: 185
+    transform_time_ms: 5
+    transform_yield_count: 95
+    insert_time_ms: 0
+    insert_new_count: 177
     insert_reused_count: 9
 -   query: EXPLAIN with recursive allDescendants as ( with recursive ancestorsOf250
         as ( select id, parent from t1 where id = 250 union all select b.id, b.parent
@@ -71,18 +75,19 @@ recursive-cte-tests:
         from ancestorsOf250 union all select b.id, b.parent from allDescendants as
         a, t1 as b where a.id = b.parent) select id, parent from allDescendants
     explain: RUNION q0, q1 { INITIAL { RUNION q2, q3 { INITIAL { ISCAN(CHILDIDX [EQUALS
-        promote(@c20 AS LONG)]) | INSERT INTO TEMP q3 } RECURSIVE  { ISCAN(CHILDIDX
-        <,>) | FLATMAP q4 -> { TEMP SCAN base() | FILTER _.PARENT EQUALS q4.ID AS
-        q5 RETURN (q4.ID AS ID, q4.PARENT AS PARENT) } | INSERT INTO TEMP q3 }} |
-        MAP (_.ID AS ID, _.PARENT AS PARENT) | INSERT INTO TEMP q1 } RECURSIVE  {
-        ISCAN(CHILDIDX <,>) | FLATMAP q6 -> { TEMP SCAN base() | FILTER _.ID EQUALS
-        q6.PARENT AS q7 RETURN (q6.ID AS ID, q6.PARENT AS PARENT) } | INSERT INTO
-        TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT)
-    task_count: 2122
-    task_total_time_ms: 29
-    transform_count: 533
-    transform_time_ms: 9
-    transform_yield_count: 150
-    insert_time_ms: 2
-    insert_new_count: 300
+        promote(@c20 AS LONG)]) ∩ ISCAN(PARENTIDX <,>) COMPARE BY (_.PARENT, recordType(_))
+        | INSERT INTO TEMP q3 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP q4 -> {
+        TEMP SCAN base() | FILTER _.PARENT EQUALS q4.ID AS q5 RETURN (q4.ID AS ID,
+        q4.PARENT AS PARENT) } | INSERT INTO TEMP q3 }} | MAP (_.ID AS ID, _.PARENT
+        AS PARENT) | INSERT INTO TEMP q1 } RECURSIVE  { ISCAN(CHILDIDX <,>) | FLATMAP
+        q6 -> { TEMP SCAN base() | FILTER _.ID EQUALS q6.PARENT AS q7 RETURN (q6.ID
+        AS ID, q6.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID,
+        _.PARENT AS PARENT)
+    task_count: 2087
+    task_total_time_ms: 18
+    transform_count: 536
+    transform_time_ms: 6
+    transform_yield_count: 147
+    insert_time_ms: 1
+    insert_new_count: 292
     insert_reused_count: 15

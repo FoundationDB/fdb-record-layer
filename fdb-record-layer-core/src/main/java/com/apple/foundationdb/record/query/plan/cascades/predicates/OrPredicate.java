@@ -354,10 +354,10 @@ public class OrPredicate extends AndOrPredicate {
     public PredicateCompensationFunction computeCompensationFunction(@Nonnull final PartialMatch partialMatch,
                                                                      @Nonnull final QueryPredicate originalQueryPredicate,
                                                                      @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
-                                                                     @Nonnull final List<PredicateCompensationFunction> childrenResults,
+                                                                     @Nonnull final List<PredicateCompensationFunction> childrenCompensationFunctions,
                                                                      @Nonnull final PullUp pullUp) {
         boolean isNeeded = false;
-        for (final var childPredicateCompensationFunction : childrenResults) {
+        for (final var childPredicateCompensationFunction : childrenCompensationFunctions) {
             isNeeded |= childPredicateCompensationFunction.isNeeded();
             if (childPredicateCompensationFunction.isImpossible()) {
                 return PredicateCompensationFunction.impossibleCompensation();
@@ -368,19 +368,20 @@ public class OrPredicate extends AndOrPredicate {
             return PredicateCompensationFunction.noCompensationNeeded();
         }
 
-        return PredicateCompensationFunction.of(baseAlias -> {
-            final var childPredicatesList =
-                    childrenResults.stream()
-                            .filter(PredicateCompensationFunction::isNeeded)
-                            .map(predicateCompensationFunction -> predicateCompensationFunction.applyCompensationForPredicate(baseAlias))
-                            .collect(ImmutableList.toImmutableList());
-            // take the predicates from each individual expansion, "and" them, and then "or" them
-            final var predicates = LinkedIdentitySet.<QueryPredicate>of();
-            for (final var childPredicates : childPredicatesList) {
-                predicates.add(AndPredicate.and(childPredicates));
-            }
-            return LinkedIdentitySet.of(OrPredicate.or(predicates));
-        });
+        return PredicateCompensationFunction.ofChildrenCompensationFunctions(childrenCompensationFunctions,
+                (functions, baseAlias) -> {
+                    final var childPredicatesList =
+                            functions.stream()
+                                    .filter(PredicateCompensationFunction::isNeeded)
+                                    .map(predicateCompensationFunction -> predicateCompensationFunction.applyCompensationForPredicate(baseAlias))
+                                    .collect(ImmutableList.toImmutableList());
+                    // take the predicates from each individual expansion, "and" them, and then "or" them
+                    final var predicates = LinkedIdentitySet.<QueryPredicate>of();
+                    for (final var childPredicates : childPredicatesList) {
+                        predicates.add(AndPredicate.and(childPredicates));
+                    }
+                    return LinkedIdentitySet.of(OrPredicate.or(predicates));
+                });
     }
 
     @Nonnull

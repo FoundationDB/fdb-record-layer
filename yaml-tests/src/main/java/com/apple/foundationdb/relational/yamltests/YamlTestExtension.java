@@ -70,7 +70,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
     private final boolean includeMethodInDescriptions;
 
     public YamlTestExtension() {
-        this(null, false);
+        this(null, true);
     }
 
     /**

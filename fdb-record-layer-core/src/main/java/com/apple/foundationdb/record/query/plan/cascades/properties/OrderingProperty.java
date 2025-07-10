@@ -60,6 +60,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValues
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryMultiIntersectionOnValuesPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableFunctionPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
@@ -513,6 +514,14 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
         @Override
         public Ordering visitInUnionOnKeyExpressionPlan(@Nonnull final RecordQueryInUnionOnKeyExpressionPlan inUnionOnKeyExpressionPlan) {
             return Ordering.empty();
+        }
+
+        @Nonnull
+        @Override
+        public Ordering visitMultiIntersectionOnValuesPlan(@Nonnull final RecordQueryMultiIntersectionOnValuesPlan multiIntersectionOnValuesPlan) {
+            final var orderings = orderingsFromChildren(multiIntersectionOnValuesPlan);
+            return deriveForDistinctSetOperationFromOrderings(orderings,
+                    multiIntersectionOnValuesPlan.getComparisonKeyOrderingParts(), Ordering.INTERSECTION);
         }
 
         @Nonnull

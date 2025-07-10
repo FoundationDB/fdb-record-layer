@@ -186,7 +186,7 @@ public class ConstantFoldingTestUtils {
 
     @Nonnull
     public static ValueWrapper newCov(@Nonnull final Type type, @Nullable Object bindingValue) {
-        final var correlationId = CorrelationIdentifier.uniqueID();
+        final var correlationId = CorrelationIdentifier.uniqueId();
         final var constantId = String.valueOf(counter++);
         final var bindingKey = Bindings.Internal.CONSTANT.bindingName(correlationId.getId());
         final var bindingValueMap = new HashMap<String, Object>();

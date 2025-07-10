@@ -207,7 +207,7 @@ public class Expression {
         final var aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
         final var simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
         final var thisValue = getUnderlying();
-        final var quantifier = CorrelationIdentifier.uniqueID();
+        final var quantifier = CorrelationIdentifier.uniqueId();
         final var result = simplifiedValue.pullUp(ImmutableList.of(thisValue),
                 EvaluationContext.empty(), aliasMap, constantAliases, quantifier);
         return result.containsKey(thisValue);

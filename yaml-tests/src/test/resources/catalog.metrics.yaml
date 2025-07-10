@@ -7,11 +7,11 @@ catalog-tests:
         TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) AS _0) | AGG (sum_l(_._0.CNT) AS
         _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)'
     task_count: 563
-    task_total_time_ms: 32
-    transform_count: 172
-    transform_time_ms: 15
+    task_total_time_ms: 48
+    transform_count: 179
+    transform_time_ms: 27
     transform_yield_count: 48
-    insert_time_ms: 2
+    insert_time_ms: 0
     insert_new_count: 60
     insert_reused_count: 5
 -   query: EXPLAIN select sum(cnt) from (select count(*) as cnt, template_name, template_version
@@ -22,10 +22,10 @@ catalog-tests:
         | MAP ((_._2 AS CNT, _._0 AS TEMPLATE_NAME, _._1 AS TEMPLATE_VERSION) AS _0)
         | AGG (sum_l(_._0.CNT) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)'
     task_count: 563
-    task_total_time_ms: 14
-    transform_count: 172
-    transform_time_ms: 8
+    task_total_time_ms: 51
+    transform_count: 179
+    transform_time_ms: 32
     transform_yield_count: 48
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 60
     insert_reused_count: 5

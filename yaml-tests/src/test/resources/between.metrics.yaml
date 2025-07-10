@@ -4,8 +4,8 @@ between-index-tests:
         promote(@c8 AS INT)]])
     task_count: 334
     task_total_time_ms: 17
-    transform_count: 90
-    transform_time_ms: 7
+    transform_count: 94
+    transform_time_ms: 6
     transform_yield_count: 33
     insert_time_ms: 0
     insert_new_count: 37
@@ -14,9 +14,9 @@ between-index-tests:
     explain: ISCAN(I1 <,>) | FILTER _.COL1 + @c8 GREATER_THAN_OR_EQUALS promote(@c10
         AS INT) AND _.COL1 + @c8 LESS_THAN_OR_EQUALS promote(@c12 AS INT)
     task_count: 298
-    task_total_time_ms: 11
-    transform_count: 86
-    transform_time_ms: 4
+    task_total_time_ms: 16
+    transform_count: 90
+    transform_time_ms: 7
     transform_yield_count: 30
     insert_time_ms: 0
     insert_new_count: 35
@@ -25,8 +25,8 @@ between-index-tests:
     explain: ISCAN(I1 <,>) | FILTER _.COL1 + @c8 LESS_THAN promote(@c11 AS INT) OR
         _.COL1 + @c8 GREATER_THAN promote(@c13 AS INT)
     task_count: 298
-    task_total_time_ms: 14
-    transform_count: 87
+    task_total_time_ms: 17
+    transform_count: 91
     transform_time_ms: 7
     transform_yield_count: 30
     insert_time_ms: 0

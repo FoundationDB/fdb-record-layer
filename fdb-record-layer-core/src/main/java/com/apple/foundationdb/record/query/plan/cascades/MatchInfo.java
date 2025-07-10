@@ -20,15 +20,19 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -36,6 +40,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -69,10 +74,58 @@ public interface MatchInfo {
                                                                            @Nonnull Set<QueryPredicate> interestingPredicates);
 
     @Nonnull
+    GroupByMappings getGroupByMappings();
+
+    @Nonnull
     default AdjustedBuilder adjustedBuilder() {
         return new AdjustedBuilder(this,
                 getMatchedOrderingParts(),
-                getMaxMatchMap());
+                getMaxMatchMap(),
+                getGroupByMappings());
+    }
+
+    @Nonnull
+    default GroupByMappings adjustGroupByMappings(@Nonnull final Quantifier candidateQuantifier) {
+        return adjustGroupByMappings(candidateQuantifier.getAlias(), candidateQuantifier.getRangesOver().get());
+    }
+
+    @Nonnull
+    default GroupByMappings adjustGroupByMappings(@Nonnull final CorrelationIdentifier candidateAlias,
+                                                  @Nonnull final RelationalExpression candidateLowerExpression) {
+        final var groupByMappings = getGroupByMappings();
+
+        final var matchedGroupingsMap = groupByMappings.getMatchedGroupingsMap();
+        final var adjustedMatchedGroupingsMap =
+                adjustMatchedValueMap(candidateAlias, candidateLowerExpression, matchedGroupingsMap);
+        final var matchedAggregatesMap = groupByMappings.getMatchedAggregatesMap();
+        final var adjustedMatchedAggregatesMap =
+                adjustMatchedValueMap(candidateAlias, candidateLowerExpression, matchedAggregatesMap);
+        return GroupByMappings.of(adjustedMatchedGroupingsMap, adjustedMatchedAggregatesMap,
+                groupByMappings.getUnmatchedAggregatesMap());
+    }
+
+    @Nonnull
+    static ImmutableBiMap<Value, Value> adjustMatchedValueMap(@Nonnull final CorrelationIdentifier candidateAlias,
+                                                              @Nonnull final RelationalExpression candidateLowerExpression,
+                                                              @Nonnull final Map<Value, Value> matchedValueMap) {
+        final var adjustedMatchedAggregateMapBuilder = ImmutableBiMap.<Value, Value>builder();
+        for (final var matchedAggregateMapEntry : matchedValueMap.entrySet()) {
+            final var queryAggregateValue = matchedAggregateMapEntry.getKey();
+            final var candidateAggregateValue = matchedAggregateMapEntry.getValue();
+            final var candidateLowerResultValue = candidateLowerExpression.getResultValue();
+            final var candidatePullUpMap =
+                    candidateLowerResultValue.pullUp(ImmutableList.of(candidateAggregateValue),
+                            EvaluationContext.empty(),
+                            AliasMap.emptyMap(),
+                            Sets.difference(candidateAggregateValue.getCorrelatedToWithoutChildren(),
+                                    candidateLowerExpression.getCorrelatedTo()),
+                            candidateAlias);
+            final var pulledUpCandidateAggregateValue = candidatePullUpMap.get(candidateAggregateValue);
+            if (pulledUpCandidateAggregateValue != null) {
+                adjustedMatchedAggregateMapBuilder.put(queryAggregateValue, pulledUpCandidateAggregateValue);
+            }
+        }
+        return adjustedMatchedAggregateMapBuilder.build();
     }
 
     /**
@@ -113,6 +166,12 @@ public interface MatchInfo {
         @Nonnull
         private final MaxMatchMap maxMatchMap;
 
+        @Nonnull
+        private final GroupByMappings groupByMappings;
+
+        @Nullable
+        private final List<Value> rollUpToGroupingValues;
+
         /**
          * Field to hold additional query plan constraints that need to be imposed on the potentially realized match.
          */
@@ -125,6 +184,8 @@ public interface MatchInfo {
                                  @Nonnull final PredicateMultiMap predicateMap,
                                  @Nonnull final List<MatchedOrderingPart> matchedOrderingParts,
                                  @Nonnull final MaxMatchMap maxMatchMap,
+                                 @Nonnull final GroupByMappings groupByMappings,
+                                 @Nullable final List<Value> rollUpToGroupingValues,
                                  @Nonnull final QueryPlanConstraint additionalPlanConstraint) {
             this.parameterBindingMap = ImmutableMap.copyOf(parameterBindingMap);
             this.bindingAliasMap = bindingAliasMap;
@@ -138,6 +199,9 @@ public interface MatchInfo {
             this.predicateMap = predicateMap;
             this.matchedOrderingParts = ImmutableList.copyOf(matchedOrderingParts);
             this.maxMatchMap = maxMatchMap;
+            this.groupByMappings = groupByMappings;
+            this.rollUpToGroupingValues = rollUpToGroupingValues == null
+                                          ? null : ImmutableList.copyOf(rollUpToGroupingValues);
             this.additionalPlanConstraint = additionalPlanConstraint;
         }
 
@@ -189,9 +253,9 @@ public interface MatchInfo {
             for (final var childPartialMatchEntry : partialMatchMap.entrySet()) {
                 final var queryQuantifier = childPartialMatchEntry.getKey().get();
                 final PartialMatch childPartialMatch = Objects.requireNonNull(childPartialMatchEntry.getValue().get());
-                final var nestingAlias =
+                final var candidateAlias =
                         Objects.requireNonNull(bindingAliasMap.getTarget(queryQuantifier.getAlias()));
-                resultsMap.putAll(childPartialMatch.pullUpToParent(nestingAlias, interestingPredicates));
+                resultsMap.putAll(childPartialMatch.pullUpToParent(candidateAlias, interestingPredicates));
             }
             return resultsMap;
         }
@@ -206,6 +270,17 @@ public interface MatchInfo {
         @Override
         public MaxMatchMap getMaxMatchMap() {
             return maxMatchMap;
+        }
+
+        @Nonnull
+        @Override
+        public GroupByMappings getGroupByMappings() {
+            return groupByMappings;
+        }
+
+        @Nullable
+        public List<Value> getRollUpToGroupingValues() {
+            return rollUpToGroupingValues;
         }
 
         @Nonnull
@@ -237,7 +312,7 @@ public interface MatchInfo {
                     ImmutableList.<QueryPlanConstraint>builder()
                             .addAll(constraints)
                             .addAll(childConstraints)
-                            .add(additionalPlanConstraint)
+                            .add(getAdditionalPlanConstraint())
                             .build();
             return QueryPlanConstraint.composeConstraints(allConstraints);
         }
@@ -247,7 +322,8 @@ public interface MatchInfo {
                                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                                           @Nonnull final MaxMatchMap maxMatchMap) {
             return tryMerge(bindingAliasMap, partialMatchMap, ImmutableMap.of(), PredicateMap.empty(),
-                    maxMatchMap, maxMatchMap.getQueryPlanConstraint());
+                    maxMatchMap, GroupByMappings.empty(), null,
+                    maxMatchMap.getQueryPlanConstraint());
         }
 
         @Nonnull
@@ -256,6 +332,8 @@ public interface MatchInfo {
                                                    @Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
                                                    @Nonnull final PredicateMultiMap predicateMap,
                                                    @Nonnull final MaxMatchMap maxMatchMap,
+                                                   @Nonnull final GroupByMappings additionalGroupByMappings,
+                                                   @Nullable final List<Value> rollUpToGroupingValues,
                                                    @Nonnull final QueryPlanConstraint additionalPlanConstraint) {
             final var parameterMapsBuilder = ImmutableList.<Map<CorrelationIdentifier, ComparisonRange>>builder();
             final var matchInfos = PartialMatch.matchInfosFromMap(partialMatchMap);
@@ -281,6 +359,35 @@ public interface MatchInfo {
             final Optional<Map<CorrelationIdentifier, ComparisonRange>> mergedParameterBindingsOptional =
                     tryMergeParameterBindings(parameterMapsBuilder.build());
 
+            final var matchedAggregateValueMap =
+                    pullUpAndMergeGroupByMappings(bindingAliasMap, partialMatchMap,
+                            additionalGroupByMappings);
+
+            final List<Value> resolvedRollUpToGroupingValues;
+            if (rollUpToGroupingValues != null) {
+                for (final var regularQuantifier : regularQuantifiers) {
+                    final var partialMatch = Objects.requireNonNull(partialMatchMap.getUnwrapped(regularQuantifier));
+                    if (partialMatch.getRegularMatchInfo().getRollUpToGroupingValues() != null) {
+                        return Optional.empty();
+                    }
+                }
+                resolvedRollUpToGroupingValues = rollUpToGroupingValues;
+            } else {
+                List<Value> onlyRollUpToGroupingValues = null;
+                for (final var regularQuantifier : regularQuantifiers) {
+                    final var partialMatch = Objects.requireNonNull(partialMatchMap.getUnwrapped(regularQuantifier));
+                    final var currentRollUpToGroupingValues = partialMatch.getRegularMatchInfo().getRollUpToGroupingValues();
+                    if (currentRollUpToGroupingValues != null) {
+                        if (onlyRollUpToGroupingValues == null) {
+                            onlyRollUpToGroupingValues = currentRollUpToGroupingValues;
+                        } else {
+                            return Optional.empty();
+                        }
+                    }
+                }
+                resolvedRollUpToGroupingValues = onlyRollUpToGroupingValues;
+            }
+
             return mergedParameterBindingsOptional
                     .map(mergedParameterBindings -> new RegularMatchInfo(mergedParameterBindings,
                             bindingAliasMap,
@@ -288,6 +395,8 @@ public interface MatchInfo {
                             predicateMap,
                             orderingParts,
                             maxMatchMap,
+                            matchedAggregateValueMap,
+                            resolvedRollUpToGroupingValues,
                             additionalPlanConstraint));
         }
 
@@ -311,6 +420,136 @@ public interface MatchInfo {
             }
 
             return Optional.of(resultMap);
+        }
+
+        @Nonnull
+        private static GroupByMappings pullUpAndMergeGroupByMappings(@Nonnull final AliasMap bindingAliasMap,
+                                                                     @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                                                     @Nonnull final GroupByMappings additionalGroupByMappings) {
+            final var matchedGroupingsMapBuilder = ImmutableBiMap.<Value, Value>builder();
+            matchedGroupingsMapBuilder.putAll(additionalGroupByMappings.getMatchedGroupingsMap());
+            final var matchedAggregateMapBuilder = ImmutableBiMap.<Value, Value>builder();
+            matchedAggregateMapBuilder.putAll(additionalGroupByMappings.getMatchedAggregatesMap());
+            final var unatchedAggregateMapBuilder = ImmutableBiMap.<CorrelationIdentifier, Value>builder();
+            unatchedAggregateMapBuilder.putAll(additionalGroupByMappings.getUnmatchedAggregatesMap());
+            for (final var partialMatchMapEntry : partialMatchMap.entrySet()) {
+                final var partialMatchMapEntryKey = partialMatchMapEntry.getKey();
+                final var quantifier = partialMatchMapEntryKey.get();
+                if (quantifier instanceof Quantifier.ForEach) {
+                    final var partialMatch = partialMatchMapEntry.getValue().get();
+                    final var pulledUpGroupByMappings =
+                            pullUpGroupByMappings(partialMatch,
+                                    quantifier.getAlias(),
+                                    Objects.requireNonNull(bindingAliasMap.getTarget(quantifier.getAlias())));
+
+                    matchedGroupingsMapBuilder.putAll(pulledUpGroupByMappings.getMatchedGroupingsMap());
+                    matchedAggregateMapBuilder.putAll(pulledUpGroupByMappings.getMatchedAggregatesMap());
+                    unatchedAggregateMapBuilder.putAll(pulledUpGroupByMappings.getUnmatchedAggregatesMap());
+                }
+            }
+            return GroupByMappings.of(matchedGroupingsMapBuilder.build(),
+                    matchedAggregateMapBuilder.build(), unatchedAggregateMapBuilder.build());
+        }
+
+        @Nonnull
+        public static GroupByMappings pullUpAggregateCandidateMappings(@Nonnull final PartialMatch partialMatch,
+                                                                       @Nonnull final PullUp pullUp) {
+            final var matchInfo = partialMatch.getMatchInfo();
+            final var groupByMappings = matchInfo.getGroupByMappings();
+
+            final var matchedGroupingsMapBuilder = ImmutableBiMap.<Value, Value>builder();
+            for (final var matchedGroupingsMapEntry : groupByMappings.getMatchedGroupingsMap().entrySet()) {
+                final var candidateGroupingValue = matchedGroupingsMapEntry.getValue();
+                final var pulledUpCandidateGroupingValueOptional =
+                        pullUp.pullUpCandidateValueMaybe(candidateGroupingValue);
+                pulledUpCandidateGroupingValueOptional.ifPresent(
+                        value -> matchedGroupingsMapBuilder.put(matchedGroupingsMapEntry.getKey(), value));
+            }
+
+            final var matchedAggregatesMapBuilder = ImmutableBiMap.<Value, Value>builder();
+            for (final var matchedAggregatesMapEntry : groupByMappings.getMatchedAggregatesMap().entrySet()) {
+                final var candidateAggregateValue = matchedAggregatesMapEntry.getValue();
+                final var pulledUpCandidateAggregateValueOptional =
+                        pullUp.pullUpCandidateValueMaybe(candidateAggregateValue);
+                pulledUpCandidateAggregateValueOptional.ifPresent(
+                        value -> matchedAggregatesMapBuilder.put(matchedAggregatesMapEntry.getKey(), value));
+            }
+
+            return GroupByMappings.of(matchedGroupingsMapBuilder.build(),
+                    matchedAggregatesMapBuilder.build(), groupByMappings.getUnmatchedAggregatesMap());
+        }
+
+        @Nonnull
+        public static GroupByMappings pullUpGroupByMappings(@Nonnull final PartialMatch partialMatch,
+                                                            @Nonnull final CorrelationIdentifier queryAlias,
+                                                            @Nonnull final CorrelationIdentifier candidateAlias) {
+            final var matchInfo = partialMatch.getMatchInfo();
+            final var queryExpression = partialMatch.getQueryExpression();
+            final var resultValue = queryExpression.getResultValue();
+            final var groupByMappings = matchInfo.getGroupByMappings();
+            final var constantAliases = Sets.difference(resultValue.getCorrelatedTo(),
+                    queryExpression.getCorrelatedTo());
+            final var matchedGroupingsMap =
+                    pullUpMatchedValueMap(partialMatch, groupByMappings.getMatchedGroupingsMap(), resultValue,
+                            queryAlias, candidateAlias, constantAliases);
+
+            final var matchedAggregatesMap =
+                    pullUpMatchedValueMap(partialMatch, groupByMappings.getMatchedAggregatesMap(), resultValue,
+                            queryAlias, candidateAlias, constantAliases);
+
+            final var unmatchedAggregateMapBuilder = ImmutableBiMap.<CorrelationIdentifier, Value>builder();
+            for (final var unmatchedAggregateMapEntry : groupByMappings.getUnmatchedAggregatesMap().entrySet()) {
+                final var queryAggregateValue = unmatchedAggregateMapEntry.getValue();
+                final var pullUpMap =
+                        resultValue.pullUp(ImmutableList.of(queryAggregateValue), EvaluationContext.empty(),
+                                AliasMap.emptyMap(),
+                                Sets.difference(queryAggregateValue.getCorrelatedToWithoutChildren(),
+                                        queryExpression.getCorrelatedTo()), queryAlias);
+                final var pulledUpQueryAggregateValue = pullUpMap.get(queryAggregateValue);
+                if (pulledUpQueryAggregateValue == null) {
+                    return GroupByMappings.empty();
+                }
+                unmatchedAggregateMapBuilder.put(unmatchedAggregateMapEntry.getKey(), pulledUpQueryAggregateValue);
+            }
+
+            return GroupByMappings.of(matchedGroupingsMap, matchedAggregatesMap, unmatchedAggregateMapBuilder.build());
+        }
+
+        private static ImmutableBiMap<Value, Value> pullUpMatchedValueMap(@Nonnull final PartialMatch partialMatch,
+                                                                          @Nonnull final BiMap<Value, Value> matchedValueMap,
+                                                                          @Nonnull final Value queryResultValue,
+                                                                          @Nonnull final CorrelationIdentifier queryAlias,
+                                                                          @Nonnull final CorrelationIdentifier candidateAlias,
+                                                                          @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+            final var matchedAggregatesMapBuilder = ImmutableBiMap.<Value, Value>builder();
+            for (final var entry : matchedValueMap.entrySet()) {
+                final var queryValue = entry.getKey();
+                final var pullUpMap =
+                        queryResultValue.pullUp(ImmutableList.of(queryValue), EvaluationContext.empty(),
+                                AliasMap.emptyMap(), constantAliases, queryAlias);
+                final Value pulledUpQueryValue = pullUpMap.get(queryValue);
+                if (pulledUpQueryValue == null) {
+                    continue;
+                }
+
+                final var candidateAggregateValue = entry.getValue();
+                final var candidateLowerExpression =
+                        Iterables.getOnlyElement(partialMatch.getCandidateRef().getAllMemberExpressions());
+                final var candidateLowerResultValue = candidateLowerExpression.getResultValue();
+                final var candidatePullUpMap =
+                        candidateLowerResultValue.pullUp(ImmutableList.of(candidateAggregateValue),
+                                EvaluationContext.empty(),
+                                AliasMap.emptyMap(),
+                                Sets.difference(candidateAggregateValue.getCorrelatedToWithoutChildren(),
+                                        candidateLowerExpression.getCorrelatedTo()),
+                                candidateAlias);
+                final var pulledUpCandidateAggregateValue = candidatePullUpMap.get(candidateAggregateValue);
+                if (pulledUpCandidateAggregateValue == null) {
+                    continue;
+                }
+                matchedAggregatesMapBuilder.put(pulledUpQueryValue, pulledUpCandidateAggregateValue);
+            }
+            return matchedAggregatesMapBuilder.build();
         }
     }
 
@@ -346,12 +585,17 @@ public interface MatchInfo {
         @Nonnull
         private final MaxMatchMap maxMatchMap;
 
-        public AdjustedMatchInfo(@Nonnull final MatchInfo underlying,
-                                 @Nonnull final List<MatchedOrderingPart> matchedOrderingParts,
-                                 @Nonnull final MaxMatchMap maxMatchMap) {
+        @Nonnull
+        private final GroupByMappings groupByMappings;
+
+        private AdjustedMatchInfo(@Nonnull final MatchInfo underlying,
+                                  @Nonnull final List<MatchedOrderingPart> matchedOrderingParts,
+                                  @Nonnull final MaxMatchMap maxMatchMap,
+                                  @Nonnull final GroupByMappings groupByMappings) {
             this.underlying = underlying;
             this.matchedOrderingParts = matchedOrderingParts;
             this.maxMatchMap = maxMatchMap;
+            this.groupByMappings = groupByMappings;
         }
 
         @Nonnull
@@ -369,6 +613,12 @@ public interface MatchInfo {
         @Override
         public MaxMatchMap getMaxMatchMap() {
             return maxMatchMap;
+        }
+
+        @Nonnull
+        @Override
+        public GroupByMappings getGroupByMappings() {
+            return groupByMappings;
         }
 
         @Override
@@ -403,7 +653,7 @@ public interface MatchInfo {
                 final var originalQueryPredicate = childPredicateMappingEntry.getKey();
                 final var childPredicateMapping = childPredicateMappingEntry.getValue();
                 final var pulledUpPredicateOptional =
-                        childPredicateMapping.getTranslatedQueryPredicate().replaceValuesMaybe(pullUp::pullUpMaybe);
+                        childPredicateMapping.getTranslatedQueryPredicate().replaceValuesMaybe(pullUp::pullUpValueMaybe);
                 pulledUpPredicateOptional.ifPresent(queryPredicate ->
                         resultsMap.put(originalQueryPredicate,
                                 childPredicateMapping.withTranslatedQueryPredicate(queryPredicate)));
@@ -431,12 +681,17 @@ public interface MatchInfo {
         @Nonnull
         private MaxMatchMap maxMatchMap;
 
+        @Nonnull
+        private GroupByMappings groupByMappings;
+
         private AdjustedBuilder(@Nonnull final MatchInfo underlying,
                                 @Nonnull final List<MatchedOrderingPart> matchedOrderingParts,
-                                @Nonnull final MaxMatchMap maxMatchMap) {
+                                @Nonnull final MaxMatchMap maxMatchMap,
+                                @Nonnull final GroupByMappings groupByMappings) {
             this.underlying = underlying;
             this.matchedOrderingParts = matchedOrderingParts;
             this.maxMatchMap = maxMatchMap;
+            this.groupByMappings = groupByMappings;
         }
 
         @Nonnull
@@ -450,13 +705,25 @@ public interface MatchInfo {
         }
 
         @Nonnull
+        public AdjustedBuilder setGroupByMappings(@Nonnull final GroupByMappings groupByMappings) {
+            this.groupByMappings = groupByMappings;
+            return this;
+        }
+
+        @Nonnull
         public MaxMatchMap getMaxMatchMap() {
             return maxMatchMap;
         }
 
+        @Nonnull
         public AdjustedBuilder setMaxMatchMap(@Nonnull final MaxMatchMap maxMatchMap) {
             this.maxMatchMap = maxMatchMap;
             return this;
+        }
+
+        @Nonnull
+        public GroupByMappings getGroupByMappings() {
+            return groupByMappings;
         }
 
         @Nonnull
@@ -464,7 +731,8 @@ public interface MatchInfo {
             return new AdjustedMatchInfo(
                     underlying,
                     matchedOrderingParts,
-                    maxMatchMap);
+                    maxMatchMap,
+                    groupByMappings);
         }
     }
 }

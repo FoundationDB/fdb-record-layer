@@ -22,13 +22,17 @@ package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.cascades.AggregateIndexExpansionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.GroupByMappings;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
@@ -49,21 +53,28 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWit
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.AbstractValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -75,9 +86,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
-
-import static com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean.alwaysTrue;
-import static com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean.falseValue;
 
 /**
  * A logical {@code group by} expression that represents grouping incoming tuples and aggregating each group.
@@ -106,7 +114,8 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
     /**
      * Creates a new instance of {@link GroupByExpression}.
      *
-     * @param groupingValue The grouping {@code Value} used to determine individual groups, can be {@code null} indicating no grouping.
+     * @param groupingValue The grouping {@code Value} used to determine individual groups, can be {@code null}
+     *        indicating no grouping.
      * @param aggregateValue The aggregation {@code Value} applied to each group.
      * @param resultValueFunction a bi-function that allows us to create the actual result value of this expression
      * @param innerQuantifier The underlying source of tuples to be grouped.
@@ -311,15 +320,12 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                 ValueEquivalence.fromAliasMap(bindingAliasMap)
                         .then(ValueEquivalence.constantEquivalenceWithEvaluationContext(evaluationContext));
 
-        final var translatedAggregateValue =
-                aggregateValue.translateCorrelations(translationMap, true);
-        final var translatedAggregateValues =
-                Values.primitiveAccessorsForType(translatedAggregateValue.getResultType(),
-                                () -> translatedAggregateValue).stream()
-                        .map(primitiveGroupingValue -> primitiveGroupingValue.simplify(evaluationContext,
+        final var aggregateValues =
+                Values.primitiveAccessorsForType(aggregateValue.getResultType(), () -> aggregateValue).stream()
+                        .map(primitiveAggregateValue -> primitiveAggregateValue.simplify(evaluationContext,
                                 AliasMap.emptyMap(), ImmutableSet.of()))
                         .collect(ImmutableSet.toImmutableSet());
-        if (translatedAggregateValues.size() != 1) {
+        if (aggregateValues.isEmpty()) {
             return ImmutableList.of();
         }
 
@@ -329,79 +335,143 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                         .map(primitiveAggregateValue -> primitiveAggregateValue.simplify(evaluationContext,
                                 AliasMap.emptyMap(), ImmutableSet.of()))
                         .collect(ImmutableSet.toImmutableSet());
-        if (translatedAggregateValues.size() != 1) {
+        if (otherAggregateValues.size() != 1) {
             return ImmutableList.of();
         }
+        final var otherPrimitiveAggregateValue = (IndexableAggregateValue)Iterables.getOnlyElement(otherAggregateValues);
+        final var matchedAggregatesMapBuilder = ImmutableBiMap.<Value, Value>builder();
+        final var unmatchedAggregatesMapBuilder =
+                ImmutableBiMap.<CorrelationIdentifier, Value>builder();
+        final var unmatchedTranslatedAggregatesValueMapBuilder =
+                ImmutableMap.<Value, CorrelationIdentifier>builder();
+        var subsumedAggregations = ConstrainedBoolean.falseValue();
+        for (final var primitiveAggregateValue : aggregateValues) {
+            final var translatedPrimitiveAggregateValue =
+                    primitiveAggregateValue.translateCorrelations(translationMap, true);
 
-        final var subsumedAggregations =
-                Iterables.getOnlyElement(translatedAggregateValues).semanticEquals(Iterables.getOnlyElement(otherAggregateValues),
-                        valueEquivalence);
+            final var semanticEquals =
+                    translatedPrimitiveAggregateValue.semanticEquals(otherPrimitiveAggregateValue, valueEquivalence);
+            if (semanticEquals.isTrue()) {
+                matchedAggregatesMapBuilder.put(primitiveAggregateValue, otherPrimitiveAggregateValue);
+                subsumedAggregations = semanticEquals;
+            } else {
+                final var unmatchedId = UnmatchedAggregateValue.uniqueId();
+                unmatchedAggregatesMapBuilder.put(unmatchedId, primitiveAggregateValue);
+                unmatchedTranslatedAggregatesValueMapBuilder.put(translatedPrimitiveAggregateValue, unmatchedId);
+            }
+        }
+
         if (subsumedAggregations.isFalse()) {
             return ImmutableList.of();
         }
 
-        final var subsumedGroupings =
-                subsumedAggregations
-                        .compose(ignored -> groupingSubsumedBy(candidateInnerQuantifier,
-                                Objects.requireNonNull(partialMatchMap.getUnwrapped(innerQuantifier)),
-                                candidateGroupingValue, translationMap, valueEquivalence, evaluationContext));
-
+        final var subsumedGroupingsResult =
+                groupingSubsumedBy(candidateInnerQuantifier,
+                        Objects.requireNonNull(partialMatchMap.getUnwrapped(innerQuantifier)),
+                        candidateGroupingValue, translationMap, valueEquivalence, evaluationContext);
+        final var subsumedGroupings = Objects.requireNonNull(subsumedGroupingsResult.getSubsumedGroups());
         if (subsumedGroupings.isFalse()) {
             return ImmutableList.of();
         }
+        final var matchedGroupingsMap = subsumedGroupingsResult.getMatchedGroupingsMap();
+        final var rollUpToGroupingValues = subsumedGroupingsResult.getRollUpToValues();
 
+        if (rollUpToGroupingValues != null &&
+                !AggregateIndexExpansionVisitor.canBeRolledUp(otherPrimitiveAggregateValue.getIndexTypeName())) {
+            // We determined we need a roll up, but we cannot do it base on the aggregations.
+            return ImmutableList.of();
+        }
+
+        final var unmatchedTranslatedAggregateValueMap =
+                unmatchedTranslatedAggregatesValueMapBuilder.buildKeepingLast();
         final var translatedResultValue = getResultValue().translateCorrelations(translationMap, true);
         final var maxMatchMap =
                 MaxMatchMap.compute(translatedResultValue, candidateExpression.getResultValue(),
-                        Quantifiers.aliases(candidateExpression.getQuantifiers()), valueEquivalence);
+                        Quantifiers.aliases(candidateExpression.getQuantifiers()), valueEquivalence,
+                        translatedUnmatchedValue -> onUnmatchedValue(unmatchedTranslatedAggregateValueMap,
+                                translatedUnmatchedValue));
         final var queryPlanConstraint =
                 subsumedGroupings.getConstraint().compose(maxMatchMap.getQueryPlanConstraint());
 
         return RegularMatchInfo.tryMerge(bindingAliasMap, partialMatchMap, ImmutableMap.of(), PredicateMap.empty(),
-                        maxMatchMap, queryPlanConstraint)
+                        maxMatchMap,
+                        GroupByMappings.of(matchedGroupingsMap, matchedAggregatesMapBuilder.build(),
+                                unmatchedAggregatesMapBuilder.build()),
+                        rollUpToGroupingValues, queryPlanConstraint)
                 .map(ImmutableList::of)
                 .orElse(ImmutableList.of());
     }
 
     @Nonnull
-    private ConstrainedBoolean groupingSubsumedBy(@Nonnull final Quantifier candidateInnerQuantifier,
-                                                  @Nonnull final PartialMatch childMatch,
-                                                  @Nullable final Value candidateGroupingValue,
-                                                  @Nonnull final TranslationMap translationMap,
-                                                  @Nonnull final ValueEquivalence valueEquivalence,
-                                                  @Nonnull final EvaluationContext evaluationContext) {
+    private Optional<Value> onUnmatchedValue(@Nonnull final Map<Value, CorrelationIdentifier> unmatchedTranslatedAggregateValueMap,
+                                             @Nonnull final Value translatedUnmatchedValue) {
+        final var unmatchedId = unmatchedTranslatedAggregateValueMap.get(translatedUnmatchedValue);
+        if (unmatchedId == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new UnmatchedAggregateValue(unmatchedId));
+    }
+
+    @Nonnull
+    private SubsumedGroupingsResult groupingSubsumedBy(@Nonnull final Quantifier candidateInnerQuantifier,
+                                                       @Nonnull final PartialMatch childMatch,
+                                                       @Nullable final Value candidateGroupingValue,
+                                                       @Nonnull final TranslationMap translationMap,
+                                                       @Nonnull final ValueEquivalence valueEquivalence,
+                                                       @Nonnull final EvaluationContext evaluationContext) {
         if (groupingValue == null && candidateGroupingValue == null) {
-            return alwaysTrue();
+            return SubsumedGroupingsResult.withoutRollUp(ConstrainedBoolean.alwaysTrue(), ImmutableBiMap.of());
         }
         if (candidateGroupingValue == null) {
-            return falseValue();
+            return SubsumedGroupingsResult.noSubsumption();
         }
 
-        final Set<Value> translatedGroupingValues;
+        final List<Value> translatedGroupingValues; // with duplicate groupings if present
+        final BiMap<Value, Value> matchedGroupingsMap;
         if (groupingValue != null) {
-            final var translatedGroupingValue = groupingValue.translateCorrelations(translationMap, true);
-            translatedGroupingValues =
-                    Values.primitiveAccessorsForType(translatedGroupingValue.getResultType(),
-                                    () -> translatedGroupingValue).stream()
+            final var translatedGroupingsValuesBuilder = ImmutableList.<Value>builder();
+            final var matchedGroupingsMapBuilder = ImmutableMap.<Value, Value>builder();
+            final var groupingValues =
+                    Values.primitiveAccessorsForType(groupingValue.getResultType(), () -> groupingValue).stream()
                             .map(primitiveGroupingValue -> primitiveGroupingValue.simplify(evaluationContext,
                                     AliasMap.emptyMap(), ImmutableSet.of()))
-                            .collect(ImmutableSet.toImmutableSet());
+                            .collect(ImmutableList.toImmutableList());
+            for (final var primitiveGroupingValue : groupingValues) {
+                final var translatedPrimitiveGroupingValue =
+                        primitiveGroupingValue.translateCorrelations(translationMap, true);
+                // TODO is this needed?.simplify(evaluationContext, AliasMap.emptyMap(), ImmutableSet.of());
+                translatedGroupingsValuesBuilder.add(translatedPrimitiveGroupingValue);
+                matchedGroupingsMapBuilder.put(primitiveGroupingValue, translatedPrimitiveGroupingValue);
+            }
+            translatedGroupingValues = translatedGroupingsValuesBuilder.build();
+
+            //
+            // We know that if there are duplicates, they will be on the query side. Immutable bi-maps do not support
+            // duplicated keys at all while regular maps do. The simplest and also the cheapest solution is to just
+            // use an immutable map builder (which then is de-duped when built) and then use that map to build the
+            // bi-map.
+            //
+            matchedGroupingsMap = ImmutableBiMap.copyOf(matchedGroupingsMapBuilder.buildKeepingLast());
         } else {
-            translatedGroupingValues = ImmutableSet.of();
+            translatedGroupingValues = ImmutableList.of();
+            matchedGroupingsMap = ImmutableBiMap.of();
         }
+
+        final Set<Value> translatedGroupingValuesSet = ImmutableSet.copyOf(translatedGroupingValues);
 
         final var candidateGroupingValues =
                 Values.primitiveAccessorsForType(candidateGroupingValue.getResultType(),
                                 () -> candidateGroupingValue).stream()
                         .map(primitiveGroupingValue -> primitiveGroupingValue.simplify(evaluationContext,
                                 AliasMap.emptyMap(), ImmutableSet.of()))
-                        .collect(ImmutableSet.toImmutableSet());
+                        .collect(ImmutableList.toImmutableList());
 
         //
         // If there are more groupingValues than candidateGroupingValues, we cannot match the index.
         //
-        if (translatedGroupingValues.size() > candidateGroupingValues.size()) {
-            return falseValue();
+        final var unmatchedCandidateValues = new LinkedHashSet<>(candidateGroupingValues);
+        if (translatedGroupingValuesSet.size() > unmatchedCandidateValues.size()) {
+            return SubsumedGroupingsResult.noSubsumption();
         }
 
         //
@@ -417,15 +487,14 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         // 3. For each candidate grouping value in the set of (yet) unmatched candidate group values, try to find a
         //    predicate that binds that groupingValue.
         //
-        final var unmatchedCandidateValues = new LinkedHashSet<>(candidateGroupingValues);
-        var booleanWithConstraint = alwaysTrue();
-        for (final var groupingPartValue : translatedGroupingValues) {
+        var booleanWithConstraint = ConstrainedBoolean.alwaysTrue();
+        for (final var translatedGroupingValue : translatedGroupingValuesSet) {
             var found = false;
 
             for (final var iterator = unmatchedCandidateValues.iterator(); iterator.hasNext(); ) {
                 final var candidateGroupingPartValue = iterator.next();
                 final var semanticEquals =
-                        groupingPartValue.semanticEquals(candidateGroupingPartValue, valueEquivalence);
+                        translatedGroupingValue.semanticEquals(candidateGroupingPartValue, valueEquivalence);
                 if (semanticEquals.isTrue()) {
                     found = true;
                     booleanWithConstraint = booleanWithConstraint.composeWithOther(semanticEquals);
@@ -438,7 +507,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                 }
             }
             if (!found) {
-                return falseValue();
+                return SubsumedGroupingsResult.noSubsumption();
             }
             if (unmatchedCandidateValues.isEmpty()) {
                 break;
@@ -447,7 +516,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
         if (unmatchedCandidateValues.isEmpty()) {
             // return with a positive result if sets where in fact semantically equal
-            return booleanWithConstraint;
+            return SubsumedGroupingsResult.withoutRollUp(booleanWithConstraint, matchedGroupingsMap);
         }
 
         //
@@ -503,7 +572,24 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
             }
         }
 
-        return unmatchedCandidateValues.isEmpty() ? booleanWithConstraint : falseValue();
+        if (!unmatchedCandidateValues.isEmpty()) {
+            Verify.verify(candidateGroupingValues.size() > translatedGroupingValuesSet.size());
+
+            //
+            // This is a potential roll-up case, but only if the query side's groupings are completely subsumed
+            // by the prefix of the candidate side. Iterate up to the smaller query side's grouping values to
+            // find out.
+            //
+            for (int i = 0; i < translatedGroupingValues.size(); i++) {
+                if (unmatchedCandidateValues.contains(candidateGroupingValues.get(i))) {
+                    return SubsumedGroupingsResult.noSubsumption();
+                }
+            }
+
+            return SubsumedGroupingsResult.of(booleanWithConstraint, matchedGroupingsMap, translatedGroupingValues);
+        }
+
+        return SubsumedGroupingsResult.withoutRollUp(booleanWithConstraint, matchedGroupingsMap);
     }
 
     @Nonnull
@@ -525,17 +611,22 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
                 innerQuantifier.getCorrelatedTo());
     }
 
+    @SuppressWarnings("ConstantValue")
     @Nonnull
     @Override
     public Compensation compensate(@Nonnull final PartialMatch partialMatch,
                                    @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                    @Nullable final PullUp pullUp,
-                                   @Nonnull final CorrelationIdentifier nestingAlias) {
+                                   @Nonnull final CorrelationIdentifier candidateAlias) {
         final var matchInfo = partialMatch.getMatchInfo();
         final var regularMatchInfo = partialMatch.getRegularMatchInfo();
         final var quantifier = Iterables.getOnlyElement(getQuantifiers());
 
-        final var adjustedPullUp = partialMatch.nestPullUp(pullUp, nestingAlias);
+        final var nestedPullUpPair =
+                partialMatch.nestPullUp(pullUp, candidateAlias);
+        final var rootOfMatchPullUp = nestedPullUpPair.getKey();
+        final var adjustedPullUp = Objects.requireNonNull(nestedPullUpPair.getRight());
+
         // if the match requires, for the moment, any, compensation, we reject it.
         final Optional<Compensation> childCompensationOptional =
                 regularMatchInfo.getChildPartialMatchMaybe(quantifier)
@@ -551,36 +642,42 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
         final var childCompensation = childCompensationOptional.get();
 
-        if (childCompensation.isImpossible() ||
-                //
-                // TODO This needs some improvement as GB a, b, c WHERE a= AND c= needs to reapply the
-                //      predicate on c which is currently refused here.
-                //
-                childCompensation.isNeededForFiltering()) {
+        if (childCompensation.isImpossible()) {
+            //
+            // Note that it may be better to just return the child compensation verbatim as that compensation
+            // may be combinable with something else to make it possible while the statically impossible compensation
+            // can never combine into anything that is possible.
+            //
             return Compensation.impossibleCompensation();
         }
 
+        boolean isCompensationImpossible = false;
         final ResultCompensationFunction resultCompensationFunction;
-        if (pullUp != null) {
+        final GroupByMappings pulledUpGroupByMappings;
+        if (rootOfMatchPullUp == null) {
             resultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
+            pulledUpGroupByMappings = GroupByMappings.empty();
         } else {
-            final var rootPullUp = adjustedPullUp.getRootPullUp();
             final var maxMatchMap = matchInfo.getMaxMatchMap();
-            final var pulledUpResultValueOptional =
-                    rootPullUp.pullUpMaybe(maxMatchMap.getQueryValue());
-            if (pulledUpResultValueOptional.isEmpty()) {
+            final var pulledUpTranslatedResultValueOptional =
+                    rootOfMatchPullUp.pullUpValueMaybe(maxMatchMap.getQueryValue());
+            if (pulledUpTranslatedResultValueOptional.isEmpty()) {
                 return Compensation.impossibleCompensation();
             }
 
-            final var pulledUpResultValue = pulledUpResultValueOptional.get();
+            final var pulledUpTranslatedResultValue = pulledUpTranslatedResultValueOptional.get();
 
-            if (QuantifiedObjectValue.isSimpleQuantifiedObjectValueOver(pulledUpResultValue,
-                    rootPullUp.getNestingAlias())) {
+            if (QuantifiedObjectValue.isSimpleQuantifiedObjectValueOver(pulledUpTranslatedResultValue,
+                    rootOfMatchPullUp.getCandidateAlias())) {
                 resultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
             } else {
                 resultCompensationFunction =
-                        ResultCompensationFunction.ofTranslation(pulledUpResultValue, rootPullUp.getNestingAlias());
+                        ResultCompensationFunction.ofValue(pulledUpTranslatedResultValue);
             }
+            isCompensationImpossible |= resultCompensationFunction.isImpossible();
+
+            pulledUpGroupByMappings =
+                    RegularMatchInfo.pullUpAggregateCandidateMappings(partialMatch, rootOfMatchPullUp);
         }
 
         final var unmatchedQuantifiers = partialMatch.getUnmatchedQuantifiers();
@@ -590,12 +687,13 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
             return Compensation.noCompensation();
         }
 
-        return childCompensation.derived(false,
+        return childCompensation.derived(isCompensationImpossible,
                 new LinkedIdentityMap<>(),
                 getMatchedQuantifiers(partialMatch),
                 unmatchedQuantifiers,
                 partialMatch.getCompensatedAliases(),
-                resultCompensationFunction);
+                resultCompensationFunction,
+                pulledUpGroupByMappings);
     }
 
     @Nonnull
@@ -642,5 +740,118 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         final var rcv = RecordConstructorValue.ofUnnamed(valuesBuilder.build());
         return rcv.simplify(EvaluationContext.empty(),
                 AliasMap.identitiesFor(rcv.getCorrelatedTo()), ImmutableSet.of());
+    }
+
+    public static class UnmatchedAggregateValue extends AbstractValue implements Value.NonEvaluableValue {
+        @Nonnull
+        private final CorrelationIdentifier unmatchedId;
+
+        public UnmatchedAggregateValue(@Nonnull final CorrelationIdentifier unmatchedId) {
+            this.unmatchedId = unmatchedId;
+        }
+
+        @Nonnull
+        public CorrelationIdentifier getUnmatchedId() {
+            return unmatchedId;
+        }
+
+        @Nonnull
+        @Override
+        protected Iterable<? extends Value> computeChildren() {
+            return ImmutableList.of();
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+            Verify.verify(Iterables.isEmpty(explainSuppliers));
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("unmatched",
+                    new ExplainTokens().addIdentifier(unmatchedId.getId())));
+        }
+
+        @Override
+        public int hashCodeWithoutChildren() {
+            return 0;
+        }
+
+        @Nonnull
+        @Override
+        public PValue toValueProto(@Nonnull final PlanSerializationContext serializationContext) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashMode hashMode) {
+            return 0;
+        }
+
+        @Nonnull
+        @Override
+        public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Nonnull
+        @Override
+        public Value withChildren(final Iterable<? extends Value> newChildren) {
+            Verify.verify(Iterables.isEmpty(newChildren));
+            return new UnmatchedAggregateValue(getUnmatchedId());
+        }
+
+        @Nonnull
+        public static CorrelationIdentifier uniqueId() {
+            return CorrelationIdentifier.uniqueId(UnmatchedAggregateValue.class);
+        }
+    }
+
+    private static class SubsumedGroupingsResult {
+        @Nonnull
+        private final ConstrainedBoolean subsumedGroups;
+        @Nonnull
+        private final BiMap<Value, Value> matchedGroupingsMap;
+        @Nullable
+        private final List<Value> rollUpToValues;
+
+        private SubsumedGroupingsResult(@Nonnull final ConstrainedBoolean subsumedGroups,
+                                        @Nonnull final BiMap<Value, Value> matchedGroupingsMap,
+                                        @Nullable final List<Value> rollUpToValues) {
+            this.subsumedGroups = subsumedGroups;
+            this.matchedGroupingsMap = matchedGroupingsMap;
+            this.rollUpToValues = rollUpToValues;
+        }
+
+        @Nonnull
+        public ConstrainedBoolean getSubsumedGroups() {
+            return subsumedGroups;
+        }
+
+        @Nonnull
+        public BiMap<Value, Value> getMatchedGroupingsMap() {
+            return matchedGroupingsMap;
+        }
+
+        @Nullable
+        public List<Value> getRollUpToValues() {
+            return rollUpToValues;
+        }
+
+        @Nonnull
+        public static SubsumedGroupingsResult noSubsumption() {
+            return of(ConstrainedBoolean.falseValue(), ImmutableBiMap.of(), null);
+        }
+
+        @Nonnull
+        public static SubsumedGroupingsResult withoutRollUp(@Nonnull final ConstrainedBoolean subsumedGroups,
+                                                            @Nonnull final BiMap<Value, Value> matchedGroupingsMap) {
+            return of(subsumedGroups, matchedGroupingsMap, null);
+        }
+
+        @Nonnull
+        public static SubsumedGroupingsResult of(@Nonnull final ConstrainedBoolean subsumedGroups,
+                                                 @Nonnull final BiMap<Value, Value> matchedGroupingsMap,
+                                                 @Nullable final List<Value> rollUpToValues) {
+            return new SubsumedGroupingsResult(subsumedGroups, ImmutableBiMap.copyOf(matchedGroupingsMap),
+                    rollUpToValues == null ? null : ImmutableList.copyOf(rollUpToValues));
+        }
     }
 }

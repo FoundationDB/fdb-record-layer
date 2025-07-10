@@ -295,4 +295,9 @@ public class YamlIntegrationTests {
     public void transactionalCallsTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("transactions-tests.yamsql");
     }
+
+    @TestTemplate
+    public void compositeAggregates(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("composite-aggregates.yamsql");
+    }
 }

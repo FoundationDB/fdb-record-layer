@@ -414,7 +414,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     static Stream<InComparisonCase> selectMaxWithInOrderByMax() {
-        ConstantObjectValue constant = ConstantObjectValue.of(Quantifier.uniqueID(), "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.INT, false)));
+        ConstantObjectValue constant = ConstantObjectValue.of(Quantifier.uniqueId(), "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.INT, false)));
         return Stream.of(
                 new InComparisonCase("byParameter", new Comparisons.ParameterComparison(Comparisons.Type.IN, "numValue2List"), nv2List -> Bindings.newBuilder().set("numValue2List", nv2List).build(), 2026350341, -272644765),
                 new InComparisonCase("byLiteral", new Comparisons.ListComparison(Comparisons.Type.IN, List.of(-1, -1)), nv2List -> {
@@ -496,7 +496,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     static Stream<InComparisonCase> testMaxWithInAndDupes() {
-        ConstantObjectValue constant = ConstantObjectValue.of(Quantifier.uniqueID(), "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.STRING, false)));
+        ConstantObjectValue constant = ConstantObjectValue.of(Quantifier.uniqueId(), "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.STRING, false)));
         return Stream.of(
                 new InComparisonCase("byParameter", new Comparisons.ParameterComparison(Comparisons.Type.IN, "strValueList"), strValueList -> Bindings.newBuilder().set("strValueList", strValueList).build(), 2106093264, 1809779597),
                 new InComparisonCase("byLiteral", new Comparisons.ListComparison(Comparisons.Type.IN, List.of("even", "odd")), strValueList -> {
@@ -638,7 +638,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     static Stream<InComparisonCase> testSortedMaxWithInOnRepeater() {
-        ConstantObjectValue constant = ConstantObjectValue.of(Quantifier.uniqueID(), "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.INT, false)));
+        ConstantObjectValue constant = ConstantObjectValue.of(Quantifier.uniqueId(), "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.INT, false)));
         return Stream.of(
                 new InComparisonCase("byParameter", new Comparisons.ParameterComparison(Comparisons.Type.IN, "xValueList"), xValueList -> Bindings.newBuilder().set("xValueList", xValueList).build(), -1502950720, -1056018522),
                 new InComparisonCase("byLiteral", new Comparisons.ListComparison(Comparisons.Type.IN, List.of(0, 0)), strValueList -> {
@@ -747,7 +747,7 @@ class FDBPermutedMinMaxQueryTest extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     static Stream<InComparisonCase> testMaxUniqueByStr2And3WithDifferentOrderingKeys() {
-        ConstantObjectValue constant = ConstantObjectValue.of(Quantifier.uniqueID(), "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.STRING, false)));
+        ConstantObjectValue constant = ConstantObjectValue.of(Quantifier.uniqueId(), "0", new Type.Array(false, Type.primitiveType(Type.TypeCode.STRING, false)));
         List<String> literalStrList = ImmutableList.of("even", "odd", "empty", "other1", "other2");
         return Stream.of(
                 new InComparisonCase("byParameter", new Comparisons.ParameterComparison(Comparisons.Type.IN, "strValueList"), strValueList -> Bindings.newBuilder().set("strValueList", strValueList).build(), 755361732, -85959138),

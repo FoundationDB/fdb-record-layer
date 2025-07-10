@@ -156,7 +156,7 @@ public class PartitionSelectRule extends ExplorationCascadesRule<SelectExpressio
 
         final CorrelationIdentifier lowerAliasCorrelatedToByUpperAliases;
         if (lowersCorrelatedToByUpperAliases.isEmpty()) {
-            lowerAliasCorrelatedToByUpperAliases = Quantifier.uniqueID();
+            lowerAliasCorrelatedToByUpperAliases = Quantifier.uniqueId();
         } else {
             lowerAliasCorrelatedToByUpperAliases = Iterables.getOnlyElement(lowersCorrelatedToByUpperAliases);
         }

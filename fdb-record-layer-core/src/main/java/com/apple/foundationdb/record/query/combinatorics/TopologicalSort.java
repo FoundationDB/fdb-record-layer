@@ -537,10 +537,6 @@ public class TopologicalSort {
                                                                   @Nonnull final List<P> targetPermutation,
                                                                   @Nonnull final Function<T, P> domainMapper,
                                                                   @Nonnull final Function<List<T>, Integer> satisfiabilityFunction) {
-        if (partiallyOrderedSet.isEmpty()) {
-            return ImmutableList.of();
-        }
-        
         if (partiallyOrderedSet.size() < targetPermutation.size()) {
             return ImmutableList.of();
         }
@@ -565,9 +561,11 @@ public class TopologicalSort {
                     }
                 }
             };
-        } else {
-            Verify.verify(partiallyOrderedSet.size() == 1);
+        } else if (partiallyOrderedSet.size() == 1) {
             enumeratingIterator = EnumeratingIterable.singleIterable(Iterables.getOnlyElement(partiallyOrderedSet.getSet())).iterator();
+        } else {
+            Verify.verify(partiallyOrderedSet.isEmpty());
+            enumeratingIterator = EnumeratingIterable.<T>emptyOnEmptyIterable().iterator();
         }
 
         return () -> new AbstractIterator<>() {

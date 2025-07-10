@@ -2,9 +2,9 @@ unnamed-2:
 -   query: EXPLAIN select * from t where b + c > 7;
     explain: ISCAN(BPLUSC [[GREATER_THAN promote(@c10 AS LONG)]])
     task_count: 608
-    task_total_time_ms: 65
-    transform_count: 149
-    transform_time_ms: 25
+    task_total_time_ms: 47
+    transform_count: 153
+    transform_time_ms: 20
     transform_yield_count: 67
     insert_time_ms: 2
     insert_new_count: 72
@@ -14,29 +14,31 @@ unnamed-2:
         + _.C AS SUM)
     task_count: 386
     task_total_time_ms: 29
-    transform_count: 119
+    transform_count: 123
     transform_time_ms: 13
     transform_yield_count: 48
     insert_time_ms: 1
     insert_new_count: 39
     insert_reused_count: 3
 -   query: EXPLAIN select * from t where d & 1 = 0;
-    explain: ISCAN(DMASK1 [EQUALS promote(@c10 AS LONG)])
-    task_count: 608
-    task_total_time_ms: 78
-    transform_count: 150
-    transform_time_ms: 53
-    transform_yield_count: 67
-    insert_time_ms: 4
-    insert_new_count: 72
-    insert_reused_count: 10
--   query: EXPLAIN select * from t where d & 2 = 0;
-    explain: ISCAN(DMASK2 [EQUALS promote(@c10 AS LONG)])
-    task_count: 608
-    task_total_time_ms: 38
-    transform_count: 150
-    transform_time_ms: 9
-    transform_yield_count: 67
+    explain: ISCAN(DMASK1 [EQUALS promote(@c10 AS LONG)]) ∩ SCAN(<,>) COMPARE BY (recordType(_),
+        _.A)
+    task_count: 607
+    task_total_time_ms: 47
+    transform_count: 151
+    transform_time_ms: 20
+    transform_yield_count: 65
     insert_time_ms: 1
-    insert_new_count: 72
-    insert_reused_count: 10
+    insert_new_count: 71
+    insert_reused_count: 8
+-   query: EXPLAIN select * from t where d & 2 = 0;
+    explain: ISCAN(DMASK2 [EQUALS promote(@c10 AS LONG)]) ∩ SCAN(<,>) COMPARE BY (recordType(_),
+        _.A)
+    task_count: 607
+    task_total_time_ms: 47
+    transform_count: 151
+    transform_time_ms: 20
+    transform_yield_count: 65
+    insert_time_ms: 2
+    insert_new_count: 71
+    insert_reused_count: 8
