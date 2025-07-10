@@ -20,20 +20,36 @@
 
 package com.apple.foundationdb.util;
 
+import com.apple.foundationdb.annotation.API;
+
+/**
+ * Utility methods to help interact with {@link AutoCloseable} classes.
+ **/
 public class CloseableUtils {
     /**
      * A utility to close multiple {@link AutoCloseable} objects, preserving all the caught exceptions.
      * The method would attempt to close all closeables in order, even if some failed.
+     * Note that {@link CloseException} is used to wrap any exception thrown during the closing process. The reason for
+     * that is the compiler fails to compile a {@link AutoCloseable#close()} implementation that throws a generic
+     * {@link Exception} (due to {@link InterruptedException} issue) - We therefore have to catch and wrap all exceptions.
      * @param closeables the given sequence of {@link AutoCloseable}
      * @throws CloseException in case any exception was caught during the process. The first exception will be added
      * as a {@code cause}. In case more than one exception was caught, it will be added as Suppressed.
      */
+    @API(API.Status.INTERNAL)
     @SuppressWarnings("PMD.CloseResource")
     public static void closeAll(AutoCloseable... closeables) throws CloseException {
         CloseException accumulatedException = null;
         for (AutoCloseable closeable: closeables) {
             try {
                 closeable.close();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                if (accumulatedException == null) {
+                    accumulatedException = new CloseException(e);
+                } else {
+                    accumulatedException.addSuppressed(e);
+                }
             } catch (Exception e) {
                 if (accumulatedException == null) {
                     accumulatedException = new CloseException(e);
@@ -44,18 +60,6 @@ public class CloseableUtils {
         }
         if (accumulatedException != null) {
             throw accumulatedException;
-        }
-    }
-
-    /**
-     * Exception thrown when the {@link CloseableUtils#closeAll} method catches an exception.
-     * This exception will have the {@code cause} set to the first exception thrown during {@code closeAll} and any further
-     * exception thrown will be added as {@code Suppressed}.
-     */
-    @SuppressWarnings("serial")
-    public static class CloseException extends Exception {
-        public CloseException(final Throwable cause) {
-            super(cause);
         }
     }
 

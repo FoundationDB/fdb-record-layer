@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.CursorFactory;
 import com.apple.foundationdb.record.provider.foundationdb.runners.throttled.ThrottledRetryingIterator;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.util.CloseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -114,15 +115,8 @@ public abstract class RecordRepair implements AutoCloseable {
     }
 
     @Override
-    public void close() {
-        try {
-            throttledIterator.close();
-        } catch (Exception e) {
-            if (logger.isWarnEnabled()) {
-                logger.warn("Failed to close the throttled iterator", e);
-            }
-            // Do not rethrow. We are trying to close the runner and the exception should log all errors
-        }
+    public void close() throws CloseException {
+        throttledIterator.close();
     }
 
     @Nonnull

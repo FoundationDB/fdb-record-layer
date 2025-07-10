@@ -49,7 +49,7 @@ public class CloseableUtilsTest {
         SimpleCloseable c2 = new SimpleCloseable(true, "c2");
         SimpleCloseable c3 = new SimpleCloseable(true, "c3");
 
-        final CloseableUtils.CloseException exception = assertThrows(CloseableUtils.CloseException.class, () -> CloseableUtils.closeAll(c1, c2, c3));
+        final CloseException exception = assertThrows(CloseException.class, () -> CloseableUtils.closeAll(c1, c2, c3));
 
         Assertions.assertEquals("c1", exception.getCause().getMessage());
         final Throwable[] suppressed = exception.getSuppressed();
@@ -68,7 +68,7 @@ public class CloseableUtilsTest {
         SimpleCloseable c2 = new SimpleCloseable(false, null);
         SimpleCloseable c3 = new SimpleCloseable(true, "c3");
 
-        final CloseableUtils.CloseException exception = assertThrows(CloseableUtils.CloseException.class, () -> CloseableUtils.closeAll(c1, c2, c3));
+        final CloseException exception = assertThrows(CloseException.class, () -> CloseableUtils.closeAll(c1, c2, c3));
 
         Assertions.assertEquals("c1", exception.getCause().getMessage());
         final Throwable[] suppressed = exception.getSuppressed();

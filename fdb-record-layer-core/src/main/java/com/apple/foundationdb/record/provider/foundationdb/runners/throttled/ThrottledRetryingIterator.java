@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfi
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.runners.FutureAutoClose;
 import com.apple.foundationdb.record.provider.foundationdb.runners.TransactionalRunner;
+import com.apple.foundationdb.util.CloseException;
 import com.apple.foundationdb.util.CloseableUtils;
 import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
@@ -150,7 +151,7 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
     }
 
     @Override
-    public void close() throws CloseableUtils.CloseException {
+    public void close() throws CloseException {
         if (closed) {
             return;
         }
