@@ -39,6 +39,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.serde.RecordMetada
 import com.apple.foundationdb.relational.recordlayer.metadata.serde.RecordMetadataSerializer;
 import com.apple.foundationdb.relational.util.Assert;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -95,7 +96,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     @Nonnull
     private final Supplier<String> transactionBoundMetadataSupplier;
 
-    private final boolean tablesAreIntermingled;
+    private final boolean intermingleTables;
 
     private RecordLayerSchemaTemplate(@Nonnull final String name,
                                       @Nonnull final Set<RecordLayerTable> tables,
@@ -103,14 +104,14 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions,
-                                      boolean tablesAreIntermingled) {
+                                      boolean intermingleTables) {
         this.name = name;
         this.tables = ImmutableSet.copyOf(tables);
         this.invokedRoutines = ImmutableSet.copyOf(invokedRoutines);
         this.version = version;
         this.enableLongRows = enableLongRows;
         this.storeRowVersions = storeRowVersions;
-        this.tablesAreIntermingled = tablesAreIntermingled;
+        this.intermingleTables = intermingleTables;
         this.metaDataSupplier = Suppliers.memoize(this::buildRecordMetadata);
         this.tableIndexMappingSupplier = Suppliers.memoize(this::computeTableIndexMapping);
         this.indexesSupplier = Suppliers.memoize(this::computeIndexes);
@@ -124,7 +125,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions,
-                                      boolean tablesAreIntermingled,
+                                      boolean intermingleTables,
                                       @Nonnull final RecordMetaData cachedMetadata) {
         this.name = name;
         this.version = version;
@@ -132,7 +133,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         this.invokedRoutines = ImmutableSet.copyOf(invokedRoutines);
         this.enableLongRows = enableLongRows;
         this.storeRowVersions = storeRowVersions;
-        this.tablesAreIntermingled = tablesAreIntermingled;
+        this.intermingleTables = intermingleTables;
         this.metaDataSupplier = Suppliers.memoize(() -> cachedMetadata);
         this.tableIndexMappingSupplier = Suppliers.memoize(this::computeTableIndexMapping);
         this.indexesSupplier = Suppliers.memoize(this::computeIndexes);
@@ -159,6 +160,11 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     @Override
     public boolean isStoreRowVersions() {
         return storeRowVersions;
+    }
+
+    @VisibleForTesting
+    public boolean isIntermingleTables() {
+        return intermingleTables;
     }
 
     @Nonnull
@@ -687,7 +693,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                 .setName(name)
                 .setVersion(version)
                 .setEnableLongRows(enableLongRows)
-                .setIntermingleTables(tablesAreIntermingled)
+                .setIntermingleTables(intermingleTables)
                 .addTables(getTables())
                 .addInvokedRoutines(getInvokedRoutines());
     }
