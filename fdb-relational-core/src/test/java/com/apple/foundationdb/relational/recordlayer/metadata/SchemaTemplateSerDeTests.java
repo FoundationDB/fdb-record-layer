@@ -433,6 +433,59 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction3"));
     }
 
+    @Test
+    public void schemaTemplateToBuilderPreservesIntermingledTablesFlag() {
+        var sampleRecordSchemaTemplate = RecordLayerSchemaTemplate.newBuilder()
+                .setName("TestSchemaTemplate")
+                .setVersion(42)
+                .addAuxiliaryType(DataType.StructType.from(
+                        "Subtype",
+                        List.of(DataType.StructType.Field.from("field1", DataType.Primitives.INTEGER.type(), 0)),
+                        true))
+                .setIntermingleTables(true)
+                .addTable(
+                        RecordLayerTable.newBuilder(true)
+                                .setName("T1")
+                                .addColumn(RecordLayerColumn.newBuilder()
+                                        .setName("COL1")
+                                        .setDataType(
+                                                DataType.StructType.from(
+                                                        "Subtype",
+                                                        List.of(DataType.StructType.Field.from("field1", DataType.Primitives.INTEGER.type(), 1)),
+                                                        true))
+                                        .build())
+                                .build())
+                .build();
+
+        var newBuilder = sampleRecordSchemaTemplate.toBuilder();
+        Assertions.assertTrue(newBuilder.isIntermingleTables());
+
+        sampleRecordSchemaTemplate = RecordLayerSchemaTemplate.newBuilder()
+                .setName("TestSchemaTemplate")
+                .setVersion(42)
+                .addAuxiliaryType(DataType.StructType.from(
+                        "Subtype",
+                        List.of(DataType.StructType.Field.from("field1", DataType.Primitives.INTEGER.type(), 0)),
+                        true))
+                .setIntermingleTables(false)
+                .addTable(
+                        RecordLayerTable.newBuilder(false)
+                                .setName("T1")
+                                .addColumn(RecordLayerColumn.newBuilder()
+                                        .setName("COL1")
+                                        .setDataType(
+                                                DataType.StructType.from(
+                                                        "Subtype",
+                                                        List.of(DataType.StructType.Field.from("field1", DataType.Primitives.INTEGER.type(), 1)),
+                                                        true))
+                                        .build())
+                                .build())
+                .build();
+
+        newBuilder = sampleRecordSchemaTemplate.toBuilder();
+        Assertions.assertFalse(newBuilder.isIntermingleTables());
+    }
+
     @Nonnull
     private static RecordMetadataDeserializerWithPeekingFunctionSupplier recMetadataSampleWithFunctions(@Nonnull final String... functions) {
         final var schemaTemplateBuilder = RecordLayerSchemaTemplate.newBuilder()
