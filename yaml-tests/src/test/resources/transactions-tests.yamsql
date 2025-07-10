@@ -41,6 +41,7 @@ options:
 ---
 schema_template:
     create table table_t1(id bigint, col1 bigint, primary key(id))
+    WITH OPTIONS(ENABLE_LONG_ROWS=true, INTERMINGLE_TABLES=true, STORE_ROW_VERSIONS=true)
 ---
 transaction_setups:
   t1_less_than_50: create temporary function t1() on commit drop function AS
