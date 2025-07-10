@@ -7,6 +7,25 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.4
 
+### 4.4.8.0
+
+<h4> Bug Fixes </h4>
+
+* Preserve `IntermingleTables` flag in `RecordLayerSchemaTemplate.toBuilder` - [PR #3482](https://github.com/FoundationDB/fdb-record-layer/pull/3482)
+
+
+**[Full Changelog (4.4.7.0...4.4.8.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.4.7.0...4.4.8.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.2.6.0`, ✅`4.2.8.0`, ✅`4.3.2.0`, ✅`4.3.3.0`, ✅`4.3.3.1`, ✅`4.3.5.0`, ✅`4.3.6.0`, ✅`4.4.3.0`, ✅`4.4.4.0`, ✅`4.4.7.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16198820852)
+
+
+
 ### 4.4.7.0
 
 <h4> New Features </h4>
