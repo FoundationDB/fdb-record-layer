@@ -7,6 +7,33 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.4
 
+### 4.4.9.0
+
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Allow yaml-test load template from json to add dependencies - [PR #3452](https://github.com/FoundationDB/fdb-record-layer/pull/3452)
+
+</details>
+
+
+**[Full Changelog (4.4.8.0...4.4.9.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.4.8.0...4.4.9.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.2.8.0`, ✅`4.3.2.0`, ✅`4.3.3.0`, ✅`4.3.3.1`, ✅`4.3.5.0`, ✅`4.3.6.0`, ✅`4.4.3.0`, ✅`4.4.4.0`, ✅`4.4.7.0`, ✅`4.4.8.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16204062121)
+
+
+
 ### 4.4.8.0
 
 <h4> Bug Fixes </h4>
