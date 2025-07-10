@@ -126,6 +126,7 @@ public class LuceneConcurrency {
             super(message, cause);
         }
 
+        @SuppressWarnings("this-escape")
         public AsyncToSyncTimeoutException(final String message, final Throwable cause, final Object... keyValues) {
             super(message, cause);
             addLogInfo(keyValues);

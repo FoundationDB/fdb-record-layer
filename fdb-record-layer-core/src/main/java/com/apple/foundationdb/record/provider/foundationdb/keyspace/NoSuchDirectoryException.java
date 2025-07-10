@@ -33,6 +33,7 @@ import javax.annotation.Nonnull;
 public class NoSuchDirectoryException extends RecordCoreException {
     private static final long serialVersionUID = 1L;
 
+    @SuppressWarnings("this-escape")
     public NoSuchDirectoryException(@Nonnull KeySpaceDirectory rootDirectory, @Nonnull String subdir) {
         super("No such directory");
 
