@@ -164,7 +164,6 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         @Nonnull
         @Override
         public ByteString toByteString() {
-            System.out.println("Keyvaluecursor toByteString serialization mode:" + serializationMode.name());
             if (serializationMode == SerializationMode.TO_OLD) {
                 if (lastKey == null) {
                     return ByteString.EMPTY;
@@ -179,16 +178,19 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         @Nullable
         @Override
         public byte[] toBytes() {
+            ByteString byteString = toByteString();
+            return byteString.isEmpty() ? null : byteString.toByteArray();
+            /*
             if (serializationMode == SerializationMode.TO_OLD) {
                 if (lastKey == null) {
                     return null;
                 }
                 return Arrays.copyOfRange(lastKey, prefixLength, lastKey.length);
             } else {
-                byte[] result = toProto().toByteArray();
-                System.out.println("result:" + result);
                 return toProto().toByteArray();
             }
+
+             */
         }
 
         @Nullable
