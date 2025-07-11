@@ -31,11 +31,13 @@ package com.apple.foundationdb.relational.yamltests.generated.standardtests;
 option java_outer_classname = "StandardTestsProto";
 
 import "record_metadata_options.proto";
+import "test_student.proto";
 
 message T1 {
   int64 ID = 1 [(com.apple.foundationdb.record.field).primary_key = true];
   int64 COL1 = 2;
   int64 COL2 = 3;
+  com.apple.foundationdb.relational.yamltests.generated.teststudent.Student student = 4;
 }
 
 message RecordTypeUnion {

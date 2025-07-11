@@ -1,9 +1,9 @@
 /*
- * package-info.java
+ * DebugPlanner.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,19 @@
  * limitations under the License.
  */
 
+package com.apple.foundationdb.relational.yamltests;
+
+import com.apple.foundationdb.relational.yamltests.configs.YamlTestConfig;
+import org.junit.jupiter.api.Tag;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+
 /**
- * Implementation for planner repl.
+ * Mark a specific {@link YamlTestConfig} that you would like to debug using
+ * {@link com.apple.foundationdb.record.query.plan.cascades.debug.PlannerRepl}.
  */
-package com.apple.foundationdb.record.query.plan.debug;
+@Retention(RetentionPolicy.RUNTIME)
+@Tag("debug")
+public @interface DebugPlanner {
+}

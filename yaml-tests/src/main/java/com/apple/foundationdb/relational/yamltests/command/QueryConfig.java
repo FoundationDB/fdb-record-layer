@@ -87,6 +87,7 @@ public abstract class QueryConfig {
     public static final String QUERY_CONFIG_NO_OP = "noOp";
     public static final String QUERY_CONFIG_SETUP = "setup";
     public static final String QUERY_CONFIG_SETUP_REFERENCE = "setupReference";
+    public static final String QUERY_CONFIG_DEBUGGER = "debugger";
 
     private static final Set<String> RESULT_CONFIGS = ImmutableSet.of(QUERY_CONFIG_ERROR, QUERY_CONFIG_COUNT, QUERY_CONFIG_RESULT, QUERY_CONFIG_UNORDERED_RESULT);
     private static final Set<String> VERSION_DEPENDENT_RESULT_CONFIGS = ImmutableSet.of(QUERY_CONFIG_INITIAL_VERSION_AT_LEAST, QUERY_CONFIG_INITIAL_VERSION_LESS_THAN);
@@ -477,6 +478,16 @@ public abstract class QueryConfig {
         };
     }
 
+    private static QueryConfig getDebuggerConfig(@Nonnull Object value, int lineNumber, @Nonnull YamlExecutionContext executionContext) {
+        return new QueryConfig(QUERY_CONFIG_DEBUGGER, DebuggerImplementation.valueOf(((String)value).toUpperCase(Locale.ROOT)),
+                lineNumber, executionContext) {
+            @Override
+            void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual, @Nonnull String queryDescription) throws SQLException {
+                Assert.failUnchecked("No results to check on a debugger config");
+            }
+        };
+    }
+
     @Nonnull
     public static QueryConfig getSupportedVersionConfig(Object rawVersion, final int lineNumber, final YamlExecutionContext executionContext) {
         final SupportedVersionCheck check = SupportedVersionCheck.parse(rawVersion, executionContext);
@@ -595,6 +606,8 @@ public abstract class QueryConfig {
             return getSetupConfig(value, lineNumber, executionContext);
         } else if (QUERY_CONFIG_SETUP_REFERENCE.equals(key)) {
             return getSetupConfig(executionContext.getTransactionSetup(value), lineNumber, executionContext);
+        } else if (QUERY_CONFIG_DEBUGGER.equals(key)) {
+            return getDebuggerConfig(value, lineNumber, executionContext);
         } else {
             throw Assert.failUnchecked("‼️ '" + key + "' is not a valid configuration");
         }
@@ -678,4 +691,5 @@ public abstract class QueryConfig {
     private static boolean shouldExecuteExplain(final YamlExecutionContext executionContext) {
         return (! executionContext.getConnectionFactory().isMultiServer());
     }
+
 }

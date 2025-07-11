@@ -64,7 +64,8 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
     }
 
     @Nonnull
-    abstract PlanContext buildPlanContext(@Nonnull FDBRecordStoreBase<?> store) throws RelationalException;
+    abstract PlanContext createPlanContext(@Nonnull FDBRecordStoreBase<?> store,
+                                           @Nonnull Options options) throws RelationalException;
 
     @SuppressWarnings("PMD.PreserveStackTrace")
     public boolean executeInternal(String sql) throws SQLException, RelationalException {
@@ -81,8 +82,8 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
                 try (var schema = conn.getRecordLayerDatabase().loadSchema(conn.getSchema())) {
                     final var planCacheMaybe = Optional.ofNullable(conn.getRecordLayerDatabase().getPlanCache());
                     final var store = schema.loadStore().unwrap(FDBRecordStoreBase.class);
-                    final var planGenerator = PlanGenerator.of(planCacheMaybe,
-                            buildPlanContext(store),
+                    final var planGenerator = PlanGenerator.create(planCacheMaybe,
+                            createPlanContext(store, options),
                             store.getRecordMetaData(),
                             store.getRecordStoreState(), this.options);
                     final Plan<?> plan = planGenerator.getPlan(sql);

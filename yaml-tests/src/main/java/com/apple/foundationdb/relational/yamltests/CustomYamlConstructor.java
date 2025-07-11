@@ -82,6 +82,7 @@ public class CustomYamlConstructor extends SafeConstructor {
         requireLineNumber.add(QueryConfig.QUERY_CONFIG_INITIAL_VERSION_AT_LEAST);
         requireLineNumber.add(QueryConfig.QUERY_CONFIG_SETUP);
         requireLineNumber.add(QueryConfig.QUERY_CONFIG_SETUP_REFERENCE);
+        requireLineNumber.add(QueryConfig.QUERY_CONFIG_DEBUGGER);
     }
 
     @Override

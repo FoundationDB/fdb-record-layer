@@ -535,8 +535,9 @@ public interface Debugger {
     class InitiatePlannerPhaseEvent extends AbstractEventWithState {
         public InitiatePlannerPhaseEvent(@Nonnull final PlannerPhase plannerPhase,
                                          @Nonnull final Reference rootReference,
-                                         @Nonnull final Deque<Task> taskStack) {
-            super(plannerPhase, rootReference, taskStack, Location.COUNT);
+                                         @Nonnull final Deque<Task> taskStack,
+                                         @Nonnull final Location location) {
+            super(plannerPhase, rootReference, taskStack, location);
         }
 
         @Override

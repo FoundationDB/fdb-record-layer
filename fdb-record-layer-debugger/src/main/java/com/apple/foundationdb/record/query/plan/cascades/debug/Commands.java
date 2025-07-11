@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,17 +18,17 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.debug;
+package com.apple.foundationdb.record.query.plan.cascades.debug;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.Event;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.EventWithState;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.Location;
-import com.apple.foundationdb.record.query.plan.cascades.debug.RestartException;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.auto.service.AutoService;
@@ -87,7 +87,7 @@ public class Commands {
         @Nonnull
         String getCommandToken();
 
-        void printUsage(@Nonnull final PlannerRepl plannerRepl);
+        void printUsage(@Nonnull PlannerRepl plannerRepl);
     }
 
     /**
@@ -116,7 +116,7 @@ public class Commands {
             }
 
             if (words.size() >= 2) {
-                final String word1 = words.get(1).toUpperCase();
+                final String word1 = words.get(1).toUpperCase(Locale.ROOT);
                 if (words.size() == 2) {
                     if ("LIST".equalsIgnoreCase(word1)) {
                         listBreakPoints(plannerRepl);
@@ -528,7 +528,7 @@ public class Commands {
                                       @Nonnull final ParsedLine parsedLine) {
             final List<String> words = parsedLine.words();
             if (words.size() < 2) {
-                plannerRepl.printlnError("usage show [(exp|ref|qun)id] | graph | matches | plans");
+                plannerRepl.printlnError("usage show [(exp|ref|qun)id] | graph | matches | finals");
                 return false;
             }
 
@@ -542,7 +542,7 @@ public class Commands {
                     final EventWithState eventWithState = (EventWithState)event;
                     final Reference rootReference = eventWithState.getRootReference();
                     if ("GRAPH".equals(word1)) {
-                        PlannerGraphVisitor.show(PlannerGraphVisitor.RENDER_SINGLE_GROUPS, rootReference);
+                        PlannerGraphVisitor.show(PlannerGraphVisitor.EMPTY_FLAGS, rootReference);
                         return false;
                     } else if ("MATCH".equals(word1) && words.size() == 3) {
                         final String word2 = words.get(2);
@@ -561,8 +561,8 @@ public class Commands {
                     } else if ("MATCHES".equals(word1)) {
                         PlannerGraphVisitor.show(true, rootReference, Objects.requireNonNull(plannerRepl.getPlanContext()).getMatchCandidates());
                         return false;
-                    } else if ("PLANS".equals(word1)) {
-                        PlannerGraphVisitor.show(PlannerGraphVisitor.REMOVE_LOGICAL_EXPRESSIONS, rootReference);
+                    } else if ("FINALS".equals(word1)) {
+                        PlannerGraphVisitor.show(PlannerGraphVisitor.REMOVE_EXPLORATORY_EXPRESSIONS, rootReference);
                         return false;
                     }
                 }
@@ -590,6 +590,7 @@ public class Commands {
      * Print the current state of the task stack.
      */
     @AutoService(Command.class)
+    @SuppressWarnings("PMD.ForLoopCanBeForeach") // false positive due to the descending iteration
     public static class TasksCommand implements Command<Event> {
         @Override
         public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
@@ -673,6 +674,48 @@ public class Commands {
     }
 
     /**
+     * Continue execution until the next
+     * {@link com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.Shorthand#INITPHASE} of the desired
+     * planner phase occurs.
+     */
+    @AutoService(Command.class)
+    public static class PhaseCommand implements Command<Event> {
+        @Override
+        public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
+                                      @Nonnull final Event event,
+                                      @Nonnull final ParsedLine parsedLine) {
+            final List<String> words = parsedLine.words();
+            final PlannerPhase plannerPhase;
+            if (words.size() == 2) {
+                try {
+                    plannerPhase = PlannerPhase.valueOf(words.get(1).toUpperCase(Locale.ROOT));
+                } catch (IllegalArgumentException e) {
+                    plannerRepl.printlnError("usage phase [rewriting|planning]");
+                    return false;
+                }
+            } else {
+                // if no planner phase is given, we set it to null to indicate to stop at any initphase.
+                plannerPhase = null;
+            }
+
+            plannerRepl.addInternalBreakPoint(new PlannerRepl.OnPhaseBreakPoint(Location.BEGIN, plannerPhase));
+            return true;
+        }
+
+        @Nonnull
+        @Override
+        public String getCommandToken() {
+            return "PHASE";
+        }
+
+        @Override
+        public void printUsage(@Nonnull final PlannerRepl plannerRepl) {
+            plannerRepl.printlnKeyValue("phase [rewriting, planning]",
+                    "continue execution until the next initphase of the desired planner phase occurs.");
+        }
+    }
+
+    /**
      * List out all quantifiers.
      */
     @AutoService(Command.class)
@@ -714,6 +757,8 @@ public class Commands {
      * List out all quantifiers.
      */
     @AutoService(Command.class)
+    @SpotBugsSuppressWarnings("DM_EXIT")
+    @SuppressWarnings("PMD.DoNotTerminateVM")
     public static class QuitCommand implements Command<Event> {
         @Override
         public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,

@@ -106,6 +106,10 @@ test_block:
       # Long in the result set, we implement a special YAML Tag (!l), which parses each
       # number as Long instead of Integer so we can do proper matching.
       - query: select * from t1 where id > 15;
+      # You can check the plan of a query. This configuration has to precede any result configurations
+      - explain: "SCAN(<,>) | TFILTER T1 | FILTER _.ID GREATER_THAN promote(@c8 AS LONG)"
+      # You can use the debugger option to bring up the planner repl debugger
+      # - debugger: repl
       - result: [{!l 30, !ignore dc}, {!l 50, !ignore dc}]
     -
       # Having multiple `result` configs for the `query` command checks the result sets

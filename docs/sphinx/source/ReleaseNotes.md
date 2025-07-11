@@ -7,6 +7,87 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.4
 
+### 4.4.9.0
+
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Allow yaml-test load template from json to add dependencies - [PR #3452](https://github.com/FoundationDB/fdb-record-layer/pull/3452)
+
+</details>
+
+
+**[Full Changelog (4.4.8.0...4.4.9.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.4.8.0...4.4.9.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.2.8.0`, ✅`4.3.2.0`, ✅`4.3.3.0`, ✅`4.3.3.1`, ✅`4.3.5.0`, ✅`4.3.6.0`, ✅`4.4.3.0`, ✅`4.4.4.0`, ✅`4.4.7.0`, ✅`4.4.8.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16204062121)
+
+
+
+### 4.4.8.0
+
+<h4> Bug Fixes </h4>
+
+* Preserve `IntermingleTables` flag in `RecordLayerSchemaTemplate.toBuilder` - [PR #3482](https://github.com/FoundationDB/fdb-record-layer/pull/3482)
+
+
+**[Full Changelog (4.4.7.0...4.4.8.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.4.7.0...4.4.8.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.2.6.0`, ✅`4.2.8.0`, ✅`4.3.2.0`, ✅`4.3.3.0`, ✅`4.3.3.1`, ✅`4.3.5.0`, ✅`4.3.6.0`, ✅`4.4.3.0`, ✅`4.4.4.0`, ✅`4.4.7.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16198820852)
+
+
+
+### 4.4.7.0
+
+<h4> New Features </h4>
+
+* Include planner configuration in the `QueryCacheKey` - [PR #3463](https://github.com/FoundationDB/fdb-record-layer/pull/3463)
+* revive and move `PlannerRepl` into its own component - [PR #3466](https://github.com/FoundationDB/fdb-record-layer/pull/3466)
+<h4> Bug Fixes </h4>
+
+* Fix transactional insert throwing No Value Present in server - [PR #3476](https://github.com/FoundationDB/fdb-record-layer/pull/3476)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Remove release notes for unpublished builds - [PR #3481](https://github.com/FoundationDB/fdb-record-layer/pull/3481)
+* Re-enable force continuation tests in Yaml - [PR #3393](https://github.com/FoundationDB/fdb-record-layer/pull/3393)
+
+</details>
+
+
+**[Full Changelog (4.4.4.0...4.4.7.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.4.4.0...4.4.7.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.2.5.0`, ✅`4.2.6.0`, ✅`4.2.8.0`, ✅`4.3.2.0`, ✅`4.3.3.0`, ✅`4.3.3.1`, ✅`4.3.5.0`, ✅`4.3.6.0`, ✅`4.4.3.0`, ✅`4.4.4.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16195387365)
+
+
+
 ### 4.4.4.0
 
 <h4> New Features </h4>
