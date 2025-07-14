@@ -48,6 +48,8 @@ public final class LiteralsUtils {
         // prevent instantiation
     }
 
+    // This is not sufficient, as we should try to coercion struct types rather than checking for them being
+    // identical. https://github.com/FoundationDB/fdb-record-layer/issues/3472
     @Nonnull
     public static Type.Array resolveArrayTypeFromObjectsList(List<Object> objects) {
         DataType distinctType = null;
