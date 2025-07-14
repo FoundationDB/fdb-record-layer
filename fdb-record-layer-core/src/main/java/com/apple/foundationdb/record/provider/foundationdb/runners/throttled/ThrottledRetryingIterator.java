@@ -33,6 +33,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfi
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.runners.FutureAutoClose;
 import com.apple.foundationdb.record.provider.foundationdb.runners.TransactionalRunner;
+import com.apple.foundationdb.util.CloseException;
+import com.apple.foundationdb.util.CloseableUtils;
 import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -149,30 +151,13 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
     }
 
     @Override
-    public void close() {
+    public void close() throws CloseException {
         if (closed) {
             return;
         }
         closed = true;
         // Ensure we call both close() methods, capturing all exceptions
-        RuntimeException caught = null;
-        try {
-            futureManager.close();
-        } catch (RuntimeException e) {
-            caught = e;
-        }
-        try {
-            transactionalRunner.close();
-        } catch (RuntimeException e) {
-            if (caught != null) {
-                caught.addSuppressed(e);
-            } else {
-                caught = e;
-            }
-        }
-        if (caught != null) {
-            throw caught;
-        }
+        CloseableUtils.closeAll(futureManager, transactionalRunner);
     }
 
     /**
