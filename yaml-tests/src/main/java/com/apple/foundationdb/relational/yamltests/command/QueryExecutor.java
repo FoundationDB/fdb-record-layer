@@ -70,7 +70,8 @@ public class QueryExecutor {
      */
     @Nullable
     private final List<Parameter> parameters;
-    private ArrayList<String> setup = new ArrayList<>();
+    @Nonnull
+    private final List<String> setup = new ArrayList<>();
 
     QueryExecutor(@Nonnull String query, int lineNumber) {
         this(query, lineNumber, null);

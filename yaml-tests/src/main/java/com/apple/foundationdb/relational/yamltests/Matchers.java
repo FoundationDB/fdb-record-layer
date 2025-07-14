@@ -116,7 +116,7 @@ public class Matchers {
         return obj.get(2);
     }
 
-    public static String string(@Nullable final Object obj, @Nonnull final String desc) {
+    public static String string(@Nonnull final Object obj, @Nonnull final String desc) {
         if (obj instanceof String) {
             // <NULL> should return null maybe?
             return (String) obj;

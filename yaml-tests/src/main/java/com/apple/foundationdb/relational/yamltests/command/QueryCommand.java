@@ -209,7 +209,8 @@ public final class QueryCommand extends Command {
                 continue;
             } else if (QueryConfig.QUERY_CONFIG_SETUP.equals(queryConfig.getConfigName())) {
                 Assert.that(!queryIsRunning, "Transaction setup should not be intermingled with query results");
-                executor.addSetup(Matchers.string(queryConfig.getVal(), "Transaction setup"));
+                executor.addSetup(Matchers.string(Matchers.notNull(queryConfig.getVal(), "Setup Config Val"),
+                        "Transaction setup"));
             } else if (!QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION.equals(queryConfig.getConfigName()) &&
                     !QueryConfig.QUERY_CONFIG_DEBUGGER.equals(queryConfig.getConfigName())) {
                 if (QueryConfig.QUERY_CONFIG_ERROR.equals(queryConfig.getConfigName())) {
