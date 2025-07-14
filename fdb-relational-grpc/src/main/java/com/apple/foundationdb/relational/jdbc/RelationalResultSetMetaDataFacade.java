@@ -24,10 +24,12 @@ import com.apple.foundationdb.relational.api.ArrayMetaData;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSetMetadata;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.relational.util.PositionalIndex;
 
+import javax.annotation.Nonnull;
 import java.sql.JDBCType;
 import java.sql.SQLException;
 
@@ -44,6 +46,12 @@ class RelationalResultSetMetaDataFacade implements RelationalResultSetMetaData  
     @Override
     @ExcludeFromJacocoGeneratedReport
     public ArrayMetaData getArrayMetaData(int oneBasedColumn) throws SQLException {
+        throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    }
+
+    @Nonnull
+    @Override
+    public DataType.StructType getRelationalDataType() throws SQLException {
         throw new SQLException("Not implemented", ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
     }
 

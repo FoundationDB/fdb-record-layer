@@ -25,13 +25,17 @@ import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.apple.foundationdb.relational.api.RelationalStruct;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
+import com.apple.foundationdb.relational.api.StructResultSetMetaData;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSet;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Column;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ColumnMetadata;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 import com.apple.foundationdb.relational.util.PositionalIndex;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
+import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
@@ -40,12 +44,15 @@ import java.sql.SQLWarning;
 import java.sql.Types;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
  * Facade over grpc protobuf objects that offers a {@link RelationalResultSet} view.
  */
 class RelationalResultSetFacade implements RelationalResultSet {
+    private final Supplier<DataType.StructType> type;
+
     private final ResultSet delegate;
     private final int rows;
     /**
@@ -66,6 +73,7 @@ class RelationalResultSetFacade implements RelationalResultSet {
 
     RelationalResultSetFacade(ResultSet delegate) {
         this.delegate = delegate;
+        this.type = Suppliers.memoize(() -> TypeConversion.getStructDataType(delegate.getMetadata().getColumnMetadata().getColumnMetadataList(), false));
         this.rows = delegate.getRowCount();
     }
 
@@ -262,7 +270,7 @@ class RelationalResultSetFacade implements RelationalResultSet {
 
     @Override
     public RelationalResultSetMetaData getMetaData() throws SQLException {
-        return new RelationalResultSetMetaDataFacade(this.delegate.getMetadata());
+        return type.get() != null ? new StructResultSetMetaData(RelationalStructMetaData.of(type.get())) : new RelationalResultSetMetaDataFacade(this.delegate.getMetadata());
     }
 
     @Override

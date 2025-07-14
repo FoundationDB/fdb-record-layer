@@ -20,21 +20,24 @@
 
 package com.apple.foundationdb.relational.api.metadata;
 
+import com.apple.foundationdb.relational.api.RelationalArray;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
-
 import com.google.common.base.Suppliers;
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.sql.SQLException;
 import java.sql.Types;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -54,10 +57,10 @@ import java.util.stream.Collectors;
  */
 public abstract class DataType {
     @Nonnull
-    private static final BiMap<Code, Integer> typeCodeJdbcTypeMap;
+    private static final Map<Code, Integer> typeCodeJdbcTypeMap;
 
     static {
-        typeCodeJdbcTypeMap = HashBiMap.create();
+        typeCodeJdbcTypeMap = new HashMap<>();
 
         typeCodeJdbcTypeMap.put(Code.BOOLEAN, Types.BOOLEAN);
         typeCodeJdbcTypeMap.put(Code.LONG, Types.BIGINT);
@@ -65,11 +68,13 @@ public abstract class DataType {
         typeCodeJdbcTypeMap.put(Code.FLOAT, Types.FLOAT);
         typeCodeJdbcTypeMap.put(Code.DOUBLE, Types.DOUBLE);
         typeCodeJdbcTypeMap.put(Code.STRING, Types.VARCHAR);
-        typeCodeJdbcTypeMap.put(Code.ENUM, Types.JAVA_OBJECT); // TODO (Rethink Relational Enum mapping to SQL type)
-        typeCodeJdbcTypeMap.put(Code.UUID, Types.OTHER); // TODO (Rethink Relational Enum mapping to SQL type)
+        typeCodeJdbcTypeMap.put(Code.ENUM, Types.OTHER);
+        typeCodeJdbcTypeMap.put(Code.UUID, Types.OTHER);
         typeCodeJdbcTypeMap.put(Code.BYTES, Types.BINARY);
+        typeCodeJdbcTypeMap.put(Code.VERSION, Types.BINARY);
         typeCodeJdbcTypeMap.put(Code.STRUCT, Types.STRUCT);
         typeCodeJdbcTypeMap.put(Code.ARRAY, Types.ARRAY);
+        typeCodeJdbcTypeMap.put(Code.NULL, Types.NULL);
     }
 
     private final boolean isNullable;
@@ -160,6 +165,54 @@ public abstract class DataType {
          */
         @Nonnull
         String getName();
+    }
+
+    /**
+     * Trait representing composite type.
+     */
+    public interface CompositeType {
+
+        /**
+         * Checks if the {@link DataType} has identical shape.
+         *
+         * @return {@code true} if the {@link DataType} has identical shape, else {@code false}
+         */
+        default boolean hasIdenticalStructure(Object object) {
+            return this.equals(object);
+        }
+    }
+
+    @Nonnull
+    public static DataType getDataTypeFromObject(@Nullable Object obj) {
+        try {
+            if (obj == null) {
+                return Primitives.NULL.type();
+            } else if (obj instanceof Long) {
+                return Primitives.LONG.type();
+            } else if (obj instanceof Integer) {
+                return Primitives.INTEGER.type();
+            } else if (obj instanceof Boolean) {
+                return Primitives.BOOLEAN.type();
+            } else if (obj instanceof byte[]) {
+                return Primitives.BYTES.type();
+            } else if (obj instanceof Float) {
+                return Primitives.FLOAT.type();
+            } else if (obj instanceof Double) {
+                return Primitives.DOUBLE.type();
+            } else if (obj instanceof String) {
+                return Primitives.STRING.type();
+            } else if (obj instanceof UUID) {
+                return Primitives.UUID.type();
+            } else if (obj instanceof RelationalStruct) {
+                return ((RelationalStruct) obj).getMetaData().getRelationalDataType();
+            } else if (obj instanceof RelationalArray) {
+                return ((RelationalArray) obj).getMetaData().asRelationalType();
+            } else {
+                throw new IllegalStateException("Unexpected object type: " + obj.getClass().getName());
+            }
+        } catch (SQLException e) {
+            throw new RelationalException(e).toUncheckedWrappedException();
+        }
     }
 
     // todo: this is ugly, DataType should be an interface.
@@ -825,6 +878,72 @@ public abstract class DataType {
         }
     }
 
+    public static final class NullType extends DataType {
+
+        @Nonnull
+        private static final NullType INSTANCE = new NullType();
+
+        @Nonnull
+        private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+
+        private NullType() {
+            super(true, true, Code.NULL);
+        }
+
+        @Override
+        @Nonnull
+        public DataType withNullable(boolean isNullable) {
+            if (isNullable) {
+                return Primitives.NULL.type();
+            } else {
+                throw new RelationalException("NULL type cannot be non-nullable", ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
+            }
+        }
+
+        @Override
+        public boolean isResolved() {
+            return true;
+        }
+
+        @Nonnull
+        @Override
+        public DataType resolve(@Nonnull Map<String, Named> resolutionMap) {
+            return this;
+        }
+
+        @Nonnull
+        public static NullType nullable() {
+            return INSTANCE;
+        }
+
+        private int computeHashCode() {
+            return Objects.hash(getCode(), isNullable());
+        }
+
+        @Override
+        public int hashCode() {
+            return hashCodeSupplier.get();
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+
+            if (!(other instanceof NullType)) {
+                return false;
+            }
+            final var otherUuidType = (NullType) other;
+            return this.isNullable() == otherUuidType.isNullable();
+        }
+
+        @Override
+        public String toString() {
+            return "∅";
+        }
+    }
+
     public static final class EnumType extends DataType implements Named {
         @Nonnull
         private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
@@ -940,7 +1059,7 @@ public abstract class DataType {
         }
     }
 
-    public static final class ArrayType extends DataType {
+    public static final class ArrayType extends DataType implements CompositeType {
         @Nonnull
         private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
@@ -1018,9 +1137,29 @@ public abstract class DataType {
         public String toString() {
             return "[" + elementType + "]" + (isNullable() ? " ∪ ∅" : "");
         }
+
+        @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
+        public boolean hasIdenticalStructure(final Object other) {
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof ArrayType)) {
+                return false;
+            }
+            final var otherArrayType = (ArrayType) other;
+            if (this.isNullable() != otherArrayType.isNullable()) {
+                return false;
+            }
+            if (this.elementType instanceof CompositeType) {
+                return ((CompositeType)this.elementType).hasIdenticalStructure(otherArrayType.elementType);
+            } else {
+                return this.elementType.equals(otherArrayType.elementType);
+            }
+        }
     }
 
-    public static final class StructType extends DataType implements Named {
+    public static final class StructType extends DataType implements Named, CompositeType {
         @Nonnull
         private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
@@ -1185,6 +1324,39 @@ public abstract class DataType {
         }
 
         @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
+        public boolean hasIdenticalStructure(Object other) {
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof StructType)) {
+                return false;
+            }
+            final var otherStructType = (StructType) other;
+            final var fields = this.getFields();
+            final var otherFields = otherStructType.getFields();
+            if (this.isNullable() != otherStructType.isNullable() || fields.size() != otherFields.size()) {
+                return false;
+            }
+            for (int i = 0; i < fields.size(); i++) {
+                if (!fields.get(i).getName().equals(otherFields.get(i).getName()) || fields.get(i).getIndex() != otherFields.get(i).getIndex()) {
+                    return false;
+                }
+                final var type = fields.get(i).getType();
+                if (type instanceof CompositeType) {
+                    if (!((CompositeType) type).hasIdenticalStructure(otherFields.get(i).getType())) {
+                        return false;
+                    }
+                } else {
+                    if (!type.equals(otherStructType.getFields().get(i).getType())) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        @Override
         public String toString() {
             return name.substring(0, Math.min(name.length(), 5)) + " { " + fields.stream().map(field -> field.getName() + ":" + field.getType()).collect(Collectors.joining(",")) + " } ";
         }
@@ -1334,7 +1506,8 @@ public abstract class DataType {
         UUID,
         STRUCT,
         ARRAY,
-        UNKNOWN
+        UNKNOWN,
+        NULL
     }
 
     @SuppressWarnings("PMD.AvoidFieldNameMatchingTypeName")
@@ -1357,7 +1530,8 @@ public abstract class DataType {
         NULLABLE_STRING(StringType.nullable()),
         NULLABLE_BYTES(BytesType.nullable()),
         NULLABLE_VERSION(VersionType.nullable()),
-        NULLABLE_UUID(UuidType.nullable())
+        NULLABLE_UUID(UuidType.nullable()),
+        NULL(NullType.INSTANCE)
         ;
 
         @Nonnull

@@ -20,10 +20,11 @@
 
 package com.apple.foundationdb.relational.jdbc;
 
-import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.Parameter;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Column;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Type;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Uuid;
 import com.google.protobuf.ByteString;
 
@@ -38,6 +39,7 @@ public class ParameterHelper {
 
     public static Parameter ofBoolean(boolean b) {
         return Parameter.newBuilder()
+                .setType(Type.BOOLEAN)
                 .setJavaSqlTypesCode(Types.BOOLEAN)
                 .setParameter(Column.newBuilder().setBoolean(b))
                 .build();
@@ -45,6 +47,7 @@ public class ParameterHelper {
 
     public static Parameter ofInt(int i) {
         return Parameter.newBuilder()
+                .setType(Type.INTEGER)
                 .setJavaSqlTypesCode(Types.INTEGER)
                 .setParameter(Column.newBuilder().setInteger(i))
                 .build();
@@ -52,6 +55,7 @@ public class ParameterHelper {
 
     public static Parameter ofLong(long l) {
         return Parameter.newBuilder()
+                .setType(Type.LONG)
                 .setJavaSqlTypesCode(Types.BIGINT)
                 .setParameter(Column.newBuilder().setLong(l))
                 .build();
@@ -59,6 +63,7 @@ public class ParameterHelper {
 
     public static Parameter ofFloat(float f) {
         return Parameter.newBuilder()
+                .setType(Type.FLOAT)
                 .setJavaSqlTypesCode(Types.FLOAT)
                 .setParameter(Column.newBuilder().setFloat(f))
                 .build();
@@ -66,6 +71,7 @@ public class ParameterHelper {
 
     public static Parameter ofDouble(double d) {
         return Parameter.newBuilder()
+                .setType(Type.DOUBLE)
                 .setJavaSqlTypesCode(Types.DOUBLE)
                 .setParameter(Column.newBuilder().setDouble(d))
                 .build();
@@ -73,6 +79,7 @@ public class ParameterHelper {
 
     public static Parameter ofString(String s) {
         return Parameter.newBuilder()
+                .setType(Type.STRING)
                 .setJavaSqlTypesCode(Types.VARCHAR)
                 .setParameter(Column.newBuilder().setString(s))
                 .build();
@@ -80,30 +87,26 @@ public class ParameterHelper {
 
     public static Parameter ofUUID(UUID id) {
         return Parameter.newBuilder()
+                .setType(Type.UUID)
                 .setJavaSqlTypesCode(Types.OTHER)
-                .setParameter(Column.newBuilder().setString(id.toString()))
+                .setParameter(Column.newBuilder().setUuid(Uuid.newBuilder()
+                        .setMostSignificantBits(id.getMostSignificantBits())
+                        .setLeastSignificantBits(id.getLeastSignificantBits())
+                        .build()))
                 .build();
     }
 
     public static Parameter ofBytes(byte[] bytes) {
         return Parameter.newBuilder()
+                .setType(Type.BYTES)
                 .setJavaSqlTypesCode(Types.BINARY)
                 .setParameter(Column.newBuilder().setBinary(ByteString.copyFrom(bytes)))
                 .build();
     }
 
-    public static Parameter ofUuid(UUID uuid) {
+    public static Parameter ofNull(int sqlType) {
         return Parameter.newBuilder()
-                .setJavaSqlTypesCode(Types.OTHER)
-                .setParameter(Column.newBuilder().setUuid(Uuid.newBuilder()
-                        .setMostSignificantBits(uuid.getMostSignificantBits())
-                        .setLeastSignificantBits(uuid.getLeastSignificantBits())
-                        .build()))
-                .build();
-    }
-
-    public static Parameter ofNull(int sqlType) throws SQLException {
-        return Parameter.newBuilder()
+                .setType(Type.NULL)
                 .setJavaSqlTypesCode(Types.NULL)
                 .setParameter(Column.newBuilder().setNullType(sqlType))
                 .build();
@@ -116,17 +119,10 @@ public class ParameterHelper {
             JDBCArrayImpl arrayImpl = (JDBCArrayImpl)a;
             elements.addAll(arrayImpl.getUnderlying().getElementList());
         } else {
-            // TODO: Do we even want to allow creation of parameter from an array created by another connection?
-            Object[] arrayElements = (Object[])a.getArray();
-            for (Object o : arrayElements) {
-                Parameter p = ofObject(o);
-                if (p.getJavaSqlTypesCode() != a.getBaseType()) {
-                    throw new SQLException("Array base type does not match element type: " + a.getBaseType() + ":" + p.getJavaSqlTypesCode(), ErrorCode.ARRAY_ELEMENT_ERROR.getErrorCode());
-                }
-                elements.add(p.getParameter());
-            }
+            throw new SQLException("Array type not supported: " + a.getClass().getName(), ErrorCode.INVALID_PARAMETER.getErrorCode());
         }
         return Parameter.newBuilder()
+                .setType(Type.ARRAY)
                 .setJavaSqlTypesCode(Types.ARRAY)
                 .setParameter(Column.newBuilder()
                         .setArray(com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array.newBuilder()
@@ -136,35 +132,34 @@ public class ParameterHelper {
     }
 
     public static Parameter ofObject(Object x) throws SQLException {
-        final int typeCodeFromObject = SqlTypeNamesSupport.getSqlTypeCodeFromObject(x);
-        switch (typeCodeFromObject) {
-            case Types.BIGINT:
+        // We need to keep an exception for the case of Array, because JDBC client array creations does not inherit
+        // RelationalArray. Since the Relational dataType works with Relational constructs, this is an exception. We
+        // should probably strive to bring this under Relational umbrella, until then treat the case separately.
+        if (x instanceof Array) {
+            return ofArray((Array)x);
+        }
+        final DataType type = DataType.getDataTypeFromObject(x);
+        switch (type.getCode()) {
+            case LONG:
                 return ofLong((Long)x);
-            case Types.INTEGER:
+            case INTEGER:
                 return ofInt((Integer)x);
-            case Types.BOOLEAN:
+            case BOOLEAN:
                 return ofBoolean((Boolean)x);
-            case Types.BINARY:
+            case BYTES:
                 return ofBytes((byte[])x);
-            case Types.FLOAT:
+            case FLOAT:
                 return ofFloat((Float)x);
-            case Types.DOUBLE:
+            case DOUBLE:
                 return ofDouble((Double)x);
-            case Types.VARCHAR:
+            case STRING:
                 return ofString((String)x);
-            case Types.NULL:
-                return ofNull(Types.NULL); // TODO: THis would be generic null...
-            case Types.ARRAY:
-                return ofArray((Array)x);
-            case Types.OTHER:
-                if (x instanceof UUID) {
-                    return ofUuid((UUID)x);
-                } else {
-                    throw new SQLException("setObject Unrecognized type OTHER of class: " + x.getClass().getName(),
-                            ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
-                }
+            case NULL:
+                return ofNull(type.getJdbcSqlCode()); // TODO: THis would be generic null...
+            case UUID:
+                return ofUUID((UUID) x);
             default:
-                throw new SQLException("setObject Not supported for type " + typeCodeFromObject,
+                throw new SQLException("setObject Not supported for type: " + type,
                         ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
         }
     }
