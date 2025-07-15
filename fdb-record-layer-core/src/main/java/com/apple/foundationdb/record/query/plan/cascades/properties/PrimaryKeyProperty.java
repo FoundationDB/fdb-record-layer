@@ -48,6 +48,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValues
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveDfsPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableFunctionPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
@@ -349,6 +350,12 @@ public class PrimaryKeyProperty implements ExpressionProperty<Optional<List<Valu
         @Override
         public Optional<List<Value>> visitTypeFilterPlan(@Nonnull final RecordQueryTypeFilterPlan typeFilterPlan) {
             return primaryKeyFromSingleChild(typeFilterPlan);
+        }
+
+        @Nonnull
+        @Override
+        public Optional<List<Value>> visitRecursiveDfsPlan(@Nonnull final RecordQueryRecursiveDfsPlan element) {
+            return Optional.empty(); // TODO
         }
 
         @Nonnull

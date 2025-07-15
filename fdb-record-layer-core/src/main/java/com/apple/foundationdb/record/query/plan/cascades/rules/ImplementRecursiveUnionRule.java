@@ -21,13 +21,22 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithComparisons;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveDfsPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 
@@ -86,6 +95,57 @@ public class ImplementRecursiveUnionRule extends ImplementationCascadesRule<Recu
         final var tempTableInsertValueReference = recursiveUnionExpression.getTempTableInsertAlias();
         final var recursiveUnionPlan = new RecordQueryRecursiveUnionPlan(initialPhysicalQun, recursivePhysicalQun, tempTableScanValueReference, tempTableInsertValueReference);
 
-        call.yieldPlan(recursiveUnionPlan);
+        if (canPerformDfs(recursiveQun.getRangesOver(), tempTableScanValueReference)) {
+            final var rootPhysicalReference = call.memoizeFinalExpressions(initialQun.getRangesOver().getFinalExpressions().stream().flatMap(e -> Iterables.getOnlyElement(e.getQuantifiers()).getRangesOver().getFinalExpressions().stream()).collect(ImmutableSet.toImmutableSet()));
+            final var rootPhysicalQun = Quantifier.physical(rootPhysicalReference);
+            final var childPhysicalQun = (Quantifier.Physical)Iterables.getOnlyElement(Iterables.getOnlyElement(recursiveQun.getRangesOver().getFinalExpressions()).getQuantifiers());
+            call.yieldPlan(new RecordQueryRecursiveDfsPlan(rootPhysicalQun, childPhysicalQun, tempTableScanValueReference));
+        } else {
+            call.yieldPlan(recursiveUnionPlan);
+        }
+    }
+
+    private boolean canPerformDfs(@Nonnull final Reference recursiveQun, @Nonnull final CorrelationIdentifier tempTableScanValueReference) {
+        for (final var expression : recursiveQun.getAllMemberExpressions()) {
+            if (!hasOnlyEqualityPredicatesOverTempTable(expression, tempTableScanValueReference)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean hasOnlyEqualityPredicatesOverTempTable(@Nonnull final RelationalExpression expression, @Nonnull final CorrelationIdentifier correlationIdentifier) {
+        if (expression.getQuantifiers().isEmpty()) {
+            return true; // no quantifiers.
+        }
+        if (expression instanceof RelationalExpressionWithPredicates) {
+            final var predicatedExpression = (RelationalExpressionWithPredicates)expression;
+            final var predicates = predicatedExpression.getPredicates();
+            for (final var quantifier : expression.getQuantifiers()) {
+                for (final var innerExpressions : quantifier.getRangesOver().getAllMemberExpressions()) {
+                    if (innerExpressions instanceof TempTableScanExpression) {
+                        for (final var predicate : predicates) {
+                            boolean nonEqualityCorrelatedPredicate = predicate.preOrderStream().anyMatch(p -> {
+                                if (!p.isCorrelatedTo(quantifier.getAlias())) {
+                                    return false;
+                                }
+                                if (p instanceof PredicateWithComparisons) {
+                                    if (((PredicateWithComparisons)p).getComparisons()
+                                            .stream()
+                                            .anyMatch(c -> !c.getType().isEquality())) {
+                                        return true;
+                                    }
+                                }
+                                return false;
+                            });
+                            if (nonEqualityCorrelatedPredicate) {
+                                return false;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return true;
     }
 }

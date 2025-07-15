@@ -60,6 +60,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValues
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveDfsPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableFunctionPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableScanPlan;
@@ -507,6 +508,12 @@ public class OrderingProperty implements ExpressionProperty<Ordering> {
         @Override
         public Ordering visitTypeFilterPlan(@Nonnull final RecordQueryTypeFilterPlan typeFilterPlan) {
             return orderingFromSingleChild(typeFilterPlan);
+        }
+
+        @Nonnull
+        @Override
+        public Ordering visitRecursiveDfsPlan(@Nonnull final RecordQueryRecursiveDfsPlan element) {
+            return Ordering.empty();
         }
 
         @Nonnull

@@ -65,6 +65,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanVisitor;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithExplain;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveDfsPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
@@ -579,6 +580,12 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
                                 .stream()
                                 .map(recordType -> new ExplainTokens().addIdentifier(recordType))
                                 .iterator());
+    }
+
+    @Nonnull
+    @Override
+    public ExplainTokens visitRecursiveDfsPlan(@Nonnull final RecordQueryRecursiveDfsPlan element) {
+        return addKeyword("DFS").addWhitespace(); // TODO
     }
 
     @Nonnull

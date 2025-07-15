@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionOnValues
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInsertPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveDfsPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTableFunctionPlan;
 import com.apple.foundationdb.record.query.plan.plans.TempTableInsertPlan;
@@ -309,6 +310,12 @@ public class StoredRecordProperty implements ExpressionProperty<Boolean> {
         @Override
         public Boolean visitTypeFilterPlan(@Nonnull final RecordQueryTypeFilterPlan typeFilterPlan) {
             return storedRecordsFromSingleChild(typeFilterPlan);
+        }
+
+        @Nonnull
+        @Override
+        public Boolean visitRecursiveDfsPlan(@Nonnull final RecordQueryRecursiveDfsPlan element) {
+            return false; // TODO
         }
 
         @Nonnull

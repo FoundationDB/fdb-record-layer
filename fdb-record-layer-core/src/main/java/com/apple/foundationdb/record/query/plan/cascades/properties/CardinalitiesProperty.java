@@ -82,6 +82,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryLoadByKeysPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveDfsPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRecursiveUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
@@ -406,6 +407,13 @@ public class CardinalitiesProperty implements ExpressionProperty<CardinalitiesPr
         @Override
         public Cardinalities visitRecordQueryTypeFilterPlan(@Nonnull final RecordQueryTypeFilterPlan typeFilterPlan) {
             return fromChild(typeFilterPlan);
+        }
+
+        @Nonnull
+        @Override
+        public Cardinalities visitRecordQueryRecursiveDfsPlan(@Nonnull final RecordQueryRecursiveDfsPlan element) {
+            // TODO
+            return Cardinalities.unknownCardinalities;
         }
 
         @Nonnull
