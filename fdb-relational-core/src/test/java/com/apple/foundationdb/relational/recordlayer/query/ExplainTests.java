@@ -73,7 +73,7 @@ public class ExplainTests {
         final var expectedContTypes = List.of(Types.BINARY, Types.INTEGER, Types.VARCHAR);
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord")) {
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN VERBOSE SELECT * FROM RestaurantComplexRecord")) {
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     final var actualMetadata = resultSet.getMetaData();
                     org.junit.jupiter.api.Assertions.assertEquals(expectedLabels.size(), actualMetadata.getColumnCount());
@@ -97,7 +97,7 @@ public class ExplainTests {
     void explainWithNoContinuationTest() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord")) {
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN MINIMAL SELECT * FROM RestaurantComplexRecord")) {
                 ps.setMaxRows(2);
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     final var assertResult = ResultSetAssert.assertThat(resultSet);

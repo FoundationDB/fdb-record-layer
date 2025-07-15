@@ -645,7 +645,8 @@ helpStatement
 // details
 
 describeObjectClause
-    : (
+    : level=(VERBOSE | MINIMAL)?
+      (
         query | deleteStatement | insertStatement
         | updateStatement | executeContinuationStatement
       )                                                             #describeStatements

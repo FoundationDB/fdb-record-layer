@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.query.plan.explain.ExplainLevel;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import javax.annotation.Nonnull;
@@ -44,6 +45,8 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
 
     private final boolean isForExplain;
 
+    private int explainLevel;
+
     private final int parameterHash;
 
     @Nonnull
@@ -59,6 +62,7 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
         this.isForExplain = isForExplain;
         this.parameterHash = parameterHash;
         this.planHashMode = planHashMode;
+        this.explainLevel = ExplainLevel.convert(ExplainLevel.DEFAULT);
     }
 
     @Nonnull
@@ -88,6 +92,11 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
     @Override
     public boolean isForExplain() {
         return isForExplain;
+    }
+
+    @Override
+    public int getExplainLevel() {
+        return explainLevel;
     }
 
     @Nonnull
