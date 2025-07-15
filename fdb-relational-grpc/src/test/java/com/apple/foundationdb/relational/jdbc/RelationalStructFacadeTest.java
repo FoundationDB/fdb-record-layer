@@ -76,7 +76,10 @@ public class RelationalStructFacadeTest {
 
     @Test
     public void testMultipleFields() throws SQLException {
-        var relationalStruct = RelationalStructFacade.newBuilder().addLong("field1", 1L).addString("field2", "hello").build();
+        var relationalStruct = RelationalStructFacade.newBuilder()
+                .addLong("field1", 1L)
+                .addString("field2", "hello")
+                .build();
         Assertions.assertEquals(relationalStruct.getLong("field1"), 1L);
         Assertions.assertEquals(relationalStruct.getString("field2"), "hello");
         Assertions.assertEquals(relationalStruct.getLong(1), 1L);

@@ -54,7 +54,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
 import java.sql.SQLException;
-import java.sql.Types;
 
 import static org.assertj.core.api.Assertions.fail;
 
@@ -83,7 +82,7 @@ public class TransactionBoundDatabaseWithEnumTest {
                 try (RelationalStatement statement = conn.createStatement()) {
                     statement.executeInsert("CARD", EmbeddedRelationalStruct.newBuilder()
                             .addLong("id", 1L)
-                            .addObject("suit", "DIAMONDS", Types.OTHER)
+                            .addObject("suit", "DIAMONDS")
                             .addLong("rank", 1L)
                             .build()
                     );

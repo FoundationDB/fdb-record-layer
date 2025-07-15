@@ -108,6 +108,7 @@ message Parameter {
   // Reuse the column type here. It has much of what we need carrying
   // across parameters as well as null support, etc.
   Column parameter = 2;
+  Type type = 3;
 }
 
 message Options {

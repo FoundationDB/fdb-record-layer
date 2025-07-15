@@ -1,5 +1,5 @@
 /*
- * TestUtils.java
+ * CloseException.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,23 +18,16 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.jdbc;
+package com.apple.foundationdb.util;
 
-import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.RelationalResultSet;
-
-import java.util.Arrays;
-import java.util.List;
-
-public class TestUtils {
-    public static RelationalResultSet resultSet(Continuation continuation, MockResultSetRow... rows) {
-        return new MockResultSet(
-                new MockResultSetMetadata(),
-                Arrays.stream(rows).iterator(),
-                continuation);
-    }
-
-    public static MockResultSetRow row(Object... columns) {
-        return new MockResultSetRow(List.of(columns));
+/**
+ * Exception thrown when the {@link CloseableUtils#closeAll} method catches an exception.
+ * This exception will have the {@code cause} set to the first exception thrown during {@code closeAll} and any further
+ * exception thrown will be added as {@code Suppressed}.
+ */
+@SuppressWarnings("serial")
+public class CloseException extends Exception {
+    public CloseException(final Throwable cause) {
+        super(cause);
     }
 }

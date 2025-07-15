@@ -39,6 +39,7 @@ import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.google.common.collect.ImmutableList;
@@ -185,7 +186,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         final var arrayElements = new ArrayList<>();
         try {
             if (type == null) {
-                resolvedType = SqlTypeSupport.arrayMetadataToArrayType(((RelationalArray)param).getMetaData(), false);
+                resolvedType = (Type.Array) DataTypeUtils.toRecordLayerType(((RelationalArray) param).getMetaData().asRelationalType());
             }
             try (ResultSet rs = param.getResultSet()) {
                 while (rs.next()) {
@@ -428,7 +429,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         Object[] attributes;
         try {
             if (type == null) {
-                resolvedType = SqlTypeSupport.structMetadataToRecordType(((RelationalStruct)param).getMetaData(), false);
+                resolvedType = (Type.Record) DataTypeUtils.toRecordLayerType(((RelationalStruct) param).getMetaData().getRelationalDataType());
             }
             attributes = param.getAttributes();
         } catch (SQLException e) {
