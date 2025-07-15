@@ -21,16 +21,14 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
-import com.apple.foundationdb.relational.api.SqlTypeSupport;
-import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.continuation.LiteralObject;
+import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.google.common.collect.Lists;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -38,11 +36,8 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.sql.SQLException;
-import java.sql.Types;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.DATATYPE_MISMATCH;
 import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.INTERNAL_ERROR;
@@ -53,27 +48,22 @@ public final class LiteralsUtils {
         // prevent instantiation
     }
 
+    // This is not sufficient, as we should try to coercion struct types rather than checking for them being
+    // identical. https://github.com/FoundationDB/fdb-record-layer/issues/3472
     @Nonnull
     public static Type.Array resolveArrayTypeFromObjectsList(List<Object> objects) {
-        final var distinctTypes = objects.stream().filter(Objects::nonNull).map(SqlTypeSupport::getSqlTypeCodeFromObject).distinct().collect(Collectors.toList());
-        if (distinctTypes.isEmpty()) {
-            // has all nulls or is empty
-            return new Type.Array(Type.nullType());
-        }
-        Assert.thatUnchecked(distinctTypes.size() == 1, DATATYPE_MISMATCH, "could not determine type of array literal");
-        final var theType = distinctTypes.get(0);
-        if (theType != Types.STRUCT) {
-            return new Type.Array(Type.primitiveType(SqlTypeSupport.sqlTypeToRecordType(theType), false));
-        }
-        final var distinctStructMetadata = objects.stream().filter(Objects::nonNull).map(o -> {
-            try {
-                return ((RelationalStruct) o).getMetaData();
-            } catch (SQLException e) {
-                throw new RelationalException(e).toUncheckedWrappedException();
+        DataType distinctType = null;
+        for (var object: objects) {
+            final var objectType = DataType.getDataTypeFromObject(object);
+            if (distinctType == null) {
+                distinctType = objectType;
+            } else if (distinctType instanceof DataType.CompositeType) {
+                Assert.thatUnchecked(((DataType.CompositeType)distinctType).hasIdenticalStructure(objectType), DATATYPE_MISMATCH, "could not determine type of array literal");
+            } else {
+                Assert.thatUnchecked(distinctType.equals(objectType), DATATYPE_MISMATCH, "could not determine type of array literal");
             }
-        }).distinct().collect(Collectors.toList());
-        Assert.thatUnchecked(distinctStructMetadata.size() == 1, DATATYPE_MISMATCH, "Elements of struct array literal are not of identical shape!");
-        return new Type.Array(SqlTypeSupport.structMetadataToRecordType(distinctStructMetadata.get(0), false));
+        }
+        return new Type.Array(distinctType == null ? Type.nullType() : DataTypeUtils.toRecordLayerType(distinctType));
     }
 
     @Nonnull
