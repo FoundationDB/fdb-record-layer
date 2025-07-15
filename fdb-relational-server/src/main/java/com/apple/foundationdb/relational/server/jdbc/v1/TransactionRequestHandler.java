@@ -113,7 +113,11 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
                 responseBuilder.setRollbackResponse(RollbackResponse.newBuilder().build());
             } else if (transactionRequest.hasEnableAutoCommitRequest()) {
                 logger.info("Enabling autoCommit");
-                frl.enableAutoCommit(transactionalToken);
+                // we don't actually call setAutoCommit(false) until an operation happens, so if there is no token
+                // there's no connection that needs updating
+                if (transactionalToken != null) {
+                    frl.enableAutoCommit(transactionalToken);
+                }
                 responseBuilder.setEnableAutoCommitResponse(EnableAutoCommitResponse.newBuilder().build());
             } else {
                 throw new IllegalArgumentException("Unknown transactional request type: " + transactionRequest);

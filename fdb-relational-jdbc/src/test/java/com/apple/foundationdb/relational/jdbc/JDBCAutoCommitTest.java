@@ -114,8 +114,12 @@ public class JDBCAutoCommitTest {
             connection.commit();
             connection.setAutoCommit(true);
             try (RelationalStatement statement = connection.createStatement()) {
+                insertOneRow(statement, 101);
+            }
+            try (RelationalStatement statement = connection.createStatement()) {
                 RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM test_table");
                 assertNextResult(resultSet, 100, "one hundred");
+                assertNextResult(resultSet, 101, "one hundred");
                 assertNoNextResult(resultSet);
             }
         }
@@ -382,8 +386,12 @@ public class JDBCAutoCommitTest {
     }
 
     private static void insertOneRow(final RelationalStatement statement) throws SQLException {
+        insertOneRow(statement, 100);
+    }
+
+    private static void insertOneRow(final RelationalStatement statement, int restNo) throws SQLException {
         RelationalStruct insert = JDBCRelationalStruct.newBuilder()
-                .addLong("REST_NO", 100)
+                .addLong("REST_NO", restNo)
                 .addString("NAME", "one hundred")
                 .build();
         int res = statement.executeInsert("TEST_TABLE", insert);
