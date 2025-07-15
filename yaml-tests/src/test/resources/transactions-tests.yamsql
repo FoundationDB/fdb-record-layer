@@ -20,7 +20,7 @@
 # This test serves as an example of using transaction setup, both via references and inline.
 ---
 options:
-    supported_version: !current_version
+    supported_version: 4.4.7.0
 ---
 schema_template:
     create table table_t1(id bigint, col1 bigint, primary key(id))
