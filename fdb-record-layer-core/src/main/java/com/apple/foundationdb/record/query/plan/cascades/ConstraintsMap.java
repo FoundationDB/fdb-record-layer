@@ -97,6 +97,18 @@ public class ConstraintsMap {
         this.attributeToConstraintMap = Maps.newLinkedHashMap();
     }
 
+    public long getCurrentTick() {
+        return currentTick;
+    }
+
+    public long getWatermarkGoalTick() {
+        return watermarkGoalTick;
+    }
+
+    public long getWatermarkCommittedTick() {
+        return watermarkCommittedTick;
+    }
+
     /**
      * Method to return if a particular attribute is contained in the map.
      * @param attribute the attribute key to check

@@ -53,7 +53,8 @@ public class ReplRunner {
         try {
             LauncherDiscoveryRequestBuilder requestBuilder = LauncherDiscoveryRequestBuilder.request();
             if (className != null) {
-                requestBuilder.selectors(DiscoverySelectors.selectClass(className));
+                requestBuilder.selectors(DiscoverySelectors.selectClass(className))
+                        .filters(TagFilter.includeTags("debug"));
             } else {
                 requestBuilder.selectors(selectClasspathRoots(classpathRoots))
                         .filters(TagFilter.includeTags("debug"));
