@@ -8,9 +8,9 @@ union-tests:
         promote(0l AS LONG)) AS B) | MAP (_ AS _0) | AGG (sum_l(_._0.A) AS _0, sum_l(_._0.B)
         AS _1) | ON EMPTY NULL | MAP (_._0._0 AS A, _._0._1 AS B)
     task_count: 765
-    task_total_time_ms: 25
-    transform_count: 189
-    transform_time_ms: 7
+    task_total_time_ms: 6
+    transform_count: 174
+    transform_time_ms: 2
     transform_yield_count: 53
     insert_time_ms: 0
     insert_new_count: 76
@@ -23,13 +23,13 @@ union-tests:
         promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) |
         ON EMPTY NULL | MAP (_._0._0 AS S)'
     task_count: 773
-    task_total_time_ms: 32
-    transform_count: 220
-    transform_time_ms: 11
+    task_total_time_ms: 15
+    transform_count: 197
+    transform_time_ms: 5
     transform_yield_count: 55
     insert_time_ms: 0
     insert_new_count: 68
-    insert_reused_count: 4
+    insert_reused_count: 3
 -   query: EXPLAIN select sum(Y) as S from (select count(*) as Y from t3 union all
         select count(*) from t1) as X
     explain: SCAN(<,>) | TFILTER T3 | MAP (_ AS _0) | AGG (count_star(*) AS _0) |
@@ -38,13 +38,13 @@ union-tests:
         promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) |
         ON EMPTY NULL | MAP (_._0._0 AS S)
     task_count: 801
-    task_total_time_ms: 31
-    transform_count: 203
-    transform_time_ms: 9
+    task_total_time_ms: 19
+    transform_count: 183
+    transform_time_ms: 6
     transform_yield_count: 60
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 80
-    insert_reused_count: 7
+    insert_reused_count: 6
 -   query: EXPLAIN select sum(Y) as S from (select count(*) as Y from t6 union all
         select count(*) from t7) as X
     explain: 'AISCAN(MV11 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY
@@ -53,10 +53,10 @@ union-tests:
         promote(0l AS LONG)) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) |
         ON EMPTY NULL | MAP (_._0._0 AS S)'
     task_count: 1083
-    task_total_time_ms: 41
-    transform_count: 311
-    transform_time_ms: 12
+    task_total_time_ms: 18
+    transform_count: 291
+    transform_time_ms: 7
     transform_yield_count: 74
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 104
-    insert_reused_count: 9
+    insert_reused_count: 8

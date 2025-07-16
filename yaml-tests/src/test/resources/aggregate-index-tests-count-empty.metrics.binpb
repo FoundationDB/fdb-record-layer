@@ -1,8 +1,7 @@
 Ω
 >
 agg-index-tests-count-emptyEXPLAIN select count(*) from t1˙
-—îﬂ˘
-ã ‹ÍÑ(+0„‹38)@ÖAISCAN(MV1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)”digraph G {
+—ëó¬Ü óÙ–(+0ã◊8)@ÖAISCAN(MV1 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)”digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -18,7 +17,8 @@
 }—
 L
 agg-index-tests-count-empty-EXPLAIN select count(*) from t1 group by col2Ä
-‹û¶¥n »ü…((0°ã8@KAISCAN(MV2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)ï
+‹¡ÂÃh «Û÷((0ÖÍ
+8@KAISCAN(MV2 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)ï
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -31,8 +31,7 @@ digraph G {
 }¿
 A
 agg-index-tests-count-empty"EXPLAIN select count(col1) from t1˙
-—ÔÒ˙
-ã çˆç(+0‘˚*8)@ÖAISCAN(MV3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)”digraph G {
+—óÕ√Ü ˆ÷˜(+0◊Ì8)@ÖAISCAN(MV3 <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)”digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -48,8 +47,8 @@ A
 }‘
 O
 agg-index-tests-count-empty0EXPLAIN select count(col1) from t1 group by col2Ä
-‹˝ª«
-n û˚Ô((0”®8@KAISCAN(MV4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)ï
+‹È⁄æh æ‹’((0∞•
+8@KAISCAN(MV4 <,> BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS _0)ï
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -62,7 +61,7 @@ digraph G {
 }Ó
 >
 agg-index-tests-count-emptyEXPLAIN select count(*) from t2´
-Ã¬Ù‚N ¶‘˙(0˝Æ8$@ÑISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)Üdigraph G {
+Ã ‰‰I …¨Ï(0¶ì8$@ÑISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)Üdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -80,7 +79,7 @@ digraph G {
 }∞
 L
 agg-index-tests-count-empty-EXPLAIN select count(*) from t2 group by col2ﬂ
-ë¡ÍºH ÷‰ (0Û™8@kISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0 AS _0)‘digraph G {
+ëŸ¥õB Ôﬁ◊(0ÌÚ8@kISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0 AS _0)‘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -93,10 +92,10 @@ L
   4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}˘
+}¯
 A
-agg-index-tests-count-empty"EXPLAIN select count(col1) from t2≥
-ÃÙÌ±N À¯ö(0Ò¡#8$@áISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)ãdigraph G {
+agg-index-tests-count-empty"EXPLAIN select count(col1) from t2≤
+Ãƒ¶áI ‹ˇR(0≥‘8$@áISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)ãdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -111,10 +110,10 @@ A
   5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ª
+}∫
 O
-agg-index-tests-count-empty0EXPLAIN select count(col1) from t2 group by col2Á
-ëê¶±H €ÅÔ(0Ú¿8@nISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0 AS _0)Ÿdigraph G {
+agg-index-tests-count-empty0EXPLAIN select count(col1) from t2 group by col2Ê
+ë·ÚúB åœA(0‘–8@nISCAN(MV5 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) GROUP BY (_._0.COL2 AS _0) | MAP (_._1._0 AS _0)Ÿdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

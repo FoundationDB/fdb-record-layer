@@ -1,7 +1,7 @@
-ê
+è
 b
-group-by-testsPEXPLAIN select AVG(x.col2) from (select col1,col2 from t1) as x group by x.col1;©
-´ˇƒòR É‚£(0Ë¶8@åISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (avg_l(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)¸digraph G {
+group-by-testsPEXPLAIN select AVG(x.col2) from (select col1,col2 from t1) as x group by x.col1;®
+´ﬁŒºF Üﬂt(0Êô8@åISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (avg_l(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 AS _0)¸digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -17,7 +17,8 @@ b
 }≈
 
 group-by-testsmEXPLAIN select SUM(x.col2) / COUNT(x.col2), AVG(x.col2) from (select col1,col2 from t1) as x group by x.col1;¡
-´¿ÄÔR ¿«§(0•‡8@’ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (sum_l(_._0.COL2) AS _0, count(_._0.COL2) AS _1, avg_l(_._0.COL2) AS _2) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 / _._1._1 AS _0, _._1._2 AS _1)Àdigraph G {
+´©ÓÚF ÑÓê(0Ãú
+8@’ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (sum_l(_._0.COL2) AS _0, count(_._0.COL2) AS _1, avg_l(_._0.COL2) AS _2) GROUP BY (_._0.COL1 AS _0) | MAP (_._1._0 / _._1._1 AS _0, _._1._2 AS _1)Àdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -33,7 +34,7 @@ b
 }Å
 R
 group-by-tests@EXPLAIN select MAX(x.col2) from (select col1,col2 from t1) as x;™
-Ê∞Ü«X ∏·û(0í©#8(@ÅISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (max_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)àdigraph G {
+ÊúƒéM ∏Ï¥(0ëº8(@ÅISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (max_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)àdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -48,10 +49,10 @@ R
   5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Å
+}Ä
 R
-group-by-tests@EXPLAIN select MIN(x.col2) from (select col1,col2 from t1) as x;™
-Ê«ŸÜX ◊À≥(0Ô∫&8(@ÅISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (min_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)àdigraph G {
+group-by-tests@EXPLAIN select MIN(x.col2) from (select col1,col2 from t1) as x;©
+Ê›ÚÃM ≠åy(0≠8(@ÅISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (min_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)àdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -66,10 +67,10 @@ R
   5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}À
+} 
 T
-group-by-testsBEXPLAIN select COUNT(x.col2) from (select col1,col2 from t1) as x;Ú
-Ê¶™€X ﬁΩ¸(0Á 8(@•ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)¨digraph G {
+group-by-testsBEXPLAIN select COUNT(x.col2) from (select col1,col2 from t1) as x;Ò
+Êäÿ˛M Ù»x(0≠•8(@•ISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (count(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)¨digraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -87,7 +88,7 @@ T
 }á
 R
 group-by-tests@EXPLAIN select AVG(x.col2) from (select col1,col2 from t1) as x;∞
-ÊÜº·X ººå(0≠Ω8(@ÅISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (avg_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)édigraph G {
+ÊÊ∞’M É‰ß(0˘Ê8(@ÅISCAN(I1 <,>) | MAP ((_.COL1 AS COL1, _.COL2 AS COL2) AS _0) | AGG (avg_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)édigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -105,7 +106,7 @@ R
 }‡
 2
 group-by-tests EXPLAIN select COUNT(*) from T1;©
-ÃøˆÖN …Àı(0ê’8$@ÉISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)Ödigraph G {
+Ãí¥ÄI –ˇ£(0¸ó8$@ÉISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)Ödigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;
@@ -123,7 +124,7 @@ R
 }Î
 5
 group-by-tests#EXPLAIN select COUNT(col1) from T1;±
-Ã—ò•N ˙õ€(0Î•8$@ÜISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)ädigraph G {
+ÃÆ€¬I º¨Ä(0”ò"8$@ÜISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count(_._0.COL1) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)ädigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

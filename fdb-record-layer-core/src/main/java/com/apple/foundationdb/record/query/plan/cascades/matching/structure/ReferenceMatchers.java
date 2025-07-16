@@ -58,33 +58,32 @@ public class ReferenceMatchers {
 
     @Nonnull
     @SuppressWarnings("unchecked")
-    public static <R extends Reference> BindingMatcher<R> anyRef() {
-        return typed((Class<R>)(Class<?>)Reference.class);
+    public static BindingMatcher<Reference> anyRef() {
+        return typed(Reference.class);
     }
 
     @Nonnull
-    public static BindingMatcher<? extends Reference> anyRefOverOnlyPlans() {
+    public static BindingMatcher<Reference> anyRefOverOnlyPlans() {
         return members(all(RelationalExpressionMatchers.ofType(RecordQueryPlan.class)));
     }
 
     @Nonnull
     @SuppressWarnings("unchecked")
-    public static <R extends Reference, E extends RelationalExpression> BindingMatcher<R> members(@Nonnull final CollectionMatcher<E> downstream) {
-        return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<R>)(Class<?>)Reference.class,
+    public static <E extends RelationalExpression> BindingMatcher<Reference> members(@Nonnull final CollectionMatcher<E> downstream) {
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(Reference.class,
                 Extractor.of(Reference::getAllMemberExpressions, name -> "allMembers(" + name + ")"),
                 downstream);
     }
 
     @Nonnull
     @SuppressWarnings("unchecked")
-    public static <R extends Reference, E extends RelationalExpression> BindingMatcher<R> exploratoryMembers(@Nonnull final CollectionMatcher<E> downstream) {
-        return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<R>)Reference.class,
+    public static <E extends RelationalExpression> BindingMatcher<Reference> exploratoryMembers(@Nonnull final CollectionMatcher<E> downstream) {
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(Reference.class,
                 Extractor.of(Reference::getExploratoryExpressions, name -> "allMembers(" + name + ")"),
                 downstream);
     }
 
     @Nonnull
-    @SuppressWarnings("unchecked")
     public static <E extends RelationalExpression> BindingMatcher<Reference> exploratoryMember(@Nonnull final BindingMatcher<E> downstream) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream(Reference.class,
                 Extractor.of(Reference::getExploratoryExpressions, name -> "exploratoryMember(" + name + ")"),
