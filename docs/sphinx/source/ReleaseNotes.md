@@ -7,6 +7,29 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.4
 
+### 4.4.10.0
+
+<h4> New Features </h4>
+
+* Remove FieldDescription in Struct/ArrayMetadata in favour of DataType - [PR #3484](https://github.com/FoundationDB/fdb-record-layer/pull/3484)
+* Implement a `closeAll` utility to close multiple closeables - [PR #3470](https://github.com/FoundationDB/fdb-record-layer/pull/3470)
+<h4> Bug Fixes </h4>
+
+* resolves: #3487 restrict select expressions in rewrite matchers to be exploratory - [PR #3486](https://github.com/FoundationDB/fdb-record-layer/pull/3486)
+
+
+**[Full Changelog (4.4.9.0...4.4.10.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.4.9.0...4.4.10.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.3.2.0`, ✅`4.3.3.0`, ✅`4.3.3.1`, ✅`4.3.5.0`, ✅`4.3.6.0`, ✅`4.4.3.0`, ✅`4.4.4.0`, ✅`4.4.7.0`, ✅`4.4.8.0`, ✅`4.4.9.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16320573197)
+
+
+
 ### 4.4.9.0
 
 
