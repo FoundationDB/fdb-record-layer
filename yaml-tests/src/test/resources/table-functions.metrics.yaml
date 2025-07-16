@@ -6,7 +6,7 @@ table-functions:
         AS Z) AS W))
     task_count: 110
     task_total_time_ms: 0
-    transform_count: 32
+    transform_count: 29
     transform_time_ms: 0
     transform_yield_count: 6
     insert_time_ms: 0
@@ -18,8 +18,8 @@ table-functions:
         AS Y, @c19 AS Z) AS W), (@c24 AS B, @c26 AS C, (@c29 AS X, @c31 AS Y, @c33
         AS Z) AS W)) | MAP (_.B AS B, _.C AS C, _.W AS W)
     task_count: 116
-    task_total_time_ms: 1
-    transform_count: 30
+    task_total_time_ms: 0
+    transform_count: 27
     transform_time_ms: 0
     transform_yield_count: 6
     insert_time_ms: 0
@@ -32,7 +32,7 @@ table-functions:
         AS Z) AS W)) | MAP (_.B AS B, _.C AS C, _.W AS W)
     task_count: 116
     task_total_time_ms: 0
-    transform_count: 30
+    transform_count: 27
     transform_time_ms: 0
     transform_yield_count: 6
     insert_time_ms: 0
@@ -45,7 +45,7 @@ table-functions:
         AS Z) AS W)) | MAP (_.B AS B, _.C AS Q, _.W.X AS X)
     task_count: 116
     task_total_time_ms: 0
-    transform_count: 30
+    transform_count: 27
     transform_time_ms: 0
     transform_yield_count: 6
     insert_time_ms: 0
@@ -58,12 +58,12 @@ table-functions:
         AS Z) AS W)) | MAP (_.B AS B, _.C AS Q, _.W.X AS X)
     task_count: 142
     task_total_time_ms: 1
-    transform_count: 40
+    transform_count: 31
     transform_time_ms: 0
     transform_yield_count: 8
     insert_time_ms: 0
     insert_new_count: 13
-    insert_reused_count: 1
+    insert_reused_count: 0
 -   query: EXPLAIN select * from (select A.B, C as Q, W.X from values (1, 2.0, (3,
         4, 'foo')), (10, 90.2, (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))) as u where
         b < 8
@@ -72,19 +72,19 @@ table-functions:
         AS Z) AS W)) | FILTER _.B LESS_THAN @c68 | MAP (_.B AS B, _.C AS Q, _.W.X
         AS X)
     task_count: 186
-    task_total_time_ms: 3
-    transform_count: 60
-    transform_time_ms: 1
+    task_total_time_ms: 2
+    transform_count: 42
+    transform_time_ms: 0
     transform_yield_count: 11
     insert_time_ms: 0
     insert_new_count: 21
-    insert_reused_count: 3
+    insert_reused_count: 1
 -   query: EXPLAIN select * from range(0, 11, 5)
     explain: TF range(promote(@c6 AS LONG), promote(@c8 AS LONG), STEP promote(@c10
         AS LONG))
     task_count: 110
     task_total_time_ms: 0
-    transform_count: 32
+    transform_count: 29
     transform_time_ms: 0
     transform_yield_count: 6
     insert_time_ms: 0
@@ -95,7 +95,7 @@ table-functions:
         STEP promote(@c16 - @c18 AS LONG))
     task_count: 110
     task_total_time_ms: 0
-    transform_count: 32
+    transform_count: 29
     transform_time_ms: 0
     transform_yield_count: 6
     insert_time_ms: 0
@@ -104,8 +104,8 @@ table-functions:
 -   query: EXPLAIN select ID as X from range(3) as Y
     explain: TF range(0l, promote(@c8 AS LONG), STEP 1l) | MAP (_.ID AS X)
     task_count: 116
-    task_total_time_ms: 1
-    transform_count: 30
+    task_total_time_ms: 0
+    transform_count: 27
     transform_time_ms: 0
     transform_yield_count: 6
     insert_time_ms: 0
@@ -116,7 +116,7 @@ table-functions:
         promote(@c23 AS LONG), STEP 1l) AS q1 RETURN (q0.ID AS A, q1.ID AS B) }
     task_count: 157
     task_total_time_ms: 1
-    transform_count: 45
+    transform_count: 41
     transform_time_ms: 0
     transform_yield_count: 10
     insert_time_ms: 0
@@ -127,9 +127,9 @@ table-functions:
     explain: SCAN(<,>) | FLATMAP q0 -> { TF range(0l, q0.ID, STEP 1l) AS q1 RETURN
         (q0.ID AS X, q0.COL1 AS Y, q1.ID AS Z) }
     task_count: 160
-    task_total_time_ms: 2
-    transform_count: 49
-    transform_time_ms: 0
+    task_total_time_ms: 1
+    transform_count: 45
+    transform_time_ms: 1
     transform_yield_count: 13
     insert_time_ms: 0
     insert_new_count: 15
