@@ -33,7 +33,6 @@ import org.junit.jupiter.api.TestTemplate;
  * up the {@link com.apple.foundationdb.record.query.plan.cascades.debug.PlannerRepl} debugger implementation.
  */
 @YamlTest
-@MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
 public class YamlIntegrationTests {
     @TestTemplate
     public void showcasingTests(YamlTest.Runner runner) throws Exception {
