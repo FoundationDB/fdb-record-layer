@@ -27,16 +27,15 @@ import com.apple.foundationdb.relational.api.EmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.transactionbound.TransactionBoundEmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
-
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -133,6 +132,31 @@ public class TransactionBoundDatabaseTest {
 
                 //we should have populated the plan cache;
                 // Assertions.assertThat(engine.getPlanCache().getStats().numEntries()).isEqualTo(1L);
+            }
+        }
+    }
+
+    @Test
+    void createFunction() throws RelationalException, SQLException {
+        final var embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
+        final var store = getStore(embeddedConnection);
+        final var schemaTemplate = getSchemaTemplate(embeddedConnection);
+
+        try (FDBRecordContext context = createNewContext(embeddedConnection)) {
+            final var newStore = store.asBuilder().setMetaDataProvider(store.getMetaDataProvider()).setContext(context).open();
+            try (Transaction transaction = new RecordStoreAndRecordContextTransaction(newStore, context, schemaTemplate)) {
+                EmbeddedRelationalDriver driver = new EmbeddedRelationalDriver(new TransactionBoundEmbeddedRelationalEngine());
+                try (RelationalConnection conn = driver.connect(dbRule.getConnectionUri(), transaction, Options.NONE)) {
+                    conn.setSchema("TEST_SCHEMA");
+                    try (RelationalStatement statement = conn.createStatement()) {
+                        statement.executeUpdate("CREATE TEMPORARY FUNCTION REST_FUNC() ON COMMIT DROP FUNCTION AS SELECT * FROM RESTAURANT WHERE REST_NO > 1000");
+                    }
+                    Assertions.assertThat(transaction.getBoundSchemaTemplateMaybe()).isPresent();
+                    final var routinesInBoundSchemaTemplates = transaction.getBoundSchemaTemplateMaybe().get().getInvokedRoutines();
+                    Assertions.assertThat(routinesInBoundSchemaTemplates)
+                            .hasSize(1)
+                            .anyMatch(routine -> routine.getName().equals("REST_FUNC"));
+                }
             }
         }
     }
