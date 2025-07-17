@@ -56,10 +56,12 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
                                             @Nullable byte[] continuation,
                                             int parameterHash,
                                             boolean isForExplain,
+                                            int explainLevel,
                                             @Nonnull final PlanHashable.PlanHashMode planHashMode) {
         this.literals = literals;
         this.continuation = continuation;
         this.isForExplain = isForExplain;
+        this.explainLevel = explainLevel;
         this.parameterHash = parameterHash;
         this.planHashMode = planHashMode;
         this.explainLevel = ExplainLevel.convert(ExplainLevel.DEFAULT);
@@ -116,6 +118,8 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
 
         private boolean isForExplain;
 
+        private int explainLevel;
+
         @Nullable
         private byte[] continuation;
 
@@ -129,6 +133,7 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
             this.isForExplain = false;
             this.continuation = null;
             this.planHashMode = null;
+            this.explainLevel = ExplainLevel.DEFAULT.ordinal();
         }
 
         @Nonnull
@@ -156,6 +161,12 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
         }
 
         @Nonnull
+        public Builder setExplainLevel(int level) {
+            this.explainLevel = level;
+            return this;
+        }
+
+        @Nonnull
         public Builder setPlanHashMode(@Nonnull PlanHashable.PlanHashMode planHashMode) {
             this.planHashMode = planHashMode;
             return this;
@@ -164,7 +175,7 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
         @Nonnull
         public NormalizedQueryExecutionContext build() {
             return new NormalizedQueryExecutionContext(literalsBuilder.build(), continuation,
-                    parameterHash, isForExplain,
+                    parameterHash, isForExplain, explainLevel,
                     Objects.requireNonNull(planHashMode));
         }
     }
