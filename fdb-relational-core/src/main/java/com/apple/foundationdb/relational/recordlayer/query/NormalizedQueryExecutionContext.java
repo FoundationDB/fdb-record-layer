@@ -64,7 +64,6 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
         this.explainLevel = explainLevel;
         this.parameterHash = parameterHash;
         this.planHashMode = planHashMode;
-        this.explainLevel = ExplainLevel.convert(ExplainLevel.DEFAULT);
     }
 
     @Nonnull
@@ -133,7 +132,7 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
             this.isForExplain = false;
             this.continuation = null;
             this.planHashMode = null;
-            this.explainLevel = ExplainLevel.DEFAULT.ordinal();
+            this.explainLevel = ExplainLevel.convert(ExplainLevel.DEFAULT);
         }
 
         @Nonnull
