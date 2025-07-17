@@ -100,7 +100,7 @@ public class PartialMatch {
     private final Supplier<Map<CorrelationIdentifier, ComparisonRange>> boundParameterPrefixMapSupplier;
 
     @Nonnull
-    private final Supplier<Set<QueryPredicate>> boundPlaceholdersSupplier;
+    private final Supplier<Set<Placeholder>> boundPlaceholdersSupplier;
 
     @Nonnull
     private final Supplier<Set<Quantifier>> matchedQuantifiersSupplier;
@@ -217,14 +217,14 @@ public class PartialMatch {
     }
 
     @Nonnull
-    public final Set<QueryPredicate> getBoundPlaceholders() {
+    public final Set<Placeholder> getBoundPlaceholders() {
         return boundPlaceholdersSupplier.get();
     }
 
     @Nonnull
-    private Set<QueryPredicate> computeBoundPlaceholders() {
+    private Set<Placeholder> computeBoundPlaceholders() {
         final var boundParameterPrefixMap = getBoundParameterPrefixMap();
-        final var boundPlaceholders = Sets.<QueryPredicate>newIdentityHashSet();
+        final var boundPlaceholders = Sets.<Placeholder>newIdentityHashSet();
 
         //
         // Go through all accumulated parameter bindings -- find the query predicates binding the parameters. Those
@@ -246,7 +246,7 @@ public class PartialMatch {
 
             final var placeholder = (Placeholder)candidatePredicate;
             if (boundParameterPrefixMap.containsKey(placeholder.getParameterAlias())) {
-                boundPlaceholders.add(predicateMapping.getCandidatePredicate());
+                boundPlaceholders.add(placeholder);
             }
         }
 

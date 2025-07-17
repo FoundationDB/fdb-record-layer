@@ -717,6 +717,11 @@ public class Reference implements Correlated<Reference>, Typed {
         return PlannerGraphVisitor.show(renderSingleGroups, this);
     }
 
+    @Nonnull
+    public String showExploratory() {
+        return PlannerGraphVisitor.show(PlannerGraphVisitor.REMOVE_FINAL_EXPRESSIONS | PlannerGraphVisitor.RENDER_SINGLE_GROUPS, this);
+    }
+
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private static boolean isMemoizedExpression(@Nonnull final RelationalExpression member,
                                                 @Nonnull final RelationalExpression otherExpression,

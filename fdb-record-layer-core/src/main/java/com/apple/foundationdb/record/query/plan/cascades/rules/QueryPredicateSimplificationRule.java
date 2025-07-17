@@ -40,6 +40,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.atLeastOne;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.anyQuantifier;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.anyPredicate;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.isExploratoryExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
@@ -88,11 +89,10 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @SuppressWarnings({"PMD.TooManyStaticImports", "PMD.CompareObjectsWithEquals"})
 public class QueryPredicateSimplificationRule extends ExplorationCascadesRule<SelectExpression> {
-
     @Nonnull
     private static final CollectionMatcher<QueryPredicate> predicateMatcher = atLeastOne(anyPredicate());
     @Nonnull
-    private static final BindingMatcher<SelectExpression> rootMatcher = selectExpression(predicateMatcher, all(anyQuantifier()));
+    private static final BindingMatcher<SelectExpression> rootMatcher = selectExpression(predicateMatcher, all(anyQuantifier())).where(isExploratoryExpression());
 
     public QueryPredicateSimplificationRule() {
         super(rootMatcher);

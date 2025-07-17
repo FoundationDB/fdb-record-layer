@@ -61,6 +61,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierWithoutDefaultOnEmptyOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.exploratoryMember;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.isExploratoryExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcherWithPredicate.typedMatcherWithPredicate;
 
@@ -172,7 +173,7 @@ public class DecorrelateValuesRule extends ExplorationCascadesRule<SelectExpress
     // we don't match any that have references out to sibling quantifiers in the SelectExpression's root. However,
     // that's difficult to express with quantifiers, so in onMatch, we'll only select the subset without such correlations
     @Nonnull
-    private static final BindingMatcher<SelectExpression> root = selectExpression(some(valuesQunMatcher));
+    private static final BindingMatcher<SelectExpression> root = selectExpression(some(valuesQunMatcher)).where(isExploratoryExpression());
 
     public DecorrelateValuesRule() {
         super(root);
