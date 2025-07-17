@@ -7,6 +7,28 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.4
 
+### 4.4.11.0
+
+<h4> New Features </h4>
+
+* Add test to verify that temp functions are created in TxnBound database - [PR #3488](https://github.com/FoundationDB/fdb-record-layer/pull/3488)
+<h4> Bug Fixes </h4>
+
+* Add support for NULL type fields in ExecuteInsert - [PR #3490](https://github.com/FoundationDB/fdb-record-layer/pull/3490)
+
+
+**[Full Changelog (4.4.10.0...4.4.11.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.4.10.0...4.4.11.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.3.3.0`, ✅`4.3.3.1`, ✅`4.3.5.0`, ✅`4.3.6.0`, ✅`4.4.3.0`, ✅`4.4.4.0`, ✅`4.4.7.0`, ✅`4.4.8.0`, ✅`4.4.9.0`, ✅`4.4.10.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16344428202)
+
+
+
 ### 4.4.10.0
 
 <h4> New Features </h4>
