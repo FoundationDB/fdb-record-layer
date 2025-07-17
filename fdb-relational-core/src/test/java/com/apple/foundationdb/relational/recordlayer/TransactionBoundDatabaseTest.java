@@ -137,7 +137,7 @@ public class TransactionBoundDatabaseTest {
     }
 
     @Test
-    void createFunction() throws RelationalException, SQLException {
+    void createTemporaryFunction() throws RelationalException, SQLException {
         final var embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
         final var store = getStore(embeddedConnection);
         final var schemaTemplate = getSchemaTemplate(embeddedConnection);
