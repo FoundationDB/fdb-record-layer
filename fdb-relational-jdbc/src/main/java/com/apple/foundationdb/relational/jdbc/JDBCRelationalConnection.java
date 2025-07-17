@@ -31,6 +31,7 @@ import com.apple.foundationdb.relational.jdbc.grpc.GrpcConstants;
 import com.apple.foundationdb.relational.jdbc.grpc.GrpcSQLExceptionUtil;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.CommitRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.DatabaseMetaDataRequest;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.EnableAutoCommitRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.InsertRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.InsertResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.JDBCServiceGrpc;
@@ -345,7 +346,23 @@ class JDBCRelationalConnection implements RelationalConnection {
             this.autoCommit = false;
         } else {
             // commit any remaining work
-            commit();
+            try {
+                TransactionalRequest.Builder transactionRequest = TransactionalRequest.newBuilder()
+                        .setEnableAutoCommitRequest(EnableAutoCommitRequest.newBuilder().build());
+                // wait here for response
+                final TransactionalResponse response = serverConnection.sendRequest(transactionRequest.build());
+                checkForResponseError(response);
+                if (!response.hasEnableAutoCommitResponse()) {
+                    throw new JdbcConnectionException("Wrong kind of response received, expected EnableAutoCommitResponse");
+                }
+            } catch (StatusRuntimeException statusRuntimeException) {
+                final SQLException sqlException = toSQLException(statusRuntimeException);
+                if (sqlException != null) {
+                    throw sqlException;
+                } else {
+                    throw statusRuntimeException;
+                }
+            }
             this.autoCommit = true;
             serverConnection.close();
             serverConnection = null;
