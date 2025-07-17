@@ -250,6 +250,8 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
                             }
                         }
                         break;
+                    case NULL:
+                        break;
                     default:
                         Assert.failUnchecked(ErrorCode.INTERNAL_ERROR, (String.format(Locale.ROOT, "Unexpected Column type <%s> for column <%s>",
                                 struct.getMetaData().getColumnType(i), columnName)));

@@ -69,12 +69,75 @@ public class JDBCAutoCommitTest {
      * Run a test with the default (auto-commit on) for sanity.
      */
     @Test
-    void autoCommitOn() throws SQLException, IOException {
+    void autoCommitOn() throws SQLException {
         try (RelationalConnection connection = DriverManager.getConnection(getTestDbUri()).unwrap(RelationalConnection.class)) {
             try (RelationalStatement statement = connection.createStatement()) {
                 insertOneRow(statement);
                 RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM test_table");
                 assertNextResult(resultSet, 100, "one hundred");
+                assertNoNextResult(resultSet);
+            }
+        }
+    }
+
+    @Test
+    void autoCommitWithNoTransactionInBetween() throws SQLException {
+        try (RelationalConnection connection = DriverManager.getConnection(getTestDbUri()).unwrap(RelationalConnection.class)) {
+            connection.setAutoCommit(false);
+            connection.setAutoCommit(true);
+        }
+    }
+
+    @Test
+    void autoCommitStayOn() throws SQLException {
+        try (RelationalConnection connection = DriverManager.getConnection(getTestDbUri()).unwrap(RelationalConnection.class)) {
+            connection.setAutoCommit(true);
+        }
+    }
+
+    @Test
+    void autoCommitStayOff() throws SQLException {
+        try (RelationalConnection connection = DriverManager.getConnection(getTestDbUri()).unwrap(RelationalConnection.class)) {
+            connection.setAutoCommit(false);
+            connection.setAutoCommit(false);
+        }
+    }
+
+    @Test
+    void commitEnableAutoCommit() throws SQLException {
+        try (RelationalConnection connection = DriverManager.getConnection(getTestDbUri()).unwrap(RelationalConnection.class)) {
+            connection.setAutoCommit(false);
+
+            try (RelationalStatement statement = connection.createStatement()) {
+                insertOneRow(statement);
+            }
+            connection.commit();
+            connection.setAutoCommit(true);
+            try (RelationalStatement statement = connection.createStatement()) {
+                insertOneRow(statement, 101);
+            }
+            try (RelationalStatement statement = connection.createStatement()) {
+                RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM test_table");
+                assertNextResult(resultSet, 100, "one hundred");
+                assertNextResult(resultSet, 101, "one hundred");
+                assertNoNextResult(resultSet);
+            }
+        }
+    }
+
+    @Test
+    void rollbackThenEnableAutoCommit() throws SQLException {
+        try (RelationalConnection connection = DriverManager.getConnection(getTestDbUri()).unwrap(RelationalConnection.class)) {
+            connection.setAutoCommit(false);
+
+            try (RelationalStatement statement = connection.createStatement()) {
+                insertOneRow(statement);
+            }
+            connection.rollback();
+            connection.setAutoCommit(true);
+            try (RelationalStatement statement = connection.createStatement()) {
+                RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM test_table");
+                assertNoNextResult(resultSet);
                 assertNoNextResult(resultSet);
             }
         }
@@ -169,7 +232,7 @@ public class JDBCAutoCommitTest {
 
             try (RelationalStatement statement = connection.createStatement()) {
                 insertOneRow(statement);
-                connection.setAutoCommit(true);
+                connection.setAutoCommit(true); // this should commit
 
                 RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM test_table");
                 assertNextResult(resultSet, 100, "one hundred");
@@ -344,8 +407,12 @@ public class JDBCAutoCommitTest {
     }
 
     private static void insertOneRow(final RelationalStatement statement) throws SQLException {
+        insertOneRow(statement, 100);
+    }
+
+    private static void insertOneRow(final RelationalStatement statement, int restNo) throws SQLException {
         RelationalStruct insert = JDBCRelationalStruct.newBuilder()
-                .addLong("REST_NO", 100)
+                .addLong("REST_NO", restNo)
                 .addString("NAME", "one hundred")
                 .build();
         int res = statement.executeInsert("TEST_TABLE", insert);
