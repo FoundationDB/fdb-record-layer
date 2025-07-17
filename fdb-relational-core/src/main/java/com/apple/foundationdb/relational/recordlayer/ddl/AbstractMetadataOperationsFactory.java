@@ -18,11 +18,12 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.api.ddl;
+package com.apple.foundationdb.relational.recordlayer.ddl;
 
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.ddl.ConstantAction;
+import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 
