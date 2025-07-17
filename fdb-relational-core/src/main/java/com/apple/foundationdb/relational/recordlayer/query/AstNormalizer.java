@@ -32,7 +32,6 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
-import com.apple.foundationdb.relational.generated.RelationalLexer;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
@@ -243,9 +242,14 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
         // (yhatem) this is probably not needed, since a cached physical plan _knows_ it is either forExplain or not.
         //          we should remove this, but ok for now.
         queryHasherContextBuilder.setForExplain(ctx.EXPLAIN() != null);
-        if (!ctx.describeObjectClause().getTokens(RelationalLexer.VERBOSE).isEmpty()) {
+        return visitChildren(ctx);
+    }
+
+    @Override
+    public Void visitDescribeStatements(@Nonnull RelationalParser.DescribeStatementsContext ctx) {
+        if (ctx.VERBOSE() != null) {
             queryHasherContextBuilder.setExplainLevel(ExplainLevel.convert(ExplainLevel.VERBOSE));
-        } else if (!ctx.describeObjectClause().getTokens(RelationalLexer.MINIMAL).isEmpty()) {
+        } else if (ctx.MINIMAL() != null) {
             queryHasherContextBuilder.setExplainLevel(ExplainLevel.convert(ExplainLevel.MINIMAL));
         } else {
             queryHasherContextBuilder.setExplainLevel(ExplainLevel.convert(ExplainLevel.DEFAULT));
