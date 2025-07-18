@@ -123,8 +123,4 @@ public class EmptyComparison extends BaseRepeatedField implements ComponentWithN
         }
     }
 
-    @Override
-    public int queryHash(@Nonnull final QueryHashKind hashKind) {
-        return super.baseQueryHash(hashKind, BASE_HASH, isEmpty);
-    }
 }

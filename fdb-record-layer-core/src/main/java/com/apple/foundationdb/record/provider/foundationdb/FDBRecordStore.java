@@ -4722,18 +4722,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                       @Nullable RecordType singleRecordTypeWithPrefixKey) {
         // Do this with the new indexes filtered out to avoid using one of them when evaluating the snapshot record count.
         // At this point we won't have written that any new indexes are disabled
-        final IndexQueryabilityFilter indexQueryabilityFilter = new IndexQueryabilityFilter() {
-            @Override
-            public boolean isQueryable(@Nonnull final Index index) {
-                return !indexes.containsKey(index);
-            }
-
-            @Override
-            public int queryHash(@Nonnull final QueryHashKind hashKind) {
-                // the query is not preserved in any way, so prevent usage of the hash
-                throw new RecordCoreException("queryHash for getRecordCountForRebuildIndexes should not be used");
-            }
-        };
+        final IndexQueryabilityFilter indexQueryabilityFilter = index -> !indexes.containsKey(index);
         if (singleRecordTypeWithPrefixKey != null) {
             // Get a count for just those records, either from a COUNT index on just that type or from a universal COUNT index grouped by record type.
             try {

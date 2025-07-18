@@ -97,11 +97,6 @@ public class QueryExpressionTest {
         }
 
         @Override
-        public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            return 0;
-        }
-
-        @Override
         public @Nonnull GraphExpansion expand(@Nonnull final Quantifier.ForEach baseQuantifier, @Nonnull final Supplier<Quantifier.ForEach> outerQuantifierSupplier, @Nonnull final List<String> fieldNamePrefix) {
             throw new UnsupportedOperationException();
         }
