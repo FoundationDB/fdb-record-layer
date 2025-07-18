@@ -178,7 +178,7 @@ public class RecordQueryRecursiveUnionPlan implements RecordQueryPlanWithChildre
 
     @Nonnull
     @Override
-    public List<RecordQueryPlan> getChildren() {
+    public final List<RecordQueryPlan> getChildren() {
         return computeChildren.get();
     }
 

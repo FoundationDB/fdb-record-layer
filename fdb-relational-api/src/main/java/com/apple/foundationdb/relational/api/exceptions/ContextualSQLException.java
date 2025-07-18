@@ -32,7 +32,7 @@ import java.util.Map;
 /**
  * An exception intended to carry over additional context within a SQLException.
  */
-@SuppressWarnings("PMD.FormalParameterNamingConventions")
+@SuppressWarnings({"PMD.FormalParameterNamingConventions", "serial"})
 @API(API.Status.EXPERIMENTAL)
 public class ContextualSQLException extends SQLException {
     private static final long serialVersionUID = 2135244094396331484L;
