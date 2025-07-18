@@ -723,6 +723,14 @@ public class ExplainPlanVisitor extends ExplainTokens implements RecordQueryPlan
     }
 
     @Nonnull
+    public static String toStringForExternalExplain(@Nonnull final RecordQueryPlan plan, final int explainLevel) {
+        final var visitor = new ExplainPlanVisitor(Integer.MAX_VALUE);
+        final var explainTokens = visitor.visit(plan);
+        return explainTokens.render(explainLevel, new DefaultExplainFormatter(ExplainSelfContainedSymbolMap::new), explainTokens.getMaxLength(explainLevel))
+                .toString();
+    }
+
+    @Nonnull
     public static String toStringForExternalExplain(@Nonnull final RecordQueryPlan plan, final int maxExplainLevel,
                                                     final int maxSize) {
         final var visitor = new ExplainPlanVisitor(maxSize);
