@@ -147,6 +147,7 @@ MASTER_BIND:                         'MASTER_BIND';
 MASTER_SSL_VERIFY_SERVER_CERT:       'MASTER_SSL_VERIFY_SERVER_CERT';
 MATCH:                               'MATCH';
 MAXVALUE:                            'MAXVALUE';
+MINIMAL:                             'MINIMAL';
 MODIFIES:                            'MODIFIES';
 NATURAL:                             'NATURAL';
 NOT:                                 'NOT';
@@ -223,6 +224,7 @@ USAGE:                               'USAGE';
 USE:                                 'USE';
 USING:                               'USING';
 VALUES:                              'VALUES';
+VERBOSE:                             'VERBOSE';
 WHEN:                                'WHEN';
 WHERE:                               'WHERE';
 WHILE:                               'WHILE';
@@ -1345,8 +1347,6 @@ fragment REAL_TYPE_MODIFIER:         (FLOAT_TYPE_MODIFIER | DOUBLE_TYPE_MODIFIER
 fragment INT_TYPE_MODIFIER:          ('I' | 'i');
 fragment LONG_TYPE_MODIFIER:         ('L' | 'l');
 fragment DECIMAL_TYPE_MODIFIER:      (INT_TYPE_MODIFIER | LONG_TYPE_MODIFIER);
-
-
 
 // Last tokens must generate Errors
 
