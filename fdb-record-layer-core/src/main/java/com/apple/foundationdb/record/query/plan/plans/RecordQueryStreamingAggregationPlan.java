@@ -222,7 +222,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                 groupingKeyAlias,
                 aggregateAlias,
                 completeResultValue,
-                SerializationMode.TO_OLD);
+                SerializationMode.TO_NEW);
     }
 
     @Nonnull
@@ -234,7 +234,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                 groupingKeyAlias,
                 aggregateAlias,
                 completeResultValue,
-                SerializationMode.TO_OLD);
+                SerializationMode.TO_NEW);
     }
 
     @Nonnull
@@ -478,7 +478,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         final var referencedAggregateValue = ObjectValue.of(aggregateAlias, aggregateValue.getResultType());
 
         return new RecordQueryStreamingAggregationPlan(inner, groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias,
-                resultValueFunction.apply(referencedGroupingKeyValue, referencedAggregateValue), SerializationMode.TO_OLD);
+                resultValueFunction.apply(referencedGroupingKeyValue, referencedAggregateValue), SerializationMode.TO_NEW);
     }
 
     @Nonnull
