@@ -54,7 +54,6 @@ import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.util.BytesRef;
-import org.apache.lucene.util.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -422,9 +421,7 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
 
     @Override
     public void close() {
-        if (indexReader != null) {
-            IOUtils.closeWhileHandlingException(indexReader);
-        }
+        // the indexReader is managed by the FDBDirectoryManager and so we don't close it.
         indexReader = null;
         closed = true;
     }
