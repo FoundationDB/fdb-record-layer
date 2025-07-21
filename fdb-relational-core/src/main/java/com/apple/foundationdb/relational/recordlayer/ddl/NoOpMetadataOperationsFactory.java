@@ -80,6 +80,13 @@ public final class NoOpMetadataOperationsFactory implements MetadataOperationsFa
 
     @Nonnull
     @Override
+    public ConstantAction getDropTemporaryFunctionConstantAction(boolean throwIfNot,
+                                                                 @Nonnull final String temporaryFunctionName) {
+        return NoOpConstantAction.INSTANCE;
+    }
+
+    @Nonnull
+    @Override
     public ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, boolean throwIfDoesNotExist, @Nonnull Options options) {
         return NoOpConstantAction.INSTANCE;
     }

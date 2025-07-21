@@ -99,6 +99,13 @@ public class RecordLayerMetadataOperationsFactory implements MetadataOperationsF
         return new CreateTemporaryFunctionConstantAction(template, throwIfExists, invokedRoutine, preparedParams);
     }
 
+    @Nonnull
+    @Override
+    public ConstantAction getDropTemporaryFunctionConstantAction(boolean throwIfNotExists,
+                                                                 @Nonnull final String temporaryFunctionName) {
+        return new DropTemporaryFunctionConstantAction(throwIfNotExists, temporaryFunctionName);
+    }
+
     public static class Builder {
         protected StoreCatalog storeCatalog;
         protected RecordLayerConfig rlConfig;

@@ -362,6 +362,13 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Override
+    public ProceduralPlan visitDropTempFunction(@Nonnull RelationalParser.DropTempFunctionContext ctx) {
+        final var functionName = visitFullId(ctx.schemaQualifiedRoutineName).toString();
+        var throwIfNotFound = ctx.IF() == null && ctx.EXISTS() == null;
+        return ProceduralPlan.of(metadataOperationsFactory.getDropTemporaryFunctionConstantAction(throwIfNotFound, functionName));
+    }
+
+    @Override
     public CompiledSqlFunction visitCreateFunction(@Nonnull RelationalParser.CreateFunctionContext ctx) {
         return visitSqlInvokedFunction(ctx.sqlInvokedFunction());
     }
