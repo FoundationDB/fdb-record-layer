@@ -80,7 +80,7 @@ public class GroupByQueryTests {
                         continuation = resultSet.getContinuation();
                     }
                 }
-                try(var preparedStatement = conn.prepareStatement("EXECUTE CONTINUATION ?param")) {
+                try (var preparedStatement = conn.prepareStatement("EXECUTE CONTINUATION ?param")) {
                     conn.setOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 2);
                     conn.setOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
                     // scan pk = 5 and pk = 4 rows, hit SCAN_LIMIT_REACHED
@@ -90,8 +90,6 @@ public class GroupByQueryTests {
                                 .hasNoNextRow();
                         continuation = resultSet.getContinuation();
                     }
-                }
-                try(var preparedStatement = conn.prepareStatement("EXECUTE CONTINUATION ?param")) {
                     // scan pk = 6 and pk = 8 rows, hit SCAN_LIMIT_REACHED
                     preparedStatement.setBytes("param", continuation.serialize());
                     try (final RelationalResultSet resultSet = preparedStatement.executeQuery()) {
