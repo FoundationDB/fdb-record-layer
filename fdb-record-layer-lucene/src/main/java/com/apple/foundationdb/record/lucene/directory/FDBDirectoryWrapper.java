@@ -140,11 +140,11 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     @SuppressWarnings("PMD.CloseResource")
     public IndexReader getReader() throws IOException {
         if (useWriter) {
+            return getWriterReader(true);
+        } else {
             return StandardDirectoryReaderOptimization.open(directory, null, null,
                     state.context.getExecutor(),
                     state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_OPEN_PARALLELISM));
-        } else {
-            return getWriterReader(true);
         }
     }
 
