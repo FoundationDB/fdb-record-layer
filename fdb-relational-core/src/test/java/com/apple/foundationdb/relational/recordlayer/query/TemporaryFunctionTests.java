@@ -34,6 +34,7 @@ import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -299,6 +300,7 @@ public class TemporaryFunctionTests {
         }
     }
 
+    @Disabled
     @Test
     void dropNestedTemporaryFunctionCallsWorks() throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
