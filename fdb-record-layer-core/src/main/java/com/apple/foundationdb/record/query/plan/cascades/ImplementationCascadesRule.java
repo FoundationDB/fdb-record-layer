@@ -22,8 +22,6 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
@@ -58,23 +56,14 @@ import java.util.Collection;
  * @param <T> a parent planner expression type of all possible root planner expressions that this rule could match
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class ImplementationCascadesRule<T extends RelationalExpression> extends CascadesRule<T> {
-    public ImplementationCascadesRule(@Nonnull BindingMatcher<T> matcher) {
-        this(matcher, ImmutableSet.of());
-    }
-
-    public ImplementationCascadesRule(@Nonnull final BindingMatcher<T> matcher,
-                                      @Nonnull final Collection<PlannerConstraint<?>> requirementDependencies) {
-        super(matcher, requirementDependencies);
-    }
-
+public interface ImplementationCascadesRule<T extends RelationalExpression> extends CascadesRule<T> {
     /**
      * Note that this method is intentionally final to prevent reimplementation by subclasses. Subclassed should instead
      * override the more constrained {@link #onMatch(ImplementationCascadesRuleCall)}.
      * @param call the regular {@link CascadesRuleCall}
      */
     @Override
-    public final void onMatch(@Nonnull final CascadesRuleCall call) {
+    default void onMatch(@Nonnull final CascadesRuleCall call) {
         // needs to be cast up to select the right overloaded method
         onMatch((ImplementationCascadesRuleCall)call);
     }
@@ -83,5 +72,5 @@ public abstract class ImplementationCascadesRule<T extends RelationalExpression>
      * Abstract method to be implemented by the specific rule.
      * @param call the constrained rule call
      */
-    public abstract void onMatch(@Nonnull ImplementationCascadesRuleCall call);
+    void onMatch(@Nonnull ImplementationCascadesRuleCall call);
 }

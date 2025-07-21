@@ -137,9 +137,9 @@ public class RuleTestHelper {
     }
 
     @Nonnull
-    private final CascadesRule<? extends RelationalExpression> rule;
+    private final AbstractCascadesRule<? extends RelationalExpression> rule;
 
-    public RuleTestHelper(@Nonnull CascadesRule<? extends RelationalExpression> rule) {
+    public RuleTestHelper(@Nonnull AbstractCascadesRule<? extends RelationalExpression> rule) {
         this.rule = rule;
     }
 

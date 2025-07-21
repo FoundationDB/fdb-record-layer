@@ -22,11 +22,8 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
-import java.util.Collection;
 
 /**
  * Abstract class to be extended for all exploration rules. The main purpose of this class is to constrain the
@@ -49,23 +46,14 @@ import java.util.Collection;
  * @param <T> a parent planner expression type of all possible root planner expressions that this rule could match
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class ExplorationCascadesRule<T extends RelationalExpression> extends CascadesRule<T> {
-    public ExplorationCascadesRule(@Nonnull BindingMatcher<T> matcher) {
-        this(matcher, ImmutableSet.of());
-    }
-
-    public ExplorationCascadesRule(@Nonnull final BindingMatcher<T> matcher,
-                                   @Nonnull final Collection<PlannerConstraint<?>> requirementDependencies) {
-        super(matcher, requirementDependencies);
-    }
-
+public interface ExplorationCascadesRule<T extends RelationalExpression> extends CascadesRule<T> {
     /**
      * Note that this method is intentionally {@code final} to prevent reimplementation by subclasses. Subclassed should
      * instead override the more constrained {@link #onMatch(ExplorationCascadesRuleCall)}.
      * @param call the regular {@link CascadesRuleCall}
      */
     @Override
-    public final void onMatch(@Nonnull final CascadesRuleCall call) {
+    default void onMatch(@Nonnull final CascadesRuleCall call) {
         // needs to be cast up to select the right overloaded method
         onMatch((ExplorationCascadesRuleCall)call);
     }
@@ -74,5 +62,5 @@ public abstract class ExplorationCascadesRule<T extends RelationalExpression> ex
      * Abstract method to be implemented by the specific rule.
      * @param call the constrained rule call
      */
-    public abstract void onMatch(@Nonnull ExplorationCascadesRuleCall call);
+    void onMatch(@Nonnull ExplorationCascadesRuleCall call);
 }

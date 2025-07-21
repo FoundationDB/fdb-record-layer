@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
@@ -51,7 +52,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * the predicates on top of its {@link Quantifier} with {@code null-on-empty} giving them a chance of acting on any {@code null}s
  * produced by this quantifier, which guarantees semantic equivalency.
  */
-public class PullUpNullOnEmptyRule extends ExplorationCascadesRule<SelectExpression> {
+public class PullUpNullOnEmptyRule extends AbstractCascadesRule<SelectExpression> implements ExplorationCascadesRule<SelectExpression> {
 
     @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> defaultOnEmptyQuantifier = forEachQuantifierWithDefaultOnEmptyOverRef(anyRef());

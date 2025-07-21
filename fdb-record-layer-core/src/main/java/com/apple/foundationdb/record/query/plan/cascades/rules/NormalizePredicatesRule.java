@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -51,7 +52,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * {@link PredicateToLogicalUnionRule}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class NormalizePredicatesRule extends ExplorationCascadesRule<SelectExpression> {
+public class NormalizePredicatesRule extends AbstractCascadesRule<SelectExpression> implements ExplorationCascadesRule<SelectExpression> {
     private static final CollectionMatcher<QueryPredicate> predicatesMatcher = all(anyPredicate());
     private static final CollectionMatcher<Quantifier> innerQuantifiersMatcher = all(anyQuantifier());
 
