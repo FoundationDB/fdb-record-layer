@@ -781,7 +781,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                         1, AgilityContext.agile(context, 1L, 1L),
                         indexAnalyzerSelector.provideIndexAnalyzer());
 
-                assertThrows(IOException.class, () -> fdbDirectoryWrapper.mergeIndex(new Exception()), "invalid lock");
+                assertThrows(IOException.class, () -> fdbDirectoryWrapper.mergeIndex(), "invalid lock");
                 commit(context);
             }
         }
@@ -987,8 +987,8 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         AtomicInteger threadCounter = new AtomicInteger();
         // Synchronization blocks in FDBDirectoryWrapper can cause a deadlock
         // see https://github.com/FoundationDB/fdb-record-layer/issues/2989
-        // So set the pool large enough to overcome that
-        this.dbExtension.getDatabaseFactory().setExecutor(new ForkJoinPool(30,
+        // So set the pool small to make sure we cover that
+        this.dbExtension.getDatabaseFactory().setExecutor(new ForkJoinPool(3,
                 pool -> {
                     final ForkJoinWorkerThread thread = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
                     thread.setName("ConcurrentUpdatePool-" + threadCounter.getAndIncrement());

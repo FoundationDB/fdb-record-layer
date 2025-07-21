@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.lucene.LuceneAnalyzerWrapper;
 import com.apple.foundationdb.record.lucene.LuceneEvents;
 import com.apple.foundationdb.record.lucene.LuceneLoggerInfoStream;
 import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
+import com.apple.foundationdb.record.lucene.codec.LazyCloseable;
 import com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCodec;
 import com.apple.foundationdb.record.provider.foundationdb.IndexDeferredMaintenanceControl;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -46,10 +47,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -72,24 +71,16 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     private final Tuple key;
     @Nonnull
     private final LuceneAnalyzerWrapper analyzerWrapper;
-    @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
-    private volatile IndexWriter writer;
+    private volatile boolean useWriter = false;
+    private final LazyCloseable<IndexWriter> writer;
     @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
     private volatile DirectoryReader writerReader;
 
     FDBDirectoryWrapper(IndexMaintainerState state, Tuple key, int mergeDirectoryCount,
                         final AgilityContext agilityContext, final int blockCacheMaximumSize,
                         @Nonnull final LuceneAnalyzerWrapper analyzerWrapper) {
-        final Subspace subspace = state.indexSubspace.subspace(key);
-        final FDBDirectorySharedCacheManager sharedCacheManager = FDBDirectorySharedCacheManager.forContext(state.context);
-        final Tuple sharedCacheKey = sharedCacheManager == null ? null :
-                                     (sharedCacheManager.getSubspace() == null ? state.store.getSubspace() : sharedCacheManager.getSubspace()).unpack(subspace.pack());
-        this.state = state;
-        this.key = key;
-        this.directory = createFDBDirectory(subspace, state.index.getOptions(), sharedCacheManager, sharedCacheKey, USE_COMPOUND_FILE, agilityContext, blockCacheMaximumSize);
-        this.agilityContext = agilityContext;
-        this.mergeDirectoryCount = mergeDirectoryCount;
-        this.analyzerWrapper = analyzerWrapper;
+        this(state, createFDBDirectory(state, key, agilityContext, blockCacheMaximumSize),
+                key, mergeDirectoryCount, agilityContext, analyzerWrapper);
     }
 
     @VisibleForTesting
@@ -101,6 +92,45 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         this.agilityContext = agilityContext;
         this.mergeDirectoryCount = mergeDirectoryCount;
         this.analyzerWrapper = analyzerWrapper;
+        Exception exceptionAtCreation = FDBTieredMergePolicy.usesCreationStack() ? new Exception() : null;
+        writer = LazyCloseable.supply(() -> {
+            useWriter = true;
+            final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
+            TieredMergePolicy tieredMergePolicy = new FDBTieredMergePolicy(mergeControl, agilityContext, state.indexSubspace, key, exceptionAtCreation)
+                    .setMaxMergedSegmentMB(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE))
+                    .setSegmentsPerTier(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER));
+            tieredMergePolicy.setNoCFSRatio(1.00);
+            IndexWriterConfig indexWriterConfig = new IndexWriterConfig(this.analyzerWrapper.getAnalyzer())
+                    .setUseCompoundFile(USE_COMPOUND_FILE)
+                    .setMergePolicy(tieredMergePolicy)
+                    .setMergeScheduler(getMergeScheduler(state, mergeDirectoryCount, agilityContext, key))
+                    .setCodec(CODEC)
+                    .setInfoStream(new LuceneLoggerInfoStream(LOGGER));
+
+            // Merge is required when creating an index writer (do we have a better indicator for a required merge?)
+            mergeControl.setMergeRequiredIndexes(state.index);
+            return new IndexWriter(directory, indexWriterConfig);
+        });
+    }
+
+    @Nonnull
+    protected static FDBDirectory createFDBDirectory(final IndexMaintainerState state,
+                                                     final Tuple key,
+                                                     final AgilityContext agilityContext,
+                                                     final int blockCacheMaximumSize) {
+        final Subspace subspace = state.indexSubspace.subspace(key);
+        final FDBDirectorySharedCacheManager sharedCacheManager = FDBDirectorySharedCacheManager.forContext(state.context);
+        final Tuple sharedCacheKey;
+        if (sharedCacheManager == null) {
+            sharedCacheKey = null;
+        } else {
+            if (sharedCacheManager.getSubspace() == null) {
+                sharedCacheKey = state.store.getSubspace().unpack(subspace.pack());
+            } else {
+                sharedCacheKey = sharedCacheManager.getSubspace().unpack(subspace.pack());
+            }
+        }
+        return new FDBDirectory(subspace, state.index.getOptions(), sharedCacheManager, sharedCacheKey, USE_COMPOUND_FILE, agilityContext, blockCacheMaximumSize);
     }
 
     public FDBDirectory getDirectory() {
@@ -109,7 +139,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
 
     @SuppressWarnings("PMD.CloseResource")
     public IndexReader getReader() throws IOException {
-        if (writer == null) {
+        if (useWriter) {
             return StandardDirectoryReaderOptimization.open(directory, null, null,
                     state.context.getExecutor(),
                     state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_OPEN_PARALLELISM));
@@ -123,7 +153,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         if (flush || writerReader == null) {
             synchronized (this) {
                 if (flush || writerReader == null) {
-                    writerReader = DirectoryReader.open(Objects.requireNonNull(writer));
+                    writerReader = DirectoryReader.open(writer.get());
                 }
             }
         }
@@ -273,50 +303,19 @@ public class FDBDirectoryWrapper implements AutoCloseable {
 
     @Nonnull
     @SuppressWarnings("PMD.CloseResource")
-    public IndexWriter getWriter(@Nullable final Exception exceptionAtCreation) throws IOException {
-        if (writer == null) {
-            synchronized (this) {
-                if (writer == null) {
-                    final IndexDeferredMaintenanceControl mergeControl = state.store.getIndexDeferredMaintenanceControl();
-                    TieredMergePolicy tieredMergePolicy = new FDBTieredMergePolicy(mergeControl, agilityContext, state.indexSubspace, key, exceptionAtCreation)
-                            .setMaxMergedSegmentMB(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_MAX_SIZE))
-                            .setSegmentsPerTier(state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER));
-                    tieredMergePolicy.setNoCFSRatio(1.00);
-                    IndexWriterConfig indexWriterConfig = new IndexWriterConfig(this.analyzerWrapper.getAnalyzer())
-                            .setUseCompoundFile(USE_COMPOUND_FILE)
-                            .setMergePolicy(tieredMergePolicy)
-                            .setMergeScheduler(getMergeScheduler(state, mergeDirectoryCount, agilityContext, key))
-                            .setCodec(CODEC)
-                            .setInfoStream(new LuceneLoggerInfoStream(LOGGER));
-
-                    if (writer != null) {
-                        writer.close();
-                    }
-                    writer = new IndexWriter(directory, indexWriterConfig);
-
-                    if (writerReader != null) {
-                        writerReader.close();
-                        writerReader = null;
-                    }
-
-                    // Merge is required when creating an index writer (do we have a better indicator for a required merge?)
-                    mergeControl.setMergeRequiredIndexes(state.index);
-                }
-            }
-        }
-        return writer;
+    public IndexWriter getWriter() throws IOException {
+        return writer.get();
     }
 
     @Override
     @SuppressWarnings("PMD.CloseResource")
     public synchronized void close() throws IOException {
         IOUtils.close(writer, writerReader, directory);
-        writer = null;
         writerReader = null;
     }
 
-    public void mergeIndex(final Exception exceptionAtCreation) throws IOException {
-        getWriter(exceptionAtCreation).maybeMerge();
+    public void mergeIndex() throws IOException {
+        getWriter().maybeMerge();
     }
 
     protected @Nonnull FDBDirectory createFDBDirectory(final Subspace subspace,
