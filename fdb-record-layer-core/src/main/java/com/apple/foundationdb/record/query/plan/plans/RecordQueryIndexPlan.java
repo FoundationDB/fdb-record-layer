@@ -163,7 +163,6 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
     @Nonnull
     private final Supplier<ComparisonRanges> comparisonRangesSupplier;
 
-
     public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull final IndexScanParameters scanParameters, final boolean reverse) {
         this(indexName, null, scanParameters, IndexFetchMethod.SCAN_AND_FETCH, FetchIndexRecords.PRIMARY_KEY, reverse, false);
     }
@@ -772,11 +771,10 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                 return continuation;
             }
             byte[] continuationBytes;
-            if (continuation instanceof KeyValueCursorBase.Continuation) {
-                continuationBytes = ((KeyValueCursorBase.Continuation) continuation).getInnerContinuationInBytes();
-            } else {
-                continuationBytes = continuation.toBytes();
+            if (!(continuation instanceof KeyValueCursorBase.Continuation)) {
+                throw new RecordCoreException("can only wrap KeyValueCursorBase.Continuation class");
             }
+            continuationBytes = ((KeyValueCursorBase.Continuation) continuation).getInnerContinuationInBytes();
             if (continuationBytes != null && ByteArrayUtil.startsWith(continuationBytes, prefixBytes)) {
                 // Strip away the prefix. Note that ByteStrings re-use the underlying ByteArray, so this can
                 // save a copy.

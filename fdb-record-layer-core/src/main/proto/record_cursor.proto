@@ -168,5 +168,4 @@ message RangeCursorContinuation {
 
 message KeyValueCursorContinuation {
     optional bytes continuation = 1;
-    optional bool isEnd = 2;
 }

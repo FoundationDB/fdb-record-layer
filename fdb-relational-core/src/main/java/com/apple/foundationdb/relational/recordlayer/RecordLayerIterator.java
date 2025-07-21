@@ -83,7 +83,6 @@ public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
 
     private void fetchNextResult() {
         if (result != null) {
-            continuation = ContinuationImpl.fromRecordCursorContinuation(result.getContinuation());
             return;
         }
         result = recordCursor.getNext();
@@ -91,6 +90,8 @@ public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
             noNextReason = result.getNoNextReason();
             if (noNextReason == RecordCursor.NoNextReason.SOURCE_EXHAUSTED) {
                 this.continuation = ContinuationImpl.END;
+            } else {
+                this.continuation = ContinuationImpl.fromRecordCursorContinuation(result.getContinuation());
             }
         }
     }

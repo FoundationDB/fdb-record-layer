@@ -250,13 +250,8 @@ class RecordQueryIndexPlanWithOverScanTest extends FDBRecordStoreQueryTestBase {
             do {
                 indexResult = indexCursor.getNext();
                 overscanResult = overscanCursor.getNext();
-
-                ByteString indexResultContinuationInByteString = indexResult.getContinuation() instanceof KeyValueCursorBase.Continuation ? ((KeyValueCursorBase.Continuation) indexResult.getContinuation()).getInnerContinuationInByteString() : indexResult.getContinuation().toByteString();
-                byte[] indexResultContinuationInBytes = indexResult.getContinuation() instanceof KeyValueCursorBase.Continuation ? ((KeyValueCursorBase.Continuation) indexResult.getContinuation()).getInnerContinuationInBytes() : indexResult.getContinuation().toBytes();
-
-                assertEquals(indexResultContinuationInByteString, overscanResult.getContinuation().toByteString(), "Continuation byte strings should match");
-                assertArrayEquals(indexResultContinuationInBytes, overscanResult.getContinuation().toBytes(), "Continuation byte arrays should match");
-
+                assertEquals(indexResult.getContinuation().toByteString(), overscanResult.getContinuation().toByteString(), "Continuation byte strings should match");
+                assertArrayEquals(indexResult.getContinuation().toBytes(), overscanResult.getContinuation().toBytes(), "Continuation byte arrays should match");
                 assertEquals(indexResult.hasNext(), overscanResult.hasNext(), "Overscan cursor should have next if index result has next");
                 if (indexResult.hasNext()) {
                     assertEquals(indexResult.get().getRecord(), overscanResult.get().getRecord(), "Result returned via overscan cursor should match regular cursor");
