@@ -244,6 +244,29 @@ public class TemporaryFunctionTests {
     }
 
     @Test
+    void dropNonTemporaryFunctionFails() throws Exception {
+        final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk)) " +
+                "create function sq0(in x bigint) as select * from t1 where a > x";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
+            }
+            final var connection = ddl.getConnection();
+            connection.setAutoCommit(false);
+            // at least 1 function is defined
+            try (var statement = connection.createStatement()) {
+                statement.execute("create or replace temporary function sq1(in x bigint) on commit drop function as select * from t1 where a < 40 + x ");
+                invokeAndVerifyTempFunction(statement);
+                statement.execute("drop temporary function sq1");
+                // this should fail as sq0 is not temporary in nature
+                RelationalAssertions.assertThrowsSqlException(() -> statement.execute("drop temporary function sq0"))
+                        .containsInMessage("Attempt to DROP an non-temporary function: SQ0");
+            }
+            connection.rollback();
+        }
+    }
+
+    @Test
     void dropTemporaryFunctionIfExistsWorks() throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
@@ -300,6 +323,10 @@ public class TemporaryFunctionTests {
         }
     }
 
+    // This tests defines nested temporary functions and then tries to query the outer function while the inner function
+    // is dropped. This execution is expected to fail however it doesn't owing to the following missing bit about
+    // understanding the metadata object dependency.
+    // See: https://github.com/FoundationDB/fdb-record-layer/issues/3493.
     @Disabled
     @Test
     void dropNestedTemporaryFunctionCallsWorks() throws Exception {
@@ -340,7 +367,7 @@ public class TemporaryFunctionTests {
             // should fail now that function sq0 is not present
             try (var statement = connection.prepareStatement("select * from sq1(x => 3) where a > ?param options (log query)")) {
                 statement.setLong("param", 5);
-                statement.execute();
+                RelationalAssertions.assertThrowsSqlException(statement::execute);
             }
             connection.rollback();
         }
@@ -912,9 +939,6 @@ public class TemporaryFunctionTests {
                 statement.execute();
             }
             // re-call the function (sq1) now, again, using the same literal identifiers.
-            // expansion should result in the following, relati            }
-            //            // re-call the function (sq1) now, again, using the same literal identifiers.
-            //            // expansion should result in the following, relatively complex, rewrite:vely complex, rewrite:
             // select Q.a, Q.pk from                                                        <---- the query
             //               (select Y.a, Y.pk from                                         <---- sq1(3) expansion
             //                           (select a + 3 as a, pk from t1 where a < 20) as Y,   <---- sq0(3) expansion

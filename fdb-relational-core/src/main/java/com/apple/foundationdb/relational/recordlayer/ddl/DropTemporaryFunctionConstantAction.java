@@ -47,9 +47,11 @@ public class DropTemporaryFunctionConstantAction implements ConstantAction  {
         final var transactionBoundSchemaTemplate = txn.getBoundSchemaTemplateMaybe();
         if (transactionBoundSchemaTemplate.isPresent()) {
             final var relationalLayerSchemaTemplate = Assert.castUnchecked(transactionBoundSchemaTemplate.orElseThrow(), RecordLayerSchemaTemplate.class);
-            if (relationalLayerSchemaTemplate.getInvokedRoutines().stream().anyMatch(r -> r.getName().equals(temporaryFunctionName))) {
-                final var schemaTemplateWithTempFunction = relationalLayerSchemaTemplate.toBuilder().removeInvokedRoutine(temporaryFunctionName).build();
-                txn.setBoundSchemaTemplate(schemaTemplateWithTempFunction);
+            final var maybeInvokedRoutine = relationalLayerSchemaTemplate.getInvokedRoutines().stream().filter(r -> r.getName().equals(temporaryFunctionName)).findFirst();
+            if (maybeInvokedRoutine.isPresent()) {
+                Assert.thatUnchecked(maybeInvokedRoutine.orElseThrow().isTemporary(), ErrorCode.INVALID_FUNCTION_DEFINITION, "Attempt to DROP an non-temporary function: " + temporaryFunctionName);
+                final var schemaTemplateWithoutTempFunction = relationalLayerSchemaTemplate.toBuilder().removeInvokedRoutine(temporaryFunctionName).build();
+                txn.setBoundSchemaTemplate(schemaTemplateWithoutTempFunction);
                 return;
             }
         }
