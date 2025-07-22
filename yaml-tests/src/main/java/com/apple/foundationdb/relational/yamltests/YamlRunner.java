@@ -42,6 +42,7 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -72,13 +73,15 @@ public final class YamlRunner {
             LoaderOptions loaderOptions = new LoaderOptions();
             loaderOptions.setAllowDuplicateKeys(true);
             DumperOptions dumperOptions = new DumperOptions();
-            final var yaml = new Yaml(new CustomYamlConstructor(loaderOptions), new Representer(dumperOptions), new DumperOptions(), loaderOptions, new Resolver());
+            final var yaml = new Yaml(new CustomYamlConstructor(loaderOptions), new Representer(dumperOptions),
+                    new DumperOptions(), loaderOptions, new Resolver());
 
             final var testBlocks = new ArrayList<TestBlock>();
+            final var blocksSoFar = EnumSet.noneOf(Block.BlockType.class);
             int blockNumber = 0;
             try (var inputStream = getInputStream(resourcePath)) {
                 for (var doc : yaml.loadAll(inputStream)) {
-                    final var block = Block.parse(doc, blockNumber, executionContext);
+                    final var block = Block.parse(doc, blockNumber, executionContext, blocksSoFar);
                     logger.debug("⚪️ Executing block at line {} in {}", block.getLineNumber(), resourcePath);
                     block.execute();
                     if (block instanceof TestBlock) {
