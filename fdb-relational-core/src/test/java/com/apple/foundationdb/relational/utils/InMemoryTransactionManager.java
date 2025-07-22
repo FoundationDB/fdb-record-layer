@@ -85,6 +85,11 @@ public class InMemoryTransactionManager implements TransactionManager {
         }
 
         @Override
+        public void unsetBoundSchemaTemplate() {
+            throw new NotImplementedException("method is not implemented");
+        }
+
+        @Override
         public void close() {
             //no-op
         }

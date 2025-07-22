@@ -853,4 +853,9 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     default String show(final boolean renderSingleGroups) {
         return PlannerGraphVisitor.show(renderSingleGroups, this);
     }
+
+    @Nonnull
+    default String showExploratory() {
+        return PlannerGraphVisitor.show(PlannerGraphVisitor.REMOVE_FINAL_EXPRESSIONS | PlannerGraphVisitor.RENDER_SINGLE_GROUPS, this);
+    }
 }

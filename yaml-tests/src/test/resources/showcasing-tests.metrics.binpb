@@ -1,7 +1,7 @@
-‚
+ÿ
 ;
-showcasing-tests'EXPLAIN select * from t1 where id > 15;Â
-»ïş"0 ‚¸û(0›ù€8@FSCAN(<,>) | TFILTER T1 | FILTER _.ID GREATER_THAN promote(@c8 AS LONG)Ûdigraph G {
+showcasing-tests'EXPLAIN select * from t1 where id > 15;¿
+»¯³l, Îæ@(0—é8@FSCAN(<,>) | TFILTER T1 | FILTER _.ID GREATER_THAN promote(@c8 AS LONG)Ûdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=polyline;

@@ -626,21 +626,31 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
     @Nonnull
     @Override
     public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+        final var predicateString = "WHERE " + getPredicates().stream()
+                .map(Object::toString)
+                .collect(Collectors.joining(" AND "));
+
+        final var abbreviatedPredicateString = predicateString.length() > 30 ? String.format("%02x", predicateString.hashCode()) : predicateString;
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNode(this,
                         "SELECT " + resultValue,
                         getPredicates().isEmpty()
                         ? ImmutableList.of()
-                        : ImmutableList.of("WHERE " + getPredicates().stream()
-                                .map(Object::toString)
-                                .collect(Collectors.joining(" AND "))),
+                        : ImmutableList.of(abbreviatedPredicateString),
                         ImmutableMap.of()),
                 childGraphs);
     }
 
     @Override
     public String toString() {
-        return "SELECT " + resultValue + " WHERE " + AndPredicate.and(getPredicates());
+        final var selectFrom =
+                "SELECT " + resultValue + " FROM " + Quantifiers.aliases(getQuantifiers())
+                        .stream()
+                        .map(CorrelationIdentifier::toString).collect(Collectors.joining(", "));
+        if (!getPredicates().isEmpty()) {
+            return selectFrom + " WHERE " + AndPredicate.and(getPredicates());
+        }
+        return selectFrom;
     }
 
     /**

@@ -48,7 +48,7 @@ public class ExpressionsPartitionMatchers {
     @Nonnull
     @SuppressWarnings("unchecked")
     public static BindingMatcher<Reference> expressionPartitions(@Nonnull final BindingMatcher<? extends Iterable<? extends ExpressionPartition<? extends RelationalExpression>>> downstream) {
-        return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<Reference>)(Class<?>)Reference.class,
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(Reference.class,
                 Extractor.of(Reference::toExpressionPartitions, name -> "expressionPartitions(" + name + ")"),
                 downstream);
     }

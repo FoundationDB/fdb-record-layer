@@ -18,11 +18,12 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.api.ddl;
+package com.apple.foundationdb.relational.recordlayer.ddl;
 
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.ddl.ConstantAction;
+import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 
@@ -71,8 +72,15 @@ public abstract class AbstractMetadataOperationsFactory implements MetadataOpera
 
     @Nonnull
     @Override
-    public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template, boolean throwIfNotExists,
+    public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template, boolean throwIfExists,
                                                                    @Nonnull final RecordLayerInvokedRoutine invokedRoutine, @Nonnull final PreparedParams preparedParams) {
-        return NoOpMetadataOperationsFactory.INSTANCE.getCreateTemporaryFunctionConstantAction(template, throwIfNotExists, invokedRoutine, preparedParams);
+        return NoOpMetadataOperationsFactory.INSTANCE.getCreateTemporaryFunctionConstantAction(template, throwIfExists, invokedRoutine, preparedParams);
+    }
+
+    @Nonnull
+    @Override
+    public ConstantAction getDropTemporaryFunctionConstantAction(boolean throwIfNotExists,
+                                                                 @Nonnull final String temporaryFunctionName) {
+        return NoOpMetadataOperationsFactory.INSTANCE.getDropTemporaryFunctionConstantAction(throwIfNotExists, temporaryFunctionName);
     }
 }
