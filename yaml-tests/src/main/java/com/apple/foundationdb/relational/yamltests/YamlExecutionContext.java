@@ -250,6 +250,8 @@ public final class YamlExecutionContext {
     }
 
     public void registerTransactionSetup(final String name, final String command) {
+        // Note: at the time of writing, this is only called by code that is iterating over a Map from yaml, so it will
+        // not prevent two entries in the yaml file itself
         Assert.thatUnchecked(!transactionSetups.containsKey(name), ErrorCode.INTERNAL_ERROR,
                 () -> "Transaction setup " + name + " is defined multiple times.");
         transactionSetups.put(name, command);

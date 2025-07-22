@@ -17,9 +17,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This test should fail
+# This test should pass
 # Yaml itself will manage the map, and remove duplicates, keeping the last one, so this test
-# will fail, because we reference the one that was replaced
+# will pass, because we reference the one that was kept
 ---
 schema_template:
     create table table_t1(id bigint, col1 bigint, primary key(id))
@@ -39,7 +39,7 @@ test_block:
   name: transactions-tests
   tests:
     -
-      - query: select * from t1 where id > 10;
+      - query: select * from t2 where id > 10;
       - setupReference: temp_func
       - result: [{id: 30, col1: 40}]
 ...

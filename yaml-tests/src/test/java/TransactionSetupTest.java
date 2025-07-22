@@ -102,6 +102,7 @@ public class TransactionSetupTest {
         return Stream.of(
                 "double-reference",
                 "double-setup",
+                "duplicate-setup-reference-name",
                 "multiple-transaction-setups",
                 "reference-and-setup",
                 "setup-and-reference",
