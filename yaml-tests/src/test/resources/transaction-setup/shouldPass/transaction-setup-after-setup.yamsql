@@ -17,9 +17,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This test should fail
-# The map of potential references is created at parse time, so they will exist for all
-# the documents in the file, so enforce putting it before actual execution
+# This test should pass
+# Non-test blocks are executed as they are read, and setup may contain schema install
+# which is nice to have before transaction_setups, even if it is unnecessary
 ---
 schema_template:
     create table table_t1(id bigint, col1 bigint, primary key(id))

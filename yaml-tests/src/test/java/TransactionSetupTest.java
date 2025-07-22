@@ -85,7 +85,6 @@ public class TransactionSetupTest {
                 "setup-before-query",
                 "setup-reference-after-results",
                 "setup-reference-before-query",
-                "transaction-setup-after-setup",
                 "transaction-setup-after-tests",
                 "unsupported-setup",
                 "unsupported-setup-reference"
@@ -107,7 +106,8 @@ public class TransactionSetupTest {
                 "reference-and-setup",
                 "setup-and-reference",
                 "single-setup",
-                "single-setup-reference"
+                "single-setup-reference",
+                "transaction-setup-after-setup"
         );
     }
 

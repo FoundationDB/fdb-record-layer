@@ -75,7 +75,10 @@ public interface Block {
                     blocksSoFar.add(BlockType.Setup);
                     return SetupBlock.ManualSetupBlock.parse(lineNumber, entry.getValue(), executionContext);
                 case TransactionSetupsBlock.TRANSACTION_SETUP:
-                    Assert.that(blocksSoFar.stream().allMatch(type -> type == BlockType.SchemaTemplate || type == BlockType.Options),
+                    // setup may install schema; it feels nice to have initial schema install happen before declaring
+                    // the transaction setups
+                    Assert.that(blocksSoFar.stream().allMatch(type -> type == BlockType.SchemaTemplate || type == BlockType.Options
+                            || type == BlockType.Setup),
                             TransactionSetupsBlock.TRANSACTION_SETUP + " can only go after " +
                                     SetupBlock.SchemaTemplateBlock.SCHEMA_TEMPLATE_BLOCK + " or " + FileOptions.OPTIONS);
                     blocksSoFar.add(BlockType.TransactionSetup);
