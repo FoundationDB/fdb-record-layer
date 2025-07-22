@@ -161,6 +161,69 @@ public class TransactionBoundDatabaseTest {
         }
     }
 
+    @Test
+    void dropTemporaryFunction() throws RelationalException, SQLException {
+        final var embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
+        final var store = getStore(embeddedConnection);
+        final var schemaTemplate = getSchemaTemplate(embeddedConnection);
+
+        try (FDBRecordContext context = createNewContext(embeddedConnection)) {
+            final var newStore = store.asBuilder().setMetaDataProvider(store.getMetaDataProvider()).setContext(context).open();
+            try (Transaction transaction = new RecordStoreAndRecordContextTransaction(newStore, context, schemaTemplate)) {
+                EmbeddedRelationalDriver driver = new EmbeddedRelationalDriver(new TransactionBoundEmbeddedRelationalEngine());
+                try (RelationalConnection conn = driver.connect(dbRule.getConnectionUri(), transaction, Options.NONE)) {
+                    conn.setSchema("TEST_SCHEMA");
+                    try (RelationalStatement statement = conn.createStatement()) {
+                        statement.executeUpdate("CREATE TEMPORARY FUNCTION REST_FUNC() ON COMMIT DROP FUNCTION AS SELECT * FROM RESTAURANT WHERE REST_NO > 1000");
+                    }
+                    Assertions.assertThat(transaction.getBoundSchemaTemplateMaybe()).isPresent();
+                    Assertions.assertThat(transaction.getBoundSchemaTemplateMaybe().get().getInvokedRoutines())
+                            .hasSize(1)
+                            .anyMatch(routine -> routine.getName().equals("REST_FUNC"));
+                    try (RelationalStatement statement = conn.createStatement()) {
+                        statement.executeUpdate("DROP TEMPORARY FUNCTION REST_FUNC");
+                    }
+                    Assertions.assertThat(transaction.getBoundSchemaTemplateMaybe()).isPresent();
+                    Assertions.assertThat(transaction.getBoundSchemaTemplateMaybe().get().getInvokedRoutines())
+                            .isEmpty();
+                }
+            }
+        }
+    }
+
+    @Test
+    void dropTemporaryIfExistFunction() throws RelationalException, SQLException {
+        final var embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
+        final var store = getStore(embeddedConnection);
+        final var schemaTemplate = getSchemaTemplate(embeddedConnection);
+
+        try (FDBRecordContext context = createNewContext(embeddedConnection)) {
+            final var newStore = store.asBuilder().setMetaDataProvider(store.getMetaDataProvider()).setContext(context).open();
+            try (Transaction transaction = new RecordStoreAndRecordContextTransaction(newStore, context, schemaTemplate)) {
+                EmbeddedRelationalDriver driver = new EmbeddedRelationalDriver(new TransactionBoundEmbeddedRelationalEngine());
+                try (RelationalConnection conn = driver.connect(dbRule.getConnectionUri(), transaction, Options.NONE)) {
+                    conn.setSchema("TEST_SCHEMA");
+                    try (RelationalStatement statement = conn.createStatement()) {
+                        statement.executeUpdate("CREATE TEMPORARY FUNCTION REST_FUNC() ON COMMIT DROP FUNCTION AS SELECT * FROM RESTAURANT WHERE REST_NO > 1000");
+                    }
+                    Assertions.assertThat(transaction.getBoundSchemaTemplateMaybe()).isPresent();
+                    Assertions.assertThat(transaction.getBoundSchemaTemplateMaybe().get().getInvokedRoutines())
+                            .hasSize(1)
+                            .anyMatch(routine -> routine.getName().equals("REST_FUNC"));
+                    try (RelationalStatement statement = conn.createStatement()) {
+                        statement.executeUpdate("DROP TEMPORARY FUNCTION IF EXISTS REST_FUNC");
+                    }
+                    Assertions.assertThat(transaction.getBoundSchemaTemplateMaybe()).isPresent();
+                    Assertions.assertThat(transaction.getBoundSchemaTemplateMaybe().get().getInvokedRoutines())
+                            .isEmpty();
+                    try (RelationalStatement statement = conn.createStatement()) {
+                        statement.executeUpdate("DROP TEMPORARY FUNCTION IF EXISTS DOES_NOT_EXISTS");
+                    }
+                }
+            }
+        }
+    }
+
     static FDBRecordStore getStore(EmbeddedRelationalConnection connection) throws RelationalException, SQLException {
         connection.setAutoCommit(false);
         connection.createNewTransaction();
