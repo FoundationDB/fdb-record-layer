@@ -7,6 +7,25 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.4
 
+### 4.4.14.0
+
+<h4> New Features </h4>
+
+* Initial support for DROP TEMPORARY FUNCTION - [PR #3492](https://github.com/FoundationDB/fdb-record-layer/pull/3492)
+
+
+**[Full Changelog (4.4.13.0...4.4.14.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.4.13.0...4.4.14.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.3.5.0`, ✅`4.3.6.0`, ✅`4.4.3.0`, ✅`4.4.4.0`, ✅`4.4.7.0`, ✅`4.4.8.0`, ✅`4.4.9.0`, ✅`4.4.10.0`, ✅`4.4.11.0`, ✅`4.4.12.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16441843958)
+
+
+
 ### 4.4.13.0
 
 
