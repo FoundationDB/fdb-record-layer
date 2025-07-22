@@ -32,9 +32,12 @@ setup:
 ---
 test_block:
   name: transactions-tests
+  # We currently need this, or it would otherwise execute multiple concurrent inserts and fail because of conflicts, but
+  # we want to ensure it fails because it doesn't allow inserts
+  preset: single_repetition_ordered
   tests:
     -
-      - query: select * from t1 where id > 10 and id < 50;
+      - query: select * from table_t1 where id > 10 and id < 50;
       - setupReference: insert_extras
-      - result: [{id: 30, col1: 40}]
+      - result: [{id: 25, col1: 35}, {id: 30, col1: 40}]
 ...
