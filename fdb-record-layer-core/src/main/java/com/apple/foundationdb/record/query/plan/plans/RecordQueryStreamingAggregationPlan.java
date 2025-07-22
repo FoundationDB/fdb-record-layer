@@ -222,7 +222,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                 groupingKeyAlias,
                 aggregateAlias,
                 completeResultValue,
-                SerializationMode.TO_NEW);
+                serializationMode);
     }
 
     @Nonnull
@@ -234,7 +234,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                 groupingKeyAlias,
                 aggregateAlias,
                 completeResultValue,
-                SerializationMode.TO_NEW);
+                serializationMode);
     }
 
     @Nonnull
