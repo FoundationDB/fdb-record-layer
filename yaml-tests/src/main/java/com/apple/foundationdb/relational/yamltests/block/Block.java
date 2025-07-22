@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 
 import javax.annotation.Nonnull;
-import java.util.Set;
 
 /**
  * Block is a single region in the YAMSQL file that can either be a
@@ -43,14 +42,6 @@ import java.util.Set;
  */
 public interface Block {
 
-    enum BlockType {
-        Options,
-        SchemaTemplate,
-        TransactionSetup,
-        Setup,
-        Test
-    }
-
     /**
      * Looks at the block to determine if its one of the valid blocks. If it is a valid one, parses it to that. This
      * method dispatches the execution to the right block which takes care of reading from the block and initializing
@@ -60,8 +51,7 @@ public interface Block {
      * @param blockNumber the current block number
      * @param executionContext information needed to carry out the execution
      */
-    static Block parse(@Nonnull Object document, int blockNumber, @Nonnull YamlExecutionContext executionContext,
-                       Set<BlockType> blocksSoFar) {
+    static Block parse(@Nonnull Object document, int blockNumber, @Nonnull YamlExecutionContext executionContext) {
         final var blockObject = Matchers.map(document, "block");
         Assert.thatUnchecked(blockObject.size() == 1,
                 "Illegal Format: A block is expected to be a map of size 1 (block: " + blockNumber + ") keys: " + blockObject.keySet());
@@ -72,27 +62,16 @@ public interface Block {
         try {
             switch (blockKey) {
                 case SetupBlock.SETUP_BLOCK:
-                    blocksSoFar.add(BlockType.Setup);
                     return SetupBlock.ManualSetupBlock.parse(lineNumber, entry.getValue(), executionContext);
                 case TransactionSetupsBlock.TRANSACTION_SETUP:
-                    // setup may install schema; it feels nice to have initial schema install happen before declaring
-                    // the transaction setups
-                    Assert.that(blocksSoFar.stream().allMatch(type -> type == BlockType.SchemaTemplate || type == BlockType.Options
-                            || type == BlockType.Setup),
-                            TransactionSetupsBlock.TRANSACTION_SETUP + " can only go after " +
-                                    SetupBlock.SchemaTemplateBlock.SCHEMA_TEMPLATE_BLOCK + " or " + FileOptions.OPTIONS);
-                    blocksSoFar.add(BlockType.TransactionSetup);
                     return TransactionSetupsBlock.parse(lineNumber, entry.getValue(), executionContext);
                 case TestBlock.TEST_BLOCK:
-                    blocksSoFar.add(BlockType.Test);
                     return TestBlock.parse(blockNumber, lineNumber, entry.getValue(), executionContext);
                 case SetupBlock.SchemaTemplateBlock.SCHEMA_TEMPLATE_BLOCK:
-                    blocksSoFar.add(BlockType.SchemaTemplate);
                     return SetupBlock.SchemaTemplateBlock.parse(lineNumber, entry.getValue(), executionContext);
                 case FileOptions.OPTIONS:
-                    Assert.that(blocksSoFar.isEmpty(),
+                    Assert.that(blockNumber == 0,
                             "File level options must be the first block, but found one at line " + lineNumber);
-                    blocksSoFar.add(BlockType.Options);
                     return FileOptions.parse(lineNumber, entry.getValue(), executionContext);
                 default:
                     throw new RuntimeException("Cannot recognize the type of block");

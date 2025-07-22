@@ -77,11 +77,10 @@ public final class YamlRunner {
                     new DumperOptions(), loaderOptions, new Resolver());
 
             final var testBlocks = new ArrayList<TestBlock>();
-            final var blocksSoFar = EnumSet.noneOf(Block.BlockType.class);
             int blockNumber = 0;
             try (var inputStream = getInputStream(resourcePath)) {
                 for (var doc : yaml.loadAll(inputStream)) {
-                    final var block = Block.parse(doc, blockNumber, executionContext, blocksSoFar);
+                    final var block = Block.parse(doc, blockNumber, executionContext);
                     logger.debug("⚪️ Executing block at line {} in {}", block.getLineNumber(), resourcePath);
                     block.execute();
                     if (block instanceof TestBlock) {

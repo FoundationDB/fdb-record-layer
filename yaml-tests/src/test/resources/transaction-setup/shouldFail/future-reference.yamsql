@@ -1,5 +1,5 @@
 #
-# multiple-transaction-setups.yamsql
+# future-reference.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -18,18 +18,9 @@
 # limitations under the License.
 
 # This test should fail
-# Having multiple transaction_setups could be confusing, enforce good "coding style".
 ---
 schema_template:
     create table table_t1(id bigint, col1 bigint, primary key(id))
----
-transaction_setups:
-    t1_less_than_50: create temporary function t1() on commit drop function AS
-                     SELECT * FROM table_t1 where id < 50;
----
-transaction_setups:
-    t1_greater_than_10: create temporary function t2() on commit drop function AS
-                        SELECT * FROM t1 where id > 10;
 ---
 setup:
   connect: 1
@@ -42,6 +33,9 @@ test_block:
     -
       - query: select * from t1 where id > 10;
       - setupReference: t1_less_than_50
-      - setupReference: t1_greater_than_10
       - result: [{id: 30, col1: 40}]
+---
+transaction_setups:
+    t1_less_than_50: create temporary function t1() on commit drop function AS
+                     SELECT * FROM table_t1 where id < 50;
 ...

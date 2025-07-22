@@ -80,12 +80,11 @@ public class TransactionSetupTest {
                 "double-setup-reference-wrong-order",
                 "double-setup-wrong-order",
                 "duplicate-setup-reference-name",
-                "multiple-transaction-setups",
+                "future-reference",
                 "setup-after-results",
                 "setup-before-query",
                 "setup-reference-after-results",
                 "setup-reference-before-query",
-                "transaction-setup-after-tests",
                 "unsupported-setup",
                 "unsupported-setup-reference"
         );
@@ -103,11 +102,13 @@ public class TransactionSetupTest {
         return Stream.of(
                 "double-reference",
                 "double-setup",
+                "multiple-transaction-setups",
                 "reference-and-setup",
                 "setup-and-reference",
                 "single-setup",
                 "single-setup-reference",
-                "transaction-setup-after-setup"
+                "transaction-setup-after-setup",
+                "transaction-setup-after-tests"
         );
     }
 
