@@ -83,6 +83,11 @@ public class RecordStoreAndRecordContextTransaction implements Transaction {
     }
 
     @Override
+    public void unsetBoundSchemaTemplate() {
+        transaction.unsetBoundSchemaTemplate();
+    }
+
+    @Override
     public void close() throws RelationalException {
         transaction.close();
     }
