@@ -73,7 +73,7 @@ public class ConstraintValidityTests {
 
     @RegisterExtension
     @Order(2)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, RelationalPlanCacheTests.class, TestSchemas.score());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(RelationalPlanCacheTests.class, TestSchemas.score());
 
     @RegisterExtension
     @Order(3)

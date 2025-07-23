@@ -67,8 +67,9 @@ public class JDBCInProcessConfig implements YamlTestConfig {
         return new JDBCInProcessYamlConnectionFactory(server);
     }
 
+    @Nonnull
     @Override
-    public @Nonnull YamlExecutionContext.ContextOptions getRunnerOptions() {
+    public YamlExecutionContext.ContextOptions getRunnerOptions() {
         return YamlExecutionContext.ContextOptions.EMPTY_OPTIONS;
     }
 

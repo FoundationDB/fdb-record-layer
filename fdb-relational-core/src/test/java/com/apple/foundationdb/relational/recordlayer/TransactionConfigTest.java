@@ -44,7 +44,7 @@ public class TransactionConfigTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relational, TransactionConfigTest.class, TestSchemas.restaurant());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(TransactionConfigTest.class, TestSchemas.restaurant());
 
     @Disabled // TODO (Bug: sporadic failure in `testRecordInsertionWithTimeOutInConfig`)
     void testRecordInsertionWithTimeOutInConfig() throws RelationalException, SQLException {

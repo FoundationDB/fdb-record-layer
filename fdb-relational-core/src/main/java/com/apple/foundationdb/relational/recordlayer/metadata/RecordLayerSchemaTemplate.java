@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -216,14 +217,10 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     @Nonnull
     public static RecordLayerSchemaTemplate fromRecordMetadata(@Nonnull final RecordMetaData metaData,
                                                                @Nonnull final String templateName,
-                                                               int version) {
-        final var deserializer = new RecordMetadataDeserializer(metaData);
+                                                               int version,
+                                                               @Nonnull final Options options) {
+        final var deserializer = new RecordMetadataDeserializer(metaData, options);
         return deserializer.getSchemaTemplate(templateName, version);
-    }
-
-    @Nonnull
-    public static RecordLayerSchemaTemplate fromRecordMetadataWithFakeTemplateNameAndVersion(@Nonnull RecordMetaData metaData) {
-        return fromRecordMetadata(metaData, "fakeTemplateName", 1);
     }
 
     /**

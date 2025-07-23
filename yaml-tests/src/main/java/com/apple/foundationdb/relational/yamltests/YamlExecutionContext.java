@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
@@ -84,6 +85,8 @@ public final class YamlExecutionContext {
     private final List<String> connectionURIs = new ArrayList<>();
     // Additional options that can be set by the runners to impact test execution
     private final ContextOptions additionalOptions;
+    @Nonnull
+    private final Options connectionOptions;
 
     public static class YamlExecutionError extends RuntimeException {
 
@@ -94,13 +97,14 @@ public final class YamlExecutionContext {
         }
     }
 
-    YamlExecutionContext(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory,
-                         @Nonnull final ContextOptions additionalOptions) throws RelationalException {
+    private YamlExecutionContext(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory,
+                                 @Nonnull final ContextOptions additionalOptions, @Nonnull final Options connectionOptions) throws RelationalException {
         this.connectionFactory = factory;
         this.resourcePath = resourcePath;
         this.editedFileStream = additionalOptions.getOrDefault(OPTION_CORRECT_EXPLAIN, false)
                                 ? loadYamlResource(resourcePath) : null;
         this.additionalOptions = additionalOptions;
+        this.connectionOptions = connectionOptions;
         this.expectedMetricsMap = loadMetricsResource(resourcePath);
         this.actualMetricsMap = new TreeMap<>(Comparator.comparing(QueryAndLocation::getLineNumber)
                 .thenComparing(QueryAndLocation::getBlockName)
@@ -118,8 +122,13 @@ public final class YamlExecutionContext {
     }
 
     @Nonnull
+    public Options getConnectionOptions() {
+        return connectionOptions;
+    }
+
+    @Nonnull
     public YamlConnectionFactory getConnectionFactory() {
-        return connectionFactory;
+        return YamlConnectionFactoryWithOptions.newInstance(connectionFactory, connectionOptions);
     }
 
     public boolean shouldCorrectExplains() {
@@ -275,6 +284,32 @@ public final class YamlExecutionContext {
      */
     @Nonnull
     public RuntimeException wrapContext(@Nonnull Throwable throwable, @Nonnull Supplier<String> msg, @Nonnull String identifier, int lineNumber) {
+        return wrapContext(resourcePath, throwable, msg, identifier, lineNumber);
+    }
+
+    /**
+     * Wraps exceptions/errors with more context. This is used to hierarchically add more context to an exception. In case
+     * the {@link Throwable} is a {@link YamlExecutionError}, this method adds additional context to its StackTrace in
+     * the form of a new {@link StackTraceElement}, else it just wraps the throwable.
+     * <br>
+     * The general flow of execution of a test in any file is: file to test_block to test_run to query_config. If an
+     * exception/failure occurs in testing for a particular query_config, the following is the context that can be added
+     * incrementally at appropriate places in code:
+     * <br>
+     * query_config: lineNumber of the expected result
+     * test_run: lineNumber of query, query run as a simple statement or as prepared statement, parameters (if any)
+     * test_block: lineNumber of test_block, seed used for randomization, execution properties
+     *
+     * @param throwable the throwable that needs to be wrapped
+     * @param msg additional context
+     * @param identifier The name of the element type to which the context is associated to.
+     * @param lineNumber the line number in the YAMSQL file to which the context is associated to.
+     *
+     * @return wrapped {@link YamlExecutionError}
+     */
+    @Nonnull
+    public static RuntimeException wrapContext(@Nonnull final String resourcePath, @Nonnull Throwable throwable,
+                                        @Nonnull Supplier<String> msg, @Nonnull String identifier, int lineNumber) {
         String fileName;
         if (resourcePath.contains("/")) {
             final String[] split = resourcePath.split("/");
@@ -452,6 +487,13 @@ public final class YamlExecutionContext {
         return tokens[0];
     }
 
+    @Nonnull
+    public static Builder newBuilder(@Nonnull final String resourcePath,
+                                     @Nonnull final YamlConnectionFactory connectionFactory,
+                                     @Nonnull final ContextOptions additionalOptions) {
+        return new Builder(resourcePath, connectionFactory, additionalOptions);
+    }
+
     private static class QueryAndLocation {
         @Nonnull
         private final String blockName;
@@ -554,6 +596,77 @@ public final class YamlExecutionContext {
         @Override
         public String toString() {
             return name;
+        }
+    }
+
+    public static class Builder {
+        @Nonnull
+        private String resourcePath;
+
+        @Nonnull
+        private YamlConnectionFactory connectionFactory;
+
+        @Nonnull
+        private ContextOptions additionalOptions;
+
+        @Nonnull
+        private Options connectionOptions;
+
+        private Builder(@Nonnull final String resourcePath,
+                        @Nonnull final YamlConnectionFactory connectionFactory,
+                        @Nonnull final ContextOptions additionalOptions) {
+            this.resourcePath = resourcePath;
+            this.connectionFactory = connectionFactory;
+            this.additionalOptions = additionalOptions;
+            connectionOptions = Options.none();
+        }
+
+        @Nonnull
+        public Builder setResourcePath(@Nonnull final String resourcePath) {
+            this.resourcePath = resourcePath;
+            return this;
+        }
+
+        @Nonnull
+        public String getResourcePath() {
+            return resourcePath;
+        }
+
+        @Nonnull
+        public Builder setConnectionFactory(@Nonnull final YamlConnectionFactory connectionFactory) {
+            this.connectionFactory = connectionFactory;
+            return this;
+        }
+
+        @Nonnull
+        public Builder setAdditionalOptions(@Nonnull final ContextOptions contextOptions) {
+            this.additionalOptions = additionalOptions;
+            return this;
+        }
+
+        @Nonnull
+        public YamlConnectionFactory getConnectionFactory() {
+            return connectionFactory;
+        }
+
+        @Nonnull
+        public ContextOptions getAdditionalOptions() {
+            return additionalOptions;
+        }
+
+        @Nonnull
+        public Builder setConnectionOptions(@Nonnull final Options connectionOptions) {
+            this.connectionOptions = connectionOptions;
+            return this;
+        }
+
+        @Nonnull
+        public YamlExecutionContext build() throws RelationalException {
+            Assert.notNull(resourcePath);
+            Assert.notNull(connectionFactory);
+            Assert.notNull(additionalOptions);
+            Assert.notNull(connectionOptions);
+            return new YamlExecutionContext(resourcePath, connectionFactory, additionalOptions, connectionOptions);
         }
     }
 }

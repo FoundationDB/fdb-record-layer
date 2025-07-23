@@ -164,6 +164,10 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
         return SqlFunctionCatalog.newInstance(metadata);
     }
 
+    public boolean isCaseSensitive() {
+        return caseSensitive;
+    }
+
     @Nonnull
     LogicalOperators getLogicalOperators() {
         return currentPlanFragment.orElseThrow().getLogicalOperators();

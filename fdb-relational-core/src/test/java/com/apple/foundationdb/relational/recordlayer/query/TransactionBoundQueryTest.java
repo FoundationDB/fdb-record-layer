@@ -82,7 +82,7 @@ public class TransactionBoundQueryTest {
     final EmbeddedRelationalExtension embeddedExtension = new EmbeddedRelationalExtension();
     @RegisterExtension
     @Order(1)
-    final SimpleDatabaseRule databaseRule = new SimpleDatabaseRule(embeddedExtension, TransactionBoundQueryTest.class, SCHEMA_TEMPLATE);
+    final SimpleDatabaseRule databaseRule = new SimpleDatabaseRule(TransactionBoundQueryTest.class, SCHEMA_TEMPLATE);
 
     @Nonnull
     private static Options engineOptions() throws SQLException {
@@ -130,9 +130,12 @@ public class TransactionBoundQueryTest {
             var newDriver = new EmbeddedRelationalDriver(new TransactionBoundEmbeddedRelationalEngine(engineOptions()));
             DriverManager.registerDriver(newDriver);
             final var driver = (EmbeddedRelationalDriver) DriverManager.getDriver(databaseRule.getConnectionUri().toString());
+            final var connectionOptions = Options.none();
             try {
-                RelationalConnection transactionBoundConnection = driver.connect(databaseRule.getConnectionUri(),
-                        new RecordStoreAndRecordContextTransaction(newStore, context, RecordLayerSchemaTemplate.fromRecordMetadata(metaData, databaseRule.getSchemaTemplateName(), metaData.getVersion())), Options.NONE);
+                final var schemaTemplate = RecordLayerSchemaTemplate.fromRecordMetadata(metaData, databaseRule.getSchemaTemplateName(),
+                        metaData.getVersion(), connectionOptions);
+                final var transactionBoundConnection = driver.connect(databaseRule.getConnectionUri(),
+                        new RecordStoreAndRecordContextTransaction(newStore, context, schemaTemplate), connectionOptions);
                 transactionBoundConnection.setSchema(databaseRule.getSchemaName());
                 return transactionBoundConnection.unwrap(EmbeddedRelationalConnection.class);
             } finally {

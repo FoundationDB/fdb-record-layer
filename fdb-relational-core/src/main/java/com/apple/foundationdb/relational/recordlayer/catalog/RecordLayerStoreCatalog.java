@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ProtobufDataBuilder;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
@@ -142,24 +143,26 @@ class RecordLayerStoreCatalog implements StoreCatalog {
     }
 
     /**
-     * Call after construction.
-     * @param createTxn Transaction used doing setup of the CATALOG.
-     * @return Returns 'this'.
-     * @throws RelationalException If failed initialization.
+     * Initializes the {@link StoreCatalog} after construction. This method must be called before the catalog can be used.
+     *
+     * @param createTxn the transaction used for catalog setup and initialization
+     * @return {@code this} StoreCatalog instance for method chaining
+     * @throws RelationalException if catalog initialization fails
      */
     StoreCatalog initialize(@Nonnull final Transaction createTxn) throws RelationalException {
-        return initialize(createTxn,
-                new RecordLayerStoreSchemaTemplateCatalog(this.catalogSchema, this.catalogSchemaPath));
+        return initialize(createTxn, new RecordLayerStoreSchemaTemplateCatalog(catalogSchema, catalogSchemaPath));
     }
 
     /**
-     * Call after construction.
-     * Allows passing of an {@link SchemaTemplateCatalog} other than default.
-     * @param createTxn Transaction used doing setup of the CATALOG.
-     * @return Returns 'this'.
-     * @throws RelationalException If failed initialization.
+     * Initializes the {@link StoreCatalog} after construction with a custom schema template catalog.
+     * This method must be called before the catalog can be used.
+     *
+     * @param createTxn the transaction used for catalog setup and initialization
+     * @param schemaTemplateCatalog the custom schema template catalog to use instead of the default
+     * @return this StoreCatalog instance for method chaining
+     * @throws RelationalException if catalog initialization fails
      */
-    StoreCatalog initialize(@Nonnull final Transaction createTxn, SchemaTemplateCatalog schemaTemplateCatalog)
+    StoreCatalog initialize(@Nonnull final Transaction createTxn, @Nonnull final SchemaTemplateCatalog schemaTemplateCatalog)
             throws RelationalException {
         try {
             // Set Catalog store's state cacheability to be true to make frequent opening of store a light operation.
@@ -236,11 +239,11 @@ class RecordLayerStoreCatalog implements StoreCatalog {
     }
 
     @Override
-    public void repairSchema(@Nonnull Transaction txn, @Nonnull String databaseId, @Nonnull String schemaName) throws RelationalException {
+    public void repairSchema(@Nonnull Transaction txn, @Nonnull String databaseId, @Nonnull String schemaName, @Nonnull final Options options) throws RelationalException {
         // a read-modify-write loop, done in 1 transaction
         final RecordLayerSchema schema = loadSchema(txn, URI.create(databaseId), schemaName);
         // load latest schema template
-        final SchemaTemplate template = schemaTemplateCatalog.loadSchemaTemplate(txn, schema.getSchemaTemplate().getName());
+        final SchemaTemplate template = schemaTemplateCatalog.loadSchemaTemplate(txn, schema.getSchemaTemplate().getName(), opt);
         final Schema newSchema = template.generateSchema(databaseId, schemaName);
         saveSchema(txn, newSchema, false);
     }

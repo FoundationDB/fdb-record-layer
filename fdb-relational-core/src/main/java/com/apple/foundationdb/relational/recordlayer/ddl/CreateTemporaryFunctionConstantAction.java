@@ -46,14 +46,18 @@ public class CreateTemporaryFunctionConstantAction implements ConstantAction  {
     @Nonnull
     private final PreparedParams preparedParams;
 
+    private final boolean isCaseSensitive;
+
     public CreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template,
                                                  boolean throwIfExists,
                                                  @Nonnull final RecordLayerInvokedRoutine invokedRoutine,
-                                                 @Nonnull PreparedParams preparedParams) {
+                                                 @Nonnull PreparedParams preparedParams,
+                                                 boolean isCaseSensitive) {
         this.template = template;
         this.throwIfExists = throwIfExists;
         this.invokedRoutine = invokedRoutine;
         this.preparedParams = preparedParams;
+        this.isCaseSensitive = isCaseSensitive;
     }
 
     @Override
@@ -70,7 +74,7 @@ public class CreateTemporaryFunctionConstantAction implements ConstantAction  {
         // this should be simplified once https://github.com/FoundationDB/fdb-record-layer/issues/3394 is fixed.
         final var routineBuilder = invokedRoutine.toBuilder();
         routineBuilder.withCompilableRoutine(() ->
-                RoutineParser.sqlFunctionParser(transactionBoundSchemaTemplate)
+                RoutineParser.sqlFunctionParser(transactionBoundSchemaTemplate, isCaseSensitive)
                         .parseTemporaryFunction(invokedRoutine.getName(), invokedRoutine.getDescription(),
                                 PreparedParams.copyOf(preparedParams)));
         final var schemaTemplateWithTempFunction = transactionBoundSchemaTemplate.toBuilder()

@@ -24,7 +24,10 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.relational.yamltests.block.Block;
+import com.apple.foundationdb.relational.yamltests.block.PreambleBlock;
 import com.apple.foundationdb.relational.yamltests.block.TestBlock;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
@@ -59,42 +62,54 @@ public final class YamlRunner {
     private final String resourcePath;
 
     @Nonnull
-    private final YamlExecutionContext executionContext;
+    private final YamlExecutionContext.Builder executionContextBuilder;
 
     public YamlRunner(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory,
-                      @Nonnull final YamlExecutionContext.ContextOptions additionalOptions) throws RelationalException {
+                      @Nonnull final YamlExecutionContext.ContextOptions additionalOptions) {
         this.resourcePath = resourcePath;
-        this.executionContext = new YamlExecutionContext(resourcePath, factory, additionalOptions);
+        this.executionContextBuilder = YamlExecutionContext.newBuilder(resourcePath, factory, additionalOptions);
     }
 
     public void run() throws Exception {
         try {
-            LoaderOptions loaderOptions = new LoaderOptions();
+            final var loaderOptions = new LoaderOptions();
             loaderOptions.setAllowDuplicateKeys(true);
-            DumperOptions dumperOptions = new DumperOptions();
+            final var dumperOptions = new DumperOptions();
             final var yaml = new Yaml(new CustomYamlConstructor(loaderOptions), new Representer(dumperOptions), new DumperOptions(), loaderOptions, new Resolver());
 
             final var testBlocks = new ArrayList<TestBlock>();
-            int blockNumber = 0;
+            YamlExecutionContext executionContext;
             try (var inputStream = getInputStream(resourcePath)) {
-                for (var doc : yaml.loadAll(inputStream)) {
-                    final var block = Block.parse(doc, blockNumber, executionContext);
-                    logger.debug("⚪️ Executing block at line {} in {}", block.getLineNumber(), resourcePath);
+                final var regions = Streams.stream(yaml.loadAll(inputStream)).collect(ImmutableList.toImmutableList());
+
+                // Step 1/3: process preamble block (if any)
+                Optional<PreambleBlock> preambleBlockMaybe = Optional.empty();
+                if (!regions.isEmpty()) {
+                    preambleBlockMaybe = Block.parsePreambleBlock(regions.get(0), executionContextBuilder);
+                    preambleBlockMaybe.ifPresent(preambleBlock ->
+                            executionContextBuilder.setConnectionOptions(preambleBlock.getBlockOptions().getOptions()));
+                }
+
+                // Step 2/3: build the YAML execution context, potentially with file-specific options set in the preamble block
+                executionContext = executionContextBuilder.build();
+
+                // Step 3/3: carry on with the other blocks
+                for (int i = preambleBlockMaybe.isPresent() ? 1 : 0; i < regions.size(); i++) {
+                    final var block = Block.parse(regions.get(i), i, executionContext);
+                    logger.debug("⚪️ Executing block starting at line {} in {}", block.getLineNumber(), resourcePath);
                     block.execute();
                     if (block instanceof TestBlock) {
                         testBlocks.add((TestBlock)block);
                     }
-                    blockNumber++;
                 }
             }
             for (var block : executionContext.getFinalizeBlocks()) {
                 logger.debug("⚪️ Executing finalizing block for block at line {} in {}", block.getLineNumber(), resourcePath);
                 block.execute();
             }
-
             evaluateTestBlockResults(testBlocks);
-            replaceTestFileIfRequired();
-            replaceMetricsFileIfRequired();
+            replaceTestFileIfRequired(executionContext);
+            replaceMetricsFileIfRequired(executionContext);
         } catch (RelationalException | IOException e) {
             logger.error("‼️ running test file '{}' was not successful", resourcePath, e);
             throw e;
@@ -116,7 +131,7 @@ public final class YamlRunner {
                 logger.info("🟢 TestBlock {}/{} runs successfully", i + 1, testBlocks.size());
             } else {
                 RuntimeException failureInBlock = maybeFailure.get();
-                logger.error("🔴 TestBlock {}/{} (at line {}) fails", i + 1, testBlocks.size(), block.getLineNumber());
+                logger.error("🔴 TestBlock {}/{} (starting at line {}) fails", i + 1, testBlocks.size(), block.getLineNumber());
                 logger.error("--------------------------------------------------------------------------------------------------------------");
                 logger.error("Error:", failureInBlock);
                 logger.error("--------------------------------------------------------------------------------------------------------------");
@@ -140,7 +155,7 @@ public final class YamlRunner {
         return inputStream;
     }
 
-    private void replaceTestFileIfRequired() {
+    private void replaceTestFileIfRequired(final YamlExecutionContext executionContext) {
         if (executionContext.getEditedFileStream() == null || !executionContext.isDirty()) {
             return;
         }
@@ -157,7 +172,7 @@ public final class YamlRunner {
         }
     }
 
-    private void replaceMetricsFileIfRequired() throws RelationalException {
+    private void replaceMetricsFileIfRequired(@Nonnull final YamlExecutionContext executionContext) throws RelationalException {
         if (!executionContext.isDirtyMetrics()) {
             return;
         }

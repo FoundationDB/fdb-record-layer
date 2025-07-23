@@ -26,12 +26,13 @@ import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 
 import javax.annotation.Nonnull;
+import java.util.Optional;
 
 /**
  * Block is a single region in the YAMSQL file that can either be a
- * {@link FileOptions}, {@link SetupBlock} or {@link TestBlock}.
+ * {@link PreambleBlock}, {@link SetupBlock} or {@link TestBlock}.
  * <ul>
- *      <li> {@link FileOptions}: Controls whether a file should be run at all, and other configuration that runs before
+ *      <li> {@link PreambleBlock}: Controls whether a file should be run at all, and other configuration that runs before
  *          creating the connection.</li>
  *      <li> {@link SetupBlock}: It can be either a `setup` block or a `destruct` block. The motive of these block
  *          is to "setup" and "clean" the environment needed to run the `test-block`s. A Setup block consist of a list
@@ -41,17 +42,39 @@ import javax.annotation.Nonnull;
  * </ul>
  */
 public interface Block {
+
+    @Nonnull
+    static Optional<PreambleBlock> parsePreambleBlock(@Nonnull Object region, @Nonnull YamlExecutionContext.Builder executionContextBuilder) {
+        final var blockObject = Matchers.map(region, "block");
+        Assert.thatUnchecked(blockObject.size() == 1,
+                "Illegal Format: A preamble block is expected to be a map of size 1 keys: " + blockObject.keySet());
+        final var entry = Matchers.firstEntry(blockObject, "block key-value");
+        final var linedObject = CustomYamlConstructor.LinedObject.cast(entry.getKey(), () -> "Invalid block key-value pair: " + entry);
+        final var lineNumber = linedObject.getLineNumber();
+        final String blockKey = Matchers.notNull(Matchers.string(linedObject.getObject(), "block key"), "block key");
+        try {
+            if (blockKey.equals(PreambleBlock.OPTIONS)) {
+                return Optional.of(PreambleBlock.parse(lineNumber, entry.getValue(), executionContextBuilder));
+            }
+        } catch (Exception e) {
+            throw YamlExecutionContext.wrapContext(executionContextBuilder.getResourcePath(), e,
+                    () -> "Error parsing block at line " + lineNumber, blockKey, lineNumber);
+        }
+        return Optional.empty();
+    }
+
+
     /**
      * Looks at the block to determine if its one of the valid blocks. If it is a valid one, parses it to that. This
      * method dispatches the execution to the right block which takes care of reading from the block and initializing
      * the correctly configured {@link ConnectedBlock} for execution.
      *
-     * @param document a region in the file
+     * @param region a region in the file
      * @param blockNumber the current block number
      * @param executionContext information needed to carry out the execution
      */
-    static Block parse(@Nonnull Object document, int blockNumber, @Nonnull YamlExecutionContext executionContext) {
-        final var blockObject = Matchers.map(document, "block");
+    static Block parse(@Nonnull Object region, int blockNumber, @Nonnull YamlExecutionContext executionContext) {
+        final var blockObject = Matchers.map(region, "block");
         Assert.thatUnchecked(blockObject.size() == 1,
                 "Illegal Format: A block is expected to be a map of size 1 (block: " + blockNumber + ") keys: " + blockObject.keySet());
         final var entry = Matchers.firstEntry(blockObject, "block key-value");
@@ -66,10 +89,6 @@ public interface Block {
                     return TestBlock.parse(blockNumber, lineNumber, entry.getValue(), executionContext);
                 case SetupBlock.SchemaTemplateBlock.SCHEMA_TEMPLATE_BLOCK:
                     return SetupBlock.SchemaTemplateBlock.parse(lineNumber, entry.getValue(), executionContext);
-                case FileOptions.OPTIONS:
-                    Assert.thatUnchecked(blockNumber == 0,
-                            "File level options must be the first block, but found one at line " + lineNumber);
-                    return FileOptions.parse(lineNumber, entry.getValue(), executionContext);
                 default:
                     throw new RuntimeException("Cannot recognize the type of block");
             }

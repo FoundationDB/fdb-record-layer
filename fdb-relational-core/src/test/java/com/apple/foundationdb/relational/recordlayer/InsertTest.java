@@ -53,7 +53,7 @@ public class InsertTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, InsertTest.class, TestSchemas.restaurant());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(InsertTest.class, TestSchemas.restaurant());
 
     @Test
     void canInsertWithMultipleRecordTypes() throws SQLException {

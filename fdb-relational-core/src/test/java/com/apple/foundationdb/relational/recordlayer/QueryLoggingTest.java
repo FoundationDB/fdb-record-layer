@@ -59,7 +59,7 @@ public class QueryLoggingTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, QueryLoggingTest.class, TestSchemas.restaurantWithCoveringIndex());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(QueryLoggingTest.class, TestSchemas.restaurantWithCoveringIndex());
 
     @RegisterExtension
     @Order(2)

@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.metadata.serde;
 
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ddl.NoOpQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.generated.RelationalParser;
@@ -49,8 +50,12 @@ public interface RoutineParser {
         @Nonnull
         private final RecordLayerSchemaTemplate metaData;
 
-        private DefaultSqlFunctionParser(@Nonnull final RecordLayerSchemaTemplate metaData) {
+        private final boolean isCaseSensitive;
+
+        private DefaultSqlFunctionParser(@Nonnull final RecordLayerSchemaTemplate metaData,
+                                         boolean isCaseSensitive) {
             this.metaData = metaData;
+            this.isCaseSensitive = isCaseSensitive;
         }
 
         @Nonnull
@@ -65,7 +70,7 @@ public interface RoutineParser {
             final var planGenerationContext = new MutablePlanGenerationContext(PreparedParams.empty(),
                     PlanHashable.PlanHashMode.VC0, routineString, routineString, 0);
             final var visitor = new BaseVisitor(planGenerationContext, metaData, new NoOpQueryFactory(),
-                    NoOpMetadataOperationsFactory.INSTANCE, URI.create(""), false);
+                    NoOpMetadataOperationsFactory.INSTANCE, URI.create(""), isCaseSensitive);
             return visitor.visitSqlInvokedFunction(parsed);
         }
 
@@ -84,13 +89,14 @@ public interface RoutineParser {
                     PlanHashable.PlanHashMode.VC0, routineString, routineString, 0);
             planGenerationContext.getLiteralsBuilder().setScope(functionName);
             final var visitor = new BaseVisitor(planGenerationContext, metaData, new NoOpQueryFactory(),
-                    NoOpMetadataOperationsFactory.INSTANCE, URI.create(""), false);
+                    NoOpMetadataOperationsFactory.INSTANCE, URI.create(""), isCaseSensitive);
             return visitor.visitTempSqlInvokedFunction(parsed);
         }
     }
 
     @Nonnull
-    static DefaultSqlFunctionParser sqlFunctionParser(@Nonnull final RecordLayerSchemaTemplate metaData) {
-        return new DefaultSqlFunctionParser(metaData);
+    static DefaultSqlFunctionParser sqlFunctionParser(@Nonnull final RecordLayerSchemaTemplate metaData,
+                                                      final boolean isCaseSensitive) {
+        return new DefaultSqlFunctionParser(metaData, isCaseSensitive);
     }
 }

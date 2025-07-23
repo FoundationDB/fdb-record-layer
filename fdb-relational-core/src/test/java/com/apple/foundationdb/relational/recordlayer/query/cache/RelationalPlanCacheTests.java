@@ -91,7 +91,7 @@ public class RelationalPlanCacheTests {
 
     @RegisterExtension
     @Order(2)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, RelationalPlanCacheTests.class, TestSchemas.books());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(RelationalPlanCacheTests.class, TestSchemas.books());
 
     @RegisterExtension
     @Order(3)

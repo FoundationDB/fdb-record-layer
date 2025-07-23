@@ -62,7 +62,7 @@ public class PlanGenerationStackTest {
 
     @RegisterExtension
     @Order(2)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, PlanGenerationStackTest.class, TestSchemas.restaurant());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(PlanGenerationStackTest.class, TestSchemas.restaurant());
 
     @RegisterExtension
     @Order(3)

@@ -109,7 +109,9 @@ public abstract class Command {
 
     abstract void executeInternal(@Nonnull YamlConnection connection) throws SQLException, RelationalException;
 
-    private static void applyMetadataOperationEmbedded(@Nonnull EmbeddedRelationalConnection connection, @Nonnull RecordLayerConfig rlConfig, @Nonnull ApplyState applyState) throws SQLException, RelationalException {
+    private static void applyMetadataOperationEmbedded(@Nonnull EmbeddedRelationalConnection connection,
+                                                       @Nonnull RecordLayerConfig rlConfig, @Nonnull ApplyState applyState)
+            throws SQLException, RelationalException {
         StoreCatalog backingCatalog = connection.getBackingCatalog();
         RecordLayerMetadataOperationsFactory metadataOperationsFactory = new RecordLayerMetadataOperationsFactory.Builder()
                 .setBaseKeySpace(RelationalKeyspaceProvider.instance().getKeySpace())
@@ -124,7 +126,8 @@ public abstract class Command {
         connection.setAutoCommit(true);
     }
 
-    private static void applyMetadataOperationDirectly(@Nonnull RecordLayerConfig rlConfig, @Nonnull ApplyState applyState) throws RelationalException {
+    private static void applyMetadataOperationDirectly(@Nonnull RecordLayerConfig rlConfig, @Nonnull ApplyState applyState,
+                                                       @Nonnull Options options) throws RelationalException {
         final FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase();
         final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();
         keyspaceProvider.registerDomainIfNotExists("FRL");
@@ -154,13 +157,15 @@ public abstract class Command {
                 // current connection should be __SYS/catalog
                 // save schema template
                 ApplyState applyState = (RecordLayerMetadataOperationsFactory factory, Transaction txn) -> {
-                    factory.getCreateSchemaTemplateConstantAction(CommandUtil.fromProto(value), Options.NONE).execute(txn);
+                    final var options = Options.none();
+                    final var schemaTemplate = CommandUtil.fromProto(value, options);
+                    factory.getCreateSchemaTemplateConstantAction(schemaTemplate, options).execute(txn);
                 };
                 final EmbeddedRelationalConnection embedded = connection.tryGetEmbedded();
                 if (embedded != null) {
                     Command.applyMetadataOperationEmbedded(embedded, RecordLayerConfig.getDefault(), applyState);
                 } else {
-                    Command.applyMetadataOperationDirectly(RecordLayerConfig.getDefault(), applyState);
+                    Command.applyMetadataOperationDirectly(RecordLayerConfig.getDefault(), applyState, executionContext.getConnectionOptions());
                 }
             }
         };
@@ -185,7 +190,7 @@ public abstract class Command {
                 if (embedded != null) {
                     Command.applyMetadataOperationEmbedded(embedded, rlConfig, applyState);
                 } else {
-                    Command.applyMetadataOperationDirectly(rlConfig, applyState);
+                    Command.applyMetadataOperationDirectly(rlConfig, applyState, executionContext.getConnectionOptions());
                 }
             }
         };

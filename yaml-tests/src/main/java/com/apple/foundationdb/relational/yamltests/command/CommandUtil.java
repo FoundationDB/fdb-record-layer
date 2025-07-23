@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.yamltests.command;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.yamltests.generated.schemainstance.SchemaInstanceOuterClass;
@@ -63,7 +64,7 @@ public class CommandUtil {
      * @param loadCommandString input format is: "load: schema template ${SCHEMA_TEMPLATE_NAME} from ${PROTO_CLASS_NAME}"
      * @return a SchemaTemplate object
      */
-    public static SchemaTemplate fromProto(String loadCommandString) {
+    public static SchemaTemplate fromProto(String loadCommandString, Options options) {
         RecordMetaData metaData;
         Pair<String, String> templateNameAndSourceName = parseLoadTemplateString(loadCommandString);
         if (templateNameAndSourceName.getRight().endsWith(".json")) {
@@ -79,7 +80,7 @@ public class CommandUtil {
                 throw new RuntimeException(e);
             }
         }
-        return RecordLayerSchemaTemplate.fromRecordMetadata(metaData, templateNameAndSourceName.getLeft(), 1);
+        return RecordLayerSchemaTemplate.fromRecordMetadata(metaData, templateNameAndSourceName.getLeft(), 1, options);
     }
 
     public static SchemaInstanceOuterClass.SchemaInstance fromJson(String loadCommandString) {

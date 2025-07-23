@@ -358,7 +358,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 ctx.tempSqlInvokedFunction().routineBody(), getDelegate().getSchemaTemplate());
         var throwIfExists = ctx.REPLACE() == null;
         return ProceduralPlan.of(metadataOperationsFactory.getCreateTemporaryFunctionConstantAction(getDelegate().getSchemaTemplate(),
-                throwIfExists, invokedRoutine, PreparedParams.copyOf(getDelegate().getPlanGenerationContext().getPreparedParams())));
+                throwIfExists, invokedRoutine, PreparedParams.copyOf(getDelegate().getPlanGenerationContext().getPreparedParams()),
+                getDelegate().isCaseSensitive()));
     }
 
     @Override

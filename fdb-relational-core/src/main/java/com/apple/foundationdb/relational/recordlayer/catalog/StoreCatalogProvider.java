@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer.catalog;
 import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.NoOpSchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
@@ -42,10 +43,16 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public class StoreCatalogProvider {
+
     /**
-     * Get {@link StoreCatalog} instance.
+     * Creates and initializes a new {@link StoreCatalog} instance.
+     *
+     * @param txn the transaction used for catalog initialization
+     * @param keySpace the keyspace in which the catalog will operate
+     * @return a fully initialized {@link StoreCatalog} instance
+     * @throws RelationalException if catalog creation or initialization fails
      */
-    public static StoreCatalog getCatalog(Transaction txn, KeySpace keySpace) throws RelationalException {
+    public static StoreCatalog getCatalog(@Nonnull final Transaction txn, @Nonnull final KeySpace keySpace) throws RelationalException {
         return new RecordLayerStoreCatalog(keySpace).initialize(txn);
     }
 

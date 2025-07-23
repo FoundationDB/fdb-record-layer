@@ -24,8 +24,10 @@ import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.query.plan.cascades.MacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
@@ -57,8 +59,13 @@ public class RecordMetadataDeserializer {
     @Nonnull
     private final RecordLayerSchemaTemplate.Builder builder;
 
-    public RecordMetadataDeserializer(@Nonnull final RecordMetaData recordMetaData) {
+    @Nonnull
+    private final Options options;
+
+    public RecordMetadataDeserializer(@Nonnull final RecordMetaData recordMetaData,
+                                      @Nonnull final Options options) {
         this.recordMetaData = recordMetaData;
+        this.options = options;
         builder = deserializeRecordMetaData();
     }
 
@@ -153,7 +160,7 @@ public class RecordMetadataDeserializer {
     protected Supplier<CompiledSqlFunction> getSqlFunctionCompiler(@Nonnull final String name,
                                                                    @Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
                                                                    @Nonnull final String functionBody) {
-        return () -> RoutineParser.sqlFunctionParser(metadata.get()).parse(functionBody);
+        return () -> RoutineParser.sqlFunctionParser(metadata.get(), options.getOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS)).parse(functionBody);
     }
 
     @Nonnull
