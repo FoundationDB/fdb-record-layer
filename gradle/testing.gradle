@@ -212,7 +212,7 @@ def configureTestTask = { propertyPrefix, task ->
 }
 
 ext.skippedStackTraceEntries = Pattern.compile(/(?s)/ +
-                                               /\s+at java\.base\/jdk\.internal\.reflect\.NativeMethodAccessorImpl\.invoke0\(Native Method\)/ +
+                                               /(?<indent>\s+)at java\.base\/jdk\.internal\.reflect\.NativeMethodAccessorImpl\.invoke0\(Native Method\)/ +
                                                /\s+at java\.base\/jdk\.internal\.reflect\.NativeMethodAccessorImpl\.invoke\(NativeMethodAccessorImpl\.java:\d+\)/ +
                                                /\s+at java\.base\/jdk\.internal\.reflect\.DelegatingMethodAccessorImpl\.invoke\(DelegatingMethodAccessorImpl\.java:\d+\)/ +
                                                /\s+at java\.base\/java\.lang\.reflect\.Method\.invoke\(Method\.java:\d+\)/ +
@@ -221,7 +221,7 @@ ext.skippedStackTraceEntries = Pattern.compile(/(?s)/ +
 
 
 def betterException(String exception) {
-    return skippedStackTraceEntries.matcher(exception).replaceAll("\n...")
+    return skippedStackTraceEntries.matcher(exception).replaceAll("\n\${indent}... junit stack ...")
 }
 
 tasks.withType(Test) { theTask ->
