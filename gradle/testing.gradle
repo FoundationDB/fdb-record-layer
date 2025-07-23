@@ -1,4 +1,5 @@
 import java.util.regex.Matcher
+import java.util.regex.Pattern
 
 /*
  * testing.gradle
@@ -210,6 +211,19 @@ def configureTestTask = { propertyPrefix, task ->
     }
 }
 
+ext.skippedStackTraceEntries = Pattern.compile(/(?s)/ +
+                                               /\s+at java\.base\/jdk\.internal\.reflect\.NativeMethodAccessorImpl\.invoke0\(Native Method\)/ +
+                                               /\s+at java\.base\/jdk\.internal\.reflect\.NativeMethodAccessorImpl\.invoke\(NativeMethodAccessorImpl\.java:\d+\)/ +
+                                               /\s+at java\.base\/jdk\.internal\.reflect\.DelegatingMethodAccessorImpl\.invoke\(DelegatingMethodAccessorImpl\.java:\d+\)/ +
+                                               /\s+at java\.base\/java\.lang\.reflect\.Method\.invoke\(Method\.java:\d+\)/ +
+                                               /\s+at org\.junit\.platform\.commons\.util\.ReflectionUtils\.invokeMethod\(ReflectionUtils\.java:\d+\).*?/ +
+                                               /(?=\s+Suppressed:|\s+Caused by:|$)/)
+
+
+def betterException(String exception) {
+    return skippedStackTraceEntries.matcher(exception).replaceAll("\n...")
+}
+
 tasks.withType(Test) { theTask ->
     configureTestTask('allTest', theTask)
     configureTestTask(theTask.name, theTask)
@@ -247,7 +261,7 @@ tasks.withType(Test) { theTask ->
                 "<details>\n" +
                     "<summary> ❌ ${getFullDisplayName(descriptor)}</summary>\n" +
                     "(${duration}ms)\n\n" + // blank line is required for ``` to work
-                    "```\n${result.getException().asString()}\n```\n" +
+                    "```\n${betterException(result.getException().asString())}\n```\n" +
                 "</details>\n")
         }
     }
