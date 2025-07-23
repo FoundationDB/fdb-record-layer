@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.util.HashUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -228,18 +227,6 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
                 return PlanHashable.objectsPlanHash(mode, BASE_HASH, value);
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
-        }
-    }
-
-    @Override
-    public int queryHash(@Nonnull final QueryHashKind hashKind) {
-        switch (hashKind) {
-            case STRUCTURAL_WITH_LITERALS:
-                return HashUtils.queryHash(hashKind, BASE_HASH, value);
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return HashUtils.queryHash(hashKind, BASE_HASH);
-            default:
-                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }
     }
 
