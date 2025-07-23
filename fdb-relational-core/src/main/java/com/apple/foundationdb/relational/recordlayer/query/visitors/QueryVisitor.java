@@ -538,11 +538,11 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     public QueryPlan.LogicalQueryPlan visitFullDescribeStatement(@Nonnull RelationalParser.FullDescribeStatementContext ctx) {
         getDelegate().getPlanGenerationContext().setForExplain(ctx.EXPLAIN() != null);
         if (!ctx.describeObjectClause().getTokens(RelationalLexer.VERBOSE).isEmpty()) {
-            getDelegate().getPlanGenerationContext().setExplainLevel(ExplainLevel.convert(ExplainLevel.VERBOSE));
+            getDelegate().getPlanGenerationContext().setExplainLevel(ExplainLevel.ALL_DETAILS);
         } else if (!ctx.describeObjectClause().getTokens(RelationalLexer.MINIMAL).isEmpty()) {
-            getDelegate().getPlanGenerationContext().setExplainLevel(ExplainLevel.convert(ExplainLevel.MINIMAL));
+            getDelegate().getPlanGenerationContext().setExplainLevel(ExplainLevel.STRUCTURE);
         } else {
-            getDelegate().getPlanGenerationContext().setExplainLevel(ExplainLevel.convert(ExplainLevel.DEFAULT));
+            getDelegate().getPlanGenerationContext().setExplainLevel(ExplainLevel.SOME_DETAILS);
         }
         final var logicalOperator = Assert.castUnchecked(ctx.describeObjectClause().accept(this), LogicalOperator.class);
         return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(), getDelegate().getPlanGenerationContext(), "TODO");

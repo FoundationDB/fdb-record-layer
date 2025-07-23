@@ -20,41 +20,25 @@
 
 package com.apple.foundationdb.record.query.plan.explain;
 
-import java.util.Objects;
-
 /**
  * Explain level. Adjusts the granularity of explain output.
  */
-public enum ExplainLevel {
-    VERBOSE(0),
-    DEFAULT(1),
-    MINIMAL(2);
-
+public final class ExplainLevel {
     /**
      * Everything we can render is rendered.
      */
-    public static final int ALL_DETAILS = VERBOSE.ordinal();
+    public static final int ALL_DETAILS = 0;
     /**
      * Nice to have details are rendered, other details not absolutely needed for the understanding of the plan
      * are omitted.
      */
-    public static final int SOME_DETAILS = DEFAULT.ordinal();
+    public static final int SOME_DETAILS = 1;
     /**
      * Only the structure of the plan, i.e. the plan operators and their relationship is rendered.
      */
-    public static final int STRUCTURE = MINIMAL.ordinal();
+    public static final int STRUCTURE = 2;
 
-    private final int details;
-
-    ExplainLevel(int details) {
-        this.details = details;
-    }
-
-    public int getDetails() {
-        return details;
-    }
-
-    public static int convert(final ExplainLevel explainLevel) {
-        return Objects.requireNonNullElse(explainLevel, DEFAULT).ordinal();
+    private ExplainLevel() {
+        // nothing
     }
 }

@@ -1348,6 +1348,8 @@ fragment INT_TYPE_MODIFIER:          ('I' | 'i');
 fragment LONG_TYPE_MODIFIER:         ('L' | 'l');
 fragment DECIMAL_TYPE_MODIFIER:      (INT_TYPE_MODIFIER | LONG_TYPE_MODIFIER);
 
+
+
 // Last tokens must generate Errors
 
 ERROR_RECOGNITION

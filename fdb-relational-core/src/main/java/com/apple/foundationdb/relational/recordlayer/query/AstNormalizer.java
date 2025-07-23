@@ -248,11 +248,11 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     @Override
     public Void visitDescribeStatements(@Nonnull RelationalParser.DescribeStatementsContext ctx) {
         if (ctx.VERBOSE() != null) {
-            queryHasherContextBuilder.setExplainLevel(ExplainLevel.convert(ExplainLevel.VERBOSE));
+            queryHasherContextBuilder.setExplainLevel(ExplainLevel.ALL_DETAILS);
         } else if (ctx.MINIMAL() != null) {
-            queryHasherContextBuilder.setExplainLevel(ExplainLevel.convert(ExplainLevel.MINIMAL));
+            queryHasherContextBuilder.setExplainLevel(ExplainLevel.STRUCTURE);
         } else {
-            queryHasherContextBuilder.setExplainLevel(ExplainLevel.convert(ExplainLevel.DEFAULT));
+            queryHasherContextBuilder.setExplainLevel(ExplainLevel.SOME_DETAILS);
         }
         return visitChildren(ctx);
     }

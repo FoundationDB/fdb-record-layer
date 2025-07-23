@@ -262,7 +262,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         constantObjectValues = new LinkedList<>();
         shouldProcessLiteral = true;
         forExplain = false;
-        this.explainLevel = ExplainLevel.convert(ExplainLevel.DEFAULT);
+        this.explainLevel = ExplainLevel.SOME_DETAILS;
         setContinuation(null);
         equalityConstraints = ImmutableList.builder();
     }
