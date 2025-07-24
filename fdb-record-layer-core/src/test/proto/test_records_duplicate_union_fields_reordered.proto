@@ -24,7 +24,7 @@ package com.apple.foundationdb.record.test.duplicateunionfields.reordered;
 option java_package = "com.apple.foundationdb.record";
 option java_outer_classname = "TestRecordsDuplicateUnionFieldsReordered";
 
-import "record_metadata_options.proto";
+//import "record_metadata_options.proto";
 import "test_records_1.proto";
 
 message RecordTypeUnion {

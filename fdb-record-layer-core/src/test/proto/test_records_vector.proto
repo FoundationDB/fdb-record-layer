@@ -1,9 +1,9 @@
 /*
- * test_header_as_group.proto
+ * test_records_multidimensional.proto
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2023 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,24 +19,20 @@
  */
 syntax = "proto2";
 
-package com.apple.foundationdb.record.evolution.headergroup;
+package com.apple.foundationdb.record.test.vector;
 
-option java_package = "com.apple.foundationdb.record.evolution";
-option java_outer_classname = "TestHeaderAsGroupProto";
+option java_package = "com.apple.foundationdb.record.vector";
+option java_outer_classname = "TestRecordsVectorsProto";
 
-//import "record_metadata_options.proto";
+import "record_metadata_options.proto";
 
-// This is taken from test_records_with_header.proto but the header has become a group
-message MyRecord {
-    required group Header = 1 {
-        required int64 rec_no = 1;
-        required string path = 2;
-        optional int32 num = 3;
-    }
-    optional string str_value = 2;
-    repeated int64 repeated_int = 3;
+option (schema).store_record_versions = true;
+
+message NaiveVectorRecord {
+  optional int64 rec_no = 1 [(field).primary_key = true];
+  repeated double vector_data = 2;
 }
 
 message RecordTypeUnion {
-    optional MyRecord _MyRecord = 1;
+  optional NaiveVectorRecord _NaiveVectorRecord = 1;
 }

@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.metadata;
 
 option java_outer_classname = "ExpressionTestsProto";
 
-import "record_metadata_options.proto";
+//import "record_metadata_options.proto";
 import "tuple_fields.proto";
 
 message TestScalarFieldAccess {

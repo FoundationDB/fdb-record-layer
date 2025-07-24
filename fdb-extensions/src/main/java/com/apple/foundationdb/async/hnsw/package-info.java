@@ -1,9 +1,9 @@
 /*
- * test_records_duplicate_union_fields.proto
+ * package-info.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,18 +17,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-syntax = "proto2";
 
-package com.apple.foundationdb.record.test.duplicateunionfields;
-
-option java_package = "com.apple.foundationdb.record";
-option java_outer_classname = "TestRecordsDuplicateUnionFields";
-
-//import "record_metadata_options.proto";
-import "test_records_1.proto";
-
-message RecordTypeUnion {
-    optional test1.MySimpleRecord _MySimpleRecord_old = 1;
-    optional test1.MyOtherRecord _MyOtherRecord = 2;
-    optional test1.MySimpleRecord _MySimpleRecord_new = 3;
-}
+/**
+ * Classes and interfaces related to the Hilbert R-tree implementation.
+ */
+package com.apple.foundationdb.async.hnsw;
