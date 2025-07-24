@@ -57,6 +57,7 @@ import com.apple.test.Tags;
 import com.apple.test.TestConfigurationUtils;
 import org.apache.lucene.store.Lock;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -900,7 +901,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 RecordCursor.fromList(dataModel.recordsUnderTest())
                         .mapPipelined(record -> record.updateOtherValue(recordStore), 10)
                         .asList().join(),
-                (inserted, actual) -> assertEquals(inserted, actual));
+                Assertions::assertEquals);
     }
 
     /**
@@ -944,7 +945,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
     }
 
     private static Stream<Arguments> concurrentMixParameters() {
-        return Stream.of(true, false).map(isSynthetic -> Arguments.of(isSynthetic));
+        return Stream.of(true, false).map(Arguments::of);
     }
 
     /**
@@ -976,7 +977,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                                 }, 10)
                                 .asList().join(),
                 // Note: this assertion only works because we are inserting an even multiple of 3 to begin with
-                (inserted, actual) -> assertEquals(inserted, actual));
+                Assertions::assertEquals);
     }
 
     private void concurrentTestWithinTransaction(boolean isSynthetic,
@@ -988,7 +989,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         // Synchronization blocks in FDBDirectoryWrapper can cause a deadlock
         // see https://github.com/FoundationDB/fdb-record-layer/issues/2989
         // So set the pool small to make sure we cover that
-        this.dbExtension.getDatabaseFactory().setExecutor(new ForkJoinPool(3,
+        this.dbExtension.getDatabaseFactory().setExecutor(new ForkJoinPool(1,
                 pool -> {
                     final ForkJoinWorkerThread thread = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
                     thread.setName("ConcurrentUpdatePool-" + threadCounter.getAndIncrement());
@@ -1009,7 +1010,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 .build();
 
         final int repartitionCount = 10;
-        final int loopCount = 30;
+        final int loopCount = 50;
 
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, repartitionCount)
@@ -1051,7 +1052,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         System.out.println(initial);
         System.out.println("=== updated ===");
         System.out.println(dataModel.groupingKeyToPrimaryKeyToPartitionKey);
-        assertDataModelCount.accept(300,
+        assertDataModelCount.accept(500,
                 dataModel.groupingKeyToPrimaryKeyToPartitionKey.values().stream().mapToInt(Map::size).sum());
 
         dataModel.validate(() -> openContext(contextProps));
