@@ -35,7 +35,7 @@ test_block:
   name: transactions-tests
   tests:
     -
-      - setupReference: t1_less_than_50
-      - result: [{id: 30, col1: 40}]
       - query: select * from t1 where id > 10;
+      - result: [{id: 30, col1: 40}]
+      - setupReference: t1_less_than_50
 ...
