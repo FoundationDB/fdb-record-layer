@@ -73,8 +73,8 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     private final LuceneAnalyzerWrapper analyzerWrapper;
     private volatile boolean useWriter = false;
     private final LazyCloseable<IndexWriter> writer;
-    @SuppressWarnings({"squid:S3077"}) // object is thread safe, so use of volatile to control instance creation is correct
-    private volatile DirectoryReader writerReader;
+    private final LazyCloseable<DirectoryReader> writerReader;
+
 
     FDBDirectoryWrapper(IndexMaintainerState state, Tuple key, int mergeDirectoryCount,
                         final AgilityContext agilityContext, final int blockCacheMaximumSize,
@@ -87,6 +87,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         this.analyzerWrapper = analyzerWrapper;
         Exception exceptionAtCreation = FDBTieredMergePolicy.usesCreationStack() ? new Exception() : null;
         writer = LazyCloseable.supply(() -> createIndexWriter(exceptionAtCreation));
+        writerReader = LazyCloseable.supply(() -> DirectoryReader.open(writer.get()));
     }
 
     @VisibleForTesting
@@ -100,6 +101,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         this.analyzerWrapper = analyzerWrapper;
         Exception exceptionAtCreation = FDBTieredMergePolicy.usesCreationStack() ? new Exception() : null;
         writer = LazyCloseable.supply(() -> createIndexWriter(exceptionAtCreation));
+        writerReader = LazyCloseable.supply(() -> DirectoryReader.open(writer.get()));
     }
 
     @Nonnull
@@ -159,7 +161,7 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     @SuppressWarnings("PMD.CloseResource")
     public IndexReader getReader() throws IOException {
         if (useWriter) {
-            return getWriterReader(true);
+            return DirectoryReader.open(writer.get());
         } else {
             return StandardDirectoryReaderOptimization.open(directory, null, null,
                     state.context.getExecutor(),
@@ -168,15 +170,8 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     }
 
     @SuppressWarnings("PMD.CloseResource")
-    public DirectoryReader getWriterReader(boolean flush) throws IOException {
-        if (flush || writerReader == null) {
-            synchronized (this) {
-                if (flush || writerReader == null) {
-                    writerReader = DirectoryReader.open(writer.get());
-                }
-            }
-        }
-        return writerReader;
+    public DirectoryReader getWriterReader() throws IOException {
+        return writerReader.get();
     }
 
     private static class FDBDirectorySerialMergeScheduler extends MergeScheduler {
@@ -330,7 +325,6 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     @SuppressWarnings("PMD.CloseResource")
     public synchronized void close() throws IOException {
         IOUtils.close(writer, writerReader, directory);
-        writerReader = null;
     }
 
     public void mergeIndex() throws IOException {

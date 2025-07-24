@@ -986,10 +986,10 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         // Once the two issues noted below are fixed, we should make this parameterized, and run with additional random
         // configurations.
         AtomicInteger threadCounter = new AtomicInteger();
-        // Synchronization blocks in FDBDirectoryWrapper can cause a deadlock
+        // Synchronization blocks in FDBDirectoryWrapper used to cause thread starvation
         // see https://github.com/FoundationDB/fdb-record-layer/issues/2989
         // So set the pool small to make sure we cover that
-        this.dbExtension.getDatabaseFactory().setExecutor(new ForkJoinPool(1,
+        this.dbExtension.getDatabaseFactory().setExecutor(new ForkJoinPool(3,
                 pool -> {
                     final ForkJoinWorkerThread thread = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
                     thread.setName("ConcurrentUpdatePool-" + threadCounter.getAndIncrement());
