@@ -67,4 +67,7 @@ public interface Node<N extends Neighbor> {
 
     @Nonnull
     IntermediateNode asIntermediateNode();
+
+    @Nonnull
+    NodeWithLayer<N> withLayer(int layer);
 }

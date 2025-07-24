@@ -51,6 +51,12 @@ class IntermediateNode extends AbstractNode<NeighborWithVector> {
 
     @Nonnull
     @Override
+    public NodeWithLayer<NeighborWithVector> withLayer(final int layer) {
+        return new NodeWithLayer<>(layer, this);
+    }
+
+    @Nonnull
+    @Override
     public NodeKind getKind() {
         return NodeKind.INTERMEDIATE;
     }

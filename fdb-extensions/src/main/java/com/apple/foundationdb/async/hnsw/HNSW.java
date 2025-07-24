@@ -526,70 +526,77 @@ public class HNSW {
                                                                       @Nullable final Tuple lastKey,
                                                                       @Nonnull final Predicate<Rectangle> mbrPredicate,
                                                                       @Nonnull final BiPredicate<Tuple, Tuple> suffixPredicate) {
-        final AtomicReference<byte[]> currentId = new AtomicReference<>(nodeId);
-        final List<Deque<ChildSlot>> toBeProcessed = Lists.newArrayList();
-        final AtomicReference<DataNode> leafNode = new AtomicReference<>(null);
-        return AsyncUtil.whileTrue(() -> onReadListener.onAsyncRead(storageAdapter.fetchNode(readTransaction, currentId.get()))
-                .thenApply(node -> {
-                    if (node == null) {
-                        if (Arrays.equals(currentId.get(), rootId)) {
-                            Verify.verify(leafNode.get() == null);
-                            return false;
-                        }
-                        throw new IllegalStateException("unable to fetch node for scan");
-                    }
-                    if (node.getKind() == NodeKind.INTERMEDIATE) {
-                        final Iterable<ChildSlot> childSlots = ((IntermediateNode)node).getSlots();
-                        Deque<ChildSlot> toBeProcessedThisLevel = new ArrayDeque<>();
-                        for (final Iterator<ChildSlot> iterator = childSlots.iterator(); iterator.hasNext(); ) {
-                            final ChildSlot childSlot = iterator.next();
-                            if (lastHilbertValue != null &&
-                                    lastKey != null) {
-                                final int hilbertValueAndKeyCompare =
-                                        childSlot.compareLargestHilbertValueAndKey(lastHilbertValue, lastKey);
-                                if (hilbertValueAndKeyCompare < 0) {
-                                    //
-                                    // The (lastHilbertValue, lastKey) pair is larger than the
-                                    // (largestHilbertValue, largestKey) pair of the current child. Advance to the next
-                                    // child.
-                                    //
-                                    continue;
+        final AtomicReference<NodeWithLayer<? extends Neighbor>> currentNodeWithLayer =
+                new AtomicReference<>();
+
+        storageAdapter.fetchEntryNode(readTransaction)
+                .thenApply(nodeWithLayer -> {
+                    currentNodeWithLayer.set(nodeWithLayer);
+
+                    final List<Deque<ChildSlot>> toBeProcessed = Lists.newArrayList();
+                    final AtomicReference<DataNode> leafNode = new AtomicReference<>(null);
+                    return AsyncUtil.whileTrue(() -> onReadListener.onAsyncRead(storageAdapter.fetchNode(readTransaction, currentId.get()))
+                            .thenApply(node -> {
+                                if (node == null) {
+                                    if (Arrays.equals(currentId.get(), rootId)) {
+                                        Verify.verify(leafNode.get() == null);
+                                        return false;
+                                    }
+                                    throw new IllegalStateException("unable to fetch node for scan");
                                 }
-                            }
+                                if (node.getKind() == NodeKind.INTERMEDIATE) {
+                                    final Iterable<ChildSlot> childSlots = ((IntermediateNode)node).getSlots();
+                                    Deque<ChildSlot> toBeProcessedThisLevel = new ArrayDeque<>();
+                                    for (final Iterator<ChildSlot> iterator = childSlots.iterator(); iterator.hasNext(); ) {
+                                        final ChildSlot childSlot = iterator.next();
+                                        if (lastHilbertValue != null &&
+                                                lastKey != null) {
+                                            final int hilbertValueAndKeyCompare =
+                                                    childSlot.compareLargestHilbertValueAndKey(lastHilbertValue, lastKey);
+                                            if (hilbertValueAndKeyCompare < 0) {
+                                                //
+                                                // The (lastHilbertValue, lastKey) pair is larger than the
+                                                // (largestHilbertValue, largestKey) pair of the current child. Advance to the next
+                                                // child.
+                                                //
+                                                continue;
+                                            }
+                                        }
 
-                            if (!mbrPredicate.test(childSlot.getMbr())) {
-                                onReadListener.onChildNodeDiscard(childSlot);
-                                continue;
-                            }
+                                        if (!mbrPredicate.test(childSlot.getMbr())) {
+                                            onReadListener.onChildNodeDiscard(childSlot);
+                                            continue;
+                                        }
 
-                            if (childSlot.suffixPredicateCanBeApplied()) {
-                                if (!suffixPredicate.test(childSlot.getSmallestKeySuffix(),
-                                        childSlot.getLargestKeySuffix())) {
-                                    onReadListener.onChildNodeDiscard(childSlot);
-                                    continue;
+                                        if (childSlot.suffixPredicateCanBeApplied()) {
+                                            if (!suffixPredicate.test(childSlot.getSmallestKeySuffix(),
+                                                    childSlot.getLargestKeySuffix())) {
+                                                onReadListener.onChildNodeDiscard(childSlot);
+                                                continue;
+                                            }
+                                        }
+
+                                        toBeProcessedThisLevel.addLast(childSlot);
+                                        iterator.forEachRemaining(toBeProcessedThisLevel::addLast);
+                                    }
+                                    toBeProcessed.add(toBeProcessedThisLevel);
+
+                                    final ChildSlot nextChildSlot = resolveNextIdForFetch(toBeProcessed, mbrPredicate,
+                                            suffixPredicate, onReadListener);
+                                    if (nextChildSlot == null) {
+                                        return false;
+                                    }
+
+                                    currentId.set(Objects.requireNonNull(nextChildSlot.getChildId()));
+                                    return true;
+                                } else {
+                                    leafNode.set((DataNode)node);
+                                    return false;
                                 }
-                            }
-
-                            toBeProcessedThisLevel.addLast(childSlot);
-                            iterator.forEachRemaining(toBeProcessedThisLevel::addLast);
-                        }
-                        toBeProcessed.add(toBeProcessedThisLevel);
-
-                        final ChildSlot nextChildSlot = resolveNextIdForFetch(toBeProcessed, mbrPredicate,
-                                suffixPredicate, onReadListener);
-                        if (nextChildSlot == null) {
-                            return false;
-                        }
-
-                        currentId.set(Objects.requireNonNull(nextChildSlot.getChildId()));
-                        return true;
-                    } else {
-                        leafNode.set((DataNode)node);
-                        return false;
-                    }
-                }), executor).thenApply(vignore -> leafNode.get() == null
-                                                   ? TraversalState.end()
-                                                   : TraversalState.of(toBeProcessed, leafNode.get()));
+                            }), executor).thenApply(vignore -> leafNode.get() == null
+                                                               ? TraversalState.end()
+                                                               : TraversalState.of(toBeProcessed, leafNode.get()));
+                });
     }
 
     /**
