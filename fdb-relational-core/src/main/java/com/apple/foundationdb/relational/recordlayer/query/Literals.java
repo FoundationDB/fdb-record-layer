@@ -27,7 +27,6 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.TreeMultiset;
@@ -35,6 +34,7 @@ import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -57,11 +57,10 @@ public class Literals {
     private Literals(@Nonnull final List<OrderedLiteral> orderedLiterals) {
         this.orderedLiterals = ImmutableList.copyOf(orderedLiterals);
         this.asMapSupplier = Suppliers.memoize(() ->
-                this.orderedLiterals
-                        .stream()
-                        .filter(orderedLiteral -> orderedLiteral.getLiteralObject() != null)
-                        .collect(ImmutableMap.toImmutableMap(OrderedLiteral::getConstantId,
-                                OrderedLiteral::getLiteralObject)));
+                Collections.unmodifiableMap(
+                        this.orderedLiterals
+                                .stream()
+                                .collect(HashMap::new, (m, v) -> m.put(v.getConstantId(), v.getLiteralObject()), HashMap::putAll)));
     }
 
     @Nonnull

@@ -27,6 +27,9 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -34,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectVa
 import com.apple.foundationdb.record.query.plan.cascades.values.EvaluatesToValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.OfTypeValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalStruct;
@@ -55,6 +59,7 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.DATATYPE_MISMATCH;
@@ -164,8 +169,21 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         }
         final var leftCov = ConstantObjectValue.of(Quantifier.constant(), leftTokenId, type);
         final var rightCov = ConstantObjectValue.of(Quantifier.constant(), rightTokenId, type);
+
+        // Term1: left != null AND right != null AND left = right
+        final var leftIsNotNull = new ValuePredicate(leftCov, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL));
+        final var rightIsNotNull = new ValuePredicate(rightCov, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL));
         final var equalityPredicate = new ValuePredicate(leftCov, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, rightCov));
-        equalityConstraints.add(equalityPredicate);
+        final var notNullComparison = AndPredicate.and(ImmutableList.of(leftIsNotNull, rightIsNotNull, equalityPredicate));
+
+        // Term2: left = null AND right = null
+        final var leftIsNull = new ValuePredicate(leftCov, new Comparisons.NullComparison(Comparisons.Type.IS_NULL));
+        final var rightIsNull = new ValuePredicate(rightCov, new Comparisons.NullComparison(Comparisons.Type.IS_NULL));
+        final var bothAreNullComparison = AndPredicate.and(leftIsNull, rightIsNull);
+
+        // Term1 OR Term2
+        final var constraint = OrPredicate.or(notNullComparison, bothAreNullComparison);
+        equalityConstraints.add(constraint);
     }
 
 
