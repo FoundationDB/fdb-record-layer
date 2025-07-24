@@ -881,8 +881,9 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
     private static Stream<Arguments> concurrentParameters() {
         // only run the individual tests with synthetic during nightly, the mix runs both
         return Stream.concat(Stream.of(false),
-                TestConfigurationUtils.onlyNightly(Stream.of(true)))
-                .map(isSynthetic -> Arguments.of(isSynthetic));
+                TestConfigurationUtils.onlyNightly(
+                        IntStream.range(0, 3).boxed().flatMap(i -> Stream.of(true, false))))
+                .map(Arguments::of);
     }
 
     /**
