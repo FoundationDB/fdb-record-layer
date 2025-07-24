@@ -638,8 +638,8 @@ public class Comparisons {
         SORT(false),
         @API(API.Status.EXPERIMENTAL)
         LIKE,
-        IS_DISTINCT_FROM(true),
-        NOT_DISTINCT_FROM(false);
+        IS_DISTINCT_FROM(false),
+        NOT_DISTINCT_FROM(true);
 
         @Nonnull
         private static final Supplier<BiMap<Type, PComparisonType>> protoEnumBiMapSupplier =
@@ -1337,9 +1337,7 @@ public class Comparisons {
         public Boolean eval(@Nullable FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
             // this is at evaluation time --> always use the context binding
             final Object comparand = getComparand(store, context);
-            if (comparand == null) {
-                return null;
-            } else if (comparand == COMPARISON_SKIPPED_BINDING) {
+            if (comparand == COMPARISON_SKIPPED_BINDING) {
                 return Boolean.TRUE;
             } else {
                 return evalComparison(type, value, comparand);
@@ -1660,9 +1658,7 @@ public class Comparisons {
         public Boolean eval(@Nullable FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object v) {
             // this is at evaluation time --> always use the context binding
             final Object comparand = getComparand(store, context);
-            if (comparand == null) {
-                return null;
-            } else if (comparand == COMPARISON_SKIPPED_BINDING) {
+            if (comparand == COMPARISON_SKIPPED_BINDING) {
                 return Boolean.TRUE;
             } else {
                 return evalComparison(type, v, comparand);

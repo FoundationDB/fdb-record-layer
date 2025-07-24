@@ -184,7 +184,6 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
                                                                               @Nonnull Value leftChild,
                                                                               @Nonnull Value rightChild,
                                                                               @Nonnull final Comparisons.Type comparisonType) {
-/*
         if (leftChild.getResultType().getTypeCode() == Type.TypeCode.NULL && rightChild.getResultType().getTypeCode() == Type.TypeCode.NULL) {
             if (comparisonType == Comparisons.Type.NOT_DISTINCT_FROM) {
                 return Optional.of(ConstantPredicate.TRUE);
@@ -192,10 +191,6 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
                 return Optional.of(ConstantPredicate.FALSE);
             }
         }
-
- */
-
-
 
         // maximumType may return null, but only for non-primitive types which is not possible here
         final var maxtype = Verify.verifyNotNull(Type.maximumType(leftChild.getResultType(), rightChild.getResultType()));
@@ -306,30 +301,11 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
             final Typed arg1 = arguments.get(1);
             final Type res1 = arg1.getResultType();
 
-            /*
-            if ("isDistinctFrom".equals(functionName)) {
-                if (res0.getTypeCode() == Type.TypeCode.NULL && res1.getTypeCode() != Type.TypeCode.NULL) {
-                    return encapsulate("notNull", Comparisons.Type.NOT_NULL, List.of(arg1));
-                } else if (res1.getTypeCode() == Type.TypeCode.NULL && res0.getTypeCode() != Type.TypeCode.NULL) {
-                    return encapsulate("notNull", Comparisons.Type.NOT_NULL, List.of(arg0));
-                }
-            }
-            if ("notDistinctFrom".equals(functionName)) {
-                if (res0.getTypeCode() == Type.TypeCode.NULL && res1.getTypeCode() != Type.TypeCode.NULL) {
-                    return encapsulate("isNull", Comparisons.Type.IS_NULL, List.of(arg1));
-                } else if (res1.getTypeCode() == Type.TypeCode.NULL && res0.getTypeCode() != Type.TypeCode.NULL) {
-                    return encapsulate("isNull", Comparisons.Type.IS_NULL, List.of(arg0));
-                }
-            }
-
-             */
-
             SemanticException.check(res1.isPrimitive() || res1.isEnum() || res1.isUuid(), SemanticException.ErrorCode.COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE);
 
             final BinaryPhysicalOperator physicalOperator =
                     getBinaryOperatorMap().get(new BinaryComparisonSignature(comparisonType, res0.getTypeCode(), res1.getTypeCode()));
 
-            System.out.println("comparisonType:" + comparisonType + " res0:" + res0.getTypeCode() + " res1:" + res1.getTypeCode());
             Verify.verifyNotNull(physicalOperator, "unable to encapsulate comparison operation due to type mismatch(es)");
 
             return new BinaryRelOpValue(functionName,
