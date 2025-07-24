@@ -51,6 +51,12 @@ class DataNode extends AbstractNode<Neighbor> {
 
     @Nonnull
     @Override
+    public NodeWithLayer<Neighbor> withLayer(final int layer) {
+        return new NodeWithLayer<>(layer, this);
+    }
+
+    @Nonnull
+    @Override
     public NodeKind getKind() {
         return NodeKind.DATA;
     }

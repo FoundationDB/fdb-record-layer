@@ -75,19 +75,22 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
     }
 
     @Override
-    public CompletableFuture<Node<? extends Neighbor>> fetchEntryNode(@Nonnull final Transaction transaction) {
+    public CompletableFuture<NodeWithLayer<? extends Neighbor>> fetchEntryNode(@Nonnull final ReadTransaction readTransaction) {
         final byte[] key = getEntryNodeSubspace().pack();
 
-        return transaction.get(key)
+        return readTransaction.get(key)
                 .thenApply(valueBytes -> {
                     if (valueBytes == null) {
                         throw new IllegalStateException("cannot fetch entry point");
                     }
-                    final Node<? extends Neighbor> node = fromTuple(Tuple.fromBytes(valueBytes));
+
+                    final Tuple entryTuple = Tuple.fromBytes(valueBytes);
+                    final int lMax = (int)entryTuple.getLong(0);
+                    final Node<? extends Neighbor> node = nodeFromTuple(entryTuple.getNestedTuple(1));
                     final OnReadListener onReadListener = getOnReadListener();
                     onReadListener.onNodeRead(node);
                     onReadListener.onKeyValueRead(node, key, valueBytes);
-                    return node;
+                    return node.withLayer(lMax);
                 });
     }
 
@@ -141,7 +144,7 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
                     if (valueBytes == null) {
                         return null;
                     }
-                    final Node node = fromTuple(nodeId, Tuple.fromBytes(valueBytes));
+                    final Node node = nodeFromTuple(nodeId, Tuple.fromBytes(valueBytes));
                     final OnReadListener onReadListener = getOnReadListener();
                     onReadListener.onNodeRead(node);
                     onReadListener.onKeyValueRead(node, key, valueBytes);
@@ -150,10 +153,17 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
     }
 
     @Nonnull
-    private Node<? extends Neighbor> fromTuple(@Nonnull final Tuple tuple) {
+    private Node<? extends Neighbor> nodeFromTuple(@Nonnull final Tuple tuple) {
         final NodeKind nodeKind = NodeKind.fromSerializedNodeKind((byte)tuple.getLong(0));
-        final Tuple neighborsTuple = tuple.getNestedTuple(1);
+        final Tuple primaryKey = tuple.getNestedTuple(1);
+        final Tuple vectorTuple = tuple.getNestedTuple(2);
+        final Tuple neighborsTuple = tuple.getNestedTuple(3);
 
+        final Half[] vectorHalfs = new Half[vectorTuple.size()];
+        for (int i = 0; i < vectorTuple.size(); i ++) {
+            vectorHalfs[i] = Half.shortBitsToHalf(shortFromBytes(vectorTuple.getBytes(i)));
+        }
+        final Vector.HalfVector vector = new Vector.HalfVector(vectorHalfs);
         List<NeighborWithVector> neighborsWithVectors = null;
         Half[] neighborVectorHalfs = null;
         List<Neighbor> neighbors = null;
@@ -162,6 +172,13 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
             final Tuple neighborTuple = (Tuple)neighborObject;
             switch (nodeKind) {
                 case DATA:
+                    if (neighbors == null) {
+                        neighbors = Lists.newArrayListWithExpectedSize(neighborsTuple.size());
+                    }
+                    neighbors.add(new Neighbor(neighborTuple));
+                    break;
+
+                case INTERMEDIATE:
                     final Tuple neighborPrimaryKey = neighborTuple.getNestedTuple(0);
                     final Tuple neighborVectorTuple = neighborTuple.getNestedTuple(1);
                     if (neighborsWithVectors == null) {
@@ -175,24 +192,17 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
                     neighborsWithVectors.add(new NeighborWithVector(neighborPrimaryKey, new Vector.HalfVector(neighborVectorHalfs)));
                     break;
 
-                case INTERMEDIATE:
-                    if (neighbors == null) {
-                        neighbors = Lists.newArrayListWithExpectedSize(neighborsTuple.size());
-                    }
-                    neighbors.add(new Neighbor(neighborTuple));
-                    break;
-
                 default:
                     throw new IllegalStateException("unknown node kind");
             }
         }
 
-        Verify.verify((nodeKind == NodeKind.DATA && neighborsWithVectors != null) ||
-                      (nodeKind == NodeKind.INTERMEDIATE && neighbors != null));
+        Verify.verify((nodeKind == NodeKind.DATA && neighbors != null) ||
+                (nodeKind == NodeKind.INTERMEDIATE && neighborsWithVectors != null));
 
         return nodeKind == NodeKind.DATA
-               ? new DataNode(nodeId, itemSlots)
-               : new IntermediateNode(nodeId, childSlots);
+               ? new DataNode(primaryKey, vector, neighbors)
+               : new IntermediateNode(primaryKey, vector, neighborsWithVectors);
     }
 
     @Nonnull

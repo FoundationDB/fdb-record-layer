@@ -82,7 +82,7 @@ interface StorageAdapter {
     @Nonnull
     OnReadListener getOnReadListener();
 
-    CompletableFuture<Node<? extends Neighbor>> fetchEntryNode(@Nonnull Transaction transaction);
+    CompletableFuture<NodeWithLayer<? extends Neighbor>> fetchEntryNode(@Nonnull ReadTransaction readTransaction);
 
     /**
      * Insert a new entry into the node index if configuration indicates we should maintain such an index.
