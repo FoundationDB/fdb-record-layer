@@ -84,6 +84,7 @@ public final class YamlExecutionContext {
     private final List<String> connectionURIs = new ArrayList<>();
     // Additional options that can be set by the runners to impact test execution
     private final ContextOptions additionalOptions;
+    private final Map<String, String> transactionSetups = new HashMap<>();
 
     public static class YamlExecutionError extends RuntimeException {
 
@@ -246,6 +247,20 @@ public final class YamlExecutionContext {
         } else {
             return URI.create(Matchers.string(connectObject));
         }
+    }
+
+    public void registerTransactionSetup(final String name, final String command) {
+        // Note: at the time of writing, this is only called by code that is iterating over a Map from yaml, so it will
+        // not prevent two entries in the yaml file itself
+        Assert.thatUnchecked(!transactionSetups.containsKey(name), ErrorCode.INTERNAL_ERROR,
+                () -> "Transaction setup " + name + " is defined multiple times.");
+        transactionSetups.put(name, command);
+    }
+
+    public String getTransactionSetup(final Object name) {
+        return Matchers.notNull(
+                transactionSetups.get(Matchers.string(name, "setup reference")),
+                "transaction setup " + name + " is not defined");
     }
 
     @Nonnull
