@@ -24,7 +24,7 @@ package com.apple.foundationdb.record.test8;
 option java_package = "com.apple.foundationdb.record";
 option java_outer_classname = "TestRecords8Proto";
 
-import "record_metadata_options.proto";
+//import "record_metadata_options.proto";
 
 message StringRecordId {
   required string rec_id = 1;

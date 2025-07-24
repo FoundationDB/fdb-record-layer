@@ -24,7 +24,7 @@ package com.apple.foundationdb.record.evolution.fieldtypechange;
 option java_package = "com.apple.foundationdb.record.evolution";
 option java_outer_classname = "TestFieldTypeChangeProto";
 
-import "record_metadata_options.proto";
+//import "record_metadata_options.proto";
 import "test_records_1.proto";
 
 // This needs to match the "MySimpleRecord" definition test_records_1.proto

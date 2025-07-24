@@ -24,7 +24,7 @@ package com.apple.foundationdb.record.evolution.swap;
 option java_package = "com.apple.foundationdb.record.evolution";
 option java_outer_classname = "TestSwapUnionFieldsProto";
 
-import "record_metadata_options.proto";
+//import "record_metadata_options.proto";
 import "test_records_1.proto";
 
 message RecordTypeUnion {
