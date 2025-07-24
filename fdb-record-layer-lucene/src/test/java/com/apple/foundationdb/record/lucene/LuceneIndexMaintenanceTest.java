@@ -990,6 +990,7 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
         // Synchronization blocks in FDBDirectoryWrapper used to cause thread starvation
         // see https://github.com/FoundationDB/fdb-record-layer/issues/2989
         // So set the pool small to make sure we cover that
+        // But, the test is still flaky if we set it to 1: https://github.com/FoundationDB/fdb-record-layer/issues/3501
         this.dbExtension.getDatabaseFactory().setExecutor(new ForkJoinPool(3,
                 pool -> {
                     final ForkJoinWorkerThread thread = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
