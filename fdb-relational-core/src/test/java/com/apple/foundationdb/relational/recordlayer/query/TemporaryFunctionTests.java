@@ -266,28 +266,6 @@ public class TemporaryFunctionTests {
     }
 
     @Test
-    void createTemporaryFunctionWithPreparedParametersContainingNulls() throws Exception {
-        final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
-                statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40)");
-            }
-            try (var statement = ddl.getConnection().prepareStatement("select * from t1 where ?something = 42 and ?somethingElse = 43 options (log query)")) {
-                statement.setObject("something", null);
-                statement.setObject("somethingElse", null);
-                statement.execute();
-            }
-            Assertions.assertTrue(logAppender.lastMessageIsCacheMiss());
-            try (var statement = ddl.getConnection().prepareStatement("select * from t1 where ?something = 42 and ?somethingElse = 43 options (log query)")) {
-                statement.setObject("something", null);
-                statement.setObject("somethingElse", null);
-                statement.execute();
-            }
-            Assertions.assertTrue(logAppender.lastMessageIsCacheHit());
-        }
-    }
-
-    @Test
     void createNestedTemporaryFunctionWithPreparedParameters() throws Exception {
         final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {

@@ -968,6 +968,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
     private enum UnaryPhysicalOperator {
         IS_NULL_UI(Comparisons.Type.IS_NULL, Type.TypeCode.UNKNOWN, Objects::isNull),
+        IS_NULL_NT(Comparisons.Type.IS_NULL, Type.TypeCode.NULL, Objects::isNull),
         IS_NULL_II(Comparisons.Type.IS_NULL, Type.TypeCode.INT, Objects::isNull),
         IS_NULL_LI(Comparisons.Type.IS_NULL, Type.TypeCode.LONG, Objects::isNull),
         IS_NULL_FI(Comparisons.Type.IS_NULL, Type.TypeCode.FLOAT, Objects::isNull),
@@ -976,6 +977,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         IS_NULL_BI(Comparisons.Type.IS_NULL, Type.TypeCode.BOOLEAN, Objects::isNull),
 
         IS_NOT_NULL_UI(Comparisons.Type.NOT_NULL, Type.TypeCode.UNKNOWN, Objects::nonNull),
+        IS_NOT_NULL_NT(Comparisons.Type.NOT_NULL, Type.TypeCode.NULL, Objects::nonNull),
         IS_NOT_NULL_II(Comparisons.Type.NOT_NULL, Type.TypeCode.INT, Objects::nonNull),
         IS_NOT_NULL_LI(Comparisons.Type.NOT_NULL, Type.TypeCode.LONG, Objects::nonNull),
         IS_NOT_NULL_FI(Comparisons.Type.NOT_NULL, Type.TypeCode.FLOAT, Objects::nonNull),

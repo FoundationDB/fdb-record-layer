@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -37,7 +36,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectVa
 import com.apple.foundationdb.record.query.plan.cascades.values.EvaluatesToValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.OfTypeValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalStruct;
@@ -59,7 +57,6 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.DATATYPE_MISMATCH;
@@ -169,6 +166,9 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         }
         final var leftCov = ConstantObjectValue.of(Quantifier.constant(), leftTokenId, type);
         final var rightCov = ConstantObjectValue.of(Quantifier.constant(), rightTokenId, type);
+
+        // we can replace the relatively complex predicate below with a much simpler one: (leftCov isNotDistinctFrom rightCov)
+        // once https://github.com/FoundationDB/fdb-record-layer/issues/3504 is in, but this is ok for now.
 
         // Term1: left != null AND right != null AND left = right
         final var leftIsNotNull = new ValuePredicate(leftCov, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL));

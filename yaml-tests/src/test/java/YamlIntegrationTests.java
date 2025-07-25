@@ -295,4 +295,10 @@ public class YamlIntegrationTests {
     public void transactionalCallsTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("transactions-tests.yamsql");
     }
+
+    @TestTemplate
+    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
+    public void literalExtractionTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("null-extraction-tests.yamsql");
+    }
 }

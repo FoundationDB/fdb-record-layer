@@ -1,0 +1,23 @@
+unnamed-3:
+-   query: EXPLAIN select * from B where b3 = 4 and b2 = 'b' and (? is null or b1
+        < 20)
+    explain: ISCAN(I1 [EQUALS promote(@c8 AS LONG), EQUALS @c12])
+    task_count: 327
+    task_total_time_ms: 185
+    transform_count: 76
+    transform_time_ms: 126
+    transform_yield_count: 32
+    insert_time_ms: 3
+    insert_new_count: 35
+    insert_reused_count: 4
+-   query: EXPLAIN select * from B where ? = 42 and ? = 43
+    explain: 'COVERING(I1 <,> -> [B1: KEY[3], B2: KEY[1], B3: KEY[0]]) | FILTER promote(@c8
+        AS INT) EQUALS @c6 AND promote(@c12 AS INT) EQUALS @c6 | FETCH'
+    task_count: 330
+    task_total_time_ms: 183
+    transform_count: 78
+    transform_time_ms: 124
+    transform_yield_count: 31
+    insert_time_ms: 4
+    insert_new_count: 39
+    insert_reused_count: 5
