@@ -91,8 +91,13 @@ public class RecordContextTransaction implements Transaction {
 
     @Override
     public void setBoundSchemaTemplate(@Nonnull final SchemaTemplate schemaTemplate) {
-        context.removeFromSession(SchemaTemplate.class.toString(), SchemaTemplate.class);
+        unsetBoundSchemaTemplate();
         context.putInSessionIfAbsent(SchemaTemplate.class.toString(), schemaTemplate);
+    }
+
+    @Override
+    public void unsetBoundSchemaTemplate() {
+        context.removeFromSession(SchemaTemplate.class.toString(), SchemaTemplate.class);
     }
 
     @Override

@@ -41,6 +41,7 @@ import javax.annotation.Nonnull;
  * </ul>
  */
 public interface Block {
+
     /**
      * Looks at the block to determine if its one of the valid blocks. If it is a valid one, parses it to that. This
      * method dispatches the execution to the right block which takes care of reading from the block and initializing
@@ -62,12 +63,14 @@ public interface Block {
             switch (blockKey) {
                 case SetupBlock.SETUP_BLOCK:
                     return SetupBlock.ManualSetupBlock.parse(lineNumber, entry.getValue(), executionContext);
+                case TransactionSetupsBlock.TRANSACTION_SETUP:
+                    return TransactionSetupsBlock.parse(lineNumber, entry.getValue(), executionContext);
                 case TestBlock.TEST_BLOCK:
                     return TestBlock.parse(blockNumber, lineNumber, entry.getValue(), executionContext);
                 case SetupBlock.SchemaTemplateBlock.SCHEMA_TEMPLATE_BLOCK:
                     return SetupBlock.SchemaTemplateBlock.parse(lineNumber, entry.getValue(), executionContext);
                 case FileOptions.OPTIONS:
-                    Assert.thatUnchecked(blockNumber == 0,
+                    Assert.that(blockNumber == 0,
                             "File level options must be the first block, but found one at line " + lineNumber);
                     return FileOptions.parse(lineNumber, entry.getValue(), executionContext);
                 default:

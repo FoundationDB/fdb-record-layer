@@ -58,6 +58,11 @@ public interface Transaction extends AutoCloseable {
      */
     void setBoundSchemaTemplate(@Nonnull SchemaTemplate schemaTemplate);
 
+    /**
+     * Unsets the bound schema template, if one exists.
+     */
+    void unsetBoundSchemaTemplate();
+
     @Override
     void close() throws RelationalException;
 

@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
+import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
@@ -69,6 +70,8 @@ public class QueryExecutor {
      */
     @Nullable
     private final List<Parameter> parameters;
+    @Nonnull
+    private final List<String> setup = new ArrayList<>();
 
     QueryExecutor(@Nonnull String query, int lineNumber) {
         this(query, lineNumber, null);
@@ -163,29 +166,51 @@ public class QueryExecutor {
         try {
             if (parameters == null) {
                 logger.debug("⏳ Executing query '{}'", this.toString());
-                try (var s = connection.createStatement()) {
-                    final var queryResult = executeStatementAndCheckCacheIfNeeded(s, false, connection, currentQuery, checkCache, maxRows);
-                    config.checkResult(currentQuery, queryResult, this.toString(), connection);
-                    if (queryResult instanceof RelationalResultSet) {
-                        continuationAfter = ((RelationalResultSet) queryResult).getContinuation();
+                continuationAfter = executeWithSetup(connection, singleConnection -> {
+                    try (var s = singleConnection.createStatement()) {
+                        final var queryResult = executeStatementAndCheckCacheIfNeeded(s, false, singleConnection, currentQuery, checkCache, maxRows);
+                        config.checkResult(currentQuery, queryResult, this.toString(), singleConnection);
+                        if (queryResult instanceof RelationalResultSet) {
+                            return ((RelationalResultSet) queryResult).getContinuation();
+                        }
                     }
-                }
+                    return null;
+                });
             } else {
                 logger.debug("⏳ Executing query '{}'", this.toString());
-                try (var s = connection.prepareStatement(currentQuery)) {
-                    setParametersInPreparedStatement(s);
-                    final var queryResult = executeStatementAndCheckCacheIfNeeded(s, true, connection, currentQuery, checkCache, maxRows);
-                    config.checkResult(currentQuery, queryResult, this.toString(), connection);
-                    if (queryResult instanceof RelationalResultSet) {
-                        continuationAfter = ((RelationalResultSet) queryResult).getContinuation();
+                continuationAfter = executeWithSetup(connection, singleConnection -> {
+                    try (var s = singleConnection.prepareStatement(currentQuery)) {
+                        setParametersInPreparedStatement(s);
+                        final var queryResult = executeStatementAndCheckCacheIfNeeded(s, true, singleConnection, currentQuery, checkCache, maxRows);
+                        config.checkResult(currentQuery, queryResult, this.toString(), singleConnection);
+                        if (queryResult instanceof RelationalResultSet) {
+                            return ((RelationalResultSet)queryResult).getContinuation();
+                        }
                     }
-                }
+                    return null;
+                });
             }
             logger.debug("👍 Finished executing query '{}'", this.toString());
         } catch (SQLException sqle) {
             config.checkError(sqle, query, connection);
         }
         return continuationAfter;
+    }
+
+    @Nullable
+    private Continuation executeWithSetup(final @Nonnull YamlConnection connection,
+                                          SQLFunction<YamlConnection, Continuation> execute) throws SQLException, RelationalException {
+        if (!setup.isEmpty()) {
+            return connection.executeTransactionally(singleConnection -> {
+                for (var setupStatement : setup) {
+                    final RelationalStatement statement = singleConnection.createStatement();
+                    statement.execute(setupStatement);
+                }
+                return execute.apply(singleConnection);
+            });
+        } else {
+            return execute.apply(connection);
+        }
     }
 
     @Nullable
@@ -335,5 +360,9 @@ public class QueryExecutor {
             }
             return query + " with parameters (" + String.join(", ", paramList) + ")";
         }
+    }
+
+    public void addSetup(final String setupStatement) {
+        setup.add(setupStatement);
     }
 }

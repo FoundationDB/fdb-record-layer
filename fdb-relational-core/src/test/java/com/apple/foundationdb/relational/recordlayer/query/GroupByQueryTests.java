@@ -50,7 +50,6 @@ public class GroupByQueryTests {
         Utils.enableCascadesDebugger();
     }
 
-    @Disabled // doesn't work for serializationMode = TO_OLD, re-enable after serializationMode = TO_NEW
     @Test
     void groupByWithScanLimit() throws Exception {
         final String schemaTemplate =
@@ -58,7 +57,9 @@ public class GroupByQueryTests {
                         "CREATE INDEX idx1 as select a, b, c from t1 order by a, b, c";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var conn = ddl.setSchemaAndGetConnection()) {
+                Continuation continuation = null;
                 conn.setOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 2);
+                conn.setOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
                 try (var statement = conn.createStatement()) {
                     insertT1Record(statement, 2, 1, 1, 20);
                     insertT1Record(statement, 3, 1, 2, 5);
@@ -70,7 +71,6 @@ public class GroupByQueryTests {
                     insertT1Record(statement, 9, 2, 1, 90);
 
                     String query = "SELECT a AS OK, b, MAX(c) FROM T1 GROUP BY a, b";
-                    Continuation continuation = null;
                     // scan pk = 2 and pk = 3 and hit SCAN_LIMIT_REACHED
                     Assertions.assertTrue(statement.execute(query), "Did not return a result set from a select statement!");
                     try (final RelationalResultSet resultSet = statement.getResultSet()) {
@@ -79,30 +79,34 @@ public class GroupByQueryTests {
                                 .hasNoNextRow();
                         continuation = resultSet.getContinuation();
                     }
+                }
+                try (var preparedStatement = conn.prepareStatement("EXECUTE CONTINUATION ?param")) {
+                    conn.setOption(Options.Name.EXECUTION_SCANNED_ROWS_LIMIT, 2);
+                    conn.setOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
                     // scan pk = 5 and pk = 4 rows, hit SCAN_LIMIT_REACHED
-                    Assertions.assertTrue(statement.execute("EXECUTE CONTINUATION " + Base64.getEncoder().encodeToString(continuation.serialize())), "Did not return a result set from a select statement!");
-                    try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    preparedStatement.setBytes("param", continuation.serialize());
+                    try (final RelationalResultSet resultSet = preparedStatement.executeQuery()) {
                         ResultSetAssert.assertThat(resultSet)
                                 .hasNoNextRow();
                         continuation = resultSet.getContinuation();
                     }
                     // scan pk = 6 and pk = 8 rows, hit SCAN_LIMIT_REACHED
-                    Assertions.assertTrue(statement.execute("EXECUTE CONTINUATION " + Base64.getEncoder().encodeToString(continuation.serialize())), "Did not return a result set from a select statement!");
-                    try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    preparedStatement.setBytes("param", continuation.serialize());
+                    try (final RelationalResultSet resultSet = preparedStatement.executeQuery()) {
                         ResultSetAssert.assertThat(resultSet).hasNextRow()
                                 .isRowExactly(1L, 2L, 15L)
                                 .hasNoNextRow();
                         continuation = resultSet.getContinuation();
                     }
                     // scan pk = 7 and pk = 9 rows, hit SCAN_LIMIT_REACHED
-                    Assertions.assertTrue(statement.execute("EXECUTE CONTINUATION " + Base64.getEncoder().encodeToString(continuation.serialize())), "Did not return a result set from a select statement!");
-                    try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    preparedStatement.setBytes("param", continuation.serialize());
+                    try (final RelationalResultSet resultSet = preparedStatement.executeQuery()) {
                         ResultSetAssert.assertThat(resultSet).hasNoNextRow();
                         continuation = resultSet.getContinuation();
                     }
                     // hit SOURCE_EXHAUSTED
-                    Assertions.assertTrue(statement.execute("EXECUTE CONTINUATION " + Base64.getEncoder().encodeToString(continuation.serialize())), "Did not return a result set from a select statement!");
-                    try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    preparedStatement.setBytes("param", continuation.serialize());
+                    try (final RelationalResultSet resultSet = preparedStatement.executeQuery()) {
                         ResultSetAssert.assertThat(resultSet).hasNextRow()
                                 .isRowExactly(2L, 1L, 90L)
                                 .hasNoNextRow();

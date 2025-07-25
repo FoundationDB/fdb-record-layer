@@ -207,6 +207,18 @@ public final class QueryCommand extends Command {
             } else if (QueryConfig.QUERY_CONFIG_NO_OP.equals(queryConfig.getConfigName())) {
                 // Do nothing for noop execution.
                 continue;
+            } else if (QueryConfig.QUERY_CONFIG_SETUP.equals(queryConfig.getConfigName())) {
+                Assert.that(!queryIsRunning, "Transaction setup should not be intermingled with query results");
+                final String setupStatement = Matchers.notNull(Matchers.string(Matchers.notNull(queryConfig.getVal(),
+                                "Setup Config Val"), "Transaction setup"), "Transaction setup");
+                // we restrict transaction setups to CREATE TEMPORARY FUNCTION, because other mutations could be hard
+                // to reason about when running in a parallel world. It's possible the right answer is that we shouldn't
+                // commit after the query, or that we shouldn't allow things that modify state in the database. This will
+                // become clearer as we have more related tests, and for now, just try to stop people from being confused.
+                final String allowedStatement = "CREATE TEMPORARY FUNCTION";
+                Assert.that(setupStatement.regionMatches(true, 0, allowedStatement, 0, allowedStatement.length()),
+                        "Only \"CREATE TEMPORARY FUNCTION\" is allowed for transaction setups");
+                executor.addSetup(setupStatement);
             } else if (!QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION.equals(queryConfig.getConfigName()) &&
                     !QueryConfig.QUERY_CONFIG_DEBUGGER.equals(queryConfig.getConfigName())) {
                 if (QueryConfig.QUERY_CONFIG_ERROR.equals(queryConfig.getConfigName())) {

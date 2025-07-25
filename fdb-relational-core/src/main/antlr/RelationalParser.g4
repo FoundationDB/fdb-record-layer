@@ -58,6 +58,7 @@ ddlStatement
     : createStatement
     | dropStatement
     | createTempFunction
+    | dropTempFunction
     ;
 
 transactionStatement
@@ -170,6 +171,10 @@ indexAttribute
 
 createTempFunction
     : CREATE (OR REPLACE)? TEMPORARY tempSqlInvokedFunction
+    ;
+
+dropTempFunction
+    : DROP TEMPORARY FUNCTION (IF EXISTS)? schemaQualifiedRoutineName=fullId
     ;
 
 createFunction
