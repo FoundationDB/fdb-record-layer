@@ -120,7 +120,7 @@ class ProtobufDataBuilderTest {
                                                                       String messageType,
                                                                       boolean isRepeated) {
         DescriptorProtos.FieldDescriptorProto.Builder proto = DescriptorProtos.FieldDescriptorProto.newBuilder()
-                .setName(name);
+                .setName(name).setJsonName(name);
         switch (javaType) {
             case INT:
                 proto.setType(DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT32);
