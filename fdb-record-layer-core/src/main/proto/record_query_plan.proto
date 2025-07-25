@@ -1102,6 +1102,9 @@ message PUnaryRelOpValue {
 
       IS_NULL_ID = 19;
       IS_NOT_NULL_ID = 20;
+
+      IS_NULL_NT = 21;
+      IS_NOT_NULL_NT = 22;
   }
   optional PRelOpValue super = 1;
   optional PUnaryPhysicalOperator operator = 2;
