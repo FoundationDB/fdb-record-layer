@@ -1,5 +1,5 @@
 /*
- * NodeWithLayer.java
+ * NodeReferenceWithDistance.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -23,31 +23,34 @@ package com.apple.foundationdb.async.hnsw;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
-import java.util.List;
+import java.util.Objects;
 
-class Element {
-    @Nonnull
-    private final Tuple primaryKey;
+class NodeReferenceWithDistance extends NodeReference {
     private final double distance;
 
-    public Element(@Nonnull final Tuple primaryKey, final double distance) {
-        this.primaryKey = primaryKey;
+    public NodeReferenceWithDistance(@Nonnull final Tuple primaryKey, final double distance) {
+        super(primaryKey);
         this.distance = distance;
-    }
-
-    @Nonnull
-    public Tuple getPrimaryKey() {
-        return primaryKey;
     }
 
     public double getDistance() {
         return distance;
     }
 
-    @Nonnull
-    public static Iterable<Tuple> primaryKeys(@Nonnull List<Element> elements) {
-        return () -> elements.stream()
-                .map(Element::getPrimaryKey)
-                .iterator();
+    @Override
+    public boolean equals(final Object o) {
+        if (!(o instanceof NodeReferenceWithDistance)) {
+            return false;
+        }
+        if (!super.equals(o)) {
+            return false;
+        }
+        final NodeReferenceWithDistance that = (NodeReferenceWithDistance)o;
+        return Double.compare(distance, that.distance) == 0;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), distance);
     }
 }

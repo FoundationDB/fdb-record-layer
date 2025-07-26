@@ -1,5 +1,5 @@
 /*
- * Neighbor.java
+ * NodeReferenceWithVector.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -25,11 +25,11 @@ import com.christianheina.langx.half4j.Half;
 
 import javax.annotation.Nonnull;
 
-public class NeighborWithVector extends Neighbor {
+public class NodeReferenceWithVector extends NodeReference {
     @Nonnull
     private final Vector<Half> vector;
 
-    public NeighborWithVector(@Nonnull final Tuple primaryKey, @Nonnull final Vector<Half> vector) {
+    public NodeReferenceWithVector(@Nonnull final Tuple primaryKey, @Nonnull final Vector<Half> vector) {
         super(primaryKey);
         this.vector = vector;
     }

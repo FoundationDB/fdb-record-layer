@@ -32,13 +32,13 @@ import java.util.Objects;
 /**
  * TODO.
  */
-class DataNode extends AbstractNode<Neighbor> {
+class DataNode extends AbstractNode<NodeReference> {
     @Nonnull
     private final Vector<Half> vector;
 
     public DataNode(@Nonnull final Tuple primaryKey, @Nonnull final Vector<Half> vector,
-                    @Nonnull final List<Neighbor> neighbors) {
-        super(primaryKey, neighbors);
+                    @Nonnull final List<NodeReference> nodeReferences) {
+        super(primaryKey, nodeReferences);
         this.vector = vector;
     }
 
@@ -65,24 +65,18 @@ class DataNode extends AbstractNode<Neighbor> {
         throw new IllegalStateException("this is not a data node");
     }
 
-    @Nonnull
     @Override
-    public NodeWithLayer<Neighbor> withLayer(final int layer) {
-        return new NodeWithLayer<>(layer, this);
-    }
-
-    @Override
-    public NodeCreator<Neighbor> sameCreator() {
+    public NodeCreator<NodeReference> sameCreator() {
         return DataNode::creator;
     }
 
     @Nonnull
     @SuppressWarnings("unchecked")
-    public static Node<Neighbor> creator(@Nonnull final NodeKind nodeKind,
-                                         @Nonnull final Tuple primaryKey,
-                                         @Nullable final Vector<Half> vector,
-                                         @Nonnull final List<? extends Neighbor> neighbors) {
+    public static Node<NodeReference> creator(@Nonnull final NodeKind nodeKind,
+                                              @Nonnull final Tuple primaryKey,
+                                              @Nullable final Vector<Half> vector,
+                                              @Nonnull final List<? extends NodeReference> neighbors) {
         Verify.verify(nodeKind == NodeKind.INTERMEDIATE);
-        return new DataNode(primaryKey, Objects.requireNonNull(vector), (List<Neighbor>)neighbors);
+        return new DataNode(primaryKey, Objects.requireNonNull(vector), (List<NodeReference>)neighbors);
     }
 }
