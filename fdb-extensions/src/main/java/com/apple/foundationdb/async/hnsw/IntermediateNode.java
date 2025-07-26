@@ -31,9 +31,9 @@ import java.util.List;
 /**
  * TODO.
  */
-class IntermediateNode extends AbstractNode<NeighborWithVector> {
+class IntermediateNode extends AbstractNode<NodeReferenceWithVector> {
     public IntermediateNode(@Nonnull final Tuple primaryKey,
-                            @Nonnull final List<NeighborWithVector> neighbors) {
+                            @Nonnull final List<NodeReferenceWithVector> neighbors) {
         super(primaryKey, neighbors);
     }
 
@@ -55,24 +55,18 @@ class IntermediateNode extends AbstractNode<NeighborWithVector> {
         return this;
     }
 
-    @Nonnull
     @Override
-    public NodeWithLayer<NeighborWithVector> withLayer(final int layer) {
-        return new NodeWithLayer<>(layer, this);
-    }
-
-    @Override
-    public NodeCreator<NeighborWithVector> sameCreator() {
+    public NodeCreator<NodeReferenceWithVector> sameCreator() {
         return IntermediateNode::creator;
     }
 
     @Nonnull
     @SuppressWarnings("unchecked")
-    public static Node<NeighborWithVector> creator(@Nonnull final NodeKind nodeKind,
-                                                   @Nonnull final Tuple primaryKey,
-                                                   @Nullable final Vector<Half> vector,
-                                                   @Nonnull final List<? extends Neighbor> neighbors) {
+    public static Node<NodeReferenceWithVector> creator(@Nonnull final NodeKind nodeKind,
+                                                        @Nonnull final Tuple primaryKey,
+                                                        @Nullable final Vector<Half> vector,
+                                                        @Nonnull final List<? extends NodeReference> neighbors) {
         Verify.verify(nodeKind == NodeKind.INTERMEDIATE);
-        return new IntermediateNode(primaryKey, (List<NeighborWithVector>)neighbors);
+        return new IntermediateNode(primaryKey, (List<NodeReferenceWithVector>)neighbors);
     }
 }

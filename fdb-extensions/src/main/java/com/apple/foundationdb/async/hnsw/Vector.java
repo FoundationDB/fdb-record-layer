@@ -24,6 +24,8 @@ import com.christianheina.langx.half4j.Half;
 import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
@@ -52,6 +54,20 @@ public abstract class Vector<R extends Number> {
 
     @Nonnull
     public abstract DoubleVector toDoubleVector();
+
+    @Override
+    public boolean equals(final Object o) {
+        if (!(o instanceof Vector)) {
+            return false;
+        }
+        final Vector<?> vector = (Vector<?>)o;
+        return Objects.deepEquals(data, vector.data);
+    }
+
+    @Override
+    public int hashCode() {
+        return Arrays.hashCode(data);
+    }
 
     public static class HalfVector extends Vector<Half> {
         @Nonnull

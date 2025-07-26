@@ -96,10 +96,10 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
 
     @Nonnull
     @Override
-    protected <N extends Neighbor> CompletableFuture<NodeWithLayer<N>> fetchNodeInternal(@Nonnull final Node.NodeCreator<N> creator,
-                                                                                         @Nonnull final ReadTransaction readTransaction,
-                                                                                         final int layer,
-                                                                                         @Nonnull final Tuple primaryKey) {
+    protected <R extends NodeReference> CompletableFuture<Node<R>> fetchNodeInternal(@Nonnull final Node.NodeCreator<R> creator,
+                                                                                     @Nonnull final ReadTransaction readTransaction,
+                                                                                     final int layer,
+                                                                                     @Nonnull final Tuple primaryKey) {
         final byte[] key = getDataSubspace().pack(Tuple.from(layer, primaryKey));
 
         return readTransaction.get(key)
@@ -109,11 +109,11 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
                     }
 
                     final Tuple nodeTuple = Tuple.fromBytes(valueBytes);
-                    final Node<N> node = nodeFromTuple(creator, nodeTuple);
+                    final Node<R> node = nodeFromTuple(creator, nodeTuple);
                     final OnReadListener onReadListener = getOnReadListener();
                     onReadListener.onNodeRead(node);
                     onReadListener.onKeyValueRead(key, valueBytes);
-                    return node.withLayer(layer);
+                    return node;
                 });
     }
 
@@ -158,8 +158,8 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
     }
 
     @Nonnull
-    private <N extends Neighbor> Node<N> nodeFromTuple(@Nonnull final Node.NodeCreator<N> creator,
-                                                       @Nonnull final Tuple tuple) {
+    private <N extends NodeReference> Node<N> nodeFromTuple(@Nonnull final Node.NodeCreator<N> creator,
+                                                            @Nonnull final Tuple tuple) {
         final NodeKind nodeKind = NodeKind.fromSerializedNodeKind((byte)tuple.getLong(0));
         final Tuple primaryKey = tuple.getNestedTuple(1);
         final Tuple vectorTuple;
@@ -179,27 +179,27 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
     }
 
     @Nonnull
-    private <N extends Neighbor> Node<N> dataNodeFromTuples(@Nonnull final Node.NodeCreator<N> creator,
-                                                            @Nonnull final Tuple primaryKey,
-                                                            @Nonnull final Tuple vectorTuple,
-                                                            @Nonnull final Tuple neighborsTuple) {
+    private <N extends NodeReference> Node<N> dataNodeFromTuples(@Nonnull final Node.NodeCreator<N> creator,
+                                                                 @Nonnull final Tuple primaryKey,
+                                                                 @Nonnull final Tuple vectorTuple,
+                                                                 @Nonnull final Tuple neighborsTuple) {
         final Vector<Half> vector = vectorFromTuple(vectorTuple);
 
-        List<Neighbor> neighbors = Lists.newArrayListWithExpectedSize(neighborsTuple.size());
+        List<NodeReference> nodeReferences = Lists.newArrayListWithExpectedSize(neighborsTuple.size());
 
         for (final Object neighborObject : neighborsTuple) {
             final Tuple neighborTuple = (Tuple)neighborObject;
-            neighbors.add(new Neighbor(neighborTuple));
+            nodeReferences.add(new NodeReference(neighborTuple));
         }
 
-        return creator.create(NodeKind.DATA, primaryKey, vector, neighbors);
+        return creator.create(NodeKind.DATA, primaryKey, vector, nodeReferences);
     }
 
     @Nonnull
-    private <N extends Neighbor> Node<N> intermediateNodeFromTuples(@Nonnull final Node.NodeCreator<N> creator,
-                                                                    @Nonnull final Tuple primaryKey,
-                                                                    @Nonnull final Tuple neighborsTuple) {
-        List<NeighborWithVector> neighborsWithVectors = Lists.newArrayListWithExpectedSize(neighborsTuple.size());
+    private <N extends NodeReference> Node<N> intermediateNodeFromTuples(@Nonnull final Node.NodeCreator<N> creator,
+                                                                         @Nonnull final Tuple primaryKey,
+                                                                         @Nonnull final Tuple neighborsTuple) {
+        List<NodeReferenceWithVector> neighborsWithVectors = Lists.newArrayListWithExpectedSize(neighborsTuple.size());
         Half[] neighborVectorHalfs = null;
 
         for (final Object neighborObject : neighborsTuple) {
@@ -213,7 +213,7 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
             for (int i = 0; i < neighborVectorTuple.size(); i ++) {
                 neighborVectorHalfs[i] = Half.shortBitsToHalf(shortFromBytes(neighborVectorTuple.getBytes(i)));
             }
-            neighborsWithVectors.add(new NeighborWithVector(neighborPrimaryKey, new Vector.HalfVector(neighborVectorHalfs)));
+            neighborsWithVectors.add(new NodeReferenceWithVector(neighborPrimaryKey, new Vector.HalfVector(neighborVectorHalfs)));
         }
 
         return creator.create(NodeKind.INTERMEDIATE, primaryKey, null, neighborsWithVectors);

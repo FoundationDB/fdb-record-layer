@@ -84,10 +84,10 @@ interface StorageAdapter {
     CompletableFuture<EntryPointAndLayer> fetchEntryNodeKey(@Nonnull ReadTransaction readTransaction);
 
     @Nonnull
-    <N extends Neighbor> CompletableFuture<NodeWithLayer<N>> fetchNode(@Nonnull Node.NodeCreator<N> creator,
-                                                                       @Nonnull ReadTransaction readTransaction,
-                                                                       int layer,
-                                                                       @Nonnull Tuple primaryKey);
+    <N extends NodeReference> CompletableFuture<Node<N>> fetchNode(@Nonnull Node.NodeCreator<N> creator,
+                                                                   @Nonnull ReadTransaction readTransaction,
+                                                                   int layer,
+                                                                   @Nonnull Tuple primaryKey);
 
     /**
      * Insert a new entry into the node index if configuration indicates we should maintain such an index.

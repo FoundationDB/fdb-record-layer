@@ -49,7 +49,7 @@ class GreedyResult {
         return distance;
     }
 
-    public Element toElement() {
-        return new Element(getPrimaryKey(), getDistance());
+    public NodeReferenceWithDistance toElement() {
+        return new NodeReferenceWithDistance(getPrimaryKey(), getDistance());
     }
 }

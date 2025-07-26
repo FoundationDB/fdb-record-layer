@@ -30,29 +30,29 @@ import java.util.List;
 
 /**
  * TODO.
- * @param <N> neighbor type
+ * @param <R> neighbor type
  */
-public interface Node<N extends Neighbor> {
+public interface Node<R extends NodeReference> {
     @Nonnull
     Tuple getPrimaryKey();
 
     @Nonnull
-    List<N> getNeighbors();
+    List<R> getNeighbors();
 
     @Nonnull
-    N getNeighbor(int index);
-
-    @CanIgnoreReturnValue
-    @Nonnull
-    Node<N> insert(@Nonnull StorageAdapter storageAdapter, int level, int slotIndex, @Nonnull NodeSlot slot);
+    R getNeighbor(int index);
 
     @CanIgnoreReturnValue
     @Nonnull
-    Node<N> update(@Nonnull StorageAdapter storageAdapter, int level, int slotIndex, @Nonnull NodeSlot updatedSlot);
+    Node<R> insert(@Nonnull StorageAdapter storageAdapter, int level, int slotIndex, @Nonnull NodeSlot slot);
 
     @CanIgnoreReturnValue
     @Nonnull
-    Node<N> delete(@Nonnull StorageAdapter storageAdapter, int level, int slotIndex);
+    Node<R> update(@Nonnull StorageAdapter storageAdapter, int level, int slotIndex, @Nonnull NodeSlot updatedSlot);
+
+    @CanIgnoreReturnValue
+    @Nonnull
+    Node<R> delete(@Nonnull StorageAdapter storageAdapter, int level, int slotIndex);
 
     /**
      * Return the kind of the node, i.e. {@link NodeKind#DATA} or {@link NodeKind#INTERMEDIATE}.
@@ -67,14 +67,11 @@ public interface Node<N extends Neighbor> {
     @Nonnull
     IntermediateNode asIntermediateNode();
 
-    @Nonnull
-    NodeWithLayer<N> withLayer(int layer);
-
-    NodeCreator<N> sameCreator();
+    NodeCreator<R> sameCreator();
 
     @FunctionalInterface
-    interface NodeCreator<N extends Neighbor> {
+    interface NodeCreator<N extends NodeReference> {
         Node<N> create(@Nonnull NodeKind nodeKind, @Nonnull Tuple primaryKey, @Nullable Vector<Half> vector,
-                       @Nonnull List<? extends Neighbor> neighbors);
+                       @Nonnull List<? extends NodeReference> neighbors);
     }
 }

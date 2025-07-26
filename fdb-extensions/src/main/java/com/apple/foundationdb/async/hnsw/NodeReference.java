@@ -1,5 +1,5 @@
 /*
- * Neighbor.java
+ * NodeReference.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -23,17 +23,40 @@ package com.apple.foundationdb.async.hnsw;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
+import java.util.List;
+import java.util.Objects;
 
-public class Neighbor {
+public class NodeReference {
     @Nonnull
     private final Tuple primaryKey;
 
-    public Neighbor(@Nonnull final Tuple primaryKey) {
+    public NodeReference(@Nonnull final Tuple primaryKey) {
         this.primaryKey = primaryKey;
     }
 
     @Nonnull
     public Tuple getPrimaryKey() {
         return primaryKey;
+    }
+
+    @Nonnull
+    public static Iterable<Tuple> primaryKeys(@Nonnull List<? extends NodeReference> neighbors) {
+        return () -> neighbors.stream()
+                .map(NodeReference::getPrimaryKey)
+                .iterator();
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+        if (!(o instanceof NodeReference)) {
+            return false;
+        }
+        final NodeReference that = (NodeReference)o;
+        return Objects.equals(primaryKey, that.primaryKey);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(primaryKey);
     }
 }

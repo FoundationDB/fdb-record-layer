@@ -28,17 +28,17 @@ import java.util.List;
 
 /**
  * TODO.
- * @param <N> node type class.
+ * @param <R> node type class.
  */
-abstract class AbstractNode<N extends Neighbor> implements Node<N> {
+abstract class AbstractNode<R extends NodeReference> implements Node<R> {
     @Nonnull
     private final Tuple primaryKey;
 
     @Nonnull
-    private final List<N> neighbors;
+    private final List<R> neighbors;
 
     protected AbstractNode(@Nonnull final Tuple primaryKey,
-                           @Nonnull final List<N> neighbors) {
+                           @Nonnull final List<R> neighbors) {
         this.primaryKey = primaryKey;
         this.neighbors = ImmutableList.copyOf(neighbors);
     }
@@ -51,13 +51,13 @@ abstract class AbstractNode<N extends Neighbor> implements Node<N> {
 
     @Nonnull
     @Override
-    public List<N> getNeighbors() {
+    public List<R> getNeighbors() {
         return neighbors;
     }
 
     @Nonnull
     @Override
-    public N getNeighbor(final int index) {
+    public R getNeighbor(final int index) {
         return neighbors.get(index);
     }
 }

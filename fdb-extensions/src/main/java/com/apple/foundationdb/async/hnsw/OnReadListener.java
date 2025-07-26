@@ -34,7 +34,7 @@ public interface OnReadListener {
         // nothing
     }
 
-    default <N extends Neighbor> CompletableFuture<NodeWithLayer<N>> onAsyncRead(@Nonnull CompletableFuture<NodeWithLayer<N>> future) {
+    default <N extends NodeReference> CompletableFuture<Node<N>> onAsyncRead(@Nonnull CompletableFuture<Node<N>> future) {
         return future;
     }
 
