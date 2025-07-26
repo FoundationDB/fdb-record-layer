@@ -34,7 +34,7 @@ public interface OnReadListener {
         // nothing
     }
 
-    default <T extends Node> CompletableFuture<T> onAsyncRead(@Nonnull CompletableFuture<T> future) {
+    default <N extends Neighbor> CompletableFuture<NodeWithLayer<N>> onAsyncRead(@Nonnull CompletableFuture<NodeWithLayer<N>> future) {
         return future;
     }
 
@@ -42,8 +42,7 @@ public interface OnReadListener {
         // nothing
     }
 
-    default void onKeyValueRead(@Nonnull Node node,
-                                @Nonnull byte[] key,
+    default void onKeyValueRead(@Nonnull byte[] key,
                                 @Nonnull byte[] value) {
         // nothing
     }

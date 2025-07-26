@@ -25,6 +25,7 @@ import com.christianheina.langx.half4j.Half;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 
 /**
  * TODO.
@@ -38,7 +39,7 @@ public interface Node<N extends Neighbor> {
     Vector<Half> getVector();
 
     @Nonnull
-    Iterable<N> getNeighbors();
+    List<N> getNeighbors();
 
     @Nonnull
     N getNeighbor(int index);
@@ -70,4 +71,12 @@ public interface Node<N extends Neighbor> {
 
     @Nonnull
     NodeWithLayer<N> withLayer(int layer);
+
+    NodeCreator<N> sameCreator();
+
+    @FunctionalInterface
+    interface NodeCreator<N extends Neighbor> {
+        Node<N> create(@Nonnull NodeKind nodeKind, @Nonnull Tuple primaryKey, @Nonnull Vector<Half> vector,
+                       @Nonnull List<? extends Neighbor> neighbors);
+    }
 }

@@ -29,7 +29,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.math.BigInteger;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -82,7 +81,13 @@ interface StorageAdapter {
     @Nonnull
     OnReadListener getOnReadListener();
 
-    CompletableFuture<NodeWithLayer<? extends Neighbor>> fetchEntryNode(@Nonnull ReadTransaction readTransaction);
+    CompletableFuture<NodeKeyWithLayer> fetchEntryNodeKey(@Nonnull ReadTransaction readTransaction);
+
+    @Nonnull
+    <N extends Neighbor> CompletableFuture<NodeWithLayer<N>> fetchNode(@Nonnull Node.NodeCreator<N> creator,
+                                                                       @Nonnull ReadTransaction readTransaction,
+                                                                       int layer,
+                                                                       @Nonnull Tuple primaryKey);
 
     /**
      * Insert a new entry into the node index if configuration indicates we should maintain such an index.
@@ -147,19 +152,4 @@ interface StorageAdapter {
     CompletableFuture<Node> scanNodeIndexAndFetchNode(@Nonnull ReadTransaction transaction, int level,
                                                       @Nonnull BigInteger hilbertValue, @Nonnull Tuple key,
                                                       boolean isInsertUpdate);
-
-    /**
-     * Method to fetch the data needed to construct a {@link Node}. Note that a node on disk is represented by its
-     * slots. Each slot is represented by a key/value pair in FDB. Each key (common for both leaf and intermediate
-     * nodes) starts with an 8-byte node id (which is usually a serialized {@link UUID}) followed by one byte which
-     * indicates the {@link NodeKind} of node the slot belongs to.
-     *
-     * @param transaction the transaction to use
-     * @param nodeId the node id we should use
-     *
-     * @return A completable future containing the {@link Node} that was fetched from the database once completed.
-     * The node may be an object of {@link DataNode} or of {@link IntermediateNode}.
-     */
-    @Nonnull
-    CompletableFuture<Node> fetchNode(@Nonnull ReadTransaction transaction, @Nonnull byte[] nodeId);
 }
