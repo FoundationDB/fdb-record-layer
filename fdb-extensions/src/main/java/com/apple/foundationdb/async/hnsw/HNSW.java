@@ -37,6 +37,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,13 +49,16 @@ import java.math.BigInteger;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
@@ -512,29 +516,37 @@ public class HNSW {
     /**
      * TODO.
      */
+    @SuppressWarnings("checkstyle:MethodName") // method name introduced by paper
     @Nonnull
-    private CompletableFuture<NodeKeyWithLayerAndDistance> nearestDropNodeKeyOnLayer0(@Nonnull final ReadTransaction readTransaction,
-                                                                                      @Nonnull final Vector<Half> queryVector) {
+    private CompletableFuture<GreedyResult> kNearestNeighborsSearch(@Nonnull final ReadTransaction readTransaction,
+                                                                    @Nonnull final Vector<Half> queryVector) {
         return storageAdapter.fetchEntryNodeKey(readTransaction)
-                .thenApply(entryNodeKeyWithLayer ->
-                        entryNodeKeyWithLayer == null
-                        ? null
-                        : new NodeKeyWithLayerAndDistance(entryNodeKeyWithLayer.getLayer(), entryNodeKeyWithLayer.getPrimaryKey(),
-                                Double.POSITIVE_INFINITY))
-                .thenCompose(entryNodeKeyWithLayerAndDistance -> {
-                    if (entryNodeKeyWithLayerAndDistance == null) {
+                .thenCompose(entryPointAndLayer -> {
+                    if (entryPointAndLayer == null) {
                         return CompletableFuture.completedFuture(null); // not a single node in the index
                     }
 
-                    final AtomicReference<NodeKeyWithLayerAndDistance> currentNodeKeyWithLayerReference =
-                            new AtomicReference<>(entryNodeKeyWithLayerAndDistance);
+                    final Metric metric = getConfig().getMetric();
 
-                    return AsyncUtil.whileTrue(() ->
-                            nearestDropNodeKey(readTransaction, entryNodeKeyWithLayerAndDistance, queryVector)
-                                    .thenApply(nodeKeyWithLayerAndDistance -> {
-                                        currentNodeKeyWithLayerReference.set(nodeKeyWithLayerAndDistance);
-                                        return nodeKeyWithLayerAndDistance.getLayer() > 0;
-                                    }), executor).thenApply(ignored -> currentNodeKeyWithLayerReference.get());
+                    final var entryState = new GreedyResult(entryPointAndLayer.getLayer(),
+                            entryPointAndLayer.getPrimaryKey(),
+                            Vector.comparativeDistance(metric, entryPointAndLayer.getVector(), queryVector));
+                    final AtomicReference<GreedyResult> greedyResultReference =
+                            new AtomicReference<>(entryState);
+
+                    if (entryPointAndLayer.getLayer() == 0) {
+                        // entry data points to a node in layer 0 directly
+                        return CompletableFuture.completedFuture(entryState);
+                    }
+
+                    return AsyncUtil.whileTrue(() -> {
+                        final var greedyIn = greedyResultReference.get();
+                        return greedySearchLayer(readTransaction, greedyIn.toElement(), greedyIn.getLayer(), queryVector)
+                                .thenApply(greedyResult -> {
+                                    greedyResultReference.set(greedyResult);
+                                    return greedyResult.getLayer() > 0;
+                                });
+                    }, executor).thenApply(ignored -> greedyResultReference.get());
                 });
     }
 
@@ -542,18 +554,18 @@ public class HNSW {
      * TODO.
      */
     @Nonnull
-    private CompletableFuture<NodeKeyWithLayerAndDistance> nearestDropNodeKey(@Nonnull final ReadTransaction readTransaction,
-                                                                              @Nonnull final NodeKeyWithLayerAndDistance entryNodeKey,
-                                                                              @Nonnull final Vector<Half> queryVector) {
-        final var layer = entryNodeKey.getLayer();
+    private CompletableFuture<GreedyResult> greedySearchLayer(@Nonnull final ReadTransaction readTransaction,
+                                                              @Nonnull final Element entryElement,
+                                                              final int layer,
+                                                              @Nonnull final Vector<Half> queryVector) {
         Verify.verify(layer > 0);
         final Metric metric = getConfig().getMetric();
-        final AtomicReference<NodeKeyWithLayerAndDistance> currentNodeKeyReference =
-                new AtomicReference<>(entryNodeKey);
+        final AtomicReference<GreedyResult> greedyStateReference =
+                new AtomicReference<>(new GreedyResult(layer, entryElement.getPrimaryKey(), entryElement.getDistance()));
 
         return AsyncUtil.whileTrue(() -> onReadListener.onAsyncRead(
                         storageAdapter.fetchNode(IntermediateNode::creator, readTransaction,
-                                layer, currentNodeKeyReference.get().getPrimaryKey()))
+                                layer, greedyStateReference.get().getPrimaryKey()))
                 .thenApply(nodeWithLayer -> {
                     if (nodeWithLayer == null) {
                         throw new IllegalStateException("unable to fetch node");
@@ -561,12 +573,8 @@ public class HNSW {
                     final IntermediateNode node = nodeWithLayer.getNode().asIntermediateNode();
                     final List<NeighborWithVector> neighbors = node.getNeighbors();
 
-                    final NodeKeyWithLayerAndDistance currentNodeKey = currentNodeKeyReference.get();
-
-                    double minDistance =
-                            currentNodeKey.getDistance() == Double.POSITIVE_INFINITY
-                            ? Vector.comparativeDistance(metric, node.getVector(), queryVector)
-                            : currentNodeKey.getDistance();
+                    final GreedyResult currentNodeKey = greedyStateReference.get();
+                    double minDistance = currentNodeKey.getDistance();
 
                     NeighborWithVector nearestNeighbor = null;
                     for (final NeighborWithVector neighbor : neighbors) {
@@ -579,17 +587,78 @@ public class HNSW {
                     }
 
                     if (nearestNeighbor == null) {
-                        currentNodeKeyReference.set(
-                                new NodeKeyWithLayerAndDistance(layer - 1, currentNodeKey.getPrimaryKey(),
-                                        minDistance));
+                        greedyStateReference.set(
+                                new GreedyResult(layer - 1, currentNodeKey.getPrimaryKey(), minDistance));
                         return false;
                     }
 
-                    currentNodeKeyReference.set(
-                            new NodeKeyWithLayerAndDistance(layer, nearestNeighbor.getPrimaryKey(),
+                    greedyStateReference.set(
+                            new GreedyResult(layer, nearestNeighbor.getPrimaryKey(),
                                     minDistance));
                     return true;
-                }), executor).thenApply(ignored -> currentNodeKeyReference.get());
+                }), executor).thenApply(ignored -> greedyStateReference.get());
+    }
+
+    /**
+     * TODO.
+     */
+    @Nonnull
+    private CompletableFuture<GreedyResult> searchLayer(@Nonnull final ReadTransaction readTransaction,
+                                                        @Nonnull final List<Element> entryElements,
+                                                        final int layer,
+                                                        @Nonnull final Vector<Half> queryVector) {
+        final Set<Tuple> visited = Sets.newHashSet(Element.primaryKeys(entryElements));
+        final PriorityBlockingQueue<Element> candidates =
+                new PriorityBlockingQueue<>(entryElements.size(),
+                        Comparator.comparing(Element::getDistance));
+        candidates.addAll(entryElements);
+        final PriorityBlockingQueue<Element> nearestNeighbors =
+                new PriorityBlockingQueue<>(entryElements.size(),
+                        Comparator.comparing(Element::getDistance).reversed());
+        nearestNeighbors.addAll(entryElements);
+
+        if (candidates.isEmpty()) {
+            return CompletableFuture.completedFuture(null); // TODO
+        }
+
+        final Metric metric = getConfig().getMetric();
+        final AtomicReference<GreedyResult> greedyStateReference =
+                new AtomicReference<>(entryStates);
+
+        return AsyncUtil.whileTrue(() ->
+                        fetchNeighborNodes(IntermediateNode::creator, readTransaction,
+                                layer, greedyStateReference.get().getPrimaryKey())
+                .thenApply(nodeWithLayer -> {
+                    if (nodeWithLayer == null) {
+                        throw new IllegalStateException("unable to fetch node");
+                    }
+                    final IntermediateNode node = nodeWithLayer.getNode().asIntermediateNode();
+                    final List<NeighborWithVector> neighbors = node.getNeighbors();
+
+                    final GreedyResult currentNodeKey = greedyStateReference.get();
+                    double minDistance = currentNodeKey.getDistance();
+
+                    NeighborWithVector nearestNeighbor = null;
+                    for (final NeighborWithVector neighbor : neighbors) {
+                        final double distance =
+                                Vector.comparativeDistance(metric, neighbor.getVector(), queryVector);
+                        if (distance < minDistance) {
+                            minDistance = distance;
+                            nearestNeighbor = neighbor;
+                        }
+                    }
+
+                    if (nearestNeighbor == null) {
+                        greedyStateReference.set(
+                                new GreedyResult(layer - 1, currentNodeKey.getPrimaryKey(), minDistance));
+                        return false;
+                    }
+
+                    greedyStateReference.set(
+                            new GreedyResult(layer, nearestNeighbor.getPrimaryKey(),
+                                    minDistance));
+                    return true;
+                }), executor).thenApply(ignored -> greedyStateReference.get());
     }
 
     /**
@@ -1546,11 +1615,11 @@ public class HNSW {
     @Nonnull
     @SuppressWarnings("unchecked")
     private <N extends Neighbor> CompletableFuture<List<NodeWithLayer<N>>> fetchNeighborNodes(@Nonnull final Transaction transaction,
-                                                                                              @Nonnull final NodeWithLayer<N> nodeWithLayer) {
+                                                                                              @Nonnull final Node<N> node,
+                                                                                              final int layer) {
         // this deque is only modified by once upon creation
         final ArrayDeque<Tuple> toBeProcessed = new ArrayDeque<>();
         final List<CompletableFuture<Void>> working = Lists.newArrayList();
-        final Node<N> node = nodeWithLayer.getNode();
         final List<N> neighbors = node.getNeighbors();
         final AtomicInteger neighborIndex = new AtomicInteger(0);
         final NodeWithLayer<N>[] neighborNodeArray =
@@ -1572,7 +1641,8 @@ public class HNSW {
 
                 final int index = neighborIndex.getAndIncrement();
 
-                working.add(storageAdapter.fetchNode(node.sameCreator(), transaction, nodeWithLayer.getLayer(), currentNeighborKey)
+                working.add(onReadListener.onAsyncRead(storageAdapter.fetchNode(node.sameCreator(), transaction, layer,
+                                currentNeighborKey))
                         .thenAccept(resultNode -> {
                             Objects.requireNonNull(resultNode);
                             neighborNodeArray[index] = resultNode;

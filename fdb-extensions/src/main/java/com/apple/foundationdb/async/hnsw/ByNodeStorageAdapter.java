@@ -75,7 +75,7 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
     }
 
     @Override
-    public CompletableFuture<NodeKeyWithLayer> fetchEntryNodeKey(@Nonnull final ReadTransaction readTransaction) {
+    public CompletableFuture<EntryPointAndLayer> fetchEntryNodeKey(@Nonnull final ReadTransaction readTransaction) {
         final byte[] key = getEntryNodeSubspace().pack();
 
         return readTransaction.get(key)
@@ -83,13 +83,14 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
                     if (valueBytes == null) {
                         return null; // not a single node in the index
                     }
+                    final OnReadListener onReadListener = getOnReadListener();
+                    onReadListener.onKeyValueRead(key, valueBytes);
 
                     final Tuple entryTuple = Tuple.fromBytes(valueBytes);
                     final int lMax = (int)entryTuple.getLong(0);
                     final Tuple primaryKey = entryTuple.getNestedTuple(1);
-                    final OnReadListener onReadListener = getOnReadListener();
-                    onReadListener.onKeyValueRead(key, valueBytes);
-                    return new NodeKeyWithLayer(lMax, primaryKey);
+                    final Tuple vectorTuple = entryTuple.getNestedTuple(2);
+                    return new EntryPointAndLayer(lMax, primaryKey, vectorFromTuple(vectorTuple));
                 });
     }
 
@@ -157,75 +158,77 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
     }
 
     @Nonnull
-    @Override
-    public CompletableFuture<Node> fetchNodeInternal(@Nonnull final ReadTransaction transaction,
-                                                     @Nonnull final byte[] nodeId) {
-        final byte[] key = packWithSubspace(nodeId);
-        return transaction.get(key)
-                .thenApply(valueBytes -> {
-                    if (valueBytes == null) {
-                        return null;
-                    }
-                    final Node node = nodeFromTuple(nodeId, Tuple.fromBytes(valueBytes));
-                    final OnReadListener onReadListener = getOnReadListener();
-                    onReadListener.onNodeRead(node);
-                    onReadListener.onKeyValueRead(node, key, valueBytes);
-                    return node;
-                });
-    }
-
-    @Nonnull
     private <N extends Neighbor> Node<N> nodeFromTuple(@Nonnull final Node.NodeCreator<N> creator,
                                                        @Nonnull final Tuple tuple) {
         final NodeKind nodeKind = NodeKind.fromSerializedNodeKind((byte)tuple.getLong(0));
         final Tuple primaryKey = tuple.getNestedTuple(1);
-        final Tuple vectorTuple = tuple.getNestedTuple(2);
-        final Tuple neighborsTuple = tuple.getNestedTuple(3);
+        final Tuple vectorTuple;
+        final Tuple neighborsTuple;
 
+        switch (nodeKind) {
+            case DATA:
+                vectorTuple = tuple.getNestedTuple(2);
+                neighborsTuple = tuple.getNestedTuple(3);
+                return dataNodeFromTuples(creator, primaryKey, vectorTuple, neighborsTuple);
+            case INTERMEDIATE:
+                neighborsTuple = tuple.getNestedTuple(3);
+                return intermediateNodeFromTuples(creator, primaryKey, neighborsTuple);
+            default:
+                throw new IllegalStateException("unknown node kind");
+        }
+    }
+
+    @Nonnull
+    private <N extends Neighbor> Node<N> dataNodeFromTuples(@Nonnull final Node.NodeCreator<N> creator,
+                                                            @Nonnull final Tuple primaryKey,
+                                                            @Nonnull final Tuple vectorTuple,
+                                                            @Nonnull final Tuple neighborsTuple) {
+        final Vector<Half> vector = vectorFromTuple(vectorTuple);
+
+        List<Neighbor> neighbors = Lists.newArrayListWithExpectedSize(neighborsTuple.size());
+
+        for (final Object neighborObject : neighborsTuple) {
+            final Tuple neighborTuple = (Tuple)neighborObject;
+            neighbors.add(new Neighbor(neighborTuple));
+        }
+
+        return creator.create(NodeKind.DATA, primaryKey, vector, neighbors);
+    }
+
+    @Nonnull
+    private <N extends Neighbor> Node<N> intermediateNodeFromTuples(@Nonnull final Node.NodeCreator<N> creator,
+                                                                    @Nonnull final Tuple primaryKey,
+                                                                    @Nonnull final Tuple neighborsTuple) {
+        List<NeighborWithVector> neighborsWithVectors = Lists.newArrayListWithExpectedSize(neighborsTuple.size());
+        Half[] neighborVectorHalfs = null;
+
+        for (final Object neighborObject : neighborsTuple) {
+            final Tuple neighborTuple = (Tuple)neighborObject;
+            final Tuple neighborPrimaryKey = neighborTuple.getNestedTuple(0);
+            final Tuple neighborVectorTuple = neighborTuple.getNestedTuple(1);
+            if (neighborVectorHalfs == null) {
+                neighborVectorHalfs = new Half[neighborVectorTuple.size()];
+            }
+
+            for (int i = 0; i < neighborVectorTuple.size(); i ++) {
+                neighborVectorHalfs[i] = Half.shortBitsToHalf(shortFromBytes(neighborVectorTuple.getBytes(i)));
+            }
+            neighborsWithVectors.add(new NeighborWithVector(neighborPrimaryKey, new Vector.HalfVector(neighborVectorHalfs)));
+        }
+
+        return creator.create(NodeKind.INTERMEDIATE, primaryKey, null, neighborsWithVectors);
+    }
+
+    @Nonnull
+    private Vector<Half> vectorFromTuple(final Tuple vectorTuple) {
         final Half[] vectorHalfs = new Half[vectorTuple.size()];
         for (int i = 0; i < vectorTuple.size(); i ++) {
             vectorHalfs[i] = Half.shortBitsToHalf(shortFromBytes(vectorTuple.getBytes(i)));
         }
-        final Vector.HalfVector vector = new Vector.HalfVector(vectorHalfs);
-        List<NeighborWithVector> neighborsWithVectors = null;
-        Half[] neighborVectorHalfs = null;
-        List<Neighbor> neighbors = null;
-
-        for (final Object neighborObject : neighborsTuple) {
-            final Tuple neighborTuple = (Tuple)neighborObject;
-            switch (nodeKind) {
-                case DATA:
-                    if (neighbors == null) {
-                        neighbors = Lists.newArrayListWithExpectedSize(neighborsTuple.size());
-                    }
-                    neighbors.add(new Neighbor(neighborTuple));
-                    break;
-
-                case INTERMEDIATE:
-                    final Tuple neighborPrimaryKey = neighborTuple.getNestedTuple(0);
-                    final Tuple neighborVectorTuple = neighborTuple.getNestedTuple(1);
-                    if (neighborsWithVectors == null) {
-                        neighborsWithVectors = Lists.newArrayListWithExpectedSize(neighborsTuple.size());
-                        neighborVectorHalfs = new Half[neighborVectorTuple.size()];
-                    }
-
-                    for (int i = 0; i < neighborVectorTuple.size(); i ++) {
-                        neighborVectorHalfs[i] = Half.shortBitsToHalf(shortFromBytes(neighborVectorTuple.getBytes(i)));
-                    }
-                    neighborsWithVectors.add(new NeighborWithVector(neighborPrimaryKey, new Vector.HalfVector(neighborVectorHalfs)));
-                    break;
-
-                default:
-                    throw new IllegalStateException("unknown node kind");
-            }
-        }
-
-        Verify.verify((nodeKind == NodeKind.DATA && neighbors != null) ||
-                (nodeKind == NodeKind.INTERMEDIATE && neighborsWithVectors != null));
-
-        return creator.create(nodeKind, primaryKey, vector,
-                nodeKind == NodeKind.DATA ? neighbors : neighborsWithVectors);
+        return new Vector.HalfVector(vectorHalfs);
     }
+
+
 
     @Nonnull
     @Override

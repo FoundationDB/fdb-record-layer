@@ -24,14 +24,16 @@ import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
 
-class NodeKeyWithLayer {
+class GreedyResult {
     private final int layer;
     @Nonnull
     private final Tuple primaryKey;
+    private final double distance;
 
-    public NodeKeyWithLayer(final int layer, @Nonnull final Tuple primaryKey) {
+    public GreedyResult(final int layer, @Nonnull final Tuple primaryKey, final double distance) {
         this.layer = layer;
         this.primaryKey = primaryKey;
+        this.distance = distance;
     }
 
     public int getLayer() {
@@ -41,5 +43,13 @@ class NodeKeyWithLayer {
     @Nonnull
     public Tuple getPrimaryKey() {
         return primaryKey;
+    }
+
+    public double getDistance() {
+        return distance;
+    }
+
+    public Element toElement() {
+        return new Element(getPrimaryKey(), getDistance());
     }
 }

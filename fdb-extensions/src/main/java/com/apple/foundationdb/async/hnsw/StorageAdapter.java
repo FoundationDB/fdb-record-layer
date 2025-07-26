@@ -81,7 +81,7 @@ interface StorageAdapter {
     @Nonnull
     OnReadListener getOnReadListener();
 
-    CompletableFuture<NodeKeyWithLayer> fetchEntryNodeKey(@Nonnull ReadTransaction readTransaction);
+    CompletableFuture<EntryPointAndLayer> fetchEntryNodeKey(@Nonnull ReadTransaction readTransaction);
 
     @Nonnull
     <N extends Neighbor> CompletableFuture<NodeWithLayer<N>> fetchNode(@Nonnull Node.NodeCreator<N> creator,

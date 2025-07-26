@@ -1,9 +1,9 @@
 /*
- * AbstractNode.java
+ * NodeWithLayer.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,43 +21,34 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.collect.ImmutableList;
+import com.christianheina.langx.half4j.Half;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 
-/**
- * TODO.
- * @param <N> node type class.
- */
-abstract class AbstractNode<N extends Neighbor> implements Node<N> {
+class EntryPointAndLayer {
+    private final int layer;
     @Nonnull
     private final Tuple primaryKey;
-
     @Nonnull
-    private final List<N> neighbors;
+    private final Vector<Half> vector;
 
-    protected AbstractNode(@Nonnull final Tuple primaryKey,
-                           @Nonnull final List<N> neighbors) {
+    public EntryPointAndLayer(final int layer, @Nonnull final Tuple primaryKey, @Nonnull final Vector<Half> vector) {
+        this.layer = layer;
         this.primaryKey = primaryKey;
-        this.neighbors = ImmutableList.copyOf(neighbors);
+        this.vector = vector;
+    }
+
+    public int getLayer() {
+        return layer;
     }
 
     @Nonnull
-    @Override
     public Tuple getPrimaryKey() {
         return primaryKey;
     }
 
     @Nonnull
-    @Override
-    public List<N> getNeighbors() {
-        return neighbors;
-    }
-
-    @Nonnull
-    @Override
-    public N getNeighbor(final int index) {
-        return neighbors.get(index);
+    public Vector<Half> getVector() {
+        return vector;
     }
 }

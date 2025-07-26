@@ -25,6 +25,7 @@ import com.christianheina.langx.half4j.Half;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 
 /**
@@ -34,9 +35,6 @@ import java.util.List;
 public interface Node<N extends Neighbor> {
     @Nonnull
     Tuple getPrimaryKey();
-
-    @Nonnull
-    Vector<Half> getVector();
 
     @Nonnull
     List<N> getNeighbors();
@@ -76,7 +74,7 @@ public interface Node<N extends Neighbor> {
 
     @FunctionalInterface
     interface NodeCreator<N extends Neighbor> {
-        Node<N> create(@Nonnull NodeKind nodeKind, @Nonnull Tuple primaryKey, @Nonnull Vector<Half> vector,
+        Node<N> create(@Nonnull NodeKind nodeKind, @Nonnull Tuple primaryKey, @Nullable Vector<Half> vector,
                        @Nonnull List<? extends Neighbor> neighbors);
     }
 }
