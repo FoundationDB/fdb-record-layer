@@ -22,6 +22,7 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.tuple.Tuple;
 import com.christianheina.langx.half4j.Half;
+import com.google.common.base.Verify;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
@@ -35,6 +36,12 @@ class DataNode extends AbstractNode<Neighbor> {
     public DataNode(@Nonnull final Tuple primaryKey, @Nonnull final Vector<Half> vector,
                     @Nonnull final List<Neighbor> neighbors) {
         super(primaryKey, vector, neighbors);
+    }
+
+    @Nonnull
+    @Override
+    public NodeKind getKind() {
+        return NodeKind.DATA;
     }
 
     @Nonnull
@@ -55,9 +62,18 @@ class DataNode extends AbstractNode<Neighbor> {
         return new NodeWithLayer<>(layer, this);
     }
 
-    @Nonnull
     @Override
-    public NodeKind getKind() {
-        return NodeKind.DATA;
+    public NodeCreator<Neighbor> sameCreator() {
+        return DataNode::creator;
+    }
+
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    public static Node<Neighbor> creator(@Nonnull final NodeKind nodeKind,
+                                         @Nonnull final Tuple primaryKey,
+                                         @Nonnull final Vector<Half> vector,
+                                         @Nonnull final List<? extends Neighbor> neighbors) {
+        Verify.verify(nodeKind == NodeKind.INTERMEDIATE);
+        return new DataNode(primaryKey, vector, (List<Neighbor>)neighbors);
     }
 }

@@ -20,7 +20,15 @@
 
 package com.apple.foundationdb.async.hnsw;
 
+import javax.annotation.Nonnull;
+
 public interface Metric {
+    ManhattanMetric MANHATTAN_METRIC = new ManhattanMetric();
+    EuclideanMetric EUCLIDEAN_METRIC = new EuclideanMetric();
+    EuclideanSquareMetric EUCLIDEAN_SQUARE_METRIC = new EuclideanSquareMetric();
+    CosineMetric COSINE_METRIC = new CosineMetric();
+    DotProductMetric DOT_PRODUCT_METRIC = new DotProductMetric();
+
     double distance(Double[] vector1, Double[] vector2);
 
     default double comparativeDistance(Double[] vector1, Double[] vector2) {
@@ -44,6 +52,31 @@ public interface Metric {
         if (vector1.length == 0) {
             throw new IllegalArgumentException("Vectors cannot be empty.");
         }
+    }
+
+    @Nonnull
+    static ManhattanMetric manhattanMetric() {
+        return Metric.MANHATTAN_METRIC;
+    }
+
+    @Nonnull
+    static EuclideanMetric euclideanMetric() {
+        return Metric.EUCLIDEAN_METRIC;
+    }
+
+    @Nonnull
+    static EuclideanSquareMetric euclideanSquareMetric() {
+        return Metric.EUCLIDEAN_SQUARE_METRIC;
+    }
+
+    @Nonnull
+    static CosineMetric cosineMetric() {
+        return Metric.COSINE_METRIC;
+    }
+
+    @Nonnull
+    static DotProductMetric dotProductMetric() {
+        return Metric.DOT_PRODUCT_METRIC;
     }
 
     class ManhattanMetric implements Metric {

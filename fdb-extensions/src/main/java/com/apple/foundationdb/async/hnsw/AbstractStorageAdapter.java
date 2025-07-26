@@ -173,12 +173,16 @@ abstract class AbstractStorageAdapter implements StorageAdapter {
 
     @Nonnull
     @Override
-    public CompletableFuture<Node> fetchNode(@Nonnull final ReadTransaction transaction, @Nonnull final byte[] nodeId) {
-        return getOnWriteListener().onAsyncReadForWrite(fetchNodeInternal(transaction, nodeId).thenApply(this::checkNode));
+    public <N extends Neighbor> CompletableFuture<NodeWithLayer<N>> fetchNode(@Nonnull final Node.NodeCreator<N> creator,
+                                                                              @Nonnull final ReadTransaction readTransaction,
+                                                                              int layer, @Nonnull Tuple primaryKey) {
+        return fetchNodeInternal(creator, readTransaction, layer, primaryKey).thenApply(this::checkNode);
     }
 
     @Nonnull
-    protected abstract CompletableFuture<Node> fetchNodeInternal(@Nonnull ReadTransaction transaction, @Nonnull byte[] nodeId);
+    protected abstract <N extends Neighbor> CompletableFuture<NodeWithLayer<N>> fetchNodeInternal(@Nonnull Node.NodeCreator<N> creator,
+                                                                                                  @Nonnull ReadTransaction readTransaction,
+                                                                                                  int layer, @Nonnull Tuple primaryKey);
 
     /**
      * Method to perform basic invariant check(s) on a newly-fetched node.
@@ -190,12 +194,7 @@ abstract class AbstractStorageAdapter implements StorageAdapter {
      * @return the node that was passed in
      */
     @Nullable
-    private <N extends Node> N checkNode(@Nullable final N node) {
-        if (node != null && (node.size() < getConfig().getMinM() || node.size() > getConfig().getMaxM())) {
-            if (!node.isRoot()) {
-                throw new IllegalStateException("packing of non-root is out of valid range");
-            }
-        }
+    private <N extends Neighbor> NodeWithLayer<N> checkNode(@Nullable final NodeWithLayer<N> node) {
         return node;
     }
 

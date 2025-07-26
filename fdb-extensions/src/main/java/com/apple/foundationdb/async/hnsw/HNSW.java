@@ -31,6 +31,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import com.christianheina.langx.half4j.Half;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -42,6 +43,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.lang.reflect.Array;
 import java.math.BigInteger;
 import java.util.ArrayDeque;
 import java.util.Arrays;
@@ -248,6 +250,10 @@ public class HNSW {
 
         public boolean isStoreHilbertValues() {
             return storeHilbertValues;
+        }
+
+        public Metric getMetric() {
+            return Metric.euclideanMetric();
         }
 
         public ConfigBuilder toBuilder() {
@@ -504,99 +510,86 @@ public class HNSW {
     }
 
     /**
-     * Returns the left-most path from a given node id to a leaf node containing items as a {@link TraversalState}.
-     * The term <em>left-most</em> used here is defined by comparing {@code (largestHilbertValue, largestKey)} when
-     * comparing nodes (the left one being the smaller, the right one being the greater).
-     * @param readTransaction the transaction to use 
-     * @param nodeId node id to start from. This may be the actual root of the tree or some other node within the tree.
-     * @param lastHilbertValue hilbert value serving as a watermark to return only items that are larger than the
-     *        {@code (lastHilbertValue, lastKey)} pair
-     * @param lastKey key serving as a watermark to return only items that are larger than the
-     *        {@code (lastHilbertValue, lastKey)} pair
-     * @param mbrPredicate a predicate on an mbr {@link Rectangle}. This predicate is evaluated on the way down to the
-     *        leaf node.
-     * @param suffixPredicate predicate to be invoked on a range of suffixes
-     * @return a {@link TraversalState} of the left-most path from {@code nodeId} to a {@link DataNode} whose
-     *         {@link Node}s all pass the mbr predicate test.
+     * TODO.
      */
     @Nonnull
-    private CompletableFuture<TraversalState> fetchLeftmostPathToLeaf(@Nonnull final ReadTransaction readTransaction,
-                                                                      @Nonnull final byte[] nodeId,
-                                                                      @Nullable final BigInteger lastHilbertValue,
-                                                                      @Nullable final Tuple lastKey,
-                                                                      @Nonnull final Predicate<Rectangle> mbrPredicate,
-                                                                      @Nonnull final BiPredicate<Tuple, Tuple> suffixPredicate) {
-        final AtomicReference<NodeWithLayer<? extends Neighbor>> currentNodeWithLayer =
-                new AtomicReference<>();
+    private CompletableFuture<NodeKeyWithLayerAndDistance> nearestDropNodeKeyOnLayer0(@Nonnull final ReadTransaction readTransaction,
+                                                                                      @Nonnull final Vector<Half> queryVector) {
+        return storageAdapter.fetchEntryNodeKey(readTransaction)
+                .thenApply(entryNodeKeyWithLayer ->
+                        entryNodeKeyWithLayer == null
+                        ? null
+                        : new NodeKeyWithLayerAndDistance(entryNodeKeyWithLayer.getLayer(), entryNodeKeyWithLayer.getPrimaryKey(),
+                                Double.POSITIVE_INFINITY))
+                .thenCompose(entryNodeKeyWithLayerAndDistance -> {
+                    if (entryNodeKeyWithLayerAndDistance == null) {
+                        return CompletableFuture.completedFuture(null); // not a single node in the index
+                    }
 
-        storageAdapter.fetchEntryNode(readTransaction)
-                .thenApply(nodeWithLayer -> {
-                    currentNodeWithLayer.set(nodeWithLayer);
+                    final AtomicReference<NodeKeyWithLayerAndDistance> currentNodeKeyWithLayerReference =
+                            new AtomicReference<>(entryNodeKeyWithLayerAndDistance);
 
-                    final List<Deque<ChildSlot>> toBeProcessed = Lists.newArrayList();
-                    final AtomicReference<DataNode> leafNode = new AtomicReference<>(null);
-                    return AsyncUtil.whileTrue(() -> onReadListener.onAsyncRead(storageAdapter.fetchNode(readTransaction, currentId.get()))
-                            .thenApply(node -> {
-                                if (node == null) {
-                                    if (Arrays.equals(currentId.get(), rootId)) {
-                                        Verify.verify(leafNode.get() == null);
-                                        return false;
-                                    }
-                                    throw new IllegalStateException("unable to fetch node for scan");
-                                }
-                                if (node.getKind() == NodeKind.INTERMEDIATE) {
-                                    final Iterable<ChildSlot> childSlots = ((IntermediateNode)node).getSlots();
-                                    Deque<ChildSlot> toBeProcessedThisLevel = new ArrayDeque<>();
-                                    for (final Iterator<ChildSlot> iterator = childSlots.iterator(); iterator.hasNext(); ) {
-                                        final ChildSlot childSlot = iterator.next();
-                                        if (lastHilbertValue != null &&
-                                                lastKey != null) {
-                                            final int hilbertValueAndKeyCompare =
-                                                    childSlot.compareLargestHilbertValueAndKey(lastHilbertValue, lastKey);
-                                            if (hilbertValueAndKeyCompare < 0) {
-                                                //
-                                                // The (lastHilbertValue, lastKey) pair is larger than the
-                                                // (largestHilbertValue, largestKey) pair of the current child. Advance to the next
-                                                // child.
-                                                //
-                                                continue;
-                                            }
-                                        }
-
-                                        if (!mbrPredicate.test(childSlot.getMbr())) {
-                                            onReadListener.onChildNodeDiscard(childSlot);
-                                            continue;
-                                        }
-
-                                        if (childSlot.suffixPredicateCanBeApplied()) {
-                                            if (!suffixPredicate.test(childSlot.getSmallestKeySuffix(),
-                                                    childSlot.getLargestKeySuffix())) {
-                                                onReadListener.onChildNodeDiscard(childSlot);
-                                                continue;
-                                            }
-                                        }
-
-                                        toBeProcessedThisLevel.addLast(childSlot);
-                                        iterator.forEachRemaining(toBeProcessedThisLevel::addLast);
-                                    }
-                                    toBeProcessed.add(toBeProcessedThisLevel);
-
-                                    final ChildSlot nextChildSlot = resolveNextIdForFetch(toBeProcessed, mbrPredicate,
-                                            suffixPredicate, onReadListener);
-                                    if (nextChildSlot == null) {
-                                        return false;
-                                    }
-
-                                    currentId.set(Objects.requireNonNull(nextChildSlot.getChildId()));
-                                    return true;
-                                } else {
-                                    leafNode.set((DataNode)node);
-                                    return false;
-                                }
-                            }), executor).thenApply(vignore -> leafNode.get() == null
-                                                               ? TraversalState.end()
-                                                               : TraversalState.of(toBeProcessed, leafNode.get()));
+                    return AsyncUtil.whileTrue(() ->
+                            nearestDropNodeKey(readTransaction, entryNodeKeyWithLayerAndDistance, queryVector)
+                                    .thenApply(nodeKeyWithLayerAndDistance -> {
+                                        currentNodeKeyWithLayerReference.set(nodeKeyWithLayerAndDistance);
+                                        return nodeKeyWithLayerAndDistance.getLayer() > 0;
+                                    }), executor).thenApply(ignored -> currentNodeKeyWithLayerReference.get());
                 });
+    }
+
+    /**
+     * TODO.
+     */
+    @Nonnull
+    private CompletableFuture<NodeKeyWithLayerAndDistance> nearestDropNodeKey(@Nonnull final ReadTransaction readTransaction,
+                                                                              @Nonnull final NodeKeyWithLayerAndDistance entryNodeKey,
+                                                                              @Nonnull final Vector<Half> queryVector) {
+        final var layer = entryNodeKey.getLayer();
+        Verify.verify(layer > 0);
+        final Metric metric = getConfig().getMetric();
+        final AtomicReference<NodeKeyWithLayerAndDistance> currentNodeKeyReference =
+                new AtomicReference<>(entryNodeKey);
+
+        return AsyncUtil.whileTrue(() -> onReadListener.onAsyncRead(
+                        storageAdapter.fetchNode(IntermediateNode::creator, readTransaction,
+                                layer, currentNodeKeyReference.get().getPrimaryKey()))
+                .thenApply(nodeWithLayer -> {
+                    if (nodeWithLayer == null) {
+                        throw new IllegalStateException("unable to fetch node");
+                    }
+                    final IntermediateNode node = nodeWithLayer.getNode().asIntermediateNode();
+                    final List<NeighborWithVector> neighbors = node.getNeighbors();
+
+                    final NodeKeyWithLayerAndDistance currentNodeKey = currentNodeKeyReference.get();
+
+                    double minDistance =
+                            currentNodeKey.getDistance() == Double.POSITIVE_INFINITY
+                            ? Vector.comparativeDistance(metric, node.getVector(), queryVector)
+                            : currentNodeKey.getDistance();
+
+                    NeighborWithVector nearestNeighbor = null;
+                    for (final NeighborWithVector neighbor : neighbors) {
+                        final double distance =
+                                Vector.comparativeDistance(metric, neighbor.getVector(), queryVector);
+                        if (distance < minDistance) {
+                            minDistance = distance;
+                            nearestNeighbor = neighbor;
+                        }
+                    }
+
+                    if (nearestNeighbor == null) {
+                        currentNodeKeyReference.set(
+                                new NodeKeyWithLayerAndDistance(layer - 1, currentNodeKey.getPrimaryKey(),
+                                        minDistance));
+                        return false;
+                    }
+
+                    currentNodeKeyReference.set(
+                            new NodeKeyWithLayerAndDistance(layer, nearestNeighbor.getPrimaryKey(),
+                                    minDistance));
+                    return true;
+                }), executor).thenApply(ignored -> currentNodeKeyReference.get());
     }
 
     /**
@@ -1548,51 +1541,23 @@ public class HNSW {
     }
 
     /**
-     * Method to fetch the siblings of a given node. The node passed in must not be the root node and must be linked up
-     * to its parent. The parent already has information obout the children ids. This method (through the slot
-     * information of the node passed in) can then determine adjacent nodes.
-     * @param transaction the transaction to use
-     * @param node the node to fetch siblings for
-     * @return a completable future containing a list of {@link Node}s that contain the {@link Config#getSplitS()}
-     *         number of siblings (where the node passed in is counted as a sibling) if that many siblings exist. In
-     *         the case (i.e. for a small root node) where there are not enough siblings we return the maximum possible
-     *         number of siblings. The returned sibling nodes are returned in Hilbert value order and contain the node
-     *         passed in at the correct position in the returned list. The siblings will also attempt to hug the nodes
-     *         passed in as good as possible meaning that we attempt to return the node passed in as middle-most element
-     *         of the returned list.
+     * TODO.
      */
     @Nonnull
-    private CompletableFuture<List<Node>> fetchSiblings(@Nonnull final Transaction transaction,
-                                                        @Nonnull final Node node) {
+    @SuppressWarnings("unchecked")
+    private <N extends Neighbor> CompletableFuture<List<NodeWithLayer<N>>> fetchNeighborNodes(@Nonnull final Transaction transaction,
+                                                                                              @Nonnull final NodeWithLayer<N> nodeWithLayer) {
         // this deque is only modified by once upon creation
-        final ArrayDeque<byte[]> toBeProcessed = new ArrayDeque<>();
+        final ArrayDeque<Tuple> toBeProcessed = new ArrayDeque<>();
         final List<CompletableFuture<Void>> working = Lists.newArrayList();
-        final int numSiblings = config.getSplitS();
-        final Node[] siblings = new Node[numSiblings];
+        final Node<N> node = nodeWithLayer.getNode();
+        final List<N> neighbors = node.getNeighbors();
+        final AtomicInteger neighborIndex = new AtomicInteger(0);
+        final NodeWithLayer<N>[] neighborNodeArray =
+                (NodeWithLayer<N>[])Array.newInstance(NodeWithLayer.class, neighbors.size());
 
-        //
-        // Do some acrobatics to find the best start/end positions for the siblings. Take into account how many
-        // are warranted, if the node that was passed occupies a slot in its parent node that is touching the end or the
-        // beginning of the parent's slots, and the total number of slots in the parent of the node that was
-        // passed in.
-        //
-        final IntermediateNode parentNode = Objects.requireNonNull(node.getParentNode());
-        int slotIndexInParent = node.getSlotIndexInParent();
-        int start = slotIndexInParent - numSiblings / 2;
-        int end = start + numSiblings;
-        if (start < 0) {
-            start = 0;
-            end = numSiblings;
-        } else if (end > parentNode.size()) {
-            end = parentNode.size();
-            start = end - numSiblings;
-        }
-
-        // because lambdas
-        final int minSibling = start;
-
-        for (int i = start; i < end; i++) {
-            toBeProcessed.addLast(parentNode.getSlot(i).getChildId());
+        for (final N neighbor : neighbors) {
+            toBeProcessed.addLast(neighbor.getPrimaryKey());
         }
 
         // Fetch all sibling nodes (in parallel if possible).
@@ -1600,31 +1565,25 @@ public class HNSW {
             working.removeIf(CompletableFuture::isDone);
 
             while (working.size() <= MAX_CONCURRENT_READS) {
-                final int index = numSiblings - toBeProcessed.size();
-                final byte[] currentId = toBeProcessed.pollFirst();
-                if (currentId == null) {
+                final Tuple currentNeighborKey = toBeProcessed.pollFirst();
+                if (currentNeighborKey == null) {
                     break;
                 }
 
-                final int slotIndex = minSibling + index;
-                if (slotIndex != slotIndexInParent) {
-                    working.add(storageAdapter.fetchNode(transaction, currentId)
-                            .thenAccept(siblingNode -> {
-                                Objects.requireNonNull(siblingNode);
-                                siblingNode.linkToParent(parentNode, slotIndex);
-                                siblings[index] = siblingNode;
-                            }));
-                } else {
-                    // put node in the list of siblings -- even though node is strictly speaking not a sibling of itself
-                    siblings[index] = node;
-                }
+                final int index = neighborIndex.getAndIncrement();
+
+                working.add(storageAdapter.fetchNode(node.sameCreator(), transaction, nodeWithLayer.getLayer(), currentNeighborKey)
+                        .thenAccept(resultNode -> {
+                            Objects.requireNonNull(resultNode);
+                            neighborNodeArray[index] = resultNode;
+                        }));
             }
 
             if (working.isEmpty()) {
                 return AsyncUtil.READY_FALSE;
             }
-            return AsyncUtil.whenAny(working).thenApply(v -> true);
-        }, executor).thenApply(vignore -> Lists.newArrayList(siblings));
+            return AsyncUtil.whenAny(working).thenApply(ignored -> true);
+        }, executor).thenApply(ignored -> Lists.newArrayList(neighborNodeArray));
     }
 
     /**

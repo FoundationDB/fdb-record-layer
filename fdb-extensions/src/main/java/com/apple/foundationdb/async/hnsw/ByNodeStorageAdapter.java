@@ -75,22 +75,44 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
     }
 
     @Override
-    public CompletableFuture<NodeWithLayer<? extends Neighbor>> fetchEntryNode(@Nonnull final ReadTransaction readTransaction) {
+    public CompletableFuture<NodeKeyWithLayer> fetchEntryNodeKey(@Nonnull final ReadTransaction readTransaction) {
         final byte[] key = getEntryNodeSubspace().pack();
 
         return readTransaction.get(key)
                 .thenApply(valueBytes -> {
                     if (valueBytes == null) {
-                        throw new IllegalStateException("cannot fetch entry point");
+                        return null; // not a single node in the index
                     }
 
                     final Tuple entryTuple = Tuple.fromBytes(valueBytes);
                     final int lMax = (int)entryTuple.getLong(0);
-                    final Node<? extends Neighbor> node = nodeFromTuple(entryTuple.getNestedTuple(1));
+                    final Tuple primaryKey = entryTuple.getNestedTuple(1);
+                    final OnReadListener onReadListener = getOnReadListener();
+                    onReadListener.onKeyValueRead(key, valueBytes);
+                    return new NodeKeyWithLayer(lMax, primaryKey);
+                });
+    }
+
+    @Nonnull
+    @Override
+    protected <N extends Neighbor> CompletableFuture<NodeWithLayer<N>> fetchNodeInternal(@Nonnull final Node.NodeCreator<N> creator,
+                                                                                         @Nonnull final ReadTransaction readTransaction,
+                                                                                         final int layer,
+                                                                                         @Nonnull final Tuple primaryKey) {
+        final byte[] key = getDataSubspace().pack(Tuple.from(layer, primaryKey));
+
+        return readTransaction.get(key)
+                .thenApply(valueBytes -> {
+                    if (valueBytes == null) {
+                        throw new IllegalStateException("cannot fetch node");
+                    }
+
+                    final Tuple nodeTuple = Tuple.fromBytes(valueBytes);
+                    final Node<N> node = nodeFromTuple(creator, nodeTuple);
                     final OnReadListener onReadListener = getOnReadListener();
                     onReadListener.onNodeRead(node);
-                    onReadListener.onKeyValueRead(node, key, valueBytes);
-                    return node.withLayer(lMax);
+                    onReadListener.onKeyValueRead(key, valueBytes);
+                    return node.withLayer(layer);
                 });
     }
 
@@ -153,7 +175,8 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
     }
 
     @Nonnull
-    private Node<? extends Neighbor> nodeFromTuple(@Nonnull final Tuple tuple) {
+    private <N extends Neighbor> Node<N> nodeFromTuple(@Nonnull final Node.NodeCreator<N> creator,
+                                                       @Nonnull final Tuple tuple) {
         final NodeKind nodeKind = NodeKind.fromSerializedNodeKind((byte)tuple.getLong(0));
         final Tuple primaryKey = tuple.getNestedTuple(1);
         final Tuple vectorTuple = tuple.getNestedTuple(2);
@@ -200,9 +223,8 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
         Verify.verify((nodeKind == NodeKind.DATA && neighbors != null) ||
                 (nodeKind == NodeKind.INTERMEDIATE && neighborsWithVectors != null));
 
-        return nodeKind == NodeKind.DATA
-               ? new DataNode(primaryKey, vector, neighbors)
-               : new IntermediateNode(primaryKey, vector, neighborsWithVectors);
+        return creator.create(nodeKind, primaryKey, vector,
+                nodeKind == NodeKind.DATA ? neighbors : neighborsWithVectors);
     }
 
     @Nonnull

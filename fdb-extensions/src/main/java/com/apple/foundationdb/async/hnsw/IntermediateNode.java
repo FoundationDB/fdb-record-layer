@@ -22,19 +22,24 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.tuple.Tuple;
 import com.christianheina.langx.half4j.Half;
+import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
- * An intermediate node of the R-tree. An intermediate node holds the holds information about its children nodes that
- * be intermediate nodes or leaf nodes. The secondary attributes such as {@code largestHilbertValue},
- * {@code largestKey} can be derived (and recomputed) if the children of this node are available to be introspected.
+ * TODO.
  */
 class IntermediateNode extends AbstractNode<NeighborWithVector> {
     public IntermediateNode(@Nonnull final Tuple primaryKey, @Nonnull final Vector<Half> vector,
                             @Nonnull final List<NeighborWithVector> neighbors) {
         super(primaryKey, vector, neighbors);
+    }
+
+    @Nonnull
+    @Override
+    public NodeKind getKind() {
+        return NodeKind.INTERMEDIATE;
     }
 
     @Nonnull
@@ -55,9 +60,18 @@ class IntermediateNode extends AbstractNode<NeighborWithVector> {
         return new NodeWithLayer<>(layer, this);
     }
 
-    @Nonnull
     @Override
-    public NodeKind getKind() {
-        return NodeKind.INTERMEDIATE;
+    public NodeCreator<NeighborWithVector> sameCreator() {
+        return IntermediateNode::creator;
+    }
+
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    public static Node<NeighborWithVector> creator(@Nonnull final NodeKind nodeKind,
+                                                   @Nonnull final Tuple primaryKey,
+                                                   @Nonnull final Vector<Half> vector,
+                                                   @Nonnull final List<? extends Neighbor> neighbors) {
+        Verify.verify(nodeKind == NodeKind.INTERMEDIATE);
+        return new IntermediateNode(primaryKey, vector, (List<NeighborWithVector>)neighbors);
     }
 }
