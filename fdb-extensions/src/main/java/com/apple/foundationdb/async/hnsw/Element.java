@@ -23,16 +23,31 @@ package com.apple.foundationdb.async.hnsw;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 
-class NodeKeyWithLayerAndDistance extends NodeKeyWithLayer {
+class Element {
+    @Nonnull
+    private final Tuple primaryKey;
     private final double distance;
 
-    public NodeKeyWithLayerAndDistance(final int layer, @Nonnull final Tuple primaryKey, final double distance) {
-        super(layer, primaryKey);
+    public Element(@Nonnull final Tuple primaryKey, final double distance) {
+        this.primaryKey = primaryKey;
         this.distance = distance;
+    }
+
+    @Nonnull
+    public Tuple getPrimaryKey() {
+        return primaryKey;
     }
 
     public double getDistance() {
         return distance;
+    }
+
+    @Nonnull
+    public static Iterable<Tuple> primaryKeys(@Nonnull List<Element> elements) {
+        return () -> elements.stream()
+                .map(Element::getPrimaryKey)
+                .iterator();
     }
 }

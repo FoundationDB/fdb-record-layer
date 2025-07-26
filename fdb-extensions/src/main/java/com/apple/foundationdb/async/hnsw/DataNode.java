@@ -23,25 +23,34 @@ package com.apple.foundationdb.async.hnsw;
 import com.apple.foundationdb.tuple.Tuple;
 import com.christianheina.langx.half4j.Half;
 import com.google.common.base.Verify;
-import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
 
 /**
- * A leaf node of the R-tree. A leaf node holds the actual data in {@link ItemSlot}s.
+ * TODO.
  */
 class DataNode extends AbstractNode<Neighbor> {
+    @Nonnull
+    private final Vector<Half> vector;
+
     public DataNode(@Nonnull final Tuple primaryKey, @Nonnull final Vector<Half> vector,
                     @Nonnull final List<Neighbor> neighbors) {
-        super(primaryKey, vector, neighbors);
+        super(primaryKey, neighbors);
+        this.vector = vector;
     }
 
     @Nonnull
     @Override
     public NodeKind getKind() {
         return NodeKind.DATA;
+    }
+
+    @Nonnull
+    public Vector<Half> getVector() {
+        return vector;
     }
 
     @Nonnull
@@ -71,9 +80,9 @@ class DataNode extends AbstractNode<Neighbor> {
     @SuppressWarnings("unchecked")
     public static Node<Neighbor> creator(@Nonnull final NodeKind nodeKind,
                                          @Nonnull final Tuple primaryKey,
-                                         @Nonnull final Vector<Half> vector,
+                                         @Nullable final Vector<Half> vector,
                                          @Nonnull final List<? extends Neighbor> neighbors) {
         Verify.verify(nodeKind == NodeKind.INTERMEDIATE);
-        return new DataNode(primaryKey, vector, (List<Neighbor>)neighbors);
+        return new DataNode(primaryKey, Objects.requireNonNull(vector), (List<Neighbor>)neighbors);
     }
 }

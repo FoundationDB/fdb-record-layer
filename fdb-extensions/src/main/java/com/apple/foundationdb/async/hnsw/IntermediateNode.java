@@ -25,15 +25,16 @@ import com.christianheina.langx.half4j.Half;
 import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 
 /**
  * TODO.
  */
 class IntermediateNode extends AbstractNode<NeighborWithVector> {
-    public IntermediateNode(@Nonnull final Tuple primaryKey, @Nonnull final Vector<Half> vector,
+    public IntermediateNode(@Nonnull final Tuple primaryKey,
                             @Nonnull final List<NeighborWithVector> neighbors) {
-        super(primaryKey, vector, neighbors);
+        super(primaryKey, neighbors);
     }
 
     @Nonnull
@@ -69,9 +70,9 @@ class IntermediateNode extends AbstractNode<NeighborWithVector> {
     @SuppressWarnings("unchecked")
     public static Node<NeighborWithVector> creator(@Nonnull final NodeKind nodeKind,
                                                    @Nonnull final Tuple primaryKey,
-                                                   @Nonnull final Vector<Half> vector,
+                                                   @Nullable final Vector<Half> vector,
                                                    @Nonnull final List<? extends Neighbor> neighbors) {
         Verify.verify(nodeKind == NodeKind.INTERMEDIATE);
-        return new IntermediateNode(primaryKey, vector, (List<NeighborWithVector>)neighbors);
+        return new IntermediateNode(primaryKey, (List<NeighborWithVector>)neighbors);
     }
 }
