@@ -498,7 +498,7 @@ public class HNSW {
                                         @Nonnull final BiPredicate<Tuple, Tuple> suffixKeyPredicate) {
         Preconditions.checkArgument((lastHilbertValue == null && lastKey == null) ||
                                     (lastHilbertValue != null && lastKey != null));
-        AsyncIterator<DataNode> leafIterator =
+        AsyncIterator<CompactNode> leafIterator =
                 new LeafIterator(readTransaction, rootId, lastHilbertValue, lastKey, mbrPredicate, suffixKeyPredicate);
         return new ItemSlotIterator(leafIterator);
     }
@@ -544,7 +544,7 @@ public class HNSW {
                         return CompletableFuture.completedFuture(null);
                     }
 
-                    return searchLayer(DataNode::creator, readTransaction,
+                    return searchLayer(CompactNode::creator, readTransaction,
                             ImmutableList.of(greedyState.toNodeReferenceWithDistance()), 0, efSearch,
                             queryVector);
                 });
@@ -564,14 +564,14 @@ public class HNSW {
                 new AtomicReference<>(new GreedyState(layer, entryNeighbor.getPrimaryKey(), entryNeighbor.getDistance()));
 
         return AsyncUtil.whileTrue(() -> onReadListener.onAsyncRead(
-                        storageAdapter.fetchNode(IntermediateNode::creator, readTransaction,
+                        storageAdapter.fetchNode(InliningNode::creator, readTransaction,
                                 layer, greedyStateReference.get().getPrimaryKey()))
                 .thenApply(node -> {
                     if (node == null) {
                         throw new IllegalStateException("unable to fetch node");
                     }
-                    final IntermediateNode intermediateNode = node.asIntermediateNode();
-                    final List<NodeReferenceWithVector> neighbors = intermediateNode.getNeighbors();
+                    final InliningNode inliningNode = node.asInliningNode();
+                    final List<NodeReferenceWithVector> neighbors = inliningNode.getNeighbors();
 
                     final GreedyState currentNodeKey = greedyStateReference.get();
                     double minDistance = currentNodeKey.getDistance();
@@ -637,7 +637,7 @@ public class HNSW {
                     .thenApply(candidateNode ->
                             Iterables.filter(candidateNode.getNeighbors(),
                                     neighbor -> !visited.contains(neighbor.getPrimaryKey())))
-                    .thenCompose(neighborReferences -> fetchSomeNeighbors(creator, readTransaction,
+                    .thenCompose(neighborReferences -> neighborhood(creator, readTransaction,
                             layer, neighborReferences, nodeCache))
                     .thenApply(neighborReferences -> {
                         for (final NodeReferenceWithVector current : neighborReferences) {
@@ -701,11 +701,11 @@ public class HNSW {
      * TODO.
      */
     @Nonnull
-    private <N extends NodeReference> CompletableFuture<List<NodeReferenceWithVector>> fetchSomeNeighbors(@Nonnull final Node.NodeCreator<N> creator,
-                                                                                                          @Nonnull final ReadTransaction readTransaction,
-                                                                                                          final int layer,
-                                                                                                          @Nonnull final Iterable<? extends NodeReference> neighborReferences,
-                                                                                                          @Nonnull final Map<Tuple, Node<N>> nodeCache) {
+    private <N extends NodeReference> CompletableFuture<List<NodeReferenceWithVector>> neighborhood(@Nonnull final Node.NodeCreator<N> creator,
+                                                                                                    @Nonnull final ReadTransaction readTransaction,
+                                                                                                    final int layer,
+                                                                                                    @Nonnull final Iterable<? extends NodeReference> neighborReferences,
+                                                                                                    @Nonnull final Map<Tuple, Node<N>> nodeCache) {
         return fetchSomeNodesAndApply(creator, readTransaction, layer, neighborReferences,
                 neighborReference -> {
                     if (neighborReference instanceof NodeReferenceWithVector) {
@@ -715,10 +715,10 @@ public class HNSW {
                     if (neighborNode == null) {
                         return null;
                     }
-                    return new NodeReferenceWithVector(neighborReference.getPrimaryKey(), neighborNode.asDataNode().getVector());
+                    return new NodeReferenceWithVector(neighborReference.getPrimaryKey(), neighborNode.asCompactNode().getVector());
                 },
                 (neighborReference, neighborNode) ->
-                        new NodeReferenceWithVector(neighborReference.getPrimaryKey(), neighborNode.asDataNode().getVector()));
+                        new NodeReferenceWithVector(neighborReference.getPrimaryKey(), neighborNode.asCompactNode().getVector()));
     }
 
     /**

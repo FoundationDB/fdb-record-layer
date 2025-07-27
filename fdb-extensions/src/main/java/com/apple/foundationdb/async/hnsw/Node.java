@@ -55,17 +55,17 @@ public interface Node<R extends NodeReference> {
     Node<R> delete(@Nonnull StorageAdapter storageAdapter, int level, int slotIndex);
 
     /**
-     * Return the kind of the node, i.e. {@link NodeKind#DATA} or {@link NodeKind#INTERMEDIATE}.
+     * Return the kind of the node, i.e. {@link NodeKind#DATA} or {@link NodeKind#INLINING}.
      * @return the kind of this node as a {@link NodeKind}
      */
     @Nonnull
     NodeKind getKind();
 
     @Nonnull
-    DataNode asDataNode();
+    CompactNode asCompactNode();
 
     @Nonnull
-    IntermediateNode asIntermediateNode();
+    InliningNode asInliningNode();
 
     NodeCreator<R> sameCreator();
 

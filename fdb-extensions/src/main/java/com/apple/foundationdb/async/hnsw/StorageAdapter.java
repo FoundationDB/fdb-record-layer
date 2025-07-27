@@ -114,7 +114,7 @@ interface StorageAdapter {
      * @param node node whose slot to persist
      * @param itemSlot the node slot to persist
      */
-    void writeLeafNodeSlot(@Nonnull Transaction transaction, @Nonnull DataNode node, @Nonnull ItemSlot itemSlot);
+    void writeLeafNodeSlot(@Nonnull Transaction transaction, @Nonnull CompactNode node, @Nonnull ItemSlot itemSlot);
 
     /**
      * Clear out a leaf node slot.
@@ -123,7 +123,7 @@ interface StorageAdapter {
      * @param node node whose slot is cleared out
      * @param itemSlot the node slot to clear out
      */
-    void clearLeafNodeSlot(@Nonnull Transaction transaction, @Nonnull DataNode node, @Nonnull ItemSlot itemSlot);
+    void clearLeafNodeSlot(@Nonnull Transaction transaction, @Nonnull CompactNode node, @Nonnull ItemSlot itemSlot);
 
     /**
      * Method to (re-)persist a list of nodes passed in.
