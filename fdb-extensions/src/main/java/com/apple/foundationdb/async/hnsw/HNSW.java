@@ -508,8 +508,9 @@ public class HNSW {
      */
     @SuppressWarnings("checkstyle:MethodName") // method name introduced by paper
     @Nonnull
-    private CompletableFuture<GreedyState> kNearestNeighborsSearch(@Nonnull final ReadTransaction readTransaction,
-                                                                   @Nonnull final Vector<Half> queryVector) {
+    private CompletableFuture<SearchResult<NodeReference>> kNearestNeighborsSearch(@Nonnull final ReadTransaction readTransaction,
+                                                                                   final int efSearch,
+                                                                                   @Nonnull final Vector<Half> queryVector) {
         return storageAdapter.fetchEntryNodeKey(readTransaction)
                 .thenCompose(entryPointAndLayer -> {
                     if (entryPointAndLayer == null) {
@@ -521,7 +522,7 @@ public class HNSW {
                     final var entryState = new GreedyState(entryPointAndLayer.getLayer(),
                             entryPointAndLayer.getPrimaryKey(),
                             Vector.comparativeDistance(metric, entryPointAndLayer.getVector(), queryVector));
-                    final AtomicReference<GreedyState> greedyResultReference =
+                    final AtomicReference<GreedyState> greedyStateReference =
                             new AtomicReference<>(entryState);
 
                     if (entryPointAndLayer.getLayer() == 0) {
@@ -530,14 +531,22 @@ public class HNSW {
                     }
 
                     return AsyncUtil.whileTrue(() -> {
-                        final var greedyIn = greedyResultReference.get();
+                        final var greedyIn = greedyStateReference.get();
                         return greedySearchLayer(readTransaction, greedyIn.toNodeReferenceWithDistance(),
                                 greedyIn.getLayer(), queryVector)
                                 .thenApply(greedyState -> {
-                                    greedyResultReference.set(greedyState);
+                                    greedyStateReference.set(greedyState);
                                     return greedyState.getLayer() > 0;
                                 });
-                    }, executor).thenApply(ignored -> greedyResultReference.get());
+                    }, executor).thenApply(ignored -> greedyStateReference.get());
+                }).thenCompose(greedyState -> {
+                    if (greedyState == null) {
+                        return CompletableFuture.completedFuture(null);
+                    }
+
+                    return searchLayer(DataNode::creator, readTransaction,
+                            ImmutableList.of(greedyState.toNodeReferenceWithDistance()), 0, efSearch,
+                            queryVector);
                 });
     }
 
