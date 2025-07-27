@@ -24,13 +24,13 @@ import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
 
-class GreedyResult {
+class GreedyState {
     private final int layer;
     @Nonnull
     private final Tuple primaryKey;
     private final double distance;
 
-    public GreedyResult(final int layer, @Nonnull final Tuple primaryKey, final double distance) {
+    public GreedyState(final int layer, @Nonnull final Tuple primaryKey, final double distance) {
         this.layer = layer;
         this.primaryKey = primaryKey;
         this.distance = distance;
@@ -49,7 +49,7 @@ class GreedyResult {
         return distance;
     }
 
-    public NodeReferenceWithDistance toElement() {
+    public NodeReferenceWithDistance toNodeReferenceWithDistance() {
         return new NodeReferenceWithDistance(getPrimaryKey(), getDistance());
     }
 }

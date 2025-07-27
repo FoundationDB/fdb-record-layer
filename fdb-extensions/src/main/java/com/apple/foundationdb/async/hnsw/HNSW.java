@@ -29,6 +29,9 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.christianheina.langx.half4j.Half;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -38,7 +41,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.lang.reflect.Array;
 import java.math.BigInteger;
 import java.util.ArrayDeque;
 import java.util.Comparator;
@@ -51,6 +53,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -505,8 +508,8 @@ public class HNSW {
      */
     @SuppressWarnings("checkstyle:MethodName") // method name introduced by paper
     @Nonnull
-    private CompletableFuture<GreedyResult> kNearestNeighborsSearch(@Nonnull final ReadTransaction readTransaction,
-                                                                    @Nonnull final Vector<Half> queryVector) {
+    private CompletableFuture<GreedyState> kNearestNeighborsSearch(@Nonnull final ReadTransaction readTransaction,
+                                                                   @Nonnull final Vector<Half> queryVector) {
         return storageAdapter.fetchEntryNodeKey(readTransaction)
                 .thenCompose(entryPointAndLayer -> {
                     if (entryPointAndLayer == null) {
@@ -515,10 +518,10 @@ public class HNSW {
 
                     final Metric metric = getConfig().getMetric();
 
-                    final var entryState = new GreedyResult(entryPointAndLayer.getLayer(),
+                    final var entryState = new GreedyState(entryPointAndLayer.getLayer(),
                             entryPointAndLayer.getPrimaryKey(),
                             Vector.comparativeDistance(metric, entryPointAndLayer.getVector(), queryVector));
-                    final AtomicReference<GreedyResult> greedyResultReference =
+                    final AtomicReference<GreedyState> greedyResultReference =
                             new AtomicReference<>(entryState);
 
                     if (entryPointAndLayer.getLayer() == 0) {
@@ -528,10 +531,11 @@ public class HNSW {
 
                     return AsyncUtil.whileTrue(() -> {
                         final var greedyIn = greedyResultReference.get();
-                        return greedySearchLayer(readTransaction, greedyIn.toElement(), greedyIn.getLayer(), queryVector)
-                                .thenApply(greedyResult -> {
-                                    greedyResultReference.set(greedyResult);
-                                    return greedyResult.getLayer() > 0;
+                        return greedySearchLayer(readTransaction, greedyIn.toNodeReferenceWithDistance(),
+                                greedyIn.getLayer(), queryVector)
+                                .thenApply(greedyState -> {
+                                    greedyResultReference.set(greedyState);
+                                    return greedyState.getLayer() > 0;
                                 });
                     }, executor).thenApply(ignored -> greedyResultReference.get());
                 });
@@ -541,14 +545,14 @@ public class HNSW {
      * TODO.
      */
     @Nonnull
-    private CompletableFuture<GreedyResult> greedySearchLayer(@Nonnull final ReadTransaction readTransaction,
-                                                              @Nonnull final NodeReferenceWithDistance entryNeighbor,
-                                                              final int layer,
-                                                              @Nonnull final Vector<Half> queryVector) {
+    private CompletableFuture<GreedyState> greedySearchLayer(@Nonnull final ReadTransaction readTransaction,
+                                                             @Nonnull final NodeReferenceWithDistance entryNeighbor,
+                                                             final int layer,
+                                                             @Nonnull final Vector<Half> queryVector) {
         Verify.verify(layer > 0);
         final Metric metric = getConfig().getMetric();
-        final AtomicReference<GreedyResult> greedyStateReference =
-                new AtomicReference<>(new GreedyResult(layer, entryNeighbor.getPrimaryKey(), entryNeighbor.getDistance()));
+        final AtomicReference<GreedyState> greedyStateReference =
+                new AtomicReference<>(new GreedyState(layer, entryNeighbor.getPrimaryKey(), entryNeighbor.getDistance()));
 
         return AsyncUtil.whileTrue(() -> onReadListener.onAsyncRead(
                         storageAdapter.fetchNode(IntermediateNode::creator, readTransaction,
@@ -560,7 +564,7 @@ public class HNSW {
                     final IntermediateNode intermediateNode = node.asIntermediateNode();
                     final List<NodeReferenceWithVector> neighbors = intermediateNode.getNeighbors();
 
-                    final GreedyResult currentNodeKey = greedyStateReference.get();
+                    final GreedyState currentNodeKey = greedyStateReference.get();
                     double minDistance = currentNodeKey.getDistance();
 
                     NodeReferenceWithVector nearestNeighbor = null;
@@ -575,12 +579,12 @@ public class HNSW {
 
                     if (nearestNeighbor == null) {
                         greedyStateReference.set(
-                                new GreedyResult(layer - 1, currentNodeKey.getPrimaryKey(), minDistance));
+                                new GreedyState(layer - 1, currentNodeKey.getPrimaryKey(), minDistance));
                         return false;
                     }
 
                     greedyStateReference.set(
-                            new GreedyResult(layer, nearestNeighbor.getPrimaryKey(),
+                            new GreedyState(layer, nearestNeighbor.getPrimaryKey(),
                                     minDistance));
                     return true;
                 }), executor).thenApply(ignored -> greedyStateReference.get());
@@ -590,12 +594,12 @@ public class HNSW {
      * TODO.
      */
     @Nonnull
-    private <R extends NodeReference> CompletableFuture<GreedyResult> searchLayer(@Nonnull Node.NodeCreator<R> creator,
-                                                                                  @Nonnull final ReadTransaction readTransaction,
-                                                                                  @Nonnull final List<NodeReferenceWithDistance> entryNeighbors,
-                                                                                  final int layer,
-                                                                                  final int efSearch,
-                                                                                  @Nonnull final Vector<Half> queryVector) {
+    private <N extends NodeReference> CompletableFuture<SearchResult<N>> searchLayer(@Nonnull Node.NodeCreator<N> creator,
+                                                                                     @Nonnull final ReadTransaction readTransaction,
+                                                                                     @Nonnull final List<NodeReferenceWithDistance> entryNeighbors,
+                                                                                     final int layer,
+                                                                                     final int efSearch,
+                                                                                     @Nonnull final Vector<Half> queryVector) {
         final Set<Tuple> visited = Sets.newConcurrentHashSet(NodeReference.primaryKeys(entryNeighbors));
         final PriorityBlockingQueue<NodeReferenceWithDistance> candidates =
                 new PriorityBlockingQueue<>(entryNeighbors.size(),
@@ -605,105 +609,135 @@ public class HNSW {
                 new PriorityBlockingQueue<>(entryNeighbors.size(),
                         Comparator.comparing(NodeReferenceWithDistance::getDistance).reversed());
         nearestNeighbors.addAll(entryNeighbors);
-        final Map<Tuple, Node<R>> nodeCache = Maps.newConcurrentMap();
-
+        final Map<Tuple, Node<N>> nodeCache = Maps.newConcurrentMap();
         final Metric metric = getConfig().getMetric();
 
         return AsyncUtil.whileTrue(() -> {
             if (candidates.isEmpty()) {
-                return false;
+                return AsyncUtil.READY_FALSE;
             }
 
             final NodeReferenceWithDistance candidate = candidates.poll();
             final NodeReferenceWithDistance furthestNeighbor = Objects.requireNonNull(nearestNeighbors.peek());
 
             if (candidate.getDistance() > furthestNeighbor.getDistance()) {
-                return false;
+                return AsyncUtil.READY_FALSE;
             }
 
-            final CompletableFuture<Node<R>> candidateNodeFuture;
-            final Node<R> cachedCandidateNode = nodeCache.get(candidate.getPrimaryKey());
-            if (cachedCandidateNode != null) {
-                candidateNodeFuture = CompletableFuture.completedFuture(cachedCandidateNode);
-            } else {
-                candidateNodeFuture =
-                        storageAdapter.fetchNode(creator, readTransaction, layer, candidate.getPrimaryKey())
-                                .thenApply(candidateNode -> nodeCache.put(candidate.getPrimaryKey(), candidateNode));
-            }
+            return fetchNodeIfNotCached(creator, readTransaction, layer, candidate, nodeCache)
+                    .thenApply(candidateNode ->
+                            Iterables.filter(candidateNode.getNeighbors(),
+                                    neighbor -> !visited.contains(neighbor.getPrimaryKey())))
+                    .thenCompose(neighborReferences -> fetchSomeNeighbors(creator, readTransaction,
+                            layer, neighborReferences, nodeCache))
+                    .thenApply(neighborReferences -> {
+                        for (final NodeReferenceWithVector current : neighborReferences) {
+                            visited.add(current.getPrimaryKey());
+                            final double furthestDistance =
+                                    Objects.requireNonNull(nearestNeighbors.peek()).getDistance();
 
-            candidateNodeFuture
-                    .thenCompose(candidateNode -> fetchNodes(creator, readTransaction,
-                            NodeReference.primaryKeys(candidateNode.getNeighbors()), layer)
-                            .thenApply(neighbors -> {
-
-                                for (final Node<R> neighbor : neighbors) {
-
+                            final double currentDistance =
+                                    Vector.comparativeDistance(metric, current.getVector(), queryVector);
+                            if (currentDistance < furthestDistance || nearestNeighbors.size() < efSearch) {
+                                final NodeReferenceWithDistance currentWithDistance =
+                                        new NodeReferenceWithDistance(current.getPrimaryKey(), currentDistance);
+                                candidates.add(currentWithDistance);
+                                nearestNeighbors.add(currentWithDistance);
+                                if (nearestNeighbors.size() > efSearch) {
+                                    nearestNeighbors.poll();
                                 }
-                            }))
-                    .thenApply(neighbors -> {
-                        for (final Node<R> neighbor : neighbors) {
-                            if (visited.contains(neighbor.getPrimaryKey())) {
-                                continue;
                             }
-                            visited.add(neighbor.getPrimaryKey());
-                            final NodeReferenceWithDistance furthestNeighbor1 =
-                                    Objects.requireNonNull(nearestNeighbors.peek());
-
-                            final
-                            Vector.comparativeDistance(metric, neighbor.)
-
                         }
-                    })
+                        return true;
+                    });
+        }).thenCompose(ignored -> fetchResultsIfNecessary(creator, readTransaction, layer, nearestNeighbors,
+                nodeCache));
+    }
 
-            return AsyncUtil.whileTrue(() -> {
-                fetchNodes(creator, readTransaction, candidateReference.get().)
-            });
-        }).thenApply(ignored -> null); // TODO
+    /**
+     * TODO.
+     */
+    @Nonnull
+    private <N extends NodeReference> CompletableFuture<Node<N>> fetchNodeIfNotCached(@Nonnull final Node.NodeCreator<N> creator,
+                                                                                      @Nonnull final ReadTransaction readTransaction,
+                                                                                      final int layer,
+                                                                                      @Nonnull final NodeReference nodeReference,
+                                                                                      @Nonnull final Map<Tuple, Node<N>> nodeCache) {
+        return fetchNodeIfNecessaryAndApply(creator, readTransaction, layer, nodeReference,
+                nR -> nodeCache.get(nR.getPrimaryKey()),
+                (ignored, node) -> node);
+    }
 
-        if (candidates.isEmpty()) {
-            return CompletableFuture.completedFuture(null); // TODO
+    /**
+     * TODO.
+     */
+    @Nonnull
+    private <R extends NodeReference, N extends NodeReference, U> CompletableFuture<U> fetchNodeIfNecessaryAndApply(@Nonnull final Node.NodeCreator<N> creator,
+                                                                                                                    @Nonnull final ReadTransaction readTransaction,
+                                                                                                                    final int layer,
+                                                                                                                    @Nonnull final R nodeReference,
+                                                                                                                    @Nonnull final Function<R, U> fetchBypassFunction,
+                                                                                                                    @Nonnull final BiFunction<R, Node<N>, U> biMapFunction) {
+        final U bypass = fetchBypassFunction.apply(nodeReference);
+        if (bypass != null) {
+            return CompletableFuture.completedFuture(bypass);
         }
 
-        final Metric metric = getConfig().getMetric();
-        final AtomicReference<GreedyResult> greedyStateReference =
-                new AtomicReference<>(entryStates);
+        return onReadListener.onAsyncRead(
+                        storageAdapter.fetchNode(creator, readTransaction, layer, nodeReference.getPrimaryKey()))
+                .thenApply(node -> biMapFunction.apply(nodeReference, node));
+    }
 
-        fetchNodes(creator, readTransaction, )
-
-        return AsyncUtil.whileTrue(() ->
-                fetchNodes(IntermediateNode::creator, readTransaction,
-                        layer, greedyStateReference.get().getPrimaryKey())
-                        .thenApply(nodeWithLayer -> {
-                    if (nodeWithLayer == null) {
-                        throw new IllegalStateException("unable to fetch node");
+    /**
+     * TODO.
+     */
+    @Nonnull
+    private <N extends NodeReference> CompletableFuture<List<NodeReferenceWithVector>> fetchSomeNeighbors(@Nonnull final Node.NodeCreator<N> creator,
+                                                                                                          @Nonnull final ReadTransaction readTransaction,
+                                                                                                          final int layer,
+                                                                                                          @Nonnull final Iterable<? extends NodeReference> neighborReferences,
+                                                                                                          @Nonnull final Map<Tuple, Node<N>> nodeCache) {
+        return fetchSomeNodesAndApply(creator, readTransaction, layer, neighborReferences,
+                neighborReference -> {
+                    if (neighborReference instanceof NodeReferenceWithVector) {
+                        return (NodeReferenceWithVector)neighborReference;
                     }
-                    final IntermediateNode node = nodeWithLayer.getNode().asIntermediateNode();
-                    final List<NodeReferenceWithVector> neighbors = node.getNeighbors();
-
-                    final GreedyResult currentNodeKey = greedyStateReference.get();
-                    double minDistance = currentNodeKey.getDistance();
-
-                    NodeReferenceWithVector nearestNeighbor = null;
-                    for (final NodeReferenceWithVector neighbor : neighbors) {
-                        final double distance =
-                                Vector.comparativeDistance(metric, neighbor.getVector(), queryVector);
-                        if (distance < minDistance) {
-                            minDistance = distance;
-                            nearestNeighbor = neighbor;
-                        }
+                    final Node<N> neighborNode = nodeCache.get(neighborReference.getPrimaryKey());
+                    if (neighborNode == null) {
+                        return null;
                     }
+                    return new NodeReferenceWithVector(neighborReference.getPrimaryKey(), neighborNode.asDataNode().getVector());
+                },
+                (neighborReference, neighborNode) ->
+                        new NodeReferenceWithVector(neighborReference.getPrimaryKey(), neighborNode.asDataNode().getVector()));
+    }
 
-                    if (nearestNeighbor == null) {
-                        greedyStateReference.set(
-                                new GreedyResult(layer - 1, currentNodeKey.getPrimaryKey(), minDistance));
-                        return false;
+    /**
+     * TODO.
+     */
+    @Nonnull
+    private <N extends NodeReference> CompletableFuture<SearchResult<N>> fetchResultsIfNecessary(@Nonnull final Node.NodeCreator<N> creator,
+                                                                                                 @Nonnull final ReadTransaction readTransaction,
+                                                                                                 final int layer,
+                                                                                                 @Nonnull final Iterable<NodeReferenceWithDistance> nodeReferences,
+                                                                                                 @Nonnull final Map<Tuple, Node<N>> nodeCache) {
+        return fetchSomeNodesAndApply(creator, readTransaction, layer, nodeReferences,
+                nodeReference -> {
+                    final Node<N> node = nodeCache.get(nodeReference.getPrimaryKey());
+                    if (node == null) {
+                        return null;
                     }
-
-                    greedyStateReference.set(
-                            new GreedyResult(layer, nearestNeighbor.getPrimaryKey(),
-                                    minDistance));
-                    return true;
-                }), executor).thenApply(ignored -> greedyStateReference.get());
+                    return new SearchResult.NodeReferenceWithNode<>(nodeReference, node);
+                },
+                SearchResult.NodeReferenceWithNode::new)
+                .thenApply(nodeReferencesWithNodes -> {
+                    final ImmutableMap.Builder<NodeReferenceWithDistance, Node<N>> nodeMapBuilder =
+                            ImmutableMap.builder();
+                    for (final SearchResult.NodeReferenceWithNode<N> nodeReferenceWithNode : nodeReferencesWithNodes) {
+                        nodeMapBuilder.put(nodeReferenceWithNode.getNodeReferenceWithDistance(), nodeReferenceWithNode.getNode());
+                    }
+                    return new SearchResult<>(layer, nodeMapBuilder.build());
+                });
     }
 
     /**
@@ -711,34 +745,34 @@ public class HNSW {
      */
     @Nonnull
     @SuppressWarnings("unchecked")
-    private <R extends NodeReference> CompletableFuture<List<Node<R>>> fetchNodes(@Nonnull final Node.NodeCreator<R> creator,
-                                                                                  @Nonnull final ReadTransaction readTransaction,
-                                                                                  @Nonnull final Iterable<Tuple> primaryKeys,
-                                                                                  final int layer) {
+    private <R extends NodeReference, N extends NodeReference, U> CompletableFuture<List<U>> fetchSomeNodesAndApply(@Nonnull final Node.NodeCreator<N> creator,
+                                                                                                                    @Nonnull final ReadTransaction readTransaction,
+                                                                                                                    final int layer,
+                                                                                                                    @Nonnull final Iterable<R> nodeReferences,
+                                                                                                                    @Nonnull final Function<R, U> fetchBypassFunction,
+                                                                                                                    @Nonnull final BiFunction<R, Node<N>, U> biMapFunction) {
         // this deque is only modified by once upon creation
-        final ArrayDeque<Tuple> toBeProcessed = new ArrayDeque<>();
-        for (final var primaryKey : primaryKeys) {
-            toBeProcessed.addLast(primaryKey);
+        final ArrayDeque<R> toBeProcessed = new ArrayDeque<>();
+        for (final var nodeReference : nodeReferences) {
+            toBeProcessed.addLast(nodeReference);
         }
         final List<CompletableFuture<Void>> working = Lists.newArrayList();
         final AtomicInteger neighborIndex = new AtomicInteger(0);
-        final Node<R>[] neighborNodeArray =
-                (Node<R>[])Array.newInstance(Node.class, toBeProcessed.size());
+        final Object[] neighborNodeArray = new Object[toBeProcessed.size()];
 
-        // Fetch all sibling nodes (in parallel if possible).
         return AsyncUtil.whileTrue(() -> {
             working.removeIf(CompletableFuture::isDone);
 
             while (working.size() <= MAX_CONCURRENT_READS) {
-                final Tuple currentNeighborKey = toBeProcessed.pollFirst();
-                if (currentNeighborKey == null) {
+                final R currentNeighborReference = toBeProcessed.pollFirst();
+                if (currentNeighborReference == null) {
                     break;
                 }
 
                 final int index = neighborIndex.getAndIncrement();
 
-                working.add(onReadListener.onAsyncRead(storageAdapter.fetchNode(creator, readTransaction, layer,
-                                currentNeighborKey))
+                working.add(fetchNodeIfNecessaryAndApply(creator, readTransaction, layer,
+                                currentNeighborReference, fetchBypassFunction, biMapFunction)
                         .thenAccept(resultNode -> {
                             Objects.requireNonNull(resultNode);
                             neighborNodeArray[index] = resultNode;
@@ -749,8 +783,12 @@ public class HNSW {
                 return AsyncUtil.READY_FALSE;
             }
             return AsyncUtil.whenAny(working).thenApply(ignored -> true);
-        }, executor).thenApply(ignored -> Lists.newArrayList(neighborNodeArray));
+        }, executor).thenApply(ignored -> {
+            final ImmutableList.Builder<U> resultBuilder = ImmutableList.builder();
+            for (final Object o : neighborNodeArray) {
+                resultBuilder.add((U)o);
+            }
+            return resultBuilder.build();
+        });
     }
-
-
 }

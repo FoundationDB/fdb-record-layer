@@ -21,9 +21,9 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 import java.util.Objects;
 
 public class NodeReference {
@@ -40,8 +40,8 @@ public class NodeReference {
     }
 
     @Nonnull
-    public static Iterable<Tuple> primaryKeys(@Nonnull List<? extends NodeReference> neighbors) {
-        return () -> neighbors.stream()
+    public static Iterable<Tuple> primaryKeys(@Nonnull Iterable<? extends NodeReference> neighbors) {
+        return () -> Streams.stream(neighbors)
                 .map(NodeReference::getPrimaryKey)
                 .iterator();
     }
