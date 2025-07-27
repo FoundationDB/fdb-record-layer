@@ -29,7 +29,7 @@ import javax.annotation.Nonnull;
  */
 public enum NodeKind {
     DATA((byte)0x00),
-    INTERMEDIATE((byte)0x01);
+    INLINING((byte)0x01);
 
     private final byte serialized;
 
@@ -49,7 +49,7 @@ public enum NodeKind {
                 nodeKind = NodeKind.DATA;
                 break;
             case 0x01:
-                nodeKind = NodeKind.INTERMEDIATE;
+                nodeKind = NodeKind.INLINING;
                 break;
             default:
                 throw new IllegalArgumentException("unknown node kind");

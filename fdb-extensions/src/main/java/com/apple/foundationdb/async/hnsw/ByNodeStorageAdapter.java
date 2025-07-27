@@ -118,13 +118,13 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
     }
 
     @Override
-    public void writeLeafNodeSlot(@Nonnull final Transaction transaction, @Nonnull final DataNode node,
+    public void writeLeafNodeSlot(@Nonnull final Transaction transaction, @Nonnull final CompactNode node,
                                   @Nonnull final ItemSlot itemSlot) {
         persistNode(transaction, node);
     }
 
     @Override
-    public void clearLeafNodeSlot(@Nonnull final Transaction transaction, @Nonnull final DataNode node,
+    public void clearLeafNodeSlot(@Nonnull final Transaction transaction, @Nonnull final CompactNode node,
                                   @Nonnull final ItemSlot itemSlot) {
         persistNode(transaction, node);
     }
@@ -170,7 +170,7 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
                 vectorTuple = tuple.getNestedTuple(2);
                 neighborsTuple = tuple.getNestedTuple(3);
                 return dataNodeFromTuples(creator, primaryKey, vectorTuple, neighborsTuple);
-            case INTERMEDIATE:
+            case INLINING:
                 neighborsTuple = tuple.getNestedTuple(3);
                 return intermediateNodeFromTuples(creator, primaryKey, neighborsTuple);
             default:
@@ -216,7 +216,7 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
             neighborsWithVectors.add(new NodeReferenceWithVector(neighborPrimaryKey, new Vector.HalfVector(neighborVectorHalfs)));
         }
 
-        return creator.create(NodeKind.INTERMEDIATE, primaryKey, null, neighborsWithVectors);
+        return creator.create(NodeKind.INLINING, primaryKey, null, neighborsWithVectors);
     }
 
     @Nonnull

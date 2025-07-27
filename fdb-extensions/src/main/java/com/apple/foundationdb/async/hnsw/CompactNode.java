@@ -1,5 +1,5 @@
 /*
- * DataNode.java
+ * CompactNode.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -32,12 +32,12 @@ import java.util.Objects;
 /**
  * TODO.
  */
-class DataNode extends AbstractNode<NodeReference> {
+class CompactNode extends AbstractNode<NodeReference> {
     @Nonnull
     private final Vector<Half> vector;
 
-    public DataNode(@Nonnull final Tuple primaryKey, @Nonnull final Vector<Half> vector,
-                    @Nonnull final List<NodeReference> nodeReferences) {
+    public CompactNode(@Nonnull final Tuple primaryKey, @Nonnull final Vector<Half> vector,
+                       @Nonnull final List<NodeReference> nodeReferences) {
         super(primaryKey, nodeReferences);
         this.vector = vector;
     }
@@ -55,19 +55,19 @@ class DataNode extends AbstractNode<NodeReference> {
 
     @Nonnull
     @Override
-    public DataNode asDataNode() {
+    public CompactNode asCompactNode() {
         return this;
     }
 
     @Nonnull
     @Override
-    public IntermediateNode asIntermediateNode() {
-        throw new IllegalStateException("this is not a data node");
+    public InliningNode asInliningNode() {
+        throw new IllegalStateException("this is not an inlining node");
     }
 
     @Override
     public NodeCreator<NodeReference> sameCreator() {
-        return DataNode::creator;
+        return CompactNode::creator;
     }
 
     @Nonnull
@@ -76,7 +76,7 @@ class DataNode extends AbstractNode<NodeReference> {
                                               @Nonnull final Tuple primaryKey,
                                               @Nullable final Vector<Half> vector,
                                               @Nonnull final List<? extends NodeReference> neighbors) {
-        Verify.verify(nodeKind == NodeKind.INTERMEDIATE);
-        return new DataNode(primaryKey, Objects.requireNonNull(vector), (List<NodeReference>)neighbors);
+        Verify.verify(nodeKind == NodeKind.INLINING);
+        return new CompactNode(primaryKey, Objects.requireNonNull(vector), (List<NodeReference>)neighbors);
     }
 }

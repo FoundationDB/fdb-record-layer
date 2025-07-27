@@ -1,5 +1,5 @@
 /*
- * IntermediateNode.java
+ * InliningNode.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -31,33 +31,33 @@ import java.util.List;
 /**
  * TODO.
  */
-class IntermediateNode extends AbstractNode<NodeReferenceWithVector> {
-    public IntermediateNode(@Nonnull final Tuple primaryKey,
-                            @Nonnull final List<NodeReferenceWithVector> neighbors) {
+class InliningNode extends AbstractNode<NodeReferenceWithVector> {
+    public InliningNode(@Nonnull final Tuple primaryKey,
+                        @Nonnull final List<NodeReferenceWithVector> neighbors) {
         super(primaryKey, neighbors);
     }
 
     @Nonnull
     @Override
     public NodeKind getKind() {
-        return NodeKind.INTERMEDIATE;
+        return NodeKind.INLINING;
     }
 
     @Nonnull
     @Override
-    public DataNode asDataNode() {
-        throw new IllegalStateException("this is not a data node");
+    public CompactNode asCompactNode() {
+        throw new IllegalStateException("this is not a compact node");
     }
 
     @Nonnull
     @Override
-    public IntermediateNode asIntermediateNode() {
+    public InliningNode asInliningNode() {
         return this;
     }
 
     @Override
     public NodeCreator<NodeReferenceWithVector> sameCreator() {
-        return IntermediateNode::creator;
+        return InliningNode::creator;
     }
 
     @Nonnull
@@ -66,7 +66,7 @@ class IntermediateNode extends AbstractNode<NodeReferenceWithVector> {
                                                         @Nonnull final Tuple primaryKey,
                                                         @Nullable final Vector<Half> vector,
                                                         @Nonnull final List<? extends NodeReference> neighbors) {
-        Verify.verify(nodeKind == NodeKind.INTERMEDIATE);
-        return new IntermediateNode(primaryKey, (List<NodeReferenceWithVector>)neighbors);
+        Verify.verify(nodeKind == NodeKind.INLINING);
+        return new InliningNode(primaryKey, (List<NodeReferenceWithVector>)neighbors);
     }
 }
