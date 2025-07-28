@@ -1,3 +1,6 @@
+import com.teamscale.aggregation.compact.AggregateCompactCoverageReport
+import com.teamscale.TeamscaleUpload
+
 /*
  * build.gradle
  *
@@ -38,6 +41,8 @@ plugins {
     alias(libs.plugins.spotbugs)
     alias(libs.plugins.nexus)
     alias(libs.plugins.download)
+    alias(libs.plugins.teamscale.aggregation)
+    alias(libs.plugins.teamscale)
 }
 
 ext {
@@ -355,4 +360,46 @@ if (!ext.fdbEnvironment.isEmpty()) {
             task.environment(fdbenv)
         }
     }
+}
+
+teamscale {
+    server {
+        url = "https://fdb.teamscale.io"
+        project = "foundationdb-fdb-record-layer"
+        userName = "fdb-record-layer-build"
+        userAccessToken = isRunningInCI() ? System.getenv("TEAMSCALE_ACCESS_KEY") : "NO ACCESS"
+    }
+    commit {
+        revision = System.getenv("GIT_COMMIT")
+    }
+}
+
+dependencies {
+    reportAggregation(subprojects)
+}
+
+reporting {
+    reports {
+        testAggregateCompactCoverageReport(AggregateCompactCoverageReport) {
+            testSuiteName = JvmTestSuitePlugin.DEFAULT_TEST_SUITE_NAME
+        }
+    }
+}
+
+tasks.register("teamscaleTestReportUpload", TeamscaleUpload) {
+    partition = "CI Tests"
+    ignoreFailures = false
+    message = "Gradle Upload"
+
+    if (isRunningInCI()) {
+        from(tasks.testAggregateCompactCoverageReport)
+    }
+}
+
+static def isRunningInCI() {
+    return System.getenv().containsKey("GITHUB_ACTIONS")
+}
+
+tasks.named('check') {
+    finalizedBy tasks.named("teamscaleTestReportUpload")
 }

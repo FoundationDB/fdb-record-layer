@@ -48,6 +48,8 @@ jobs:
         with:
           gradle_command: :fdb-record-layer-core:test :fdb-record-layer-core:destructiveTest
           gradle_args: -PreleaseBuild=false -PpublishBuild=false
+        env:
+          TEAMSCALE_ACCESS_KEY: ${{ secrets.TEAMSCALE_ACCESS_KEY }}
       - name: Publish Test Reports
         if: always()
         uses: actions/upload-artifact@v4.6.0
@@ -82,6 +84,8 @@ jobs:
         with:
           gradle_command: :fdb-record-layer-lucene:test :fdb-record-layer-lucene:destructiveTest
           gradle_args: -PreleaseBuild=false -PpublishBuild=false
+        env:
+          TEAMSCALE_ACCESS_KEY: ${{ secrets.TEAMSCALE_ACCESS_KEY }}
       - name: Publish Test Reports
         if: always()
         uses: actions/upload-artifact@v4.6.0
@@ -116,6 +120,8 @@ jobs:
         with:
           gradle_command: test -x :fdb-record-layer-core:test -x :fdb-record-layer-lucene:test destructiveTest -x :fdb-record-layer-core:destructiveTest -x :fdb-record-layer-lucene:destructiveTest 
           gradle_args: -PreleaseBuild=false -PpublishBuild=false
+        env:
+          TEAMSCALE_ACCESS_KEY: ${{ secrets.TEAMSCALE_ACCESS_KEY }}
       - name: Publish Test Reports
         if: always()
         uses: actions/upload-artifact@v4.6.0
