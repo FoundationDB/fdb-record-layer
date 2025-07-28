@@ -35,9 +35,12 @@ import java.util.function.Supplier;
 public abstract class Vector<R extends Number> {
     @Nonnull
     protected R[] data;
+    @Nonnull
+    protected Supplier<Integer> hashCodeSupplier;
 
     public Vector(@Nonnull final R[] data) {
         this.data = data;
+        this.hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
     }
 
     public int size() {
@@ -71,6 +74,10 @@ public abstract class Vector<R extends Number> {
 
     @Override
     public int hashCode() {
+        return hashCodeSupplier.get();
+    }
+
+    private int computeHashCode() {
         return Arrays.hashCode(data);
     }
 
