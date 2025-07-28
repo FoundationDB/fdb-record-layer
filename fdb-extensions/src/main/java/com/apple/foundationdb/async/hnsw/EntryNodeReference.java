@@ -21,35 +21,19 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.tuple.Tuple;
+import com.christianheina.langx.half4j.Half;
 
 import javax.annotation.Nonnull;
 
-class GreedyState {
+class EntryNodeReference extends NodeReferenceWithVector {
     private final int layer;
-    @Nonnull
-    private final Tuple primaryKey;
-    private final double distance;
 
-    public GreedyState(final int layer, @Nonnull final Tuple primaryKey, final double distance) {
+    public EntryNodeReference(@Nonnull final Tuple primaryKey, @Nonnull final Vector<Half> vector, final int layer) {
+        super(primaryKey, vector);
         this.layer = layer;
-        this.primaryKey = primaryKey;
-        this.distance = distance;
     }
 
     public int getLayer() {
         return layer;
-    }
-
-    @Nonnull
-    public Tuple getPrimaryKey() {
-        return primaryKey;
-    }
-
-    public double getDistance() {
-        return distance;
-    }
-
-    public NodeReferenceWithDistance toNodeReferenceWithDistance() {
-        return new NodeReferenceWithDistance(getPrimaryKey(), getDistance());
     }
 }

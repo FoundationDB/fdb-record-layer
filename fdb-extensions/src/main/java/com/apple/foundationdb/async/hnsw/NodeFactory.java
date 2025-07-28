@@ -1,5 +1,5 @@
 /*
- * NodeWithLayer.java
+ * NodeFactory.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -24,31 +24,14 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.christianheina.langx.half4j.Half;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.List;
 
-class EntryPointAndLayer {
-    private final int layer;
+public interface NodeFactory<N extends NodeReference> {
     @Nonnull
-    private final Tuple primaryKey;
-    @Nonnull
-    private final Vector<Half> vector;
-
-    public EntryPointAndLayer(final int layer, @Nonnull final Tuple primaryKey, @Nonnull final Vector<Half> vector) {
-        this.layer = layer;
-        this.primaryKey = primaryKey;
-        this.vector = vector;
-    }
-
-    public int getLayer() {
-        return layer;
-    }
+    Node<N> create(@Nonnull NodeKind nodeKind, @Nonnull Tuple primaryKey, @Nullable Vector<Half> vector,
+                   @Nonnull List<? extends NodeReference> neighbors);
 
     @Nonnull
-    public Tuple getPrimaryKey() {
-        return primaryKey;
-    }
-
-    @Nonnull
-    public Vector<Half> getVector() {
-        return vector;
-    }
+    NodeKind getNodeKind();
 }

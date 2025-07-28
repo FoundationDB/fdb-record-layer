@@ -42,9 +42,13 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.IntFunction;
+import java.util.function.IntPredicate;
+import java.util.function.IntUnaryOperator;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
@@ -1049,6 +1053,24 @@ public class MoreAsyncUtil {
             }
         });
         return result;
+    }
+
+    public static CompletableFuture<Void> forLoop(int startI, @Nonnull final IntPredicate conditionPredicate,
+                                                  @Nonnull final IntUnaryOperator stepFunction,
+                                                  @Nonnull final IntFunction<CompletableFuture<Void>> body,
+                                                  @Nonnull final Executor executor) {
+        final AtomicInteger loopVariableAtomic = new AtomicInteger(startI);
+        return AsyncUtil.whileTrue(() -> {
+            final int loopVariable = loopVariableAtomic.get();
+            if (!conditionPredicate.test(loopVariable)) {
+                return AsyncUtil.READY_FALSE;
+            }
+            return body.apply(loopVariable)
+                    .thenApply(ignored -> {
+                        loopVariableAtomic.set(stepFunction.applyAsInt(loopVariable));
+                        return true;
+                    });
+        }, executor);
     }
 
     /**

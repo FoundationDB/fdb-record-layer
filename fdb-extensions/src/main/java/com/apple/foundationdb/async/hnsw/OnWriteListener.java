@@ -42,7 +42,7 @@ public interface OnWriteListener {
         return future;
     }
 
-    default void onNodeWritten(@Nonnull Node node) {
+    default void onNodeWritten(@Nonnull Node<? extends NodeReference> node) {
         // nothing
     }
 

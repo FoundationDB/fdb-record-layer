@@ -22,10 +22,9 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.tuple.Tuple;
 import com.christianheina.langx.half4j.Half;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.List;
 
 /**
@@ -42,20 +41,8 @@ public interface Node<R extends NodeReference> {
     @Nonnull
     R getNeighbor(int index);
 
-    @CanIgnoreReturnValue
-    @Nonnull
-    Node<R> insert(@Nonnull StorageAdapter storageAdapter, int level, int slotIndex, @Nonnull NodeSlot slot);
-
-    @CanIgnoreReturnValue
-    @Nonnull
-    Node<R> update(@Nonnull StorageAdapter storageAdapter, int level, int slotIndex, @Nonnull NodeSlot updatedSlot);
-
-    @CanIgnoreReturnValue
-    @Nonnull
-    Node<R> delete(@Nonnull StorageAdapter storageAdapter, int level, int slotIndex);
-
     /**
-     * Return the kind of the node, i.e. {@link NodeKind#DATA} or {@link NodeKind#INLINING}.
+     * Return the kind of the node, i.e. {@link NodeKind#COMPACT} or {@link NodeKind#INLINING}.
      * @return the kind of this node as a {@link NodeKind}
      */
     @Nonnull
@@ -67,11 +54,63 @@ public interface Node<R extends NodeReference> {
     @Nonnull
     InliningNode asInliningNode();
 
-    NodeCreator<R> sameCreator();
+    NodeFactory<R> sameCreator();
 
-    @FunctionalInterface
-    interface NodeCreator<N extends NodeReference> {
-        Node<N> create(@Nonnull NodeKind nodeKind, @Nonnull Tuple primaryKey, @Nullable Vector<Half> vector,
-                       @Nonnull List<? extends NodeReference> neighbors);
+    @Nonnull
+    Tuple toTuple();
+
+    @Nonnull
+    static <N extends NodeReference> Node<N> nodeFromTuples(@Nonnull final NodeFactory<N> creator,
+                                                            @Nonnull final Tuple primaryKey,
+                                                            @Nonnull final Tuple valueTuple) {
+        final NodeKind nodeKind = NodeKind.fromSerializedNodeKind((byte)valueTuple.getLong(0));
+        final Tuple vectorTuple;
+        final Tuple neighborsTuple;
+
+        switch (nodeKind) {
+            case COMPACT:
+                vectorTuple = valueTuple.getNestedTuple(1);
+                neighborsTuple = valueTuple.getNestedTuple(2);
+                return compactNodeFromTuples(creator, primaryKey, vectorTuple, neighborsTuple);
+            case INLINING:
+                neighborsTuple = valueTuple.getNestedTuple(1);
+                return inliningNodeFromTuples(creator, primaryKey, neighborsTuple);
+            default:
+                throw new IllegalStateException("unknown node kind");
+        }
+    }
+
+    @Nonnull
+    static <N extends NodeReference> Node<N> compactNodeFromTuples(@Nonnull final NodeFactory<N> creator,
+                                                                   @Nonnull final Tuple primaryKey,
+                                                                   @Nonnull final Tuple vectorTuple,
+                                                                   @Nonnull final Tuple neighborsTuple) {
+        final Vector<Half> vector = StorageAdapter.vectorFromTuple(vectorTuple);
+
+        List<NodeReference> nodeReferences = Lists.newArrayListWithExpectedSize(neighborsTuple.size());
+
+        for (final Object neighborObject : neighborsTuple) {
+            final Tuple neighborTuple = (Tuple)neighborObject;
+            nodeReferences.add(new NodeReference(neighborTuple));
+        }
+
+        return creator.create(NodeKind.COMPACT, primaryKey, vector, nodeReferences);
+    }
+
+    @Nonnull
+    static <N extends NodeReference> Node<N> inliningNodeFromTuples(@Nonnull final NodeFactory<N> creator,
+                                                                    @Nonnull final Tuple primaryKey,
+                                                                    @Nonnull final Tuple neighborsTuple) {
+        List<NodeReferenceWithVector> neighborsWithVectors = Lists.newArrayListWithExpectedSize(neighborsTuple.size());
+
+        for (final Object neighborObject : neighborsTuple) {
+            final Tuple neighborTuple = (Tuple)neighborObject;
+            final Tuple neighborPrimaryKey = neighborTuple.getNestedTuple(0);
+            final Tuple neighborVectorTuple = neighborTuple.getNestedTuple(1);
+            neighborsWithVectors.add(new NodeReferenceWithVector(neighborPrimaryKey,
+                    StorageAdapter.vectorFromTuple(neighborVectorTuple)));
+        }
+
+        return creator.create(NodeKind.INLINING, primaryKey, null, neighborsWithVectors);
     }
 }

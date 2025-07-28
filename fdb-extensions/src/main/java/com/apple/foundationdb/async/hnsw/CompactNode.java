@@ -23,6 +23,7 @@ package com.apple.foundationdb.async.hnsw;
 import com.apple.foundationdb.tuple.Tuple;
 import com.christianheina.langx.half4j.Half;
 import com.google.common.base.Verify;
+import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -32,7 +33,24 @@ import java.util.Objects;
 /**
  * TODO.
  */
-class CompactNode extends AbstractNode<NodeReference> {
+public class CompactNode extends AbstractNode<NodeReference> {
+    @Nonnull
+    private static final NodeFactory<NodeReference> FACTORY = new NodeFactory<>() {
+        @SuppressWarnings("unchecked")
+        @Nonnull
+        @Override
+        public Node<NodeReference> create(@Nonnull final NodeKind nodeKind, @Nonnull final Tuple primaryKey, @Nullable final Vector<Half> vector, @Nonnull final List<? extends NodeReference> neighbors) {
+            Verify.verify(nodeKind == NodeKind.COMPACT);
+            return new CompactNode(primaryKey, Objects.requireNonNull(vector), (List<NodeReference>)neighbors);
+        }
+
+        @Nonnull
+        @Override
+        public NodeKind getNodeKind() {
+            return NodeKind.COMPACT;
+        }
+    };
+
     @Nonnull
     private final Vector<Half> vector;
 
@@ -45,7 +63,7 @@ class CompactNode extends AbstractNode<NodeReference> {
     @Nonnull
     @Override
     public NodeKind getKind() {
-        return NodeKind.DATA;
+        return NodeKind.COMPACT;
     }
 
     @Nonnull
@@ -66,17 +84,26 @@ class CompactNode extends AbstractNode<NodeReference> {
     }
 
     @Override
-    public NodeCreator<NodeReference> sameCreator() {
-        return CompactNode::creator;
+    public NodeFactory<NodeReference> sameCreator() {
+        return CompactNode.factory();
     }
 
     @Nonnull
-    @SuppressWarnings("unchecked")
-    public static Node<NodeReference> creator(@Nonnull final NodeKind nodeKind,
-                                              @Nonnull final Tuple primaryKey,
-                                              @Nullable final Vector<Half> vector,
-                                              @Nonnull final List<? extends NodeReference> neighbors) {
-        Verify.verify(nodeKind == NodeKind.INLINING);
-        return new CompactNode(primaryKey, Objects.requireNonNull(vector), (List<NodeReference>)neighbors);
+    @Override
+    public Tuple toTuple() {
+        final List<Object> nodeItems = Lists.newArrayListWithExpectedSize(4);
+        nodeItems.add(NodeKind.COMPACT.getSerialized());
+        nodeItems.add(StorageAdapter.tupleFromVector(getVector()));
+        final List<Tuple> neighborItems = Lists.newArrayListWithExpectedSize(getNeighbors().size());
+        for (final NodeReference nodeReference : getNeighbors()) {
+            neighborItems.add(nodeReference.getPrimaryKey());
+        }
+        nodeItems.add(Tuple.fromList(neighborItems));
+        return Tuple.fromList(nodeItems);
+    }
+
+    @Nonnull
+    public static NodeFactory<NodeReference> factory() {
+        return FACTORY;
     }
 }

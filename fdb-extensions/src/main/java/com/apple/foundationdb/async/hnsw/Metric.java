@@ -90,6 +90,12 @@ public interface Metric {
             }
             return sumOfAbsDiffs;
         }
+
+        @Override
+        @Nonnull
+        public String toString() {
+            return this.getClass().getSimpleName();
+        }
     }
 
     class EuclideanMetric implements Metric {
@@ -98,6 +104,12 @@ public interface Metric {
             Metric.validate(vector1, vector2);
 
             return Math.sqrt(EuclideanSquareMetric.distanceInternal(vector1, vector2));
+        }
+
+        @Override
+        @Nonnull
+        public String toString() {
+            return this.getClass().getSimpleName();
         }
     }
 
@@ -115,6 +127,12 @@ public interface Metric {
                 sumOfSquares += diff * diff;
             }
             return sumOfSquares;
+        }
+
+        @Override
+        @Nonnull
+        public String toString() {
+            return this.getClass().getSimpleName();
         }
     }
 
@@ -140,6 +158,12 @@ public interface Metric {
 
             return 1.0d - dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
         }
+
+        @Override
+        @Nonnull
+        public String toString() {
+            return this.getClass().getSimpleName();
+        }
     }
 
     class DotProductMetric implements Metric {
@@ -157,6 +181,12 @@ public interface Metric {
                 product += vector1[i] * vector2[i];
             }
             return -product;
+        }
+
+        @Override
+        @Nonnull
+        public String toString() {
+            return this.getClass().getSimpleName();
         }
     }
 }
