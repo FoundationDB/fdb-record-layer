@@ -46,7 +46,7 @@ jobs:
       - name: Run Gradle Test
         uses: ./actions/gradle-test
         with:
-          gradle_command: :fdb-record-layer-core:test :fdb-record-layer-core:destructiveTest
+          gradle_command: :fdb-record-layer-core:test :fdb-record-layer-core:destructiveTest teamscaleTestReportUpload
           gradle_args: -PreleaseBuild=false -PpublishBuild=false
         env:
           TEAMSCALE_ACCESS_KEY: ${{ secrets.TEAMSCALE_ACCESS_KEY }}
@@ -82,7 +82,7 @@ jobs:
       - name: Run Gradle Test
         uses: ./actions/gradle-test
         with:
-          gradle_command: :fdb-record-layer-lucene:test :fdb-record-layer-lucene:destructiveTest
+          gradle_command: :fdb-record-layer-lucene:test :fdb-record-layer-lucene:destructiveTest teamscaleTestReportUpload
           gradle_args: -PreleaseBuild=false -PpublishBuild=false
         env:
           TEAMSCALE_ACCESS_KEY: ${{ secrets.TEAMSCALE_ACCESS_KEY }}
@@ -118,7 +118,7 @@ jobs:
       - name: Run Gradle Test
         uses: ./actions/gradle-test
         with:
-          gradle_command: test -x :fdb-record-layer-core:test -x :fdb-record-layer-lucene:test destructiveTest -x :fdb-record-layer-core:destructiveTest -x :fdb-record-layer-lucene:destructiveTest 
+          gradle_command: test -x :fdb-record-layer-core:test -x :fdb-record-layer-lucene:test destructiveTest -x :fdb-record-layer-core:destructiveTest -x :fdb-record-layer-lucene:destructiveTest teamscaleTestReportUpload
           gradle_args: -PreleaseBuild=false -PpublishBuild=false
         env:
           TEAMSCALE_ACCESS_KEY: ${{ secrets.TEAMSCALE_ACCESS_KEY }}

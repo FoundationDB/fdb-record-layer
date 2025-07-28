@@ -399,7 +399,3 @@ tasks.register("teamscaleTestReportUpload", TeamscaleUpload) {
 static def hasTeamscaleAccess() {
     return System.getenv().containsKey("TEAMSCALE_ACCESS_KEY")
 }
-
-tasks.named('check') {
-    finalizedBy tasks.named("teamscaleTestReportUpload")
-}
