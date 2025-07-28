@@ -28,7 +28,7 @@ import javax.annotation.Nonnull;
  * Enum to capture the kind of node.
  */
 public enum NodeKind {
-    DATA((byte)0x00),
+    COMPACT((byte)0x00),
     INLINING((byte)0x01);
 
     private final byte serialized;
@@ -46,7 +46,7 @@ public enum NodeKind {
         final NodeKind nodeKind;
         switch (serializedNodeKind) {
             case 0x00:
-                nodeKind = NodeKind.DATA;
+                nodeKind = NodeKind.COMPACT;
                 break;
             case 0x01:
                 nodeKind = NodeKind.INLINING;

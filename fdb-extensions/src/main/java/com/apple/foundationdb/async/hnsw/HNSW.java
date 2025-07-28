@@ -21,9 +21,11 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.ReadTransaction;
+import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.christianheina.langx.half4j.Half;
@@ -47,6 +49,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Queue;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -66,72 +70,14 @@ import java.util.function.Supplier;
 public class HNSW {
     private static final Logger logger = LoggerFactory.getLogger(HNSW.class);
 
-    /**
-     * root id. The root id is always only zeros.
-     */
-    static final byte[] rootId = new byte[16];
-
     public static final int MAX_CONCURRENT_READS = 16;
-
-    /**
-     * Indicator if we should maintain a secondary node index consisting of hilbet value and key to speed up
-     * update/deletes.
-     */
-    public static final boolean DEFAULT_USE_NODE_SLOT_INDEX = false;
-
-    /**
-     * The minimum number of slots a node has (if not the root node). {@code M} should be chosen in a way that the
-     * minimum is half of the maximum. That in turn guarantees that overflow/underflow handling can be performed without
-     * causing further underflow/overflow.
-     */
-    public static final int DEFAULT_MIN_M = 16;
-    /**
-     * The maximum number of slots a node has. This value is derived from {@link #DEFAULT_MIN_M}.
-     */
-    public static final int DEFAULT_MAX_M = 2 * DEFAULT_MIN_M;
-
-    /**
-     * The magic split number. We split {@code S} to {@code S + 1} nodes while inserting data and fuse
-     * {@code S + 1} to {@code S} nodes while deleting data. Academically, 2-to-3 splits and 3-to-2 fuses
-     * seem to yield the best results. Please be aware of the following constraints:
-     * <ol>
-     *     <li>When splitting {@code S} to {@code S + 1} nodes, we re-distribute the children of {@code S} nodes
-     *     into {@code S + 1} nodes which may cause an underflow if {@code S} and {@code M} are not set carefully with
-     *     respect to each other. Example: {@code MIN_M = 25}, {@code MAX_M = 32}, {@code S = 2}, two nodes at
-     *     already at maximum capacity containing a combined total of 64 children when a new child is inserted.
-     *     We split the two nodes into three as indicated by {@code S = 2}. We have 65 children but there is no way
-     *     of distributing them among three nodes such that none of them underflows. This constraint can be
-     *     formulated as {@code S * MAX_M / (S + 1) >= MIN_M}.</li>
-     *     <li>When fusing {@code S + 1} to {@code S} nodes, we re-distribute the children of {@code S + 1} nodes
-     *     into {@code S + 1} nodes which may cause an overflow if {@code S} and {@code M} are not set carefully with
-     *     respect to each other. Example: {@code MIN_M = 25}, {@code MAX_M = 32}, {@code S = 2}, three nodes at
-     *     already at minimum capacity containing a combined total of 75 children when a child is deleted.
-     *     We fuse the three nodes into two as indicated by {@code S = 2}. We have 75 children but there is no way
-     *     of distributing them among two nodes such that none of them overflows. This constraint can be formulated as
-     *     {@code (S + 1) * MIN_M / S <= MAX_M}.</li>
-     * </ol>
-     * Both constraints are in fact the same constraint and can be written as {@code MAX_M / MIN_M >= (S + 1) / S}.
-     */
-    public static final int DEFAULT_S = 2;
-
-    /**
-     * Default storage layout. Can be either {@code BY_SLOT} or {@code BY_NODE}. {@code BY_SLOT} encodes all information
-     * pertaining to a {@link NodeSlot} as one key/value pair in the database; {@code BY_NODE} encodes all information
-     * pertaining to a {@link Node} as one key/value pair in the database. While {@code BY_SLOT} avoids conflicts as
-     * most inserts/updates only need to update one slot, it is by far less compact as some information is stored
-     * in a normalized fashion and therefore repeated multiple times (i.e. node identifiers, etc.). {@code BY_NODE}
-     * inlines slot information into the node leading to a more size-efficient layout of the data. That advantage is
-     * offset by a higher likelihood of conflicts.
-     */
     @Nonnull
-    public static final Storage DEFAULT_STORAGE = Storage.BY_NODE;
-
-    /**
-     * Indicator if Hilbert values should be stored or not with the data (in leaf nodes). A Hilbert value can always
-     * be recomputed from the point.
-     */
-    public static final boolean DEFAULT_STORE_HILBERT_VALUES = true;
-
+    public static final Random DEFAULT_RANDOM = new Random(0L);
+    @Nonnull
+    public static final Metric DEFAULT_METRIC = new Metric.EuclideanMetric();
+    public static final int DEFAULT_M = 48;
+    public static final int DEFAULT_EF_SEARCH = 64;
+    public static final int DEFAULT_EF_CONSTRUCTION = 100;
     @Nonnull
     public static final Config DEFAULT_CONFIG = new Config();
 
@@ -142,8 +88,6 @@ public class HNSW {
     @Nonnull
     private final Config config;
     @Nonnull
-    private final Supplier<byte[]> nodeIdSupplier;
-    @Nonnull
     private final OnWriteListener onWriteListener;
     @Nonnull
     private final OnReadListener onReadListener;
@@ -152,10 +96,6 @@ public class HNSW {
      * Different kinds of storage layouts.
      */
     public enum Storage {
-        /**
-         * Every node slot is serialized as a key/value pair in FDB.
-         */
-        BY_SLOT(BySlotStorageAdapter::new),
         /**
          * Every node with all its slots is serialized as one key/value pair.
          */
@@ -171,11 +111,9 @@ public class HNSW {
         @Nonnull
         private StorageAdapter newStorageAdapter(@Nonnull final Config config, @Nonnull final Subspace subspace,
                                                  @Nonnull final Subspace nodeSlotIndexSubspace,
-                                                 @Nonnull final Function<NodeReferenceWithDistance, BigInteger> hilbertValueFunction,
                                                  @Nonnull final OnWriteListener onWriteListener,
                                                  @Nonnull final OnReadListener onReadListener) {
-            return storageAdapterCreator.create(config, subspace, nodeSlotIndexSubspace,
-                    hilbertValueFunction, onWriteListener, onReadListener);
+            return storageAdapterCreator.create(config, subspace, nodeSlotIndexSubspace, onWriteListener, onReadListener);
         }
     }
 
@@ -184,7 +122,6 @@ public class HNSW {
      */
     private interface StorageAdapterCreator {
         StorageAdapter create(@Nonnull Config config, @Nonnull Subspace subspace, @Nonnull Subspace nodeSlotIndexSubspace,
-                              @Nonnull Function<NodeReferenceWithDistance, BigInteger> hilbertValueFunction,
                               @Nonnull OnWriteListener onWriteListener,
                               @Nonnull OnReadListener onReadListener);
     }
@@ -193,72 +130,62 @@ public class HNSW {
      * Configuration settings for a {@link HNSW}.
      */
     public static class Config {
-        private final boolean useNodeSlotIndex;
-        private final int minM;
-        private final int maxM;
-        private final int splitS;
         @Nonnull
-        private final Storage storage;
-
-        private final boolean storeHilbertValues;
+        private final Random random;
+        @Nonnull
+        private final Metric metric;
+        private final int m;
+        private final int efSearch;
+        private final int efConstruction;
 
         protected Config() {
-            this.useNodeSlotIndex = DEFAULT_USE_NODE_SLOT_INDEX;
-            this.minM = DEFAULT_MIN_M;
-            this.maxM = DEFAULT_MAX_M;
-            this.splitS = DEFAULT_S;
-            this.storage = DEFAULT_STORAGE;
-            this.storeHilbertValues = DEFAULT_STORE_HILBERT_VALUES;
+            this.random = DEFAULT_RANDOM;
+            this.metric = DEFAULT_METRIC;
+            this.m = DEFAULT_M;
+            this.efSearch = DEFAULT_EF_SEARCH;
+            this.efConstruction = DEFAULT_EF_CONSTRUCTION;
         }
 
-        protected Config(final boolean useNodeSlotIndex, final int minM, final int maxM, final int splitS,
-                         @Nonnull final Storage storage, final boolean storeHilbertValues) {
-            this.useNodeSlotIndex = useNodeSlotIndex;
-            this.minM = minM;
-            this.maxM = maxM;
-            this.splitS = splitS;
-            this.storage = storage;
-            this.storeHilbertValues = storeHilbertValues;
-        }
-
-        public boolean isUseNodeSlotIndex() {
-            return useNodeSlotIndex;
-        }
-
-        public int getMinM() {
-            return minM;
-        }
-
-        public int getMaxM() {
-            return maxM;
-        }
-
-        public int getSplitS() {
-            return splitS;
+        protected Config(@Nonnull final Random random, @Nonnull final Metric metric, final int m,
+                         final int efSearch, final int efConstruction) {
+            this.random = random;
+            this.metric = metric;
+            this.m = m;
+            this.efSearch = efSearch;
+            this.efConstruction = efConstruction;
         }
 
         @Nonnull
-        public Storage getStorage() {
-            return storage;
+        public Random getRandom() {
+            return random;
         }
 
-        public boolean isStoreHilbertValues() {
-            return storeHilbertValues;
-        }
-
+        @Nonnull
         public Metric getMetric() {
-            return Metric.euclideanMetric();
+            return metric;
         }
 
+        public int getM() {
+            return m;
+        }
+
+        public int getEfSearch() {
+            return efSearch;
+        }
+
+        public int getEfConstruction() {
+            return efConstruction;
+        }
+
+        @Nonnull
         public ConfigBuilder toBuilder() {
-            return new ConfigBuilder(useNodeSlotIndex, minM, maxM, splitS, storage, storeHilbertValues);
+            return new ConfigBuilder(getRandom(), getMetric(), getM(), getEfSearch(), getEfConstruction());
         }
 
         @Override
+        @Nonnull
         public String toString() {
-            return storage + ", M=" + minM + "-" + maxM + ", S=" + splitS +
-                   (useNodeSlotIndex ? ", slotIndex" : "") +
-                   (storeHilbertValues ? ", storeHV" : "");
+            return "Config[M=" + getM() + " , metric=" + getMetric() + "]";
         }
     }
 
@@ -269,84 +196,78 @@ public class HNSW {
      */
     @CanIgnoreReturnValue
     public static class ConfigBuilder {
-        private boolean useNodeSlotIndex = DEFAULT_USE_NODE_SLOT_INDEX;
-        private int minM = DEFAULT_MIN_M;
-        private int maxM = DEFAULT_MAX_M;
-        private int splitS = DEFAULT_S;
         @Nonnull
-        private Storage storage = DEFAULT_STORAGE;
-        private boolean storeHilbertValues = DEFAULT_STORE_HILBERT_VALUES;
+        private Random random = DEFAULT_RANDOM;
+        @Nonnull
+        private Metric metric = DEFAULT_METRIC;
+        private int m = DEFAULT_M;
+        private int efSearch = DEFAULT_EF_SEARCH;
+        private int efConstruction = DEFAULT_EF_CONSTRUCTION;
 
         public ConfigBuilder() {
         }
 
-        public ConfigBuilder(final boolean useNodeSlotIndex, final int minM, final int maxM, final int splitS,
-                             @Nonnull final Storage storage, final boolean storeHilbertValues) {
-            this.useNodeSlotIndex = useNodeSlotIndex;
-            this.minM = minM;
-            this.maxM = maxM;
-            this.splitS = splitS;
-            this.storage = storage;
-            this.storeHilbertValues = storeHilbertValues;
+        public ConfigBuilder(@Nonnull Random random, @Nonnull final Metric metric, final int m,
+                             final int efSearch, final int efConstruction) {
+            this.random = random;
+            this.metric = metric;
+            this.m = m;
+            this.efSearch = efSearch;
+            this.efConstruction = efConstruction;
         }
 
-        public int getMinM() {
-            return minM;
+        @Nonnull
+        public Random getRandom() {
+            return random;
         }
 
-        public ConfigBuilder setMinM(final int minM) {
-            this.minM = minM;
-            return this;
-        }
-
-        public int getMaxM() {
-            return maxM;
-        }
-
-        public ConfigBuilder setMaxM(final int maxM) {
-            this.maxM = maxM;
-            return this;
-        }
-
-        public int getSplitS() {
-            return splitS;
-        }
-
-        public ConfigBuilder setSplitS(final int splitS) {
-            this.splitS = splitS;
+        @Nonnull
+        public ConfigBuilder setRandom(@Nonnull final Random random) {
+            this.random = random;
             return this;
         }
 
         @Nonnull
-        public Storage getStorage() {
-            return storage;
+        public Metric getMetric() {
+            return metric;
         }
 
-        public ConfigBuilder setStorage(@Nonnull final Storage storage) {
-            this.storage = storage;
+        @Nonnull
+        public ConfigBuilder setMetric(@Nonnull final Metric metric) {
+            this.metric = metric;
             return this;
         }
 
-        public boolean isStoreHilbertValues() {
-            return storeHilbertValues;
+        public int getM() {
+            return m;
         }
 
-        public ConfigBuilder setStoreHilbertValues(final boolean storeHilbertValues) {
-            this.storeHilbertValues = storeHilbertValues;
+        @Nonnull
+        public ConfigBuilder setM(final int m) {
+            this.m = m;
             return this;
         }
 
-        public boolean isUseNodeSlotIndex() {
-            return useNodeSlotIndex;
+        public int getEfSearch() {
+            return efSearch;
         }
 
-        public ConfigBuilder setUseNodeSlotIndex(final boolean useNodeSlotIndex) {
-            this.useNodeSlotIndex = useNodeSlotIndex;
+        public ConfigBuilder setEfSearch(final int efSearch) {
+            this.efSearch = efSearch;
+            return this;
+        }
+
+        public int getEfConstruction() {
+            return efConstruction;
+        }
+
+        public ConfigBuilder setEfConstruction(final int efConstruction) {
+            this.efConstruction = efConstruction;
             return this;
         }
 
         public Config build() {
-            return new Config(isUseNodeSlotIndex(), getMinM(), getMaxM(), getSplitS(), getStorage(), isStoreHilbertValues());
+            return new Config(getRandom(), getMetric(), getM(), getEfSearch(), getEfConstruction());
         }
     }
 
@@ -364,11 +285,10 @@ public class HNSW {
      * @param subspace the subspace where the r-tree is stored
      * @param secondarySubspace the subspace where the node index (if used is stored)
      * @param executor an executor to use when running asynchronous tasks
-     * @param hilbertValueFunction function to compute the Hilbert value from a {@link NodeReferenceWithDistance}
      */
     public HNSW(@Nonnull final Subspace subspace, @Nonnull final Subspace secondarySubspace,
-                @Nonnull final Executor executor, @Nonnull final Function<NodeReferenceWithDistance, BigInteger> hilbertValueFunction) {
-        this(subspace, secondarySubspace, executor, DEFAULT_CONFIG, hilbertValueFunction, NodeHelpers::newRandomNodeId,
+                @Nonnull final Executor executor) {
+        this(subspace, secondarySubspace, executor, DEFAULT_CONFIG,
                 OnWriteListener.NOOP, OnReadListener.NOOP);
     }
 
@@ -378,15 +298,11 @@ public class HNSW {
      * @param nodeSlotIndexSubspace the subspace where the node index (if used is stored)
      * @param executor an executor to use when running asynchronous tasks
      * @param config configuration to use
-     * @param hilbertValueFunction function to compute the Hilbert value for a {@link NodeReferenceWithDistance}
-     * @param nodeIdSupplier supplier to be invoked when new nodes are created
      * @param onWriteListener an on-write listener to be called after writes take place
      * @param onReadListener an on-read listener to be called after reads take place
      */
     public HNSW(@Nonnull final Subspace subspace, @Nonnull final Subspace nodeSlotIndexSubspace,
                 @Nonnull final Executor executor, @Nonnull final Config config,
-                @Nonnull final Function<NodeReferenceWithDistance, BigInteger> hilbertValueFunction,
-                @Nonnull final Supplier<byte[]> nodeIdSupplier,
                 @Nonnull final OnWriteListener onWriteListener,
                 @Nonnull final OnReadListener onReadListener) {
         this.storageAdapter = config.getStorage()
@@ -394,8 +310,6 @@ public class HNSW {
                         onReadListener);
         this.executor = executor;
         this.config = config;
-        this.hilbertValueFunction = hilbertValueFunction;
-        this.nodeIdSupplier = nodeIdSupplier;
         this.onWriteListener = onWriteListener;
         this.onReadListener = onReadListener;
     }
@@ -509,9 +423,8 @@ public class HNSW {
     @SuppressWarnings("checkstyle:MethodName") // method name introduced by paper
     @Nonnull
     private CompletableFuture<SearchResult<NodeReference>> kNearestNeighborsSearch(@Nonnull final ReadTransaction readTransaction,
-                                                                                   final int efSearch,
                                                                                    @Nonnull final Vector<Half> queryVector) {
-        return storageAdapter.fetchEntryNodeKey(readTransaction)
+        return storageAdapter.fetchEntryNodeReference(readTransaction)
                 .thenCompose(entryPointAndLayer -> {
                     if (entryPointAndLayer == null) {
                         return CompletableFuture.completedFuture(null); // not a single node in the index
@@ -519,53 +432,73 @@ public class HNSW {
 
                     final Metric metric = getConfig().getMetric();
 
-                    final var entryState = new GreedyState(entryPointAndLayer.getLayer(),
-                            entryPointAndLayer.getPrimaryKey(),
-                            Vector.comparativeDistance(metric, entryPointAndLayer.getVector(), queryVector));
-                    final AtomicReference<GreedyState> greedyStateReference =
-                            new AtomicReference<>(entryState);
+                    final NodeReferenceWithDistance entryState =
+                            new NodeReferenceWithDistance(entryPointAndLayer.getPrimaryKey(),
+                                    Vector.comparativeDistance(metric, entryPointAndLayer.getVector(), queryVector));
 
                     if (entryPointAndLayer.getLayer() == 0) {
                         // entry data points to a node in layer 0 directly
                         return CompletableFuture.completedFuture(entryState);
                     }
 
-                    return AsyncUtil.whileTrue(() -> {
-                        final var greedyIn = greedyStateReference.get();
-                        return greedySearchLayer(readTransaction, greedyIn.toNodeReferenceWithDistance(),
-                                greedyIn.getLayer(), queryVector)
+                    final AtomicInteger layerAtomic = new AtomicInteger(entryPointAndLayer.getLayer());
+                    final AtomicReference<NodeReferenceWithDistance> nodeReferenceAtomic =
+                            new AtomicReference<>(entryState);
+
+                    return MoreAsyncUtil.forLoop(entryPointAndLayer.getLayer(),
+                            layer -> layer > 0,
+                            layer -> layer - 1,
+                            layer -> {
+                        final var greedyIn = nodeReferenceAtomic.get();
+                        return greedySearchLayer(InliningNode.factory(), readTransaction, greedyIn, layer,
+                                queryVector)
                                 .thenApply(greedyState -> {
-                                    greedyStateReference.set(greedyState);
-                                    return greedyState.getLayer() > 0;
+                                    nodeReferenceAtomic.set(greedyState);
+                                    return null;
                                 });
-                    }, executor).thenApply(ignored -> greedyStateReference.get());
-                }).thenCompose(greedyState -> {
-                    if (greedyState == null) {
+                    }, executor).thenApply(ignored -> nodeReferenceAtomic.get());
+                }).thenCompose(nodeReference -> {
+                    if (nodeReference == null) {
                         return CompletableFuture.completedFuture(null);
                     }
 
-                    return searchLayer(CompactNode::creator, readTransaction,
-                            ImmutableList.of(greedyState.toNodeReferenceWithDistance()), 0, efSearch,
+                    return searchLayer(CompactNode.factory(), readTransaction,
+                            ImmutableList.of(nodeReference), 0, config.getEfSearch(),
                             queryVector);
                 });
+    }
+
+    @Nonnull
+    private <N extends NodeReference> CompletableFuture<NodeReferenceWithDistance> greedySearchLayer(@Nonnull NodeFactory<N> nodeFactory,
+                                                                                                     @Nonnull final ReadTransaction readTransaction,
+                                                                                                     @Nonnull final NodeReferenceWithDistance entryNeighbor,
+                                                                                                     final int layer,
+                                                                                                     @Nonnull final Vector<Half> queryVector) {
+        if (nodeFactory.getNodeKind() == NodeKind.INLINING) {
+            return greedySearchInliningLayer(readTransaction, entryNeighbor, layer, queryVector);
+        } else {
+            return searchLayer(nodeFactory, readTransaction, ImmutableList.of(entryNeighbor), layer, 1, queryVector)
+                    .thenApply(searchResult -> Iterables.getOnlyElement(searchResult.getNodeMap().keySet()));
+        }
     }
 
     /**
      * TODO.
      */
     @Nonnull
-    private CompletableFuture<GreedyState> greedySearchLayer(@Nonnull final ReadTransaction readTransaction,
-                                                             @Nonnull final NodeReferenceWithDistance entryNeighbor,
-                                                             final int layer,
-                                                             @Nonnull final Vector<Half> queryVector) {
+    private CompletableFuture<NodeReferenceWithDistance> greedySearchInliningLayer(@Nonnull final ReadTransaction readTransaction,
+                                                                                   @Nonnull final NodeReferenceWithDistance entryNeighbor,
+                                                                                   final int layer,
+                                                                                   @Nonnull final Vector<Half> queryVector) {
         Verify.verify(layer > 0);
         final Metric metric = getConfig().getMetric();
-        final AtomicReference<GreedyState> greedyStateReference =
-                new AtomicReference<>(new GreedyState(layer, entryNeighbor.getPrimaryKey(), entryNeighbor.getDistance()));
+        final AtomicReference<NodeReferenceWithDistance> currentNodeReferenceAtomic =
+                new AtomicReference<>(new NodeReferenceWithDistance(entryNeighbor.getPrimaryKey(),
+                        entryNeighbor.getDistance()));
 
         return AsyncUtil.whileTrue(() -> onReadListener.onAsyncRead(
-                        storageAdapter.fetchNode(InliningNode::creator, readTransaction,
-                                layer, greedyStateReference.get().getPrimaryKey()))
+                        storageAdapter.fetchNode(InliningNode.factory(), readTransaction,
+                                layer, currentNodeReferenceAtomic.get().getPrimaryKey()))
                 .thenApply(node -> {
                     if (node == null) {
                         throw new IllegalStateException("unable to fetch node");
@@ -573,8 +506,8 @@ public class HNSW {
                     final InliningNode inliningNode = node.asInliningNode();
                     final List<NodeReferenceWithVector> neighbors = inliningNode.getNeighbors();
 
-                    final GreedyState currentNodeKey = greedyStateReference.get();
-                    double minDistance = currentNodeKey.getDistance();
+                    final NodeReferenceWithDistance currentNodeReference = currentNodeReferenceAtomic.get();
+                    double minDistance = currentNodeReference.getDistance();
 
                     NodeReferenceWithVector nearestNeighbor = null;
                     for (final NodeReferenceWithVector neighbor : neighbors) {
@@ -587,37 +520,36 @@ public class HNSW {
                     }
 
                     if (nearestNeighbor == null) {
-                        greedyStateReference.set(
-                                new GreedyState(layer - 1, currentNodeKey.getPrimaryKey(), minDistance));
+                        currentNodeReferenceAtomic.set(
+                                new NodeReferenceWithDistance(currentNodeReference.getPrimaryKey(), minDistance));
                         return false;
                     }
 
-                    greedyStateReference.set(
-                            new GreedyState(layer, nearestNeighbor.getPrimaryKey(),
-                                    minDistance));
+                    currentNodeReferenceAtomic.set(
+                            new NodeReferenceWithDistance(nearestNeighbor.getPrimaryKey(), minDistance));
                     return true;
-                }), executor).thenApply(ignored -> greedyStateReference.get());
+                }), executor).thenApply(ignored -> currentNodeReferenceAtomic.get());
     }
 
     /**
      * TODO.
      */
     @Nonnull
-    private <N extends NodeReference> CompletableFuture<SearchResult<N>> searchLayer(@Nonnull Node.NodeCreator<N> creator,
+    private <N extends NodeReference> CompletableFuture<SearchResult<N>> searchLayer(@Nonnull NodeFactory<N> nodeFactory,
                                                                                      @Nonnull final ReadTransaction readTransaction,
                                                                                      @Nonnull final List<NodeReferenceWithDistance> entryNeighbors,
                                                                                      final int layer,
                                                                                      final int efSearch,
                                                                                      @Nonnull final Vector<Half> queryVector) {
         final Set<Tuple> visited = Sets.newConcurrentHashSet(NodeReference.primaryKeys(entryNeighbors));
-        final PriorityBlockingQueue<NodeReferenceWithDistance> candidates =
-                new PriorityBlockingQueue<>(entryNeighbors.size(),
+        final Queue<NodeReferenceWithDistance> candidates =
+                new PriorityBlockingQueue<>(config.getM(),
                         Comparator.comparing(NodeReferenceWithDistance::getDistance));
         candidates.addAll(entryNeighbors);
-        final PriorityBlockingQueue<NodeReferenceWithDistance> nearestNeighbors =
-                new PriorityBlockingQueue<>(entryNeighbors.size(),
+        final Queue<NodeReferenceWithDistance> furthestNeighbors =
+                new PriorityBlockingQueue<>(config.getM(),
                         Comparator.comparing(NodeReferenceWithDistance::getDistance).reversed());
-        nearestNeighbors.addAll(entryNeighbors);
+        furthestNeighbors.addAll(entryNeighbors);
         final Map<Tuple, Node<N>> nodeCache = Maps.newConcurrentMap();
         final Metric metric = getConfig().getMetric();
 
@@ -627,39 +559,39 @@ public class HNSW {
             }
 
             final NodeReferenceWithDistance candidate = candidates.poll();
-            final NodeReferenceWithDistance furthestNeighbor = Objects.requireNonNull(nearestNeighbors.peek());
+            final NodeReferenceWithDistance furthestNeighbor = Objects.requireNonNull(furthestNeighbors.peek());
 
             if (candidate.getDistance() > furthestNeighbor.getDistance()) {
                 return AsyncUtil.READY_FALSE;
             }
 
-            return fetchNodeIfNotCached(creator, readTransaction, layer, candidate, nodeCache)
+            return fetchNodeIfNotCached(nodeFactory, readTransaction, layer, candidate, nodeCache)
                     .thenApply(candidateNode ->
                             Iterables.filter(candidateNode.getNeighbors(),
                                     neighbor -> !visited.contains(neighbor.getPrimaryKey())))
-                    .thenCompose(neighborReferences -> neighborhood(creator, readTransaction,
+                    .thenCompose(neighborReferences -> fetchNeighborhood(nodeFactory, readTransaction,
                             layer, neighborReferences, nodeCache))
                     .thenApply(neighborReferences -> {
                         for (final NodeReferenceWithVector current : neighborReferences) {
                             visited.add(current.getPrimaryKey());
                             final double furthestDistance =
-                                    Objects.requireNonNull(nearestNeighbors.peek()).getDistance();
+                                    Objects.requireNonNull(furthestNeighbors.peek()).getDistance();
 
                             final double currentDistance =
                                     Vector.comparativeDistance(metric, current.getVector(), queryVector);
-                            if (currentDistance < furthestDistance || nearestNeighbors.size() < efSearch) {
+                            if (currentDistance < furthestDistance || furthestNeighbors.size() < efSearch) {
                                 final NodeReferenceWithDistance currentWithDistance =
                                         new NodeReferenceWithDistance(current.getPrimaryKey(), currentDistance);
                                 candidates.add(currentWithDistance);
-                                nearestNeighbors.add(currentWithDistance);
-                                if (nearestNeighbors.size() > efSearch) {
-                                    nearestNeighbors.poll();
+                                furthestNeighbors.add(currentWithDistance);
+                                if (furthestNeighbors.size() > efSearch) {
+                                    furthestNeighbors.poll();
                                 }
                             }
                         }
                         return true;
                     });
-        }).thenCompose(ignored -> fetchResultsIfNecessary(creator, readTransaction, layer, nearestNeighbors,
+        }).thenCompose(ignored -> fetchResultsIfNecessary(nodeFactory, readTransaction, layer, furthestNeighbors,
                 nodeCache));
     }
 
@@ -667,12 +599,12 @@ public class HNSW {
      * TODO.
      */
     @Nonnull
-    private <N extends NodeReference> CompletableFuture<Node<N>> fetchNodeIfNotCached(@Nonnull final Node.NodeCreator<N> creator,
+    private <N extends NodeReference> CompletableFuture<Node<N>> fetchNodeIfNotCached(@Nonnull final NodeFactory<N> nodeFactory,
                                                                                       @Nonnull final ReadTransaction readTransaction,
                                                                                       final int layer,
                                                                                       @Nonnull final NodeReference nodeReference,
                                                                                       @Nonnull final Map<Tuple, Node<N>> nodeCache) {
-        return fetchNodeIfNecessaryAndApply(creator, readTransaction, layer, nodeReference,
+        return fetchNodeIfNecessaryAndApply(nodeFactory, readTransaction, layer, nodeReference,
                 nR -> nodeCache.get(nR.getPrimaryKey()),
                 (ignored, node) -> node);
     }
@@ -681,7 +613,7 @@ public class HNSW {
      * TODO.
      */
     @Nonnull
-    private <R extends NodeReference, N extends NodeReference, U> CompletableFuture<U> fetchNodeIfNecessaryAndApply(@Nonnull final Node.NodeCreator<N> creator,
+    private <R extends NodeReference, N extends NodeReference, U> CompletableFuture<U> fetchNodeIfNecessaryAndApply(@Nonnull final NodeFactory<N> nodeFactory,
                                                                                                                     @Nonnull final ReadTransaction readTransaction,
                                                                                                                     final int layer,
                                                                                                                     @Nonnull final R nodeReference,
@@ -693,7 +625,7 @@ public class HNSW {
         }
 
         return onReadListener.onAsyncRead(
-                        storageAdapter.fetchNode(creator, readTransaction, layer, nodeReference.getPrimaryKey()))
+                        storageAdapter.fetchNode(nodeFactory, readTransaction, layer, nodeReference.getPrimaryKey()))
                 .thenApply(node -> biMapFunction.apply(nodeReference, node));
     }
 
@@ -701,12 +633,12 @@ public class HNSW {
      * TODO.
      */
     @Nonnull
-    private <N extends NodeReference> CompletableFuture<List<NodeReferenceWithVector>> neighborhood(@Nonnull final Node.NodeCreator<N> creator,
-                                                                                                    @Nonnull final ReadTransaction readTransaction,
-                                                                                                    final int layer,
-                                                                                                    @Nonnull final Iterable<? extends NodeReference> neighborReferences,
-                                                                                                    @Nonnull final Map<Tuple, Node<N>> nodeCache) {
-        return fetchSomeNodesAndApply(creator, readTransaction, layer, neighborReferences,
+    private <N extends NodeReference> CompletableFuture<List<NodeReferenceWithVector>> fetchNeighborhood(@Nonnull final NodeFactory<N> nodeFactory,
+                                                                                                         @Nonnull final ReadTransaction readTransaction,
+                                                                                                         final int layer,
+                                                                                                         @Nonnull final Iterable<? extends NodeReference> neighborReferences,
+                                                                                                         @Nonnull final Map<Tuple, Node<N>> nodeCache) {
+        return fetchSomeNodesAndApply(nodeFactory, readTransaction, layer, neighborReferences,
                 neighborReference -> {
                     if (neighborReference instanceof NodeReferenceWithVector) {
                         return (NodeReferenceWithVector)neighborReference;
@@ -725,7 +657,7 @@ public class HNSW {
      * TODO.
      */
     @Nonnull
-    private <N extends NodeReference> CompletableFuture<SearchResult<N>> fetchResultsIfNecessary(@Nonnull final Node.NodeCreator<N> creator,
+    private <N extends NodeReference> CompletableFuture<SearchResult<N>> fetchResultsIfNecessary(@Nonnull final NodeFactory<N> creator,
                                                                                                  @Nonnull final ReadTransaction readTransaction,
                                                                                                  final int layer,
                                                                                                  @Nonnull final Iterable<NodeReferenceWithDistance> nodeReferences,
@@ -745,7 +677,7 @@ public class HNSW {
                     for (final SearchResult.NodeReferenceWithNode<N> nodeReferenceWithNode : nodeReferencesWithNodes) {
                         nodeMapBuilder.put(nodeReferenceWithNode.getNodeReferenceWithDistance(), nodeReferenceWithNode.getNode());
                     }
-                    return new SearchResult<>(layer, nodeMapBuilder.build());
+                    return new SearchResult<>(nodeMapBuilder.build());
                 });
     }
 
@@ -754,7 +686,7 @@ public class HNSW {
      */
     @Nonnull
     @SuppressWarnings("unchecked")
-    private <R extends NodeReference, N extends NodeReference, U> CompletableFuture<List<U>> fetchSomeNodesAndApply(@Nonnull final Node.NodeCreator<N> creator,
+    private <R extends NodeReference, N extends NodeReference, U> CompletableFuture<List<U>> fetchSomeNodesAndApply(@Nonnull final NodeFactory<N> creator,
                                                                                                                     @Nonnull final ReadTransaction readTransaction,
                                                                                                                     final int layer,
                                                                                                                     @Nonnull final Iterable<R> nodeReferences,
@@ -799,5 +731,80 @@ public class HNSW {
             }
             return resultBuilder.build();
         });
+    }
+
+    @Nonnull
+    public CompletableFuture<Void> insert(@Nonnull final Transaction transaction, @Nonnull final Tuple primaryKey,
+                                          @Nonnull final Vector<Half> vector) {
+        final Metric metric = getConfig().getMetric();
+        final Queue<NodeReferenceWithDistance> furthestNeighbors =
+                new PriorityBlockingQueue<>(config.getM(),
+                        Comparator.comparing(NodeReferenceWithDistance::getDistance).reversed());
+
+        final int l = insertionLayer(getConfig().getRandom());
+
+        storageAdapter.fetchEntryNodeReference(transaction)
+                .thenApply(entryNodeReference -> {
+                    if (entryNodeReference == null) {
+                        // this is the first node
+                        writeLonelyNodes(InliningNode.factory(), transaction, primaryKey, vector, l, 0);
+                        storageAdapter.writeNode(transaction,
+                                CompactNode.factory()
+                                        .create(NodeKind.COMPACT, primaryKey, vector, ImmutableList.of()),
+                                0);
+                        storageAdapter.writeEntryNodeReference(transaction,
+                                new EntryNodeReference(primaryKey, vector, l));
+                    } else {
+                        final int entryNodeLayer = entryNodeReference.getLayer();
+                        if (l > entryNodeLayer) {
+                            writeLonelyNodes(InliningNode.factory(), transaction, primaryKey, vector, l, entryNodeLayer);
+                            storageAdapter.writeEntryNodeReference(transaction,
+                                    new EntryNodeReference(primaryKey, vector, l));
+                        }
+                    }
+                    return entryNodeReference;
+                }).thenCompose(entryNodeReference -> {
+                    if (entryNodeReference == null) {
+                        return AsyncUtil.DONE;
+                    }
+
+                    final int lMax = entryNodeReference.getLayer();
+
+                    final AtomicReference<NodeReferenceWithDistance> nodeReferenceAtomic =
+                            new AtomicReference<>(new NodeReferenceWithDistance(entryNodeReference.getPrimaryKey(),
+                                    Vector.comparativeDistance(metric, entryNodeReference.getVector(), vector)));
+                    MoreAsyncUtil.forLoop(lMax,
+                            layer -> layer > l,
+                            layer -> layer - 1,
+                            layer -> greedySearchLayer(InliningNode.factory(), transaction,
+                                    nodeReferenceAtomic.get(), layer, vector)
+                                    .thenApply(nodeReference -> {
+                                        nodeReferenceAtomic.set(nodeReference);
+                                        return null;
+                                    }), executor);
+
+                    final NodeReferenceWithDistance nodeReference = nodeReferenceAtomic.get();
+
+
+
+                })
+    }
+
+    public <N extends NodeReference> void writeLonelyNodes(@Nonnull final NodeFactory<N> nodeFactory,
+                                                           @Nonnull final Transaction transaction,
+                                                           @Nonnull final Tuple primaryKey,
+                                                           @Nonnull final Vector<Half> vector,
+                                                           final int highestLayerInclusive,
+                                                           final int lowestLayerExclusive) {
+        for (int layer = highestLayerInclusive; layer > lowestLayerExclusive; layer --) {
+            storageAdapter.writeNode(transaction,
+                    nodeFactory.create(nodeFactory.getNodeKind(), primaryKey, vector, ImmutableList.of()), layer);
+        }
+    }
+
+    private int insertionLayer(@Nonnull final Random random) {
+        double lambda = 1.0 / Math.log(getConfig().getM());
+        double u = 1.0 - random.nextDouble();  // Avoid log(0)
+        return (int) Math.floor(-Math.log(u) * lambda);
     }
 }

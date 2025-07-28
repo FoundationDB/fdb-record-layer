@@ -24,17 +24,11 @@ import javax.annotation.Nonnull;
 import java.util.Map;
 
 class SearchResult<R extends NodeReference> {
-    private final int layer;
     @Nonnull
     private final Map<NodeReferenceWithDistance, Node<R>> nodeMap;
 
-    public SearchResult(final int layer, @Nonnull final Map<NodeReferenceWithDistance, Node<R>> nodeMap) {
-        this.layer = layer;
+    public SearchResult(@Nonnull final Map<NodeReferenceWithDistance, Node<R>> nodeMap) {
         this.nodeMap = nodeMap;
-    }
-
-    public int getLayer() {
-        return layer;
     }
 
     @Nonnull

@@ -45,6 +45,11 @@ public abstract class Vector<R extends Number> {
     }
 
     @Nonnull
+    R getComponent(int dimension) {
+        return data[dimension];
+    }
+
+    @Nonnull
     public R[] getData() {
         return data;
     }

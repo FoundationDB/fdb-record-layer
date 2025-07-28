@@ -23,6 +23,7 @@ package com.apple.foundationdb.async.hnsw;
 import com.apple.foundationdb.tuple.Tuple;
 import com.christianheina.langx.half4j.Half;
 import com.google.common.base.Verify;
+import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -32,6 +33,24 @@ import java.util.List;
  * TODO.
  */
 class InliningNode extends AbstractNode<NodeReferenceWithVector> {
+    @Nonnull
+    private static final NodeFactory<NodeReferenceWithVector> FACTORY = new NodeFactory<>() {
+        @SuppressWarnings("unchecked")
+        @Nonnull
+        @Override
+        public Node<NodeReferenceWithVector> create(@Nonnull final NodeKind nodeKind, @Nonnull final Tuple primaryKey,
+                                                    @Nullable final Vector<Half> vector, @Nonnull final List<? extends NodeReference> neighbors) {
+            Verify.verify(nodeKind == NodeKind.INLINING);
+            return new InliningNode(primaryKey, (List<NodeReferenceWithVector>)neighbors);
+        }
+
+        @Nonnull
+        @Override
+        public NodeKind getNodeKind() {
+            return NodeKind.INLINING;
+        }
+    };
+
     public InliningNode(@Nonnull final Tuple primaryKey,
                         @Nonnull final List<NodeReferenceWithVector> neighbors) {
         super(primaryKey, neighbors);
@@ -56,17 +75,26 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
     }
 
     @Override
-    public NodeCreator<NodeReferenceWithVector> sameCreator() {
-        return InliningNode::creator;
+    public NodeFactory<NodeReferenceWithVector> sameCreator() {
+        return InliningNode.factory();
     }
 
     @Nonnull
-    @SuppressWarnings("unchecked")
-    public static Node<NodeReferenceWithVector> creator(@Nonnull final NodeKind nodeKind,
-                                                        @Nonnull final Tuple primaryKey,
-                                                        @Nullable final Vector<Half> vector,
-                                                        @Nonnull final List<? extends NodeReference> neighbors) {
-        Verify.verify(nodeKind == NodeKind.INLINING);
-        return new InliningNode(primaryKey, (List<NodeReferenceWithVector>)neighbors);
+    @Override
+    public Tuple toTuple() {
+        final List<Object> nodeItems = Lists.newArrayListWithExpectedSize(3);
+        nodeItems.add(NodeKind.INLINING.getSerialized());
+        final List<Tuple> neighborItems = Lists.newArrayListWithExpectedSize(getNeighbors().size());
+        for (final NodeReferenceWithVector nodeReference : getNeighbors()) {
+            neighborItems.add(Tuple.from(nodeReference.getPrimaryKey(),
+                    StorageAdapter.tupleFromVector(nodeReference.getVector())));
+        }
+        nodeItems.add(Tuple.fromList(neighborItems));
+        return Tuple.fromList(nodeItems);
+    }
+
+    @Nonnull
+    public static NodeFactory<NodeReferenceWithVector> factory() {
+        return FACTORY;
     }
 }

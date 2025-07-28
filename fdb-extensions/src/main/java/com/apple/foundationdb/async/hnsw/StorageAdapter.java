@@ -24,10 +24,12 @@ import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.christianheina.langx.half4j.Half;
+import com.google.common.base.Verify;
+import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.math.BigInteger;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -35,7 +37,6 @@ import java.util.concurrent.CompletableFuture;
  * Storage adapter used for serialization and deserialization of nodes.
  */
 interface StorageAdapter {
-
     /**
      * Get the {@link HNSW.Config} associated with this storage adapter.
      * @return the configuration used by this storage adapter
@@ -81,75 +82,50 @@ interface StorageAdapter {
     @Nonnull
     OnReadListener getOnReadListener();
 
-    CompletableFuture<EntryPointAndLayer> fetchEntryNodeKey(@Nonnull ReadTransaction readTransaction);
+    CompletableFuture<EntryNodeReference> fetchEntryNodeReference(@Nonnull ReadTransaction readTransaction);
+
+    void writeEntryNodeReference(@Nonnull final Transaction transaction,
+                                 @Nonnull final EntryNodeReference entryNodeReference);
 
     @Nonnull
-    <N extends NodeReference> CompletableFuture<Node<N>> fetchNode(@Nonnull Node.NodeCreator<N> creator,
+    <N extends NodeReference> CompletableFuture<Node<N>> fetchNode(@Nonnull NodeFactory<N> nodeFactory,
                                                                    @Nonnull ReadTransaction readTransaction,
                                                                    int layer,
                                                                    @Nonnull Tuple primaryKey);
 
-    /**
-     * Insert a new entry into the node index if configuration indicates we should maintain such an index.
-     *
-     * @param transaction the transaction to use
-     * @param level the level counting starting at {@code 0} indicating the leaf level increasing upwards
-     * @param nodeSlot the {@link NodeSlot} to be inserted
-     */
-    void insertIntoNodeIndexIfNecessary(@Nonnull Transaction transaction, int level, @Nonnull NodeSlot nodeSlot);
+    <N extends NodeReference> void writeNode(@Nonnull final Transaction transaction, @Nonnull final Node<N> node,
+                                             int layer);
 
-    /**
-     * Deletes an entry from the node index if configuration indicates we should maintain such an index.
-     *
-     * @param transaction the transaction to use
-     * @param level the level counting starting at {@code 0} indicating the leaf level increasing upwards
-     * @param nodeSlot the {@link NodeSlot} to be deleted
-     */
-    void deleteFromNodeIndexIfNecessary(@Nonnull Transaction transaction, int level, @Nonnull NodeSlot nodeSlot);
-
-    /**
-     * Persist a node slot.
-     *
-     * @param transaction the transaction to use
-     * @param node node whose slot to persist
-     * @param itemSlot the node slot to persist
-     */
-    void writeLeafNodeSlot(@Nonnull Transaction transaction, @Nonnull CompactNode node, @Nonnull ItemSlot itemSlot);
-
-    /**
-     * Clear out a leaf node slot.
-     *
-     * @param transaction the transaction to use
-     * @param node node whose slot is cleared out
-     * @param itemSlot the node slot to clear out
-     */
-    void clearLeafNodeSlot(@Nonnull Transaction transaction, @Nonnull CompactNode node, @Nonnull ItemSlot itemSlot);
-
-    /**
-     * Method to (re-)persist a list of nodes passed in.
-     *
-     * @param transaction the transaction to use
-     * @param nodes a list of nodes to be (re-persisted)
-     */
-    void writeNodes(@Nonnull Transaction transaction, @Nonnull List<? extends Node> nodes);
-
-    /**
-     * Scan the node slot index for the given Hilbert Value/key pair and return the appropriate {@link Node}.
-     * Note that this method requires a node slot index to be maintained.
-     *
-     * @param transaction the transaction to use
-     * @param level the level we should search counting upwards starting from level {@code 0} for the leaf node
-     * level.
-     * @param hilbertValue the Hilbert Value of the {@code (Hilbert Value, key)} pair to search for
-     * @param key the key of the {@code (Hilbert Value, key)} pair to search for
-     * @param isInsertUpdate a use case indicator determining if this search is going to be used for an
-     * update operation or a delete operation
-     *
-     * @return a future that when completed holds the appropriate {@link Node} or {@code null} if such a
-     * {@link Node} could not be found.
-     */
     @Nonnull
-    CompletableFuture<Node> scanNodeIndexAndFetchNode(@Nonnull ReadTransaction transaction, int level,
-                                                      @Nonnull BigInteger hilbertValue, @Nonnull Tuple key,
-                                                      boolean isInsertUpdate);
+    static Vector<Half> vectorFromTuple(final Tuple vectorTuple) {
+        final Half[] vectorHalfs = new Half[vectorTuple.size()];
+        for (int i = 0; i < vectorTuple.size(); i ++) {
+            vectorHalfs[i] = Half.shortBitsToHalf(shortFromBytes(vectorTuple.getBytes(i)));
+        }
+        return new Vector.HalfVector(vectorHalfs);
+    }
+
+    @Nonnull
+    static Tuple tupleFromVector(final Vector<Half> vector) {
+        final List<byte[]> vectorBytes = Lists.newArrayListWithExpectedSize(vector.size());
+        for (int i = 0; i < vector.size(); i ++) {
+            vectorBytes.add(bytesFromShort(Half.halfToShortBits(vector.getComponent(i))));
+        }
+        return Tuple.fromList(vectorBytes);
+    }
+
+    static short shortFromBytes(byte[] bytes) {
+        Verify.verify(bytes.length == 2);
+        int high = bytes[0] & 0xFF;   // Convert to unsigned int
+        int low  = bytes[1] & 0xFF;
+
+        return (short) ((high << 8) | low);
+    }
+
+    static byte[] bytesFromShort(short value) {
+        byte[] result = new byte[2];
+        result[0] = (byte) ((value >> 8) & 0xFF);  // high byte first
+        result[1] = (byte) (value & 0xFF);         // low byte second
+        return result;
+    }
 }
