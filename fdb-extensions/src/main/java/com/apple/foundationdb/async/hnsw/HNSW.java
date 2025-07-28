@@ -61,7 +61,6 @@ import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 
 /**
  * TODO.
@@ -546,10 +545,10 @@ public class HNSW {
                 new PriorityBlockingQueue<>(config.getM(),
                         Comparator.comparing(NodeReferenceWithDistance::getDistance));
         candidates.addAll(entryNeighbors);
-        final Queue<NodeReferenceWithDistance> furthestNeighbors =
+        final Queue<NodeReferenceWithDistance> nearestNeighbors =
                 new PriorityBlockingQueue<>(config.getM(),
                         Comparator.comparing(NodeReferenceWithDistance::getDistance).reversed());
-        furthestNeighbors.addAll(entryNeighbors);
+        nearestNeighbors.addAll(entryNeighbors);
         final Map<Tuple, Node<N>> nodeCache = Maps.newConcurrentMap();
         final Metric metric = getConfig().getMetric();
 
@@ -559,7 +558,7 @@ public class HNSW {
             }
 
             final NodeReferenceWithDistance candidate = candidates.poll();
-            final NodeReferenceWithDistance furthestNeighbor = Objects.requireNonNull(furthestNeighbors.peek());
+            final NodeReferenceWithDistance furthestNeighbor = Objects.requireNonNull(nearestNeighbors.peek());
 
             if (candidate.getDistance() > furthestNeighbor.getDistance()) {
                 return AsyncUtil.READY_FALSE;
@@ -575,23 +574,23 @@ public class HNSW {
                         for (final NodeReferenceWithVector current : neighborReferences) {
                             visited.add(current.getPrimaryKey());
                             final double furthestDistance =
-                                    Objects.requireNonNull(furthestNeighbors.peek()).getDistance();
+                                    Objects.requireNonNull(nearestNeighbors.peek()).getDistance();
 
                             final double currentDistance =
                                     Vector.comparativeDistance(metric, current.getVector(), queryVector);
-                            if (currentDistance < furthestDistance || furthestNeighbors.size() < efSearch) {
+                            if (currentDistance < furthestDistance || nearestNeighbors.size() < efSearch) {
                                 final NodeReferenceWithDistance currentWithDistance =
                                         new NodeReferenceWithDistance(current.getPrimaryKey(), currentDistance);
                                 candidates.add(currentWithDistance);
-                                furthestNeighbors.add(currentWithDistance);
-                                if (furthestNeighbors.size() > efSearch) {
-                                    furthestNeighbors.poll();
+                                nearestNeighbors.add(currentWithDistance);
+                                if (nearestNeighbors.size() > efSearch) {
+                                    nearestNeighbors.poll();
                                 }
                             }
                         }
                         return true;
                     });
-        }).thenCompose(ignored -> fetchResultsIfNecessary(nodeFactory, readTransaction, layer, furthestNeighbors,
+        }).thenCompose(ignored -> fetchResultsIfNecessary(nodeFactory, readTransaction, layer, nearestNeighbors,
                 nodeCache));
     }
 
@@ -606,7 +605,10 @@ public class HNSW {
                                                                                       @Nonnull final Map<Tuple, Node<N>> nodeCache) {
         return fetchNodeIfNecessaryAndApply(nodeFactory, readTransaction, layer, nodeReference,
                 nR -> nodeCache.get(nR.getPrimaryKey()),
-                (ignored, node) -> node);
+                (nR, node) -> {
+                    nodeCache.put(nR.getPrimaryKey(), node);
+                    return node;
+                });
     }
 
     /**
@@ -649,8 +651,10 @@ public class HNSW {
                     }
                     return new NodeReferenceWithVector(neighborReference.getPrimaryKey(), neighborNode.asCompactNode().getVector());
                 },
-                (neighborReference, neighborNode) ->
-                        new NodeReferenceWithVector(neighborReference.getPrimaryKey(), neighborNode.asCompactNode().getVector()));
+                (neighborReference, neighborNode) -> {
+                    nodeCache.put(neighborReference.getPrimaryKey(), neighborNode);
+                    return new NodeReferenceWithVector(neighborReference.getPrimaryKey(), neighborNode.asCompactNode().getVector());
+                });
     }
 
     /**
@@ -670,7 +674,10 @@ public class HNSW {
                     }
                     return new SearchResult.NodeReferenceWithNode<>(nodeReference, node);
                 },
-                SearchResult.NodeReferenceWithNode::new)
+                (nodeReferenceWithDistance, node) -> {
+                    nodeCache.put(nodeReferenceWithDistance.getPrimaryKey(), node);
+                    return new SearchResult.NodeReferenceWithNode<N>(nodeReferenceWithDistance, node);
+                })
                 .thenApply(nodeReferencesWithNodes -> {
                     final ImmutableMap.Builder<NodeReferenceWithDistance, Node<N>> nodeMapBuilder =
                             ImmutableMap.builder();
