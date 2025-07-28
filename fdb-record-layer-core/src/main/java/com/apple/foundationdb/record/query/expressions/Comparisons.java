@@ -57,7 +57,6 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.explain.DefaultExplainFormatter;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
