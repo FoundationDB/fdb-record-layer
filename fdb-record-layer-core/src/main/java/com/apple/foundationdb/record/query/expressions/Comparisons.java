@@ -57,6 +57,7 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.explain.DefaultExplainFormatter;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
@@ -75,6 +76,7 @@ import com.apple.foundationdb.record.util.HashUtils;
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
+import com.apple.foundationdb.tuple.Tuple;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -213,11 +215,9 @@ public class Comparisons {
         }
     }
 
-    @Nullable
-    public static Object toClassWithRealEquals(@Nullable Object obj) {
-        if (obj == null) {
-            return null;
-        } else if (obj instanceof ByteString) {
+    @Nonnull
+    public static Object toClassWithRealEquals(@Nonnull Object obj) {
+        if (obj instanceof ByteString) {
             return obj;
         } else if (obj instanceof byte[]) {
             return ByteString.copyFrom((byte[])obj);
@@ -247,7 +247,7 @@ public class Comparisons {
     }
 
     @SpotBugsSuppressWarnings("NP_BOOLEAN_RETURN_NULL")
-    private static boolean compareNotDistinctFrom(Object value, Object comparand) {
+    private static boolean compareNotDistinctFrom(@Nullable Object value, @Nullable Object comparand) {
         if (value == null && comparand == null) {
             return true;
         } else if (value == null || comparand == null) {
@@ -256,7 +256,7 @@ public class Comparisons {
             if (value instanceof Message) {
                 return MessageHelpers.compareMessageEquals(value, comparand);
             } else {
-                return toClassWithRealEquals(value).equals(toClassWithRealEquals(comparand));
+                return toClassWithRealEquals(Objects.requireNonNull(value)).equals(toClassWithRealEquals(Objects.requireNonNull(comparand)));
             }
         }
     }
@@ -316,7 +316,12 @@ public class Comparisons {
                 if (i > list.size()) {
                     return false;
                 }
-                if (!toClassWithRealEquals(comparand.get(i)).equals(toClassWithRealEquals(list.get(i)))) {
+                if (comparand.get(i) == null && list.get(i) == null) {
+                    continue;
+                }
+                if (comparand.get(i) == null || list.get(i) == null) {
+                    return false;
+                } else if (!toClassWithRealEquals(comparand.get(i)).equals(toClassWithRealEquals(list.get(i)))) {
                     return false;
                 }
             }
@@ -341,11 +346,12 @@ public class Comparisons {
                         return true;
                     }
                 } else {
-                    if (toClassWithRealEquals(value).equals(toClassWithRealEquals(comparandItem))) {
+                    if (comparandItem == null) {
+                        hasNull = true;
+                    } else if (toClassWithRealEquals(value).equals(toClassWithRealEquals(comparandItem))) {
                         return true;
                     }
                 }
-                hasNull |= comparandItem == null;
             }
             return hasNull ? null : false;
         } else {
@@ -689,7 +695,7 @@ public class Comparisons {
     }
 
     @Nullable
-    public static Type invertComparisonType(@Nonnull final Comparisons.Type type) {
+    public static Type invertComparisonType(@Nonnull final Type type) {
         if (type.isUnary()) {
             return null;
         }
@@ -846,7 +852,7 @@ public class Comparisons {
 
         /**
          * Get whether the comparison is with the result of a multi-column key.
-         * If so, {@link #getComparand} will return a {@link com.apple.foundationdb.tuple.Tuple}.
+         * If so, {@link #getComparand} will return a {@link Tuple}.
          * @return {@code true} if the comparand is for multiple key columns
          */
         default boolean hasMultiColumnComparand() {
@@ -1780,7 +1786,7 @@ public class Comparisons {
         @SuppressWarnings("rawtypes")
         private final List comparand;
         @Nullable
-        private final Descriptors.FieldDescriptor.JavaType javaType;
+        private final JavaType javaType;
 
         @Nonnull
         @SuppressWarnings("rawtypes")
@@ -1798,8 +1804,8 @@ public class Comparisons {
                 default:
                     throw new RecordCoreException("ListComparison only supports EQUALS, NOT_EQUALS, STARTS_WITH and IN");
             }
-            if (comparand == null || (this.type == Type.IN && comparand.stream().anyMatch(o -> o == null))) {
-                throw new NullPointerException("List comparand is null, or contains null");
+            if (this.type == Type.IN && comparand.stream().anyMatch(o -> o == null)) {
+                throw new NullPointerException("List comparand contains null");
             }
             if (comparand.isEmpty()) {
                 javaType = null;
@@ -1813,10 +1819,10 @@ public class Comparisons {
                 }
             }
             this.comparand = comparand;
-            this.comparandListWithEqualsSupplier = Suppliers.memoize(() -> Lists.transform(comparand, Comparisons::toClassWithRealEquals));
+            this.comparandListWithEqualsSupplier = Suppliers.memoize(() -> Lists.transform(comparand, obj -> obj != null ? toClassWithRealEquals(obj) : null));
         }
 
-        private static Descriptors.FieldDescriptor.JavaType getJavaType(@Nonnull Object o) {
+        private static JavaType getJavaType(@Nonnull Object o) {
             if (o instanceof Boolean) {
                 return JavaType.BOOLEAN;
             } else if (o instanceof ByteString || o instanceof byte[]) {
