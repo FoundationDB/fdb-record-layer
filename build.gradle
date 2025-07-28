@@ -367,7 +367,7 @@ teamscale {
         url = "https://fdb.teamscale.io"
         project = "foundationdb-fdb-record-layer"
         userName = "fdb-record-layer-build"
-        userAccessToken = isRunningInCI() ? System.getenv("TEAMSCALE_ACCESS_KEY") : "NO ACCESS"
+        userAccessToken = hasTeamscaleAccess() ? System.getenv("TEAMSCALE_ACCESS_KEY") : "NO ACCESS"
     }
     commit {
         revision = System.getenv("GIT_COMMIT")
@@ -391,13 +391,13 @@ tasks.register("teamscaleTestReportUpload", TeamscaleUpload) {
     ignoreFailures = false
     message = "Gradle Upload"
 
-    if (isRunningInCI()) {
+    if (hasTeamscaleAccess()) {
         from(tasks.testAggregateCompactCoverageReport)
     }
 }
 
-static def isRunningInCI() {
-    return System.getenv().containsKey("GITHUB_ACTIONS")
+static def hasTeamscaleAccess() {
+    return System.getenv().containsKey("TEAMSCALE_ACCESS_KEY")
 }
 
 tasks.named('check') {
