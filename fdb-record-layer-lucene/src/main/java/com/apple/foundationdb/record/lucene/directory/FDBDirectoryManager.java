@@ -88,6 +88,8 @@ public class FDBDirectoryManager implements AutoCloseable {
     protected final LuceneAnalyzerWrapper writerAnalyzer;
     @Nonnull
     private final LuceneAnalyzerCombinationProvider analyzerSelector;
+    @Nullable
+    protected final Exception exceptionAtCreation;
 
     protected FDBDirectoryManager(@Nonnull IndexMaintainerState state) {
         this.state = state;
@@ -96,6 +98,7 @@ public class FDBDirectoryManager implements AutoCloseable {
         final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(state.index, state.store.getRecordMetaData());
         this.analyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.FULL_TEXT, fieldInfos);
         this.writerAnalyzer = analyzerSelector.provideIndexAnalyzer();
+        this.exceptionAtCreation = FDBTieredMergePolicy.usesCreationStack() ? new Exception() : null;
     }
 
     @Override
@@ -305,7 +308,8 @@ public class FDBDirectoryManager implements AutoCloseable {
     }
 
     protected @Nonnull FDBDirectoryWrapper createNewDirectoryWrapper(final IndexMaintainerState state, final Tuple key, final int mergeDirectoryCount, final AgilityContext agilityContext, final int blockCacheMaximumSize) {
-        return new FDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext, blockCacheMaximumSize, writerAnalyzer);
+        return new FDBDirectoryWrapper(state, key, mergeDirectoryCount, agilityContext, blockCacheMaximumSize,
+                writerAnalyzer, exceptionAtCreation);
     }
 
     private int getBlockCacheMaximumSize() {

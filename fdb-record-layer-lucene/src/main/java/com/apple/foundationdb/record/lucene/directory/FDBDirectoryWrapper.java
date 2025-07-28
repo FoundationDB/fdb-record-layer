@@ -47,6 +47,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
@@ -76,30 +77,37 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     private final LazyCloseable<DirectoryReader> writerReader;
 
 
-    FDBDirectoryWrapper(IndexMaintainerState state, Tuple key, int mergeDirectoryCount,
-                        final AgilityContext agilityContext, final int blockCacheMaximumSize,
-                        @Nonnull final LuceneAnalyzerWrapper analyzerWrapper) {
+    FDBDirectoryWrapper(@Nonnull final IndexMaintainerState state,
+                        @Nonnull final Tuple key,
+                        int mergeDirectoryCount,
+                        @Nonnull final AgilityContext agilityContext,
+                        final int blockCacheMaximumSize,
+                        @Nonnull final LuceneAnalyzerWrapper analyzerWrapper,
+                        @Nullable final Exception exceptionAtCreation) {
         this.state = state;
         this.key = key;
         this.directory = createFDBDirectory(state, key, agilityContext, blockCacheMaximumSize);
         this.agilityContext = agilityContext;
         this.mergeDirectoryCount = mergeDirectoryCount;
         this.analyzerWrapper = analyzerWrapper;
-        Exception exceptionAtCreation = FDBTieredMergePolicy.usesCreationStack() ? new Exception() : null;
         writer = LazyCloseable.supply(() -> createIndexWriter(exceptionAtCreation));
         writerReader = LazyCloseable.supply(() -> DirectoryReader.open(writer.get()));
     }
 
     @VisibleForTesting
-    public FDBDirectoryWrapper(IndexMaintainerState state, FDBDirectory directory, Tuple key, int mergeDirectoryCount,
-                               final AgilityContext agilityContext, @Nonnull final LuceneAnalyzerWrapper analyzerWrapper) {
+    public FDBDirectoryWrapper(@Nonnull final IndexMaintainerState state,
+                               @Nonnull final FDBDirectory directory,
+                               @Nonnull final Tuple key,
+                               int mergeDirectoryCount,
+                               @Nonnull final AgilityContext agilityContext,
+                               @Nonnull final LuceneAnalyzerWrapper analyzerWrapper,
+                               @Nullable final Exception exceptionAtCreation) {
         this.state = state;
         this.key = key;
         this.directory = directory;
         this.agilityContext = agilityContext;
         this.mergeDirectoryCount = mergeDirectoryCount;
         this.analyzerWrapper = analyzerWrapper;
-        Exception exceptionAtCreation = FDBTieredMergePolicy.usesCreationStack() ? new Exception() : null;
         writer = LazyCloseable.supply(() -> createIndexWriter(exceptionAtCreation));
         writerReader = LazyCloseable.supply(() -> DirectoryReader.open(writer.get()));
     }
