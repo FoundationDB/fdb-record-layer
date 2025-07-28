@@ -375,7 +375,6 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             final var executeProperties = connection.getExecuteProperties().toBuilder()
                     .setReturnedRowLimit(options.getOption(Options.Name.MAX_ROWS))
                     .setDryRun(options.getOption(Options.Name.DRY_RUN))
-                    .setKvCursorContSerializeToNew(options.getOption(Options.Name.KEYVALUE_CURSOR_CONTINUATION_SERIALIZE_TO_NEW))
                     .build();
             cursor = executionContext.metricCollector.clock(
                     RelationalMetric.RelationalEvent.EXECUTE_RECORD_QUERY_PLAN, () -> recordQueryPlan.executePlan(fdbRecordStore, evaluationContext,

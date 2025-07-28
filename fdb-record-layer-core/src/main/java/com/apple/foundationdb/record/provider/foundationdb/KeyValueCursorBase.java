@@ -300,7 +300,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             prefixLength = calculatePrefixLength();
 
             reverse = scanProperties.isReverse();
-            serializationMode = scanProperties.getExecuteProperties().isKvCursorContSerializeToNew() ? SerializationMode.TO_NEW : SerializationMode.TO_OLD;
+            serializationMode = SerializationMode.TO_NEW;
 
             if (continuation != null) {
                 byte[] realContinuation;
