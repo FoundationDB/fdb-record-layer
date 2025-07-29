@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -41,6 +42,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Stack;
+import java.util.UUID;
 import java.util.function.Supplier;
 
 public class Literals {
@@ -258,7 +260,7 @@ public class Literals {
             for (final OrderedLiteral fieldOrderedLiteral : fields) {
                 final var fieldValue = fieldOrderedLiteral.getLiteralObject();
                 if (fieldValue != null) {
-                    messageBuilder.setField(fieldDescriptors.get(i), fieldValue);
+                    messageBuilder.setField(fieldDescriptors.get(i), transformFieldValue(fieldValue));
                 }
                 i++;
             }
@@ -268,6 +270,13 @@ public class Literals {
             literalReverseLookup.putIfAbsent(orderedLiteral.getLiteralObject(), orderedLiteral);
             current.peek().add(orderedLiteral);
             structLiteralScopeCount--;
+        }
+
+        private static Object transformFieldValue(@Nonnull Object fieldValue) {
+            if (fieldValue instanceof UUID) {
+                return TupleFieldsHelper.toProto((UUID) fieldValue);
+            }
+            return fieldValue;
         }
 
         public boolean isAddingComplexLiteral() {
