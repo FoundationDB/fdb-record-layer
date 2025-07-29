@@ -23,9 +23,9 @@ package com.apple.foundationdb.relational.recordlayer.query.cache;
 import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.relational.recordlayer.query.AstNormalizer;
+import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
 
 import javax.annotation.Nonnull;
-import java.util.BitSet;
 import java.util.Objects;
 
 /**
@@ -102,32 +102,37 @@ public final class QueryCacheKey {
     @Nonnull
     private final String canonicalQueryString;
 
+    @Nonnull
+    private final PlannerConfiguration plannerConfiguration;
+
+    @Nonnull
+    private final String auxiliaryMetadata;
+
     private final int hash;
 
     private final int schemaTemplateVersion;
-
-    @Nonnull
-    private final BitSet readableIndexes;
 
     private final int userVersion;
 
     private final int memoizedHashCode;
 
     private QueryCacheKey(@Nonnull final String canonicalQueryString,
+                          @Nonnull final PlannerConfiguration plannerConfiguration,
+                          @Nonnull final String auxiliaryMetadata,
                           int hash,
                           int schemaTemplateVersion,
-                          @Nonnull final BitSet readableIndexes,
                           int userVersion) {
         this.canonicalQueryString = canonicalQueryString;
         this.hash = hash;
         this.schemaTemplateVersion = schemaTemplateVersion;
-        this.readableIndexes = readableIndexes;
         this.userVersion = userVersion;
+        this.auxiliaryMetadata = auxiliaryMetadata;
+        this.plannerConfiguration = plannerConfiguration;
 
         // Memoize the hash code. Because this object is used as a key in a hash map, it is important that
         // hashCode() be quick. Note that this includes information about the query (like the query hash),
         // the schema template version, and the schema (like the set of readable indexes)
-        this.memoizedHashCode = Objects.hash(hash, schemaTemplateVersion, readableIndexes, userVersion);
+        this.memoizedHashCode = Objects.hash(hash, schemaTemplateVersion, plannerConfiguration, userVersion, auxiliaryMetadata);
     }
 
     @Override
@@ -143,7 +148,8 @@ public final class QueryCacheKey {
                 schemaTemplateVersion == that.schemaTemplateVersion &&
                 userVersion == that.userVersion &&
                 Objects.equals(canonicalQueryString, that.canonicalQueryString) &&
-                Objects.equals(readableIndexes, that.readableIndexes);
+                Objects.equals(auxiliaryMetadata, that.auxiliaryMetadata) &&
+                Objects.equals(plannerConfiguration, that.plannerConfiguration);
     }
 
     @Override
@@ -165,25 +171,32 @@ public final class QueryCacheKey {
     }
 
     @Nonnull
-    public BitSet getReadableIndexes() {
-        return readableIndexes;
+    public PlannerConfiguration getPlannerConfiguration() {
+        return plannerConfiguration;
     }
 
     public int getUserVersion() {
         return userVersion;
     }
 
+    @Nonnull
+    public String getAuxiliaryMetadata() {
+        return auxiliaryMetadata;
+    }
+
     @Override
     public String toString() {
-        return "(" + schemaTemplateVersion + ")" + "||" + canonicalQueryString + "||" + hash;
+        return "(" + schemaTemplateVersion + " || " + auxiliaryMetadata + ")" + "||" + canonicalQueryString + "||" + hash;
     }
 
     @Nonnull
     public static QueryCacheKey of(@Nonnull final String query,
-                                   int hash,
+                                   @Nonnull final PlannerConfiguration plannerConfiguration,
+                                   @Nonnull final String auxiliaryMetadata,
+                                   int queryHash,
                                    int schemaTemplateVersion,
-                                   @Nonnull final BitSet readableIndexes,
                                    int userVersion) {
-        return new QueryCacheKey(query, hash, schemaTemplateVersion, readableIndexes, userVersion);
+        return new QueryCacheKey(query, plannerConfiguration, auxiliaryMetadata, queryHash, schemaTemplateVersion,
+                userVersion);
     }
 }

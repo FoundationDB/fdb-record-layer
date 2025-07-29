@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.query.OptionsUtils;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 
@@ -41,7 +42,7 @@ public class RelationalLoggingUtil {
         message.addKeyAndValue("totalPlanTimeMicros", totalTime);
         if (plan != null) {
             if (plan instanceof QueryPlan.PhysicalQueryPlan) {
-                final var planHash = ((QueryPlan.PhysicalQueryPlan) plan).planHash(QueryPlan.PhysicalQueryPlan.getCurrentPlanHashMode(options));
+                final var planHash = ((QueryPlan.PhysicalQueryPlan) plan).planHash(OptionsUtils.getCurrentPlanHashMode(options));
                 message.addKeyAndValue("planHash", planHash);
             }
             message.addKeyAndValue("plan", plan.explain());

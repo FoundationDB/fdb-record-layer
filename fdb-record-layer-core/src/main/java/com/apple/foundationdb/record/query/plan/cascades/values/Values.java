@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
@@ -70,10 +71,11 @@ public class Values {
     @Nonnull
     public static List<Value> simplify(@Nonnull final Iterable<Value> values,
                                        @Nonnull final AbstractValueRuleSet<Value, ValueSimplificationRuleCall> ruleSet,
+                                       @Nonnull final EvaluationContext evaluationContext,
                                        @Nonnull final AliasMap aliasMap,
                                        @Nonnull final Set<CorrelationIdentifier> constantAliases) {
         return Streams.stream(values)
-                .map(value -> value.simplify(ruleSet, aliasMap, constantAliases))
+                .map(value -> value.simplify(ruleSet, evaluationContext, aliasMap, constantAliases))
                 .collect(ImmutableList.toImmutableList());
     }
 

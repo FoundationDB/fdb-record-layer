@@ -21,56 +21,61 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
-
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Supplier;
 
 @API(API.Status.EXPERIMENTAL)
 public class RelationalStructMetaData implements StructMetaData {
 
-    @Nonnull
-    private final String name;
+    //TODO(bfines) eventually this should move into the Planner (or closer to there, anyway), but for now we will hold on to it here
+    private static final Set<String> KNOWN_PHANTOM_COLUMNS = Set.of("__TYPE_KEY");
 
-    private final FieldDescription[] columns;
+    @Nonnull
+    private final DataType.StructType type;
     //the number of phantom columns that are at the front of the metadata
     private final int leadingPhantomColumnOffset;
     private final Supplier<Integer> hashCodeSupplier;
 
-    public RelationalStructMetaData(FieldDescription... columns) {
-        this("ANONYMOUS_STRUCT", columns);
-    }
-
-    public RelationalStructMetaData(@Nonnull final String name, FieldDescription... columns) {
-        this.name = name;
-        this.columns = columns;
+    private RelationalStructMetaData(@Nonnull DataType.StructType type) {
+        this.type = type;
         this.leadingPhantomColumnOffset = countLeadingPhantomColumns();
         this.hashCodeSupplier = Suppliers.memoize(this::calculateHashCode);
     }
 
+    @Nonnull
+    public static RelationalStructMetaData of(@Nonnull DataType.StructType type) {
+        return new RelationalStructMetaData(type);
+    }
+
     @Override
     public String getTypeName() {
-        return name;
+        return type.getName();
     }
 
     @Override
     public int getColumnCount() throws SQLException {
-        return columns.length - leadingPhantomColumnOffset;
+        return type.getFields().size() - leadingPhantomColumnOffset;
     }
 
     @Override
     public int isNullable(int oneBasedColumn) throws SQLException {
-        return getField(oneBasedColumn).isNullable();
+        if (getField(oneBasedColumn).getType().isNullable()) {
+            return DatabaseMetaData.columnNullable;
+        } else {
+            return DatabaseMetaData.columnNoNulls;
+        }
     }
 
     @Override
@@ -103,7 +108,7 @@ public class RelationalStructMetaData implements StructMetaData {
 
     @Override
     public int getColumnType(int oneBasedColumn) throws SQLException {
-        return getField(oneBasedColumn).getSqlTypeCode();
+        return getField(oneBasedColumn).getType().getJdbcSqlCode();
     }
 
     @Override
@@ -113,25 +118,31 @@ public class RelationalStructMetaData implements StructMetaData {
 
     @Override
     public StructMetaData getStructMetaData(int oneBasedColumn) throws SQLException {
-        FieldDescription field = getField(oneBasedColumn);
-        if (field.isStruct()) {
-            return field.getFieldMetaData();
+        final DataType type = getField(oneBasedColumn).getType();
+        if (type.getCode() == DataType.Code.STRUCT) {
+            return RelationalStructMetaData.of((DataType.StructType) type);
         }
         throw new InvalidColumnReferenceException("Position <" + oneBasedColumn + "> is not a struct type").toSqlException();
     }
 
     @Override
     public ArrayMetaData getArrayMetaData(int oneBasedColumn) throws SQLException {
-        FieldDescription field = getField(oneBasedColumn);
-        if (field.isArray()) {
-            return field.getArrayMetaData();
+        final DataType type = getField(oneBasedColumn).getType();
+        if (type.getCode() == DataType.Code.ARRAY) {
+            return RelationalArrayMetaData.of((DataType.ArrayType) type);
         }
-        throw new InvalidColumnReferenceException("Position <" + oneBasedColumn + "> is not a struct type").toSqlException();
+        throw new InvalidColumnReferenceException("Position <" + oneBasedColumn + "> is not an array type").toSqlException();
     }
 
     @Override
     public int getLeadingPhantomColumnCount() {
         return leadingPhantomColumnOffset;
+    }
+
+    @Nonnull
+    @Override
+    public DataType.StructType getRelationalDataType() throws SQLException {
+        return type;
     }
 
     @Override
@@ -145,15 +156,15 @@ public class RelationalStructMetaData implements StructMetaData {
     }
 
     @Nonnull
-    public List<FieldDescription> getFields() {
-        return ImmutableList.copyOf(columns);
+    private List<DataType.StructType.Field> getFields() {
+        return ImmutableList.copyOf(type.getFields());
     }
 
     @SuppressWarnings("PMD.PreserveStackTrace")
-    private FieldDescription getField(int oneBasedColumn) throws SQLException {
+    private DataType.StructType.Field getField(int oneBasedColumn) throws SQLException {
         try {
             int adjustedColPosition = leadingPhantomColumnOffset + (oneBasedColumn - 1);
-            return columns[adjustedColPosition];
+            return type.getFields().get(adjustedColPosition);
         } catch (ArrayIndexOutOfBoundsException aie) {
             throw new InvalidColumnReferenceException("Position <" + oneBasedColumn + "> is not valid. Struct has " + getColumnCount() + " columns")
                     .toSqlException();
@@ -164,12 +175,13 @@ public class RelationalStructMetaData implements StructMetaData {
         /*
          * Adjust the one-based position to account for any leading Phantom columns
          */
-        int count = columns.length;
-        for (int i = 0; i < columns.length; i++) {
-            if (!columns[i].isPhantom()) {
-                count = i;
-                break;
+        final var fields = getFields();
+        int count = 0;
+        for (var field: fields) {
+            if (!KNOWN_PHANTOM_COLUMNS.contains(field.getName())) {
+                return count;
             }
+            count++;
         }
         return count;
     }
@@ -184,7 +196,7 @@ public class RelationalStructMetaData implements StructMetaData {
             return true;
         }
         return leadingPhantomColumnOffset == otherMetadata.leadingPhantomColumnOffset &&
-                Arrays.equals(columns, otherMetadata.columns);
+                type.equals(otherMetadata.type);
     }
 
     @Override
@@ -193,6 +205,6 @@ public class RelationalStructMetaData implements StructMetaData {
     }
 
     private int calculateHashCode() {
-        return Objects.hash(Arrays.hashCode(columns), leadingPhantomColumnOffset);
+        return Objects.hash(type, leadingPhantomColumnOffset);
     }
 }

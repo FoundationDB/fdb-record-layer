@@ -36,7 +36,7 @@ import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -81,6 +81,8 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
 
     @Nonnull
     private final Supplier<List<String>> fieldNamesSupplier;
+    @Nonnull
+    private final Supplier<Type> resultTypeSupplier;
 
     private FieldValue(@Nonnull final Value childValue, @Nonnull final FieldPath fieldPath) {
         this.childValue = childValue;
@@ -90,6 +92,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
                         .stream()
                         .map(maybe -> maybe.orElseThrow(() -> new RecordCoreException("field name should have been set")))
                         .collect(Collectors.toList()));
+        resultTypeSupplier = Suppliers.memoize(this::computeResultType);
     }
 
     @Nonnull
@@ -130,7 +133,14 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
     @Nonnull
     @Override
     public Type getResultType() {
-        return fieldPath.getLastFieldType();
+        return resultTypeSupplier.get();
+    }
+
+    @Nonnull
+    private Type computeResultType() {
+        Type lastFieldType = fieldPath.getLastFieldType();
+        boolean anyNullable = childValue.getResultType().isNullable() || fieldPath.areAnyFieldTypesNullable();
+        return lastFieldType.overrideIfNullable(anyNullable);
     }
 
     @Nonnull
@@ -186,7 +196,7 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
 
     @Nonnull
     @Override
-    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
         return ValueWithChild.super.equalsWithoutChildren(other)
                 .filter(ignored -> fieldPath.equals(((FieldValue)other).getFieldPath()));
     }
@@ -449,6 +459,11 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         public Type getLastFieldType() {
             Preconditions.checkArgument(!isEmpty());
             return getFieldTypes().get(size() - 1);
+        }
+
+        public boolean areAnyFieldTypesNullable() {
+            Preconditions.checkArgument(!isEmpty());
+            return getFieldTypes().stream().anyMatch(Type::isNullable);
         }
 
         public int size() {

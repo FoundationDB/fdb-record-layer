@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.QueryHashable;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TupleFieldsProto;
@@ -54,7 +53,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.ProbableIntersectionCursor;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.explain.DefaultExplainFormatter;
@@ -71,7 +70,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
-import com.apple.foundationdb.record.util.HashUtils;
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
@@ -785,7 +783,7 @@ public class Comparisons {
      * A comparison between a value associated with someplace in the record (such as a field) and a value associated
      * with the plan (such as a constant or a bound parameter).
      */
-    public interface Comparison extends WithValue<Comparison>, PlanHashable, QueryHashable, Correlated<Comparison>, UsesValueEquivalence<Comparison>, PlanSerializable {
+    public interface Comparison extends WithValue<Comparison>, PlanHashable, Correlated<Comparison>, UsesValueEquivalence<Comparison>, PlanSerializable {
         /**
          * Evaluate this comparison for the value taken from the target record.
          * @param store the record store for the query
@@ -890,9 +888,9 @@ public class Comparisons {
         @Nonnull
         @Override
         @SuppressWarnings("unused")
-        default BooleanWithConstraint semanticEqualsTyped(@Nonnull final Comparison other,
-                                                          @Nonnull final ValueEquivalence valueEquivalence) {
-            return this.equals(other) ? BooleanWithConstraint.alwaysTrue() : BooleanWithConstraint.falseValue();
+        default ConstrainedBoolean semanticEqualsTyped(@Nonnull final Comparison other,
+                                                       @Nonnull final ValueEquivalence valueEquivalence) {
+            return this.equals(other) ? ConstrainedBoolean.alwaysTrue() : ConstrainedBoolean.falseValue();
         }
 
         @Override
@@ -1076,18 +1074,6 @@ public class Comparisons {
                     return PlanHashable.objectsPlanHash(mode, BASE_HASH, type, comparand);
                 default:
                     throw new UnsupportedOperationException("Hash Kind " + mode.name() + " is not supported");
-            }
-        }
-
-        @Override
-        public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            switch (hashKind) {
-                case STRUCTURAL_WITH_LITERALS:
-                    return HashUtils.queryHash(hashKind, BASE_HASH, type, comparand);
-                case STRUCTURAL_WITHOUT_LITERALS:
-                    return HashUtils.queryHash(hashKind, BASE_HASH, type);
-                default:
-                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
             }
         }
 
@@ -1306,10 +1292,10 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public BooleanWithConstraint semanticEqualsTyped(@Nonnull final Comparison other, @Nonnull final ValueEquivalence valueEquivalence) {
+        public ConstrainedBoolean semanticEqualsTyped(@Nonnull final Comparison other, @Nonnull final ValueEquivalence valueEquivalence) {
             ParameterComparisonBase that = (ParameterComparisonBase) other;
             if (type != that.type) {
-                return BooleanWithConstraint.falseValue();
+                return ConstrainedBoolean.falseValue();
             }
 
             //
@@ -1319,18 +1305,18 @@ public class Comparisons {
             //
             if (isCorrelation() && that.isCorrelation()) {
                 if (getAlias().equals(that.getAlias())) {
-                    return BooleanWithConstraint.alwaysTrue();
+                    return ConstrainedBoolean.alwaysTrue();
                 }
                 // This case should happen rather infrequently
                 return valueEquivalence.isDefinedEqual(getAlias(), that.getAlias());
             }
 
             if (!getParameter().equals(that.getParameter())) {
-                return BooleanWithConstraint.falseValue();
+                return ConstrainedBoolean.falseValue();
             }
 
             return Objects.equals(relatedByEquality(), that.relatedByEquality())
-                   ? BooleanWithConstraint.alwaysTrue() : BooleanWithConstraint.falseValue();
+                   ? ConstrainedBoolean.alwaysTrue() : ConstrainedBoolean.falseValue();
         }
 
         @Nullable
@@ -1417,11 +1403,6 @@ public class Comparisons {
                 default:
                     throw new UnsupportedOperationException("Hash Kind " + mode.name() + " is not supported");
             }
-        }
-
-        @Override
-        public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            return HashUtils.queryHash(hashKind, BASE_HASH, type, parameter);
         }
 
         @Nonnull
@@ -1645,10 +1626,10 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public BooleanWithConstraint semanticEqualsTyped(@Nonnull final Comparison other, @Nonnull final ValueEquivalence valueEquivalence) {
+        public ConstrainedBoolean semanticEqualsTyped(@Nonnull final Comparison other, @Nonnull final ValueEquivalence valueEquivalence) {
             final var that = (ValueComparison) other;
             if (type != that.type) {
-                return BooleanWithConstraint.falseValue();
+                return ConstrainedBoolean.falseValue();
             }
 
             return comparandValue.semanticEquals(that.comparandValue, valueEquivalence);
@@ -1714,11 +1695,6 @@ public class Comparisons {
                 default:
                     throw new UnsupportedOperationException("Hash Kind " + mode.name() + " is not supported");
             }
-        }
-
-        @Override
-        public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            return HashUtils.queryHash(hashKind, BASE_HASH, type);
         }
 
         @Nonnull
@@ -1953,19 +1929,6 @@ public class Comparisons {
             }
         }
 
-        @Override
-        public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            switch (hashKind) {
-                case STRUCTURAL_WITH_LITERALS:
-                    return HashUtils.queryHash(hashKind, BASE_HASH, type, comparand, javaType);
-                case STRUCTURAL_WITHOUT_LITERALS:
-                    // Query hash without literals ignores comparand.
-                    return HashUtils.queryHash(hashKind, BASE_HASH, type, javaType);
-                default :
-                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
-            }
-        }
-
         @Nonnull
         @Override
         public PListComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
@@ -2125,11 +2088,6 @@ public class Comparisons {
             }
         }
 
-        @Override
-        public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            return HashUtils.queryHash(hashKind, BASE_HASH, type);
-        }
-
         @Nonnull
         @Override
         public PNullComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
@@ -2247,11 +2205,6 @@ public class Comparisons {
         @Override
         public int planHash(@Nonnull final PlanHashMode mode) {
             throw new UnsupportedOperationException("Hash Kind " + mode.name() + " is not supported");
-        }
-
-        @Override
-        public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
         }
 
         @Nonnull
@@ -2498,18 +2451,6 @@ public class Comparisons {
         }
 
         @Override
-        public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            switch (hashKind) {
-                case STRUCTURAL_WITH_LITERALS:
-                    return HashUtils.queryHash(hashKind, BASE_HASH, type, getComparand(), tokenizerName, fallbackTokenizerName);
-                case STRUCTURAL_WITHOUT_LITERALS:
-                    return HashUtils.queryHash(hashKind, BASE_HASH, type, tokenizerName, fallbackTokenizerName);
-                default:
-                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
-            }
-        }
-
-        @Override
         public int hashCode() {
             return Objects.hash(type.name(), getComparand(), tokenizerName, fallbackTokenizerName);
         }
@@ -2583,18 +2524,6 @@ public class Comparisons {
                     return PlanHashable.objectsPlanHash(mode, BASE_HASH, super.planHash(mode), maxDistance);
                 default:
                     throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
-            }
-        }
-
-        @Override
-        public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            switch (hashKind) {
-                case STRUCTURAL_WITH_LITERALS:
-                    return HashUtils.queryHash(hashKind, BASE_HASH, super.queryHash(hashKind), maxDistance);
-                case STRUCTURAL_WITHOUT_LITERALS:
-                    return HashUtils.queryHash(hashKind, BASE_HASH, super.queryHash(hashKind));
-                default:
-                    throw new UnsupportedOperationException("Hash kind " + hashKind + " is not supported");
             }
         }
 
@@ -2710,11 +2639,6 @@ public class Comparisons {
         }
 
         @Override
-        public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            return HashUtils.queryHash(hashKind, BASE_HASH, super.queryHash(hashKind), strict);
-        }
-
-        @Override
         public int hashCode() {
             return super.hashCode() * (strict ? -1 : 1);
         }
@@ -2822,7 +2746,7 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public BooleanWithConstraint semanticEqualsTyped(@Nonnull final Comparison other, @Nonnull final ValueEquivalence valueEquivalence) {
+        public ConstrainedBoolean semanticEqualsTyped(@Nonnull final Comparison other, @Nonnull final ValueEquivalence valueEquivalence) {
             MultiColumnComparison that = (MultiColumnComparison)other;
             return this.inner.semanticEquals(that.inner, valueEquivalence);
         }
@@ -2837,11 +2761,6 @@ public class Comparisons {
                 default:
                     throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
             }
-        }
-
-        @Override
-        public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            return HashUtils.queryHash(hashKind, BASE_HASH, inner);
         }
 
         @Nullable
@@ -2965,11 +2884,6 @@ public class Comparisons {
         @Override
         public int planHash(@Nonnull final PlanHashMode mode) {
             return PlanHashable.planHash(mode, function, originalComparison);
-        }
-
-        @Override
-        public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            return HashUtils.queryHash(hashKind, function, originalComparison);
         }
 
         @Override

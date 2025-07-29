@@ -1,7 +1,8 @@
 {
   "records": {
     "dependency": [
-      "record_metadata_options.proto"
+      "record_metadata_options.proto",
+      "test_student.proto"
     ],
     "message_type": [
       {
@@ -32,6 +33,12 @@
             "name": "COL2",
             "number": 3,
             "type": "TYPE_INT64"
+          },
+          {
+            "name": "student",
+            "number": 4,
+            "type": "TYPE_MESSAGE",
+            "type_name": "com.apple.foundationdb.relational.yamltests.generated.teststudent.Student"
           }
         ]
       }

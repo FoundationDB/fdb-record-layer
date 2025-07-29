@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.combinatorics.PartiallyOrderedSet;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
@@ -392,19 +393,22 @@ public class Ordering {
     }
 
     @Nonnull
-    public Ordering pullUp(@Nonnull Value value, @Nonnull AliasMap aliasMap, @Nonnull Set<CorrelationIdentifier> constantAliases) {
+    public Ordering pullUp(@Nonnull final Value value, @Nonnull EvaluationContext evaluationContext,
+                           @Nonnull final AliasMap aliasMap, @Nonnull final Set<CorrelationIdentifier> constantAliases) {
         final var pulledUpBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
         for (final var entry : getBindingMap().asMap().entrySet()) {
             final var pulledUpBindings =
                     translateBindings(entry.getValue(),
-                            toBePulledUpValues -> value.pullUp(toBePulledUpValues, aliasMap, constantAliases, Quantifier.current()));
+                            toBePulledUpValues -> value.pullUp(toBePulledUpValues, evaluationContext,
+                                    aliasMap, constantAliases, Quantifier.current()));
             pulledUpBindingMapBuilder.putAll(entry.getKey(), pulledUpBindings);
         }
 
         // pull up the values we actually could also pull up some of the bindings for
         final var pulledUpBindingMap = pulledUpBindingMapBuilder.build();
         final var pulledUpValuesMap =
-                value.pullUp(pulledUpBindingMap.keySet(), aliasMap, constantAliases, Quantifier.current());
+                value.pullUp(pulledUpBindingMap.keySet(), evaluationContext, aliasMap, constantAliases,
+                        Quantifier.current());
 
         final var mappedOrderingSet = getOrderingSet().mapAll(pulledUpValuesMap);
         final var mappedValues = mappedOrderingSet.getSet();
@@ -421,7 +425,8 @@ public class Ordering {
     }
 
     @Nonnull
-    public Ordering pushDown(@Nonnull Value value, @Nonnull AliasMap aliasMap, @Nonnull Set<CorrelationIdentifier> constantAliases) {
+    public Ordering pushDown(@Nonnull final Value value, @Nonnull final EvaluationContext evaluationContext,
+                             @Nonnull final AliasMap aliasMap, @Nonnull final Set<CorrelationIdentifier> constantAliases) {
         final var pushedBindingMapBuilder = ImmutableSetMultimap.<Value, Binding>builder();
         for (final var entry : getBindingMap().asMap().entrySet()) {
             final var pushedBindings =
@@ -429,8 +434,8 @@ public class Ordering {
                             toBePushedValues -> {
                                 final var pushedDownValues =
                                         value.pushDown(toBePushedValues,
-                                                DefaultValueSimplificationRuleSet.instance(), aliasMap,
-                                                constantAliases, Quantifier.current());
+                                                DefaultValueSimplificationRuleSet.instance(), evaluationContext,
+                                                aliasMap, constantAliases, Quantifier.current());
                                 final var resultMap = new LinkedIdentityMap<Value, Value>();
                                 for (int i = 0; i < toBePushedValues.size(); i++) {
                                     final Value toBePushedValue = toBePushedValues.get(i);
@@ -446,8 +451,8 @@ public class Ordering {
         final var pushedBindingMap = pushedBindingMapBuilder.build();
         final var values = pushedBindingMap.keySet();
         final var pushedValues =
-                value.pushDown(values, DefaultValueSimplificationRuleSet.instance(),
-                        aliasMap, constantAliases, Quantifier.current());
+                value.pushDown(values, DefaultValueSimplificationRuleSet.instance(), evaluationContext, aliasMap,
+                        constantAliases, Quantifier.current());
 
         final var pushedValuesMapBuilder = ImmutableMap.<Value, Value>builder();
         final var valuesIterator = values.iterator();

@@ -778,7 +778,8 @@ class BooleanValueTest {
             Typed value = function.encapsulate(args);
             Assertions.assertTrue(value instanceof BooleanValue);
             value = verifySerialization((Value)value);
-            Optional<QueryPredicate> maybePredicate = ((BooleanValue)value).toQueryPredicate(typeRepositoryBuilder.build(), Quantifier.current());
+            Optional<QueryPredicate> maybePredicate = ((BooleanValue)value).toQueryPredicate(typeRepositoryBuilder.build(),
+                    Quantifier.current());
             Assertions.assertFalse(maybePredicate.isEmpty());
             Assertions.assertEquals(result, maybePredicate.get());
         } else {
@@ -813,7 +814,8 @@ class BooleanValueTest {
         if (result != null) {
             Typed value = function.encapsulate(args);
             Assertions.assertTrue(value instanceof BooleanValue);
-            Optional<QueryPredicate> maybePredicate = ((BooleanValue)value).toQueryPredicate(typeRepositoryBuilder.build(), Quantifier.current());
+            Optional<QueryPredicate> maybePredicate = ((BooleanValue)value).toQueryPredicate(typeRepositoryBuilder.build(),
+                    Quantifier.current());
             Assertions.assertFalse(maybePredicate.isEmpty());
             Assertions.assertEquals(result, maybePredicate.get());
         } else {
@@ -835,7 +837,7 @@ class BooleanValueTest {
     @Test
     void passingIncorrectIndexToBuiltInFunctionThrows() {
         try {
-            new RelOpValue.EqualsFn().conputeParameterType(-1);
+            new RelOpValue.EqualsFn().computeParameterType(-1);
             Assertions.fail("expected an exception to be thrown");
         } catch (Exception e) {
             Assertions.assertTrue(e instanceof VerifyException);

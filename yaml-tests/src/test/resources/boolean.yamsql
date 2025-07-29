@@ -96,7 +96,6 @@ test_block:
       - result: [ { false }, { false }, { false } ]
     -
       - query: select B AND NULL from lb
-      - supported_version: 4.1.9.0 # This fails when running with continuations against older versions due to: https://github.com/FoundationDB/fdb-record-layer/issues/3218
       - result: [ { !null }, { false }, { !null } ]
     -
       - query: select B OR TRUE from lb
@@ -106,7 +105,6 @@ test_block:
       - result: [ { true }, { false }, { !null } ]
     -
       - query: select B OR NULL from lb
-      - supported_version: 4.1.9.0 # This fails when running with continuations against older versions due to: https://github.com/FoundationDB/fdb-record-layer/issues/3218
       - result: [ { true }, { !null }, { !null } ]
     -
       - query: select NOT B from lb

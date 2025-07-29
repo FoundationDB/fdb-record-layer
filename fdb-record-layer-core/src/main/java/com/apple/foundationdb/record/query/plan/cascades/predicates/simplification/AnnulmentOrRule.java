@@ -21,17 +21,13 @@
 package com.apple.foundationdb.record.query.plan.cascades.predicates.simplification;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
@@ -44,7 +40,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class AnnulmentOrRule extends QueryPredicateComputationRule<EvaluationContext, List<QueryPlanConstraint>, OrPredicate> {
+public class AnnulmentOrRule extends QueryPredicateSimplificationRule<OrPredicate> {
     @Nonnull
     private static final BindingMatcher<QueryPredicate> orTermMatcher = anyPredicate();
 
@@ -62,12 +58,15 @@ public class AnnulmentOrRule extends QueryPredicateComputationRule<EvaluationCon
     }
 
     @Override
-    public void onMatch(@Nonnull final QueryPredicateComputationRuleCall<EvaluationContext, List<QueryPlanConstraint>> call) {
+    public void onMatch(@Nonnull final QueryPredicateSimplificationRuleCall call) {
         final var bindings = call.getBindings();
         final var orTerms = bindings.getAll(orTermMatcher);
 
         if (orTerms.stream().anyMatch(QueryPredicate::isTautology)) {
-            call.yieldPredicate(new ConstantPredicate(true), ImmutableList.of());
+            call.yieldResultBuilder()
+                    .addConstraintsFrom(bindings.get(rootMatcher))
+                    .addConstraintsFrom(orTerms)
+                    .yieldResult(new ConstantPredicate(true));
         }
     }
 }

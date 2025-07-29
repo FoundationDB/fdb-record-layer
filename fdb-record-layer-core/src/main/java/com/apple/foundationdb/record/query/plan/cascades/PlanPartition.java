@@ -26,17 +26,17 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
-import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * A plan partition used for matching.
  */
 public class PlanPartition extends ExpressionPartition<RecordQueryPlan> {
     private PlanPartition(@Nonnull final Map<ExpressionProperty<?>, ?> propertyValuesMap,
-                          @Nonnull final Collection<RecordQueryPlan> plans) {
-        super(propertyValuesMap, plans);
+                          @Nonnull final Map<RecordQueryPlan, Map<ExpressionProperty<?>, ?>> planPropertyMap) {
+        super(propertyValuesMap, planPropertyMap);
     }
 
     @Nonnull
@@ -45,17 +45,32 @@ public class PlanPartition extends ExpressionPartition<RecordQueryPlan> {
     }
 
     @Nonnull
+    @Override
+    public PlanPartition filter(@Nonnull final Predicate<RecordQueryPlan> expressionPredicate) {
+        return with(getPartitionPropertiesMap(), filterGroupedPropertyMap(expressionPredicate));
+    }
+
+    @Nonnull
+    @Override
+    protected PlanPartition with(@Nonnull final Map<ExpressionProperty<?>, ?> groupingPropertyMap,
+                                 @Nonnull final Map<RecordQueryPlan, Map<ExpressionProperty<?>, ?>> groupedPropertyMap) {
+        return new PlanPartition(groupingPropertyMap, groupedPropertyMap);
+    }
+
+    @Nonnull
     public static PlanPartition ofPlans(@Nonnull final Map<ExpressionProperty<?>, ?> propertyValuesMap,
-                                        @Nonnull final Collection<RecordQueryPlan> plans) {
-        return new PlanPartition(propertyValuesMap, plans);
+                                        @Nonnull final Map<RecordQueryPlan, Map<ExpressionProperty<?>, ?>> planPropertyMap) {
+        return new PlanPartition(propertyValuesMap, planPropertyMap);
     }
 
     @Nonnull
     @SuppressWarnings("unchecked")
     public static PlanPartition ofExpressions(@Nonnull final Map<ExpressionProperty<?>, ?> propertyValuesMap,
-                                              @Nonnull final Collection<? extends RelationalExpression> expressions) {
+                                              @Nonnull final Map<? extends RelationalExpression, Map<ExpressionProperty<?>, ?>> expressionPropertyMap) {
         Debugger.sanityCheck(() ->
-                Verify.verify(expressions.stream().allMatch(plan -> plan instanceof RecordQueryPlan)));
-        return new PlanPartition(propertyValuesMap, (Collection<RecordQueryPlan>)expressions);
+                Verify.verify(expressionPropertyMap.keySet()
+                        .stream()
+                        .allMatch(plan -> plan instanceof RecordQueryPlan)));
+        return new PlanPartition(propertyValuesMap, (Map<RecordQueryPlan, Map<ExpressionProperty<?>, ?>>)expressionPropertyMap);
     }
 }

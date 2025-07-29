@@ -437,6 +437,22 @@ public class CascadesPlanner implements QueryPlanner {
                     Debugger.withDebugger(debugger -> debugger.onEvent(nextTask.toTaskEvent(Location.BEGIN)));
                     try {
                         nextTask.execute();
+                        Debugger.sanityCheck(() -> {
+                            if (nextTask instanceof InitiatePlannerPhase) {
+                                //
+                                // Validate that the memo structure and the query graph are aligned.
+                                // This is an expensive check, but if it finds anything, then it may
+                                // be useful to enable this check so that it runs after every task
+                                // to root out the underlying issue.
+                                //
+                                // Once we have sanity check levels, we should consider enabling
+                                // this check all the time at certain levels.
+                                // See: https://github.com/FoundationDB/fdb-record-layer/issues/3445
+                                //
+                                traversal.verifyIntegrity();
+                            }
+                        });
+
                     } finally {
                         Debugger.withDebugger(debugger -> debugger.onEvent(nextTask.toTaskEvent(Location.END)));
                     }
@@ -467,6 +483,9 @@ public class CascadesPlanner implements QueryPlanner {
                 pushInitialTasks();
             }
         }
+
+        // Also validate memo structure integrity at the end of planning
+        Debugger.sanityCheck(() -> traversal.verifyIntegrity());
     }
 
     private void pushInitialTasks() {
@@ -544,7 +563,7 @@ public class CascadesPlanner implements QueryPlanner {
         @Override
         @Nonnull
         public Debugger.Event toTaskEvent(final Location location) {
-            return new Debugger.InitiatePlannerPhaseEvent(plannerPhase, currentRoot, taskStack);
+            return new Debugger.InitiatePlannerPhaseEvent(plannerPhase, currentRoot, taskStack, location);
         }
 
         @Override
@@ -1003,6 +1022,12 @@ public class CascadesPlanner implements QueryPlanner {
 
         protected void executeRuleCall(@Nonnull CascadesRuleCall ruleCall) {
             ruleCall.run();
+
+            //
+            // During rule construction, references can be added to the memoizer that don't end up in
+            // any final expression. Prune them here
+            //
+            ruleCall.pruneUnusedNewReferences();
 
             //
             // Handle produced artifacts (through yield...() calls)

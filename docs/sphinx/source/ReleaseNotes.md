@@ -5,7 +5,415 @@ This document contains a log of changes to the FoundationDB Record Layer. It aim
 
 As the [versioning guide](Versioning.md) details, it cannot always be determined solely by looking at the version numbers whether one Record Layer version contains all changes included in another. In particular, bug fixes and backwards-compatible changes might be back-ported to or introduced as patches against older versions. To track when a patch version has been included in the main release train, some releases will say as a note that they contain all changes from a specific patch.
 
+## 4.4
+
+### 4.4.15.0
+
+<h4> New Features </h4>
+
+* Support unsetting transaction-bound SchemaTemplate in a Transaction - [PR #3496](https://github.com/FoundationDB/fdb-record-layer/pull/3496)
+
+
+**[Full Changelog (4.4.14.0...4.4.15.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.4.14.0...4.4.15.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.3.6.0`, ✅`4.4.3.0`, ✅`4.4.4.0`, ✅`4.4.7.0`, ✅`4.4.8.0`, ✅`4.4.9.0`, ✅`4.4.10.0`, ✅`4.4.11.0`, ✅`4.4.12.0`, ✅`4.4.14.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16446692540)
+
+
+
+### 4.4.14.0
+
+<h4> New Features </h4>
+
+* Initial support for DROP TEMPORARY FUNCTION - [PR #3492](https://github.com/FoundationDB/fdb-record-layer/pull/3492)
+
+
+**[Full Changelog (4.4.13.0...4.4.14.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.4.13.0...4.4.14.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.3.5.0`, ✅`4.3.6.0`, ✅`4.4.3.0`, ✅`4.4.4.0`, ✅`4.4.7.0`, ✅`4.4.8.0`, ✅`4.4.9.0`, ✅`4.4.10.0`, ✅`4.4.11.0`, ✅`4.4.12.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16441843958)
+
+
+
+### 4.4.13.0
+
+
+
+**[Full Changelog (4.4.12.0...4.4.13.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.4.12.0...4.4.13.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.3.5.0`, ✅`4.3.6.0`, ✅`4.4.3.0`, ✅`4.4.4.0`, ✅`4.4.7.0`, ✅`4.4.8.0`, ✅`4.4.9.0`, ✅`4.4.10.0`, ✅`4.4.11.0`, ✅`4.4.12.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16380197828)
+
+
+
+### 4.4.12.0
+
+<h4> Bug Fixes </h4>
+
+* Allow enabling autoCommit without an active transaction - [PR #3477](https://github.com/FoundationDB/fdb-record-layer/pull/3477)
+
+
+**[Full Changelog (4.4.11.0...4.4.12.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.4.11.0...4.4.12.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.3.3.1`, ✅`4.3.5.0`, ✅`4.3.6.0`, ✅`4.4.3.0`, ✅`4.4.4.0`, ✅`4.4.7.0`, ✅`4.4.8.0`, ✅`4.4.9.0`, ✅`4.4.10.0`, ✅`4.4.11.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16368494669)
+
+
+
+### 4.4.11.0
+
+<h4> New Features </h4>
+
+* Add test to verify that temp functions are created in TxnBound database - [PR #3488](https://github.com/FoundationDB/fdb-record-layer/pull/3488)
+<h4> Bug Fixes </h4>
+
+* Add support for NULL type fields in ExecuteInsert - [PR #3490](https://github.com/FoundationDB/fdb-record-layer/pull/3490)
+
+
+**[Full Changelog (4.4.10.0...4.4.11.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.4.10.0...4.4.11.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.3.3.0`, ✅`4.3.3.1`, ✅`4.3.5.0`, ✅`4.3.6.0`, ✅`4.4.3.0`, ✅`4.4.4.0`, ✅`4.4.7.0`, ✅`4.4.8.0`, ✅`4.4.9.0`, ✅`4.4.10.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16344428202)
+
+
+
+### 4.4.10.0
+
+<h4> New Features </h4>
+
+* Remove FieldDescription in Struct/ArrayMetadata in favour of DataType - [PR #3484](https://github.com/FoundationDB/fdb-record-layer/pull/3484)
+* Implement a `closeAll` utility to close multiple closeables - [PR #3470](https://github.com/FoundationDB/fdb-record-layer/pull/3470)
+<h4> Bug Fixes </h4>
+
+* resolves: #3487 restrict select expressions in rewrite matchers to be exploratory - [PR #3486](https://github.com/FoundationDB/fdb-record-layer/pull/3486)
+
+
+**[Full Changelog (4.4.9.0...4.4.10.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.4.9.0...4.4.10.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.3.2.0`, ✅`4.3.3.0`, ✅`4.3.3.1`, ✅`4.3.5.0`, ✅`4.3.6.0`, ✅`4.4.3.0`, ✅`4.4.4.0`, ✅`4.4.7.0`, ✅`4.4.8.0`, ✅`4.4.9.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16320573197)
+
+
+
+### 4.4.9.0
+
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Allow yaml-test load template from json to add dependencies - [PR #3452](https://github.com/FoundationDB/fdb-record-layer/pull/3452)
+
+</details>
+
+
+**[Full Changelog (4.4.8.0...4.4.9.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.4.8.0...4.4.9.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.2.8.0`, ✅`4.3.2.0`, ✅`4.3.3.0`, ✅`4.3.3.1`, ✅`4.3.5.0`, ✅`4.3.6.0`, ✅`4.4.3.0`, ✅`4.4.4.0`, ✅`4.4.7.0`, ✅`4.4.8.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16204062121)
+
+
+
+### 4.4.8.0
+
+<h4> Bug Fixes </h4>
+
+* Preserve `IntermingleTables` flag in `RecordLayerSchemaTemplate.toBuilder` - [PR #3482](https://github.com/FoundationDB/fdb-record-layer/pull/3482)
+
+
+**[Full Changelog (4.4.7.0...4.4.8.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.4.7.0...4.4.8.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.2.6.0`, ✅`4.2.8.0`, ✅`4.3.2.0`, ✅`4.3.3.0`, ✅`4.3.3.1`, ✅`4.3.5.0`, ✅`4.3.6.0`, ✅`4.4.3.0`, ✅`4.4.4.0`, ✅`4.4.7.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16198820852)
+
+
+
+### 4.4.7.0
+
+<h4> New Features </h4>
+
+* Include planner configuration in the `QueryCacheKey` - [PR #3463](https://github.com/FoundationDB/fdb-record-layer/pull/3463)
+* revive and move `PlannerRepl` into its own component - [PR #3466](https://github.com/FoundationDB/fdb-record-layer/pull/3466)
+<h4> Bug Fixes </h4>
+
+* Fix transactional insert throwing No Value Present in server - [PR #3476](https://github.com/FoundationDB/fdb-record-layer/pull/3476)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Remove release notes for unpublished builds - [PR #3481](https://github.com/FoundationDB/fdb-record-layer/pull/3481)
+* Re-enable force continuation tests in Yaml - [PR #3393](https://github.com/FoundationDB/fdb-record-layer/pull/3393)
+
+</details>
+
+
+**[Full Changelog (4.4.4.0...4.4.7.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.4.4.0...4.4.7.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.2.5.0`, ✅`4.2.6.0`, ✅`4.2.8.0`, ✅`4.3.2.0`, ✅`4.3.3.0`, ✅`4.3.3.1`, ✅`4.3.5.0`, ✅`4.3.6.0`, ✅`4.4.3.0`, ✅`4.4.4.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16195387365)
+
+
+
+### 4.4.4.0
+
+<h4> New Features </h4>
+
+* Add support for AutoCommit(false)  - [PR #3429](https://github.com/FoundationDB/fdb-record-layer/pull/3429)
+<h4> Bug Fixes </h4>
+
+* Escape the ' character in the loggable method to help with log parser frameworks. - [PR #3460](https://github.com/FoundationDB/fdb-record-layer/pull/3460)
+* Fix eager constant folding in `RelOpValue` and other fixes - [PR #3443](https://github.com/FoundationDB/fdb-record-layer/pull/3443)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Rename shouldCommit back to canCommit - [PR #3464](https://github.com/FoundationDB/fdb-record-layer/pull/3464)
+
+</details>
+
+
+**[Full Changelog (4.4.3.0...4.4.4.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.4.3.0...4.4.4.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.2.4.0`, ✅`4.2.5.0`, ✅`4.2.6.0`, ✅`4.2.8.0`, ✅`4.3.2.0`, ✅`4.3.3.0`, ✅`4.3.3.1`, ✅`4.3.5.0`, ✅`4.3.6.0`, ✅`4.4.3.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16072652789)
+
+
+
+### 4.4.3.0
+
+<h4> New Features </h4>
+
+* Improve MetaDataProtoEditor handling of unqualified types and add support for renaming all the types - [PR #3402](https://github.com/FoundationDB/fdb-record-layer/pull/3402)
+* Enable the Planner Rewrite Rules - [PR #3401](https://github.com/FoundationDB/fdb-record-layer/pull/3401)
+<h4> Bug Fixes </h4>
+
+* add placeholders in all appropriate select expressions - [PR #3451](https://github.com/FoundationDB/fdb-record-layer/pull/3451)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Update the Maven Central publishing URL to avoid sunset service - [PR #3457](https://github.com/FoundationDB/fdb-record-layer/pull/3457)
+* Pick correct locally generated build for `!current_version` tests - [PR #3455](https://github.com/FoundationDB/fdb-record-layer/pull/3455)
+* Have ExternalServer dynamically find available ports - [PR #3398](https://github.com/FoundationDB/fdb-record-layer/pull/3398)
+
+</details>
+
+
+**[Full Changelog (4.3.6.0...4.4.3.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.3.6.0...4.4.3.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.2.3.0`, ❌`4.2.4.0`, ✅`4.2.5.0`, ✅`4.2.6.0`, ✅`4.2.8.0`, ✅`4.3.2.0`, ✅`4.3.3.0`, ✅`4.3.3.1`, ✅`4.3.5.0`, ✅`4.3.6.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16009050791)
+
+
+
 ## 4.3
+
+### 4.3.6.0
+
+<h4> Breaking Changes </h4>
+
+* Support calling table functions without parentheses when no parameters are required - [PR #3409](https://github.com/FoundationDB/fdb-record-layer/pull/3409)
+<h4> New Features </h4>
+
+* Type specifier suffix for `long` and `int` literals - [PR #3434](https://github.com/FoundationDB/fdb-record-layer/pull/3434)
+* Simplification rules for constant `coalesce` and `promote` expressions - [PR #3425](https://github.com/FoundationDB/fdb-record-layer/pull/3425)
+* Scoring and costing query predicates - [PR #3427](https://github.com/FoundationDB/fdb-record-layer/pull/3427)
+* Add new `Option`s to disable planner rules through the Relational API - [PR #3421](https://github.com/FoundationDB/fdb-record-layer/pull/3421)
+* Introduce value-specific plan cache constraints - [PR #3413](https://github.com/FoundationDB/fdb-record-layer/pull/3413)
+* Planner rewrite rule for simplifying `SelectExpression` predicates - [PR #3411](https://github.com/FoundationDB/fdb-record-layer/pull/3411)
+* `QueryPredicate` constant folding - [PR #3403](https://github.com/FoundationDB/fdb-record-layer/pull/3403)
+* `EvaluationContext` and constraints for simplifications - [PR #3387](https://github.com/FoundationDB/fdb-record-layer/pull/3387)
+* introduce `SelectMergeRule` - [PR #3388](https://github.com/FoundationDB/fdb-record-layer/pull/3388)
+* Introduce a new planner rewrite rule to facilitate in-lining function parameter values - [PR #3381](https://github.com/FoundationDB/fdb-record-layer/pull/3381)
+* Temporary SQL Functions - [PR #3364](https://github.com/FoundationDB/fdb-record-layer/pull/3364)
+<h4> Bug Fixes </h4>
+
+* `OfTypeValue` distinguishes `long` and `int` - [PR #3448](https://github.com/FoundationDB/fdb-record-layer/pull/3448)
+* Address planner bugs encountered while integrating rewrite rules - [PR #3435](https://github.com/FoundationDB/fdb-record-layer/pull/3435)
+* Avoid Boolean simplification that would lead to expressions like `x IS TRUE` being simplified to `FALSE` - [PR #3436](https://github.com/FoundationDB/fdb-record-layer/pull/3436)
+* Address nullability of null-on-empty quantifiers and nested fields - [PR #3426](https://github.com/FoundationDB/fdb-record-layer/pull/3426)
+* Address case where `markIndexReadable` could ignore `allowUniquePending` parameter - [PR #3423](https://github.com/FoundationDB/fdb-record-layer/pull/3423)
+* addressing matching problems when integrating `REWRITING` phase - [PR #3422](https://github.com/FoundationDB/fdb-record-layer/pull/3422)
+* Allow version repair to operate while the store is locked - [PR #3396](https://github.com/FoundationDB/fdb-record-layer/pull/3396)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Update code version before running tests in release build - [PR #3450](https://github.com/FoundationDB/fdb-record-layer/pull/3450)
+* Added ability to hand in connection options through the yaml framework and temporary tests that disable all rewrite rules - [PR #3438](https://github.com/FoundationDB/fdb-record-layer/pull/3438)
+* Run expensive `Traversal` verification sanity check less often - [PR #3442](https://github.com/FoundationDB/fdb-record-layer/pull/3442)
+* Separate out Lucene tests so they run separately in PRB - [PR #3440](https://github.com/FoundationDB/fdb-record-layer/pull/3440)
+* Allow MaintainYamlTestConfig with quickTest - [PR #3416](https://github.com/FoundationDB/fdb-record-layer/pull/3416)
+* Bring in 4.3.3.1 release notes - [PR #3399](https://github.com/FoundationDB/fdb-record-layer/pull/3399)
+
+</details>
+
+
+**[Full Changelog (4.3.5.0...4.3.6.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.3.5.0...4.3.6.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.2.2.1`, ❌`4.2.3.0`, ❌`4.2.4.0`, ✅`4.2.5.0`, ✅`4.2.6.0`, ✅`4.2.8.0`, ✅`4.3.2.0`, ✅`4.3.3.0`, ✅`4.3.3.1`, ✅`4.3.5.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/15967719430)
+
+
+
+### 4.3.5.0
+
+
+
+**[Full Changelog (4.3.4.0...4.3.5.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.3.4.0...4.3.5.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.2.2.0`, ✅`4.2.2.1`, ❌`4.2.3.0`, ❌`4.2.4.0`, ✅`4.2.5.0`, ✅`4.2.6.0`, ✅`4.2.8.0`, ✅`4.3.2.0`, ✅`4.3.3.0`, ✅`4.3.3.1`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/15615358088)
+
+
+
+### 4.3.4.0
+
+<h4> Breaking Changes </h4>
+
+* Index scrubbing: eliminate legacy mode - [PR #3343](https://github.com/FoundationDB/fdb-record-layer/pull/3343)
+<h4> New Features </h4>
+
+* Record repair: External Runner API and repair operations - [PR #3370](https://github.com/FoundationDB/fdb-record-layer/pull/3370)
+* Create a records update lock - [PR #3362](https://github.com/FoundationDB/fdb-record-layer/pull/3362)
+* (non)-partitioning properties for `Reference`s - [PR #3382](https://github.com/FoundationDB/fdb-record-layer/pull/3382)
+* Add partial result to AggregateCursor continuation - [PR #3254](https://github.com/FoundationDB/fdb-record-layer/pull/3254)
+* reimplementation of `rebase(...)` and `translateCorrelations(...)` for references - [PR #3368](https://github.com/FoundationDB/fdb-record-layer/pull/3368)
+* Add API for repairing a missing store header - [PR #3342](https://github.com/FoundationDB/fdb-record-layer/pull/3342)
+* Add BETWEEN SQL operator - [PR #3332](https://github.com/FoundationDB/fdb-record-layer/pull/3332)
+* Add NULL operand type to binary rel op map - [PR #3373](https://github.com/FoundationDB/fdb-record-layer/pull/3373)
+<h4> Bug Fixes </h4>
+
+* Fix issue with checkVersion getting record store state is being used for queries - [PR #3386](https://github.com/FoundationDB/fdb-record-layer/pull/3386)
+* Call Store.Builder.openAsync instead of build - [PR #3375](https://github.com/FoundationDB/fdb-record-layer/pull/3375)
+* Planner now uses correct calculation for ordering of aggregate scans over permuted min/max indexes - [PR #3333](https://github.com/FoundationDB/fdb-record-layer/pull/3333)
+* Allow `CASE` alternative implicit type promotions when feasible. - [PR #3379](https://github.com/FoundationDB/fdb-record-layer/pull/3379)
+* Relax restriction around case-when operand  - [PR #3376](https://github.com/FoundationDB/fdb-record-layer/pull/3376)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Add a test to verify setOption LOG_QUERY works per statement - [PR #3369](https://github.com/FoundationDB/fdb-record-layer/pull/3369)
+
+</details>
+
+
+**[Full Changelog (4.3.3.0...4.3.4.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.3.3.0...4.3.4.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.2.2.0`, ✅`4.2.2.1`, ❌`4.2.3.0`, ❌`4.2.4.0`, ✅`4.2.5.0`, ✅`4.2.6.0`, ✅`4.2.8.0`, ✅`4.3.2.0`, ✅`4.3.3.0`, ✅`4.3.3.1`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/15613193749)
+
+
+### 4.3.3.1
+
+<h4> Bug Fixes </h4>
+
+* Revert "Add RecordCountKey State" - [PR #3383](https://github.com/FoundationDB/fdb-record-layer/pull/3383)
+
+
+**[Full Changelog (4.3.3.0...4.3.3.1)](https://github.com/FoundationDB/fdb-record-layer/compare/4.3.3.0...4.3.3.1)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.1.10.0`, ✅`4.2.2.0`, ✅`4.2.2.1`, ❌`4.2.3.0`, ❌`4.2.4.0`, ✅`4.2.5.0`, ✅`4.2.6.0`, ✅`4.2.8.0`, ✅`4.3.2.0`, ✅`4.3.3.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/15452270034)
+
 
 ### 4.3.3.0
 

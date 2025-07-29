@@ -32,6 +32,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
+import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.protobuf.DescriptorProtos;
 
@@ -52,6 +53,14 @@ public class DdlTestUtil {
     static PlanContext createVanillaPlanContext(@Nonnull final EmbeddedRelationalConnection connection,
                                                 @Nonnull final String schemaTemplateName,
                                                 @Nonnull final String databaseUri) throws RelationalException {
+        return createVanillaPlanContext(connection, schemaTemplateName, databaseUri, PreparedParams.empty());
+    }
+
+    @Nonnull
+    static PlanContext createVanillaPlanContext(@Nonnull final EmbeddedRelationalConnection connection,
+                                                @Nonnull final String schemaTemplateName,
+                                                @Nonnull final String databaseUri,
+                                                @Nonnull final PreparedParams preparedParams) throws RelationalException {
         final var schemaTemplate = connection.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toBuilder()
                 .setVersion(1).setName(schemaTemplateName).build();
         RecordMetaDataProto.MetaData md = schemaTemplate.toRecordMetadata().toProto();
@@ -64,6 +73,7 @@ public class DdlTestUtil {
                 .withDdlQueryFactory(NoOpQueryFactory.INSTANCE)
                 .withConstantActionFactory(NoOpMetadataOperationsFactory.INSTANCE)
                 .withSchemaTemplate(schemaTemplate)
+                .withPreparedParameters(preparedParams)
                 .build();
     }
 
@@ -75,7 +85,7 @@ public class DdlTestUtil {
         final var storeState = new RecordStoreState(null, Map.of());
         try (var schema = embeddedConnection.getRecordLayerDatabase().loadSchema(embeddedConnection.getSchema())) {
             final var metadata = schema.loadStore().getRecordMetaData();
-            return PlanGenerator.of(Optional.empty(), planContext, metadata, storeState, Options.NONE);
+            return PlanGenerator.create(Optional.empty(), planContext, metadata, storeState, Options.NONE);
         }
     }
 
@@ -84,12 +94,21 @@ public class DdlTestUtil {
                                           @Nonnull final String schemaTemplateName,
                                           @Nonnull final String databaseUri,
                                           @Nonnull final MetadataOperationsFactory metadataOperationsFactory) throws SQLException, RelationalException {
-        final var planContext = PlanContext.Builder.unapply(createVanillaPlanContext(embeddedConnection, schemaTemplateName, databaseUri))
+        return getPlanGenerator(embeddedConnection, schemaTemplateName, databaseUri, metadataOperationsFactory, PreparedParams.empty());
+    }
+
+    @Nonnull
+    static PlanGenerator getPlanGenerator(@Nonnull final EmbeddedRelationalConnection embeddedConnection,
+                                          @Nonnull final String schemaTemplateName,
+                                          @Nonnull final String databaseUri,
+                                          @Nonnull final MetadataOperationsFactory metadataOperationsFactory,
+                                          @Nonnull final PreparedParams preparedParams) throws SQLException, RelationalException {
+        final var planContext = PlanContext.Builder.unapply(createVanillaPlanContext(embeddedConnection, schemaTemplateName, databaseUri, preparedParams))
                 .withConstantActionFactory(metadataOperationsFactory).build();
         final var storeState = new RecordStoreState(null, Map.of());
         try (var schema = embeddedConnection.getRecordLayerDatabase().loadSchema(embeddedConnection.getSchema())) {
             final var metadata = schema.loadStore().getRecordMetaData();
-            return PlanGenerator.of(Optional.empty(), planContext, metadata, storeState, Options.NONE);
+            return PlanGenerator.create(Optional.empty(), planContext, metadata, storeState, Options.NONE);
         }
     }
 
@@ -103,7 +122,7 @@ public class DdlTestUtil {
         final var storeState = new RecordStoreState(null, Map.of());
         try (var schema = embeddedConnection.getRecordLayerDatabase().loadSchema(embeddedConnection.getSchema())) {
             final var metadata = schema.loadStore().getRecordMetaData();
-            return PlanGenerator.of(Optional.empty(), planContext, metadata, storeState, Options.NONE);
+            return PlanGenerator.create(Optional.empty(), planContext, metadata, storeState, Options.NONE);
         }
     }
 

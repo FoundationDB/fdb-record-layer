@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values.translation;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
@@ -146,7 +147,7 @@ public class PullUp {
                 return Optional.empty();
             }
             currentValue = currentValueOptional.get()
-                    .simplify(AliasMap.emptyMap(), currentPullUp.getRangedOverAliases());
+                    .simplify(EvaluationContext.empty(), AliasMap.emptyMap(), currentPullUp.getRangedOverAliases());
 
             if (currentPullUp.getParentPullUp() == null) {
                 return Optional.of(currentValue);

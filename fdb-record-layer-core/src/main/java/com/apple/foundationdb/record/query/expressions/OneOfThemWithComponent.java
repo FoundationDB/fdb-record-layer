@@ -174,8 +174,4 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
         }
     }
 
-    @Override
-    public int queryHash(@Nonnull final QueryHashKind hashKind) {
-        return super.baseQueryHash(hashKind, BASE_HASH, getChild());
-    }
 }

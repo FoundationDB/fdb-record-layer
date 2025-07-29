@@ -20,12 +20,14 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.recordrepair;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 @SuppressWarnings({"serial"})
+@API(API.Status.EXPERIMENTAL)
 public class UnknownValidationException extends RecordCoreException {
     public UnknownValidationException(@Nonnull final String msg, @Nullable final Throwable cause) {
         super(msg, cause);

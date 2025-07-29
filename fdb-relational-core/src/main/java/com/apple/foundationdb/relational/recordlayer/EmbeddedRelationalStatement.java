@@ -58,12 +58,12 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
 
     @Override
     @Nonnull
-    PlanContext buildPlanContext(final @Nonnull FDBRecordStoreBase<?> store) throws RelationalException {
+    PlanContext createPlanContext(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final Options options) throws RelationalException {
         return PlanContext.builder()
-                .fromRecordStore(store)
+                .fromRecordStore(store, options)
                 .fromDatabase(conn.getRecordLayerDatabase())
                 .withMetricsCollector(Assert.notNullUnchecked(conn.getMetricCollector()))
-                .withSchemaTemplate(conn.getSchemaTemplate())
+                .withSchemaTemplate(conn.getTransaction().getBoundSchemaTemplateMaybe().orElse(conn.getSchemaTemplate()))
                 .build();
     }
 

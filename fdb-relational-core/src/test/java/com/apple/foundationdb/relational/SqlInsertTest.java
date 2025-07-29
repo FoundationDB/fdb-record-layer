@@ -20,14 +20,19 @@
 
 package com.apple.foundationdb.relational;
 
+import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementInsertRule;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.BasicMetadataTest;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
+import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 
+import com.google.common.collect.ImmutableSet;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
@@ -107,6 +112,25 @@ public class SqlInsertTest {
                             .hasColumns(Map.of("NAME", "testRecord1",
                                     "REST_NO", 1L,
                                     "LOC", Map.of("ADDRESS", "1234", "LATITUDE", "5678", "LONGITUDE", "9101112")))
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void cannotInsertWithInsertRuleDisabled() throws Exception {
+        try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+            // Turn off the planner rule that allows for inserts to be planned
+            conn.setOption(Options.Name.DISABLED_PLANNER_RULES, ImmutableSet.of(ImplementInsertRule.class.getSimpleName()));
+            conn.setSchema(database.getSchemaName());
+
+            try (RelationalStatement stmt = conn.createStatement()) {
+                RelationalAssertions.assertThrowsSqlException(() -> stmt.executeUpdate("insert into with_loc (rest_no,name,loc) values (1,'testRecord1',('1234','5678','9101112'))"))
+                        .hasErrorCode(ErrorCode.UNSUPPORTED_QUERY);
+
+                try (RelationalResultSet rrs = stmt.executeQuery("select * from with_loc")) {
+                    ResultSetAssert.assertThat(rrs)
                             .hasNoNextRow();
                 }
             }

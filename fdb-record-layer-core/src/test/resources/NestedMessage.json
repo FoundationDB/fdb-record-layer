@@ -1,0 +1,57 @@
+{
+  "records": {
+    "dependency": [
+      "record_metadata_options.proto"
+    ],
+    "message_type": [
+      {
+        "name": "RecordTypeUnion",
+        "field": [
+          {
+            "name": "_T2",
+            "number": 1,
+            "type": "TYPE_MESSAGE",
+            "type_name": "T2"
+          }
+        ]
+      },
+      {
+        "name": "T1",
+        "field": [
+          {
+            "name": "ID",
+            "number": 1,
+            "type": "TYPE_INT64"
+          }
+        ]
+      },
+      {
+        "name": "T2",
+        "field": [
+          {
+            "name": "ID",
+            "number": 1,
+            "type": "TYPE_INT64"
+          },
+          {
+            "name": "T1",
+            "number": 2,
+            "type": "TYPE_MESSAGE",
+            "type_name": "T1"
+          }
+        ]
+      }
+    ]
+  },
+  "record_types": [
+    {
+      "name": "T2",
+      "primary_key": {
+        "field": {
+          "field_name": "ID",
+          "fan_type": "SCALAR"
+        }
+      }
+    }
+  ]
+}

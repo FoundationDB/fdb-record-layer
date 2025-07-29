@@ -122,7 +122,7 @@ public abstract class CatalogedFunction {
     }
 
     @Nonnull
-    public Type conputeParameterType(int index) {
+    public Type computeParameterType(int index) {
         Verify.verify(index >= 0, "unexpected negative parameter index");
         if (index < parameterTypes.size()) {
             return parameterTypes.get(index);
@@ -135,8 +135,8 @@ public abstract class CatalogedFunction {
     }
 
     @Nonnull
-    public Type conputeParameterType(@Nonnull final String parameterName) {
-        return conputeParameterType(getParamIndex(parameterName));
+    public Type computeParameterType(@Nonnull final String parameterName) {
+        return computeParameterType(getParamIndex(parameterName));
     }
 
     @Nonnull
@@ -144,7 +144,7 @@ public abstract class CatalogedFunction {
         Verify.verify(numberOfArguments > 0, "unexpected number of arguments");
         final ImmutableList.Builder<Type> resultBuilder = ImmutableList.builder();
         for (int i = 0; i < numberOfArguments; i ++) {
-            resultBuilder.add(conputeParameterType(i));
+            resultBuilder.add(computeParameterType(i));
         }
         return resultBuilder.build();
     }

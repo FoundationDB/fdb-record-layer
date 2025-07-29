@@ -32,7 +32,7 @@ import com.apple.foundationdb.record.planprotos.PRangeConstraints;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -58,6 +58,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -353,6 +354,29 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
     @Nonnull
     public RangeConstraints translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                   final boolean shouldSimplifyValues) {
+        //
+        // Translating correlations can sometimes change whether a comparison is compilable
+        // or not. Re-build the range constraints to ensure that the comparisons get sorted
+        // properly
+        //
+        var constraintsBuilder = RangeConstraints.newBuilder();
+        boolean allAdded = true;
+        if (evaluableRange != null) {
+            allAdded = evaluableRange.compilableComparisons.stream()
+                    .map(c -> c.translateCorrelations(translationMap, shouldSimplifyValues))
+                    .allMatch(constraintsBuilder::addComparisonMaybe);
+        }
+        allAdded = allAdded && deferredRanges.stream()
+                .map(c -> c.translateCorrelations(translationMap, shouldSimplifyValues))
+                .allMatch(constraintsBuilder::addComparisonMaybe);
+        Optional<RangeConstraints> maybeNewRange = allAdded ? constraintsBuilder.build() : Optional.empty();
+        if (maybeNewRange.isPresent()) {
+            return maybeNewRange.get();
+        }
+
+        //
+        // As a fallback, translate the individual ranges
+        //
         if (evaluableRange == null) {
             if (deferredRanges.isEmpty()) {
                 return this;
@@ -376,26 +400,36 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
 
     @Nonnull
     public Optional<RangeConstraints> translateRanges(@Nonnull final Function<Comparisons.Comparison, Optional<Comparisons.Comparison>> comparisonTranslator) {
-        final CompilableRange newEvaluableRange;
-
+        var constraintsBuilder = RangeConstraints.newBuilder();
+        boolean allAdded = true;
+        final AtomicBoolean allSame = new AtomicBoolean(true);
         if (evaluableRange != null) {
-            final var newEvaluableRangeOptional = evaluableRange.translateRange(comparisonTranslator);
-            if (newEvaluableRangeOptional.isEmpty()) {
-                return Optional.empty();
-            }
-            newEvaluableRange = newEvaluableRangeOptional.get();
-        } else {
-            newEvaluableRange = null;
+            allAdded = evaluableRange.compilableComparisons.stream()
+                    .map(compilableComparison -> {
+                        final Optional<Comparisons.Comparison> newCompilableComparison = comparisonTranslator.apply(compilableComparison);
+                        if (newCompilableComparison.isPresent() && newCompilableComparison.get() != compilableComparison) {
+                            allSame.set(false);
+                        }
+                        return newCompilableComparison;
+                    })
+                    .map(maybeComparison -> maybeComparison.map(constraintsBuilder::addComparisonMaybe))
+                    .allMatch(maybeAdded -> maybeAdded.orElse(false));
         }
-        final var newDeferredRangesBuilder = ImmutableSet.<Comparisons.Comparison>builder();
-        for (final var deferredRange : deferredRanges) {
-            final var newDeferredRangeOptional = comparisonTranslator.apply(deferredRange);
-            if (newDeferredRangeOptional.isEmpty()) {
-                return Optional.empty();
-            }
-            newDeferredRangesBuilder.add(newDeferredRangeOptional.get());
+        allAdded = allAdded && deferredRanges.stream()
+                .map(compilableComparison -> {
+                    final Optional<Comparisons.Comparison> newCompilableComparison = comparisonTranslator.apply(compilableComparison);
+                    if (newCompilableComparison.isPresent() && newCompilableComparison.get() != compilableComparison) {
+                        allSame.set(false);
+                    }
+                    return newCompilableComparison;
+                })
+                .map(maybeComparison -> maybeComparison.map(constraintsBuilder::addComparisonMaybe))
+                .allMatch(maybeAdded -> maybeAdded.orElse(false));
+
+        if (allAdded) {
+            return allSame.get() ? Optional.of(this) : constraintsBuilder.build();
         }
-        return Optional.of(new RangeConstraints(newEvaluableRange, newDeferredRangesBuilder.build()));
+        return Optional.empty();
     }
 
     @Override
@@ -418,16 +452,16 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
 
     @Nonnull
     @Override
-    public BooleanWithConstraint semanticEqualsTyped(@Nonnull final RangeConstraints other,
-                                                     @Nonnull final ValueEquivalence valueEquivalence) {
+    public ConstrainedBoolean semanticEqualsTyped(@Nonnull final RangeConstraints other,
+                                                  @Nonnull final ValueEquivalence valueEquivalence) {
         if (deferredRanges.size() != other.deferredRanges.size()) {
-            return BooleanWithConstraint.falseValue();
+            return ConstrainedBoolean.falseValue();
         }
 
         var deferredRangesEquals =
                 valueEquivalence.semanticEquals(deferredRanges, other.deferredRanges);
         if (deferredRangesEquals.isFalse()) {
-            return BooleanWithConstraint.falseValue();
+            return ConstrainedBoolean.falseValue();
         }
 
         if (evaluableRange == null && other.evaluableRange == null) {
@@ -440,7 +474,7 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
                         return valueEquivalence.semanticEquals(evaluableRange.compilableComparisons,
                                 other.evaluableRange.compilableComparisons);
                     }
-                    return BooleanWithConstraint.falseValue();
+                    return ConstrainedBoolean.falseValue();
                 });
     }
 

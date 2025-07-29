@@ -205,11 +205,21 @@ public class Reference implements Correlated<Reference>, Typed {
     public void advancePlannerStage(@Nonnull final PlannerStage newStage) {
         Verify.verify(plannerStage.directlyPrecedes(newStage));
         Verify.verify(finalMembers.size() == 1);
+        advancePlannerStageUnchecked(newStage);
+    }
+
+    /**
+     * Advance the planner stage of this reference to the given one. This method cleans up internal state of this
+     * reference such that exploration in a new phase can start again.
+     * @param newStage the new stage we should advance to
+     */
+    @VisibleForTesting
+    void advancePlannerStageUnchecked(@Nonnull final PlannerStage newStage) {
         this.plannerStage = newStage;
         constraintsMap.advancePlannerStage();
         this.propertiesMap = newStage.createPropertiesMap();
         exploratoryMembers.clear();
-        exploratoryMembers.add(finalMembers.getOnlyElement());
+        exploratoryMembers.addAll(finalMembers);
         finalMembers.clear();
     }
 
@@ -450,10 +460,6 @@ public class Reference implements Correlated<Reference>, Typed {
     @VisibleForTesting
     boolean containsInMemo(@Nonnull final RelationalExpression expression,
                            final boolean isFinal) {
-        // TODO This is correct for planning but it may be too strict for rewriting.
-        if (!getCorrelatedTo().equals(expression.getCorrelatedTo())) {
-            return false;
-        }
         return isFinal ? finalMembers.containsInMemo(expression, AliasMap.emptyMap()) :
                exploratoryMembers.containsInMemo(expression, AliasMap.emptyMap());
     }
@@ -476,10 +482,11 @@ public class Reference implements Correlated<Reference>, Typed {
     }
 
     @Nonnull
-    public Reference translateCorrelations(@Nonnull final TranslationMap translationMap,
-                                           final boolean shouldSimplifyValues) {
+    public Reference translateGraph(@Nonnull final Memoizer memoizer,
+                                    @Nonnull final TranslationMap translationMap,
+                                    final boolean shouldSimplifyValues) {
         final var translatedRefs =
-                References.translateCorrelations(ImmutableList.of(this), translationMap, shouldSimplifyValues);
+                References.translateCorrelationsInGraphs(ImmutableList.of(this), memoizer, translationMap, shouldSimplifyValues);
         return Iterables.getOnlyElement(translatedRefs);
     }
 
@@ -498,6 +505,10 @@ public class Reference implements Correlated<Reference>, Typed {
                     return left;
                 })
                 .orElseThrow(() -> new RecordCoreException("unable to resolve result values"));
+    }
+
+    public void clearExploratoryExpressions() {
+        exploratoryMembers.clear();
     }
 
     public void clearFinalExpressions() {
@@ -533,8 +544,16 @@ public class Reference implements Correlated<Reference>, Typed {
         return constraintsMap.isExploredForAttributes(dependencies);
     }
 
+    public boolean isExplored() {
+        return constraintsMap.isExplored();
+    }
+
     public void setExplored() {
         constraintsMap.setExplored();
+    }
+
+    public void inheritConstraintsFromOther(@Nonnull final Reference otherReference) {
+        constraintsMap.inheritFromOther(otherReference.getConstraintsMap());
     }
 
     @Nonnull
@@ -570,18 +589,23 @@ public class Reference implements Correlated<Reference>, Typed {
     }
 
     @Nonnull
-    public <A> Map<RecordQueryPlan, A> getProperty(@Nonnull final ExpressionProperty<A> expressionProperty) {
+    public <A> Map<? extends RelationalExpression, A> getPropertyForExpressions(@Nonnull final ExpressionProperty<A> expressionProperty) {
+        return propertiesMap.propertyValueForExpressions(expressionProperty);
+    }
+
+    @Nonnull
+    public <A> Map<RecordQueryPlan, A> getPropertyForPlans(@Nonnull final ExpressionProperty<A> expressionProperty) {
         return propertiesMap.propertyValueForPlans(expressionProperty);
     }
 
     @Nonnull
     public List<? extends ExpressionPartition<? extends RelationalExpression>> toExpressionPartitions() {
-        return propertiesMap.toExpressionPartitions();
+        return ExpressionPartitions.toPartitions(propertiesMap);
     }
 
     @Nonnull
     public List<PlanPartition> toPlanPartitions() {
-        return propertiesMap.toPlanPartitions();
+        return PlanPartitions.toPartitions((PlanPropertiesMap)propertiesMap);
     }
 
     @Nullable
@@ -691,6 +715,11 @@ public class Reference implements Correlated<Reference>, Typed {
     @Nonnull
     public String show(final boolean renderSingleGroups) {
         return PlannerGraphVisitor.show(renderSingleGroups, this);
+    }
+
+    @Nonnull
+    public String showExploratory() {
+        return PlannerGraphVisitor.show(PlannerGraphVisitor.REMOVE_FINAL_EXPRESSIONS | PlannerGraphVisitor.RENDER_SINGLE_GROUPS, this);
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
@@ -937,6 +966,16 @@ public class Reference implements Correlated<Reference>, Typed {
         @CanIgnoreReturnValue
         public boolean add(@Nonnull final RelationalExpression expression) {
             return expressions.add(expression);
+        }
+
+        @CanIgnoreReturnValue
+        public boolean addAll(@Nonnull final Members members) {
+            return expressions.addAll(members.getExpressions());
+        }
+
+        @CanIgnoreReturnValue
+        public boolean addAll(@Nonnull final Collection<? extends RelationalExpression> newExpressions) {
+            return expressions.addAll(newExpressions);
         }
 
         public boolean containsInMemo(@Nonnull final RelationalExpression expression,

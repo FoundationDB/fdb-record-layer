@@ -22,6 +22,8 @@ package com.apple.foundationdb.relational.api.ddl;
 
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
+import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.ThreadSafe;
@@ -47,4 +49,11 @@ public interface MetadataOperationsFactory {
 
     @Nonnull
     ConstantAction getDropSchemaConstantAction(@Nonnull URI dbPath, @Nonnull String schemaName, @Nonnull Options options);
+
+    @Nonnull
+    ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull SchemaTemplate template, boolean throwIfExists, @Nonnull RecordLayerInvokedRoutine invokedRoutine,
+                                                            @Nonnull PreparedParams preparedParams);
+
+    @Nonnull
+    ConstantAction getDropTemporaryFunctionConstantAction(boolean throwIfNotExists, @Nonnull String temporaryFunctionName);
 }

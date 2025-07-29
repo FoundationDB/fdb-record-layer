@@ -90,6 +90,8 @@ public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
             noNextReason = result.getNoNextReason();
             if (noNextReason == RecordCursor.NoNextReason.SOURCE_EXHAUSTED) {
                 this.continuation = ContinuationImpl.END;
+            } else {
+                this.continuation = ContinuationImpl.fromUnderlyingBytes(result.getContinuation().toBytes());
             }
         }
     }

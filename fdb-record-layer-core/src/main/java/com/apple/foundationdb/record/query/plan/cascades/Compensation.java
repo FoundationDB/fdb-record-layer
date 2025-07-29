@@ -126,6 +126,11 @@ public interface Compensation {
         }
 
         @Override
+        public boolean isFinalNeeded() {
+            return false;
+        }
+
+        @Override
         public boolean isNeededForFiltering() {
             return false;
         }

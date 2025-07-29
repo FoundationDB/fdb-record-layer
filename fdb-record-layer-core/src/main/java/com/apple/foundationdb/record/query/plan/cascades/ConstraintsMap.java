@@ -97,6 +97,18 @@ public class ConstraintsMap {
         this.attributeToConstraintMap = Maps.newLinkedHashMap();
     }
 
+    public long getCurrentTick() {
+        return currentTick;
+    }
+
+    public long getWatermarkGoalTick() {
+        return watermarkGoalTick;
+    }
+
+    public long getWatermarkCommittedTick() {
+        return watermarkCommittedTick;
+    }
+
     /**
      * Method to return if a particular attribute is contained in the map.
      * @param attribute the attribute key to check
@@ -299,6 +311,18 @@ public class ConstraintsMap {
     @CanIgnoreReturnValue
     private long bumpTick() {
         return ++currentTick;
+    }
+
+    /**
+     * Method to inherit all state from another constraints map.
+     * @param otherConstraintsMap the other constraints map
+     */
+    public void inheritFromOther(@Nonnull final ConstraintsMap otherConstraintsMap) {
+        this.currentTick = otherConstraintsMap.currentTick;
+        this.watermarkGoalTick = otherConstraintsMap.watermarkGoalTick;
+        this.watermarkCommittedTick = otherConstraintsMap.watermarkCommittedTick;
+        attributeToConstraintMap.clear();
+        attributeToConstraintMap.putAll(otherConstraintsMap.attributeToConstraintMap);
     }
 
     private class ConstraintEntry {

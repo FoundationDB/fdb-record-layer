@@ -33,6 +33,7 @@ import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
+import java.util.Optional;
 
 /**
  * This transaction object must be destroyed when it's creating connection is destroyed. Note that this is
@@ -68,6 +69,22 @@ public class RecordStoreAndRecordContextTransaction implements Transaction {
     @Override
     public void abort() throws RelationalException {
         transaction.abort();
+    }
+
+    @Nonnull
+    @Override
+    public Optional<SchemaTemplate> getBoundSchemaTemplateMaybe() {
+        return transaction.getBoundSchemaTemplateMaybe();
+    }
+
+    @Override
+    public void setBoundSchemaTemplate(@Nonnull final SchemaTemplate schemaTemplate) {
+        transaction.setBoundSchemaTemplate(schemaTemplate);
+    }
+
+    @Override
+    public void unsetBoundSchemaTemplate() {
+        transaction.unsetBoundSchemaTemplate();
     }
 
     @Override

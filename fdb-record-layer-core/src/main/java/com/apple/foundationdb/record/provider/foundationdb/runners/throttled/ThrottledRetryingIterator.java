@@ -33,6 +33,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfi
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.runners.FutureAutoClose;
 import com.apple.foundationdb.record.provider.foundationdb.runners.TransactionalRunner;
+import com.apple.foundationdb.util.CloseException;
+import com.apple.foundationdb.util.CloseableUtils;
 import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -149,30 +151,13 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
     }
 
     @Override
-    public void close() {
+    public void close() throws CloseException {
         if (closed) {
             return;
         }
         closed = true;
         // Ensure we call both close() methods, capturing all exceptions
-        RuntimeException caught = null;
-        try {
-            futureManager.close();
-        } catch (RuntimeException e) {
-            caught = e;
-        }
-        try {
-            transactionalRunner.close();
-        } catch (RuntimeException e) {
-            if (caught != null) {
-                caught.addSuppressed(e);
-            } else {
-                caught = e;
-            }
-        }
-        if (caught != null) {
-            throw caught;
-        }
+        CloseableUtils.closeAll(futureManager, transactionalRunner);
     }
 
     /**
@@ -194,29 +179,33 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
             singleIterationQuotaManager.init();
 
             runUnlessNull(transactionInitNotification, singleIterationQuotaManager); // let the user know about this range iteration attempt
-            final FDBRecordStore store = userStoreBuilder.setContext(transaction).build();
-            RecordCursor<T> cursor = cursorCreator.createCursor(store, cursorStartPoint, cursorRowsLimit);
-            rangeIterationStartTimeMilliseconds = nowMillis();
+            final CompletableFuture<FDBRecordStore> storeFuture = userStoreBuilder
+                    .setContext(transaction)
+                    // Open store - this does require the store to exist (which is sensible for iterating)
+                    .openAsync();
+            return storeFuture.thenCompose(store -> {
+                RecordCursor<T> cursor = cursorCreator.createCursor(store, cursorStartPoint, cursorRowsLimit);
+                rangeIterationStartTimeMilliseconds = nowMillis();
 
-            return AsyncUtil.whileTrue(() -> {
-                final CompletableFuture<RecordCursorResult<T>> onNext = cursor.onNext();
-                // Register the future with the future manager such that it is completed once the iterator is closed
-                return futureManager.registerFuture(onNext).thenCompose(result -> {
-                    cont.set(result);
-                    if (!result.hasNext()) {
-                        if (result.getNoNextReason().isSourceExhausted()) {
-                            // terminate the iteration
-                            singleIterationQuotaManager.hasMore = false;
+                return AsyncUtil.whileTrue(() -> {
+                    final CompletableFuture<RecordCursorResult<T>> onNext = cursor.onNext();
+                    // Register the future with the future manager such that it is completed once the iterator is closed
+                    return futureManager.registerFuture(onNext).thenCompose(result -> {
+                        cont.set(result);
+                        if (!result.hasNext()) {
+                            if (result.getNoNextReason().isSourceExhausted()) {
+                                // terminate the iteration
+                                singleIterationQuotaManager.hasMore = false;
+                            }
+                            // end of this one range
+                            return AsyncUtil.READY_FALSE;
                         }
-                        // end of this one range
-                        return AsyncUtil.READY_FALSE;
-                    }
-                    singleIterationQuotaManager.scannedCount++;
-                    CompletableFuture<Void> future = singleItemHandler.handleOneItem(store, result, singleIterationQuotaManager);
-                    // Register the externally-provided future so that it is closed if the runner is closed before it completes
-                    return futureManager.registerFuture(future)
-                        .thenApply(ignore -> singleIterationQuotaManager.hasMore);
-                })
+                        singleIterationQuotaManager.scannedCount++;
+                        CompletableFuture<Void> future = singleItemHandler.handleOneItem(store, result, singleIterationQuotaManager);
+                        // Register the externally-provided future so that it is closed if the runner is closed before it completes
+                        return futureManager.registerFuture(future)
+                            .thenApply(ignore -> singleIterationQuotaManager.hasMore);
+                    })
                     .thenApply(rangeHasMore -> {
                         if (rangeHasMore && ((0 < transactionTimeQuotaMillis && elapsedTimeMillis() > transactionTimeQuotaMillis) ||
                                                      (0 < maxRecordDeletesPerTransaction && singleIterationQuotaManager.deletesCount >= maxRecordDeletesPerTransaction))) {
@@ -225,9 +214,10 @@ public class ThrottledRetryingIterator<T> implements AutoCloseable {
                         }
                         return rangeHasMore;
                     });
-            }, executor)
-            .whenComplete((r, e) ->
-                    cursor.close());
+                }, executor)
+                    .whenComplete((r, e) ->
+                            cursor.close());
+            });
         }).thenApply(ignore -> cont.get());
     }
 

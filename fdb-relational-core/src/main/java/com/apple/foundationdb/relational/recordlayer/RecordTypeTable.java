@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -32,22 +31,21 @@ import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpressio
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.ImmutableRowStruct;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Row;
-import com.apple.foundationdb.relational.api.SqlTypeSupport;
-import com.apple.foundationdb.relational.api.StructMetaData;
-import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
+import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.StructMetaData;
+import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.storage.BackingStore;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
-
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
@@ -55,9 +53,8 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
-import java.sql.Types;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -127,7 +124,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
         });
         orderedFieldMap.putAll(descriptorLookupMap);
         final Type.Record record = Type.Record.fromFieldDescriptorsMap(orderedFieldMap);
-        return SqlTypeSupport.recordToMetaData(record);
+        return RelationalStructMetaData.of((DataType.StructType) DataTypeUtils.toRelationalType(record));
     }
 
     @Override
@@ -185,39 +182,50 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     public static Message toDynamicMessage(RelationalStruct struct, Descriptors.Descriptor descriptor) throws RelationalException {
         DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
         try {
-            StructMetaData structMetaData = struct.getMetaData();
-            for (int i = 1; i <= structMetaData.getColumnCount(); i++) {
-                String columnName = structMetaData.getColumnName(i);
+            final var type = struct.getMetaData().getRelationalDataType();
+            final var fields = type.getFields();
+            for (int i = 0; i < fields.size(); i++) {
+                final var field = fields.get(i);
+                final var columnName = fields.get(i).getName();
                 Descriptors.FieldDescriptor fd = builder.getDescriptorForType().findFieldByName(columnName);
                 Assert.thatUnchecked(fd != null, ErrorCode.INVALID_PARAMETER, "Cannot find column name: " + columnName);
                 // TODO: Add type checking, nudging, and coercion at this point! Per bfines, good place to do it!
                 //  TODO (Add type checking, nudging, and coercion)
-                switch (structMetaData.getColumnType(i)) {
-                    case Types.BOOLEAN:
-                    case Types.DOUBLE:
-                    case Types.FLOAT:
-                    case Types.INTEGER:
-                    case Types.BIGINT:
-                    case Types.VARCHAR:
-                        final var obj = struct.getObject(i);
+                if (fd.getType() == Descriptors.FieldDescriptor.Type.ENUM) {
+                    final var maybeEnumValue = struct.getString(i + 1);
+                    if (maybeEnumValue != null) {
+                        final var valueDescriptor = fd.getEnumType().findValueByName(maybeEnumValue);
+                        Assert.thatUnchecked(valueDescriptor != null, ErrorCode.CANNOT_CONVERT_TYPE, "Invalid enum value: %s", maybeEnumValue);
+                        builder.setField(fd, valueDescriptor);
+                    }
+                    continue;
+                }
+                switch (field.getType().getCode()) {
+                    case BOOLEAN:
+                    case DOUBLE:
+                    case FLOAT:
+                    case INTEGER:
+                    case LONG:
+                    case STRING:
+                        final var obj = struct.getObject(i + 1);
                         if (obj != null) {
                             builder.setField(fd, obj);
                         }
                         break;
-                    case Types.BINARY:
-                        final var bytes = struct.getBytes(i);
+                    case BYTES:
+                        final var bytes = struct.getBytes(i + 1);
                         if (bytes != null) {
                             builder.setField(fd, ByteString.copyFrom(bytes));
                         }
                         break;
-                    case Types.STRUCT:
-                        var subStruct = struct.getStruct(i);
+                    case STRUCT:
+                        var subStruct = struct.getStruct(i + 1);
                         if (subStruct != null) {
                             builder.setField(fd, toDynamicMessage(subStruct, fd.getMessageType()));
                         }
                         break;
-                    case Types.ARRAY:
-                        var array = struct.getArray(i);
+                    case ARRAY:
+                        var array = struct.getArray(i + 1);
                         // if the fieldDescriptor is repeatable, then it's an unwrapped array
                         if (fd.isRepeated()) {
                             final var arrayItems = (Object[]) (array == null ? new Object[]{} : array.getArray());
@@ -232,33 +240,21 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
                             if (fd.getType() == Descriptors.FieldDescriptor.Type.MESSAGE) {
                                 Assert.thatUnchecked(NullableArrayUtils.isWrappedArrayDescriptor(fd.getMessageType()));
                                 // wrap array in a struct and call toDynamicMessage again
-                                final var wrapper = new ImmutableRowStruct(new ArrayRow(array), new RelationalStructMetaData(
-                                        FieldDescription.array(NullableArrayUtils.REPEATED_FIELD_NAME, DatabaseMetaData.columnNullable, null)));
+                                final var wrapper = new ImmutableRowStruct(new ArrayRow(array), RelationalStructMetaData.of(
+                                        DataType.StructType.from("STRUCT", List.of(
+                                                DataType.StructType.Field.from(NullableArrayUtils.REPEATED_FIELD_NAME, array.getMetaData().asRelationalType(), 0)
+                                        ), true)));
                                 builder.setField(fd, toDynamicMessage(wrapper, fd.getMessageType()));
                             } else {
                                 Assert.failUnchecked("Field Type expected to be of Type ARRAY but is actually " + fd.getType());
                             }
                         }
                         break;
-                    case Types.OTHER:
-                        // if the type is not specific, try checking if it is an ENUM.
-                        // Since the JDBC specifications do not directly provide for ENUM type, we assume it to be defined
-                        // with ENUM value's string-representation having sql.Types OTHER
-                        if (fd.getType() == Descriptors.FieldDescriptor.Type.ENUM) {
-                            final var enumValue = struct.getString(i);
-                            if (enumValue != null) {
-                                final var valueDescriptor = fd.getEnumType().findValueByName(enumValue);
-                                Assert.thatUnchecked(valueDescriptor != null, ErrorCode.CANNOT_CONVERT_TYPE, "Invalid enum value: %s", enumValue);
-                                builder.setField(fd, fd.getEnumType().findValueByName(enumValue));
-                            }
-                        } else {
-                            Assert.failUnchecked(ErrorCode.INTERNAL_ERROR, (String.format(Locale.ROOT, "Cannot interpret value in Column type OTHER for column <%s>",
-                                    columnName)));
-                        }
+                    case NULL:
                         break;
                     default:
                         Assert.failUnchecked(ErrorCode.INTERNAL_ERROR, (String.format(Locale.ROOT, "Unexpected Column type <%s> for column <%s>",
-                                structMetaData.getColumnType(i), columnName)));
+                                struct.getMetaData().getColumnType(i), columnName)));
                         break;
                 }
             }

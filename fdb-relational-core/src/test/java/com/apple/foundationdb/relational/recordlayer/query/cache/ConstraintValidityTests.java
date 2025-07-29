@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.EvaluatesToValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.OfTypeValue;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
@@ -42,7 +43,6 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
-import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
@@ -63,7 +63,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.apple.foundationdb.relational.recordlayer.query.QueryExecutionContext.OrderedLiteral.constantId;
+import static com.apple.foundationdb.relational.recordlayer.query.OrderedLiteral.constantId;
 
 public class ConstraintValidityTests {
 
@@ -112,13 +112,12 @@ public class ConstraintValidityTests {
         final PlanContext planContext = PlanContext.Builder
                 .create()
                 .fromDatabase(database)
-                .fromRecordStore(store)
+                .fromRecordStore(store, Options.none())
                 .withSchemaTemplate(schemaTemplate)
                 .withMetricsCollector(embeddedConnection.getMetricCollector())
-                .withPlannerConfiguration(PlannerConfiguration.from(Optional.of(readableIndexes)))
                 .withUserVersion(44)
                 .build();
-        return PlanGenerator.of(Optional.of(cache), planContext, store.getRecordMetaData(), storeState, Options.builder().build());
+        return PlanGenerator.create(Optional.of(cache), planContext, store.getRecordMetaData(), storeState, Options.builder().build());
     }
 
     private void planQuery(@Nonnull final RelationalPlanCache cache,
@@ -173,6 +172,19 @@ public class ConstraintValidityTests {
         return new ValuePredicate(OfTypeValue.of(ConstantObjectValue.of(Quantifier.constant(),
                         constantId(tokenIndex), Type.primitiveType(Type.TypeCode.INT)), Type.primitiveType(Type.TypeCode.INT, false)),
                 new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true));
+    }
+
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+    @Nonnull
+    private static QueryPredicate isNotNull(final int tokenIndex, final Optional<String> scope, Type type) {
+        return new ValuePredicate(EvaluatesToValue.isNotNull(
+                ConstantObjectValue.of(Quantifier.constant(), constantId(tokenIndex, scope), type)),
+                new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true));
+    }
+
+    @Nonnull
+    private static QueryPredicate isNotNullInt(final int tokenIndex) {
+        return isNotNull(tokenIndex, Optional.empty(), Type.primitiveType(Type.TypeCode.INT));
     }
 
     @Nonnull
@@ -234,17 +246,19 @@ public class ConstraintValidityTests {
         final var c15Equals10 = equalsConstraint(15, 10);
         final var c15Int = ofTypeInt(15);
         final var c8Int = ofTypeInt(8);
+        final var c15IntNotNull = isNotNullInt(15);
+        final var c8IntNotNull = isNotNullInt(8);
         final var c8Equalsc15 = covsEqualsConstraints(8, 15);
         planQuery(cache, "SELECT MAX(score), game + 10 FROM score GROUP BY game + 10", MaxScoreByGame10);
         cacheShouldBe(cache, Map.of("SELECT MAX ( \"SCORE\" ) , \"GAME\" + ? FROM \"SCORE\" GROUP BY \"GAME\" + ? ",
-                Map.of(ppe(cons(and(and(c15Equals10, c15Equals10), and(c15Int, c8Int, c8Equalsc15)))), MaxScoreByGame10)));
+                Map.of(ppe(cons(and(and(c15Equals10, c15Equals10), and(c15Int, c8Int, c8Equalsc15, c15IntNotNull, c8IntNotNull)))), MaxScoreByGame10)));
 
         final var c15Equals20 = equalsConstraint(15, 20);
         planQuery(cache, "SELECT MAX(score), game + 20 FROM score GROUP BY game + 20", MaxScoreByGame20);
         cacheShouldBe(cache, Map.of("SELECT MAX ( \"SCORE\" ) , \"GAME\" + ? FROM \"SCORE\" GROUP BY \"GAME\" + ? ",
                 Map.of(
-                        ppe(cons(and(and(c15Equals10, c15Equals10), and(c15Int, c8Int, c8Equalsc15)))), MaxScoreByGame10,
-                        ppe(cons(and(and(c15Equals20, c15Equals20), and(c15Int, c8Int, c8Equalsc15)))), MaxScoreByGame20)));
+                        ppe(cons(and(and(c15Equals10, c15Equals10), and(c15Int, c8Int, c8Equalsc15, c15IntNotNull, c8IntNotNull)))), MaxScoreByGame10,
+                        ppe(cons(and(and(c15Equals20, c15Equals20), and(c15Int, c8Int, c8Equalsc15, c15IntNotNull, c8IntNotNull)))), MaxScoreByGame20)));
     }
 
     @Test
@@ -254,17 +268,19 @@ public class ConstraintValidityTests {
         final var c15Equals2 = equalsConstraint(15, 2);
         final var c15Int = ofTypeInt(15);
         final var c8Int = ofTypeInt(8);
+        final var c15IntNotNull = isNotNullInt(15);
+        final var c8IntNotNull = isNotNullInt(8);
         final var c8Equalsc15 = covsEqualsConstraints(8, 15);
         planQuery(cache, "SELECT MAX(score), game & 2 FROM score GROUP BY game & 2", BitAndScore2);
         cacheShouldBe(cache, Map.of("SELECT MAX ( \"SCORE\" ) , \"GAME\" & ? FROM \"SCORE\" GROUP BY \"GAME\" & ? ",
-                Map.of(ppe(cons(and(and(c15Equals2, c15Equals2), and(c15Int, c8Int, c8Equalsc15)))), BitAndScore2)));
+                Map.of(ppe(cons(and(and(c15Equals2, c15Equals2), and(c15Int, c8Int, c8Equalsc15, c15IntNotNull, c8IntNotNull)))), BitAndScore2)));
 
         final var c15Equals4 = equalsConstraint(15, 4);
         planQuery(cache, "SELECT MAX(score), game & 4 FROM score GROUP BY game & 4", BitAndScore4);
         cacheShouldBe(cache, Map.of("SELECT MAX ( \"SCORE\" ) , \"GAME\" & ? FROM \"SCORE\" GROUP BY \"GAME\" & ? ",
                 Map.of(
-                        ppe(cons(and(and(c15Equals2, c15Equals2), and(c15Int, c8Int, c8Equalsc15)))), BitAndScore2,
-                        ppe(cons(and(and(c15Equals4, c15Equals4), and(c15Int, c8Int, c8Equalsc15)))), BitAndScore4)));
+                        ppe(cons(and(and(c15Equals2, c15Equals2), and(c15Int, c8Int, c8Equalsc15, c15IntNotNull, c8IntNotNull)))), BitAndScore2,
+                        ppe(cons(and(and(c15Equals4, c15Equals4), and(c15Int, c8Int, c8Equalsc15, c15IntNotNull, c8IntNotNull)))), BitAndScore4)));
     }
 
     @Test
@@ -275,17 +291,20 @@ public class ConstraintValidityTests {
         final var c17Int = ofTypeInt(17);
         final var c10Int = ofTypeInt(10);
         final var c8Int = ofTypeInt(8);
+        final var c17IntNotNull = isNotNullInt(17);
+        final var c8IntNotNull = isNotNullInt(8);
+        final var c10IntNotNull = isNotNullInt(10);
         final var c8Equalsc17 = covsEqualsConstraints(8, 17);
         planQuery(cache, "SELECT MAX(score), game + 10 + 42 FROM score GROUP BY game + 10", MaxScoreByGame10);
         cacheShouldBe(cache, Map.of("SELECT MAX ( \"SCORE\" ) , \"GAME\" + ? + ? FROM \"SCORE\" GROUP BY \"GAME\" + ? ",
-                Map.of(ppe(cons(and(and(c17Equals10, c17Equals10), and(c17Int, c8Int, c10Int, c8Equalsc17)))), MaxScoreByGame10)));
+                Map.of(ppe(cons(and(and(c17Equals10, c17Equals10), and(c17Int, c8Int, c10Int, c8Equalsc17, c17IntNotNull, c8IntNotNull, c10IntNotNull)))), MaxScoreByGame10)));
 
         final var c17Equals20 = equalsConstraint(17, 20);
         planQuery(cache, "SELECT MAX(score), game + 20 + 42 FROM score GROUP BY game + 20", MaxScoreByGame20);
         cacheShouldBe(cache, Map.of("SELECT MAX ( \"SCORE\" ) , \"GAME\" + ? + ? FROM \"SCORE\" GROUP BY \"GAME\" + ? ",
                 Map.of(
-                        ppe(cons(and(and(c17Equals10, c17Equals10), and(c17Int, c8Int, c10Int, c8Equalsc17)))), MaxScoreByGame10,
-                        ppe(cons(and(and(c17Equals20, c17Equals20), and(c17Int, c8Int, c10Int, c8Equalsc17)))), MaxScoreByGame20)));
+                        ppe(cons(and(and(c17Equals10, c17Equals10), and(c17Int, c8Int, c10Int, c8Equalsc17, c17IntNotNull, c8IntNotNull, c10IntNotNull)))), MaxScoreByGame10,
+                        ppe(cons(and(and(c17Equals20, c17Equals20), and(c17Int, c8Int, c10Int, c8Equalsc17, c17IntNotNull, c8IntNotNull, c10IntNotNull)))), MaxScoreByGame20)));
     }
 
     @Test
@@ -296,16 +315,19 @@ public class ConstraintValidityTests {
         final var c17Int = ofTypeInt(17);
         final var c10Int = ofTypeInt(10);
         final var c8Int = ofTypeInt(8);
+        final var c17IntNotNull = isNotNullInt(17);
+        final var c8IntNotNull = isNotNullInt(8);
+        final var c10IntNotNull = isNotNullInt(10);
         final var c8Equalsc15 = covsEqualsConstraints(8, 17);
         planQuery(cache, "SELECT MAX(score), game & 2 + 10 FROM score GROUP BY game & 2", BitAndScore2);
         cacheShouldBe(cache, Map.of("SELECT MAX ( \"SCORE\" ) , \"GAME\" & ? + ? FROM \"SCORE\" GROUP BY \"GAME\" & ? ",
-                Map.of(ppe(cons(and(and(c17Equals2, c17Equals2), and(c17Int, c8Int, c10Int, c8Equalsc15)))), BitAndScore2)));
+                Map.of(ppe(cons(and(and(c17Equals2, c17Equals2), and(c17Int, c8Int, c10Int, c8Equalsc15, c17IntNotNull, c8IntNotNull, c10IntNotNull)))), BitAndScore2)));
 
         final var c17Equals4 = equalsConstraint(17, 4);
         planQuery(cache, "SELECT MAX(score), game & 4 + 10 FROM score GROUP BY game & 4", BitAndScore4);
         cacheShouldBe(cache, Map.of("SELECT MAX ( \"SCORE\" ) , \"GAME\" & ? + ? FROM \"SCORE\" GROUP BY \"GAME\" & ? ",
                 Map.of(
-                        ppe(cons(and(and(c17Equals2, c17Equals2), and(c17Int, c8Int, c10Int, c8Equalsc15)))), BitAndScore2,
-                        ppe(cons(and(and(c17Equals4, c17Equals4), and(c17Int, c8Int, c10Int, c8Equalsc15)))), BitAndScore4)));
+                        ppe(cons(and(and(c17Equals2, c17Equals2), and(c17Int, c8Int, c10Int, c8Equalsc15, c17IntNotNull, c8IntNotNull, c10IntNotNull)))), BitAndScore2,
+                        ppe(cons(and(and(c17Equals4, c17Equals4), and(c17Int, c8Int, c10Int, c8Equalsc15, c17IntNotNull, c8IntNotNull, c10IntNotNull)))), BitAndScore4)));
     }
 }

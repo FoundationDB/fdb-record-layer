@@ -22,13 +22,12 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.util.Assert;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
-import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,34 +37,28 @@ public interface EmbeddedRelationalArray extends RelationalArray {
         return new Builder();
     }
 
-    static RelationalArrayBuilder newBuilder(@Nonnull ArrayMetaData metaData) {
-        return new Builder(metaData);
+    static RelationalArrayBuilder newBuilder(@Nonnull DataType elementType) {
+        return new Builder(elementType);
     }
 
     class Builder implements RelationalArrayBuilder {
 
-        @Nullable private ArrayMetaData metaData;
+        @Nullable private DataType elementType;
         @Nonnull private final List<Object> elements = new ArrayList<>();
 
         private Builder() {
         }
 
-        private Builder(@Nonnull ArrayMetaData metaData) {
-            this.metaData = metaData;
+        private Builder(@Nonnull DataType elementType) {
+            this.elementType = elementType;
         }
 
         @Override
         public EmbeddedRelationalArray build() throws SQLException {
-            try {
-                // This is a bit odd as we do not allow the arrayMetaData to be null, which can happen if there is no
-                // element added to the builder. The array can be empty in the case of nullable array.
-                // In the case of supporting an empty array, we need to explicitly provide an arrayMetaData, which is
-                // required to correctly decipher the "type" of array downstream.
-                Assert.that(this.metaData != null, ErrorCode.UNKNOWN_TYPE, "Creating ARRAY without metadata is not allowed.");
-            } catch (RelationalException ve) {
-                throw ve.toSqlException();
+            if (elementType == null) {
+                return new RowArray(List.of(), RelationalArrayMetaData.of(DataType.ArrayType.from(DataType.Primitives.NULL.type())));
             }
-            return new RowArray(elements, metaData);
+            return new RowArray(elements, RelationalArrayMetaData.of(DataType.ArrayType.from(elementType, false)));
         }
 
         @Override
@@ -74,11 +67,13 @@ public interface EmbeddedRelationalArray extends RelationalArray {
                 if (value == null) {
                     throw new RelationalException("Cannot add NULL to an array.", ErrorCode.DATATYPE_MISMATCH).toSqlException();
                 }
-                final var sqlType = SqlTypeSupport.getSqlTypeCodeFromObject(value);
-                if (sqlType == Types.STRUCT) {
-                    addStruct(((RelationalStruct) value));
+                if (value instanceof RelationalStruct) {
+                    addStruct((RelationalStruct) value) ;
+                } else if (value instanceof RelationalArray) {
+                    throw new RelationalException("ARRAY element in ARRAY not supported.", ErrorCode.UNSUPPORTED_OPERATION).toSqlException();
                 } else {
-                    addPrimitive(value, sqlType);
+                    final var type = DataType.getDataTypeFromObject(value);
+                    addField(value, type);
                 }
             }
             return this;
@@ -86,22 +81,34 @@ public interface EmbeddedRelationalArray extends RelationalArray {
 
         @Override
         public Builder addLong(long value) throws SQLException {
-            return addPrimitive(value, Types.BIGINT);
+            return addField(value, DataType.Primitives.LONG.type());
         }
 
         @Override
         public Builder addString(@Nonnull String value) throws SQLException {
-            return addPrimitive(value, Types.VARCHAR);
+            return addField(value, DataType.Primitives.STRING.type());
         }
 
         @Override
         public Builder addBytes(@Nonnull byte[] value) throws SQLException {
-            return addPrimitive(value, Types.BINARY);
+            return addField(value, DataType.Primitives.BYTES.type());
         }
 
-        private Builder addPrimitive(@Nonnull Object value, int sqlType) throws SQLException {
+        @Override
+        public Builder addObject(@Nonnull Object obj) throws SQLException {
+            if (obj instanceof RelationalStruct) {
+                return addStruct((RelationalStruct) obj);
+            }
+            if (obj instanceof RelationalArray) {
+                throw new RelationalException("Array objects in Array in supported", ErrorCode.INTERNAL_ERROR).toSqlException();
+            }
+            return addField(obj, DataType.getDataTypeFromObject(obj));
+        }
+
+        @Nonnull
+        private Builder addField(@Nonnull Object value, @Nonnull DataType type) throws SQLException {
             try {
-                checkMetadata(sqlType);
+                checkType(type);
             } catch (RelationalException ve) {
                 throw ve.toSqlException();
             }
@@ -112,7 +119,7 @@ public interface EmbeddedRelationalArray extends RelationalArray {
         @Override
         public Builder addStruct(RelationalStruct struct) throws SQLException {
             try {
-                checkMetadata(struct.getMetaData());
+                checkType(struct.getMetaData().getRelationalDataType());
             } catch (RelationalException ve) {
                 throw ve.toSqlException();
             }
@@ -120,20 +127,13 @@ public interface EmbeddedRelationalArray extends RelationalArray {
             return this;
         }
 
-        private void checkMetadata(@Nonnull StructMetaData metaData) throws SQLException, RelationalException {
-            if (this.metaData != null) {
-                Assert.that(this.metaData.getElementType() == Types.STRUCT, ErrorCode.DATATYPE_MISMATCH, "Expected array element to be of type:%s, but found type:STRUCT", this.metaData.getElementTypeName());
-                Assert.that(this.metaData.getElementStructMetaData().equals(metaData), ErrorCode.DATATYPE_MISMATCH, "Metadata of struct elements in array do not match!");
-            } else {
-                this.metaData = RelationalArrayMetaData.ofStruct(metaData, DatabaseMetaData.columnNoNulls);
-            }
-        }
-
-        private void checkMetadata(int sqlType) throws SQLException, RelationalException {
-            if (this.metaData != null) {
-                Assert.that(this.metaData.getElementType() == sqlType, ErrorCode.DATATYPE_MISMATCH, "Expected array element to be of type:%s, but found type:%s", this.metaData.getElementTypeName(), SqlTypeNamesSupport.getSqlTypeName(sqlType));
-            } else {
-                this.metaData = RelationalArrayMetaData.ofPrimitive(sqlType, DatabaseMetaData.columnNoNulls);
+        private void checkType(DataType type) throws RelationalException {
+            if (this.elementType == null) {
+                this.elementType = type;
+            } else if (this.elementType instanceof DataType.CompositeType) {
+                Assert.that(((DataType.CompositeType) elementType).hasIdenticalStructure(type), ErrorCode.DATATYPE_MISMATCH, "Expected array element to be of type:%s, but found type:%s", this.elementType, type);
+            } else  {
+                Assert.that(this.elementType.equals(type), ErrorCode.DATATYPE_MISMATCH, "Expected array element to be of type:%s, but found type:%s", this.elementType, type);
             }
         }
     }

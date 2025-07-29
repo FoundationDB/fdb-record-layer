@@ -52,20 +52,20 @@ public interface UsesValueEquivalence<T extends UsesValueEquivalence<T>> {
      * </pre>
      * @param other the other object to compare this object to
      * @param valueEquivalence the value equivalence
-     * @return a boolean monad {@link BooleanWithConstraint} that is either effectively {@code false} or {@code true}
+     * @return a boolean monad {@link ConstrainedBoolean} that is either effectively {@code false} or {@code true}
      *         under the assumption that a contained query plan constraint is satisfied
      */
     @Nonnull
     @SuppressWarnings({"unchecked", "PMD.CompareObjectsWithEquals"})
-    default BooleanWithConstraint semanticEquals(@Nullable final Object other,
-                                                 @Nonnull final ValueEquivalence valueEquivalence) {
+    default ConstrainedBoolean semanticEquals(@Nullable final Object other,
+                                              @Nonnull final ValueEquivalence valueEquivalence) {
         if (this == other) {
-            return BooleanWithConstraint.alwaysTrue();
+            return ConstrainedBoolean.alwaysTrue();
         }
 
         final var thisClass = this.getClass();
         if (other == null || thisClass != other.getClass()) {
-            return BooleanWithConstraint.falseValue();
+            return ConstrainedBoolean.falseValue();
         }
 
         // This cast is safe!
@@ -88,8 +88,8 @@ public interface UsesValueEquivalence<T extends UsesValueEquivalence<T>> {
      * class as {@code this}.
      * @param other other object of type {@code T}
      * @param valueEquivalence a value equivalence
-     * @return a {@link BooleanWithConstraint}
+     * @return a {@link ConstrainedBoolean}
      */
     @Nonnull
-    BooleanWithConstraint semanticEqualsTyped(@Nonnull T other, @Nonnull ValueEquivalence valueEquivalence);
+    ConstrainedBoolean semanticEqualsTyped(@Nonnull T other, @Nonnull ValueEquivalence valueEquivalence);
 }

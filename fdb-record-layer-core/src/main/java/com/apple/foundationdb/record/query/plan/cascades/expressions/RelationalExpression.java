@@ -728,7 +728,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
                                                                          @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
         final var candidateAliasesToQuantifierMap =
                 Quantifiers.aliasToQuantifierMap(candidateExpression.getQuantifiers());
-        var translationMapBuilder = TranslationMap.builder();
+        var translationMapBuilder = TranslationMap.regularBuilder();
         for (final var entry : partialMatchMap.entrySet()) {
             final var quantifier = entry.getKey().get();
             final var partialMatch = entry.getValue().get();
@@ -799,7 +799,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     }
 
     @Nonnull
-    default RelationalExpression withQuantifiers(@Nonnull List<? extends Quantifier> newQuantifiers) {
+    default RelationalExpression withQuantifiers(@Nonnull final List<? extends Quantifier> newQuantifiers) {
         return translateCorrelations(TranslationMap.empty(), false, newQuantifiers);
     }
 
@@ -852,5 +852,10 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     @Nonnull
     default String show(final boolean renderSingleGroups) {
         return PlannerGraphVisitor.show(renderSingleGroups, this);
+    }
+
+    @Nonnull
+    default String showExploratory() {
+        return PlannerGraphVisitor.show(PlannerGraphVisitor.REMOVE_FINAL_EXPRESSIONS | PlannerGraphVisitor.RENDER_SINGLE_GROUPS, this);
     }
 }

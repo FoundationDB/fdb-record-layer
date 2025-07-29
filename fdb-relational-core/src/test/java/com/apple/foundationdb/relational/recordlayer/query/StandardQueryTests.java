@@ -23,23 +23,25 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
-import com.apple.foundationdb.relational.api.FieldDescription;
+import com.apple.foundationdb.relational.api.ImmutableRowStruct;
 import com.apple.foundationdb.relational.api.RelationalArrayMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
+import com.apple.foundationdb.relational.api.RowArray;
 import com.apple.foundationdb.relational.api.exceptions.ContextualSQLException;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalStatement;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.utils.Ddl;
-import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
+import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.junit.jupiter.api.Assertions;
@@ -54,14 +56,13 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
@@ -1456,13 +1457,12 @@ public class StandardQueryTests {
 
     // todo (yhatem) add more tests for queries w and w/o index definition.
 
-    private RelationalStruct insertTypeConflictRecords(RelationalStatement s) throws SQLException {
+    private void insertTypeConflictRecords(RelationalStatement s) throws SQLException {
         final var recBuilder = EmbeddedRelationalStruct.newBuilder()
                 .addString("NAME", "Sophia");
         final var rec = recBuilder.build();
         int cnt = s.executeInsert("CLASSA", rec);
         Assertions.assertEquals(1, cnt, "Incorrect insertion count");
-        return rec;
     }
 
     private RelationalStruct insertRestaurantComplexRecord(RelationalStatement s) throws SQLException {
@@ -1486,22 +1486,12 @@ public class StandardQueryTests {
                         .addString("LATITUDE", "1")
                         .addString("LONGITUDE", "1")
                         .build());
-        final var reviewsArrayBuilder = EmbeddedRelationalArray.newBuilder(RelationalArrayMetaData.ofStruct(new RelationalStructMetaData(
-                FieldDescription.primitive("REVIEWER", Types.BIGINT, DatabaseMetaData.columnNoNulls),
-                FieldDescription.primitive("RATING", Types.BIGINT, DatabaseMetaData.columnNoNulls),
-                FieldDescription.array("ENDORSEMENTS", DatabaseMetaData.columnNoNulls, RelationalArrayMetaData.ofStruct(new RelationalStructMetaData(
-                        FieldDescription.primitive("endorsementId", Types.BIGINT, DatabaseMetaData.columnNoNulls),
-                        FieldDescription.primitive("endorsementText", Types.VARCHAR, DatabaseMetaData.columnNoNulls)
-                ), DatabaseMetaData.columnNoNulls))
-        ), DatabaseMetaData.columnNoNulls));
+        final var reviewsArrayBuilder = EmbeddedRelationalArray.newBuilder();
         for (final Triple<Long, Long, List<Pair<Long, String>>> review : reviews) {
             final var reviewBuilder = EmbeddedRelationalStruct.newBuilder()
                     .addLong("REVIEWER", review.getLeft())
                     .addLong("RATING", review.getMiddle());
-            final var endorsementsArrayBuilder = EmbeddedRelationalArray.newBuilder(RelationalArrayMetaData.ofStruct(new RelationalStructMetaData(
-                    FieldDescription.primitive("endorsementId", Types.BIGINT, DatabaseMetaData.columnNoNulls),
-                    FieldDescription.primitive("endorsementText", Types.VARCHAR, DatabaseMetaData.columnNoNulls)
-            ), DatabaseMetaData.columnNoNulls));
+            final var endorsementsArrayBuilder = EmbeddedRelationalArray.newBuilder();
             for (var endorsement : review.getRight()) {
                 endorsementsArrayBuilder.addStruct(EmbeddedRelationalStruct.newBuilder()
                         .addLong("endorsementId", endorsement.getLeft())
@@ -1512,13 +1502,50 @@ public class StandardQueryTests {
             reviewsArrayBuilder.addStruct(reviewBuilder.build());
         }
         recBuilder2.addArray("REVIEWS", reviewsArrayBuilder.build());
-        final RelationalStruct struct = recBuilder2.build();
-        int cnt = s.executeInsert("RESTAURANTCOMPLEXRECORD", struct);
+        final RelationalStruct structToInsert = recBuilder2.build();
+        int cnt = s.executeInsert("RESTAURANTCOMPLEXRECORD", structToInsert);
         Assertions.assertEquals(1, cnt, "Incorrect insertion count");
-        return struct;
+        return getExpected(recordNumber, recordName, reviews);
     }
 
-    private RelationalStruct insertRestaurantComplexRecord(RelationalStatement s, int recordNumber, @Nonnull final String recordName, byte[] blob) throws SQLException {
+    private static RelationalStruct getExpected(Long recordNumber, @Nonnull final String recordName, @Nonnull final List<Triple<Long, Long, List<Pair<Long, String>>>> reviews) {
+        final var locationType = DataType.StructType.from("LOCATION", List.of(
+                DataType.StructType.Field.from("ADDRESS", DataType.Primitives.STRING.type(), 1),
+                DataType.StructType.Field.from("LATITUDE", DataType.Primitives.STRING.type(), 2),
+                DataType.StructType.Field.from("LONGITUDE", DataType.Primitives.STRING.type(), 3)
+        ), false);
+        final var endorsementType = DataType.StructType.from("ENDORSEMENT", List.of(
+                DataType.StructType.Field.from("endorsementId", DataType.Primitives.LONG.type(), 1),
+                DataType.StructType.Field.from("endorsementText", DataType.Primitives.STRING.type(), 2)
+        ), false);
+        final var reviewType = DataType.StructType.from("LOCATION", List.of(
+                DataType.StructType.Field.from("REVIEWER", DataType.Primitives.LONG.type(), 1),
+                DataType.StructType.Field.from("RATING", DataType.Primitives.LONG.type(), 2),
+                DataType.StructType.Field.from("ENDORSEMENTS", DataType.ArrayType.from(endorsementType, false), 3)
+        ), false);
+        final var restaurantComplexRecordType = DataType.StructType.from("RESTAURANTCOMPLEXRECORD", List.of(
+                DataType.StructType.Field.from("REST_NO", DataType.Primitives.LONG.type(), 1),
+                DataType.StructType.Field.from("NAME", DataType.Primitives.STRING.type(), 2),
+                DataType.StructType.Field.from("LOCATION", locationType, 3),
+                DataType.StructType.Field.from("REVIEWS", DataType.ArrayType.from(reviewType), 4)
+        ), false);
+        final var locationStruct = new ImmutableRowStruct(new ArrayRow("address", 1, 1), RelationalStructMetaData.of(locationType));
+        final var reviewsList = new ArrayList<RelationalStruct>();
+        reviews.forEach(review -> {
+            final var endorsementsList = review.getRight().stream()
+                    .map(e -> new ImmutableRowStruct(new ArrayRow(e.getLeft(), e.getRight()), RelationalStructMetaData.of(endorsementType)))
+                    .collect(Collectors.toList());
+            reviewsList.add(new ImmutableRowStruct(new ArrayRow(
+                    review.getLeft(),
+                    review.getMiddle(),
+                    new RowArray(endorsementsList, RelationalArrayMetaData.of(DataType.ArrayType.from(endorsementType, false)))
+            ), RelationalStructMetaData.of(reviewType)));
+        });
+        final var reviewsArray = new RowArray(reviewsList, RelationalArrayMetaData.of(DataType.ArrayType.from(reviewType)));
+        return new ImmutableRowStruct(new ArrayRow(recordNumber, recordName, locationStruct, reviewsArray), RelationalStructMetaData.of(restaurantComplexRecordType));
+    }
+
+    private void insertRestaurantComplexRecord(RelationalStatement s, int recordNumber, @Nonnull final String recordName, byte[] blob) throws SQLException {
         var struct = EmbeddedRelationalStruct.newBuilder()
                 .addLong("REST_NO", recordNumber)
                 .addString("NAME", recordName)
@@ -1529,6 +1556,5 @@ public class StandardQueryTests {
                 .build();
         int cnt = s.executeInsert("RESTAURANTCOMPLEXRECORD", struct);
         Assertions.assertEquals(1, cnt, "Incorrect insertion count");
-        return struct;
     }
 }

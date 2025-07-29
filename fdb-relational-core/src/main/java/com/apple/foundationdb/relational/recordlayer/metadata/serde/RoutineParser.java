@@ -41,6 +41,9 @@ public interface RoutineParser {
     @Nonnull
     UserDefinedFunction parse(@Nonnull String routineString);
 
+    @Nonnull
+    UserDefinedFunction parseTemporaryFunction(@Nonnull String functionName, @Nonnull String routineString, @Nonnull PreparedParams preparedParams);
+
     class DefaultSqlFunctionParser implements RoutineParser {
 
         @Nonnull
@@ -60,10 +63,29 @@ public interface RoutineParser {
                 throw e.toUncheckedWrappedException();
             }
             final var planGenerationContext = new MutablePlanGenerationContext(PreparedParams.empty(),
-                    PlanHashable.PlanHashMode.VC0, routineString, 0);
+                    PlanHashable.PlanHashMode.VC0, routineString, routineString, 0);
             final var visitor = new BaseVisitor(planGenerationContext, metaData, new NoOpQueryFactory(),
                     NoOpMetadataOperationsFactory.INSTANCE, URI.create(""), false);
             return visitor.visitSqlInvokedFunction(parsed);
+        }
+
+        @Nonnull
+        @Override
+        public CompiledSqlFunction parseTemporaryFunction(@Nonnull final String functionName,
+                                                          @Nonnull final String routineString,
+                                                          @Nonnull final PreparedParams preparedParams) {
+            final RelationalParser.TempSqlInvokedFunctionContext parsed;
+            try {
+                parsed = QueryParser.parseTemporaryFunction(routineString);
+            } catch (RelationalException e) {
+                throw e.toUncheckedWrappedException();
+            }
+            final var planGenerationContext = new MutablePlanGenerationContext(preparedParams,
+                    PlanHashable.PlanHashMode.VC0, routineString, routineString, 0);
+            planGenerationContext.getLiteralsBuilder().setScope(functionName);
+            final var visitor = new BaseVisitor(planGenerationContext, metaData, new NoOpQueryFactory(),
+                    NoOpMetadataOperationsFactory.INSTANCE, URI.create(""), false);
+            return visitor.visitTempSqlInvokedFunction(parsed);
         }
     }
 

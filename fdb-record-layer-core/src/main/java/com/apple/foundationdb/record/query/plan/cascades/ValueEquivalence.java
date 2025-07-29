@@ -41,9 +41,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
-import static com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint.alwaysTrue;
-import static com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint.falseValue;
-import static com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint.trueWithConstraint;
+import static com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean.alwaysTrue;
+import static com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean.falseValue;
+import static com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean.trueWithConstraint;
 
 /**
  * An interface (together with a set of specific final classes) that captures axiomatic (defined) equivalence between
@@ -75,12 +75,12 @@ public abstract class ValueEquivalence {
     }
 
     @Nonnull
-    public abstract BooleanWithConstraint isDefinedEqual(@Nonnull Value left,
-                                                         @Nonnull Value right);
+    public abstract ConstrainedBoolean isDefinedEqual(@Nonnull Value left,
+                                                      @Nonnull Value right);
 
     @Nonnull
-    public abstract BooleanWithConstraint isDefinedEqual(@Nonnull CorrelationIdentifier left,
-                                                         @Nonnull CorrelationIdentifier right);
+    public abstract ConstrainedBoolean isDefinedEqual(@Nonnull CorrelationIdentifier left,
+                                                      @Nonnull CorrelationIdentifier right);
 
     /**
      * Method that returns the inverse of this value equivalence. Note that the inverse may not exist due to
@@ -97,8 +97,8 @@ public abstract class ValueEquivalence {
     protected abstract Optional<ValueEquivalence> computeInverseMaybe();
 
     @Nonnull
-    public <T extends UsesValueEquivalence<T>> BooleanWithConstraint semanticEquals(@Nonnull final Set<T> left,
-                                                                                    @Nonnull final Set<T> right) {
+    public <T extends UsesValueEquivalence<T>> ConstrainedBoolean semanticEquals(@Nonnull final Set<T> left,
+                                                                                 @Nonnull final Set<T> right) {
         if (left.size() != right.size()) {
             return falseValue();
         }
@@ -130,13 +130,13 @@ public abstract class ValueEquivalence {
     static final ValueEquivalence EMPTY_EQUIVALENCE = new ValueEquivalence() {
         @Nonnull
         @Override
-        public BooleanWithConstraint isDefinedEqual(@Nonnull final Value left, @Nonnull final Value right) {
+        public ConstrainedBoolean isDefinedEqual(@Nonnull final Value left, @Nonnull final Value right) {
             return falseValue();
         }
 
         @Nonnull
         @Override
-        public BooleanWithConstraint isDefinedEqual(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
+        public ConstrainedBoolean isDefinedEqual(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
             return falseValue();
         }
 
@@ -168,7 +168,7 @@ public abstract class ValueEquivalence {
 
         @Nonnull
         @Override
-        public BooleanWithConstraint isDefinedEqual(@Nonnull final Value left, @Nonnull final Value right) {
+        public ConstrainedBoolean isDefinedEqual(@Nonnull final Value left, @Nonnull final Value right) {
             final var firstEquivalence = first.isDefinedEqual(left, right);
             if (firstEquivalence.isTrue()) {
                 return firstEquivalence;
@@ -178,7 +178,7 @@ public abstract class ValueEquivalence {
 
         @Nonnull
         @Override
-        public BooleanWithConstraint isDefinedEqual(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
+        public ConstrainedBoolean isDefinedEqual(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
             final var firstEquivalence = first.isDefinedEqual(left, right);
             if (firstEquivalence.isTrue()) {
                 return firstEquivalence;
@@ -223,7 +223,7 @@ public abstract class ValueEquivalence {
         @Nonnull
         @Override
         @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE") // false-positive
-        public BooleanWithConstraint isDefinedEqual(@Nonnull final Value left, @Nonnull final Value right) {
+        public ConstrainedBoolean isDefinedEqual(@Nonnull final Value left, @Nonnull final Value right) {
             final var rightFromMap = valueEquivalenceMap.get(left);
             if (rightFromMap == null || !rightFromMap.equals(right)) {
                 return falseValue();
@@ -233,7 +233,7 @@ public abstract class ValueEquivalence {
 
         @Nonnull
         @Override
-        public BooleanWithConstraint isDefinedEqual(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
+        public ConstrainedBoolean isDefinedEqual(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
             return falseValue();
         }
 
@@ -309,7 +309,7 @@ public abstract class ValueEquivalence {
 
         @Nonnull
         @Override
-        public BooleanWithConstraint isDefinedEqual(@Nonnull final Value left, @Nonnull final Value right) {
+        public ConstrainedBoolean isDefinedEqual(@Nonnull final Value left, @Nonnull final Value right) {
             //
             // If any of the participants is not a quantified value, left is not equal to right.
             //
@@ -333,7 +333,7 @@ public abstract class ValueEquivalence {
 
         @Nonnull
         @Override
-        public BooleanWithConstraint isDefinedEqual(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
+        public ConstrainedBoolean isDefinedEqual(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
             return aliasMap.containsMapping(left, right) ? alwaysTrue() : falseValue();
         }
 
@@ -363,7 +363,7 @@ public abstract class ValueEquivalence {
 
         @Nonnull
         @Override
-        public BooleanWithConstraint isDefinedEqual(@Nonnull final Value left, @Nonnull final Value right) {
+        public ConstrainedBoolean isDefinedEqual(@Nonnull final Value left, @Nonnull final Value right) {
             if (left instanceof ConstantObjectValue && right instanceof LiteralValue) {
                 return isDefinedEqual((ConstantObjectValue)left, (LiteralValue<?>)right);
             } else if (right instanceof ConstantObjectValue && left instanceof LiteralValue) {
@@ -375,8 +375,8 @@ public abstract class ValueEquivalence {
 
         @SpotBugsSuppressWarnings(value = "RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE", justification = "evalWithoutStore can return nullable")
         @Nonnull
-        public BooleanWithConstraint isDefinedEqual(@Nonnull final ConstantObjectValue constantObjectValue,
-                                                    @Nonnull final LiteralValue<?> literalValue) {
+        public ConstrainedBoolean isDefinedEqual(@Nonnull final ConstantObjectValue constantObjectValue,
+                                                 @Nonnull final LiteralValue<?> literalValue) {
             final var constantObject = constantObjectValue.evalWithoutStore(evaluationContext);
             final var literalObject = literalValue.getLiteralValue();
             if (constantObject == null && literalObject == null) {
@@ -403,7 +403,7 @@ public abstract class ValueEquivalence {
 
         @Nonnull
         @Override
-        public BooleanWithConstraint isDefinedEqual(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
+        public ConstrainedBoolean isDefinedEqual(@Nonnull final CorrelationIdentifier left, @Nonnull final CorrelationIdentifier right) {
             return falseValue();
         }
 

@@ -88,13 +88,13 @@ public class ImplementStreamingAggregationRule extends ImplementationCascadesRul
                         Values.simplify(Values.primitiveAccessorsForType(currentGroupingValue.getResultType(),
                                 () -> currentGroupingValue),
                                 DefaultValueSimplificationRuleSet.instance(),
-                                AliasMap.emptyMap(), correlatedTo));
+                                call.getEvaluationContext(), AliasMap.emptyMap(), correlatedTo));
 
         final var innerReference = innerQuantifier.getRangesOver();
         final var planPartitions = PlanPartitions.rollUpTo(innerReference.toPlanPartitions(), OrderingProperty.ordering());
 
         for (final var planPartition : planPartitions) {
-            final var providedOrdering = planPartition.getPropertyValue(OrderingProperty.ordering());
+            final var providedOrdering = planPartition.getPartitionPropertyValue(OrderingProperty.ordering());
             if (requiredOrderingKeyValues == null || providedOrdering.satisfiesGroupingValues(requiredOrderingKeyValues)) {
                 call.yieldPlan(implementGroupBy(call, planPartition, groupByExpression));
             }

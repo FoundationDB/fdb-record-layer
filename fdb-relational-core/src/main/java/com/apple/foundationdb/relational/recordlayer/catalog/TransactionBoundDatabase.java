@@ -21,20 +21,26 @@
 package com.apple.foundationdb.relational.recordlayer.catalog;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.TransactionManager;
-import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.ddl.ConstantAction;
+import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.ddl.NoOpQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.HollowTransactionManager;
 import com.apple.foundationdb.relational.recordlayer.RecordStoreAndRecordContextTransaction;
-import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
+import com.apple.foundationdb.relational.recordlayer.ddl.AbstractMetadataOperationsFactory;
+import com.apple.foundationdb.relational.recordlayer.ddl.CreateTemporaryFunctionConstantAction;
+import com.apple.foundationdb.relational.recordlayer.ddl.DropTemporaryFunctionConstantAction;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
+import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.storage.BackingRecordStore;
 import com.apple.foundationdb.relational.recordlayer.storage.BackingStore;
@@ -62,8 +68,22 @@ public class TransactionBoundDatabase extends AbstractDatabase {
     @Nonnull
     final Options options;
 
+    private static final MetadataOperationsFactory onlyTemporaryFunctionOperationsFactory = new AbstractMetadataOperationsFactory() {
+        @Nonnull
+        @Override
+        public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template, final boolean throwIfExists, @Nonnull final RecordLayerInvokedRoutine invokedRoutine, @Nonnull final PreparedParams preparedParams) {
+            return new CreateTemporaryFunctionConstantAction(template, throwIfExists, invokedRoutine, preparedParams);
+        }
+
+        @Nonnull
+        @Override
+        public ConstantAction getDropTemporaryFunctionConstantAction(final boolean throwIfNotExists, @Nonnull final String temporaryFunctionName) {
+            return new DropTemporaryFunctionConstantAction(throwIfNotExists, temporaryFunctionName);
+        }
+    };
+
     public TransactionBoundDatabase(URI uri, @Nonnull Options options, @Nullable RelationalPlanCache planCache) {
-        super(NoOpMetadataOperationsFactory.INSTANCE, NoOpQueryFactory.INSTANCE, planCache);
+        super(onlyTemporaryFunctionOperationsFactory, NoOpQueryFactory.INSTANCE, planCache);
         this.uri = uri;
         this.options = options;
     }

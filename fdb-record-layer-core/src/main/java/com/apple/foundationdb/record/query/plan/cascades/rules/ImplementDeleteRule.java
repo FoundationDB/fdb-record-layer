@@ -36,7 +36,7 @@ import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.filterPartition;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.filterPlanPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.deleteExpression;
@@ -53,7 +53,7 @@ public class ImplementDeleteRule extends ImplementationCascadesRule<DeleteExpres
 
     @Nonnull
     private static final BindingMatcher<Reference> innerReferenceMatcher =
-            planPartitions(filterPartition(planPartition -> planPartition.getPropertyValue(StoredRecordProperty.storedRecord()),
+            planPartitions(filterPlanPartitions(planPartition -> planPartition.getPartitionPropertyValue(StoredRecordProperty.storedRecord()),
                     any(innerPlanPartitionMatcher)));
 
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher =
@@ -77,7 +77,7 @@ public class ImplementDeleteRule extends ImplementationCascadesRule<DeleteExpres
         final var planPartitionReference =
                 call.memoizeMemberPlansFromOther(innerReference, innerPlanPartition.getPlans());
         final var distinctPlansReference =
-                innerPlanPartition.getPropertyValue(DistinctRecordsProperty.distinctRecords())
+                innerPlanPartition.getPartitionPropertyValue(DistinctRecordsProperty.distinctRecords())
                 ? planPartitionReference
                 : call.memoizePlan(new RecordQueryUnorderedPrimaryKeyDistinctPlan(Quantifier.physical(planPartitionReference)));
 

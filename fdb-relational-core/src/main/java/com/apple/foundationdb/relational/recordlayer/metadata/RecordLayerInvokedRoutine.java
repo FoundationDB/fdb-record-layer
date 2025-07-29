@@ -35,16 +35,25 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     private final String description;
 
     @Nonnull
+    private final String normalizedDescription;
+
+    @Nonnull
     private final String name;
+
+    private final boolean isTemporary;
 
     @Nonnull
     private final Supplier<CompiledSqlFunction> compilableSqlFunctionSupplier;
 
     public RecordLayerInvokedRoutine(@Nonnull final String description,
+                                     @Nonnull final String normalizedDescription,
                                      @Nonnull final String name,
+                                     boolean isTemporary,
                                      @Nonnull final Supplier<CompiledSqlFunction> compilableSqlFunctionSupplier) {
         this.description = description;
+        this.normalizedDescription = normalizedDescription;
         this.name = name;
+        this.isTemporary = isTemporary;
         // TODO this used to be memoized
         this.compilableSqlFunctionSupplier = compilableSqlFunctionSupplier;
     }
@@ -53,6 +62,12 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     @Override
     public String getDescription() {
         return description;
+    }
+
+    @Nonnull
+    @Override
+    public String getNormalizedDescription() {
+        return normalizedDescription;
     }
 
     @Nonnull
@@ -77,6 +92,11 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     }
 
     @Override
+    public boolean isTemporary() {
+        return isTemporary;
+    }
+
+    @Override
     public boolean equals(final Object o) {
         if (o == null) {
             return false;
@@ -98,14 +118,35 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         return "invoked routine (name '" + name + "', description '" + description + "')";
     }
 
+    @Nonnull
+    public Builder toBuilder() {
+        return newBuilder()
+                .setName(getName())
+                .setDescription(getDescription())
+                .setNormalizedDescription(getNormalizedDescription())
+                .setTemporary(isTemporary())
+                .withCompilableRoutine(getCompilableSqlFunctionSupplier());
+    }
+
     public static final class Builder {
         private String description;
+        private String normalizedDescription;
         private String name;
         private Supplier<CompiledSqlFunction> compilableSqlFunctionSupplier;
+        private boolean isTemporary;
+
+        private Builder() {
+        }
 
         @Nonnull
         public Builder setDescription(@Nonnull final String description) {
             this.description = description;
+            return this;
+        }
+
+        @Nonnull
+        public Builder setNormalizedDescription(@Nonnull final String normalizedDescription) {
+            this.normalizedDescription = normalizedDescription;
             return this;
         }
 
@@ -122,11 +163,18 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         }
 
         @Nonnull
+        public Builder setTemporary(boolean isTemporary) {
+            this.isTemporary = isTemporary;
+            return this;
+        }
+
+        @Nonnull
         public RecordLayerInvokedRoutine build() {
             Assert.notNullUnchecked(name);
             Assert.notNullUnchecked(description);
             Assert.notNullUnchecked(compilableSqlFunctionSupplier);
-            return new RecordLayerInvokedRoutine(description, name, compilableSqlFunctionSupplier);
+            return new RecordLayerInvokedRoutine(description, normalizedDescription, name, isTemporary,
+                    compilableSqlFunctionSupplier);
         }
     }
 }

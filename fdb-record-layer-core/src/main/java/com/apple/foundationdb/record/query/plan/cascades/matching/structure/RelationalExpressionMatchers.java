@@ -94,11 +94,6 @@ public class RelationalExpressionMatchers {
                 downstream);
     }
 
-    @SuppressWarnings("unchecked")
-    public static <R extends RelationalExpression, C extends Collection<? extends Quantifier>> BindingMatcher<R> owning(@Nonnull final BindingMatcher<C> downstream) {
-        return ofTypeOwning((Class<R>)(Class<?>)RelationalExpression.class, downstream);
-    }
-
     public static <R extends RelationalExpression> BindingMatcher<R> canBeImplemented() {
         return PrimitiveMatchers.satisfies(relationalExpression ->
                 relationalExpression.getQuantifiers()
@@ -132,6 +127,11 @@ public class RelationalExpressionMatchers {
                                 typedWithDownstream(RelationalExpression.class,
                                         Extractor.of(RelationalExpression::getQuantifiers, name -> "quantifiers(" + name + ")"),
                                         downstreamQuantifiers))));
+    }
+
+    public static <E extends RelationalExpression> BindingMatcher<E> isExploratoryExpression() {
+        return PrimitiveMatchers.satisfiesWithOuterBinding(ReferenceMatchers.getCurrentReferenceMatcher(),
+                (expression, currentReference) -> !currentReference.isFinal(expression));
     }
 
     @Nonnull
@@ -219,6 +219,11 @@ public class RelationalExpressionMatchers {
     @Nonnull
     public static BindingMatcher<SelectExpression> selectExpression() {
         return ofType(SelectExpression.class);
+    }
+
+    @Nonnull
+    public static BindingMatcher<RelationalExpressionWithPredicates> withPredicatesExpression() {
+        return ofType(RelationalExpressionWithPredicates.class);
     }
 
     @Nonnull
