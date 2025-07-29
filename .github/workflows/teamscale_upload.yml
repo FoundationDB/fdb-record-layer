@@ -1,0 +1,80 @@
+name: Upload Coverage to Teamscale
+
+on:
+  pull_request: # will fail, but good for testing
+    types: [opened, reopened, synchronize]
+  workflow_run:
+    workflows: [Pull Request]
+    types:
+      - completed
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Download artifact'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            let allArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               run_id: context.payload.workflow_run.id,
+            });
+            let matchArtifact = allArtifacts.data.artifacts.filter((artifact) => {
+              return artifact.name == "coverage-report"
+            })[0];
+            let download = await github.rest.actions.downloadArtifact({
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               artifact_id: matchArtifact.id,
+               archive_format: 'zip',
+            });
+            const fs = require('fs');
+            const path = require('path');
+            const temp = '${{ runner.temp }}/artifacts';
+            if (!fs.existsSync(temp)){
+              fs.mkdirSync(temp);
+            }
+            fs.writeFileSync(path.join(temp, 'coverage-report.zip'), Buffer.from(download.data));
+
+      - name: 'Unzip artifact'
+        run: unzip coverage-report.zip -d "${{ runner.temp }}/artifacts"
+      - name: 'Download release'
+        uses: actions/github-script@v7
+        with: # https://github.com/cqse/teamscale-upload/releases/tag/v2.9.6
+          script: |
+            let release = await github.rest.repos.getReleaseByTag({
+              owner: 'cqse',
+              repo: 'teamscale-upload',
+              tag: 'v2.9.6'
+            });
+            let reference = release.assets.filter((asset) => {
+              return asset.name == "teamscale-upload-jlink-linux-x86_64.zip"
+            })[0];
+            let asset = await octokit.rest.repos.getReleaseAsset({
+              owner: 'cqse',
+              repo: 'teamscale-upload',
+              asset_id: reference.id
+            });
+            
+            const fs = require('fs');
+            const path = require('path');
+            const temp = '${{ runner.temp }}/teamscale;
+            if (!fs.existsSync(temp)){
+              fs.mkdirSync(temp);
+            }
+            fs.writeFileSync(path.join(temp, 'teamscale-upload.zip'), Buffer.from(asset.data));
+
+      - name: 'Unzip teamscale'
+        run: unzip teamscale-upload.zip -d "${{ runner.temp }}/teamscale"
+
+      - name: 'Upload coverage'
+        run: |
+          "${{ runner.temp }}/teamscale/teamscale-upload/bin/teamscale-upload" --server https://fdb.teamscale.io \
+          --project foundationdb-fdb-record-layer \
+          --user fdb-record-layer-build \
+          --accesskey ${{ secrets.TEAMSCALE_ACCESS_KEY }} \
+          --partition 'CI Tests' \
+          --commit ${{ context.payload.workflow_run.head_sha }} \
+          --format jacoco ${{ runner.temp}}/artifacts/codeCoverageReport.xml
