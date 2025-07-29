@@ -1,0 +1,57 @@
+uuid-in-index-definition:
+-   query: EXPLAIN select b, c from tc order by b
+    explain: 'COVERING(TC1 <,> -> [A: KEY[2], B: KEY[0], C: VALUE[0]]) | MAP (_.B
+        AS B, _.C AS C)'
+    task_count: 305
+    task_total_time_ms: 34
+    transform_count: 68
+    transform_time_ms: 14
+    transform_yield_count: 34
+    insert_time_ms: 1
+    insert_new_count: 33
+    insert_reused_count: 4
+-   query: EXPLAIN select * from tc order by b
+    explain: ISCAN(TC1 <,>)
+    task_count: 277
+    task_total_time_ms: 52
+    transform_count: 70
+    transform_time_ms: 36
+    transform_yield_count: 34
+    insert_time_ms: 1
+    insert_new_count: 25
+    insert_reused_count: 8
+-   query: EXPLAIN select * from tc where b > 'a8708750-d70f-4800-8c3b-13700d5b369f'
+        order by b
+    explain: ISCAN(TC1 [[GREATER_THAN promote(@c8 AS UUID)]])
+    task_count: 411
+    task_total_time_ms: 62
+    transform_count: 91
+    transform_time_ms: 37
+    transform_yield_count: 42
+    insert_time_ms: 2
+    insert_new_count: 41
+    insert_reused_count: 4
+-   query: EXPLAIN select * from tc where b < 'a8708750-d70f-4800-8c3b-13700d5b369f'
+        order by b desc
+    explain: ISCAN(TC1 [[LESS_THAN promote(@c8 AS UUID)]] REVERSE)
+    task_count: 411
+    task_total_time_ms: 33
+    transform_count: 91
+    transform_time_ms: 13
+    transform_yield_count: 42
+    insert_time_ms: 1
+    insert_new_count: 41
+    insert_reused_count: 4
+-   query: EXPLAIN select * from tc where b < 'a8708750-d70f-4800-8c3b-13700d5b369f'
+        and c > 4 order by b desc
+    explain: 'COVERING(TC1 [[LESS_THAN promote(@c8 AS UUID)]] REVERSE -> [A: KEY[2],
+        B: KEY[0], C: VALUE[0]]) | FILTER _.C GREATER_THAN promote(@c12 AS LONG) |
+        FETCH'
+    task_count: 515
+    task_total_time_ms: 68
+    transform_count: 105
+    transform_time_ms: 39
+    transform_yield_count: 46
+    insert_time_ms: 2
+    insert_new_count: 55
+    insert_reused_count: 2
