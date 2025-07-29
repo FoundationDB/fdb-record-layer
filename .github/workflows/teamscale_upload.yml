@@ -1,5 +1,8 @@
 name: Upload Coverage to Teamscale
 
+permissions:
+  actions: read
+
 on:
   workflow_run:
     workflows: [Pull Request]
