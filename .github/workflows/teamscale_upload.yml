@@ -1,8 +1,6 @@
 name: Upload Coverage to Teamscale
 
 on:
-  pull_request: # will fail, but good for testing
-    types: [opened, reopened, synchronize]
   workflow_run:
     workflows: [Pull Request]
     types:
