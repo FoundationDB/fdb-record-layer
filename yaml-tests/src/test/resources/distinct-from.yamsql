@@ -63,7 +63,7 @@ test_block:
       - result: [{ID: 6, 20, !null }, {ID: 7, 20, !null }, {ID: 8, 20, !null }, {ID: 9, 20, 9}, {ID: 10, 20, 10}]
     -
       - query: select * from t1 WHERE null is distinct from null
-      - explain: "COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER false | FETCH"
+      - explain: "COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER NULL IS_DISTINCT_FROM NULL | FETCH"
       - result: []
     -
       - query: select * from t1 WHERE 10 is distinct from 10
@@ -92,7 +92,7 @@ test_block:
       - result: [{ID: 6, 20, !null }, {ID: 7, 20, !null }, {ID: 8, 20, !null }, {ID: 9, 20, 9}, {ID: 10, 20, 10}]
     -
       - query: select count(*) from t1 WHERE null is not distinct from null
-      - explain: "ISCAN(I2 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "COVERING(I2 <,> -> [COL2: KEY[0], ID: KEY[2]]) | FILTER NULL NOT_DISTINCT_FROM NULL | FETCH | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - result: [{10}]
     -
       - query: select count(*) from t1 WHERE 10 is not distinct from 10

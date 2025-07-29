@@ -282,6 +282,9 @@ public class Comparisons {
     @Nullable
     @SpotBugsSuppressWarnings("NP_BOOLEAN_RETURN_NULL")
     private static Boolean compareLike(@Nullable Object value, @Nullable Object pattern) {
+        if (value == null) {
+            return null;
+        }
         if (!(value instanceof String)) {
             throw new RecordCoreException("Illegal comparand value type: " + value);
         }

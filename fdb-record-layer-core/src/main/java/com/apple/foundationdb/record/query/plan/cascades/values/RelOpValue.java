@@ -184,13 +184,6 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
                                                                               @Nonnull Value leftChild,
                                                                               @Nonnull Value rightChild,
                                                                               @Nonnull final Comparisons.Type comparisonType) {
-        if (leftChild.getResultType().getTypeCode() == Type.TypeCode.NULL && rightChild.getResultType().getTypeCode() == Type.TypeCode.NULL) {
-            if (comparisonType == Comparisons.Type.NOT_DISTINCT_FROM) {
-                return Optional.of(ConstantPredicate.TRUE);
-            } else if (comparisonType == Comparisons.Type.IS_DISTINCT_FROM) {
-                return Optional.of(ConstantPredicate.FALSE);
-            }
-        }
 
         // maximumType may return null, but only for non-primitive types which is not possible here
         final var maxtype = Verify.verifyNotNull(Type.maximumType(leftChild.getResultType(), rightChild.getResultType()));
