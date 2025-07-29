@@ -74,5 +74,5 @@ jobs:
           --user fdb-record-layer-build \
           --accesskey ${{ secrets.TEAMSCALE_ACCESS_KEY }} \
           --partition 'CI Tests' \
-          --commit ${{ context.payload.workflow_run.head_sha }} \
+          --commit ${{ github.event.workflow_run.head_sha }} \
           --format jacoco ${{ runner.temp}}/artifacts/codeCoverageReport.xml
