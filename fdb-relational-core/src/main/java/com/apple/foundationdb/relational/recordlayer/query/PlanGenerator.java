@@ -126,7 +126,7 @@ public final class PlanGenerator {
             exception = e;
             throw e;
         } finally {
-            RelationalLoggingUtil.publishPlanGenerationLogs(logger, message, plan, exception, totalTimeMicros(), options);
+            RelationalLoggingUtil.publishPlanGenerationLogs(logger, message, plan, exception, planContext.getMetricsCollector().getRecordLayerStoreTimer(), totalTimeMicros(), options);
         }
         return plan;
     }
@@ -390,7 +390,10 @@ public final class PlanGenerator {
     private static CascadesPlanner createPlanner(@Nonnull final RecordMetaData metaData,
                                                  @Nonnull final RecordStoreState recordStoreState,
                                                  @Nonnull final PlanContext planContext) {
-        final var planner = new CascadesPlanner(metaData, recordStoreState);
+        final var planner = new CascadesPlanner(
+                metaData,
+                recordStoreState,
+                planContext.getMetricsCollector().getRecordLayerStoreTimer());
         planner.setConfiguration(planContext.getRecordQueryPlannerConfiguration());
         return planner;
     }
