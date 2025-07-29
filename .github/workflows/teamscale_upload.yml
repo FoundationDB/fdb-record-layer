@@ -40,7 +40,7 @@ jobs:
             fs.writeFileSync(path.join(temp, 'coverage-report.zip'), Buffer.from(download.data));
 
       - name: 'Unzip artifact'
-        run: unzip coverage-report.zip -d "${{ runner.temp }}/artifacts"
+        run: unzip "${{ runner.temp }}/artifacts/coverage-report.zip" -d "${{ runner.temp }}/artifacts"
       - name: 'Download release'
         uses: actions/github-script@v7
         with: # https://github.com/cqse/teamscale-upload/releases/tag/v2.9.6
@@ -68,7 +68,7 @@ jobs:
             fs.writeFileSync(path.join(temp, 'teamscale-upload.zip'), Buffer.from(asset.data));
 
       - name: 'Unzip teamscale'
-        run: unzip teamscale-upload.zip -d "${{ runner.temp }}/teamscale"
+        run: unzip "${{ runner.temp }}/teamscale/teamscale-upload.zip" -d "${{ runner.temp }}/teamscale"
 
       - name: 'Upload coverage'
         run: |
