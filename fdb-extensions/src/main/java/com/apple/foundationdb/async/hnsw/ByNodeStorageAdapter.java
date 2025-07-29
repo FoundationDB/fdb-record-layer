@@ -38,6 +38,12 @@ class ByNodeStorageAdapter extends AbstractStorageAdapter implements StorageAdap
         super(config, subspace, onWriteListener, onReadListener);
     }
 
+    @Nonnull
+    @Override
+    public NodeFactory<? extends NodeReference> getNodeFactory(final int layer) {
+        return layer > 0 ? InliningNode.factory() : CompactNode.factory();
+    }
+
     @Override
     public CompletableFuture<EntryNodeReference> fetchEntryNodeReference(@Nonnull final ReadTransaction readTransaction) {
         final byte[] key = getEntryNodeSubspace().pack();

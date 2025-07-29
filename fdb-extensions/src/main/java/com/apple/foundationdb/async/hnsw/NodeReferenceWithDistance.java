@@ -21,15 +21,17 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.tuple.Tuple;
+import com.christianheina.langx.half4j.Half;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
 
-class NodeReferenceWithDistance extends NodeReference {
+class NodeReferenceWithDistance extends NodeReferenceWithVector {
     private final double distance;
 
-    public NodeReferenceWithDistance(@Nonnull final Tuple primaryKey, final double distance) {
-        super(primaryKey);
+    public NodeReferenceWithDistance(@Nonnull final Tuple primaryKey, @Nonnull final Vector<Half> vector,
+                                     final double distance) {
+        super(primaryKey, vector);
         this.distance = distance;
     }
 

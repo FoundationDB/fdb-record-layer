@@ -82,6 +82,9 @@ interface StorageAdapter {
     @Nonnull
     OnReadListener getOnReadListener();
 
+    @Nonnull
+    NodeFactory<? extends NodeReference> getNodeFactory(final int layer);
+
     CompletableFuture<EntryNodeReference> fetchEntryNodeReference(@Nonnull ReadTransaction readTransaction);
 
     void writeEntryNodeReference(@Nonnull final Transaction transaction,
