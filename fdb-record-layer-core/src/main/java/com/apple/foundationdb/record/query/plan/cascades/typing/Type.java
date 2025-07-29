@@ -434,6 +434,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                 final var elementField = messageDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName());
                 final var elementTypeCode = TypeCode.fromProtobufType(elementField.getType());
                 return fromProtoTypeToArray(descriptor, protoType, elementTypeCode, true);
+            } else if (TupleFieldsProto.UUID.getDescriptor().equals(messageDescriptor)) {
+                return Type.uuidType(isNullable);
             } else {
                 return Record.fromFieldDescriptorsMap(isNullable, Record.toFieldDescriptorMap(messageDescriptor.getFields()));
             }
