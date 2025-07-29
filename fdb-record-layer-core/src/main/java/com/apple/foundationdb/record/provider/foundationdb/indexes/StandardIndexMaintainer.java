@@ -140,6 +140,14 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         });
     }
 
+    public RecordCursor<IndexEntry> scanWithKeyValueCursor(@Nonnull KeyValueCursor keyValues) {
+        return keyValues.map(kv -> {
+            state.store.countKeyValue(FDBStoreTimer.Counts.LOAD_INDEX_KEY, FDBStoreTimer.Counts.LOAD_INDEX_KEY_BYTES, FDBStoreTimer.Counts.LOAD_INDEX_VALUE_BYTES,
+                    kv);
+            return unpackKeyValue(kv);
+        });
+    }
+
     @Nonnull
     /**
      * An implementation of the {@link #scanRemoteFetch} method for the {@link IndexScanType.BY_VALUE} case.
