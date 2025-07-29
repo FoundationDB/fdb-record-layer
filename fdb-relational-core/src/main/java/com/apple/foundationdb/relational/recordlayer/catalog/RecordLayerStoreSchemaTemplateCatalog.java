@@ -34,18 +34,17 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.RecordAlreadyExistsException;
-import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.relational.api.ProtobufDataBuilder;
-import com.apple.foundationdb.relational.api.Row;
-import com.apple.foundationdb.relational.api.SqlTypeSupport;
-import com.apple.foundationdb.relational.api.StructMetaData;
-import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
+import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
@@ -54,12 +53,13 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.recordlayer.catalog.systables.SchemaTemplateSystemTable;
 import com.apple.foundationdb.relational.recordlayer.catalog.systables.SystemTableRegistry;
+import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -245,7 +245,7 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
                             ContinuationImpl.BEGIN.getExecutionState(), ScanProperties.FORWARD_SCAN);
             Descriptors.Descriptor d = recordStore.getRecordMetaData().getRecordMetaData()
                     .getRecordType(SchemaTemplateSystemTable.TABLE_NAME).getDescriptor();
-            StructMetaData structMetaData = SqlTypeSupport.recordToMetaData(ProtobufDdlUtil.recordFromDescriptor(d));
+            final var structMetaData = RelationalStructMetaData.of((DataType.StructType) DataTypeUtils.toRelationalType(ProtobufDdlUtil.recordFromDescriptor(d)));
             return new RecordLayerResultSet(structMetaData,
                     RecordLayerIterator.create(cursor, this::transformSchemaTemplates),
                     null /* caller is responsible for managing tx state */);

@@ -240,8 +240,6 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
             for (final var t : coll) {
                 if (t instanceof Message) {
                     elements.add(new ImmutableRowStruct(new MessageTuple((Message) t), arrayMetaData.getElementStructMetaData()));
-                } else if (t instanceof ByteString) {
-                    elements.add(((ByteString) t).toByteArray());
                 } else {
                     elements.add(t);
                 }
@@ -255,15 +253,14 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
                 throw new SQLException("Array", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
             }
             Descriptors.FieldDescriptor fieldDescriptor = message.getDescriptorForType().findFieldByName(NullableArrayUtils.getRepeatedFieldName());
+            final var fieldValues = (Collection<?>) message.getField(fieldDescriptor);
             final var elements = new ArrayList<>();
-            final var coll = (Collection<?>) message.getField(fieldDescriptor);
-            for (final var t : coll) {
-                if (t instanceof Message) {
-                    elements.add(new ImmutableRowStruct(new MessageTuple((Message) t), arrayMetaData.getElementStructMetaData()));
-                } else if (t instanceof ByteString) {
-                    elements.add(((ByteString) t).toByteArray());
-                } else {
-                    elements.add(t);
+            for (var fieldValue : fieldValues) {
+                final var sanitizedFieldValue = MessageTuple.sanitizeField(fieldValue);
+                if (sanitizedFieldValue instanceof Message) {
+                    elements.add(new ImmutableRowStruct(new MessageTuple((Message) sanitizedFieldValue), arrayMetaData.getElementStructMetaData()));
+                }  else {
+                    elements.add(sanitizedFieldValue);
                 }
             }
             return new RowArray(elements, arrayMetaData);

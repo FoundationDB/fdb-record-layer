@@ -54,18 +54,16 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUpdatePlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.ImmutableRowStruct;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.Row;
-import com.apple.foundationdb.relational.api.SqlTypeSupport;
-import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.ddl.DdlQuery;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.continuation.CompiledStatement;
 import com.apple.foundationdb.relational.continuation.TypedQueryArgument;
@@ -78,6 +76,7 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.ResumableIterator;
+import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Suppliers;
@@ -89,10 +88,8 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.Struct;
-import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -277,35 +274,39 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
         @Nonnull
         private RelationalResultSet executeExplain(@Nonnull ContinuationImpl parsedContinuation) {
-            StructMetaData continuationMetadata = new RelationalStructMetaData(
-                    FieldDescription.primitive("EXECUTION_STATE", Types.BINARY, DatabaseMetaData.columnNoNulls),
-                    FieldDescription.primitive("VERSION", Types.INTEGER, DatabaseMetaData.columnNoNulls),
-                    FieldDescription.primitive("PLAN_HASH_MODE", Types.VARCHAR, DatabaseMetaData.columnNoNulls)
-            );
-            StructMetaData plannerMetricsMetadata = new RelationalStructMetaData(
-                    FieldDescription.primitive("TASK_COUNT", Types.BIGINT, DatabaseMetaData.columnNoNulls),
-                    FieldDescription.primitive("TASK_TOTAL_TIME_NS", Types.BIGINT, DatabaseMetaData.columnNoNulls),
-                    FieldDescription.primitive("TRANSFORM_COUNT", Types.BIGINT, DatabaseMetaData.columnNoNulls),
-                    FieldDescription.primitive("TRANSFORM_TIME_NS", Types.BIGINT, DatabaseMetaData.columnNoNulls),
-                    FieldDescription.primitive("TRANSFORM_YIELD_COUNT", Types.BIGINT, DatabaseMetaData.columnNoNulls),
-                    FieldDescription.primitive("INSERT_TIME_NS", Types.BIGINT, DatabaseMetaData.columnNoNulls),
-                    FieldDescription.primitive("INSERT_NEW_COUNT", Types.BIGINT, DatabaseMetaData.columnNoNulls),
-                    FieldDescription.primitive("INSERT_REUSED_COUNT", Types.BIGINT, DatabaseMetaData.columnNoNulls)
-                    );
-            StructMetaData metaData = new RelationalStructMetaData(
-                    FieldDescription.primitive("PLAN", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
-                    FieldDescription.primitive("PLAN_HASH", Types.INTEGER, DatabaseMetaData.columnNoNulls),
-                    FieldDescription.primitive("PLAN_DOT", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
-                    FieldDescription.primitive("PLAN_GML", Types.VARCHAR, DatabaseMetaData.columnNoNulls),
-                    FieldDescription.struct("PLAN_CONTINUATION", DatabaseMetaData.columnNullable, continuationMetadata),
-                    FieldDescription.struct("PLANNER_METRICS", DatabaseMetaData.columnNullable, plannerMetricsMetadata)
-            );
+            final var continuationStructType = DataType.StructType.from(
+                    "PLAN_CONTINUATION", List.of(
+                            DataType.StructType.Field.from("EXECUTION_STATE", DataType.Primitives.BYTES.type(), 0),
+                            DataType.StructType.Field.from("VERSION", DataType.Primitives.INTEGER.type(), 1),
+                            DataType.StructType.Field.from("PLAN_HASH_MODE", DataType.Primitives.STRING.type(), 2)),
+                    true);
+            final var plannerMetricsStructType = DataType.StructType.from(
+                    "PLANNER_METRICS", List.of(
+                            DataType.StructType.Field.from("TASK_COUNT", DataType.Primitives.LONG.type(), 0),
+                            DataType.StructType.Field.from("TASK_TOTAL_TIME_NS", DataType.Primitives.LONG.type(), 1),
+                            DataType.StructType.Field.from("TRANSFORM_COUNT", DataType.Primitives.LONG.type(), 2),
+                            DataType.StructType.Field.from("TRANSFORM_TIME_NS", DataType.Primitives.LONG.type(), 3),
+                            DataType.StructType.Field.from("TRANSFORM_YIELD_COUNT", DataType.Primitives.LONG.type(), 4),
+                            DataType.StructType.Field.from("INSERT_TIME_NS", DataType.Primitives.LONG.type(), 5),
+                            DataType.StructType.Field.from("INSERT_NEW_COUNT", DataType.Primitives.LONG.type(), 6),
+                            DataType.StructType.Field.from("INSERT_REUSED_COUNT", DataType.Primitives.LONG.type(), 7)),
+                    true);
+            final var explainStructType = DataType.StructType.from(
+                    "EXPLAIN", List.of(
+                            DataType.StructType.Field.from("PLAN", DataType.Primitives.STRING.type(), 0),
+                            DataType.StructType.Field.from("PLAN_HASH", DataType.Primitives.INTEGER.type(), 1),
+                            DataType.StructType.Field.from("PLAN_DOT", DataType.Primitives.STRING.type(), 2),
+                            DataType.StructType.Field.from("PLAN_GML", DataType.Primitives.STRING.type(), 3),
+                            DataType.StructType.Field.from("PLAN_CONTINUATION", continuationStructType, 4),
+                            DataType.StructType.Field.from("PLANNER_METRICS", plannerMetricsStructType, 5)),
+                    true);
+
             final Struct continuationInfo = ContinuationImpl.BEGIN.equals(parsedContinuation) ? null :
                                             new ImmutableRowStruct(new ArrayRow(
                             parsedContinuation.getExecutionState(),
                             parsedContinuation.getVersion(),
                             parsedContinuation.getCompiledStatement() == null ? null : parsedContinuation.getCompiledStatement().getPlanSerializationMode()
-                    ), continuationMetadata);
+                    ), RelationalStructMetaData.of(continuationStructType));
 
             final Struct plannerMetrics;
             if (plannerStatsMaps == null) {
@@ -331,11 +332,11 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                                 insertIntoMemoStats.map(s -> s.getCount(Debugger.Location.REUSED)).orElse(0L),
                                 parsedContinuation.getVersion(),
                                 parsedContinuation.getCompiledStatement() == null ? null : parsedContinuation.getCompiledStatement().getPlanSerializationMode()
-                        ), plannerMetricsMetadata);
+                        ), RelationalStructMetaData.of(plannerMetricsStructType));
             }
 
             final var plannerGraph = Objects.requireNonNull(recordQueryPlan.acceptPropertyVisitor(PlannerGraphProperty.forExplain()));
-            return new IteratorResultSet(metaData, Collections.singleton(new ArrayRow(
+            return new IteratorResultSet(RelationalStructMetaData.of(explainStructType), Collections.singleton(new ArrayRow(
                     explain(),
                     planHashSupplier.get(),
                     PlannerGraphProperty.exportToDot(plannerGraph),
@@ -370,10 +371,10 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                             parsedContinuation.getExecutionState(),
                             executeProperties));
             final var currentPlanHashMode = getCurrentPlanHashMode(options);
-            final var metaData = SqlTypeSupport.typeToMetaData(type);
+            final var dataType = (DataType.StructType) DataTypeUtils.toRelationalType(type);
             return executionContext.metricCollector.clock(RelationalMetric.RelationalEvent.CREATE_RESULT_SET_ITERATOR, () -> {
                 final ResumableIterator<Row> iterator = RecordLayerIterator.create(cursor, messageFDBQueriedRecord -> new MessageTuple(messageFDBQueriedRecord.getMessage()));
-                return new RecordLayerResultSet(metaData, iterator, connection,
+                return new RecordLayerResultSet(RelationalStructMetaData.of(dataType), iterator, connection,
                         (continuation, reason) -> enrichContinuation(continuation, fdbRecordStore.getRecordMetaData(),
                                 currentPlanHashMode, reason, getContinuationsContainsCompiledStatements(options)));
             });

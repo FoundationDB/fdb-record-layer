@@ -21,12 +21,10 @@
 package com.apple.foundationdb.relational.utils;
 
 import com.apple.foundationdb.annotation.API;
-
-import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
-import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStruct;
-
+import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
+import com.apple.foundationdb.relational.api.StructMetaData;
 import com.google.protobuf.Descriptors;
 import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.Assertions;
@@ -415,8 +413,13 @@ public class RelationalStructAssert extends AbstractAssert<RelationalStructAsser
                         assertions.assertThat(actual.getBytes(i)).containsExactly(expected.getBytes(i));
                         break;
                     default:
-                        assertions.assertThat(actual.getObject(i)).isEqualTo(expected.getObject(i));
-
+                        final var actualValue = actual.getObject(i);
+                        if (actualSqlType == Types.OTHER) {
+                            // maybe an ENUM value or a UUID
+                            assertions.assertThat(actualValue.toString()).isEqualTo(expected.getObject(i).toString());
+                        } else {
+                            assertions.assertThat(actual.getObject(i)).isEqualTo(expected.getObject(i));
+                        }
                 }
             }
         } catch (SQLException se) {

@@ -58,7 +58,6 @@ import java.sql.Array;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Types;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -233,51 +232,35 @@ public class FRL implements AutoCloseable {
         }
     }
 
-    private static void addPreparedStatementParameter(RelationalPreparedStatement relationalPreparedStatement,
-                                                      Parameter parameter, int index) throws SQLException {
-        int type = parameter.getJavaSqlTypesCode();
-        switch (type) {
-            case Types.VARCHAR:
-                relationalPreparedStatement.setString(index, parameter.getParameter().getString());
-                break;
-            case Types.BIGINT:
-                relationalPreparedStatement.setLong(index, parameter.getParameter().getLong());
-                break;
-            case Types.INTEGER:
-                relationalPreparedStatement.setInt(index, parameter.getParameter().getInteger());
-                break;
-            case Types.FLOAT:
-                relationalPreparedStatement.setFloat(index, parameter.getParameter().getFloat());
-                break;
-            case Types.DOUBLE:
-                relationalPreparedStatement.setDouble(index, parameter.getParameter().getDouble());
-                break;
-            case Types.BOOLEAN:
-                relationalPreparedStatement.setBoolean(index, parameter.getParameter().getBoolean());
-                break;
-            case Types.BINARY:
-                relationalPreparedStatement.setBytes(index, parameter.getParameter().getBinary().toByteArray());
-                break;
-            case Types.NULL:
-                relationalPreparedStatement.setNull(index, parameter.getParameter().getNullType());
-                break;
-            case Types.OTHER:
-                if (parameter.getParameter().hasUuid()) {
-                    final var uuidParameter = parameter.getParameter().getUuid();
-                    relationalPreparedStatement.setUUID(index, new UUID(uuidParameter.getMostSignificantBits(), uuidParameter.getLeastSignificantBits()));
-                } else {
-                    throw new SQLException("Unsupported type OTHER");
-                }
-                break;
-            case Types.ARRAY:
-                final com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array arrayProto = parameter.getParameter().getArray();
-                final Array relationalArray = relationalPreparedStatement.getConnection().createArrayOf(
-                        SqlTypeNamesSupport.getSqlTypeName(arrayProto.getElementType()),
-                        TypeConversion.fromArray(arrayProto));
-                relationalPreparedStatement.setArray(index, relationalArray);
-                break;
-            default:
-                throw new SQLException("Unsupported type " + type);
+    private static void addPreparedStatementParameter(@Nonnull RelationalPreparedStatement relationalPreparedStatement,
+                                                      @Nonnull Parameter parameter, int index) throws SQLException {
+        final var oneOfValue = parameter.getParameter();
+        if (oneOfValue.hasString()) {
+            relationalPreparedStatement.setString(index, oneOfValue.getString());
+        } else if (oneOfValue.hasLong()) {
+            relationalPreparedStatement.setLong(index, oneOfValue.getLong());
+        } else if (oneOfValue.hasInteger()) {
+            relationalPreparedStatement.setInt(index, oneOfValue.getInteger());
+        } else if (oneOfValue.hasFloat()) {
+            relationalPreparedStatement.setFloat(index, oneOfValue.getFloat());
+        } else if (oneOfValue.hasDouble()) {
+            relationalPreparedStatement.setDouble(index, oneOfValue.getDouble());
+        } else if (oneOfValue.hasBoolean()) {
+            relationalPreparedStatement.setBoolean(index, oneOfValue.getBoolean());
+        } else if (oneOfValue.hasBinary()) {
+            relationalPreparedStatement.setBytes(index, oneOfValue.getBinary().toByteArray());
+        } else if (oneOfValue.hasNullType()) {
+            relationalPreparedStatement.setNull(index, oneOfValue.getNullType());
+        } else if (oneOfValue.hasUuid()) {
+            relationalPreparedStatement.setUUID(index, new UUID(oneOfValue.getUuid().getMostSignificantBits(), oneOfValue.getUuid().getLeastSignificantBits()));
+        } else if (oneOfValue.hasArray()) {
+            final com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array arrayProto = parameter.getParameter().getArray();
+            final Array relationalArray = relationalPreparedStatement.getConnection().createArrayOf(
+                    SqlTypeNamesSupport.getSqlTypeName(arrayProto.getElementType()),
+                    TypeConversion.fromArray(arrayProto));
+            relationalPreparedStatement.setArray(index, relationalArray);
+        } else {
+            throw new SQLException("Unsupported value: " + parameter.getParameter());
         }
     }
 

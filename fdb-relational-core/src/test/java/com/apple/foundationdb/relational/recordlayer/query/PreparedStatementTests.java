@@ -859,7 +859,7 @@ public class PreparedStatementTests {
             // IN list parameter is an array of structs, but constituent is not a struct.
             try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE (rest_no, name) in ?")) {
                 RelationalAssertions.assertThrowsSqlException(() -> ps.setArray(1, ddl.getConnection().createArrayOf("STRUCT", new Object[]{100L})))
-                        .hasMessage("Element of the array of struct is not of struct type!")
+                        .hasMessage("Element of the array is expected to be of type STRUCT")
                         .hasErrorCode(ErrorCode.DATATYPE_MISMATCH);
             }
 

@@ -20,18 +20,15 @@
 
 package com.apple.foundationdb.relational.api;
 
-import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
-import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
+import java.util.UUID;
 
 public interface EmbeddedRelationalStruct extends RelationalStruct {
 
@@ -41,95 +38,87 @@ public interface EmbeddedRelationalStruct extends RelationalStruct {
 
     class Builder implements RelationalStructBuilder {
 
-        final List<FieldDescription> fields = new ArrayList<>();
+        final List<DataType.StructType.Field> fields = new ArrayList<>();
 
         final List<Object> elements = new ArrayList<>();
 
         @Override
         public EmbeddedRelationalStruct build() {
-            return new ImmutableRowStruct(new ArrayRow(elements.toArray()), new RelationalStructMetaData(fields.toArray(new FieldDescription[0])));
+            // Ideally, the name of the struct should be something that the user can specify, however, this actually
+            // interferes with the DDL-defined types. Hence, making this random is the way to enforce coercion
+            // between the two - rather than confusing the downstream planner.
+            final var name = "ANONYMOUS_STRUCT_" + UUID.randomUUID().toString().replace("-", "_");
+            final var type = DataType.StructType.from(name, fields, false);
+            return new ImmutableRowStruct(new ArrayRow(elements.toArray()), RelationalStructMetaData.of(type));
         }
 
         @Override
-        public Builder addBoolean(String fieldName, boolean b) throws SQLException {
-            return addPrimitive(fieldName, Types.BOOLEAN, b);
-        }
-
-        @Override
-        public Builder addShort(String fieldName, short b) throws SQLException {
-            return addPrimitive(fieldName, Types.SMALLINT, b);
+        public Builder addBoolean(String fieldName, boolean b) {
+            return addField(fieldName, DataType.Primitives.BOOLEAN.type(), b);
         }
 
         @Override
         public Builder addLong(String fieldName, long l) throws SQLException {
-            return addPrimitive(fieldName, Types.BIGINT, l);
+            return addField(fieldName, DataType.Primitives.LONG.type(), l);
         }
 
         @Override
-        public Builder addFloat(String fieldName, float f) throws SQLException {
-            return addPrimitive(fieldName, Types.FLOAT, f);
+        public Builder addFloat(String fieldName, float f) {
+            return addField(fieldName, DataType.Primitives.FLOAT.type(), f);
         }
 
         @Override
-        public Builder addDouble(String fieldName, double d) throws SQLException {
-            return addPrimitive(fieldName, Types.DOUBLE, d);
+        public Builder addDouble(String fieldName, double d) {
+            return addField(fieldName, DataType.Primitives.DOUBLE.type(), d);
         }
 
         @Override
-        public Builder addBytes(String fieldName, byte[] bytes) throws SQLException {
-            return addPrimitive(fieldName, Types.BINARY, bytes);
+        public Builder addBytes(String fieldName, byte[] bytes) {
+            return addField(fieldName, DataType.Primitives.BYTES.type(), bytes);
         }
 
         @Override
-        public Builder addString(String fieldName, @Nullable String s) throws SQLException {
-            return addPrimitive(fieldName, Types.VARCHAR, s);
+        public Builder addString(String fieldName, @Nullable String s) {
+            return addField(fieldName, DataType.Primitives.STRING.type(), s);
         }
 
         @Override
-        public RelationalStructBuilder addObject(String fieldName, @Nullable Object obj, int targetSqlType) throws SQLException {
-            if (targetSqlType == Types.STRUCT) {
-                if (!(obj instanceof RelationalStruct)) {
-                    throw new RelationalException(String.format(Locale.ROOT, "Expected object to be of type:STRUCT, but found type:%s",
-                                    obj == null ? "<NULL>" : SqlTypeNamesSupport.getSqlTypeName(SqlTypeSupport.getSqlTypeCodeFromObject(obj))),
-                            ErrorCode.DATATYPE_MISMATCH).toSqlException();
-                }
+        public Builder addUuid(String fieldName, @Nullable UUID uuid) {
+            return addField(fieldName, DataType.Primitives.UUID.type(), uuid);
+        }
+
+        @Override
+        public RelationalStructBuilder addObject(String fieldName, @Nullable Object obj) throws SQLException {
+            if (obj instanceof RelationalStruct) {
                 return addStruct(fieldName, (RelationalStruct) obj);
             }
-            if (targetSqlType == Types.ARRAY) {
-                if (!(obj instanceof RelationalArray)) {
-                    throw new RelationalException(String.format(Locale.ROOT, "Expected object to be of type:ARRAY, but found type:%s",
-                                    obj == null ? "<NULL>" : SqlTypeNamesSupport.getSqlTypeName(SqlTypeSupport.getSqlTypeCodeFromObject(obj))),
-                            ErrorCode.DATATYPE_MISMATCH).toSqlException();
-                }
+            if (obj instanceof RelationalArray) {
                 return addArray(fieldName, (RelationalArray) obj);
             }
-            return addPrimitive(fieldName, targetSqlType, obj);
+            return addField(fieldName, DataType.getDataTypeFromObject(obj), obj);
         }
 
         @Override
         public Builder addStruct(String fieldName, @Nonnull RelationalStruct struct) throws SQLException {
-            fields.add(FieldDescription.struct(fieldName, DatabaseMetaData.columnNoNulls, struct.getMetaData()));
-            elements.add(struct);
+            addField(fieldName, struct.getMetaData().getRelationalDataType(), struct);
             return this;
         }
 
         @Override
         public Builder addArray(String fieldName, @Nonnull RelationalArray array) throws SQLException {
-            fields.add(FieldDescription.array(fieldName, DatabaseMetaData.columnNoNulls, array.getMetaData()));
-            elements.add(array);
+            addField(fieldName, array.getMetaData().asRelationalType(), array);
             return this;
         }
 
         @Override
-        public Builder addInt(String fieldName, int i) throws SQLException {
-            return addPrimitive(fieldName, Types.INTEGER, i);
+        public Builder addInt(String fieldName, int i) {
+            return addField(fieldName, DataType.Primitives.INTEGER.type(), i);
         }
 
-        private Builder addPrimitive(@Nonnull String fieldName, int sqlType, @Nullable Object o) {
-            fields.add(FieldDescription.primitive(fieldName, sqlType, DatabaseMetaData.columnNoNulls));
+        private Builder addField(@Nonnull String fieldName, @Nonnull DataType type, @Nullable Object o) {
+            fields.add(DataType.StructType.Field.from(fieldName, type, fields.size() + 1));
             elements.add(o);
             return this;
         }
     }
-
 }

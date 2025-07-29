@@ -28,6 +28,10 @@ schema_template:
     create table tc(a bigint, b uuid, c bigint, primary key(a, b))
     create index tc1 as select b, c from tc order by b
     create index tc2 as select b, c from tc order by b, c
+
+    create type as struct s1(a bigint, b uuid)
+    create table td(a bigint, b s1, primary key(a))
+    create table te(a bigint, b uuid, primary key(a))
 ---
 setup:
   steps:
@@ -55,7 +59,20 @@ setup:
                (6, '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6', 1)
 ---
 test_block:
+  supported_version: !current_version
+  name: insertion-tests
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: INSERT INTO TE VALUES (1, !! !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682' !!), (2, !! !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df' !!)
+      - count: 2
+    -
+      - query: INSERT INTO TD VALUES (1, (2, !! !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682' !!)), (2, (3, !! !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df' !!))
+      - count: 2
+---
+test_block:
   name: uuid-as-a-field-tests
+  preset: single_repetition_ordered
   tests:
     -
       - query: select * from ta
@@ -107,6 +124,7 @@ test_block:
 ---
 test_block:
   name: uuid-as-a-field-tests_uuid_parameter_as_string
+  preset: single_repetition_ordered
   tests:
     -
       - query: select * from ta where b > !! '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!

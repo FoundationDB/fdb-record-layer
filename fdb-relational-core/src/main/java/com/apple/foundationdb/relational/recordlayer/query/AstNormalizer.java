@@ -21,13 +21,11 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -35,10 +33,10 @@ import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserBaseVisitor;
+import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.hash.Hasher;
@@ -509,8 +507,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             for (int i = 0; i < attributes.length; i++) {
                 processParameterValue(attributes[i], unnamedParameterIndex, parameterName, i);
             }
-            final var resolvedType = SqlTypeSupport.structMetadataToRecordType(((RelationalStruct) param).getMetaData(), false);
-            context.finishStructLiteral(resolvedType, unnamedParameterIndex, parameterName, tokenIndex);
+            final var resolvedType = DataTypeUtils.toRecordLayerType(((RelationalStruct) param).getMetaData().getRelationalDataType());
+            context.finishStructLiteral((Type.Record) resolvedType, unnamedParameterIndex, parameterName, tokenIndex);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }

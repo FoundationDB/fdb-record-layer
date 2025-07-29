@@ -22,12 +22,14 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.TupleFieldsProto;
+import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
-import com.google.protobuf.MessageOrBuilder;
 
-import java.util.UUID;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
 public class MessageTuple extends AbstractRow {
@@ -48,19 +50,29 @@ public class MessageTuple extends AbstractRow {
             throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
         }
         Descriptors.FieldDescriptor fieldDescriptor = message.getDescriptorForType().getFields().get(position);
-        if (fieldDescriptor.isRepeated() || message.hasField(fieldDescriptor)) {
+        if (fieldDescriptor.isRepeated()) {
+            final var list = (List<?>) message.getField(message.getDescriptorForType().getFields().get(position));
+            return list.stream().map(MessageTuple::sanitizeField).collect(Collectors.toList());
+        }
+        if (message.hasField(fieldDescriptor)) {
             final var field = message.getField(message.getDescriptorForType().getFields().get(position));
-            if (fieldDescriptor.getType() == Descriptors.FieldDescriptor.Type.ENUM) {
-                return ((Descriptors.EnumValueDescriptor) field).getName();
-            } else if (fieldDescriptor.getType() == Descriptors.FieldDescriptor.Type.MESSAGE && fieldDescriptor.getMessageType().equals(TupleFieldsProto.UUID.getDescriptor())) {
-                final var dynamicMsg = (MessageOrBuilder) field;
-                return new UUID((Long) dynamicMsg.getField(dynamicMsg.getDescriptorForType().findFieldByName("most_significant_bits")),
-                        (Long) dynamicMsg.getField(dynamicMsg.getDescriptorForType().findFieldByName("least_significant_bits")));
-            }
-            return field;
+            return sanitizeField(field);
         } else {
             return null;
         }
+    }
+
+    public static Object sanitizeField(final Object field) {
+        if (field instanceof Message && ((Message) field).getDescriptorForType().equals(TupleFieldsProto.UUID.getDescriptor())) {
+            return TupleFieldsHelper.fromProto((Message) field, TupleFieldsProto.UUID.getDescriptor());
+        }
+        if (field instanceof Descriptors.EnumValueDescriptor) {
+            return ((Descriptors.EnumValueDescriptor) field).getName();
+        }
+        if (field instanceof ByteString) {
+            return ((ByteString) field).toByteArray();
+        }
+        return field;
     }
 
     @SuppressWarnings("unchecked")
