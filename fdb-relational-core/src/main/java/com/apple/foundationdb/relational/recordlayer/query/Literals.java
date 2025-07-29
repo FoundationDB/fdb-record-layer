@@ -36,6 +36,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -56,11 +57,13 @@ public class Literals {
 
     private Literals(@Nonnull final List<OrderedLiteral> orderedLiterals) {
         this.orderedLiterals = ImmutableList.copyOf(orderedLiterals);
+        // Using unmodifiableMap because it allows null values, which are valid here
+        // and represent either null constants or null prepared parameters in queries.
         this.asMapSupplier = Suppliers.memoize(() ->
                 Collections.unmodifiableMap(
                         this.orderedLiterals
                                 .stream()
-                                .collect(HashMap::new, (m, v) -> m.put(v.getConstantId(), v.getLiteralObject()), HashMap::putAll)));
+                                .collect(LinkedHashMap::new, (m, v) -> m.put(v.getConstantId(), v.getLiteralObject()), LinkedHashMap::putAll)));
     }
 
     @Nonnull
