@@ -360,6 +360,17 @@ public class QueryLoggingTest {
     }
 
     @Test
+    void testLogQueryLogsPlanningDurations() throws Exception {
+        try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RESTAURANT where rest_no = 34 OPTIONS (LOG QUERY)")) {
+            resultSet.next();
+        }
+        Assertions.assertThat(logAppender.getLastLogEventMessage()).containsPattern("plannerRewritingPhaseTimeMicros=\"\\d+\"");
+        Assertions.assertThat(logAppender.getLastLogEventMessage()).containsPattern("plannerPlanningPhaseTimeMicros=\"\\d+\"");
+        Assertions.assertThat(logAppender.getLastLogEventMessage()).containsPattern("totalPlanTimeMicros=\"\\d+\"");
+
+    }
+
+    @Test
     void testLogException() {
         Assert.assertThrows(Exception.class, () -> statement.executeQuery("SELECT * FROM REST where rest_no = 0 OPTIONS (LOG QUERY)"));
         final var thrown = logAppender.getLastLogEvent().getThrown();

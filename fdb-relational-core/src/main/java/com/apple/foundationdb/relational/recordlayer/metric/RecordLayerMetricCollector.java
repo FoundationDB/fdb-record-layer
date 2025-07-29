@@ -31,8 +31,6 @@ import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.Supplier;
 
-import com.google.common.annotations.VisibleForTesting;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
@@ -98,12 +96,12 @@ public class RecordLayerMetricCollector implements MetricCollector {
 
     @Nullable
     private StoreTimer.Counter getCounter(@Nonnull RelationalMetric.RelationalCount count) {
-        return getUnderlyingStoreTimer().getCounter(count);
+        return Objects.requireNonNull(getRecordLayerStoreTimer()).getCounter(count);
     }
 
-    @Nonnull
-    @VisibleForTesting
-    public StoreTimer getUnderlyingStoreTimer() {
-        return Objects.requireNonNull(context.getTimer());
+    @Override
+    @Nullable
+    public StoreTimer getRecordLayerStoreTimer() {
+        return context.getTimer();
     }
 }
