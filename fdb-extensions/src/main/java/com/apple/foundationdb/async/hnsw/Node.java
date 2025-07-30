@@ -25,21 +25,25 @@ import com.christianheina.langx.half4j.Half;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 
 /**
  * TODO.
- * @param <R> neighbor type
+ * @param <N> neighbor type
  */
-public interface Node<R extends NodeReference> {
+public interface Node<N extends NodeReference> {
     @Nonnull
     Tuple getPrimaryKey();
 
     @Nonnull
-    List<R> getNeighbors();
+    N getSelfReference(@Nullable final Vector<Half> vector);
 
     @Nonnull
-    R getNeighbor(int index);
+    List<N> getNeighbors();
+
+    @Nonnull
+    N getNeighbor(int index);
 
     /**
      * Return the kind of the node, i.e. {@link NodeKind#COMPACT} or {@link NodeKind#INLINING}.
@@ -54,7 +58,7 @@ public interface Node<R extends NodeReference> {
     @Nonnull
     InliningNode asInliningNode();
 
-    NodeFactory<R> sameCreator();
+    NodeFactory<N> sameCreator();
 
     @Nonnull
     Tuple toTuple();
