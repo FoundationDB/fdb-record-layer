@@ -23,6 +23,8 @@ package com.apple.foundationdb.async;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.util.LoggableException;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import javax.annotation.Nonnull;
@@ -33,6 +35,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -1055,7 +1058,7 @@ public class MoreAsyncUtil {
         return result;
     }
 
-    public static CompletableFuture<Void> forLoop(int startI, @Nonnull final IntPredicate conditionPredicate,
+    public static CompletableFuture<Void> forLoop(final int startI, @Nonnull final IntPredicate conditionPredicate,
                                                   @Nonnull final IntUnaryOperator stepFunction,
                                                   @Nonnull final IntFunction<CompletableFuture<Void>> body,
                                                   @Nonnull final Executor executor) {
@@ -1071,6 +1074,51 @@ public class MoreAsyncUtil {
                         return true;
                     });
         }, executor);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T, U> CompletableFuture<List<U>> forEach(@Nonnull final Iterable<T> items,
+                                                            @Nonnull final Function<T, CompletableFuture<U>> body,
+                                                            final int parallelism,
+                                                            @Nonnull final Executor executor) {
+        // this deque is only modified by once upon creation
+        final ArrayDeque<T> toBeProcessed = new ArrayDeque<>();
+        for (final T item : items) {
+            toBeProcessed.addLast(item);
+        }
+
+        final List<CompletableFuture<Void>> working = Lists.newArrayList();
+        final AtomicInteger indexAtomic = new AtomicInteger(0);
+        final Object[] resultArray = new Object[toBeProcessed.size()];
+
+        return AsyncUtil.whileTrue(() -> {
+            working.removeIf(CompletableFuture::isDone);
+
+            while (working.size() <= parallelism) {
+                final T currentItem = toBeProcessed.pollFirst();
+                if (currentItem == null) {
+                    break;
+                }
+
+                final int index = indexAtomic.getAndIncrement();
+                working.add(body.apply(currentItem)
+                        .thenAccept(resultNode -> {
+                            Objects.requireNonNull(resultNode);
+                            resultArray[index] = resultNode;
+                        }));
+            }
+
+            if (working.isEmpty()) {
+                return AsyncUtil.READY_FALSE;
+            }
+            return AsyncUtil.whenAny(working).thenApply(ignored -> true);
+        }, executor).thenApply(ignored -> {
+            final ImmutableList.Builder<U> resultBuilder = ImmutableList.builder();
+            for (final Object o : resultArray) {
+                resultBuilder.add((U)o);
+            }
+            return resultBuilder.build();
+        });
     }
 
     /**

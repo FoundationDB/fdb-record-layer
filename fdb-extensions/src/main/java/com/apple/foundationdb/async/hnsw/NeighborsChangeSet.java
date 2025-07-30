@@ -1,9 +1,9 @@
 /*
- * NodeFactory.java
+ * InliningNode.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2023 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,18 +20,20 @@
 
 package com.apple.foundationdb.async.hnsw;
 
-import com.apple.foundationdb.tuple.Tuple;
-import com.christianheina.langx.half4j.Half;
+import com.apple.foundationdb.Transaction;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.List;
 
-public interface NodeFactory<N extends NodeReference> {
-    @Nonnull
-    Node<N> create(@Nonnull Tuple primaryKey, @Nullable Vector<Half> vector,
-                   @Nonnull List<? extends NodeReference> neighbors);
+/**
+ * TODO.
+ */
+interface NeighborsChangeSet<N extends NodeReference> {
+    @Nullable
+    NeighborsChangeSet<N> getParent();
 
     @Nonnull
-    NodeKind getNodeKind();
+    Iterable<N> merge();
+
+    void writeDelta(@Nonnull final Transaction transaction);
 }

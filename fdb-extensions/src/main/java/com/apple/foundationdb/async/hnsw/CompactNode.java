@@ -22,7 +22,6 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.tuple.Tuple;
 import com.christianheina.langx.half4j.Half;
-import com.google.common.base.Verify;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
@@ -39,8 +38,8 @@ public class CompactNode extends AbstractNode<NodeReference> {
         @SuppressWarnings("unchecked")
         @Nonnull
         @Override
-        public Node<NodeReference> create(@Nonnull final NodeKind nodeKind, @Nonnull final Tuple primaryKey, @Nullable final Vector<Half> vector, @Nonnull final List<? extends NodeReference> neighbors) {
-            Verify.verify(nodeKind == NodeKind.COMPACT);
+        public Node<NodeReference> create(@Nonnull final Tuple primaryKey, @Nullable final Vector<Half> vector,
+                                          @Nonnull final List<? extends NodeReference> neighbors) {
             return new CompactNode(primaryKey, Objects.requireNonNull(vector), (List<NodeReference>)neighbors);
         }
 
@@ -58,6 +57,12 @@ public class CompactNode extends AbstractNode<NodeReference> {
                        @Nonnull final List<NodeReference> nodeReferences) {
         super(primaryKey, nodeReferences);
         this.vector = vector;
+    }
+
+    @Nonnull
+    @Override
+    public NodeReference getSelfReference(@Nullable final Vector<Half> vector) {
+        return new NodeReference(getPrimaryKey());
     }
 
     @Nonnull

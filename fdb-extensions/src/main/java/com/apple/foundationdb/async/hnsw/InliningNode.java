@@ -22,12 +22,12 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.tuple.Tuple;
 import com.christianheina.langx.half4j.Half;
-import com.google.common.base.Verify;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * TODO.
@@ -38,9 +38,8 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
         @SuppressWarnings("unchecked")
         @Nonnull
         @Override
-        public Node<NodeReferenceWithVector> create(@Nonnull final NodeKind nodeKind, @Nonnull final Tuple primaryKey,
+        public Node<NodeReferenceWithVector> create(@Nonnull final Tuple primaryKey,
                                                     @Nullable final Vector<Half> vector, @Nonnull final List<? extends NodeReference> neighbors) {
-            Verify.verify(nodeKind == NodeKind.INLINING);
             return new InliningNode(primaryKey, (List<NodeReferenceWithVector>)neighbors);
         }
 
@@ -54,6 +53,12 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
     public InliningNode(@Nonnull final Tuple primaryKey,
                         @Nonnull final List<NodeReferenceWithVector> neighbors) {
         super(primaryKey, neighbors);
+    }
+
+    @Nonnull
+    @Override
+    public NodeReferenceWithVector getSelfReference(@Nullable final Vector<Half> vector) {
+        return new NodeReferenceWithVector(getPrimaryKey(), Objects.requireNonNull(vector));
     }
 
     @Nonnull

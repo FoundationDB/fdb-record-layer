@@ -25,13 +25,13 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 import java.util.List;
 
-public class NodeReferenceAndNode<R extends NodeReference> {
+public class NodeReferenceAndNode<N extends NodeReference> {
     @Nonnull
     private final NodeReferenceWithDistance nodeReferenceWithDistance;
     @Nonnull
-    private final Node<R> node;
+    private final Node<N> node;
 
-    public NodeReferenceAndNode(@Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance, @Nonnull final Node<R> node) {
+    public NodeReferenceAndNode(@Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance, @Nonnull final Node<N> node) {
         this.nodeReferenceWithDistance = nodeReferenceWithDistance;
         this.node = node;
     }
@@ -42,14 +42,14 @@ public class NodeReferenceAndNode<R extends NodeReference> {
     }
 
     @Nonnull
-    public Node<R> getNode() {
+    public Node<N> getNode() {
         return node;
     }
 
     @Nonnull
-    public static <N extends NodeReference> List<NodeReferenceWithDistance> getReferences(@Nonnull List<NodeReferenceAndNode<N>> referencesAndNodes) {
+    public static List<NodeReferenceWithDistance> getReferences(@Nonnull List<? extends NodeReferenceAndNode<?>> referencesAndNodes) {
         final ImmutableList.Builder<NodeReferenceWithDistance> referencesBuilder = ImmutableList.builder();
-        for (final NodeReferenceAndNode<R> referenceWithNode : referencesAndNodes) {
+        for (final NodeReferenceAndNode<?> referenceWithNode : referencesAndNodes) {
             referencesBuilder.add(referenceWithNode.getNodeReferenceWithDistance());
         }
         return referencesBuilder.build();

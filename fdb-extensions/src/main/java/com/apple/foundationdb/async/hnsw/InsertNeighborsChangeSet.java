@@ -1,5 +1,5 @@
 /*
- * AbstractNode.java
+ * InliningNode.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,44 +20,41 @@
 
 package com.apple.foundationdb.async.hnsw;
 
-import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.Transaction;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
  * TODO.
- * @param <N> node type class.
  */
-abstract class AbstractNode<N extends NodeReference> implements Node<N> {
+class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChangeSet<N> {
     @Nonnull
-    private final Tuple primaryKey;
+    private final NeighborsChangeSet<N> parent;
 
     @Nonnull
-    private final List<N> neighbors;
+    private final List<N> insertedNeighbors;
 
-    protected AbstractNode(@Nonnull final Tuple primaryKey,
-                           @Nonnull final List<N> neighbors) {
-        this.primaryKey = primaryKey;
-        this.neighbors = ImmutableList.copyOf(neighbors);
+    public InsertNeighborsChangeSet(@Nonnull final NeighborsChangeSet<N> parent,
+                                    @Nonnull final List<N> insertedNeighbors) {
+        this.parent = parent;
+        this.insertedNeighbors = ImmutableList.copyOf(insertedNeighbors);
     }
 
     @Nonnull
-    @Override
-    public Tuple getPrimaryKey() {
-        return primaryKey;
+    public NeighborsChangeSet<N> getParent() {
+        return parent;
     }
 
     @Nonnull
-    @Override
-    public List<N> getNeighbors() {
-        return neighbors;
+    public Iterable<N> merge() {
+        return Iterables.concat(getParent().merge(), insertedNeighbors);
     }
 
-    @Nonnull
     @Override
-    public N getNeighbor(final int index) {
-        return neighbors.get(index);
+    public void writeDelta(@Nonnull final Transaction transaction) {
+        throw new UnsupportedOperationException("not implemented yet");
     }
 }
