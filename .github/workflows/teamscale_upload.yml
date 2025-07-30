@@ -48,8 +48,8 @@ jobs:
         # create a new instance and use that
         with: # https://github.com/cqse/teamscale-upload/releases/tag/v2.9.6
           script: |
-            import { Octokit } from "octokit";
-            const unauthenticated = new Octokit({ });
+            const octokit = require('octokit')
+            const unauthenticated = new octokit.Octokit({ });
             let release = await unauthenticated.rest.repos.getReleaseByTag({
               owner: 'cqse',
               repo: 'teamscale-upload',
