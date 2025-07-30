@@ -21,20 +21,23 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.function.Predicate;
 
 /**
  * TODO.
  */
 class BaseNeighborsChangeSet<N extends NodeReference> implements NeighborsChangeSet<N> {
     @Nonnull
-    private final NodeReferenceAndNode<N> baseNode;
+    private final List<N> neighbors;
 
-    public BaseNeighborsChangeSet(@Nonnull final NodeReferenceAndNode<N> baseNode) {
-        this.baseNode = baseNode;
+    public BaseNeighborsChangeSet(@Nonnull final List<N> neighbors) {
+        this.neighbors = ImmutableList.copyOf(neighbors);
     }
 
     @Nullable
@@ -44,10 +47,13 @@ class BaseNeighborsChangeSet<N extends NodeReference> implements NeighborsChange
 
     @Nonnull
     public List<N> merge() {
-        return baseNode.getNode().getNeighbors();
+        return neighbors;
     }
 
     @Override
-    public void writeDelta(@Nonnull final Transaction transaction) {
+    public void writeDelta(@Nonnull final InliningStorageAdapter storageAdapter, @Nonnull final Transaction transaction,
+                           final int layer, @Nonnull final Node<N> node,
+                           @Nonnull final Predicate<Tuple> primaryKeyPredicate) {
+        // nothing to be written
     }
 }

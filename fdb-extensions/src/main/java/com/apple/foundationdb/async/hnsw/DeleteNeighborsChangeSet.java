@@ -28,6 +28,7 @@ import com.google.common.collect.Iterables;
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * TODO.
@@ -37,12 +38,12 @@ class DeleteNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
     private final NeighborsChangeSet<N> parent;
 
     @Nonnull
-    private final Set<Tuple> deletedNeighborsTuples;
+    private final Set<Tuple /* primary key */> deletedNeighborsPrimaryKeys;
 
     public DeleteNeighborsChangeSet(@Nonnull final NeighborsChangeSet<N> parent,
-                                    @Nonnull final Collection<Tuple> deletedNeighborsTuples) {
+                                    @Nonnull final Collection<Tuple> deletedNeighborsPrimaryKeys) {
         this.parent = parent;
-        this.deletedNeighborsTuples = ImmutableSet.copyOf(deletedNeighborsTuples);
+        this.deletedNeighborsPrimaryKeys = ImmutableSet.copyOf(deletedNeighborsPrimaryKeys);
     }
 
     @Nonnull
@@ -53,11 +54,19 @@ class DeleteNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
     @Nonnull
     public Iterable<N> merge() {
         return Iterables.filter(getParent().merge(),
-                current -> !deletedNeighborsTuples.contains(current.getPrimaryKey()));
+                current -> !deletedNeighborsPrimaryKeys.contains(current.getPrimaryKey()));
     }
 
     @Override
-    public void writeDelta(@Nonnull final Transaction transaction) {
-        throw new UnsupportedOperationException("not implemented yet");
+    public void writeDelta(@Nonnull final InliningStorageAdapter storageAdapter, @Nonnull final Transaction transaction,
+                           final int layer, @Nonnull final Node<N> node, @Nonnull final Predicate<Tuple> tuplePredicate) {
+        getParent().writeDelta(storageAdapter, transaction, layer, node,
+                tuplePredicate.and(tuple -> !deletedNeighborsPrimaryKeys.contains(tuple)));
+
+        for (final Tuple deletedNeighborPrimaryKey : deletedNeighborsPrimaryKeys) {
+            if (tuplePredicate.test(deletedNeighborPrimaryKey)) {
+                storageAdapter.deleteNeighbor(transaction, layer, node.asInliningNode(), deletedNeighborPrimaryKey);
+            }
+        }
     }
 }

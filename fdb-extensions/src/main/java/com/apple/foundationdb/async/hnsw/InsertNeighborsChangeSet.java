@@ -21,11 +21,14 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.Transaction;
-import com.google.common.collect.ImmutableList;
+import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Predicate;
 
 /**
  * TODO.
@@ -35,12 +38,17 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
     private final NeighborsChangeSet<N> parent;
 
     @Nonnull
-    private final List<N> insertedNeighbors;
+    private final Map<Tuple, N> insertedNeighborsMap;
 
     public InsertNeighborsChangeSet(@Nonnull final NeighborsChangeSet<N> parent,
                                     @Nonnull final List<N> insertedNeighbors) {
         this.parent = parent;
-        this.insertedNeighbors = ImmutableList.copyOf(insertedNeighbors);
+        final ImmutableMap.Builder<Tuple, N> insertedNeighborsMapBuilder = ImmutableMap.builder();
+        for (final N insertedNeighbor : insertedNeighbors) {
+            insertedNeighborsMapBuilder.put(insertedNeighbor.getPrimaryKey(), insertedNeighbor);
+        }
+
+        this.insertedNeighborsMap = insertedNeighborsMapBuilder.build();
     }
 
     @Nonnull
@@ -50,11 +58,21 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
 
     @Nonnull
     public Iterable<N> merge() {
-        return Iterables.concat(getParent().merge(), insertedNeighbors);
+        return Iterables.concat(getParent().merge(), insertedNeighborsMap.values());
     }
 
     @Override
-    public void writeDelta(@Nonnull final Transaction transaction) {
-        throw new UnsupportedOperationException("not implemented yet");
+    public void writeDelta(@Nonnull final InliningStorageAdapter storageAdapter, @Nonnull final Transaction transaction,
+                           final int layer, @Nonnull final Node<N> node, @Nonnull final Predicate<Tuple> tuplePredicate) {
+        getParent().writeDelta(storageAdapter, transaction, layer, node,
+                tuplePredicate.and(tuple -> !insertedNeighborsMap.containsKey(tuple)));
+
+        for (final Map.Entry<Tuple, N> entry : insertedNeighborsMap.entrySet()) {
+            final Tuple primaryKey = entry.getKey();
+            if (tuplePredicate.test(primaryKey)) {
+                storageAdapter.writeNeighbor(transaction, layer, node.asInliningNode(),
+                        entry.getValue().asNodeReferenceWithVector());
+            }
+        }
     }
 }

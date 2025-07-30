@@ -20,8 +20,9 @@
 
 package com.apple.foundationdb.async.hnsw;
 
+import com.apple.foundationdb.tuple.Tuple;
+
 import javax.annotation.Nonnull;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Function interface for a call back whenever we read the slots for a node.
@@ -30,34 +31,20 @@ public interface OnWriteListener {
     OnWriteListener NOOP = new OnWriteListener() {
     };
 
-    default void onSlotIndexEntryWritten(@Nonnull final byte[] key) {
+    default void onNodeWritten(final int layer, @Nonnull final Node<? extends NodeReference> node) {
         // nothing
     }
 
-    default void onSlotIndexEntryCleared(@Nonnull final byte[] key) {
+    default void onNeighborWritten(final int layer, @Nonnull final Node<? extends NodeReference> node, final NodeReference neighbor) {
         // nothing
     }
 
-    default <T extends Node> CompletableFuture<T> onAsyncReadForWrite(@Nonnull CompletableFuture<T> future) {
-        return future;
-    }
-
-    default void onNodeWritten(@Nonnull Node<? extends NodeReference> node) {
+    default void onNeighborDeleted(final int layer, @Nonnull final Node<? extends NodeReference> node, @Nonnull Tuple neighborPrimaryKey) {
         // nothing
     }
 
-    default void onKeyValueWritten(@Nonnull Node node,
-                                   @Nonnull byte[] key,
+    default void onKeyValueWritten(@Nonnull byte[] key,
                                    @Nonnull byte[] value) {
-        // nothing
-    }
-
-    default void onNodeCleared(@Nonnull Node node) {
-        // nothing
-    }
-
-    default void onKeyCleared(@Nonnull Node node,
-                              @Nonnull byte[] key) {
         // nothing
     }
 }

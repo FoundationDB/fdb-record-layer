@@ -20,17 +20,7 @@
 
 package com.apple.foundationdb.async.hnsw;
 
-import com.google.common.collect.Lists;
-
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Some helper methods for {@link Node}s.
@@ -56,25 +46,5 @@ public class NodeHelpers {
             hexChars[j * 2 + 1] = hexArray[v & 0x0F];
         }
         return "0x" + new String(hexChars).replaceFirst("^0+(?!$)", "");
-    }
-
-    /**
-     * Helper method to format the node ids of an insert/update path as a string.
-     * @param node a node that is usually linked up to its parents to form an insert/update path
-     * @return a {@link String} containing the string presentation of the insert/update path starting at {@code node}
-     */
-    @Nonnull
-    static String nodeIdPath(@Nullable Node node) {
-        final List<String> nodeIds = Lists.newArrayList();
-        do {
-            if (node != null) {
-                nodeIds.add(bytesToHex(node.getId()));
-                node = node.getParentNode();
-            } else {
-                nodeIds.add("<null>");
-            }
-        } while (node != null);
-        Collections.reverse(nodeIds);
-        return String.join(", ", nodeIds);
     }
 }

@@ -36,7 +36,6 @@ import java.util.concurrent.CompletableFuture;
  * Storage adapter used for serialization and deserialization of nodes.
  */
 interface StorageAdapter {
-
     /**
      * Get the {@link RTree.Config} associated with this storage adapter.
      * @return the configuration used by this storage adapter

@@ -38,16 +38,12 @@ public interface OnReadListener {
         return future;
     }
 
-    default void onNodeRead(@Nonnull Node node) {
+    default void onNodeRead(@Nonnull Node<? extends NodeReference> node) {
         // nothing
     }
 
     default void onKeyValueRead(@Nonnull byte[] key,
                                 @Nonnull byte[] value) {
-        // nothing
-    }
-
-    default void onChildNodeDiscard(@Nonnull final ChildSlot childSlot) {
         // nothing
     }
 }

@@ -22,7 +22,6 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.tuple.Tuple;
 import com.christianheina.langx.half4j.Half;
-import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -39,7 +38,8 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
         @Nonnull
         @Override
         public Node<NodeReferenceWithVector> create(@Nonnull final Tuple primaryKey,
-                                                    @Nullable final Vector<Half> vector, @Nonnull final List<? extends NodeReference> neighbors) {
+                                                    @Nullable final Vector<Half> vector,
+                                                    @Nonnull final List<? extends NodeReference> neighbors) {
             return new InliningNode(primaryKey, (List<NodeReferenceWithVector>)neighbors);
         }
 
@@ -77,25 +77,6 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
     @Override
     public InliningNode asInliningNode() {
         return this;
-    }
-
-    @Override
-    public NodeFactory<NodeReferenceWithVector> sameCreator() {
-        return InliningNode.factory();
-    }
-
-    @Nonnull
-    @Override
-    public Tuple toTuple() {
-        final List<Object> nodeItems = Lists.newArrayListWithExpectedSize(3);
-        nodeItems.add(NodeKind.INLINING.getSerialized());
-        final List<Tuple> neighborItems = Lists.newArrayListWithExpectedSize(getNeighbors().size());
-        for (final NodeReferenceWithVector nodeReference : getNeighbors()) {
-            neighborItems.add(Tuple.from(nodeReference.getPrimaryKey(),
-                    StorageAdapter.tupleFromVector(nodeReference.getVector())));
-        }
-        nodeItems.add(Tuple.fromList(neighborItems));
-        return Tuple.fromList(nodeItems);
     }
 
     @Nonnull

@@ -43,4 +43,10 @@ public class NodeReferenceWithVector extends NodeReference {
     public Vector<Double> getDoubleVector() {
         return vector.toDoubleVector();
     }
+
+    @Nonnull
+    @Override
+    public NodeReferenceWithVector asNodeReferenceWithVector() {
+        return this;
+    }
 }
