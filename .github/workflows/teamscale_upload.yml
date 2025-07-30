@@ -46,7 +46,7 @@ jobs:
         with:
           server: 'https://fdb.teamscale.io'
           project: 'foundationdb-fdb-record-layer'
-          user: 'foundationdb-fdb-record-layer'
+          user: 'fdb-record-layer-build'
           partition: 'CI Tests'
           accesskey: ${{ secrets.TEAMSCALE_ACCESS_KEY }}
           format: 'JACOCO'
