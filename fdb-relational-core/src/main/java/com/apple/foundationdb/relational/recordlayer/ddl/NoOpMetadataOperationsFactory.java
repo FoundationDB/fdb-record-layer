@@ -74,8 +74,7 @@ public final class NoOpMetadataOperationsFactory implements MetadataOperationsFa
     @Override
     public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template, boolean throwIfExists,
                                                                    @Nonnull final RecordLayerInvokedRoutine invokedRoutine,
-                                                                   @Nonnull final PreparedParams preparedParams,
-                                                                   final boolean isCaseSensitive) {
+                                                                   @Nonnull final PreparedParams preparedParams) {
         return NoOpConstantAction.INSTANCE;
     }
 

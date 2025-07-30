@@ -52,7 +52,8 @@ public interface MetadataOperationsFactory {
 
     @Nonnull
     ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull SchemaTemplate template, boolean throwIfExists, @Nonnull RecordLayerInvokedRoutine invokedRoutine,
-                                                            @Nonnull PreparedParams preparedParams, boolean isCaseSensitive);
+                                                            @Nonnull PreparedParams preparedParams);
+
     @Nonnull
     ConstantAction getDropTemporaryFunctionConstantAction(boolean throwIfNotExists, @Nonnull String temporaryFunctionName);
 }

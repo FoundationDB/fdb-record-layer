@@ -73,7 +73,7 @@ public class TransactionBoundDatabase extends AbstractDatabase {
         @Override
         public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template, final boolean throwIfExists,
                                                                        @Nonnull final RecordLayerInvokedRoutine invokedRoutine,
-                                                                       @Nonnull final PreparedParams preparedParams, boolean isCaseSensitive) {
+                                                                       @Nonnull final PreparedParams preparedParams) {
             return new CreateTemporaryFunctionConstantAction(template, throwIfExists, invokedRoutine, preparedParams);
         }
 

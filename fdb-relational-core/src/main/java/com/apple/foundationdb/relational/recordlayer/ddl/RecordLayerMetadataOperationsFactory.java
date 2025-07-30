@@ -95,8 +95,7 @@ public class RecordLayerMetadataOperationsFactory implements MetadataOperationsF
     public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull SchemaTemplate template,
                                                                    boolean throwIfExists,
                                                                    @Nonnull RecordLayerInvokedRoutine invokedRoutine,
-                                                                   @Nonnull PreparedParams preparedParams,
-                                                                   boolean isCaseSensitive) {
+                                                                   @Nonnull PreparedParams preparedParams) {
         return new CreateTemporaryFunctionConstantAction(template, throwIfExists, invokedRoutine, preparedParams);
     }
 
