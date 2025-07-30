@@ -97,7 +97,7 @@ public class RecordLayerMetadataOperationsFactory implements MetadataOperationsF
                                                                    @Nonnull RecordLayerInvokedRoutine invokedRoutine,
                                                                    @Nonnull PreparedParams preparedParams,
                                                                    boolean isCaseSensitive) {
-        return new CreateTemporaryFunctionConstantAction(template, throwIfExists, invokedRoutine, preparedParams, isCaseSensitive);
+        return new CreateTemporaryFunctionConstantAction(template, throwIfExists, invokedRoutine, preparedParams);
     }
 
     public static class Builder {

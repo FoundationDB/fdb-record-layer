@@ -59,13 +59,8 @@ public class RecordMetadataDeserializer {
     @Nonnull
     private final RecordLayerSchemaTemplate.Builder builder;
 
-    @Nonnull
-    private final Options options;
-
-    public RecordMetadataDeserializer(@Nonnull final RecordMetaData recordMetaData,
-                                      @Nonnull final Options options) {
+    public RecordMetadataDeserializer(@Nonnull final RecordMetaData recordMetaData) {
         this.recordMetaData = recordMetaData;
-        this.options = options;
         builder = deserializeRecordMetaData();
     }
 

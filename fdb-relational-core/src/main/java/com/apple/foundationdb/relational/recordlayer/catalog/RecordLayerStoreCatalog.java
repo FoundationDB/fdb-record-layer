@@ -243,7 +243,7 @@ class RecordLayerStoreCatalog implements StoreCatalog {
         // a read-modify-write loop, done in 1 transaction
         final RecordLayerSchema schema = loadSchema(txn, URI.create(databaseId), schemaName);
         // load latest schema template
-        final SchemaTemplate template = schemaTemplateCatalog.loadSchemaTemplate(txn, schema.getSchemaTemplate().getName(), opt);
+        final SchemaTemplate template = schemaTemplateCatalog.loadSchemaTemplate(txn, schema.getSchemaTemplate().getName(), options);
         final Schema newSchema = template.generateSchema(databaseId, schemaName);
         saveSchema(txn, newSchema, false);
     }

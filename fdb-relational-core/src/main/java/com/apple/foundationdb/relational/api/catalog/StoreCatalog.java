@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.api.catalog;
 
 import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -76,7 +77,7 @@ public interface StoreCatalog {
      *                           TransactionInactive if txn is no longer active
      *                           UNDEFINED_SCHEMA if schema not found
      */
-    void repairSchema(@Nonnull Transaction txn, @Nonnull String databaseId, @Nonnull String schemaName) throws RelationalException;
+    void repairSchema(@Nonnull Transaction txn, @Nonnull String databaseId, @Nonnull String schemaName, @Nonnull Options options) throws RelationalException;
 
     void createDatabase(@Nonnull Transaction txn, @Nonnull URI dbUri) throws RelationalException;
 

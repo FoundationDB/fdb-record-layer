@@ -44,6 +44,31 @@ public class PreambleBlock implements Block {
     public static final String PREAMBLE_BLOCK_CONNECTION_OPTIONS = "connection_options";
     private static final Logger logger = LogManager.getLogger(PreambleBlock.class);
 
+    private final int lineNumber;
+
+    @Nonnull
+    private final PreambleBlockOptions blockOptions;
+
+    PreambleBlock(@Nonnull final PreambleBlockOptions blockOptions, int lineNumber) {
+        this.blockOptions = blockOptions;
+        this.lineNumber = lineNumber;
+    }
+
+    @Override
+    public int getLineNumber() {
+        return this.lineNumber;
+    }
+
+    @Nonnull
+    public PreambleBlockOptions getBlockOptions() {
+        return blockOptions;
+    }
+
+    @Override
+    public void execute() {
+        // no-op.
+    }
+
     @Nonnull
     public static PreambleBlock parse(int lineNumber, @Nonnull final Object document,
                                       @Nonnull final YamlExecutionContext.Builder executionContext) {
@@ -58,10 +83,11 @@ public class PreambleBlock implements Block {
             }
             Assumptions.assumeTrue(check.isSupported(), check.getMessage());
         }
-
-        return new PreambleBlock(PreambleBlockOptions.parseOptionsMap(optionsMap), lineNumber);
+        final var options = PreambleBlockOptions.parseOptionsMap(optionsMap);
+        return new PreambleBlock(options, lineNumber);
     }
 
+    @Nonnull
     public static SemanticVersion parseVersion(Object rawVersion) {
         if (rawVersion instanceof CurrentVersion) {
             return SemanticVersion.current();
@@ -106,30 +132,5 @@ public class PreambleBlock implements Block {
             // parse any newly added file-wide options here.
             return new PreambleBlockOptions(connectionOptions);
         }
-    }
-
-    private final int lineNumber;
-
-    @Nonnull
-    private final PreambleBlockOptions blockOptions;
-
-    PreambleBlock(@Nonnull final PreambleBlockOptions blockOptions, int lineNumber) {
-        this.blockOptions = blockOptions;
-        this.lineNumber = lineNumber;
-    }
-
-    @Override
-    public int getLineNumber() {
-        return this.lineNumber;
-    }
-
-    @Nonnull
-    public PreambleBlockOptions getBlockOptions() {
-        return blockOptions;
-    }
-
-    @Override
-    public void execute() {
-        // no-op.
     }
 }
