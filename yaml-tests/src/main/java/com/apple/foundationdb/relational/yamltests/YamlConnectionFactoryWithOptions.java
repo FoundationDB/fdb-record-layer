@@ -53,6 +53,11 @@ public class YamlConnectionFactoryWithOptions implements YamlConnectionFactory {
         return underlying.getVersionsUnderTest();
     }
 
+    @Override
+    public boolean isMultiServer() {
+        return underlying.isMultiServer();
+    }
+
     @Nonnull
     public static YamlConnectionFactoryWithOptions newInstance(@Nonnull final YamlConnectionFactory underlying,
                                                                @Nonnull final Options options) {
