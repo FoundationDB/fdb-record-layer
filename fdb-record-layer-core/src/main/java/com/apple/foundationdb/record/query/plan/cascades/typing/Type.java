@@ -2477,7 +2477,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                 }
                 final var field = (Field)o;
                 return getFieldType().equals(field.getFieldType()) &&
-                       getFieldNameOptional().equals(field.getFieldNameOptional());
+                        getFieldNameOptional().equals(field.getFieldNameOptional()) &&
+                        getFieldIndexOptional().equals(field.getFieldIndexOptional());
             }
 
             @Override
