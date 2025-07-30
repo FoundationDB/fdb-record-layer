@@ -422,7 +422,9 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
 
     @Override
     public void close() {
-        IOUtils.closeWhileHandlingException(indexReader);
+        if (indexReader != null) {
+            IOUtils.closeWhileHandlingException(indexReader);
+        }
         indexReader = null;
         closed = true;
     }

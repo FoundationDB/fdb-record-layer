@@ -95,10 +95,10 @@ public class FDBDirectoryManager implements AutoCloseable {
         this.state = state;
         this.createdDirectories = new ConcurrentHashMap<>();
         this.mergeDirectoryCount = getMergeDirectoryCount(state);
+        this.exceptionAtCreation = FDBTieredMergePolicy.usesCreationStack() ? new Exception() : null;
         final var fieldInfos = LuceneIndexExpressions.getDocumentFieldDerivations(state.index, state.store.getRecordMetaData());
         this.analyzerSelector = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerCombinationProvider(state.index, LuceneAnalyzerType.FULL_TEXT, fieldInfos);
         this.writerAnalyzer = analyzerSelector.provideIndexAnalyzer();
-        this.exceptionAtCreation = FDBTieredMergePolicy.usesCreationStack() ? new Exception() : null;
     }
 
     @Override

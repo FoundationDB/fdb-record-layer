@@ -72,8 +72,25 @@ public class FDBDirectoryWrapper implements AutoCloseable {
     private final Tuple key;
     @Nonnull
     private final LuceneAnalyzerWrapper analyzerWrapper;
+    /**
+     * When we fetch the reader via {@link #getReader()}, if the {@link #writer} has been instantiated, we want to
+     * create a NRT reader based of that, so that you can read your own writes. If we haven't interacted with the
+     * writer though, we don't want to cause one to be created to do reads.
+     * This field is set to {@code true} when the {@link #writer} is instantiated, to make sure that flow works
+     * correctly.
+     */
     private volatile boolean useWriter = false;
+    /**
+     * The cached {@link IndexWriter} on this directory, for any mutations. This is loaded lazily, so that read-only
+     * operations do not have to go through the expensive operation of writing.
+     */
     private final LazyCloseable<IndexWriter> writer;
+    /**
+     * A cached, unflushed NRT reader based on the {@link #writer}. The lifecycle of this is managed by this class
+     * (which is different from the {@link #getReader()} result), and it is not reloaded at any point. This is
+     * predominately used by the {@link com.apple.foundationdb.record.lucene.LucenePrimaryKeySegmentIndex} to find the
+     * segments associated with documents being deleted.
+     */
     private final LazyCloseable<DirectoryReader> writerReader;
 
 
@@ -166,6 +183,11 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         return directory;
     }
 
+    /**
+     * An {@link IndexReader} for searching this directory. This will wrap {@link #getWriter()} if the writer has
+     * already been instantiated, but otherwise, will just create a reader against this directory.
+     * This object should be closed by callers.
+     */
     @SuppressWarnings("PMD.CloseResource")
     public IndexReader getReader() throws IOException {
         if (useWriter) {
@@ -177,6 +199,10 @@ public class FDBDirectoryWrapper implements AutoCloseable {
         }
     }
 
+    /**
+     * Get a {@link DirectoryReader} wrapped around the {@link #getWriter()} to be able to get segments associated with
+     * documents. This resource will be closed when {@code this} is closed, and should not be closed by callers
+     */
     @SuppressWarnings("PMD.CloseResource")
     public DirectoryReader getWriterReader() throws IOException {
         return writerReader.get();

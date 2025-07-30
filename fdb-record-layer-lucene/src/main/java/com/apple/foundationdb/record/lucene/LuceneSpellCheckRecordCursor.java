@@ -140,7 +140,9 @@ public class LuceneSpellCheckRecordCursor implements BaseCursor<IndexEntry> {
 
     @Override
     public void close() {
-        IOUtils.closeWhileHandlingException(indexReader);
+        if (indexReader != null) {
+            IOUtils.closeWhileHandlingException(indexReader);
+        }
         closed = true;
     }
 
