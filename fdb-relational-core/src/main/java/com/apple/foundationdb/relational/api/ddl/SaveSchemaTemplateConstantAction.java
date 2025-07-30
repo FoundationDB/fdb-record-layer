@@ -30,12 +30,12 @@ import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import javax.annotation.Nonnull;
 
 @API(API.Status.EXPERIMENTAL)
-public class CreateSchemaTemplateConstantAction implements ConstantAction {
+public class SaveSchemaTemplateConstantAction implements ConstantAction {
     private final SchemaTemplate template;
     private final SchemaTemplateCatalog catalog;
 
-    public CreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                              @Nonnull SchemaTemplateCatalog catalog) {
+    public SaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                            @Nonnull SchemaTemplateCatalog catalog) {
         this.template = template;
         this.catalog = catalog;
     }

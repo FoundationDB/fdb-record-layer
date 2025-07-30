@@ -126,8 +126,7 @@ public abstract class Command {
         connection.setAutoCommit(true);
     }
 
-    private static void applyMetadataOperationDirectly(@Nonnull RecordLayerConfig rlConfig, @Nonnull ApplyState applyState,
-                                                       @Nonnull Options options) throws RelationalException {
+    private static void applyMetadataOperationDirectly(@Nonnull RecordLayerConfig rlConfig, @Nonnull ApplyState applyState) throws RelationalException {
         final FDBDatabase fdbDb = FDBDatabaseFactory.instance().getDatabase();
         final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();
         keyspaceProvider.registerDomainIfNotExists("FRL");
@@ -159,13 +158,13 @@ public abstract class Command {
                 ApplyState applyState = (RecordLayerMetadataOperationsFactory factory, Transaction txn) -> {
                     final var options = Options.none();
                     final var schemaTemplate = CommandUtil.fromProto(value);
-                    factory.getCreateSchemaTemplateConstantAction(schemaTemplate, options).execute(txn);
+                    factory.getSaveSchemaTemplateConstantAction(schemaTemplate, options).execute(txn);
                 };
                 final EmbeddedRelationalConnection embedded = connection.tryGetEmbedded();
                 if (embedded != null) {
                     Command.applyMetadataOperationEmbedded(embedded, RecordLayerConfig.getDefault(), applyState);
                 } else {
-                    Command.applyMetadataOperationDirectly(RecordLayerConfig.getDefault(), applyState, executionContext.getConnectionOptions());
+                    Command.applyMetadataOperationDirectly(RecordLayerConfig.getDefault(), applyState);
                 }
             }
         };
@@ -190,7 +189,7 @@ public abstract class Command {
                 if (embedded != null) {
                     Command.applyMetadataOperationEmbedded(embedded, rlConfig, applyState);
                 } else {
-                    Command.applyMetadataOperationDirectly(rlConfig, applyState, executionContext.getConnectionOptions());
+                    Command.applyMetadataOperationDirectly(rlConfig, applyState);
                 }
             }
         };

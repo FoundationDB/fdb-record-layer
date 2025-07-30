@@ -208,7 +208,7 @@ public class DdlStatementParsingTest {
         shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
-            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
                 Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
                 Assertions.assertEquals(1, ((RecordLayerSchemaTemplate) template).getTables().size(), "should have only 1 table");
                 DescriptorProtos.FileDescriptorProto fileDescriptorProto = getProtoDescriptor(template);
@@ -250,7 +250,7 @@ public class DdlStatementParsingTest {
         shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
-            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template, @Nonnull final Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template, @Nonnull final Options templateProperties) {
                 checkColumnNullability(template, sqlType, true);
                 return txn -> {
                 };
@@ -268,7 +268,7 @@ public class DdlStatementParsingTest {
             shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
                 @Nonnull
                 @Override
-                public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template, @Nonnull final Options templateProperties) {
+                public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template, @Nonnull final Options templateProperties) {
                     checkColumnNullability(template, sqlType, false);
                     return txn -> {
                     };
@@ -304,8 +304,8 @@ public class DdlStatementParsingTest {
         shouldFailWithInjectedFactory(stmt, ErrorCode.SYNTAX_ERROR, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
-            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                        @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
                 Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
                 Assertions.assertEquals(0, ((RecordLayerSchemaTemplate) template).getTables().size(), "Tables defined!");
                 visited[0] = true;
@@ -323,8 +323,8 @@ public class DdlStatementParsingTest {
         shouldFailWithInjectedFactory(stmt, ErrorCode.SYNTAX_ERROR, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
-            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                        @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
                 Assertions.fail("Should fail during parsing!");
                 return txn -> {
                 };
@@ -342,8 +342,8 @@ public class DdlStatementParsingTest {
         shouldWorkWithInjectedFactory(templateStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
-            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                        @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
                 Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
                 Assertions.assertEquals(1, ((RecordLayerSchemaTemplate) template).getTables().size(), "Incorrect number of tables");
                 return txn -> {
@@ -362,8 +362,8 @@ public class DdlStatementParsingTest {
         shouldWorkWithInjectedFactory(columnStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
-            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                        @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
                 Assertions.assertEquals("TEST_TEMPLATE", template.getName(), "incorrect template name!");
                 DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(getProtoDescriptor(template));
                 Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
@@ -389,8 +389,8 @@ public class DdlStatementParsingTest {
         shouldWorkWithInjectedFactory(columnStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
-            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                        @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
                 Assertions.assertEquals("TEST_TEMPLATE", template.getName(), "incorrect template name!");
                 DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(getProtoDescriptor(template));
                 Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
@@ -418,8 +418,8 @@ public class DdlStatementParsingTest {
         shouldFailWithInjectedFactory(columnStatement, ErrorCode.INDEX_ALREADY_EXISTS, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
-            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                        @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
                 Assertions.fail("Should not call this!");
                 return txn -> {
                 };
@@ -439,8 +439,8 @@ public class DdlStatementParsingTest {
         shouldWorkWithInjectedFactory(templateStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
-            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                        @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
                 Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
                 Assertions.assertEquals(1, ((RecordLayerSchemaTemplate) template).getTables().size(), "Incorrect number of tables");
                 Table info = ((RecordLayerSchemaTemplate) template).getTables().stream().findFirst().orElseThrow();
@@ -486,8 +486,8 @@ public class DdlStatementParsingTest {
         shouldWorkWithInjectedFactory(templateStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
-            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                        @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
                 Assertions.assertEquals(1, ((RecordLayerSchemaTemplate) template).getTables().size(), "Incorrect number of tables");
                 Table info = ((RecordLayerSchemaTemplate) template).getTables().stream().findFirst().orElseThrow();
                 Assertions.assertEquals(1, info.getIndexes().size(), "Incorrect number of indexes!");
@@ -537,8 +537,8 @@ public class DdlStatementParsingTest {
         shouldWorkWithInjectedFactory(templateStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
-            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                        @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
                 if (enableLongRows == null || enableLongRows) {
                     Assertions.assertTrue(template.isEnableLongRows());
                 } else {
@@ -574,9 +574,9 @@ public class DdlStatementParsingTest {
         shouldFailWithInjectedFactory(command, ErrorCode.SYNTAX_ERROR, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
-            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
                 Assertions.fail("Should fail with a parser error");
-                return super.getCreateSchemaTemplateConstantAction(template, templateProperties);
+                return super.getSaveSchemaTemplateConstantAction(template, templateProperties);
             }
         });
     }
@@ -589,8 +589,8 @@ public class DdlStatementParsingTest {
         shouldWorkWithInjectedFactory(columnStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
-            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                        @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
                 Assertions.assertEquals("TEST_TEMPLATE", template.getName(), "incorrect template name!");
                 DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(getProtoDescriptor(template));
                 Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
@@ -618,8 +618,8 @@ public class DdlStatementParsingTest {
         shouldWorkWithInjectedFactory(templateStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
-            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                        @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
                 Assertions.assertEquals("TEST_TEMPLATE", template.getName(), "incorrect template name!");
                 DdlTestUtil.ParsedSchema schema = new DdlTestUtil.ParsedSchema(getProtoDescriptor(template));
                 Assertions.assertEquals(1, schema.getTables().size(), "Incorrect number of tables");
@@ -892,8 +892,8 @@ public class DdlStatementParsingTest {
         shouldWorkWithInjectedFactory(schemaStatement, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
-            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                        @Nonnull Options templateProperties) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                                                      @Nonnull Options templateProperties) {
                 return txn -> {
                 };
             }

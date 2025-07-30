@@ -151,7 +151,8 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
     }
 
     @Nonnull
-    public static SqlFunctionCatalogImpl newInstance(@Nonnull RecordLayerSchemaTemplate metadata, boolean isCaseSensitive) {
+    public static SqlFunctionCatalogImpl newInstance(@Nonnull final RecordLayerSchemaTemplate metadata,
+                                                     boolean isCaseSensitive) {
         final var functionCatalog = new SqlFunctionCatalogImpl(isCaseSensitive);
         metadata.getInvokedRoutines().forEach(func ->
                 functionCatalog.registerUserDefinedFunction(

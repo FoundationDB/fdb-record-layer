@@ -46,23 +46,21 @@ public class CreateTemporaryFunctionConstantAction implements ConstantAction  {
     @Nonnull
     private final PreparedParams preparedParams;
 
-    private final boolean isCaseSensitive;
-
     public CreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template,
                                                  boolean throwIfExists,
                                                  @Nonnull final RecordLayerInvokedRoutine invokedRoutine,
-                                                 @Nonnull PreparedParams preparedParams,
-                                                 boolean isCaseSensitive) {
+                                                 @Nonnull PreparedParams preparedParams) {
         this.template = template;
         this.throwIfExists = throwIfExists;
         this.invokedRoutine = invokedRoutine;
         this.preparedParams = preparedParams;
-        this.isCaseSensitive = isCaseSensitive;
     }
 
     @Override
-    public void execute(final Transaction txn) throws RelationalException {
-        final var transactionBoundSchemaTemplate = Assert.castUnchecked(txn.getBoundSchemaTemplateMaybe().orElse(template), RecordLayerSchemaTemplate.class);
+    public void execute(@Nonnull final Transaction txn) throws RelationalException {
+        final var transactionBoundSchemaTemplate = Assert.castUnchecked(txn.getBoundSchemaTemplateMaybe().orElse(template),
+                RecordLayerSchemaTemplate.class);
+
         if (throwIfExists) {
             Assert.thatUnchecked(transactionBoundSchemaTemplate.getInvokedRoutines().stream()
                                     .noneMatch(r -> r.getName().equals(invokedRoutine.getName())),

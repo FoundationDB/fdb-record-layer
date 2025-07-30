@@ -35,8 +35,8 @@ import java.net.URI;
 public abstract class AbstractMetadataOperationsFactory implements MetadataOperationsFactory {
     @Nonnull
     @Override
-    public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
-        return NoOpMetadataOperationsFactory.INSTANCE.getCreateSchemaTemplateConstantAction(template, templateProperties);
+    public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
+        return NoOpMetadataOperationsFactory.INSTANCE.getSaveSchemaTemplateConstantAction(template, templateProperties);
     }
 
     @Nonnull

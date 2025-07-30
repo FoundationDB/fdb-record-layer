@@ -42,7 +42,7 @@ public final class NoOpMetadataOperationsFactory implements MetadataOperationsFa
 
     @Nonnull
     @Override
-    public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate templateName, @Nonnull Options templateProperties) {
+    public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate templateName, @Nonnull Options templateProperties) {
         return NoOpConstantAction.INSTANCE;
     }
 

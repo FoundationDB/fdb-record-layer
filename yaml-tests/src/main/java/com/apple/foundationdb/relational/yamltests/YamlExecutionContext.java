@@ -640,7 +640,7 @@ public final class YamlExecutionContext {
 
         @Nonnull
         public Builder setAdditionalOptions(@Nonnull final ContextOptions contextOptions) {
-            this.additionalOptions = additionalOptions;
+            this.additionalOptions = contextOptions;
             return this;
         }
 

@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.recordlayer.catalog;
 import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
-import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.NoOpSchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;

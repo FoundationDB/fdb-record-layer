@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.ddl.ConstantAction;
-import com.apple.foundationdb.relational.api.ddl.CreateSchemaTemplateConstantAction;
+import com.apple.foundationdb.relational.api.ddl.SaveSchemaTemplateConstantAction;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
@@ -57,8 +57,8 @@ public class RecordLayerMetadataOperationsFactory implements MetadataOperationsF
 
     @Nonnull
     @Override
-    public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
-        return new CreateSchemaTemplateConstantAction(template, catalog.getSchemaTemplateCatalog());
+    public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
+        return new SaveSchemaTemplateConstantAction(template, catalog.getSchemaTemplateCatalog());
     }
 
     @Nonnull
@@ -97,7 +97,7 @@ public class RecordLayerMetadataOperationsFactory implements MetadataOperationsF
                                                                    @Nonnull RecordLayerInvokedRoutine invokedRoutine,
                                                                    @Nonnull PreparedParams preparedParams,
                                                                    boolean isCaseSensitive) {
-        return new CreateTemporaryFunctionConstantAction(template, throwIfExists, invokedRoutine, preparedParams, isCaseSensitive);
+        return new CreateTemporaryFunctionConstantAction(template, throwIfExists, invokedRoutine, preparedParams);
     }
 
     public static class Builder {
