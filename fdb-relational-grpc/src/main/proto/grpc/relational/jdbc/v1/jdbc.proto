@@ -122,6 +122,7 @@ message TransactionalRequest {
       InsertRequest insertRequest = 2;
       CommitRequest commitRequest = 3;
       RollbackRequest rollbackRequest = 4;
+      EnableAutoCommitRequest enableAutoCommitRequest = 5;
   }
 }
 
@@ -131,7 +132,10 @@ message TransactionalResponse {
       InsertResponse insertResponse = 2;
       CommitResponse commitResponse = 3;
       RollbackResponse rollbackResponse = 4;
+
       google.protobuf.Any errorResponse = 5;
+
+      EnableAutoCommitResponse enableAutoCommitResponse = 6;
   }
 }
 
@@ -161,6 +165,12 @@ message RollbackRequest {
 }
 
 message RollbackResponse {
+}
+
+message EnableAutoCommitRequest {
+}
+
+message EnableAutoCommitResponse {
 }
 
 message DatabaseMetaDataRequest {}

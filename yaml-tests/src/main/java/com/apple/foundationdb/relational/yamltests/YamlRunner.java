@@ -75,7 +75,8 @@ public final class YamlRunner {
             final var loaderOptions = new LoaderOptions();
             loaderOptions.setAllowDuplicateKeys(true);
             final var dumperOptions = new DumperOptions();
-            final var yaml = new Yaml(new CustomYamlConstructor(loaderOptions), new Representer(dumperOptions), new DumperOptions(), loaderOptions, new Resolver());
+            final var yaml = new Yaml(new CustomYamlConstructor(loaderOptions), new Representer(dumperOptions),
+                    new DumperOptions(), loaderOptions, new Resolver());
 
             final var testBlocks = new ArrayList<TestBlock>();
             YamlExecutionContext executionContext;

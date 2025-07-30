@@ -1,0 +1,45 @@
+#
+# setup-reference-before-query.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# This test should fail
+# The way parsing works, the first item in a list is the "command"
+# so the first thing has to be "query", or it will get confused.
+# Changing this is more work than desired when adding support for transaction
+# setups.
+---
+schema_template:
+    create table table_t1(id bigint, col1 bigint, primary key(id))
+---
+transaction_setups:
+    t1_less_than_50: create temporary function t1() on commit drop function AS
+                     SELECT * FROM table_t1 where id < 50;
+---
+setup:
+  connect: 1
+  steps:
+    - query: INSERT INTO table_T1 VALUES (10, 20), (30, 40), (50, 60), (70, 80)
+---
+test_block:
+  name: transactions-tests
+  tests:
+    -
+      - setupReference: t1_less_than_50
+      - query: select * from t1 where id > 10;
+      - result: [{id: 30, col1: 40}]
+...

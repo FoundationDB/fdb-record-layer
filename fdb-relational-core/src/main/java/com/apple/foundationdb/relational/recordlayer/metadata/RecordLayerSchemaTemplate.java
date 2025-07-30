@@ -471,6 +471,15 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             return this;
         }
 
+        public Builder removeInvokedRoutine(@Nonnull final String invokedRoutineName) {
+            if (!invokedRoutines.containsKey(invokedRoutineName)) {
+                Assert.thatUnchecked(invokedRoutines.get(invokedRoutineName).isTemporary(), ErrorCode.UNDEFINED_FUNCTION,
+                        "attempt to non-existent temporary invoked routine!");
+            }
+            invokedRoutines.remove(invokedRoutineName);
+            return this;
+        }
+
         @Nonnull
         public Builder addInvokedRoutines(@Nonnull final Collection<RecordLayerInvokedRoutine> invokedRoutines) {
             invokedRoutines.forEach(this::addInvokedRoutine);

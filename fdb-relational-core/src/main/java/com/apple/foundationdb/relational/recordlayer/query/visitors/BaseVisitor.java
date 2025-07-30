@@ -422,6 +422,11 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     }
 
     @Override
+    public ProceduralPlan visitDropTempFunction(final RelationalParser.DropTempFunctionContext ctx) {
+        return ddlVisitor.visitDropTempFunction(ctx);
+    }
+
+    @Override
     public CompiledSqlFunction visitCreateFunction(final RelationalParser.CreateFunctionContext ctx) {
         return ddlVisitor.visitCreateFunction(ctx);
     }

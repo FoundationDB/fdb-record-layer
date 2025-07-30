@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
@@ -31,7 +30,6 @@ import com.apple.foundationdb.record.query.expressions.ComponentWithNoChildren;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.util.HashUtils;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -51,7 +49,6 @@ import java.util.function.Supplier;
  */
 @API(API.Status.EXPERIMENTAL)
 public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChildren {
-    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Lucene-Query");
 
     @Nonnull
     private final LuceneQueryType type;
@@ -229,8 +226,4 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithNoChil
         return "LuceneQuery(" + query + ")";
     }
 
-    @Override
-    public int queryHash(@Nonnull final QueryHashKind hashKind) {
-        return HashUtils.queryHash(hashKind, BASE_HASH, type, query);
-    }
 }

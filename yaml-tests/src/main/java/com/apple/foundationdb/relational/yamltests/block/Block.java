@@ -85,6 +85,8 @@ public interface Block {
             switch (blockKey) {
                 case SetupBlock.SETUP_BLOCK:
                     return SetupBlock.ManualSetupBlock.parse(lineNumber, entry.getValue(), executionContext);
+                case TransactionSetupsBlock.TRANSACTION_SETUP:
+                    return TransactionSetupsBlock.parse(lineNumber, entry.getValue(), executionContext);
                 case TestBlock.TEST_BLOCK:
                     return TestBlock.parse(blockNumber, lineNumber, entry.getValue(), executionContext);
                 case SetupBlock.SchemaTemplateBlock.SCHEMA_TEMPLATE_BLOCK:

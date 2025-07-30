@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
-import com.apple.foundationdb.record.util.HashUtils;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 
@@ -326,11 +325,6 @@ public class QueryKeyExpression {
             }
         }
 
-        @Override
-        public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            return HashUtils.queryHash(hashKind, CONVERSION_SIMPLE_COMPARISON_BASE_HASH, super.queryHash(hashKind), getKeyExpression());
-        }
-
         @Nonnull
         @Override
         public Comparisons.Comparison withType(@Nonnull final Comparisons.Type newType) {
@@ -479,11 +473,6 @@ public class QueryKeyExpression {
                 default:
                     throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
             }
-        }
-
-        @Override
-        public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            return HashUtils.queryHash(hashKind, CONVERSION_PARAMETER_COMPARISON_BASE_HASH, super.queryHash(hashKind), getKeyExpression());
         }
 
         @Nonnull

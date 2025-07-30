@@ -72,10 +72,17 @@ public final class NoOpMetadataOperationsFactory implements MetadataOperationsFa
 
     @Nonnull
     @Override
-    public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template, boolean throwIfNotExists,
+    public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template, boolean throwIfExists,
                                                                    @Nonnull final RecordLayerInvokedRoutine invokedRoutine,
                                                                    @Nonnull final PreparedParams preparedParams,
                                                                    final boolean isCaseSensitive) {
+        return NoOpConstantAction.INSTANCE;
+    }
+
+    @Nonnull
+    @Override
+    public ConstantAction getDropTemporaryFunctionConstantAction(boolean throwIfNotExists,
+                                                                 @Nonnull final String temporaryFunctionName) {
         return NoOpConstantAction.INSTANCE;
     }
 

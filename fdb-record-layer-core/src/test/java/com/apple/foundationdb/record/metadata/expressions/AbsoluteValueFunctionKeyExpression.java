@@ -83,11 +83,6 @@ public class AbsoluteValueFunctionKeyExpression extends InvertibleFunctionKeyExp
     }
 
     @Override
-    public int queryHash(@Nonnull final QueryHashKind hashKind) {
-        return super.baseQueryHash(hashKind, BASE_HASH, arguments);
-    }
-
-    @Override
     public int getMinArguments() {
         return 1;
     }

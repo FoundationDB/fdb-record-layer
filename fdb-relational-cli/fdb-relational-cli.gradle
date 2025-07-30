@@ -108,7 +108,7 @@ generateGrammarSource {
 application {
     // https://docs.gradle.org/current/userguide/application_plugin.html
     // https://github.com/julianhyde/sqlline
-    mainClass = "com.apple.relational.cli.sqlline.RelationalSQLLine"
+    mainClass = "com.apple.foundationdb.relational.cli.sqlline.RelationalSQLLine"
     applicationName = "fdb-relational-sqlline"
     // JUL => log4j2 https://logging.apache.org/log4j/2.x/log4j-jul/index.html
     // TODO: Allow overriding default fdb.cluster file with FDB_CLUSTER_FILE.

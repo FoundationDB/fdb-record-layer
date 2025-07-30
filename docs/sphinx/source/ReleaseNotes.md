@@ -5,7 +5,139 @@ This document contains a log of changes to the FoundationDB Record Layer. It aim
 
 As the [versioning guide](Versioning.md) details, it cannot always be determined solely by looking at the version numbers whether one Record Layer version contains all changes included in another. In particular, bug fixes and backwards-compatible changes might be back-ported to or introduced as patches against older versions. To track when a patch version has been included in the main release train, some releases will say as a note that they contain all changes from a specific patch.
 
+## 4.5
+
+### 4.5.1.0
+
+<h4> Breaking Changes </h4>
+
+* Update to minor version 4.5 in recognition of incompatibility with older 4.3 versions - [PR #3508](https://github.com/FoundationDB/fdb-record-layer/pull/3508)
+* Remove QueryHashable - [PR #3392](https://github.com/FoundationDB/fdb-record-layer/pull/3392)
+<h4> Bug Fixes </h4>
+
+* Enable AggregateCursorContinuation serialize to the new implementation - [PR #3495](https://github.com/FoundationDB/fdb-record-layer/pull/3495)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Introduce option to setup transaction before executing queries - [PR #3471](https://github.com/FoundationDB/fdb-record-layer/pull/3471)
+* Omit portions of stack trace that are just junit in test summary - [PR #3499](https://github.com/FoundationDB/fdb-record-layer/pull/3499)
+
+</details>
+
+
+**[Full Changelog (4.4.15.0...4.5.1.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.4.15.0...4.5.1.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.4.3.0`, ✅`4.4.4.0`, ❌`4.4.7.0`, ❌`4.4.8.0`, ❌`4.4.9.0`, ❌`4.4.10.0`, ❌`4.4.11.0`, ✅`4.4.12.0`, ✅`4.4.14.0`, ✅`4.4.15.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16597262218)
+
+
+
 ## 4.4
+
+### 4.4.15.0
+
+<h4> New Features </h4>
+
+* Support unsetting transaction-bound SchemaTemplate in a Transaction - [PR #3496](https://github.com/FoundationDB/fdb-record-layer/pull/3496)
+
+
+**[Full Changelog (4.4.14.0...4.4.15.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.4.14.0...4.4.15.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.3.6.0`, ✅`4.4.3.0`, ✅`4.4.4.0`, ✅`4.4.7.0`, ✅`4.4.8.0`, ✅`4.4.9.0`, ✅`4.4.10.0`, ✅`4.4.11.0`, ✅`4.4.12.0`, ✅`4.4.14.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16446692540)
+
+
+
+### 4.4.14.0
+
+<h4> New Features </h4>
+
+* Initial support for DROP TEMPORARY FUNCTION - [PR #3492](https://github.com/FoundationDB/fdb-record-layer/pull/3492)
+
+
+**[Full Changelog (4.4.13.0...4.4.14.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.4.13.0...4.4.14.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.3.5.0`, ✅`4.3.6.0`, ✅`4.4.3.0`, ✅`4.4.4.0`, ✅`4.4.7.0`, ✅`4.4.8.0`, ✅`4.4.9.0`, ✅`4.4.10.0`, ✅`4.4.11.0`, ✅`4.4.12.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16441843958)
+
+
+
+### 4.4.13.0
+
+
+
+**[Full Changelog (4.4.12.0...4.4.13.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.4.12.0...4.4.13.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.3.5.0`, ✅`4.3.6.0`, ✅`4.4.3.0`, ✅`4.4.4.0`, ✅`4.4.7.0`, ✅`4.4.8.0`, ✅`4.4.9.0`, ✅`4.4.10.0`, ✅`4.4.11.0`, ✅`4.4.12.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16380197828)
+
+
+
+### 4.4.12.0
+
+<h4> Bug Fixes </h4>
+
+* Allow enabling autoCommit without an active transaction - [PR #3477](https://github.com/FoundationDB/fdb-record-layer/pull/3477)
+
+
+**[Full Changelog (4.4.11.0...4.4.12.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.4.11.0...4.4.12.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.3.3.1`, ✅`4.3.5.0`, ✅`4.3.6.0`, ✅`4.4.3.0`, ✅`4.4.4.0`, ✅`4.4.7.0`, ✅`4.4.8.0`, ✅`4.4.9.0`, ✅`4.4.10.0`, ✅`4.4.11.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16368494669)
+
+
+
+### 4.4.11.0
+
+<h4> New Features </h4>
+
+* Add test to verify that temp functions are created in TxnBound database - [PR #3488](https://github.com/FoundationDB/fdb-record-layer/pull/3488)
+<h4> Bug Fixes </h4>
+
+* Add support for NULL type fields in ExecuteInsert - [PR #3490](https://github.com/FoundationDB/fdb-record-layer/pull/3490)
+
+
+**[Full Changelog (4.4.10.0...4.4.11.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.4.10.0...4.4.11.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.3.3.0`, ✅`4.3.3.1`, ✅`4.3.5.0`, ✅`4.3.6.0`, ✅`4.4.3.0`, ✅`4.4.4.0`, ✅`4.4.7.0`, ✅`4.4.8.0`, ✅`4.4.9.0`, ✅`4.4.10.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16344428202)
+
+
 
 ### 4.4.10.0
 

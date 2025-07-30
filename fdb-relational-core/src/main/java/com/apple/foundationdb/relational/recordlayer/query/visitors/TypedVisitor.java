@@ -180,6 +180,9 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     ProceduralPlan visitCreateTempFunction(RelationalParser.CreateTempFunctionContext ctx);
 
     @Override
+    ProceduralPlan visitDropTempFunction(RelationalParser.DropTempFunctionContext ctx);
+
+    @Override
     CompiledSqlFunction visitCreateFunction(RelationalParser.CreateFunctionContext ctx);
 
     @Override

@@ -147,6 +147,31 @@ public class SimpleDirectAccessInsertionTests {
     }
 
     @Test
+    void insertWithExplicitNullFields() throws SQLException {
+        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed://" + db.getDatabasePath().getPath()).unwrap(RelationalConnection.class)) {
+            conn.setSchema(db.getSchemaName());
+
+            try (RelationalStatement s = conn.createStatement()) {
+                final var struct = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("ID", 1L)
+                        .addString("NAME", "Anthony Bourdain")
+                        .addObject("EMAIL", null)
+                        .build();
+                int inserted = s.executeInsert("RESTAURANT_REVIEWER", struct);
+                Assertions.assertThat(inserted).withFailMessage("incorrect insertion number!").isEqualTo(1);
+                KeySet key = new KeySet()
+                        .setKeyColumn("ID", 1L);
+                try (RelationalResultSet rrs = s.executeGet("RESTAURANT_REVIEWER", key, Options.NONE)) {
+                    ResultSetAssert.assertThat(rrs)
+                            .hasNextRow()
+                            .hasColumn("EMAIL", null)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
     void insertMultipleTablesDontMix() throws SQLException {
         /*
          * Because RecordLayer allows multiple types within the same keyspeace, we need to validate that
