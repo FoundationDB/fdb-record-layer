@@ -26,23 +26,35 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.christianheina.langx.half4j.Half;
 import com.google.common.base.Verify;
-import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
  * Storage adapter used for serialization and deserialization of nodes.
  */
-interface StorageAdapter {
+interface StorageAdapter<N extends NodeReference> {
+    byte SUBSPACE_PREFIX_ENTRY_NODE = 0x01;
+    byte SUBSPACE_PREFIX_DATA = 0x02;
+
     /**
      * Get the {@link HNSW.Config} associated with this storage adapter.
      * @return the configuration used by this storage adapter
      */
     @Nonnull
     HNSW.Config getConfig();
+
+    @Nonnull
+    NodeFactory<N> getNodeFactory();
+
+    @Nonnull
+    NodeKind getNodeKind();
+
+    @Nonnull
+    StorageAdapter<NodeReference> asCompactStorageAdapter();
+
+    @Nonnull
+    StorageAdapter<NodeReferenceWithVector> asInliningStorageAdapter();
 
     /**
      * Get the subspace used to store this r-tree.
@@ -51,17 +63,6 @@ interface StorageAdapter {
      */
     @Nonnull
     Subspace getSubspace();
-
-    /**
-     * Get the subspace used to store a node slot index if in warranted by the {@link HNSW.Config}.
-     *
-     * @return secondary subspace or {@code null} if we do not maintain a node slot index
-     */
-    @Nullable
-    Subspace getSecondarySubspace();
-
-    @Nonnull
-    Subspace getEntryNodeSubspace();
 
     @Nonnull
     Subspace getDataSubspace();
@@ -83,49 +84,84 @@ interface StorageAdapter {
     OnReadListener getOnReadListener();
 
     @Nonnull
-    NodeFactory<? extends NodeReference> getNodeFactory(final int layer);
+    CompletableFuture<Node<N>> fetchNode(@Nonnull ReadTransaction readTransaction,
+                                         int layer,
+                                         @Nonnull Tuple primaryKey);
 
-    CompletableFuture<EntryNodeReference> fetchEntryNodeReference(@Nonnull ReadTransaction readTransaction);
-
-    void writeEntryNodeReference(@Nonnull final Transaction transaction,
-                                 @Nonnull final EntryNodeReference entryNodeReference);
+    void writeNode(@Nonnull Transaction transaction, @Nonnull Node<N> node, int layer,
+                   @Nonnull NeighborsChangeSet<N> changeSet);
 
     @Nonnull
-    <N extends NodeReference> CompletableFuture<Node<N>> fetchNode(@Nonnull NodeFactory<N> nodeFactory,
-                                                                   @Nonnull ReadTransaction readTransaction,
-                                                                   int layer,
-                                                                   @Nonnull Tuple primaryKey);
+    static CompletableFuture<EntryNodeReference> fetchEntryNodeReference(@Nonnull final ReadTransaction readTransaction,
+                                                                         @Nonnull final Subspace subspace,
+                                                                         @Nonnull final OnReadListener onReadListener) {
+        final Subspace entryNodeSubspace = subspace.subspace(Tuple.from(SUBSPACE_PREFIX_ENTRY_NODE));
+        final byte[] key = entryNodeSubspace.pack();
 
-    <N extends NodeReference> void writeNode(@Nonnull final Transaction transaction, @Nonnull final Node<N> node,
-                                             int layer);
+        return readTransaction.get(key)
+                .thenApply(valueBytes -> {
+                    if (valueBytes == null) {
+                        return null; // not a single node in the index
+                    }
+                    onReadListener.onKeyValueRead(key, valueBytes);
+
+                    final Tuple entryTuple = Tuple.fromBytes(valueBytes);
+                    final int lMax = (int)entryTuple.getLong(0);
+                    final Tuple primaryKey = entryTuple.getNestedTuple(1);
+                    final Tuple vectorTuple = entryTuple.getNestedTuple(2);
+                    return new EntryNodeReference(primaryKey, StorageAdapter.vectorFromTuple(vectorTuple), lMax);
+                });
+    }
+
+    static void writeEntryNodeReference(@Nonnull final Transaction transaction,
+                                        @Nonnull final Subspace subspace,
+                                        @Nonnull final EntryNodeReference entryNodeReference,
+                                        @Nonnull final OnWriteListener onWriteListener) {
+        final Subspace entryNodeSubspace = subspace.subspace(Tuple.from(SUBSPACE_PREFIX_ENTRY_NODE));
+        final byte[] key = entryNodeSubspace.pack();
+        final byte[] value = Tuple.from(entryNodeReference.getLayer(),
+                entryNodeReference.getPrimaryKey(),
+                StorageAdapter.tupleFromVector(entryNodeReference.getVector())).pack();
+        transaction.set(key,
+                value);
+        onWriteListener.onKeyValueWritten(key, value);
+    }
 
     @Nonnull
     static Vector<Half> vectorFromTuple(final Tuple vectorTuple) {
-        final Half[] vectorHalfs = new Half[vectorTuple.size()];
-        for (int i = 0; i < vectorTuple.size(); i ++) {
-            vectorHalfs[i] = Half.shortBitsToHalf(shortFromBytes(vectorTuple.getBytes(i)));
+        final byte[] vectorAsBytes = vectorTuple.getBytes(0);
+        final int bytesLength = vectorAsBytes.length;
+        Verify.verify(bytesLength % 2 == 0);
+        final int componentSize = bytesLength >>> 1;
+        final Half[] vectorHalfs = new Half[componentSize];
+        for (int i = 0; i < componentSize; i ++) {
+            vectorHalfs[i] = Half.shortBitsToHalf(shortFromBytes(vectorAsBytes, i << 1));
         }
         return new Vector.HalfVector(vectorHalfs);
     }
 
     @Nonnull
+    @SuppressWarnings("PrimitiveArrayArgumentToVarargsMethod")
     static Tuple tupleFromVector(final Vector<Half> vector) {
-        final List<byte[]> vectorBytes = Lists.newArrayListWithExpectedSize(vector.size());
+        final byte[] vectorBytes = new byte[2 * vector.size()];
         for (int i = 0; i < vector.size(); i ++) {
-            vectorBytes.add(bytesFromShort(Half.halfToShortBits(vector.getComponent(i))));
+            final byte[] componentBytes = bytesFromShort(Half.halfToShortBits(vector.getComponent(i)));
+            final int indexTimesTwo = i << 1;
+            vectorBytes[indexTimesTwo] = componentBytes[0];
+            vectorBytes[indexTimesTwo + 1] = componentBytes[1];
         }
-        return Tuple.fromList(vectorBytes);
+        return Tuple.from(vectorBytes);
     }
 
-    static short shortFromBytes(byte[] bytes) {
-        Verify.verify(bytes.length == 2);
-        int high = bytes[0] & 0xFF;   // Convert to unsigned int
-        int low  = bytes[1] & 0xFF;
+    static short shortFromBytes(final byte[] bytes, final int offset) {
+        Verify.verify(offset % 2 == 0);
+        int high = bytes[offset] & 0xFF;   // Convert to unsigned int
+        int low  = bytes[offset + 1] & 0xFF;
 
         return (short) ((high << 8) | low);
     }
 
-    static byte[] bytesFromShort(short value) {
+    static byte[] bytesFromShort(final short value) {
         byte[] result = new byte[2];
         result[0] = (byte) ((value >> 8) & 0xFF);  // high byte first
         result[1] = (byte) (value & 0xFF);         // low byte second

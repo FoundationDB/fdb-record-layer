@@ -78,7 +78,7 @@ public class HNSW {
     public static final Config DEFAULT_CONFIG = new Config();
 
     @Nonnull
-    private final StorageAdapter storageAdapter;
+    private final Subspace subspace;
     @Nonnull
     private final Executor executor;
     @Nonnull
@@ -87,40 +87,6 @@ public class HNSW {
     private final OnWriteListener onWriteListener;
     @Nonnull
     private final OnReadListener onReadListener;
-
-    /**
-     * Different kinds of storage layouts.
-     */
-    public enum Storage {
-        /**
-         * Every node with all its slots is serialized as one key/value pair.
-         */
-        BY_NODE(ByNodeStorageAdapter::new);
-
-        @Nonnull
-        private final StorageAdapterCreator storageAdapterCreator;
-
-        Storage(@Nonnull final StorageAdapterCreator storageAdapterCreator) {
-            this.storageAdapterCreator = storageAdapterCreator;
-        }
-
-        @Nonnull
-        private StorageAdapter newStorageAdapter(@Nonnull final Config config, @Nonnull final Subspace subspace,
-                                                 @Nonnull final Subspace nodeSlotIndexSubspace,
-                                                 @Nonnull final OnWriteListener onWriteListener,
-                                                 @Nonnull final OnReadListener onReadListener) {
-            return storageAdapterCreator.create(config, subspace, nodeSlotIndexSubspace, onWriteListener, onReadListener);
-        }
-    }
-
-    /**
-     * Functional interface to create a {@link StorageAdapter}.
-     */
-    private interface StorageAdapterCreator {
-        StorageAdapter create(@Nonnull Config config, @Nonnull Subspace subspace, @Nonnull Subspace nodeSlotIndexSubspace,
-                              @Nonnull OnWriteListener onWriteListener,
-                              @Nonnull OnReadListener onReadListener);
-    }
 
     /**
      * Configuration settings for a {@link HNSW}.
@@ -360,46 +326,30 @@ public class HNSW {
     }
 
     /**
-     * Initialize a new R-tree with the default configuration.
-     * @param subspace the subspace where the r-tree is stored
-     * @param secondarySubspace the subspace where the node index (if used is stored)
-     * @param executor an executor to use when running asynchronous tasks
+     * TODO.
      */
-    public HNSW(@Nonnull final Subspace subspace, @Nonnull final Subspace secondarySubspace,
-                @Nonnull final Executor executor) {
-        this(subspace, secondarySubspace, executor, DEFAULT_CONFIG,
-                OnWriteListener.NOOP, OnReadListener.NOOP);
+    public HNSW(@Nonnull final Subspace subspace, @Nonnull final Executor executor) {
+        this(subspace, executor, DEFAULT_CONFIG, OnWriteListener.NOOP, OnReadListener.NOOP);
     }
 
     /**
-     * Initialize a new R-tree.
-     * @param subspace the subspace where the r-tree is stored
-     * @param nodeSlotIndexSubspace the subspace where the node index (if used is stored)
-     * @param executor an executor to use when running asynchronous tasks
-     * @param config configuration to use
-     * @param onWriteListener an on-write listener to be called after writes take place
-     * @param onReadListener an on-read listener to be called after reads take place
+     * TODO.
      */
-    public HNSW(@Nonnull final Subspace subspace, @Nonnull final Subspace nodeSlotIndexSubspace,
+    public HNSW(@Nonnull final Subspace subspace,
                 @Nonnull final Executor executor, @Nonnull final Config config,
                 @Nonnull final OnWriteListener onWriteListener,
                 @Nonnull final OnReadListener onReadListener) {
-        this.storageAdapter = config.getStorage()
-                .newStorageAdapter(config, subspace, nodeSlotIndexSubspace, hilbertValueFunction, onWriteListener,
-                        onReadListener);
+        this.subspace = subspace;
         this.executor = executor;
         this.config = config;
         this.onWriteListener = onWriteListener;
         this.onReadListener = onReadListener;
     }
 
-    /**
-     * Get the {@link StorageAdapter} used to manage this r-tree.
-     * @return r-tree subspace
-     */
+
     @Nonnull
-    StorageAdapter getStorageAdapter() {
-        return storageAdapter;
+    public Subspace getSubspace() {
+        return subspace;
     }
 
     /**
@@ -447,9 +397,9 @@ public class HNSW {
      */
     @SuppressWarnings("checkstyle:MethodName") // method name introduced by paper
     @Nonnull
-    private CompletableFuture<? extends List<? extends NodeReferenceAndNode<? extends NodeReference>>> kNearestNeighborsSearch(@Nonnull final ReadTransaction readTransaction,
-                                                                                                                               @Nonnull final Vector<Half> queryVector) {
-        return storageAdapter.fetchEntryNodeReference(readTransaction)
+    public CompletableFuture<? extends List<? extends NodeReferenceAndNode<? extends NodeReference>>> kNearestNeighborsSearch(@Nonnull final ReadTransaction readTransaction,
+                                                                                                                              @Nonnull final Vector<Half> queryVector) {
+        return StorageAdapter.fetchEntryNodeReference(readTransaction, getSubspace(), getOnReadListener())
                 .thenCompose(entryPointAndLayer -> {
                     if (entryPointAndLayer == null) {
                         return CompletableFuture.completedFuture(null); // not a single node in the index
@@ -462,20 +412,23 @@ public class HNSW {
                                     entryPointAndLayer.getVector(),
                                     Vector.comparativeDistance(metric, entryPointAndLayer.getVector(), queryVector));
 
-                    if (entryPointAndLayer.getLayer() == 0) {
+                    final var entryLayer = entryPointAndLayer.getLayer();
+                    if (entryLayer == 0) {
                         // entry data points to a node in layer 0 directly
                         return CompletableFuture.completedFuture(entryState);
                     }
 
+
                     final AtomicReference<NodeReferenceWithDistance> nodeReferenceAtomic =
                             new AtomicReference<>(entryState);
 
-                    return MoreAsyncUtil.forLoop(entryPointAndLayer.getLayer(),
+                    return MoreAsyncUtil.forLoop(entryLayer,
                             layer -> layer > 0,
                             layer -> layer - 1,
                             layer -> {
+                                final var storageAdapter = getStorageAdapterForLayer(layer);
                                 final var greedyIn = nodeReferenceAtomic.get();
-                                return greedySearchLayer(storageAdapter.getNodeFactory(layer), readTransaction, greedyIn, layer,
+                                return greedySearchLayer(storageAdapter, readTransaction, greedyIn, layer,
                                         queryVector)
                                         .thenApply(greedyState -> {
                                             nodeReferenceAtomic.set(greedyState);
@@ -488,22 +441,24 @@ public class HNSW {
                         return CompletableFuture.completedFuture(null);
                     }
 
-                    return searchLayer(storageAdapter.getNodeFactory(0), readTransaction,
+                    final var storageAdapter = getStorageAdapterForLayer(0);
+
+                    return searchLayer(storageAdapter, readTransaction,
                                     ImmutableList.of(nodeReference), 0, config.getEfSearch(),
                                     Maps.newConcurrentMap(), queryVector);
                 });
     }
 
     @Nonnull
-    private <N extends NodeReference> CompletableFuture<NodeReferenceWithDistance> greedySearchLayer(@Nonnull NodeFactory<N> nodeFactory,
+    private <N extends NodeReference> CompletableFuture<NodeReferenceWithDistance> greedySearchLayer(@Nonnull StorageAdapter<N> storageAdapter,
                                                                                                      @Nonnull final ReadTransaction readTransaction,
                                                                                                      @Nonnull final NodeReferenceWithDistance entryNeighbor,
                                                                                                      final int layer,
                                                                                                      @Nonnull final Vector<Half> queryVector) {
-        if (nodeFactory.getNodeKind() == NodeKind.INLINING) {
-            return greedySearchInliningLayer(readTransaction, entryNeighbor, layer, queryVector);
+        if (storageAdapter.getNodeKind() == NodeKind.INLINING) {
+            return greedySearchInliningLayer(storageAdapter.asInliningStorageAdapter(), readTransaction, entryNeighbor, layer, queryVector);
         } else {
-            return searchLayer(nodeFactory, readTransaction, ImmutableList.of(entryNeighbor), layer, 1, Maps.newConcurrentMap(), queryVector)
+            return searchLayer(storageAdapter, readTransaction, ImmutableList.of(entryNeighbor), layer, 1, Maps.newConcurrentMap(), queryVector)
                     .thenApply(searchResult -> Iterables.getOnlyElement(searchResult).getNodeReferenceWithDistance());
         }
     }
@@ -512,7 +467,8 @@ public class HNSW {
      * TODO.
      */
     @Nonnull
-    private CompletableFuture<NodeReferenceWithDistance> greedySearchInliningLayer(@Nonnull final ReadTransaction readTransaction,
+    private CompletableFuture<NodeReferenceWithDistance> greedySearchInliningLayer(@Nonnull final StorageAdapter<NodeReferenceWithVector> storageAdapter,
+                                                                                   @Nonnull final ReadTransaction readTransaction,
                                                                                    @Nonnull final NodeReferenceWithDistance entryNeighbor,
                                                                                    final int layer,
                                                                                    @Nonnull final Vector<Half> queryVector) {
@@ -522,8 +478,7 @@ public class HNSW {
                 new AtomicReference<>(entryNeighbor);
 
         return AsyncUtil.whileTrue(() -> onReadListener.onAsyncRead(
-                        storageAdapter.fetchNode(InliningNode.factory(), readTransaction,
-                                layer, currentNodeReferenceAtomic.get().getPrimaryKey()))
+                        storageAdapter.fetchNode(readTransaction, layer, currentNodeReferenceAtomic.get().getPrimaryKey()))
                 .thenApply(node -> {
                     if (node == null) {
                         throw new IllegalStateException("unable to fetch node");
@@ -559,7 +514,7 @@ public class HNSW {
      * TODO.
      */
     @Nonnull
-    private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<N>>> searchLayer(@Nonnull NodeFactory<N> nodeFactory,
+    private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<N>>> searchLayer(@Nonnull StorageAdapter<N> storageAdapter,
                                                                                                    @Nonnull final ReadTransaction readTransaction,
                                                                                                    @Nonnull final Collection<NodeReferenceWithDistance> entryNeighbors,
                                                                                                    final int layer,
@@ -589,11 +544,11 @@ public class HNSW {
                 return AsyncUtil.READY_FALSE;
             }
 
-            return fetchNodeIfNotCached(nodeFactory, readTransaction, layer, candidate, nodeCache)
+            return fetchNodeIfNotCached(storageAdapter, readTransaction, layer, candidate, nodeCache)
                     .thenApply(candidateNode ->
                             Iterables.filter(candidateNode.getNeighbors(),
                                     neighbor -> !visited.contains(neighbor.getPrimaryKey())))
-                    .thenCompose(neighborReferences -> fetchNeighborhood(nodeFactory, readTransaction,
+                    .thenCompose(neighborReferences -> fetchNeighborhood(storageAdapter, readTransaction,
                             layer, neighborReferences, nodeCache))
                     .thenApply(neighborReferences -> {
                         for (final NodeReferenceWithVector current : neighborReferences) {
@@ -617,19 +572,19 @@ public class HNSW {
                         return true;
                     });
         }).thenCompose(ignored ->
-                fetchSomeNodesIfNotCached(nodeFactory, readTransaction, layer, nearestNeighbors, nodeCache));
+                fetchSomeNodesIfNotCached(storageAdapter, readTransaction, layer, nearestNeighbors, nodeCache));
     }
 
     /**
      * TODO.
      */
     @Nonnull
-    private <N extends NodeReference> CompletableFuture<Node<N>> fetchNodeIfNotCached(@Nonnull final NodeFactory<N> nodeFactory,
+    private <N extends NodeReference> CompletableFuture<Node<N>> fetchNodeIfNotCached(@Nonnull final StorageAdapter<N> storageAdapter,
                                                                                       @Nonnull final ReadTransaction readTransaction,
                                                                                       final int layer,
                                                                                       @Nonnull final NodeReference nodeReference,
                                                                                       @Nonnull final Map<Tuple, Node<N>> nodeCache) {
-        return fetchNodeIfNecessaryAndApply(nodeFactory, readTransaction, layer, nodeReference,
+        return fetchNodeIfNecessaryAndApply(storageAdapter, readTransaction, layer, nodeReference,
                 nR -> nodeCache.get(nR.getPrimaryKey()),
                 (nR, node) -> {
                     nodeCache.put(nR.getPrimaryKey(), node);
@@ -641,7 +596,7 @@ public class HNSW {
      * TODO.
      */
     @Nonnull
-    private <R extends NodeReference, N extends NodeReference, U> CompletableFuture<U> fetchNodeIfNecessaryAndApply(@Nonnull final NodeFactory<N> nodeFactory,
+    private <R extends NodeReference, N extends NodeReference, U> CompletableFuture<U> fetchNodeIfNecessaryAndApply(@Nonnull final StorageAdapter<N> storageAdapter,
                                                                                                                     @Nonnull final ReadTransaction readTransaction,
                                                                                                                     final int layer,
                                                                                                                     @Nonnull final R nodeReference,
@@ -653,7 +608,7 @@ public class HNSW {
         }
 
         return onReadListener.onAsyncRead(
-                        storageAdapter.fetchNode(nodeFactory, readTransaction, layer, nodeReference.getPrimaryKey()))
+                        storageAdapter.fetchNode(readTransaction, layer, nodeReference.getPrimaryKey()))
                 .thenApply(node -> biMapFunction.apply(nodeReference, node));
     }
 
@@ -661,12 +616,12 @@ public class HNSW {
      * TODO.
      */
     @Nonnull
-    private <N extends NodeReference> CompletableFuture<List<NodeReferenceWithVector>> fetchNeighborhood(@Nonnull final NodeFactory<N> nodeFactory,
+    private <N extends NodeReference> CompletableFuture<List<NodeReferenceWithVector>> fetchNeighborhood(@Nonnull final StorageAdapter<N> storageAdapter,
                                                                                                          @Nonnull final ReadTransaction readTransaction,
                                                                                                          final int layer,
                                                                                                          @Nonnull final Iterable<? extends NodeReference> neighborReferences,
                                                                                                          @Nonnull final Map<Tuple, Node<N>> nodeCache) {
-        return fetchSomeNodesAndApply(nodeFactory, readTransaction, layer, neighborReferences,
+        return fetchSomeNodesAndApply(storageAdapter, readTransaction, layer, neighborReferences,
                 neighborReference -> {
                     if (neighborReference instanceof NodeReferenceWithVector) {
                         return (NodeReferenceWithVector)neighborReference;
@@ -687,12 +642,12 @@ public class HNSW {
      * TODO.
      */
     @Nonnull
-    private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<N>>> fetchSomeNodesIfNotCached(@Nonnull final NodeFactory<N> creator,
+    private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<N>>> fetchSomeNodesIfNotCached(@Nonnull final StorageAdapter<N> storageAdapter,
                                                                                                                  @Nonnull final ReadTransaction readTransaction,
                                                                                                                  final int layer,
                                                                                                                  @Nonnull final Iterable<NodeReferenceWithDistance> nodeReferences,
                                                                                                                  @Nonnull final Map<Tuple, Node<N>> nodeCache) {
-        return fetchSomeNodesAndApply(creator, readTransaction, layer, nodeReferences,
+        return fetchSomeNodesAndApply(storageAdapter, readTransaction, layer, nodeReferences,
                 nodeReference -> {
                     final Node<N> node = nodeCache.get(nodeReference.getPrimaryKey());
                     if (node == null) {
@@ -710,15 +665,14 @@ public class HNSW {
      * TODO.
      */
     @Nonnull
-    @SuppressWarnings("unchecked")
-    private <R extends NodeReference, N extends NodeReference, U> CompletableFuture<List<U>> fetchSomeNodesAndApply(@Nonnull final NodeFactory<N> creator,
+    private <R extends NodeReference, N extends NodeReference, U> CompletableFuture<List<U>> fetchSomeNodesAndApply(@Nonnull final StorageAdapter<N> storageAdapter,
                                                                                                                     @Nonnull final ReadTransaction readTransaction,
                                                                                                                     final int layer,
                                                                                                                     @Nonnull final Iterable<R> nodeReferences,
                                                                                                                     @Nonnull final Function<R, U> fetchBypassFunction,
                                                                                                                     @Nonnull final BiFunction<R, Node<N>, U> biMapFunction) {
         return MoreAsyncUtil.forEach(nodeReferences,
-                currentNeighborReference -> fetchNodeIfNecessaryAndApply(creator, readTransaction, layer,
+                currentNeighborReference -> fetchNodeIfNecessaryAndApply(storageAdapter, readTransaction, layer,
                         currentNeighborReference, fetchBypassFunction, biMapFunction), MAX_CONCURRENT_NODE_READS,
                 getExecutor());
     }
@@ -730,23 +684,19 @@ public class HNSW {
 
         final int l = insertionLayer(getConfig().getRandom());
 
-        return storageAdapter.fetchEntryNodeReference(transaction)
+        return StorageAdapter.fetchEntryNodeReference(transaction, getSubspace(), getOnReadListener())
                 .thenApply(entryNodeReference -> {
                     if (entryNodeReference == null) {
                         // this is the first node
-                        writeLonelyNodes(InliningNode.factory(), transaction, newPrimaryKey, newVector, l, 0);
-                        storageAdapter.writeNode(transaction,
-                                CompactNode.factory()
-                                        .create(newPrimaryKey, newVector, ImmutableList.of()),
-                                0);
-                        storageAdapter.writeEntryNodeReference(transaction,
-                                new EntryNodeReference(newPrimaryKey, newVector, l));
+                        writeLonelyNodes(transaction, newPrimaryKey, newVector, l, -1);
+                        StorageAdapter.writeEntryNodeReference(transaction, getSubspace(),
+                                new EntryNodeReference(newPrimaryKey, newVector, l), getOnWriteListener());
                     } else {
                         final int entryNodeLayer = entryNodeReference.getLayer();
                         if (l > entryNodeLayer) {
-                            writeLonelyNodes(InliningNode.factory(), transaction, newPrimaryKey, newVector, l, entryNodeLayer);
-                            storageAdapter.writeEntryNodeReference(transaction,
-                                    new EntryNodeReference(newPrimaryKey, newVector, l));
+                            writeLonelyNodes(transaction, newPrimaryKey, newVector, l, entryNodeLayer);
+                            StorageAdapter.writeEntryNodeReference(transaction, getSubspace(),
+                                    new EntryNodeReference(newPrimaryKey, newVector, l), getOnWriteListener());
                         }
                     }
                     return entryNodeReference;
@@ -764,12 +714,15 @@ public class HNSW {
                     MoreAsyncUtil.forLoop(lMax,
                             layer -> layer > l,
                             layer -> layer - 1,
-                            layer -> greedySearchLayer(InliningNode.factory(), transaction,
-                                    nodeReferenceAtomic.get(), layer, newVector)
-                                    .thenApply(nodeReference -> {
-                                        nodeReferenceAtomic.set(nodeReference);
-                                        return null;
-                                    }), executor);
+                            layer -> {
+                                final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(layer);
+                                return greedySearchLayer(storageAdapter, transaction,
+                                        nodeReferenceAtomic.get(), layer, newVector)
+                                        .thenApply(nodeReference -> {
+                                            nodeReferenceAtomic.set(nodeReference);
+                                            return null;
+                                        });
+                            }, executor);
 
                     final AtomicReference<List<NodeReferenceWithDistance>> nearestNeighborsAtomic =
                             new AtomicReference<>(ImmutableList.of(nodeReferenceAtomic.get()));
@@ -777,17 +730,20 @@ public class HNSW {
                     return MoreAsyncUtil.forLoop(Math.min(lMax, l),
                             layer -> layer >= 0,
                             layer -> layer - 1,
-                            layer -> insertIntoLayer(storageAdapter.getNodeFactory(layer), transaction,
-                                    nearestNeighborsAtomic.get(), layer, newPrimaryKey, newVector)
-                                    .thenCompose(nearestNeighbors -> {
-                                        nearestNeighborsAtomic.set(nearestNeighbors);
-                                        return AsyncUtil.DONE;
-                                    }), executor);
+                            layer -> {
+                                final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(layer);
+                                return insertIntoLayer(storageAdapter, transaction,
+                                        nearestNeighborsAtomic.get(), layer, newPrimaryKey, newVector)
+                                        .thenCompose(nearestNeighbors -> {
+                                            nearestNeighborsAtomic.set(nearestNeighbors);
+                                            return AsyncUtil.DONE;
+                                        });
+                            }, executor);
                 }).thenCompose(ignored -> AsyncUtil.DONE);
     }
 
     @Nonnull
-    private <N extends NodeReference> CompletableFuture<List<NodeReferenceWithDistance>> insertIntoLayer(@Nonnull final NodeFactory<N> nodeFactory,
+    private <N extends NodeReference> CompletableFuture<List<NodeReferenceWithDistance>> insertIntoLayer(@Nonnull final StorageAdapter<N> storageAdapter,
                                                                                                          @Nonnull final Transaction transaction,
                                                                                                          @Nonnull final List<NodeReferenceWithDistance> nearestNeighbors,
                                                                                                          int layer,
@@ -795,23 +751,30 @@ public class HNSW {
                                                                                                          @Nonnull final Vector<Half> newVector) {
         final Map<Tuple, Node<N>> nodeCache = Maps.newConcurrentMap();
 
-        return searchLayer(nodeFactory, transaction,
+        return searchLayer(storageAdapter, transaction,
                 nearestNeighbors, layer, config.getEfConstruction(), nodeCache, newVector)
                 .thenCompose(searchResult -> {
                     final List<NodeReferenceWithDistance> references = NodeReferenceAndNode.getReferences(searchResult);
 
-                    return selectNeighbors(nodeFactory, transaction, searchResult,
+                    return selectNeighbors(storageAdapter, transaction, searchResult,
                             layer, getConfig().getM(), getConfig().isExtendCandidates(), nodeCache, newVector)
                             .thenCompose(selectedNeighbors -> {
+                                final NodeFactory<N> nodeFactory = storageAdapter.getNodeFactory();
+
                                 final Node<N> newNode =
-                                        nodeFactory.create(newPrimaryKey, newVector, NodeReferenceAndNode.getReferences(selectedNeighbors));
+                                        nodeFactory.create(newPrimaryKey, newVector,
+                                                NodeReferenceAndNode.getReferences(selectedNeighbors));
+
+                                final NeighborsChangeSet<N> newNodeChangeSet =
+                                        new InsertNeighborsChangeSet<>(new BaseNeighborsChangeSet<>(ImmutableList.of()),
+                                                newNode.getNeighbors());
 
                                 // create change sets for each selected neighbor and insert new node into them
                                 final Map<Tuple /* primaryKey */, NeighborsChangeSet<N>> neighborChangeSetMap =
                                         Maps.newLinkedHashMap();
                                 for (final NodeReferenceAndNode<N> selectedNeighbor : selectedNeighbors) {
                                     final NeighborsChangeSet<N> baseSet =
-                                            new BaseNeighborsChangeSet<>(selectedNeighbor);
+                                            new BaseNeighborsChangeSet<>(selectedNeighbor.getNode().getNeighbors());
                                     final NeighborsChangeSet<N> insertSet =
                                             new InsertNeighborsChangeSet<>(baseSet, ImmutableList.of(newNode.getSelfReference(newVector)));
                                     neighborChangeSetMap.put(selectedNeighbor.getNode().getPrimaryKey(),
@@ -824,8 +787,8 @@ public class HNSW {
                                                     final Node<N> selectedNeighborNode = selectedNeighbor.getNode();
                                                     final NeighborsChangeSet<N> changeSet =
                                                             Objects.requireNonNull(neighborChangeSetMap.get(selectedNeighborNode.getPrimaryKey()));
-                                                    return pruneNeighborsIfNecessary(nodeFactory, transaction, selectedNeighbor, layer,
-                                                            currentMMax, changeSet, nodeCache)
+                                                    return pruneNeighborsIfNecessary(storageAdapter, transaction,
+                                                            selectedNeighbor, layer, currentMMax, changeSet, nodeCache)
                                                             .thenApply(nodeReferencesAndNodes -> {
                                                                 if (nodeReferencesAndNodes == null) {
                                                                     return changeSet;
@@ -842,7 +805,8 @@ public class HNSW {
                                                         changeSet);
                                             }
 
-                                            // TODO write newVector and all change sets pertaining to neighbors
+                                            storageAdapter.writeNode(transaction, newNode, layer, newNodeChangeSet);
+
                                             return ImmutableList.copyOf(references);
                                         });
                             });
@@ -892,7 +856,7 @@ public class HNSW {
     }
 
     @Nonnull
-    private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<N>>> pruneNeighborsIfNecessary(@Nonnull final NodeFactory<N> nodeFactory,
+    private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<N>>> pruneNeighborsIfNecessary(@Nonnull final StorageAdapter<N> storageAdapter,
                                                                                                                  @Nonnull final Transaction transaction,
                                                                                                                  @Nonnull final NodeReferenceAndNode<N> selectedNeighbor,
                                                                                                                  int layer,
@@ -904,7 +868,7 @@ public class HNSW {
         if (selectedNeighborNode.getNeighbors().size() < mMax) {
             return CompletableFuture.completedFuture(null);
         } else {
-            return fetchNeighborhood(nodeFactory, transaction, layer, neighborChangeSet.merge(), nodeCache)
+            return fetchNeighborhood(storageAdapter, transaction, layer, neighborChangeSet.merge(), nodeCache)
                     .thenCompose(nodeReferenceWithVectors -> {
                         final ImmutableList.Builder<NodeReferenceWithDistance> nodeReferencesWithDistancesBuilder =
                                 ImmutableList.builder();
@@ -917,18 +881,18 @@ public class HNSW {
                                     new NodeReferenceWithDistance(nodeReferenceWithVector.getPrimaryKey(),
                                             vector, distance));
                         }
-                        return fetchSomeNodesIfNotCached(nodeFactory, transaction, layer,
+                        return fetchSomeNodesIfNotCached(storageAdapter, transaction, layer,
                                 nodeReferencesWithDistancesBuilder.build(), nodeCache);
                     })
                     .thenCompose(nodeReferencesAndNodes ->
-                            selectNeighbors(nodeFactory, transaction,
+                            selectNeighbors(storageAdapter, transaction,
                                     nodeReferencesAndNodes, layer,
                                     mMax, false, nodeCache,
                                     selectedNeighbor.getNodeReferenceWithDistance().getVector()));
         }
     }
 
-    private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<N>>> selectNeighbors(@Nonnull final NodeFactory<N> nodeFactory,
+    private <N extends NodeReference> CompletableFuture<List<NodeReferenceAndNode<N>>> selectNeighbors(@Nonnull final StorageAdapter<N> storageAdapter,
                                                                                                        @Nonnull final ReadTransaction readTransaction,
                                                                                                        @Nonnull final Iterable<NodeReferenceAndNode<N>> nearestNeighbors,
                                                                                                        final int layer,
@@ -936,7 +900,7 @@ public class HNSW {
                                                                                                        final boolean isExtendCandidates,
                                                                                                        @Nonnull final Map<Tuple, Node<N>> nodeCache,
                                                                                                        @Nonnull final Vector<Half> vector) {
-        return extendCandidatesIfNecessary(nodeFactory, readTransaction, nearestNeighbors, layer, isExtendCandidates, nodeCache, vector)
+        return extendCandidatesIfNecessary(storageAdapter, readTransaction, nearestNeighbors, layer, isExtendCandidates, nodeCache, vector)
                 .thenApply(extendedCandidates -> {
                     final List<NodeReferenceWithDistance> selected = Lists.newArrayListWithExpectedSize(m);
                     final Queue<NodeReferenceWithDistance> candidates =
@@ -976,10 +940,10 @@ public class HNSW {
 
                     return ImmutableList.copyOf(selected);
                 }).thenCompose(selectedNeighbors ->
-                        fetchSomeNodesIfNotCached(nodeFactory, readTransaction, layer, selectedNeighbors, nodeCache));
+                        fetchSomeNodesIfNotCached(storageAdapter, readTransaction, layer, selectedNeighbors, nodeCache));
     }
 
-    private <N extends NodeReference> CompletableFuture<List<NodeReferenceWithDistance>> extendCandidatesIfNecessary(@Nonnull final NodeFactory<N> nodeFactory,
+    private <N extends NodeReference> CompletableFuture<List<NodeReferenceWithDistance>> extendCandidatesIfNecessary(@Nonnull final StorageAdapter<N> storageAdapter,
                                                                                                                      @Nonnull final ReadTransaction readTransaction,
                                                                                                                      @Nonnull final Iterable<NodeReferenceAndNode<N>> candidates,
                                                                                                                      int layer,
@@ -1007,7 +971,7 @@ public class HNSW {
 
             final Iterable<N> neighborsOfCandidates = neighborsOfCandidatesBuilder.build();
 
-            return fetchNeighborhood(nodeFactory, readTransaction, layer, neighborsOfCandidates, nodeCache)
+            return fetchNeighborhood(storageAdapter, readTransaction, layer, neighborsOfCandidates, nodeCache)
                     .thenApply(withVectors -> {
                         final ImmutableList.Builder<NodeReferenceWithDistance> extendedCandidatesBuilder = ImmutableList.builder();
                         for (final NodeReferenceAndNode<N> candidate : candidates) {
@@ -1031,16 +995,33 @@ public class HNSW {
         }
     }
 
-    public <N extends NodeReference> void writeLonelyNodes(@Nonnull final NodeFactory<N> nodeFactory,
-                                                           @Nonnull final Transaction transaction,
-                                                           @Nonnull final Tuple primaryKey,
-                                                           @Nonnull final Vector<Half> vector,
-                                                           final int highestLayerInclusive,
-                                                           final int lowestLayerExclusive) {
+    private void writeLonelyNodes(@Nonnull final Transaction transaction,
+                                  @Nonnull final Tuple primaryKey,
+                                  @Nonnull final Vector<Half> vector,
+                                  final int highestLayerInclusive,
+                                  final int lowestLayerExclusive) {
         for (int layer = highestLayerInclusive; layer > lowestLayerExclusive; layer --) {
-            storageAdapter.writeNode(transaction,
-                    nodeFactory.create(primaryKey, vector, ImmutableList.of()), layer);
+            final StorageAdapter<?> storageAdapter = getStorageAdapterForLayer(layer);
+            writeLonelyNodeOnLayer(storageAdapter, transaction, layer, primaryKey, vector);
         }
+    }
+
+    private <N extends NodeReference> void writeLonelyNodeOnLayer(@Nonnull final StorageAdapter<N> storageAdapter,
+                                                                  @Nonnull final Transaction transaction,
+                                                                  final int layer,
+                                                                  @Nonnull final Tuple primaryKey,
+                                                                  @Nonnull final Vector<Half> vector) {
+        storageAdapter.writeNode(transaction,
+                storageAdapter.getNodeFactory()
+                        .create(primaryKey, vector, ImmutableList.of()), layer,
+                new BaseNeighborsChangeSet<>(ImmutableList.of()));
+    }
+
+    @Nonnull
+    private StorageAdapter<? extends NodeReference> getStorageAdapterForLayer(final int layer) {
+        return layer > 0
+               ? new InliningStorageAdapter(getConfig(), InliningNode.factory(), getSubspace(), getOnWriteListener(), getOnReadListener())
+               : new CompactStorageAdapter(getConfig(), CompactNode.factory(), getSubspace(), getOnWriteListener(), getOnReadListener());
     }
 
     private int insertionLayer(@Nonnull final Random random) {

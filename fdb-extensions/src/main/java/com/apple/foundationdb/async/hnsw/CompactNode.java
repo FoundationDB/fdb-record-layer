@@ -22,7 +22,6 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.tuple.Tuple;
 import com.christianheina.langx.half4j.Half;
-import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -86,25 +85,6 @@ public class CompactNode extends AbstractNode<NodeReference> {
     @Override
     public InliningNode asInliningNode() {
         throw new IllegalStateException("this is not an inlining node");
-    }
-
-    @Override
-    public NodeFactory<NodeReference> sameCreator() {
-        return CompactNode.factory();
-    }
-
-    @Nonnull
-    @Override
-    public Tuple toTuple() {
-        final List<Object> nodeItems = Lists.newArrayListWithExpectedSize(4);
-        nodeItems.add(NodeKind.COMPACT.getSerialized());
-        nodeItems.add(StorageAdapter.tupleFromVector(getVector()));
-        final List<Tuple> neighborItems = Lists.newArrayListWithExpectedSize(getNeighbors().size());
-        for (final NodeReference nodeReference : getNeighbors()) {
-            neighborItems.add(nodeReference.getPrimaryKey());
-        }
-        nodeItems.add(Tuple.fromList(neighborItems));
-        return Tuple.fromList(nodeItems);
     }
 
     @Nonnull

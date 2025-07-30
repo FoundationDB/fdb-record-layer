@@ -40,10 +40,8 @@ public class NodeReference {
     }
 
     @Nonnull
-    public static Iterable<Tuple> primaryKeys(@Nonnull Iterable<? extends NodeReference> neighbors) {
-        return () -> Streams.stream(neighbors)
-                .map(NodeReference::getPrimaryKey)
-                .iterator();
+    public NodeReferenceWithVector asNodeReferenceWithVector() {
+        throw new IllegalStateException("method should not be called");
     }
 
     @Override
@@ -59,4 +57,12 @@ public class NodeReference {
     public int hashCode() {
         return Objects.hashCode(primaryKey);
     }
+
+    @Nonnull
+    public static Iterable<Tuple> primaryKeys(@Nonnull Iterable<? extends NodeReference> neighbors) {
+        return () -> Streams.stream(neighbors)
+                .map(NodeReference::getPrimaryKey)
+                .iterator();
+    }
+
 }

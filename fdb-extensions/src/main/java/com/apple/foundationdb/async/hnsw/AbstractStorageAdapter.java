@@ -31,12 +31,11 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Implementations and attributes common to all concrete implementations of {@link StorageAdapter}.
  */
-abstract class AbstractStorageAdapter implements StorageAdapter {
-    public static final byte SUBSPACE_PREFIX_ENTRY_NODE = 0x01;
-    public static final byte SUBSPACE_PREFIX_DATA = 0x02;
-
+abstract class AbstractStorageAdapter<N extends NodeReference> implements StorageAdapter<N> {
     @Nonnull
     private final HNSW.Config config;
+    @Nonnull
+    private final NodeFactory<N> nodeFactory;
     @Nonnull
     private final Subspace subspace;
     @Nonnull
@@ -44,18 +43,17 @@ abstract class AbstractStorageAdapter implements StorageAdapter {
     @Nonnull
     private final OnReadListener onReadListener;
 
-    private final Subspace entryNodeSubspace;
     private final Subspace dataSubspace;
 
-    protected AbstractStorageAdapter(@Nonnull final HNSW.Config config, @Nonnull final Subspace subspace,
+    protected AbstractStorageAdapter(@Nonnull final HNSW.Config config, @Nonnull final NodeFactory<N> nodeFactory,
+                                     @Nonnull final Subspace subspace,
                                      @Nonnull final OnWriteListener onWriteListener,
                                      @Nonnull final OnReadListener onReadListener) {
         this.config = config;
+        this.nodeFactory = nodeFactory;
         this.subspace = subspace;
         this.onWriteListener = onWriteListener;
         this.onReadListener = onReadListener;
-
-        this.entryNodeSubspace = subspace.subspace(Tuple.from(SUBSPACE_PREFIX_ENTRY_NODE));
         this.dataSubspace = subspace.subspace(Tuple.from(SUBSPACE_PREFIX_DATA));
     }
 
@@ -65,22 +63,22 @@ abstract class AbstractStorageAdapter implements StorageAdapter {
         return config;
     }
 
+    @Nonnull
+    @Override
+    public NodeFactory<N> getNodeFactory() {
+        return nodeFactory;
+    }
+
+    @Nonnull
+    @Override
+    public NodeKind getNodeKind() {
+        return getNodeFactory().getNodeKind();
+    }
+
     @Override
     @Nonnull
     public Subspace getSubspace() {
         return subspace;
-    }
-
-    @Nullable
-    @Override
-    public Subspace getSecondarySubspace() {
-        return null;
-    }
-
-    @Override
-    @Nonnull
-    public Subspace getEntryNodeSubspace() {
-        return entryNodeSubspace;
     }
 
     @Override
@@ -103,28 +101,25 @@ abstract class AbstractStorageAdapter implements StorageAdapter {
 
     @Nonnull
     @Override
-    public <N extends NodeReference> CompletableFuture<Node<N>> fetchNode(@Nonnull final NodeFactory<N> nodeFactory,
-                                                                          @Nonnull final ReadTransaction readTransaction,
-                                                                          int layer, @Nonnull Tuple primaryKey) {
-        return fetchNodeInternal(nodeFactory, readTransaction, layer, primaryKey).thenApply(this::checkNode);
+    public CompletableFuture<Node<N>> fetchNode(@Nonnull final ReadTransaction readTransaction,
+                                                int layer, @Nonnull Tuple primaryKey) {
+        return fetchNodeInternal(readTransaction, layer, primaryKey).thenApply(this::checkNode);
     }
 
     @Nonnull
-    protected abstract <N extends NodeReference> CompletableFuture<Node<N>> fetchNodeInternal(@Nonnull NodeFactory<N> nodeFactory,
-                                                                                              @Nonnull ReadTransaction readTransaction,
-                                                                                              int layer, @Nonnull Tuple primaryKey);
+    protected abstract CompletableFuture<Node<N>> fetchNodeInternal(@Nonnull ReadTransaction readTransaction,
+                                                                    int layer, @Nonnull Tuple primaryKey);
 
     /**
      * Method to perform basic invariant check(s) on a newly-fetched node.
      *
      * @param node the node to check
-     * @param <N> the type param for the node in order for this method to not be lossy on the type of the node that
      * was passed in
      *
      * @return the node that was passed in
      */
     @Nullable
-    private <N extends NodeReference> Node<N> checkNode(@Nullable final Node<N> node) {
+    private Node<N> checkNode(@Nullable final Node<N> node) {
         return node;
     }
 }

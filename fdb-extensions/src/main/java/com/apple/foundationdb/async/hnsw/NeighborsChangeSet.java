@@ -21,9 +21,11 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.function.Predicate;
 
 /**
  * TODO.
@@ -35,5 +37,6 @@ interface NeighborsChangeSet<N extends NodeReference> {
     @Nonnull
     Iterable<N> merge();
 
-    void writeDelta(@Nonnull final Transaction transaction);
+    void writeDelta(@Nonnull InliningStorageAdapter storageAdapter, @Nonnull Transaction transaction, int layer,
+                    @Nonnull Node<N> node, @Nonnull Predicate<Tuple /* primary key */> primaryKeyPredicate);
 }
