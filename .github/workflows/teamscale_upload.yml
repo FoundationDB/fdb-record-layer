@@ -41,45 +41,14 @@ jobs:
 
       - name: 'Unzip artifact'
         run: unzip "${{ runner.temp }}/artifacts/coverage-report.zip" -d "${{ runner.temp }}/artifacts"
-      - name: 'Download release'
-        uses: actions/github-script@v7
-        # The provided octokit in `github` as used above is already authenticated with a token that only allows
-        # access to our repository, but we want to access a public release. This doesn't require a token, so
-        # create a new instance and use that
-        with: # https://github.com/cqse/teamscale-upload/releases/tag/v2.9.6
-          script: |
-            const unauthenticated = new Octokit({ });
-            let release = await unauthenticated.rest.repos.getReleaseByTag({
-              owner: 'cqse',
-              repo: 'teamscale-upload',
-              tag: 'v2.9.6'
-            });
-            let reference = release.assets.filter((asset) => {
-              return asset.name == "teamscale-upload-jlink-linux-x86_64.zip"
-            })[0];
-            let asset = await unauthenticated.rest.repos.getReleaseAsset({
-              owner: 'cqse',
-              repo: 'teamscale-upload',
-              asset_id: reference.id
-            });
-            
-            const fs = require('fs');
-            const path = require('path');
-            const temp = '${{ runner.temp }}/teamscale;
-            if (!fs.existsSync(temp)){
-              fs.mkdirSync(temp);
-            }
-            fs.writeFileSync(path.join(temp, 'teamscale-upload.zip'), Buffer.from(asset.data));
-
-      - name: 'Unzip teamscale'
-        run: unzip "${{ runner.temp }}/teamscale/teamscale-upload.zip" -d "${{ runner.temp }}/teamscale"
-
       - name: 'Upload coverage'
-        run: |
-          "${{ runner.temp }}/teamscale/teamscale-upload/bin/teamscale-upload" --server https://fdb.teamscale.io \
-          --project foundationdb-fdb-record-layer \
-          --user fdb-record-layer-build \
-          --accesskey ${{ secrets.TEAMSCALE_ACCESS_KEY }} \
-          --partition 'CI Tests' \
-          --commit ${{ github.event.workflow_run.head_sha }} \
-          --format jacoco ${{ runner.temp}}/artifacts/codeCoverageReport.xml
+        uses: 'cqse/teamscale-upload-action@v2.9.6'
+        with:
+          server: 'https://fdb.teamscale.io'
+          project: 'foundationdb-fdb-record-layer'
+          user: 'foundationdb-fdb-record-layer'
+          partition: 'CI Tests'
+          accesskey: ${{ secrets.TEAMSCALE_ACCESS_KEY }}
+          format: 'JACOCO'
+          revision: ${{ github.event.workflow_run.head_sha }}
+          files: "${{ runner.temp}}/artifacts/codeCoverageReport.xml"
