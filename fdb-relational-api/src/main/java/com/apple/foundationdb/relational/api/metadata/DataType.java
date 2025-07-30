@@ -68,6 +68,7 @@ public abstract class DataType {
         typeCodeJdbcTypeMap.put(Code.DOUBLE, Types.DOUBLE);
         typeCodeJdbcTypeMap.put(Code.STRING, Types.VARCHAR);
         typeCodeJdbcTypeMap.put(Code.ENUM, Types.OTHER);
+        typeCodeJdbcTypeMap.put(Code.UUID, Types.OTHER);
         typeCodeJdbcTypeMap.put(Code.BYTES, Types.BINARY);
         typeCodeJdbcTypeMap.put(Code.VERSION, Types.BINARY);
         typeCodeJdbcTypeMap.put(Code.STRUCT, Types.STRUCT);
