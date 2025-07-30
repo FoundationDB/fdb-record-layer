@@ -168,7 +168,7 @@ public class SchemaTemplateSerDeTests {
         final var unionDesc = maybeUnionDesc.get();
 
         // Check if all tables are part of union descriptor.
-        final var expectedTableNameSet = Set.of("T1", "T2");
+        final var expectedTableNameSet = Set.of(".T1", ".T2");
         Assertions.assertTrue(unionDesc.getFieldList().stream().allMatch(e -> expectedTableNameSet.contains(e.getTypeName())));
 
         // Check if the number of fields in union descriptor are equal to the tables in the template.
@@ -242,8 +242,10 @@ public class SchemaTemplateSerDeTests {
         // Check if all generations are present in union descriptor
         for (final var unionField : unionDesc.getFieldList()) {
             final var typeName = unionField.getTypeName();
-            Assertions.assertTrue(testcase.containsKey(typeName));
-            final var expectedGenerations = testcase.get(typeName);
+            Assertions.assertTrue(typeName.startsWith("."));
+            final var caseName = typeName.substring(1);
+            Assertions.assertTrue(testcase.containsKey(caseName));
+            final var expectedGenerations = testcase.get(caseName);
             Assertions.assertTrue(expectedGenerations.contains(NonnullPair.of(unionField.getNumber(), unionField.getOptions())));
         }
     }
