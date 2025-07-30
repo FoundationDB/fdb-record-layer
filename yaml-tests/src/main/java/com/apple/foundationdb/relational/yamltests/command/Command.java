@@ -158,7 +158,7 @@ public abstract class Command {
                 // save schema template
                 ApplyState applyState = (RecordLayerMetadataOperationsFactory factory, Transaction txn) -> {
                     final var options = Options.none();
-                    final var schemaTemplate = CommandUtil.fromProto(value, options);
+                    final var schemaTemplate = CommandUtil.fromProto(value);
                     factory.getCreateSchemaTemplateConstantAction(schemaTemplate, options).execute(txn);
                 };
                 final EmbeddedRelationalConnection embedded = connection.tryGetEmbedded();

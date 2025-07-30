@@ -346,7 +346,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         return RecordLayerInvokedRoutine.newBuilder()
                 .setName(functionName)
                 .setDescription(functionDefinition)
-                .withCompilableRoutine(() -> compiledSqlFunction)
+                .withCompilableRoutine(ignored -> compiledSqlFunction)
                 .setNormalizedDescription(getDelegate().getPlanGenerationContext().getCanonicalQueryString())
                 .setTemporary(isTemporary)
                 .build();

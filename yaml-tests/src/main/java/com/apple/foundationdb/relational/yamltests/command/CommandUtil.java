@@ -64,7 +64,7 @@ public class CommandUtil {
      * @param loadCommandString input format is: "load: schema template ${SCHEMA_TEMPLATE_NAME} from ${PROTO_CLASS_NAME}"
      * @return a SchemaTemplate object
      */
-    public static SchemaTemplate fromProto(String loadCommandString, Options options) {
+    public static SchemaTemplate fromProto(String loadCommandString) {
         RecordMetaData metaData;
         Pair<String, String> templateNameAndSourceName = parseLoadTemplateString(loadCommandString);
         if (templateNameAndSourceName.getRight().endsWith(".json")) {
@@ -80,7 +80,7 @@ public class CommandUtil {
                 throw new RuntimeException(e);
             }
         }
-        return RecordLayerSchemaTemplate.fromRecordMetadata(metaData, templateNameAndSourceName.getLeft(), 1, options);
+        return RecordLayerSchemaTemplate.fromRecordMetadata(metaData, templateNameAndSourceName.getLeft(), 1);
     }
 
     public static SchemaInstanceOuterClass.SchemaInstance fromJson(String loadCommandString) {

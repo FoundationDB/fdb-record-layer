@@ -217,9 +217,8 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     @Nonnull
     public static RecordLayerSchemaTemplate fromRecordMetadata(@Nonnull final RecordMetaData metaData,
                                                                @Nonnull final String templateName,
-                                                               int version,
-                                                               @Nonnull final Options options) {
-        final var deserializer = new RecordMetadataDeserializer(metaData, options);
+                                                               int version) {
+        final var deserializer = new RecordMetadataDeserializer(metaData);
         return deserializer.getSchemaTemplate(templateName, version);
     }
 

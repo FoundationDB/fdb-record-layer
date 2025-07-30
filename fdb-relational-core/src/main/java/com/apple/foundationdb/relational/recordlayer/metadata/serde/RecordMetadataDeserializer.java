@@ -45,6 +45,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 import java.util.HashMap;
 import java.util.Locale;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -152,10 +153,10 @@ public class RecordMetadataDeserializer {
 
     @Nonnull
     @VisibleForTesting
-    protected Supplier<CompiledSqlFunction> getSqlFunctionCompiler(@Nonnull final String name,
-                                                                   @Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
-                                                                   @Nonnull final String functionBody) {
-        return () -> RoutineParser.sqlFunctionParser(metadata.get(), options.getOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS)).parse(functionBody);
+    protected Function<Boolean, CompiledSqlFunction> getSqlFunctionCompiler(@Nonnull final String name,
+                                                                            @Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
+                                                                            @Nonnull final String functionBody) {
+        return isCaseSensitive -> RoutineParser.sqlFunctionParser(metadata.get()).parse(functionBody, isCaseSensitive);
     }
 
     @Nonnull

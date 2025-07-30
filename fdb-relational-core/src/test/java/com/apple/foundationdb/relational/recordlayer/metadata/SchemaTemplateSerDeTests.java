@@ -43,6 +43,7 @@ import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.util.Assert;
+import com.google.common.base.Function;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -192,7 +193,7 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertEquals(enableLongRows, metaData.isSplitLongRecords());
 
         // Validate that when wrapping a met
-        RecordLayerSchemaTemplate wrappedMetaData = RecordLayerSchemaTemplate.fromRecordMetadata(metaData, schemaTemplate.getName(), schemaTemplate.getVersion(), Options.none());
+        RecordLayerSchemaTemplate wrappedMetaData = RecordLayerSchemaTemplate.fromRecordMetadata(metaData, schemaTemplate.getName(), schemaTemplate.getVersion());
         Assertions.assertEquals(enableLongRows, wrappedMetaData.isEnableLongRows());
         Assertions.assertEquals(schemaTemplate.getVersion(), wrappedMetaData.getVersion());
     }
@@ -208,7 +209,7 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertEquals(storeRowVersions, schemaTemplate.toRecordMetadata().isStoreRecordVersions());
 
         RecordMetaData metaData = schemaTemplate.toRecordMetadata();
-        RecordLayerSchemaTemplate wrappedMetaData = RecordLayerSchemaTemplate.fromRecordMetadata(metaData, schemaTemplate.getName(), schemaTemplate.getVersion(), Options.none());
+        RecordLayerSchemaTemplate wrappedMetaData = RecordLayerSchemaTemplate.fromRecordMetadata(metaData, schemaTemplate.getName(), schemaTemplate.getVersion());
         Assertions.assertEquals(storeRowVersions, wrappedMetaData.isStoreRowVersions());
         Assertions.assertEquals(schemaTemplate.getVersion(), wrappedMetaData.getVersion());
     }
@@ -321,7 +322,7 @@ public class SchemaTemplateSerDeTests {
                                 .build())
                 .build();
         final var proto = sampleRecordSchemaTemplate.toRecordMetadata();
-        final var deserializedTableType = RecordLayerSchemaTemplate.fromRecordMetadata(proto, "TestSchemaTemplate", 42, Options.none()).findTableByName("T1");
+        final var deserializedTableType = RecordLayerSchemaTemplate.fromRecordMetadata(proto, "TestSchemaTemplate", 42).findTableByName("T1");
         Assertions.assertTrue(deserializedTableType.isPresent());
         final var column = deserializedTableType.get().getColumns().stream().findFirst();
         Assertions.assertTrue(column.isPresent());
@@ -470,7 +471,7 @@ public class SchemaTemplateSerDeTests {
                 .setName("SqlFunction1")
                 .setDescription("CREATE FUNCTION SqlFunction1(IN Q BIGINT) AS SELECT * FROM T1 WHERE col1 < Q")
                 .setTemporary(true)
-                .withCompilableRoutine(CompiledFunctionStub::new)
+                .withCompilableRoutine(ignored -> new CompiledFunctionStub())
                 .build());
 
         // build the schema template
@@ -513,7 +514,7 @@ public class SchemaTemplateSerDeTests {
             schemaTemplateBuilder.addInvokedRoutine(RecordLayerInvokedRoutine.newBuilder()
                     .setName(functionName)
                     .setDescription(functionDescription)
-                    .withCompilableRoutine(CompiledFunctionStub::new)
+                    .withCompilableRoutine(igored -> new CompiledFunctionStub())
                     .build());
         }
 
@@ -561,18 +562,18 @@ public class SchemaTemplateSerDeTests {
         private final Map<String, Integer> invocationsCount;
 
         public RecordMetadataDeserializerWithPeekingFunctionSupplier(@Nonnull final RecordMetaData recordMetaData) {
-            super(recordMetaData, Options.none());
+            super(recordMetaData);
             invocationsCount = new HashMap<>();
         }
 
         @Nonnull
         @Override
-        protected Supplier<CompiledSqlFunction> getSqlFunctionCompiler(@Nonnull final String name,
-                                                                       @Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
-                                                                       @Nonnull final String functionBody) {
-            return () -> {
+        protected Function<Boolean, CompiledSqlFunction> getSqlFunctionCompiler(@Nonnull final String name,
+                                                                                @Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
+                                                                                @Nonnull final String functionBody) {
+            return isCaseSensitive -> {
                 invocationsCount.merge(name, 1, Integer::sum);
-                return super.getSqlFunctionCompiler(name, metadata, functionBody).get();
+                return super.getSqlFunctionCompiler(name, metadata, functionBody).apply(isCaseSensitive);
             };
         }
 

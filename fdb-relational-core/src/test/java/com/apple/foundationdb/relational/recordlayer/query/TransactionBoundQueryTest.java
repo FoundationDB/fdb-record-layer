@@ -133,7 +133,7 @@ public class TransactionBoundQueryTest {
             final var connectionOptions = Options.none();
             try {
                 final var schemaTemplate = RecordLayerSchemaTemplate.fromRecordMetadata(metaData, databaseRule.getSchemaTemplateName(),
-                        metaData.getVersion(), connectionOptions);
+                        metaData.getVersion());
                 final var transactionBoundConnection = driver.connect(databaseRule.getConnectionUri(),
                         new RecordStoreAndRecordContextTransaction(newStore, context, schemaTemplate), connectionOptions);
                 transactionBoundConnection.setSchema(databaseRule.getSchemaName());

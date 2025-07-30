@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.RecordAlreadyExistsException;
-import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ProtobufDataBuilder;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
@@ -86,9 +85,6 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
     @Nonnull
     private final RecordMetaDataProvider catalogRecordMetaDataProvider;
 
-    @Nonnull
-    private final Options options;
-
     /**
      * Creates a RecordLayer-backed SchemaTemplateCatalog instance.
      *
@@ -99,11 +95,9 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
      */
     @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "Hard to remove exception with current inheritance")
     RecordLayerStoreSchemaTemplateCatalog(@Nonnull final RecordLayerSchema catalogSchema,
-                                          @Nonnull final RelationalKeyspaceProvider.RelationalSchemaPath catalogSchemaPath,
-                                          @Nonnull final Options options) throws RelationalException {
+                                          @Nonnull final RelationalKeyspaceProvider.RelationalSchemaPath catalogSchemaPath) throws RelationalException {
         this.catalogSchema = catalogSchema;
         this.catalogSchemaPath = catalogSchemaPath;
-        this.options = options;
         this.catalogRecordMetaDataProvider = RecordMetaData.build(this.catalogSchema.getSchemaTemplate()
                 .unwrap(RecordLayerSchemaTemplate.class).toRecordMetadata().toProto());
     }
@@ -182,7 +176,7 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
             final var schemaExists = cursorResult.get() != null && !cursorResult.getContinuation().isEnd();
             Assert.thatUnchecked(schemaExists, ErrorCode.UNKNOWN_SCHEMA_TEMPLATE,
                     "SchemaTemplate '" + templateName + "' is not in catalog");
-            return toSchemaTemplate(Assert.notNullUnchecked(cursorResult.get()).getRecord(), options);
+            return toSchemaTemplate(Assert.notNullUnchecked(cursorResult.get()).getRecord());
         } catch (RecordCoreStorageException | InvalidProtocolBufferException e) {
             throw new UncheckedRelationalException(ExceptionUtil.toRelationalException(e));
         }
@@ -201,7 +195,7 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
                 throw new RelationalException("SchemaTemplate=" + templateName + ", version=" + version +
                         " is not in catalog", ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
             }
-            return toSchemaTemplate(fdbSR.getRecord(), options);
+            return toSchemaTemplate(fdbSR.getRecord());
         } catch (InvalidProtocolBufferException | RecordCoreException e) {
             throw ExceptionUtil.toRelationalException(e);
         }
@@ -211,7 +205,7 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
      * Instantiate an instance of {@link SchemaTemplate} using content of the passed {@link Message}.
      */
     @Nonnull
-    private static SchemaTemplate toSchemaTemplate(@Nonnull final Message message, @Nonnull final Options options) throws InvalidProtocolBufferException {
+    private static SchemaTemplate toSchemaTemplate(@Nonnull final Message message) throws InvalidProtocolBufferException {
         // we should probably memoize a Message -> RecordLayerSchemaTemplate relation to avoid repetitive
         // deserialization of the same message over and over again.
         final Descriptors.Descriptor descriptor = message.getDescriptorForType();
@@ -219,7 +213,7 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
         final RecordMetaData metaData = RecordMetaData.build(RecordMetaDataProto.MetaData.parseFrom(bs.toByteArray()));
         final String name = message.getField(descriptor.findFieldByName(SchemaTemplateSystemTable.TEMPLATE_NAME)).toString();
         int templateVersion = (int) message.getField(descriptor.findFieldByName(SchemaTemplateSystemTable.TEMPLATE_VERSION));
-        return RecordLayerSchemaTemplate.fromRecordMetadata(metaData, name, templateVersion, options);
+        return RecordLayerSchemaTemplate.fromRecordMetadata(metaData, name, templateVersion);
     }
 
     @Override

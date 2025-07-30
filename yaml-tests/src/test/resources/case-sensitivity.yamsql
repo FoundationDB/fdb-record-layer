@@ -29,10 +29,11 @@ schema_template:
     create table Table1(id bigint, col1 bigint, col2 bigint, primary key(id))
     create table TaBlE1(x bigint, y string, primary key(x))
     create table TABLE2(a bigint, b string, primary key(a))
+    create table table2(id bigint, col1 bigint, col2 bigint, primary key(id))
     create index i1 as select col2, col1 from Table1 order by col2, col1
     create index I1 as select y, x from TaBlE1 order by y, x
     create function f1 ( in a bigint, in b bigint ) as select col1 as x, col2 from Table1 where col1 = a and col2 = b
-    create function F1 ( in A bigint, in B bigint ) as select col1 + 100 as X, col2 from Table1 where col1 < A and col2 = B
+    create function F1 ( in A bigint, in B bigint ) as select col1 + 100 as X, col2 from Table1 where col1 = A and col2 = B
     create function f2 (in c bigint) as select * from f1(a => 10, b => 1) where x + c = 10
     create function F2 (in C bigint) as select * from F1(A => 10, B => 1) where X + C = 110
 ---
@@ -49,6 +50,11 @@ setup:
     - query: insert into TABLE2
         values (10, 'blah'),
                (20, 'bleh')
+    - query: insert into table2
+        values (10, 100, 10),
+               (20, 100, 20),
+               (60, 200, 60),
+               (70, 200, 70)
 ---
 test_block:
   name: case-sensitivity-on
@@ -92,10 +98,10 @@ test_block:
   tests:
     -
       - query: select * from f2(0)
-      - unorderedResult: [{COL1: 10, COL2: 1}]
+      - unorderedResult: [{x: 10, col2: 1}]
     -
       - query: select * from F2(0)
-      - unorderedResult: [{COL1: 10, COL2: 1}]
+      - unorderedResult: [{X: 110, col2: 1}]
 ---
 test_block:
   name: case-sensitivity-off
@@ -137,4 +143,11 @@ test_block:
       - query: select * from table2
       - unorderedResult: [{A: 10, B: 'blah'},
                           {A: 20, B: 'bleh'}]
+    -
+# it is still possible, though, to query the table in case-sensitive.
+      - query: select * from "table2"
+      - unorderedResult: [{ID: 10, COL1: 100, COL2: 10},
+                          {ID: 20, COL1: 100, COL2: 20},
+                          {ID: 60, COL1: 200, COL2: 60},
+                          {ID: 70, COL1: 200, COL2: 70}]
 ...

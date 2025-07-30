@@ -77,7 +77,7 @@ public interface StoreCatalog {
      *                           TransactionInactive if txn is no longer active
      *                           UNDEFINED_SCHEMA if schema not found
      */
-    void repairSchema(@Nonnull Transaction txn, @Nonnull String databaseId, @Nonnull String schemaName, @Nonnull Options options) throws RelationalException;
+    void repairSchema(@Nonnull Transaction txn, @Nonnull String databaseId, @Nonnull String schemaName) throws RelationalException;
 
     void createDatabase(@Nonnull Transaction txn, @Nonnull URI dbUri) throws RelationalException;
 

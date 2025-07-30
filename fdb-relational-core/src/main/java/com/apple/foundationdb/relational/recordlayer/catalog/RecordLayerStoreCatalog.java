@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ProtobufDataBuilder;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
@@ -239,11 +238,11 @@ class RecordLayerStoreCatalog implements StoreCatalog {
     }
 
     @Override
-    public void repairSchema(@Nonnull Transaction txn, @Nonnull String databaseId, @Nonnull String schemaName, @Nonnull final Options options) throws RelationalException {
+    public void repairSchema(@Nonnull Transaction txn, @Nonnull String databaseId, @Nonnull String schemaName) throws RelationalException {
         // a read-modify-write loop, done in 1 transaction
         final RecordLayerSchema schema = loadSchema(txn, URI.create(databaseId), schemaName);
         // load latest schema template
-        final SchemaTemplate template = schemaTemplateCatalog.loadSchemaTemplate(txn, schema.getSchemaTemplate().getName(), options);
+        final SchemaTemplate template = schemaTemplateCatalog.loadSchemaTemplate(txn, schema.getSchemaTemplate().getName());
         final Schema newSchema = template.generateSchema(databaseId, schemaName);
         saveSchema(txn, newSchema, false);
     }
