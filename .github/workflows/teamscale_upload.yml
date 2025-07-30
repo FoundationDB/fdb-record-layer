@@ -10,7 +10,7 @@ on:
       - completed
 
 jobs:
-  download:
+  upload_coverage:
     runs-on: ubuntu-latest
     steps:
       - name: 'Download artifact'
