@@ -102,13 +102,13 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
     protected void compress(@Nonnull TransformedRecordSerializerState state, @Nullable StoreTimer timer) {
         long startTime = System.nanoTime();
 
-        increment(timer, Counts.RECORD_BYTES_BEFORE_COMPRESSION, state.length);
+        increment(timer, Counts.RECORD_BYTES_BEFORE_COMPRESSION, state.getLength());
 
         // compressed data stores 5 bytes of header info. Hence, it is only fruitful to compress if the uncompressed data
         // has more than 5 bytes otherwise the compressed data will always be more than the original.
-        if (state.length > 5) {
+        if (state.getLength() > 5) {
             // Compressed bytes have 5 bytes of prefixed information about the compression state.
-            byte[] compressed = new byte[state.length];
+            byte[] compressed = new byte[state.getLength()];
 
             // Actually compress. If we end up filling the buffer, then just
             // return the uncompressed value because it's pointless to compress
@@ -116,31 +116,31 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
             Deflater compressor = new Deflater(compressionLevel);
             int compressedLength;
             try {
-                compressor.setInput(state.data, state.offset, state.length);
+                compressor.setInput(state.getData(), state.getOffset(), state.getLength());
                 compressor.finish(); // necessary to include checksum
                 compressedLength = compressor.deflate(compressed, 5, compressed.length - 5, Deflater.FULL_FLUSH);
             } finally {
                 compressor.end();
             }
             if (compressedLength == compressed.length - 5) {
-                increment(timer, Counts.RECORD_BYTES_AFTER_COMPRESSION, state.length);
-                state.compressed = false;
+                increment(timer, Counts.RECORD_BYTES_AFTER_COMPRESSION, state.getLength());
+                state.setCompressed(false);
             } else {
                 // Write compression version number and uncompressed size as these
                 // meta-data are needed when decompressing.
                 compressed[0] = (byte)MAX_COMPRESSION_VERSION;
-                ByteBuffer.wrap(compressed, 1, 4).order(ByteOrder.BIG_ENDIAN).putInt(state.length);
-                state.compressed = true;
+                ByteBuffer.wrap(compressed, 1, 4).order(ByteOrder.BIG_ENDIAN).putInt(state.getLength());
+                state.setCompressed(true);
                 increment(timer, Counts.RECORD_BYTES_AFTER_COMPRESSION, compressedLength + 5);
                 state.setDataArray(compressed, 0, compressedLength + 5);
             }
         } else {
-            increment(timer, Counts.RECORD_BYTES_AFTER_COMPRESSION, state.length);
+            increment(timer, Counts.RECORD_BYTES_AFTER_COMPRESSION, state.getLength());
         }
 
         if (timer != null) {
             timer.recordSinceNanoTime(Events.COMPRESS_SERIALIZED_RECORD, startTime);
-            if (!state.compressed) {
+            if (!state.isCompressed()) {
                 timer.increment(Counts.ESCHEW_RECORD_COMPRESSION);
             }
         }
@@ -200,18 +200,18 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         // we after we've verified it is in the right range, we
         // can just move on. If we ever introduce a new format version,
         // we will need to make this code more complicated.
-        int compressionVersion = state.data[state.offset];
+        int compressionVersion = state.getData()[state.getOffset()];
         if (compressionVersion < MIN_COMPRESSION_VERSION || compressionVersion > MAX_COMPRESSION_VERSION) {
             throw new RecordSerializationException("unknown compression version")
                     .addLogInfo("compressionVersion", compressionVersion);
         }
 
-        int decompressedLength = ByteBuffer.wrap(state.data, state.offset + 1, 4).order(ByteOrder.BIG_ENDIAN).getInt();
+        int decompressedLength = ByteBuffer.wrap(state.getData(), state.getOffset() + 1, 4).order(ByteOrder.BIG_ENDIAN).getInt();
         byte[] decompressed = new byte[decompressedLength];
 
         Inflater decompressor = new Inflater();
         try {
-            decompressor.setInput(state.data, state.offset + 5, state.length - 5);
+            decompressor.setInput(state.getData(), state.getOffset() + 5, state.getLength() - 5);
             int actualDecompressedSize = decompressor.inflate(decompressed);
             if (actualDecompressedSize < decompressedLength) {
                 throw new RecordSerializationException("decompressed record too small")
@@ -247,7 +247,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         if (!TransformedRecordSerializerPrefix.decodePrefix(state, primaryKey)) {
             return inner.deserialize(metaData, primaryKey, serialized, timer);
         }
-        if (state.encrypted) {
+        if (state.isEncrypted()) {
             try {
                 decrypt(state, timer);
             } catch (RecordCoreException ex) {
@@ -259,7 +259,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
                         .addLogInfo(LogMessageKeys.PRIMARY_KEY, primaryKey);
             }
         }
-        if (state.compressed) {
+        if (state.isCompressed()) {
             try {
                 decompress(state, timer);
             } catch (RecordCoreException ex) {
