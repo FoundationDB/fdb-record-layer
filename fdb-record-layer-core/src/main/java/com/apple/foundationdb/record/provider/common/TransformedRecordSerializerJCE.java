@@ -60,7 +60,7 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
         long startTime = System.nanoTime();
 
         int keyNumber = keyManager.getSerializationKey();
-        state.keyNumber = keyNumber;
+        state.setKeyNumber(keyNumber);
 
         byte[] ivData = new byte[CipherPool.IV_SIZE];
         keyManager.getRandom(keyNumber).nextBytes(ivData);
@@ -76,7 +76,7 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
             byte[] serialized = new byte[totalSize];
             System.arraycopy(iv.getIV(), 0, serialized, 0, CipherPool.IV_SIZE);
             System.arraycopy(cipherText, 0, serialized, CipherPool.IV_SIZE, cipherText.length);
-            state.encrypted = true;
+            state.setEncrypted(true);
             state.setDataArray(serialized);
         } finally {
             CipherPool.returnCipher(cipher);
@@ -94,14 +94,14 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
         long startTime = System.nanoTime();
 
         byte[] ivData = new byte[CipherPool.IV_SIZE];
-        System.arraycopy(state.data, state.offset, ivData, 0, CipherPool.IV_SIZE);
+        System.arraycopy(state.getData(), state.getOffset(), ivData, 0, CipherPool.IV_SIZE);
         IvParameterSpec iv = new IvParameterSpec(ivData);
 
-        byte[] cipherText = new byte[state.length - CipherPool.IV_SIZE];
-        System.arraycopy(state.data, state.offset + CipherPool.IV_SIZE, cipherText, 0, cipherText.length);
-        Cipher cipher = CipherPool.borrowCipher(keyManager.getCipher(state.keyNumber));
+        byte[] cipherText = new byte[state.getLength() - CipherPool.IV_SIZE];
+        System.arraycopy(state.getData(), state.getOffset() + CipherPool.IV_SIZE, cipherText, 0, cipherText.length);
+        Cipher cipher = CipherPool.borrowCipher(keyManager.getCipher(state.getKeyNumber()));
         try {
-            cipher.init(Cipher.DECRYPT_MODE, keyManager.getKey(state.keyNumber), iv);
+            cipher.init(Cipher.DECRYPT_MODE, keyManager.getKey(state.getKeyNumber()), iv);
 
             byte[] plainText = cipher.doFinal(cipherText);
             state.setDataArray(plainText);

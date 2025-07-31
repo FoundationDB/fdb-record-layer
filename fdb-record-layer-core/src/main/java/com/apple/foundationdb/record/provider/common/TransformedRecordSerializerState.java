@@ -25,35 +25,82 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import javax.annotation.Nonnull;
 import java.util.Arrays;
 
+/**
+ * The internal state of serialization / deserialization, pointing to a portion of a byte array.
+ * Also includes information on intended / found serialization format.
+ */
 @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
 class TransformedRecordSerializerState {
-    public boolean compressed;
-    public boolean encrypted;
-    public int keyNumber;
+    private boolean compressed;
+    private boolean encrypted;
+    private int keyNumber;
 
     @Nonnull
-    public byte[] data;
-    public int offset;
-    public int length;
+    private byte[] data;
+    private int offset;
+    private int length;
 
     public TransformedRecordSerializerState(@Nonnull byte[] data) {
         this(data, 0, data.length);
     }
 
     public TransformedRecordSerializerState(@Nonnull byte[] data, int offset, int length) {
-        this.compressed = false;
-        this.encrypted = false;
         this.data = data;
         this.offset = offset;
         this.length = length;
     }
 
+    public boolean isCompressed() {
+        return compressed;
+    }
+
+    public void setCompressed(boolean compressed) {
+        this.compressed = compressed;
+    }
+
+    public boolean isEncrypted() {
+        return encrypted;
+    }
+
+    public void setEncrypted(boolean encrypted) {
+        this.encrypted = encrypted;
+    }
+
+    public int getKeyNumber() {
+        return keyNumber;
+    }
+
+    public void setKeyNumber(int keyNumber) {
+        this.keyNumber = keyNumber;
+    }
+
+    @Nonnull
+    public byte[] getData() {
+        return data;
+    }
+
+    public int getOffset() {
+        return offset;
+    }
+
+    public void setOffset(int offset) {
+        this.offset = offset;
+    }
+
+    public int getLength() {
+        return length;
+    }
+
+    public void setLength(int length) {
+        this.length = length;
+    }
+
     @Nonnull
     public byte[] getDataArray() {
-        if (offset == 0 && length == data.length) {
-            return data;
+        if (getOffset() == 0 && getLength() == getData().length) {
+            return getData();
         } else {
-            byte[] newData = Arrays.copyOfRange(data, offset, offset + length);
+            byte[] newData = Arrays.copyOfRange(getData(), getOffset(), getOffset() + getLength());
             offset = 0;
             length = newData.length;
             data = newData;
