@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.debug;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -308,7 +309,7 @@ public class State {
                 forEventClass.increaseOwnTimeInNs(ownTime);
                 if (event instanceof Debugger.TransformRuleCallEvent) {
                     final CascadesRule<?> rule = ((Debugger.TransformRuleCallEvent)event).getRule();
-                    final Class<? extends CascadesRule<?>> ruleClass = (Class<? extends CascadesRule<?>>)rule.getClass();
+                    final Class<? extends CascadesRule<?>> ruleClass = (Class<? extends AbstractCascadesRule<?>>)rule.getClass();
                     final MutableStats forPlannerRuleClass = getEventStatsForPlannerRuleClass(ruleClass);
                     forPlannerRuleClass.increaseTotalTimeInNs(totalTime);
                     forPlannerRuleClass.increaseOwnTimeInNs(ownTime);
@@ -357,7 +358,7 @@ public class State {
         forEventClass.increaseCount(event.getLocation(), 1L);
         if (event instanceof Debugger.EventWithRule) {
             final CascadesRule<?> rule = ((Debugger.EventWithRule)event).getRule();
-            final Class<? extends CascadesRule<?>> ruleClass = (Class<? extends CascadesRule<?>>)rule.getClass();
+            final Class<? extends CascadesRule<?>> ruleClass = (Class<? extends AbstractCascadesRule<?>>)rule.getClass();
             final MutableStats forPlannerRuleClass = getEventStatsForPlannerRuleClass(ruleClass);
             forPlannerRuleClass.increaseCount(event.getLocation(), 1L);
         }
