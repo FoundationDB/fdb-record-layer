@@ -61,7 +61,7 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
     }
 
     @Override
-    protected void encrypt(@Nonnull TransformState state, @Nullable StoreTimer timer) throws GeneralSecurityException {
+    protected void encrypt(@Nonnull TransformedRecordSerializerState state, @Nullable StoreTimer timer) throws GeneralSecurityException {
         if (cipherName == null || encryptionKey == null || secureRandom == null) {
             throw new RecordSerializationException("attempted to encrypt without setting cipher name and key");
         }
@@ -92,7 +92,7 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
     }
 
     @Override
-    protected void decrypt(@Nonnull TransformState state, @Nullable StoreTimer timer) throws GeneralSecurityException {
+    protected void decrypt(@Nonnull TransformedRecordSerializerState state, @Nullable StoreTimer timer) throws GeneralSecurityException {
         if (cipherName == null || encryptionKey == null || secureRandom == null) {
             throw new RecordSerializationException("missing encryption key or provider during decryption");
         }
