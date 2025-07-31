@@ -27,16 +27,13 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.Message;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.security.GeneralSecurityException;
-import java.util.Arrays;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.zip.DataFormatException;
 import java.util.zip.Deflater;
@@ -50,7 +47,8 @@ import java.util.zip.Inflater;
  * added in the future.
  *
  * <p>
- * This serializer will begin each serialized string with a one-byte prefix
+ * This serializer will begin each serialized string with a prefix
+ * (see {@link TransformedRecordSerializerPrefix} for details)
  * containing information about which transformations were performed. This
  * way, when deserializing, it can detect which transformations were applied
  * so it knows which ones it needs to use to restore the original record.
@@ -78,15 +76,6 @@ import java.util.zip.Inflater;
  */
 @API(API.Status.UNSTABLE)
 public class TransformedRecordSerializer<M extends Message> implements RecordSerializer<M> {
-    @VisibleForTesting
-    protected static final int ENCODING_ENCRYPTED = 1;
-    @VisibleForTesting
-    protected static final int ENCODING_CLEAR = 2;
-    @VisibleForTesting
-    protected static final int ENCODING_COMPRESSED = 4;
-    // TODO: Can remove this after transition to write everything with _CLEAR.
-    protected static final int ENCODING_PROTO_MESSAGE_FIELD = 0x02;
-    protected static final int ENCODING_PROTO_TYPE_MASK = 0x07;
     protected static final int DEFAULT_COMPRESSION_LEVEL = Deflater.BEST_COMPRESSION;
     protected static final int MIN_COMPRESSION_VERSION = 1;
     protected static final int MAX_COMPRESSION_VERSION = 1;
@@ -110,53 +99,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         this.writeValidationRatio = writeValidationRatio;
     }
 
-    @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
-    protected static class TransformState {
-        public boolean compressed;
-        public boolean encrypted;
-
-        @Nonnull public byte[] data;
-        public int offset;
-        public int length;
-
-        public TransformState(@Nonnull byte[] data) {
-            this(data, 0, data.length);
-        }
-
-        public TransformState(@Nonnull byte[] data, int offset, int length) {
-            this.compressed = false;
-            this.encrypted = false;
-            this.data = data;
-            this.offset = offset;
-            this.length = length;
-        }
-
-        @Nonnull
-        public byte[] getDataArray() {
-            if (offset == 0 && length == data.length) {
-                return data;
-            } else {
-                byte[] newData = Arrays.copyOfRange(data, offset, offset + length);
-                offset = 0;
-                length = newData.length;
-                data = newData;
-                return newData;
-            }
-        }
-
-
-        public void setDataArray(@Nonnull byte[] data) {
-            setDataArray(data, 0, data.length);
-        }
-
-        public void setDataArray(@Nonnull byte[] data, int offset, int length) {
-            this.data = data;
-            this.offset = offset;
-            this.length = length;
-        }
-    }
-
-    protected void compress(@Nonnull TransformState state, @Nullable StoreTimer timer) {
+    protected void compress(@Nonnull TransformedRecordSerializerState state, @Nullable StoreTimer timer) {
         long startTime = System.nanoTime();
 
         increment(timer, Counts.RECORD_BYTES_BEFORE_COMPRESSION, state.length);
@@ -209,7 +152,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         }
     }
 
-    protected void encrypt(@Nonnull TransformState state, @Nullable StoreTimer timer) throws GeneralSecurityException {
+    protected void encrypt(@Nonnull TransformedRecordSerializerState state, @Nullable StoreTimer timer) throws GeneralSecurityException {
         throw new RecordSerializationException("this serializer cannot encrypt");
     }
 
@@ -225,7 +168,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
                             @Nullable StoreTimer timer) {
         byte[] innerSerialized = inner.serialize(metaData, recordType, rec, timer);
 
-        TransformState state = new TransformState(innerSerialized);
+        TransformedRecordSerializerState state = new TransformedRecordSerializerState(innerSerialized);
 
         if (compressWhenSerializing) {
             compress(state, timer);
@@ -241,32 +184,16 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
             }
         }
 
-        int code;
-        if (state.compressed || state.encrypted) {
-            code = 0;
-            if (state.compressed) {
-                code = code | ENCODING_COMPRESSED;
-            }
-            if (state.encrypted) {
-                code = code | ENCODING_ENCRYPTED;
-            }
-        } else {
-            code = ENCODING_CLEAR;
-        }
-
-        int size = state.length + 1;
-        byte[] serialized = new byte[size];
-        serialized[0] = (byte) code;
-        System.arraycopy(state.data, state.offset, serialized, 1, state.length);
+        TransformedRecordSerializerPrefix.encodePrefix(state);
 
         if (shouldValidateSerialization()) {
-            validateSerialization(metaData, recordType, rec, serialized, timer);
+            validateSerialization(metaData, recordType, rec, state.getDataArray(), timer);
         }
 
-        return serialized;
+        return state.getDataArray();
     }
 
-    protected void decompress(@Nonnull TransformState state, @Nullable StoreTimer timer) throws DataFormatException {
+    protected void decompress(@Nonnull TransformedRecordSerializerState state, @Nullable StoreTimer timer) throws DataFormatException {
         final long startTime = System.nanoTime();
 
         // At the moment, there is only one compression version, so
@@ -305,7 +232,7 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         }
     }
 
-    protected void decrypt(@Nonnull TransformState state, @Nullable StoreTimer timer) throws GeneralSecurityException {
+    protected void decrypt(@Nonnull TransformedRecordSerializerState state, @Nullable StoreTimer timer) throws GeneralSecurityException {
         throw new RecordSerializationException("this serializer cannot decrypt");
     }
 
@@ -316,52 +243,35 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
                          @Nonnull Tuple primaryKey,
                          @Nonnull byte[] serialized,
                          @Nullable StoreTimer timer) {
-        int encoding = serialized[0];
-        if (encoding != ENCODING_CLEAR && (encoding & ENCODING_PROTO_TYPE_MASK) == ENCODING_PROTO_MESSAGE_FIELD) {
-            // TODO: Can remove this after transition to write everything with _CLEAR.
+        TransformedRecordSerializerState state = new TransformedRecordSerializerState(serialized);
+        if (!TransformedRecordSerializerPrefix.decodePrefix(state, primaryKey)) {
             return inner.deserialize(metaData, primaryKey, serialized, timer);
-        } else {
-            TransformState state = new TransformState(serialized, 1, serialized.length - 1);
-            if (encoding != ENCODING_CLEAR) {
-                if ((encoding & ENCODING_COMPRESSED) == ENCODING_COMPRESSED) {
-                    state.compressed = true;
-                }
-                if ((encoding & ENCODING_ENCRYPTED) == ENCODING_ENCRYPTED) {
-                    state.encrypted = true;
-                }
-                if ((encoding & ~(ENCODING_COMPRESSED | ENCODING_ENCRYPTED)) != 0) {
-                    throw new RecordSerializationException("unrecognized transformation encoding")
-                            .addLogInfo(LogMessageKeys.META_DATA_VERSION, metaData.getVersion())
-                            .addLogInfo(LogMessageKeys.PRIMARY_KEY, primaryKey)
-                            .addLogInfo("encoding", encoding);
-                }
-            }
-            if (state.encrypted) {
-                try {
-                    decrypt(state, timer);
-                } catch (RecordCoreException ex) {
-                    throw ex.addLogInfo(LogMessageKeys.META_DATA_VERSION, metaData.getVersion())
-                            .addLogInfo(LogMessageKeys.PRIMARY_KEY, primaryKey);
-                } catch (GeneralSecurityException ex) {
-                    throw new RecordSerializationException("decryption error", ex)
-                            .addLogInfo(LogMessageKeys.META_DATA_VERSION, metaData.getVersion())
-                            .addLogInfo(LogMessageKeys.PRIMARY_KEY, primaryKey);
-                }
-            }
-            if (state.compressed) {
-                try {
-                    decompress(state, timer);
-                } catch (RecordCoreException ex) {
-                    throw ex.addLogInfo(LogMessageKeys.META_DATA_VERSION, metaData.getVersion())
-                            .addLogInfo(LogMessageKeys.PRIMARY_KEY, primaryKey);
-                } catch (DataFormatException ex) {
-                    throw new RecordSerializationException("decompression error", ex)
-                            .addLogInfo(LogMessageKeys.META_DATA_VERSION, metaData.getVersion())
-                            .addLogInfo(LogMessageKeys.PRIMARY_KEY, primaryKey);
-                }
-            }
-            return inner.deserialize(metaData, primaryKey, state.getDataArray(), timer);
         }
+        if (state.encrypted) {
+            try {
+                decrypt(state, timer);
+            } catch (RecordCoreException ex) {
+                throw ex.addLogInfo(LogMessageKeys.META_DATA_VERSION, metaData.getVersion())
+                        .addLogInfo(LogMessageKeys.PRIMARY_KEY, primaryKey);
+            } catch (GeneralSecurityException ex) {
+                throw new RecordSerializationException("decryption error", ex)
+                        .addLogInfo(LogMessageKeys.META_DATA_VERSION, metaData.getVersion())
+                        .addLogInfo(LogMessageKeys.PRIMARY_KEY, primaryKey);
+            }
+        }
+        if (state.compressed) {
+            try {
+                decompress(state, timer);
+            } catch (RecordCoreException ex) {
+                throw ex.addLogInfo(LogMessageKeys.META_DATA_VERSION, metaData.getVersion())
+                        .addLogInfo(LogMessageKeys.PRIMARY_KEY, primaryKey);
+            } catch (DataFormatException ex) {
+                throw new RecordSerializationException("decompression error", ex)
+                        .addLogInfo(LogMessageKeys.META_DATA_VERSION, metaData.getVersion())
+                        .addLogInfo(LogMessageKeys.PRIMARY_KEY, primaryKey);
+            }
+        }
+        return inner.deserialize(metaData, primaryKey, state.getDataArray(), timer);
     }
 
     @Nonnull

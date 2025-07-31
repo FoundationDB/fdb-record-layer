@@ -148,7 +148,7 @@ public class TransformedRecordSerializerTest {
         MySimpleRecord simpleRecord = MySimpleRecord.newBuilder().setRecNo(1066L).setStrValueIndexed("Hello").build();
         RecordTypeUnion unionRecord = RecordTypeUnion.newBuilder().setMySimpleRecord(simpleRecord).build();
         byte[] serialized = serialize(serializer, simpleRecord);
-        assertEquals(TransformedRecordSerializer.ENCODING_CLEAR, serialized[0]);
+        assertEquals(TransformedRecordSerializerPrefix.PREFIX_CLEAR, serialized[0]);
         assertArrayEquals(unionRecord.toByteArray(), Arrays.copyOfRange(serialized, 1, serialized.length));
 
         logMetrics("metrics with no transformations");
@@ -173,7 +173,7 @@ public class TransformedRecordSerializerTest {
         // There should be no compression actually added for a small record like this
         RecordTypeUnion smallUnionRecord = RecordTypeUnion.newBuilder().setMySimpleRecord(smallRecord).build();
         byte[] serialized = serialize(serializer, smallRecord);
-        assertEquals(TransformedRecordSerializer.ENCODING_CLEAR, serialized[0]);
+        assertEquals(TransformedRecordSerializerPrefix.PREFIX_CLEAR, serialized[0]);
         assertArrayEquals(smallUnionRecord.toByteArray(), Arrays.copyOfRange(serialized, 1, serialized.length));
         Message deserialized = deserialize(serializer, primaryKey, serialized);
         assertEquals(smallRecord, deserialized);
@@ -204,7 +204,7 @@ public class TransformedRecordSerializerTest {
         byte[] serialized = serialize(serializer, longRecord);
         assertThat(storeTimer.getCount(RecordSerializer.Counts.RECORD_BYTES_BEFORE_COMPRESSION),
                 greaterThan(storeTimer.getCount(RecordSerializer.Counts.RECORD_BYTES_AFTER_COMPRESSION)));
-        assertEquals(TransformedRecordSerializer.ENCODING_COMPRESSED, serialized[0]);
+        assertEquals(TransformedRecordSerializerPrefix.PREFIX_COMPRESSED, serialized[0]);
         int rawLength = largeUnionRecord.toByteArray().length;
         assertEquals(rawLength, ByteBuffer.wrap(serialized, 2, 4).order(ByteOrder.BIG_ENDIAN).getInt());
         Message deserialized = deserialize(serializer, primaryKey, serialized);
@@ -338,7 +338,7 @@ public class TransformedRecordSerializerTest {
 
     @Test
     public void decryptWithoutSettingEncryption() {
-        List<Integer> codes = Arrays.asList(TransformedRecordSerializer.ENCODING_ENCRYPTED, TransformedRecordSerializer.ENCODING_ENCRYPTED | TransformedRecordSerializer.ENCODING_COMPRESSED);
+        List<Integer> codes = Arrays.asList(TransformedRecordSerializerPrefix.PREFIX_ENCRYPTED, TransformedRecordSerializerPrefix.PREFIX_ENCRYPTED | TransformedRecordSerializerPrefix.PREFIX_COMPRESSED);
         for (int code : codes) {
             RecordSerializationException e = assertThrows(RecordSerializationException.class, () -> {
                 TransformedRecordSerializer<Message> serializer = TransformedRecordSerializer.newDefaultBuilder().build();
@@ -359,7 +359,7 @@ public class TransformedRecordSerializerTest {
             deserialize(serializer, Tuple.from(1066L), serialized);
         });
         assertThat(e.getMessage(), containsString("unrecognized transformation encoding"));
-        assertEquals(15, e.getLogInfo().get("encoding"));
+        assertEquals(15L, e.getLogInfo().get("encoding"));
     }
 
     @Test
@@ -376,7 +376,7 @@ public class TransformedRecordSerializerTest {
         MySimpleRecord mediumRecord = MySimpleRecord.newBuilder().setRecNo(1066L).setStrValueIndexed(SONNET_108).build();
         assertTrue(Bytes.indexOf(mediumRecord.toByteArray(), "brain".getBytes()) >= 0, "should contain clear text");
         byte[] serialized = serialize(serializer, mediumRecord);
-        assertEquals(TransformedRecordSerializer.ENCODING_ENCRYPTED, serialized[0]);
+        assertEquals(TransformedRecordSerializerPrefix.PREFIX_ENCRYPTED, serialized[0]);
         assertFalse(Bytes.indexOf(serialized, "brain".getBytes()) >= 0, "should not contain clear text");
         Message deserialized = deserialize(serializer, Tuple.from(1066L), serialized);
         assertEquals(mediumRecord, deserialized);
@@ -452,8 +452,8 @@ public class TransformedRecordSerializerTest {
 
     private boolean isCompressed(byte[] serialized) {
         byte headerByte = serialized[0];
-        return (headerByte & TransformedRecordSerializer.ENCODING_PROTO_MESSAGE_FIELD) == 0
-                && (headerByte & TransformedRecordSerializer.ENCODING_COMPRESSED) != 0;
+        return headerByte == TransformedRecordSerializerPrefix.PREFIX_COMPRESSED ||
+                headerByte == TransformedRecordSerializerPrefix.PREFIX_COMPRESSED_THEN_ENCRYPTED;
     }
 
     private int getUncompressedSize(byte[] serialized) {
