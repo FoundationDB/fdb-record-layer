@@ -49,4 +49,11 @@ public class NodeReferenceWithVector extends NodeReference {
     public NodeReferenceWithVector asNodeReferenceWithVector() {
         return this;
     }
+
+    @Override
+    public String toString() {
+        return "NRV[primaryKey=" + getPrimaryKey() +
+                ";vector=" + vector.toString(3) +
+                "]";
+    }
 }

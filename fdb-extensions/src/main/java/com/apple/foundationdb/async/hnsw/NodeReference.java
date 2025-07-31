@@ -58,11 +58,15 @@ public class NodeReference {
         return Objects.hashCode(primaryKey);
     }
 
+    @Override
+    public String toString() {
+        return "NR[primaryKey=" + primaryKey + "]";
+    }
+
     @Nonnull
     public static Iterable<Tuple> primaryKeys(@Nonnull Iterable<? extends NodeReference> neighbors) {
         return () -> Streams.stream(neighbors)
                 .map(NodeReference::getPrimaryKey)
                 .iterator();
     }
-
 }

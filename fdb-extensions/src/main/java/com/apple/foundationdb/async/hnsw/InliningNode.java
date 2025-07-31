@@ -83,4 +83,10 @@ class InliningNode extends AbstractNode<NodeReferenceWithVector> {
     public static NodeFactory<NodeReferenceWithVector> factory() {
         return FACTORY;
     }
+
+    @Override
+    public String toString() {
+        return "I[primaryKey=" + getPrimaryKey() +
+                ";neighbors=" + getNeighbors() + "]";
+    }
 }

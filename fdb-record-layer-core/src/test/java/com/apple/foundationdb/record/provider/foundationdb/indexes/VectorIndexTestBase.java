@@ -31,6 +31,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.assertj.core.util.Streams;
 import org.junit.jupiter.api.Assertions;
@@ -75,12 +76,13 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
 
     static Function<Long, Message> getRecordGenerator(@Nonnull final Random random) {
         return recNo -> {
-            final Iterable<Double> vector =
-                    () -> IntStream.range(0, 4000).mapToDouble(index -> random.nextDouble()).iterator();
+            final byte[] vector = new byte[768 * 2];
+            random.nextBytes(vector);
+
             //logRecord(recNo, vector);
             return TestRecordsVectorsProto.NaiveVectorRecord.newBuilder()
                     .setRecNo(recNo)
-                    .addAllVectorData(vector)
+                    .setVectorData(ByteString.copyFrom(vector))
                     .build();
         };
     }

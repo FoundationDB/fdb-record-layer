@@ -24,6 +24,8 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
@@ -34,6 +36,9 @@ import java.util.function.Predicate;
  * TODO.
  */
 class DeleteNeighborsChangeSet<N extends NodeReference> implements NeighborsChangeSet<N> {
+    @Nonnull
+    private static final Logger logger = LoggerFactory.getLogger(DeleteNeighborsChangeSet.class);
+
     @Nonnull
     private final NeighborsChangeSet<N> parent;
 
@@ -66,6 +71,10 @@ class DeleteNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
         for (final Tuple deletedNeighborPrimaryKey : deletedNeighborsPrimaryKeys) {
             if (tuplePredicate.test(deletedNeighborPrimaryKey)) {
                 storageAdapter.deleteNeighbor(transaction, layer, node.asInliningNode(), deletedNeighborPrimaryKey);
+                if (logger.isDebugEnabled()) {
+                    logger.debug("deleted neighbor of primaryKey={} targeting primaryKey={}", node.getPrimaryKey(),
+                            deletedNeighborPrimaryKey);
+                }
             }
         }
     }

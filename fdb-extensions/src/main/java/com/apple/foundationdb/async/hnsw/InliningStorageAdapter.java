@@ -74,7 +74,7 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
                         final byte[] key = keyValue.getKey();
                         final byte[] value = keyValue.getValue();
                         onReadListener.onKeyValueRead(key, value);
-                        final Tuple neighborKeyTuple = Tuple.fromBytes(key);
+                        final Tuple neighborKeyTuple = getDataSubspace().unpack(key);
                         final Tuple neighborValueTuple = Tuple.fromBytes(value);
 
                         final Tuple neighborPrimaryKey = neighborKeyTuple.getNestedTuple(2); // neighbor primary key
@@ -90,8 +90,8 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
     }
 
     @Override
-    public void writeNode(@Nonnull final Transaction transaction, @Nonnull final Node<NodeReferenceWithVector> node,
-                          final int layer, @Nonnull final NeighborsChangeSet<NodeReferenceWithVector> neighborsChangeSet) {
+    public void writeNodeInternal(@Nonnull final Transaction transaction, @Nonnull final Node<NodeReferenceWithVector> node,
+                                  final int layer, @Nonnull final NeighborsChangeSet<NodeReferenceWithVector> neighborsChangeSet) {
         final InliningNode inliningNode = node.asInliningNode();
 
         neighborsChangeSet.writeDelta(this, transaction, layer, inliningNode, t -> true);
