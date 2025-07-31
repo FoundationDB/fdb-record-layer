@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -37,13 +36,13 @@ import com.apple.foundationdb.record.query.plan.cascades.values.EvaluatesToValue
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.OfTypeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.explain.ExplainLevel;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
-
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ZeroCopyByteString;
 
@@ -90,6 +89,8 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     private boolean shouldProcessLiteral;
 
     private boolean forExplain;
+
+    private int explainLevel;
 
     @Nullable
     private byte[] continuation;
@@ -279,6 +280,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         constantObjectValues = new LinkedList<>();
         shouldProcessLiteral = true;
         forExplain = false;
+        this.explainLevel = ExplainLevel.SOME_DETAILS;
         setContinuation(null);
         equalityConstraints = ImmutableList.builder();
     }
@@ -354,6 +356,10 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         return forExplain;
     }
 
+    @Override
+    public int getExplainLevel() {
+        return explainLevel;
+    }
 
     @Nonnull
     public QueryPlanConstraint getPlanConstraintsForLiteralReferences() {
@@ -388,6 +394,10 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
 
     public void setForExplain(boolean forExplain) {
         this.forExplain = forExplain;
+    }
+
+    public void setExplainLevel(final int explainLevel) {
+        this.explainLevel = explainLevel;
     }
 
     @Nonnull

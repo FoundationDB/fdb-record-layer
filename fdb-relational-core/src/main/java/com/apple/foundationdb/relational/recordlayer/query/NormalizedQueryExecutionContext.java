@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.query.plan.explain.ExplainLevel;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import javax.annotation.Nonnull;
@@ -44,6 +45,8 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
 
     private final boolean isForExplain;
 
+    private int explainLevel;
+
     private final int parameterHash;
 
     @Nonnull
@@ -53,10 +56,12 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
                                             @Nullable byte[] continuation,
                                             int parameterHash,
                                             boolean isForExplain,
+                                            int explainLevel,
                                             @Nonnull final PlanHashable.PlanHashMode planHashMode) {
         this.literals = literals;
         this.continuation = continuation;
         this.isForExplain = isForExplain;
+        this.explainLevel = explainLevel;
         this.parameterHash = parameterHash;
         this.planHashMode = planHashMode;
     }
@@ -90,6 +95,11 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
         return isForExplain;
     }
 
+    @Override
+    public int getExplainLevel() {
+        return explainLevel;
+    }
+
     @Nonnull
     @Override
     public PlanHashable.PlanHashMode getPlanHashMode() {
@@ -107,6 +117,8 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
 
         private boolean isForExplain;
 
+        private int explainLevel;
+
         @Nullable
         private byte[] continuation;
 
@@ -120,6 +132,7 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
             this.isForExplain = false;
             this.continuation = null;
             this.planHashMode = null;
+            this.explainLevel = ExplainLevel.SOME_DETAILS;
         }
 
         @Nonnull
@@ -147,6 +160,12 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
         }
 
         @Nonnull
+        public Builder setExplainLevel(int level) {
+            this.explainLevel = level;
+            return this;
+        }
+
+        @Nonnull
         public Builder setPlanHashMode(@Nonnull PlanHashable.PlanHashMode planHashMode) {
             this.planHashMode = planHashMode;
             return this;
@@ -155,7 +174,7 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
         @Nonnull
         public NormalizedQueryExecutionContext build() {
             return new NormalizedQueryExecutionContext(literalsBuilder.build(), continuation,
-                    parameterHash, isForExplain,
+                    parameterHash, isForExplain, explainLevel,
                     Objects.requireNonNull(planHashMode));
         }
     }
