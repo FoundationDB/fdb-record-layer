@@ -84,29 +84,29 @@ class TransformedRecordSerializerPrefix {
         if (type == PREFIX_CLEAR && remaining != 0) {
             return false;   // Does not have a prefix
         }
-        boolean valid;
+        boolean valid = true;
         switch (type)  {
             case PREFIX_CLEAR:
-                valid = true;
                 break;
             case PREFIX_COMPRESSED_THEN_ENCRYPTED:
-                valid = state.encrypted = state.compressed = true;
+                state.setEncrypted(true);
+                state.setCompressed(true);
                 break;
             case PREFIX_ENCRYPTED:
-                valid = state.encrypted = true;
+                state.setEncrypted(true);
                 break;
             case PREFIX_COMPRESSED:
-                valid = state.compressed = true;
+                state.setCompressed(true);
                 break;
             default:
                 valid = false;
                 break;
         }
-        if (state.encrypted) {
+        if (state.isEncrypted()) {
             if (remaining < Integer.MIN_VALUE || remaining > Integer.MAX_VALUE) {
                 valid = false;
             } else {
-                state.keyNumber = (int)remaining;
+                state.setKeyNumber((int)remaining);
             }
         } else if (remaining != 0) {
             valid = false;
@@ -121,22 +121,22 @@ class TransformedRecordSerializerPrefix {
 
     public static void encodePrefix(@Nonnull TransformedRecordSerializerState state) {
         long prefix;
-        if (!state.compressed && !state.encrypted) {
+        if (!state.isCompressed() && !state.isEncrypted()) {
             prefix = PREFIX_CLEAR;
         } else {
             prefix = 0;
-            if (state.compressed) {
+            if (state.isCompressed()) {
                 prefix |= PREFIX_COMPRESSED;
             }
-            if (state.encrypted) {
+            if (state.isEncrypted()) {
                 prefix |= PREFIX_ENCRYPTED;
-                prefix |= (long)state.keyNumber << KEY_SHIFT;
+                prefix |= (long)state.getKeyNumber() << KEY_SHIFT;
             }
         }
-        int size = state.length + varintSize(prefix);
+        int size = state.getLength() + varintSize(prefix);
         byte[] serialized = new byte[size];
         int offset = writeVarint(serialized, prefix);
-        System.arraycopy(state.data, state.offset, serialized, offset, state.length);
+        System.arraycopy(state.getData(), state.getOffset(), serialized, offset, state.getLength());
         state.setDataArray(serialized);
     }
 
@@ -153,11 +153,11 @@ class TransformedRecordSerializerPrefix {
         long varint = 0;
         int nbytes = 0;
         while (true) {
-            if (nbytes >= state.length) {
+            if (nbytes >= state.getLength()) {
                 throw new RecordSerializationException("transformation prefix malformed")
                         .addLogInfo(LogMessageKeys.PRIMARY_KEY, primaryKey);
             }
-            final byte b = state.data[state.offset + nbytes];
+            final byte b = state.getData()[state.getOffset() + nbytes];
             if (nbytes == 9 && (b & 0xFE) != 0) {
                 // Continuing or more than just the 64th bit.
                 // This also detects random garbage with the sign bits on.
@@ -170,8 +170,8 @@ class TransformedRecordSerializerPrefix {
                 break;
             }
         }
-        state.offset += nbytes;
-        state.length -= nbytes;
+        state.setOffset(state.getOffset() + nbytes);
+        state.setLength(state.getLength() - nbytes);
         return varint;
     }
 
