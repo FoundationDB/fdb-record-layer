@@ -154,6 +154,8 @@ public class ParameterHelper {
                 return ofDouble((Double)x);
             case STRING:
                 return ofString((String)x);
+            case UUID:
+                return ofUUID((UUID)x);
             case NULL:
                 return ofNull(type.getJdbcSqlCode()); // TODO: THis would be generic null...
             default:

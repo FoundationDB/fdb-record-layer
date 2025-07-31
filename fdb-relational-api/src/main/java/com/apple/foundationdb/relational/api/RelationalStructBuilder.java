@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.api;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
+import java.util.UUID;
 
 /**
  * For implementation by {@link RelationalStruct} <a href="https://refactoring.guru/design-patterns/builder">Builder</a>.
@@ -49,6 +50,8 @@ public interface RelationalStructBuilder {
     RelationalStructBuilder addBytes(String fieldName, byte[] bytes) throws SQLException;
 
     RelationalStructBuilder addString(String fieldName, @Nullable String s) throws SQLException;
+
+    RelationalStructBuilder addUuid(String fieldName, @Nullable UUID uuid) throws SQLException;
 
     RelationalStructBuilder addObject(String fieldName, @Nullable Object obj) throws SQLException;
 
