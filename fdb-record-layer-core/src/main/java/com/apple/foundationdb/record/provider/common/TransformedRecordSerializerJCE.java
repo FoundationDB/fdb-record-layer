@@ -31,6 +31,7 @@ import javax.crypto.spec.IvParameterSpec;
 import java.security.GeneralSecurityException;
 import java.security.Key;
 import java.security.SecureRandom;
+import java.util.Random;
 
 /**
  * An extension of {@link TransformedRecordSerializer} to use JCE to encrypt and decrypt records.
@@ -38,41 +39,35 @@ import java.security.SecureRandom;
  */
 @API(API.Status.UNSTABLE)
 public class TransformedRecordSerializerJCE<M extends Message> extends TransformedRecordSerializer<M> {
-
     @Nullable
-    protected final String cipherName;
-    @Nullable
-    protected final Key encryptionKey;
-    @Nullable
-    protected final SecureRandom secureRandom;
+    protected final TransformedRecordSerializerKeyManager keyManager;
 
     protected TransformedRecordSerializerJCE(@Nonnull RecordSerializer<M> inner,
                                              boolean compressWhenSerializing,
                                              int compressionLevel,
                                              boolean encryptWhenSerializing,
                                              double writeValidationRatio,
-                                             @Nullable String cipherName,
-                                             @Nullable Key encryptionKey,
-                                             @Nullable SecureRandom secureRandom) {
+                                             @Nullable TransformedRecordSerializerKeyManager keyManager) {
         super(inner, compressWhenSerializing, compressionLevel, encryptWhenSerializing, writeValidationRatio);
-        this.cipherName = cipherName;
-        this.encryptionKey = encryptionKey;
-        this.secureRandom = secureRandom;
+        this.keyManager = keyManager;
     }
 
     @Override
     protected void encrypt(@Nonnull TransformedRecordSerializerState state, @Nullable StoreTimer timer) throws GeneralSecurityException {
-        if (cipherName == null || encryptionKey == null || secureRandom == null) {
-            throw new RecordSerializationException("attempted to encrypt without setting cipher name and key");
+        if (keyManager == null) {
+            throw new RecordSerializationException("attempted to encrypt without setting key manager (cipher name and key)");
         }
         long startTime = System.nanoTime();
 
+        int keyNumber = keyManager.getSerializationKey();
+        state.keyNumber = keyNumber;
+
         byte[] ivData = new byte[CipherPool.IV_SIZE];
-        secureRandom.nextBytes(ivData);
+        keyManager.getRandom(keyNumber).nextBytes(ivData);
         IvParameterSpec iv = new IvParameterSpec(ivData);
-        Cipher cipher = CipherPool.borrowCipher(cipherName);
+        Cipher cipher = CipherPool.borrowCipher(keyManager.getCipher(keyNumber));
         try {
-            cipher.init(Cipher.ENCRYPT_MODE, encryptionKey, iv);
+            cipher.init(Cipher.ENCRYPT_MODE, keyManager.getKey(keyNumber), iv);
 
             byte[] plainText = state.getDataArray();
             byte[] cipherText = cipher.doFinal(plainText);
@@ -93,7 +88,7 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
 
     @Override
     protected void decrypt(@Nonnull TransformedRecordSerializerState state, @Nullable StoreTimer timer) throws GeneralSecurityException {
-        if (cipherName == null || encryptionKey == null || secureRandom == null) {
+        if (keyManager == null) {
             throw new RecordSerializationException("missing encryption key or provider during decryption");
         }
         long startTime = System.nanoTime();
@@ -104,9 +99,9 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
 
         byte[] cipherText = new byte[state.length - CipherPool.IV_SIZE];
         System.arraycopy(state.data, state.offset + CipherPool.IV_SIZE, cipherText, 0, cipherText.length);
-        Cipher cipher = CipherPool.borrowCipher(cipherName);
+        Cipher cipher = CipherPool.borrowCipher(keyManager.getCipher(state.keyNumber));
         try {
-            cipher.init(Cipher.DECRYPT_MODE, encryptionKey, iv);
+            cipher.init(Cipher.DECRYPT_MODE, keyManager.getKey(state.keyNumber), iv);
 
             byte[] plainText = cipher.doFinal(cipherText);
             state.setDataArray(plainText);
@@ -155,6 +150,8 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
      * @param <M> type of {@link Message} that underlying records will use
      */
     public static class Builder<M extends Message> extends TransformedRecordSerializer.Builder<M> {
+        @Nullable
+        protected TransformedRecordSerializerKeyManager keyManager;
         @Nullable
         protected String cipherName;
         @Nullable
@@ -273,6 +270,26 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
         }
 
         /**
+         * Sets the key manager used during cryptographic operations.
+         * @param keyManager key manager to use for encrypting and decrypting
+         * @return this <code>Builder</code>
+         */
+        public Builder<M> setKeyManager(@Nonnull TransformedRecordSerializerKeyManager keyManager) {
+            this.keyManager = keyManager;
+            return this;
+        }
+
+        /**
+         * Clears a previously set key manager
+         * that might have been passed to this <code>Builder</code>.
+         * @return this <code>Builder</code>
+         */
+        public Builder<M> clearKeyManager() {
+            this.keyManager = null;
+            return this;
+        }
+
+        /**
          * Construct a {@link TransformedRecordSerializerJCE} from the
          * parameters specified by this builder. If one has enabled
          * encryption at serialization time, then this will fail
@@ -282,17 +299,18 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
          */
         @Override
         public TransformedRecordSerializerJCE<M> build() {
-            if (encryptWhenSerializing) {
-                if (encryptionKey == null) {
+            if (keyManager == null) {
+                if (encryptionKey != null) {
+                    keyManager = new FixedZeroKeyManager(encryptionKey, cipherName, secureRandom);
+                } else if (encryptWhenSerializing) {
                     throw new RecordCoreArgumentException("cannot encrypt when serializing if encryption key is not set");
                 }
-            }
-            if (encryptionKey != null) {
-                if (cipherName == null) {
-                    cipherName = CipherPool.DEFAULT_CIPHER;
+            } else {
+                if (encryptionKey != null) {
+                    throw new RecordCoreArgumentException("cannot specify both key manager and encryption key");
                 }
-                if (secureRandom == null) {
-                    secureRandom = new SecureRandom();
+                if (cipherName != null) {
+                    throw new RecordCoreArgumentException("cannot specify both key manager and cipher name");
                 }
             }
             return new TransformedRecordSerializerJCE<>(
@@ -301,10 +319,56 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
                     compressionLevel,
                     encryptWhenSerializing,
                     writeValidationRatio,
-                    cipherName,
-                    encryptionKey,
-                    secureRandom
+                    keyManager
             );
+        }
+
+    }
+
+    static class FixedZeroKeyManager implements TransformedRecordSerializerKeyManager {
+        private final Key encryptionKey;
+        private final String cipherName;
+        private final SecureRandom secureRandom;
+
+        public FixedZeroKeyManager(@Nonnull Key encryptionKey, @Nullable String cipherName, @Nullable SecureRandom secureRandom) {
+            if (cipherName == null) {
+                cipherName = CipherPool.DEFAULT_CIPHER;
+            }
+            if (secureRandom == null) {
+                secureRandom = new SecureRandom();
+            }
+            this.encryptionKey = encryptionKey;
+            this.cipherName = cipherName;
+            this.secureRandom = secureRandom;
+        }
+
+        @Override
+        public int getSerializationKey() {
+            return 0;
+        }
+
+        @Override
+        public Key getKey(int keyNumber) {
+            if (keyNumber != 0) {
+                throw new RecordSerializationException("only provide key number 0");
+            }
+            return encryptionKey;
+        }
+
+        @Override
+        public String getCipher(int keyNumber) {
+            if (keyNumber != 0) {
+                throw new RecordSerializationException("only provide key number 0");
+            }
+            return cipherName;
+        }
+
+        @Override
+        public Random getRandom(int keyNumber) {
+            if (keyNumber != 0) {
+                throw new RecordSerializationException("only provide key number 0");
+            }
+            return secureRandom;
         }
     }
 }
