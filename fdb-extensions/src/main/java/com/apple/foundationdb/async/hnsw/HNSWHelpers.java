@@ -1,5 +1,5 @@
 /*
- * NodeHelpers.java
+ * HNSWHelpers.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,15 +20,18 @@
 
 package com.apple.foundationdb.async.hnsw;
 
+import com.christianheina.langx.half4j.Half;
+
 import javax.annotation.Nonnull;
 
 /**
  * Some helper methods for {@link Node}s.
  */
-public class NodeHelpers {
+@SuppressWarnings("checkstyle:AbbreviationAsWordInName")
+public class HNSWHelpers {
     private static final char[] hexArray = "0123456789ABCDEF".toCharArray();
 
-    private NodeHelpers() {
+    private HNSWHelpers() {
         // nothing
     }
 
@@ -46,5 +49,15 @@ public class NodeHelpers {
             hexChars[j * 2 + 1] = hexArray[v & 0x0F];
         }
         return "0x" + new String(hexChars).replaceFirst("^0+(?!$)", "");
+    }
+
+    @Nonnull
+    public static Half halfValueOf(final double d) {
+        return Half.shortBitsToHalf(Half.halfToShortBits(Half.valueOf(d)));
+    }
+
+    @Nonnull
+    public static Half halfValueOf(final float f) {
+        return Half.shortBitsToHalf(Half.halfToShortBits(Half.valueOf(f)));
     }
 }

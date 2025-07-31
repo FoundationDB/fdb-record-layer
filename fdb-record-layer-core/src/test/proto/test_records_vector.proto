@@ -30,7 +30,7 @@ option (schema).store_record_versions = true;
 
 message NaiveVectorRecord {
   optional int64 rec_no = 1 [(field).primary_key = true];
-  repeated double vector_data = 2;
+  optional bytes vector_data = 2;
 }
 
 message RecordTypeUnion {

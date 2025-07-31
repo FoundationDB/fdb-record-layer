@@ -1,5 +1,5 @@
 /*
- * NodeHelpers.java
+ * HNSWHelpers.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -27,6 +27,7 @@ import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
  * TODO.
@@ -79,6 +80,23 @@ public abstract class Vector<R extends Number> {
 
     private int computeHashCode() {
         return Arrays.hashCode(data);
+    }
+
+    @Override
+    public String toString() {
+        return toString(3);
+    }
+
+    public String toString(final int limitDimensions) {
+        if (limitDimensions < data.length) {
+            return "[" + Arrays.stream(Arrays.copyOfRange(data, 0, limitDimensions))
+                    .map(String::valueOf)
+                    .collect(Collectors.joining(",")) + ", ...]";
+        } else {
+            return "[" + Arrays.stream(data)
+                    .map(String::valueOf)
+                    .collect(Collectors.joining(",")) + "]";
+        }
     }
 
     public static class HalfVector extends Vector<Half> {

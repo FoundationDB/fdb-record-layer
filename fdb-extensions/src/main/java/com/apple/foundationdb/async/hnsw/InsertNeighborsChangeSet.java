@@ -24,6 +24,8 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -34,6 +36,9 @@ import java.util.function.Predicate;
  * TODO.
  */
 class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChangeSet<N> {
+    @Nonnull
+    private static final Logger logger = LoggerFactory.getLogger(InsertNeighborsChangeSet.class);
+
     @Nonnull
     private final NeighborsChangeSet<N> parent;
 
@@ -72,6 +77,10 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
             if (tuplePredicate.test(primaryKey)) {
                 storageAdapter.writeNeighbor(transaction, layer, node.asInliningNode(),
                         entry.getValue().asNodeReferenceWithVector());
+                if (logger.isDebugEnabled()) {
+                    logger.debug("inserted neighbor of primaryKey={} targeting primaryKey={}", node.getPrimaryKey(),
+                            primaryKey);
+                }
             }
         }
     }

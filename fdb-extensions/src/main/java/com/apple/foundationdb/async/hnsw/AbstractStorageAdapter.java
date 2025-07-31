@@ -21,8 +21,11 @@
 package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.ReadTransaction;
+import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -32,6 +35,9 @@ import java.util.concurrent.CompletableFuture;
  * Implementations and attributes common to all concrete implementations of {@link StorageAdapter}.
  */
 abstract class AbstractStorageAdapter<N extends NodeReference> implements StorageAdapter<N> {
+    @Nonnull
+    private static final Logger logger = LoggerFactory.getLogger(AbstractStorageAdapter.class);
+
     @Nonnull
     private final HNSW.Config config;
     @Nonnull
@@ -122,4 +128,16 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
     private Node<N> checkNode(@Nullable final Node<N> node) {
         return node;
     }
+
+    public void writeNode(@Nonnull Transaction transaction, @Nonnull Node<N> node, int layer,
+                          @Nonnull NeighborsChangeSet<N> changeSet) {
+        writeNodeInternal(transaction, node, layer, changeSet);
+        if (logger.isDebugEnabled()) {
+            logger.debug("written node with key={} at layer={}", node.getPrimaryKey(), layer);
+        }
+    }
+
+    protected abstract void writeNodeInternal(@Nonnull Transaction transaction, @Nonnull Node<N> node, int layer,
+                                              @Nonnull NeighborsChangeSet<N> changeSet);
+
 }

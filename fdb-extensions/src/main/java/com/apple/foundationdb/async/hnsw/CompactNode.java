@@ -53,8 +53,8 @@ public class CompactNode extends AbstractNode<NodeReference> {
     private final Vector<Half> vector;
 
     public CompactNode(@Nonnull final Tuple primaryKey, @Nonnull final Vector<Half> vector,
-                       @Nonnull final List<NodeReference> nodeReferences) {
-        super(primaryKey, nodeReferences);
+                       @Nonnull final List<NodeReference> neighbors) {
+        super(primaryKey, neighbors);
         this.vector = vector;
     }
 
@@ -90,5 +90,12 @@ public class CompactNode extends AbstractNode<NodeReference> {
     @Nonnull
     public static NodeFactory<NodeReference> factory() {
         return FACTORY;
+    }
+
+    @Override
+    public String toString() {
+        return "C[primaryKey=" + getPrimaryKey() +
+                ";vector=" + vector +
+                ";neighbors=" + getNeighbors() + "]";
     }
 }

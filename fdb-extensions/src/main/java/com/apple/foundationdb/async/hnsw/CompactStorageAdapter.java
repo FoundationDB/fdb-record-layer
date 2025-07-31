@@ -27,6 +27,8 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.christianheina.langx.half4j.Half;
 import com.google.common.base.Verify;
 import com.google.common.collect.Lists;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -36,6 +38,9 @@ import java.util.concurrent.CompletableFuture;
  * TODO.
  */
 class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implements StorageAdapter<NodeReference> {
+    @Nonnull
+    private static final Logger logger = LoggerFactory.getLogger(CompactStorageAdapter.class);
+
     public CompactStorageAdapter(@Nonnull final HNSW.Config config, @Nonnull final NodeFactory<NodeReference> nodeFactory,
                                  @Nonnull final Subspace subspace,
                                  @Nonnull final OnWriteListener onWriteListener,
@@ -98,8 +103,8 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
         final Vector<Half> vector = StorageAdapter.vectorFromTuple(vectorTuple);
         final List<NodeReference> nodeReferences = Lists.newArrayListWithExpectedSize(neighborsTuple.size());
 
-        for (final Object neighborObject : neighborsTuple) {
-            final Tuple neighborTuple = (Tuple)neighborObject;
+        for (int i = 0; i < neighborsTuple.size(); i ++) {
+            final Tuple neighborTuple = neighborsTuple.getNestedTuple(i);
             nodeReferences.add(new NodeReference(neighborTuple));
         }
 
@@ -108,11 +113,11 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
 
 
     @Override
-    public void writeNode(@Nonnull final Transaction transaction, @Nonnull final Node<NodeReference> node,
-                          final int layer, @Nonnull final NeighborsChangeSet<NodeReference> neighborsChangeSet) {
+    public void writeNodeInternal(@Nonnull final Transaction transaction, @Nonnull final Node<NodeReference> node,
+                                  final int layer, @Nonnull final NeighborsChangeSet<NodeReference> neighborsChangeSet) {
         final byte[] key = getDataSubspace().pack(Tuple.from(layer, node.getPrimaryKey()));
 
-        final List<Object> nodeItems = Lists.newArrayListWithExpectedSize(4);
+        final List<Object> nodeItems = Lists.newArrayListWithExpectedSize(3);
         nodeItems.add(NodeKind.COMPACT.getSerialized());
         final CompactNode compactNode = node.asCompactNode();
         nodeItems.add(StorageAdapter.tupleFromVector(compactNode.getVector()));
@@ -123,6 +128,11 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
         for (final NodeReference neighborReference : neighbors) {
             neighborItems.add(neighborReference.getPrimaryKey());
         }
+        if (logger.isDebugEnabled()) {
+            logger.debug("written neighbors of primaryKey={}, oldSize={}, newSize={}", node.getPrimaryKey(),
+                    node.getNeighbors().size(), neighborItems.size());
+        }
+
         nodeItems.add(Tuple.fromList(neighborItems));
         final Tuple nodeTuple = Tuple.fromList(nodeItems);
 
