@@ -47,8 +47,15 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.security.Key;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Random;
 import java.util.stream.Stream;
 import java.util.zip.Deflater;
 
@@ -450,6 +457,39 @@ public class TransformedRecordSerializerTest {
         }
     }
 
+    @Test
+    public void encryptDifferentKeys() throws Exception {
+        RollingKeyManager keyManager = new RollingKeyManager();
+        TransformedRecordSerializer<Message> serializer = TransformedRecordSerializerJCE.newDefaultBuilder()
+                .setEncryptWhenSerializing(true)
+                .setKeyManager(keyManager)
+                .setWriteValidationRatio(1.0)
+                .build();
+
+        List<MySimpleRecord> records = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            records.add(MySimpleRecord.newBuilder()
+                        .setRecNo(1000 + i)
+                        .setNumValue2(i)
+                        .setStrValueIndexed(SONNET_108)
+                        .build());
+        }
+
+        List<byte[]> serialized = new ArrayList<>();
+        for (MySimpleRecord record : records) {
+            serialized.add(serialize(serializer, record));
+        }
+
+        assertThat(keyManager.numberOfKeys(), greaterThan(5));
+
+        List<Message> deserialized = new ArrayList<>();
+        for (int i = 0; i < serialized.size(); i++) {
+            deserialized.add(deserialize(serializer, Tuple.from(1000L + i), serialized.get(i)));
+        }
+
+        assertEquals(records, deserialized);
+    }
+
     private boolean isCompressed(byte[] serialized) {
         byte headerByte = serialized[0];
         return headerByte == TransformedRecordSerializerPrefix.PREFIX_COMPRESSED ||
@@ -505,4 +545,49 @@ public class TransformedRecordSerializerTest {
             throw new UnsupportedOperationException("cannot widen this serializer");
         }
     }
+
+    private static class RollingKeyManager implements TransformedRecordSerializerKeyManager {
+        private final KeyGenerator keyGenerator;
+        private final Map<Integer, SecretKey> keys;
+        private final Random random;
+
+        public RollingKeyManager() throws NoSuchAlgorithmException {
+            keyGenerator = KeyGenerator.getInstance("AES");
+            keyGenerator.init(128);
+            keys = new HashMap<>();
+            random = new SecureRandom();
+        }
+
+        @Override
+        public int getSerializationKey() {
+            int newKey = random.nextInt();
+            if (!keys.containsKey(newKey)) {
+                keys.put(newKey, keyGenerator.generateKey());
+            }
+            return newKey;
+        }
+
+        @Override
+        public Key getKey(final int keyNumber) {
+            if (!keys.containsKey(keyNumber)) {
+                throw new RecordCoreArgumentException("invalid key number");
+            }
+            return keys.get(keyNumber);
+        }
+
+        @Override
+        public String getCipher(final int keyNumber) {
+            return CipherPool.DEFAULT_CIPHER;
+        }
+
+        @Override
+        public Random getRandom(final int keyNumber) {
+            return random;
+        }
+
+        public int numberOfKeys() {
+            return keys.size();
+        }
+    }
+
 }
