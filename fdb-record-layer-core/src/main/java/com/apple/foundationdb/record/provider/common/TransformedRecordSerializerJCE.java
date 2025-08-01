@@ -113,6 +113,12 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
         }
     }
 
+    @Nonnull
+    @Override
+    public RecordSerializer<Message> widen() {
+        return new TransformedRecordSerializerJCE<>(inner.widen(), compressWhenSerializing, compressionLevel, encryptWhenSerializing, writeValidationRatio, keyManager);
+    }
+
     /**
      * Creates a new {@link Builder TransformedRecordSerializerJCE.Builder} instance
      * that is backed by the default serializer for {@link Message}s, namely
