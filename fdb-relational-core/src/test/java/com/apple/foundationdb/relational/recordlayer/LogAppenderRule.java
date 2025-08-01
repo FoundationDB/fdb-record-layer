@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.util.Assert;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LogEvent;
@@ -119,10 +120,16 @@ public class LogAppenderRule implements BeforeEachCallback, AfterEachCallback, A
     }
 
     public boolean lastMessageIsCacheMiss() {
+        if (logAppender.getLogs().isEmpty()) {
+            Assert.failUnchecked("attempt to peak logger's last message although the logger is empty (did you forget to add 'options (log query)' maybe?)");
+        }
         return getLastLogEventMessage().contains("planCache=\"miss\"");
     }
 
     public boolean lastMessageIsCacheSkip() {
+        if (logAppender.getLogs().isEmpty()) {
+            Assert.failUnchecked("attempt to peak logger's last message although the logger is empty (did you forget to add 'options (log query)' maybe?)");
+        }
         return getLastLogEventMessage().contains("planCache=\"skip\"");
     }
 }

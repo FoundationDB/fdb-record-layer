@@ -53,8 +53,8 @@
     multi_repetition_parallelized" />
     <keywords4 keywords="connect:;query:;load schema template:;set schema state:;result:;unorderedResult:;explain:;
     explainContains:;count:;error:;planHash:;setup:;schema_template:;supported_version:;test_block:;options:;tests:;
-    maxRows:;initialVersionAtLeast:;initialVersionLessThan:;;mode:;repetition:;seed:;
-    check_cache:;connection_lifecycle:;steps:;preset:;statement_type:;!r;!in;!a;" />
+    maxRows:;initialVersionAtLeast:;initialVersionLessThan:;;mode:;repetition:;seed:;setup:;transaction_setups:;
+    setupReference:;check_cache:;connection_lifecycle:;steps:;preset:;statement_type:;!r;!in;!a;" />
   </highlighting>
   <extensionMap>
     <mapping ext="yamsql" />

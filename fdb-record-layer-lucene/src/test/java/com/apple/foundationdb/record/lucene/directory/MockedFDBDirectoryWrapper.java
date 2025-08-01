@@ -26,16 +26,22 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Map;
 
 /**
  * A Testing-focused {@link FDBDirectoryWrapper} that allows a mocked-FDBDirectory to be injected into the system.
  */
 public class MockedFDBDirectoryWrapper extends FDBDirectoryWrapper {
-    MockedFDBDirectoryWrapper(final IndexMaintainerState state, final Tuple key, final int mergeDirectoryCount,
-                              final AgilityContext agilityContext, final int blockCacheMaximumSize,
-                              final InjectedFailureRepository injectedFailures, final LuceneAnalyzerWrapper writerAnalyzer) {
-        super(state, key, mergeDirectoryCount, agilityContext, blockCacheMaximumSize, writerAnalyzer);
+    MockedFDBDirectoryWrapper(@Nonnull final IndexMaintainerState state,
+                              @Nonnull final Tuple key,
+                              final int mergeDirectoryCount,
+                              @Nonnull final AgilityContext agilityContext,
+                              final int blockCacheMaximumSize,
+                              @Nonnull final InjectedFailureRepository injectedFailures,
+                              @Nonnull final LuceneAnalyzerWrapper writerAnalyzer,
+                              @Nullable final Exception exceptionAtCreation) {
+        super(state, key, mergeDirectoryCount, agilityContext, blockCacheMaximumSize, writerAnalyzer, exceptionAtCreation);
         // Set the injectedFailures at the end of the constructor since createDirectory() is called from the constructor
         // and we can't pass the injected failures to it yet.
         ((MockedFDBDirectory)getDirectory()).setInjectedFailures(injectedFailures);
@@ -43,7 +49,11 @@ public class MockedFDBDirectoryWrapper extends FDBDirectoryWrapper {
 
     @Nonnull
     @Override
-    protected FDBDirectory createFDBDirectory(final Subspace subspace, final Map<String, String> options, final FDBDirectorySharedCacheManager sharedCacheManager, final Tuple sharedCacheKey, final boolean useCompoundFile, final AgilityContext agilityContext, final int blockCacheMaximumSize) {
-        return new MockedFDBDirectory(subspace, options, sharedCacheManager, sharedCacheKey, useCompoundFile, agilityContext, blockCacheMaximumSize);
+    protected FDBDirectory createFDBDirectory(final Subspace subspace, final Map<String, String> options,
+                                              final FDBDirectorySharedCacheManager sharedCacheManager,
+                                              final Tuple sharedCacheKey, final boolean useCompoundFile,
+                                              final AgilityContext agilityContext, final int blockCacheMaximumSize) {
+        return new MockedFDBDirectory(subspace, options, sharedCacheManager, sharedCacheKey, useCompoundFile,
+                agilityContext, blockCacheMaximumSize);
     }
 }

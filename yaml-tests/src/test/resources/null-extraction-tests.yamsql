@@ -1,0 +1,109 @@
+#
+# null-extraction-tests.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# This test suite runs multiple tests that verify the effects of successfully extracting
+# `null` values and integrating them into the query's evaluation context, ensuring they
+# are properly considered during operations like predicate simplification.
+---
+options:
+    supported_version: 4.5.3.0
+---
+schema_template:
+    create table B(b1 integer, b2 string, b3 bigint, primary key(b1))
+    create index i1 as select b3, b2 from B order by b3, b2
+---
+setup:
+  steps:
+    - query: insert into B values
+        (1I, 'a', 2L),
+        (3i, 'b', 4l),
+        (5, 'c', 6)
+---
+test_block:
+  options:
+    statement_type: prepared
+    check_cache: true
+  tests:
+    -
+# With constant folding enabled, the condition in parentheses gets optimized away, allowing
+# the optimizer to use an efficient index scan. Without constant folding, the optimizer
+# retains the remaining predicate (b1 < 20) and must fall back to a less efficient covering
+# scan or potentially worse execution strategy.
+      - query: select * from B where b3 = 4 and b2 = 'b' and (!! !n null !! is null or b1 < 20)
+      - explain: "ISCAN(I1 [EQUALS promote(@c8 AS LONG), EQUALS @c12])"
+      - result: [{3, 'b', 4}]
+    -
+# This query contains two `null` values, creating an equality constraint that handles `null`
+# comparisons with proper semantics. The constraint correctly evaluates equality for both
+# `null` and non-`null` objects. After the initial query execution stores the plan in cache,
+# subsequent runs of the same query will reuse the cached plan since the equality constraint
+# is satisfied when both arguments are `null`.
+      - query: select * from B where !! !n null !! = 42 and !! !n null !! = 43
+      - explainContains: "COVERING(I1 <,> -> [B1: KEY[3], B2: KEY[1], B3: KEY[0]])"
+      - result: []
+    -
+      - query: select * from B where !! !n null !! = 42 and !! 50 !! = 43
+      - explainContains: "COVERING(I1 <,> -> [B1: KEY[3], B2: KEY[1], B3: KEY[0]])"
+      - result: []
+    -
+      - query: select * from B where !! 41 !! = 42 and !! !n null !! = 43
+      - explainContains: "COVERING(I1 <,> -> [B1: KEY[3], B2: KEY[1], B3: KEY[0]])"
+      - result: []
+    -
+      - query: select * from B where !! 46 !! = 42 and !! 47 !! = 43
+      - explainContains: "COVERING(I1 <,> -> [B1: KEY[3], B2: KEY[1], B3: KEY[0]])"
+      - result: []
+    -
+      - query: select * from B where !! 42 !! = 42 and !! 43 !! = 43 and !! 45 !! = 45
+      - explainContains: "COVERING(I1 <,> -> [B1: KEY[3], B2: KEY[1], B3: KEY[0]])"
+      - result: [{1, 'a', 2}, {3, 'b', 4}, {5, 'c', 6}]
+---
+test_block:
+  name: agg-index-tests-count
+  options:
+    statement_type: prepared
+    check_cache: true
+    connection_options:
+      DISABLE_PLANNER_REWRITING: true
+  tests:
+    -
+      - query: select * from B where b3 = 4 and b2 = 'b' and (!! !n null !! is null or b1 < 20)
+      - explain: "COVERING(I1 [EQUALS promote(@c8 AS LONG), EQUALS promote(@c12 AS STRING)] -> [B1: KEY[3], B2: KEY[1], B3: KEY[0]]) | FILTER @c15 IS_NULL OR _.B1 LESS_THAN promote(@c21 AS INT) | FETCH"
+      - result: [{3, 'b', 4}]
+    -
+      - query: select * from B where !! !n null !! = 42 and !! !n null !! = 43
+      - explainContains: "COVERING(I1 <,> -> [B1: KEY[3], B2: KEY[1], B3: KEY[0]])"
+      - result: []
+    -
+      - query: select * from B where !! !n null !! = 42 and !! 50 !! = 43
+      - explainContains: "COVERING(I1 <,> -> [B1: KEY[3], B2: KEY[1], B3: KEY[0]])"
+      - result: []
+    -
+      - query: select * from B where !! 41 !! = 42 and !! !n null !! = 43
+      - explainContains: "COVERING(I1 <,> -> [B1: KEY[3], B2: KEY[1], B3: KEY[0]])"
+      - result: []
+    -
+      - query: select * from B where !! 46 !! = 42 and !! 47 !! = 43
+      - explainContains: "COVERING(I1 <,> -> [B1: KEY[3], B2: KEY[1], B3: KEY[0]])"
+      - result: []
+    -
+      - query: select * from B where !! 42 !! = 42 and !! 43 !! = 43 and !! 45 !! = 45
+      - explainContains: "COVERING(I1 <,> -> [B1: KEY[3], B2: KEY[1], B3: KEY[0]])"
+      - result: [{1, 'a', 2}, {3, 'b', 4}, {5, 'c', 6}]
+...

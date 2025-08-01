@@ -1,5 +1,5 @@
 #
-# transacitons-tests.yamsql
+# transactions-tests.yamsql
 #
 # This source file is part of the FoundationDB open source project
 #
@@ -17,41 +17,45 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# you can add comments like this one to your scripts.
-#
-# The file is split into "documents" wherein each document is describes a block. A type of block exhibits a unique
-# functional behavior. At the top-level, there are 2 types of blocks:
-#   - setup_block: These blocks are used to control the environment needed to run the test blocks. For instance, they
-#       are used to "setup", "populate" and "destruct" the databases and tables. A file can have multiple of these to
-#       `tweak` the environment as needed by the testing block.
-#   - test_block: Defines a scope for a group of tests by setting the knobs that determines how those tests are run.
-#
-# The config block can be of the following types:
-#   - schema_template: This block carries the definition of the template based on which the database and schemas are setup
-#       automatically on the execution for the following `test_block` to use. Note that a file can have multiple of these
-#       blocks, each creating a database and schema with a different name scheme. Consequently, cleaning up of multiple
-#       of these blocks happens after all the blocks in the file has been executed, in the order of their definition.
-#       That is, 1st `schema_template` gets cleaned first, then second, then third and so on.
-#   - setup: This block gives more flexibility to the tester to setup the tests. Compared to `schema_template`, which are
-#       opaque as to how and where schemas are created, `setup` setup block gives the tester the option to execute
-#       whatever statements they want in whichever location.
+# This test serves as an example of using transaction setup, both via references and inline.
 ---
 options:
-    supported_version: 4.3.5.0
+    supported_version: 4.4.7.0
 ---
 schema_template:
-    create table t1(id bigint, col1 bigint, primary key(id))
+    create table table_t1(id bigint, col1 bigint, primary key(id))
+---
+# This document type creates a map of transaction setups that can be referenced in individual queries
+# This helps to reduce duplication.
+# The map is basically from a name (e.g. t1_less_than_50) to a statement to run at the start of every query.
+# They're referenced in the query using `setupReference`. Right now it only supports a single statement as a string, but
+# it could be expanded to support an array in the future.
+transaction_setups:
+  t1_less_than_50: create temporary function t1() on commit drop function AS
+   SELECT * FROM table_t1 where id < 50
 ---
 setup:
-  # `connect` is default and defaults to 1. Value 0 has a special meaning and depicts connection to the catalog.
   connect: 1
   steps:
-    - query: INSERT INTO T1 VALUES (10, 20), (30, 40), (50, 60)
+    - query: INSERT INTO table_T1 VALUES (10, 20), (30, 40), (50, 60)
 ---
 test_block:
   name: transactions-tests
-  preset: single_repetition_ordered
   tests:
     -
+      # This query uses an inline transaction setup. It will execute the given statement when it executes the initial
+      # query. If continuations are used (either explicitly, or via force-continuations), the setup will only
+      # run on the initial query, not when executing the continuation.
+      # Right now it only supports a single statement as a string, but it could be expanded to support an arra in the
+      # future.
       - query: select * from t1 where id > 15;
+      - setup: create temporary function t1() on commit drop function AS
+               SELECT * FROM table_t1 where id < 30;
+      - result: []
+    -
+      # This query references the transaction setup from above. This behaves exactly the same as the inline version
+      # it just allows easier use of the same setup for many queries.
+      - query: select * from t1 where id > 15;
+      - setupReference: t1_less_than_50
+      - result: [{id: 30, col1: 40}]
 ...
