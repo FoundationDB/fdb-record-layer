@@ -42,7 +42,7 @@ public class IndexPrefetchRangeKeyValueCursor extends KeyValueCursorBase<MappedK
                                              int prefixLength,
                                              @Nonnull final CursorLimitManager limitManager,
                                              int valuesLimit,
-                                             SerializationMode serializationMode) {
+                                             @Nonnull SerializationMode serializationMode) {
 
         super(context, iterator, prefixLength, limitManager, valuesLimit, serializationMode);
     }

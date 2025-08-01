@@ -22,9 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
@@ -34,7 +32,6 @@ import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursorBase;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
@@ -52,7 +49,6 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Prim
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
@@ -81,7 +77,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -102,7 +97,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithLastFieldName;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.sumAggregationValue;
-import static com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty.usedTypes;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
@@ -144,40 +138,15 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
     public void testAggregateIndexPlanning() {
-        RecordMetaDataHook hook = setupHookAndAddData(false, true);
+        setupHookAndAddData(false, true);
         final var cascadesPlanner = (CascadesPlanner)planner;
-        var p = mapPlan(aggregateIndexPlan());
-        var x = constructGroupByPlan(false, false, GroupingKind.ONLY_IMPLICIT_GROUPING);
         final var plan = cascadesPlanner.planGraph(
-                () -> constructGroupByPlan(false, false, GroupingKind.ONLY_IMPLICIT_GROUPING),
+                () -> constructGroupByPlan(false, false, GroupingKind.REGULAR_GROUPING),
                 Optional.empty(),
                 IndexQueryabilityFilter.TRUE,
                 EvaluationContext.empty()).getPlan();
 
-        // assertMatchesExactly(plan, mapPlan(aggregateIndexPlan()));
-        assertResult(hook, plan);
-    }
-
-    private void assertResult(RecordMetaDataHook hook, RecordQueryPlan plan) {
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, hook);
-            Set<Type> usedTypes = usedTypes().evaluate(plan);
-            TypeRepository typeRepository = TypeRepository.newBuilder()
-                    .addAllTypes(usedTypes)
-                    .build();
-            EvaluationContext evaluationContext = EvaluationContext.forBindingsAndTypeRepository(Bindings.EMPTY_BINDINGS, typeRepository);
-            byte[] continuation = null;
-            while (true) {
-                try (RecordCursor<QueryResult> cursor = plan.executePlan(recordStore, evaluationContext, continuation, ExecuteProperties.newBuilder().setReturnedRowLimit(1).build())) {
-                    RecordCursorResult<QueryResult> cursorResult = cursor.getNext();
-                    if (!cursorResult.hasNext()) {
-                        break;
-                    }
-                    continuation = cursorResult.getContinuation().toBytes();
-                    System.out.println("message:" + cursorResult.get().getMessage());
-                }
-            }
-        }
+        assertMatchesExactly(plan, mapPlan(aggregateIndexPlan()));
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
@@ -343,13 +312,10 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                             new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 42)));
                     break;
                 case ONLY_IMPLICIT_GROUPING:
-                    /*
                     selectBuilder.addPredicate(new ValuePredicate(strValueIndexed,
                             new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "Hello World")));
                     selectBuilder.addPredicate(new ValuePredicate(num2Value,
                             new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 42)));
-
-                     */
                     break;
                 default:
             }
@@ -485,9 +451,9 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                         streamingAggregationPlan(
                                 mapPlan(indexPlan().where(indexName("MySimpleRecord$bit_bucket"))))
                                 .where(aggregations(recordConstructorValue(exactly(bitmapConstructAggValue(anyValue()))))
-                                .and(groupings(recordConstructorValue(exactly(
-                                        fieldValueWithLastFieldName(anyValue(), PrimitiveMatchers.equalsObject("str_value_indexed")),
-                                        arithmeticValue(exactly(anyValue(), anyValue())))))))));
+                                        .and(groupings(recordConstructorValue(exactly(
+                                                fieldValueWithLastFieldName(anyValue(), PrimitiveMatchers.equalsObject("str_value_indexed")),
+                                                arithmeticValue(exactly(anyValue(), anyValue())))))))));
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
@@ -674,7 +640,8 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                 if (addAggregateIndex) {
                     metaDataBuilder.addIndex("MySimpleRecord",
                             new Index("AggIndex",
-                                    field("num_value_3_indexed").ungrouped(), IndexTypes.SUM));
+                                    field("num_value_3_indexed").groupBy(concat(field("num_value_2"),
+                                            field("str_value_indexed"))), IndexTypes.SUM));
                 }
                 if (addBitmapIndex) {
                     if (withZeroExplicitGroups) {

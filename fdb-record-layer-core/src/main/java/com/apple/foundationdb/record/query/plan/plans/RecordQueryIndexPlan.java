@@ -309,7 +309,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
         final RecordMetaData metaData = store.getRecordMetaData();
         final Index index = metaData.getIndex(indexName);
         final IndexScanBounds scanBounds = scanParameters.bind(store, index, context);
-        byte[] innerContinuation = continuation == null ? null : KeyValueCursorBase.Continuation.fromRawBytes(continuation, serializationMode);
+        byte[] innerContinuation = KeyValueCursorBase.Continuation.fromRawBytes(continuation, serializationMode);
 
         return store.scanIndexRemoteFetch(index, scanBounds, innerContinuation, executeProperties.asScanProperties(isReverse()), IndexOrphanBehavior.ERROR)
                 .map(store::queriedRecord)
@@ -323,7 +323,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
         final RecordMetaData metaData = store.getRecordMetaData();
         final Index index = metaData.getIndex(indexName);
         final IndexScanBounds scanBounds = scanParameters.bind(store, index, context);
-        byte[] innerContinuation = continuation == null ? null : KeyValueCursorBase.Continuation.fromRawBytes(continuation, serializationMode);
+        byte[] innerContinuation = KeyValueCursorBase.Continuation.fromRawBytes(continuation, serializationMode);
 
         if (!IndexScanType.BY_VALUE_OVER_SCAN.equals(getScanType())) {
             return store.scanIndex(index, scanBounds, innerContinuation, executeProperties.asScanProperties(reverse));

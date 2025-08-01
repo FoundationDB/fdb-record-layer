@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursorBase;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -44,7 +43,6 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Tag;
@@ -252,6 +250,7 @@ class RecordQueryIndexPlanWithOverScanTest extends FDBRecordStoreQueryTestBase {
                 overscanResult = overscanCursor.getNext();
                 assertEquals(indexResult.getContinuation().toByteString(), overscanResult.getContinuation().toByteString(), "Continuation byte strings should match");
                 assertArrayEquals(indexResult.getContinuation().toBytes(), overscanResult.getContinuation().toBytes(), "Continuation byte arrays should match");
+
                 assertEquals(indexResult.hasNext(), overscanResult.hasNext(), "Overscan cursor should have next if index result has next");
                 if (indexResult.hasNext()) {
                     assertEquals(indexResult.get().getRecord(), overscanResult.get().getRecord(), "Result returned via overscan cursor should match regular cursor");

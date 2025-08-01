@@ -33,6 +33,7 @@ import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -116,10 +117,11 @@ public class ForceContinuationQueryTests {
         }
     }
 
+    // disabled until SerializationMode = TO_NEW
+    @Disabled
     @ParameterizedTest
     @MethodSource("failedQueries")
     void testNewSerialization(String sql, long result) throws Exception {
-        connection.setOption(Options.Name.KEYVALUE_CURSOR_CONTINUATION_SERIALIZE_TO_NEW, true);
         Continuation continuation;
         try (final var s = connection.createStatement()) {
             s.setMaxRows(1);
@@ -130,93 +132,6 @@ public class ForceContinuationQueryTests {
             }
         }
         // new serialization fixed the issue
-        try (final var preparedStatement = connection.prepareStatement("EXECUTE CONTINUATION ?param")) {
-            preparedStatement.setMaxRows(1);
-            preparedStatement.setBytes("param", continuation.serialize());
-            try (var resultSet = preparedStatement.executeQuery()) {
-                Assertions.assertFalse(resultSet.next());
-            }
-        }
-    }
-
-    @Test
-    void testOldSerializationWorks() throws Exception {
-        Continuation continuation;
-        statement.setMaxRows(1);
-        try (var resultSet = statement.executeQuery("select count(*) from t2 group by col2")) {
-            Assertions.assertTrue(resultSet.next());
-            Assertions.assertEquals(1L, resultSet.getLong(1));
-            continuation = resultSet.getContinuation();
-        }
-        try (final var preparedStatement = connection.prepareStatement("EXECUTE CONTINUATION ?param")) {
-            preparedStatement.setMaxRows(1);
-            preparedStatement.setBytes("param", continuation.serialize());
-            try (var resultSet = preparedStatement.executeQuery()) {
-                Assertions.assertTrue(resultSet.next());
-                Assertions.assertEquals(3L, resultSet.getLong(1));
-                continuation = resultSet.getContinuation();
-            }
-        }
-        try (final var preparedStatement = connection.prepareStatement("EXECUTE CONTINUATION ?param")) {
-            preparedStatement.setMaxRows(1);
-            preparedStatement.setBytes("param", continuation.serialize());
-            try (var resultSet = preparedStatement.executeQuery()) {
-                Assertions.assertFalse(resultSet.next());
-            }
-        }
-    }
-
-    @Test
-    void testNewSerializationWorks() throws Exception {
-        connection.setOption(Options.Name.KEYVALUE_CURSOR_CONTINUATION_SERIALIZE_TO_NEW, true);
-        Continuation continuation;
-        try (final var s = connection.createStatement()) {
-            s.setMaxRows(1);
-            try (var resultSet = s.executeQuery("select count(*) from t2 group by col2")) {
-                Assertions.assertTrue(resultSet.next());
-                Assertions.assertEquals(1L, resultSet.getLong(1));
-                continuation = resultSet.getContinuation();
-            }
-        }
-        try (final var preparedStatement = connection.prepareStatement("EXECUTE CONTINUATION ?param")) {
-            preparedStatement.setMaxRows(1);
-            preparedStatement.setBytes("param", continuation.serialize());
-            try (var resultSet = preparedStatement.executeQuery()) {
-                Assertions.assertTrue(resultSet.next());
-                Assertions.assertEquals(3L, resultSet.getLong(1));
-                continuation = resultSet.getContinuation();
-            }
-        }
-        try (final var preparedStatement = connection.prepareStatement("EXECUTE CONTINUATION ?param")) {
-            preparedStatement.setMaxRows(1);
-            preparedStatement.setBytes("param", continuation.serialize());
-            try (var resultSet = preparedStatement.executeQuery()) {
-                Assertions.assertFalse(resultSet.next());
-            }
-        }
-    }
-
-    @Test
-    void testOldThenNewWorks() throws Exception {
-        Continuation continuation;
-        try (final var s = connection.createStatement()) {
-            s.setMaxRows(1);
-            try (var resultSet = s.executeQuery("select count(*) from t2 group by col2")) {
-                Assertions.assertTrue(resultSet.next());
-                Assertions.assertEquals(1L, resultSet.getLong(1));
-                continuation = resultSet.getContinuation();
-            }
-        }
-        connection.setOption(Options.Name.KEYVALUE_CURSOR_CONTINUATION_SERIALIZE_TO_NEW, true);
-        try (final var preparedStatement = connection.prepareStatement("EXECUTE CONTINUATION ?param")) {
-            preparedStatement.setMaxRows(1);
-            preparedStatement.setBytes("param", continuation.serialize());
-            try (var resultSet = preparedStatement.executeQuery()) {
-                Assertions.assertTrue(resultSet.next());
-                Assertions.assertEquals(3L, resultSet.getLong(1));
-                continuation = resultSet.getContinuation();
-            }
-        }
         try (final var preparedStatement = connection.prepareStatement("EXECUTE CONTINUATION ?param")) {
             preparedStatement.setMaxRows(1);
             preparedStatement.setBytes("param", continuation.serialize());

@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordScanLimiter;
@@ -96,16 +97,20 @@ public class KeyValueCursorTest {
     @EnumSource(KeyValueCursorBase.SerializationMode.class)
     public void all(KeyValueCursorBase.SerializationMode serializationMode) {
         fdb.run(context -> {
-            KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
-                    .setContext(context)
-                    .setRange(TupleRange.ALL)
-                    .setContinuation(null)
-                    .setScanProperties(ScanProperties.FORWARD_SCAN)
-                    .setSerializationMode(serializationMode)
-                    .build();
+            byte[] continuation = null;
+            KeyValueCursor cursor = null;
             for (int i = 0; i < 5; i++) {
                 for (int j = 0; j < 5; j++) {
-                    KeyValue kv = cursor.getNext().get();
+                    cursor = KeyValueCursor.Builder.withSubspace(subspace)
+                            .setContext(context)
+                            .setRange(TupleRange.ALL)
+                            .setContinuation(continuation)
+                            .setScanProperties(ScanProperties.FORWARD_SCAN)
+                            .setSerializationMode(serializationMode)
+                            .build();
+                    RecordCursorResult<KeyValue> cursorResult = cursor.getNext();
+                    KeyValue kv = cursorResult.get();
+                    continuation = cursorResult.getContinuation().toBytes();
                     assertArrayEquals(subspace.pack(Tuple.from(i, j)), kv.getKey());
                     assertArrayEquals(Tuple.from(i, j).pack(), kv.getValue());
                 }

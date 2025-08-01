@@ -64,7 +64,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
     private final int prefixLength;
     @Nonnull
     private final CursorLimitManager limitManager;
-    private int valuesLimit;
+    private final int valuesLimit;
     // the pointer may be mutated, but the actual array must never be mutated or continuations will break
     @Nullable
     private byte[] lastKey;
@@ -76,7 +76,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
                                  int prefixLength,
                                  @Nonnull final CursorLimitManager limitManager,
                                  int valuesLimit,
-                                 @Nonnull SerializationMode serializationMode) {
+                                 @Nonnull final SerializationMode serializationMode) {
         super(context.getExecutor(), iterator);
 
         this.context = context;
@@ -200,7 +200,10 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             return base.substring(prefixLength, lastKey.length);
         }
 
-        public static byte[] fromRawBytes(@Nonnull byte[] rawBytes, SerializationMode serializationMode) {
+        public static byte[] fromRawBytes(@Nullable byte[] rawBytes, SerializationMode serializationMode) {
+            if (rawBytes == null) {
+                return null;
+            }
             if (serializationMode == SerializationMode.TO_OLD) {
                 return rawBytes;
             }
@@ -264,6 +267,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
 
         protected Builder(@Nonnull Subspace subspace) {
             this.subspace = subspace;
+            this.serializationMode = SerializationMode.TO_NEW;
         }
 
         /**
@@ -300,20 +304,9 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             prefixLength = calculatePrefixLength();
 
             reverse = scanProperties.isReverse();
-            serializationMode = SerializationMode.TO_NEW;
 
             if (continuation != null) {
-                byte[] realContinuation;
-                if (serializationMode == SerializationMode.TO_OLD) {
-                    realContinuation = continuation;
-                } else {
-                    try {
-                        RecordCursorProto.KeyValueCursorContinuation keyValueCursorContinuation = RecordCursorProto.KeyValueCursorContinuation.parseFrom(continuation);
-                        realContinuation = keyValueCursorContinuation.getContinuation().toByteArray();
-                    } catch (InvalidProtocolBufferException ex) {
-                        realContinuation = continuation;
-                    }
-                }
+                byte[] realContinuation = KeyValueCursorBase.Continuation.fromRawBytes(continuation, serializationMode);
                 final byte[] continuationBytes = new byte[prefixLength + realContinuation.length];
                 System.arraycopy(lowBytes, 0, continuationBytes, 0, prefixLength);
                 System.arraycopy(realContinuation, 0, continuationBytes, prefixLength, realContinuation.length);
