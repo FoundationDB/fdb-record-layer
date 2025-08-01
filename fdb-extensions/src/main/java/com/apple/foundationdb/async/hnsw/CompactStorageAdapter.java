@@ -20,9 +20,15 @@
 
 package com.apple.foundationdb.async.hnsw;
 
+import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
+import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.async.AsyncIterable;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.christianheina.langx.half4j.Half;
 import com.google.common.base.Verify;
@@ -31,6 +37,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -65,21 +72,26 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
     protected CompletableFuture<Node<NodeReference>> fetchNodeInternal(@Nonnull final ReadTransaction readTransaction,
                                                                        final int layer,
                                                                        @Nonnull final Tuple primaryKey) {
-        final byte[] key = getDataSubspace().pack(Tuple.from(layer, primaryKey));
+        final byte[] keyBytes = getDataSubspace().pack(Tuple.from(layer, primaryKey));
 
-        return readTransaction.get(key)
+        return readTransaction.get(keyBytes)
                 .thenApply(valueBytes -> {
                     if (valueBytes == null) {
                         throw new IllegalStateException("cannot fetch node");
                     }
-
-                    final Tuple nodeTuple = Tuple.fromBytes(valueBytes);
-                    final Node<NodeReference> node = nodeFromTuples(primaryKey, nodeTuple);
-                    final OnReadListener onReadListener = getOnReadListener();
-                    onReadListener.onNodeRead(node);
-                    onReadListener.onKeyValueRead(key, valueBytes);
-                    return node;
+                    return nodeFromRaw(primaryKey, keyBytes, valueBytes);
                 });
+    }
+
+    @Nonnull
+    private Node<NodeReference> nodeFromRaw(final @Nonnull Tuple primaryKey, @Nonnull final byte[] keyBytes,
+                                            @Nonnull final byte[] valueBytes) {
+        final Tuple nodeTuple = Tuple.fromBytes(valueBytes);
+        final Node<NodeReference> node = nodeFromTuples(primaryKey, nodeTuple);
+        final OnReadListener onReadListener = getOnReadListener();
+        onReadListener.onNodeRead(node);
+        onReadListener.onKeyValueRead(keyBytes, valueBytes);
+        return node;
     }
 
     @Nonnull
@@ -111,7 +123,6 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
         return getNodeFactory().create(primaryKey, vector, nodeReferences);
     }
 
-
     @Override
     public void writeNodeInternal(@Nonnull final Transaction transaction, @Nonnull final Node<NodeReference> node,
                                   final int layer, @Nonnull final NeighborsChangeSet<NodeReference> neighborsChangeSet) {
@@ -138,5 +149,24 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
 
         transaction.set(key, nodeTuple.pack());
         getOnWriteListener().onNodeWritten(layer, node);
+    }
+
+    public Iterable<Node<NodeReference>> scanLayer(@Nonnull final ReadTransaction readTransaction, int layer,
+                                                   @Nullable final Tuple lastPrimaryKey, int maxNumRead) {
+        final byte[] layerPrefix = getDataSubspace().pack(Tuple.from(layer));
+        final Range range =
+                lastPrimaryKey == null
+                ? Range.startsWith(layerPrefix)
+                : new Range(ByteArrayUtil.strinc(getDataSubspace().pack(Tuple.from(layer, lastPrimaryKey))),
+                        ByteArrayUtil.strinc(layerPrefix));
+        final AsyncIterable<KeyValue> itemsIterable =
+                readTransaction.getRange(range, maxNumRead, false, StreamingMode.ITERATOR);
+
+        return AsyncUtil.mapIterable(itemsIterable, keyValue -> {
+            final byte[] key = keyValue.getKey();
+            final byte[] value = keyValue.getValue();
+            final Tuple primaryKey = getDataSubspace().unpack(key);
+            return nodeFromRaw(primaryKey, key, value);
+        });
     }
 }
