@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordScanLimiter;
