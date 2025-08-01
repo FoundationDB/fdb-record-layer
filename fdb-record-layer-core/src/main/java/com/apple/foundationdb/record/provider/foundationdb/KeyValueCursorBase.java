@@ -267,7 +267,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
 
         protected Builder(@Nonnull Subspace subspace) {
             this.subspace = subspace;
-            this.serializationMode = SerializationMode.TO_NEW;
+            this.serializationMode = SerializationMode.TO_OLD;
         }
 
         /**
