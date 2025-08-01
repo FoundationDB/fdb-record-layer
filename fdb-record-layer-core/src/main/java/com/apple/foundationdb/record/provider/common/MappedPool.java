@@ -104,6 +104,13 @@ public class MappedPool<K, V, E extends Exception> {
     }
 
     /**
+     * Invalidate all entries in the pool.
+     */
+    public void invalidateAll() {
+        pool.invalidateAll();
+    }
+
+    /**
      * Function with Exceptions to provide the pool.
      *
      * @param <K> key
