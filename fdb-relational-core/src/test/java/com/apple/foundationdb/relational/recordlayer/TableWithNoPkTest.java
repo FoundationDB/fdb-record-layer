@@ -52,7 +52,7 @@ public class TableWithNoPkTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule db = new SimpleDatabaseRule(relationalExtension, TableWithNoPkTest.class,
+    public final SimpleDatabaseRule db = new SimpleDatabaseRule(TableWithNoPkTest.class,
             "CREATE TABLE no_pk(a bigint, b bigint, SINGLE ROW ONLY)");
 
     @Test

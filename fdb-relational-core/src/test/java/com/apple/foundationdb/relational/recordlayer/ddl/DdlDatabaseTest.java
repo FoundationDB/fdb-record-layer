@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -51,8 +52,8 @@ public class DdlDatabaseTest {
     public static final EmbeddedRelationalExtension relational = new EmbeddedRelationalExtension();
 
     @RegisterExtension
-    public final SchemaTemplateRule baseTemplate = new SchemaTemplateRule(relational, DdlDatabaseTest.class.getSimpleName() + "_TEMPLATE",
-            null, Collections.singleton(new TableDefinition("FOO_TBL", List.of("string", "double"), List.of("col1"))),
+    public final SchemaTemplateRule baseTemplate = new SchemaTemplateRule(DdlDatabaseTest.class.getSimpleName() + "_TEMPLATE",
+            Options.none(), null, Collections.singleton(new TableDefinition("FOO_TBL", List.of("string", "double"), List.of("col1"))),
             Collections.singleton(new TypeDefinition("FOO_NESTED_TYPE", List.of("string", "bigint"))));
 
     @Test
@@ -63,7 +64,7 @@ public class DdlDatabaseTest {
                 try (final var statement = conn.createStatement()) {
                     //create a database
                     statement.executeUpdate("CREATE DATABASE /test/test_db");
-                    statement.executeUpdate("CREATE SCHEMA /test/test_db/foo_schem with template \"" + baseTemplate.getTemplateName() + "\"");
+                    statement.executeUpdate("CREATE SCHEMA /test/test_db/foo_schem with template \"" + baseTemplate.getSchemaTemplateName() + "\"");
                 }
             }
             try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed:/TEST/TEST_DB").unwrap(RelationalConnection.class)) {
@@ -128,13 +129,13 @@ public class DdlDatabaseTest {
                 statement.executeUpdate("CREATE DATABASE /test/test_db");
 
                 //create a schema --this should just "work" in that it won't throw an error
-                statement.executeUpdate("CREATE SCHEMA /test/test_db/created_schema with template \"" + baseTemplate.getTemplateName() + "\"");
+                statement.executeUpdate("CREATE SCHEMA /test/test_db/created_schema with template \"" + baseTemplate.getSchemaTemplateName() + "\"");
 
                 //now drop the database
                 statement.executeUpdate("DROP DATABASE /test/test_db");
 
                 //now creating a new schema should throw a DATABASE_NOT_FOUND error
-                Assertions.assertThatThrownBy(() -> statement.executeUpdate("CREATE SCHEMA /test/test_db/should_fail with template " + baseTemplate.getTemplateName()))
+                Assertions.assertThatThrownBy(() -> statement.executeUpdate("CREATE SCHEMA /test/test_db/should_fail with template " + baseTemplate.getSchemaTemplateName()))
                         .isInstanceOf(SQLException.class)
                         .extracting("SQLState")
                         .isEqualTo(ErrorCode.UNDEFINED_DATABASE.getErrorCode());
@@ -172,7 +173,7 @@ public class DdlDatabaseTest {
             try (Statement statement = conn.createStatement()) {
                 //create a database
                 RelationalAssertions.assertThrowsSqlException(() ->
-                        statement.executeUpdate("CREATE SCHEMA /database_that_does_not_exist/schema_that_cannot_be_created with template " + baseTemplate.getTemplateName()))
+                        statement.executeUpdate("CREATE SCHEMA /database_that_does_not_exist/schema_that_cannot_be_created with template " + baseTemplate.getSchemaTemplateName()))
                         .hasErrorCode(ErrorCode.UNDEFINED_DATABASE);
             }
         }

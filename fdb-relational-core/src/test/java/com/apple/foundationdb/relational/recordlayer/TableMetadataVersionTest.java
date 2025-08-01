@@ -43,7 +43,7 @@ public class TableMetadataVersionTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, TableMetadataVersionTest.class, TestSchemas.restaurant());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(TableMetadataVersionTest.class, TestSchemas.restaurant());
 
     @RegisterExtension
     @Order(2)

@@ -54,7 +54,7 @@ public class AutoCommitTests {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, AutoCommitTests.class, TestSchemas.restaurant());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(AutoCommitTests.class, TestSchemas.restaurant());
 
     @RegisterExtension
     @Order(2)

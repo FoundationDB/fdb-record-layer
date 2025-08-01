@@ -20,12 +20,13 @@
 
 package com.apple.foundationdb.relational.utils;
 
-import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
-import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
+import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.recordlayer.Utils;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -39,44 +40,54 @@ import java.util.stream.Collectors;
  * Manages the lifecycle of a single SchemaTemplate within a unit test.
  */
 public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback {
-    private final RelationalExtension relationalExtension;
+
+    @Nonnull
     private final String templateName;
+
+    @Nonnull
+    private final Options connectionOptions;
+
     @Nullable
-    private final SchemaTemplateOptions options;
+    private final SchemaTemplateOptions schemaTemplateOptions;
+
+    @Nonnull
     private final TypeCreator typeCreator;
+
+    @Nonnull
     private final TypeCreator tableCreator;
 
-    private SchemaTemplateRule(RelationalExtension relationalExtension,
-                               String templateName,
-                               @Nullable SchemaTemplateOptions options,
-                               TypeCreator typeCreator,
-                               TypeCreator tableCreator) {
-        this.relationalExtension = relationalExtension;
+    private SchemaTemplateRule(@Nonnull final String templateName,
+                               @Nonnull final Options connectionOptions,
+                               @Nullable final SchemaTemplateOptions schemaTemplateOptions,
+                               @Nonnull final TypeCreator typeCreator,
+                               @Nonnull final TypeCreator tableCreator) {
         this.templateName = templateName;
-        this.options = options;
+        this.connectionOptions = connectionOptions;
+        this.schemaTemplateOptions = schemaTemplateOptions;
         this.typeCreator = typeCreator;
         this.tableCreator = tableCreator;
     }
 
-    public SchemaTemplateRule(EmbeddedRelationalExtension relationalExtension,
-                              String templateName,
-                              SchemaTemplateOptions options,
-                              Collection<TableDefinition> tables,
-                              Collection<TypeDefinition> types) {
-        this(relationalExtension, templateName, options,
+    public SchemaTemplateRule(@Nonnull final String templateName,
+                              @Nonnull final Options connectionOptions,
+                              @Nullable final SchemaTemplateOptions schemaTemplateOptions,
+                              @Nonnull final Collection<TableDefinition> tables,
+                              @Nonnull final Collection<TypeDefinition> types) {
+        this(templateName, connectionOptions, schemaTemplateOptions,
                 new CreatorFromDefinition("TYPE AS STRUCT", types),
                 new CreatorFromDefinition("TABLE", tables));
     }
 
-    public SchemaTemplateRule(
-            RelationalExtension relationalExtension,
-            String templateName,
-            @Nullable SchemaTemplateOptions options,
-            String templateDefinition) {
-        this(relationalExtension, templateName, options, new CreatorFromString(templateDefinition), () -> "");
+    public SchemaTemplateRule(@Nonnull final String templateName,
+                              @Nonnull final Options connectionOptions,
+                              @Nullable final SchemaTemplateOptions schemaTemplateOptions,
+                              @Nonnull final String templateDefinition) {
+        this(templateName, connectionOptions, schemaTemplateOptions,
+                new CreatorFromString(templateDefinition), () -> "");
     }
 
-    public String getTemplateName() {
+    @Nonnull
+    public String getSchemaTemplateName() {
         return templateName;
     }
 
@@ -86,6 +97,7 @@ public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback
 
         try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
             connection.setSchema("CATALOG");
+            Utils.setConnectionOptions(connection, connectionOptions);
             try (Statement statement = connection.createStatement()) {
                 statement.executeUpdate(dropStatement.toString());
             }
@@ -98,6 +110,7 @@ public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback
 
         try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
             connection.setSchema("CATALOG");
+            Utils.setConnectionOptions(connection, connectionOptions);
             try (Statement statement = connection.createStatement()) {
                 statement.executeUpdate(dropStatement.toString());
             }
@@ -106,12 +119,13 @@ public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback
         createStatement.append(typeCreator.getTypeDefinition());
         createStatement.append(tableCreator.getTypeDefinition());
 
-        if (options != null) {
-            createStatement.append(options.getOptionsString());
+        if (schemaTemplateOptions != null) {
+            createStatement.append(schemaTemplateOptions.getOptionsString());
         }
 
         try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
             connection.setSchema("CATALOG");
+            Utils.setConnectionOptions(connection, connectionOptions);
             try (Statement statement = connection.createStatement()) {
                 statement.executeUpdate(createStatement.toString());
             }
@@ -164,5 +178,4 @@ public class SchemaTemplateRule implements BeforeEachCallback, AfterEachCallback
             return creationString;
         }
     }
-
 }

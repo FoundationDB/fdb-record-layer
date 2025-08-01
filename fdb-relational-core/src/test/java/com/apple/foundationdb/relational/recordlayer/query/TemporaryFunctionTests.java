@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -38,6 +39,8 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.net.URI;
 import java.sql.SQLException;
@@ -978,6 +981,71 @@ public class TemporaryFunctionTests {
                     continuation = resultSet.getContinuation();
                 }
                 Assertions.assertTrue(continuation.atEnd());
+            }
+            connection.rollback();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void createTemporaryFunctionCaseSensitivityOption(boolean isCaseSensitive) throws Exception {
+        final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
+        try (var ddl = Ddl.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, isCaseSensitive)
+                .database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
+            }
+            final var connection = ddl.getConnection();
+            connection.setAutoCommit(false);
+            connection.setOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, isCaseSensitive);
+
+            try (var statement = connection.createStatement()) {
+                statement.execute("create temporary function sq1(in x bigint) on commit drop function as select * from t1 where a < 40 + x ");
+                invokeAndVerifyTempFunction(statement);
+            }
+            connection.rollback();
+        }
+    }
+
+    @Test
+    void attemptToCreateTemporaryFunctionWithDifferentCaseSensitivityOptionCase1() throws Exception {
+        final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
+        try (var ddl = Ddl.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true)
+                .database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
+            }
+            final var connection = ddl.getConnection();
+            connection.setAutoCommit(false);
+            connection.setOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, false);
+
+            try (var statement = connection.createStatement()) {
+                RelationalAssertions.assertThrowsSqlException(() -> statement.execute("create temporary function sq1(in x bigint) " +
+                                "on commit drop function as select * from t1 where a < 40 + x "))
+                        .hasErrorCode(ErrorCode.UNDEFINED_TABLE)
+                        .hasMessageContaining("Unknown table T1");
+            }
+            connection.rollback();
+        }
+    }
+
+    @Test
+    void attemptToCreateTemporaryFunctionWithDifferentCaseSensitivityOptionCase2() throws Exception {
+        final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
+        try (var ddl = Ddl.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, false)
+                .database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
+            }
+            final var connection = ddl.getConnection();
+            connection.setAutoCommit(false);
+            connection.setOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true);
+
+            try (var statement = connection.createStatement()) {
+                RelationalAssertions.assertThrowsSqlException(() -> statement.execute("create temporary function sq1(in x bigint) " +
+                                "on commit drop function as select * from t1 where a < 40 + x "))
+                        .hasErrorCode(ErrorCode.UNDEFINED_TABLE)
+                        .hasMessageContaining("Unknown table t1");
             }
             connection.rollback();
         }

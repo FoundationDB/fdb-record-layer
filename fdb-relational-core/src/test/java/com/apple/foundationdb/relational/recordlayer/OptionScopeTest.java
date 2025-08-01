@@ -51,7 +51,7 @@ public class OptionScopeTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule db = new SimpleDatabaseRule(relationalExtension, UniqueIndexTests.class, TestSchemas.books());
+    public final SimpleDatabaseRule db = new SimpleDatabaseRule(UniqueIndexTests.class, TestSchemas.books());
 
     @Test
     public void optionTakenFromConnection() throws SQLException, RelationalException {

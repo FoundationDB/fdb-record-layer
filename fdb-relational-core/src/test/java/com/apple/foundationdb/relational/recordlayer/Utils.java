@@ -24,13 +24,17 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalArray;
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Environment;
 
+import javax.annotation.Nonnull;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.List;
@@ -134,6 +138,14 @@ public final class Utils {
             Debugger.setDebugger(DebuggerWithSymbolTables.withoutSanityChecks());
         }
         Debugger.setup();
+    }
+
+    public static void setConnectionOptions(@Nonnull final Connection connection,
+                                             @Nonnull final Options connectionOptions) throws SQLException {
+        final var relationalConnection = connection.unwrap(RelationalConnection.class);
+        for (final var option : connectionOptions.entries()) {
+            relationalConnection.setOption(option.getKey(), option.getValue());
+        }
     }
 
     private Utils() {

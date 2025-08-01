@@ -56,7 +56,7 @@ public class DeleteRangeNoMetadataKeyTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, DeleteRangeNoMetadataKeyTest.class, SCHEMA_TEMPLATE, new SchemaTemplateRule.SchemaTemplateOptions(true, true));
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(DeleteRangeNoMetadataKeyTest.class, SCHEMA_TEMPLATE, new SchemaTemplateRule.SchemaTemplateOptions(true, true));
 
     @RegisterExtension
     @Order(2)
@@ -397,7 +397,7 @@ public class DeleteRangeNoMetadataKeyTest {
                 .database(URI.create("/TEST/QT"))
                 .relationalExtension(relationalExtension)
                 .schemaTemplate(SCHEMA_TEMPLATE + templateSuffix)
-                .options(new SchemaTemplateRule.SchemaTemplateOptions(true, true))
+                .schemaTemplateOptions(new SchemaTemplateRule.SchemaTemplateOptions(true, true))
                 .build();
     }
 }

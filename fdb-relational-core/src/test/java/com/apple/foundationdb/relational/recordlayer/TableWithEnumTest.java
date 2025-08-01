@@ -52,7 +52,7 @@ public class TableWithEnumTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, TableWithEnumTest.class, TestSchemas.playingCard());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(TableWithEnumTest.class, TestSchemas.playingCard());
 
     @RegisterExtension
     @Order(2)

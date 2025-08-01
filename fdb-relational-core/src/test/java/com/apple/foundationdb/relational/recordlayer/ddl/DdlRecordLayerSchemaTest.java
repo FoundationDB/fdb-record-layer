@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
@@ -51,14 +52,14 @@ public class DdlRecordLayerSchemaTest {
 
     @RegisterExtension
     @Order(1)
-    public final SchemaTemplateRule baseTemplate = new SchemaTemplateRule(relational,
+    public final SchemaTemplateRule baseTemplate = new SchemaTemplateRule(
             DdlRecordLayerSchemaTest.class.getSimpleName().toUpperCase(Locale.ROOT) + "_TEMPLATE",
-            null, Collections.singleton(new TableDefinition("FOO_TBL", List.of("string", "double"), List.of("col0"))),
+            Options.none(), null, Collections.singleton(new TableDefinition("FOO_TBL", List.of("string", "double"), List.of("col0"))),
             Collections.singleton(new TypeDefinition("FOO_NESTED_TYPE", List.of("string", "bigint"))));
 
     @RegisterExtension
     @Order(2)
-    public final DatabaseRule db = new DatabaseRule(relational, URI.create("/TEST/" + DdlRecordLayerSchemaTest.class.getSimpleName().toUpperCase(Locale.ROOT)));
+    public final DatabaseRule db = new DatabaseRule(URI.create("/TEST/" + DdlRecordLayerSchemaTest.class.getSimpleName().toUpperCase(Locale.ROOT)), Options.none());
 
     @Test
     void canCreateSchema() throws Exception {
@@ -66,7 +67,7 @@ public class DdlRecordLayerSchemaTest {
             conn.setSchema("CATALOG");
             try (final var statement = conn.createStatement()) {
                 //create a schema
-                final String createStatement = "CREATE SCHEMA " + db.getDbUri() + "/TEST_SCHEMA WITH TEMPLATE " + baseTemplate.getTemplateName();
+                final String createStatement = "CREATE SCHEMA " + db.getDbUri() + "/TEST_SCHEMA WITH TEMPLATE " + baseTemplate.getSchemaTemplateName();
                 statement.executeUpdate(createStatement);
                 //now describe the schema
                 try (final var resultSet = statement.executeQuery("DESCRIBE SCHEMA " + db.getDbUri() + "/TEST_SCHEMA")) {
@@ -92,7 +93,7 @@ public class DdlRecordLayerSchemaTest {
             conn.setSchema("CATALOG");
             try (Statement statement = conn.createStatement()) {
                 //create a schema
-                final String createStatement = "CREATE SCHEMA " + db.getDbUri() + "/TEST_SCHEMA WITH TEMPLATE " + baseTemplate.getTemplateName();
+                final String createStatement = "CREATE SCHEMA " + db.getDbUri() + "/TEST_SCHEMA WITH TEMPLATE " + baseTemplate.getSchemaTemplateName();
                 statement.executeUpdate(createStatement);
 
             }
@@ -115,7 +116,7 @@ public class DdlRecordLayerSchemaTest {
             try (Statement statement = conn.createStatement()) {
 
                 //create a schema
-                final String createStatement = "CREATE SCHEMA " + db.getDbUri() + "/TEST_SCHEMA WITH TEMPLATE " + baseTemplate.getTemplateName();
+                final String createStatement = "CREATE SCHEMA " + db.getDbUri() + "/TEST_SCHEMA WITH TEMPLATE " + baseTemplate.getSchemaTemplateName();
                 statement.executeUpdate(createStatement);
                 RelationalAssertions.assertThrowsSqlException(() -> statement.executeUpdate(createStatement))
                         .hasErrorCode(ErrorCode.SCHEMA_ALREADY_EXISTS);
@@ -131,7 +132,7 @@ public class DdlRecordLayerSchemaTest {
             try (final var statement = conn.createStatement()) {
 
                 //create a schema
-                final String createStatement = "CREATE SCHEMA \"" + db.getDbUri() + "/TEST_SCHEMA\" WITH TEMPLATE " + baseTemplate.getTemplateName();
+                final String createStatement = "CREATE SCHEMA \"" + db.getDbUri() + "/TEST_SCHEMA\" WITH TEMPLATE " + baseTemplate.getSchemaTemplateName();
                 statement.executeUpdate(createStatement);
 
                 //make sure it's there

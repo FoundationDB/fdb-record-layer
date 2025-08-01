@@ -66,7 +66,7 @@ public class ExecutePropertyTests {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension,
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(
             ExecutePropertyTests.class,
             schemaTemplate);
 

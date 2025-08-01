@@ -59,7 +59,7 @@ public class RelationalArrayTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, RelationalArrayTest.class, SCHEMA);
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(RelationalArrayTest.class, SCHEMA);
 
     private static final String SCHEMA = "CREATE TYPE AS STRUCT STRUCTURE(a integer, b string) " +
             "CREATE TYPE as enum enumeration('a', 'b') " +

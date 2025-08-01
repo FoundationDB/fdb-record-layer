@@ -71,7 +71,9 @@ public class TransactionBoundDatabase extends AbstractDatabase {
     private static final MetadataOperationsFactory onlyTemporaryFunctionOperationsFactory = new AbstractMetadataOperationsFactory() {
         @Nonnull
         @Override
-        public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template, final boolean throwIfExists, @Nonnull final RecordLayerInvokedRoutine invokedRoutine, @Nonnull final PreparedParams preparedParams) {
+        public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template, final boolean throwIfExists,
+                                                                       @Nonnull final RecordLayerInvokedRoutine invokedRoutine,
+                                                                       @Nonnull final PreparedParams preparedParams) {
             return new CreateTemporaryFunctionConstantAction(template, throwIfExists, invokedRoutine, preparedParams);
         }
 

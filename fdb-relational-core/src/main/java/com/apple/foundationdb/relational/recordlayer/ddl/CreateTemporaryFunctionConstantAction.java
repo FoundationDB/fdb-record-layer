@@ -57,8 +57,10 @@ public class CreateTemporaryFunctionConstantAction implements ConstantAction  {
     }
 
     @Override
-    public void execute(final Transaction txn) throws RelationalException {
-        final var transactionBoundSchemaTemplate = Assert.castUnchecked(txn.getBoundSchemaTemplateMaybe().orElse(template), RecordLayerSchemaTemplate.class);
+    public void execute(@Nonnull final Transaction txn) throws RelationalException {
+        final var transactionBoundSchemaTemplate = Assert.castUnchecked(txn.getBoundSchemaTemplateMaybe().orElse(template),
+                RecordLayerSchemaTemplate.class);
+
         if (throwIfExists) {
             Assert.thatUnchecked(transactionBoundSchemaTemplate.getInvokedRoutines().stream()
                                     .noneMatch(r -> r.getName().equals(invokedRoutine.getName())),
@@ -69,10 +71,10 @@ public class CreateTemporaryFunctionConstantAction implements ConstantAction  {
         // transaction.
         // this should be simplified once https://github.com/FoundationDB/fdb-record-layer/issues/3394 is fixed.
         final var routineBuilder = invokedRoutine.toBuilder();
-        routineBuilder.withCompilableRoutine(() ->
+        routineBuilder.withCompilableRoutine(isCaseSensitive ->
                 RoutineParser.sqlFunctionParser(transactionBoundSchemaTemplate)
                         .parseTemporaryFunction(invokedRoutine.getName(), invokedRoutine.getDescription(),
-                                PreparedParams.copyOf(preparedParams)));
+                                PreparedParams.copyOf(preparedParams), isCaseSensitive));
         final var schemaTemplateWithTempFunction = transactionBoundSchemaTemplate.toBuilder()
                 .replaceInvokedRoutine(routineBuilder.build()).build();
         txn.setBoundSchemaTemplate(schemaTemplateWithTempFunction);

@@ -64,7 +64,7 @@ public class TransactionBoundDatabaseWithEnumTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule dbRule = new SimpleDatabaseRule(relational, TransactionBoundDatabaseWithEnumTest.class, TestSchemas.playingCard());
+    public final SimpleDatabaseRule dbRule = new SimpleDatabaseRule(TransactionBoundDatabaseWithEnumTest.class, TestSchemas.playingCard());
 
     @RegisterExtension
     @Order(2)

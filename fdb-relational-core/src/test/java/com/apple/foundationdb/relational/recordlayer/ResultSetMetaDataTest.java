@@ -50,7 +50,7 @@ public abstract class ResultSetMetaDataTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension,
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(
             ResultSetMetaDataTest.class,
             TestSchemas.restaurant());
 

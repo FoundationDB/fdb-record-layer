@@ -57,7 +57,7 @@ public class QueryPropertiesTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, QueryPropertiesTest.class, TestSchemas.restaurant());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(QueryPropertiesTest.class, TestSchemas.restaurant());
 
     @Test
     void verifyExecuteAndScanPropertiesGivenQueryProperties() throws SQLException {

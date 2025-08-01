@@ -68,12 +68,14 @@ public interface SqlFunctionCatalog {
      * The user-defined functions are loaded from the passed {@code metadata} argument, they are only compiled when
      * looked up with {@link SqlFunctionCatalog#lookupFunction(String, Expressions)}, and their compiled version is
      * cached so it is done at most once.
+     *
      * @param metadata The metadata used to load any user-defined functions.
+     *
      * @return a new instance of {@link SqlFunctionCatalogImpl}.
      */
     @Nonnull
-    static SqlFunctionCatalog newInstance(@Nonnull final RecordLayerSchemaTemplate metadata) {
-        return SqlFunctionCatalogImpl.newInstance(metadata);
+    static SqlFunctionCatalog newInstance(@Nonnull final RecordLayerSchemaTemplate metadata, final boolean caseSensitive) {
+        return SqlFunctionCatalogImpl.newInstance(metadata, caseSensitive);
     }
 
     /**

@@ -54,7 +54,7 @@ public class BasicMetadataTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension,
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(
             BasicMetadataTest.class, TestSchemas.restaurant());
 
     @RegisterExtension

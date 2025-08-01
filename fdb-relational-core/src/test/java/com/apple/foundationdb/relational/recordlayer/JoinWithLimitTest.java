@@ -49,7 +49,7 @@ public class JoinWithLimitTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule db = new SimpleDatabaseRule(relationalExtension, UniqueIndexTests.class, getTemplate_definition);
+    public final SimpleDatabaseRule db = new SimpleDatabaseRule(UniqueIndexTests.class, getTemplate_definition);
 
     @RegisterExtension
     @Order(2)

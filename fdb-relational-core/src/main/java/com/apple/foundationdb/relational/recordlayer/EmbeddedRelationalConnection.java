@@ -514,6 +514,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         }
     }
 
+    // todo: remove this.
     private ExecuteProperties newExecuteProperties() {
         return ExecuteProperties.newBuilder()
                 .setIsolationLevel(toExecutePropertiesIsolationLevel(transactionIsolation))

@@ -53,7 +53,7 @@ public class CountQueryTest {
 
     @RegisterExtension
     @Order(1)
-    final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, CountQueryTest.class, SCHEMA_TEMPLATE);
+    final SimpleDatabaseRule database = new SimpleDatabaseRule(CountQueryTest.class, SCHEMA_TEMPLATE);
 
     @RegisterExtension
     @Order(2)

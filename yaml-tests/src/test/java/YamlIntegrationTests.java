@@ -300,4 +300,9 @@ public class YamlIntegrationTests {
     public void literalExtractionTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("null-extraction-tests.yamsql");
     }
+
+    @TestTemplate
+    public void caseSensitivityTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("case-sensitivity.yamsql");
+    }
 }

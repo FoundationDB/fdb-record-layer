@@ -43,7 +43,7 @@ public class RecordTypeKeyTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension,
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(
             RecordTypeKeyTest.class,
             "CREATE TABLE restaurant_review (reviewer bigint, rating bigint, SINGLE ROW ONLY)" +
                     " CREATE TABLE restaurant_tag (tag string, weight bigint, PRIMARY KEY(tag))" +
