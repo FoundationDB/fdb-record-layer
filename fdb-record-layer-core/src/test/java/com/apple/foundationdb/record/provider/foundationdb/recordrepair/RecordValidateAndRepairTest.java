@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.recordrepair;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
@@ -654,6 +655,77 @@ public class RecordValidateAndRepairTest extends FDBRecordStoreTestBase {
         Assertions.assertThat(results.getCaughtException()).isInstanceOf(FDBDatabaseRunner.RunnerClosed.class);
         Assertions.assertThat(results.getValidResultCount()).isZero();
         Assertions.assertThat(results.getInvalidResults()).isEmpty();
+    }
+
+    /**
+     * This test runs through a representative repair operation while the store is locked for updates.
+     * The lock is meant to prevent changes while the store is undergoing administrative maintenance, hence it should
+     * not prevent records from being repaired.
+     */
+    @Test
+    void testRepairWhileLocked() throws Exception {
+        boolean splitLongRecords = true;
+        boolean storeVersions = true;
+        FormatVersion formatVersion = FormatVersion.STORE_LOCK_STATE; // required to be able to lock the store
+        RecordRepair.ValidationKind validationKind = RecordRepair.ValidationKind.RECORD_VALUE_AND_VERSION;
+
+        final RecordMetaDataHook hook = ValidationTestUtils.getRecordMetaDataHook(splitLongRecords, storeVersions);
+        List<FDBStoredRecord<Message>> savedRecords = saveRecords(splitLongRecords, formatVersion, hook);
+        final Tuple primaryKey1 = savedRecords.get(ValidationTestUtils.RECORD_INDEX_WITH_NO_SPLITS).getPrimaryKey();
+        final Tuple primaryKey2 = savedRecords.get(ValidationTestUtils.RECORD_INDEX_WITH_THREE_SPLITS).getPrimaryKey();
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
+            // Remove the version of one record (primaryKey1 - #2)
+            byte[] key = ValidationTestUtils.getSplitKey(store, primaryKey1, -1);
+            store.ensureContextActive().clear(key);
+            // corrupt the value of one record (primaryKey2 - #34)
+            key = ValidationTestUtils.getSplitKey(store, primaryKey2, 1);
+            final byte[] value = new byte[] {1, 2, 3, 4, 5};
+            store.ensureContextActive().set(key, value);
+            commit(context);
+        }
+
+        FDBRecordStore.Builder storeBuilder;
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
+            // Lock the store
+            store.setStoreLockStateAsync(RecordMetaDataProto.DataStoreInfo.StoreLockState.State.FORBID_RECORD_UPDATE, "Record Repair").join();
+            storeBuilder = store.asBuilder();
+            commit(context);
+        }
+        RecordRepair.Builder builder = RecordRepair.builder(fdb, storeBuilder).withValidationKind(validationKind);
+        try (RecordRepairValidateRunner runner = builder.buildRepairRunner(true)) {
+            // Run validate and repair
+            RepairValidationResults repairResults = runner.run().join();
+
+            ValidationTestUtils.assertCompleteResults(repairResults, NUM_RECORDS);
+            ValidationTestUtils.assertInvalidResults(
+                    repairResults.getInvalidResults().subList(0, 1), // First invalid result
+                    1,
+                    result -> !result.isValid() &&
+                            result.getErrorCode().equals(RecordRepairResult.CODE_VERSION_MISSING_ERROR) &&
+                            result.isRepaired() &&
+                            result.getRepairCode().equals(RecordRepairResult.REPAIR_VERSION_CREATED));
+            ValidationTestUtils.assertInvalidResults(
+                    repairResults.getInvalidResults().subList(1, 2), // Second invalid result
+                    1,
+                    result -> !result.isValid() &&
+                            result.getErrorCode().equals(RecordRepairResult.CODE_DESERIALIZE_ERROR) &&
+                            result.isRepaired() &&
+                            result.getRepairCode().equals(RecordRepairResult.REPAIR_RECORD_DELETED));
+            Assertions.assertThat(repairResults.getInvalidResults().stream().map(RecordRepairResult::getPrimaryKey).collect(Collectors.toList()))
+                    .isEqualTo(List.of(primaryKey1, primaryKey2));
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            final FDBRecordStore store = openSimpleRecordStore(context, hook, formatVersion);
+            // Unlock the store
+            store.clearStoreLockStateAsync().join();
+            commit(context);
+        }
+
+        // Load the records again to make sure they are all there (except the one that was deleted)
+        validateNormalScan(hook, formatVersion, NUM_RECORDS - 1, storeVersions);
     }
 
     private List<FDBStoredRecord<Message>> saveRecords(final boolean splitLongRecords, FormatVersion formatVersion, final RecordMetaDataHook hook) throws Exception {

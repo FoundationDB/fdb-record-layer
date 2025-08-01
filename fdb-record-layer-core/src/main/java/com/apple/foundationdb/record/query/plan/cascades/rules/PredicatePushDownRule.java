@@ -57,6 +57,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierWithoutDefaultOnEmptyOverRef;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.exploratoryMembers;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.anyExpression;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.isExploratoryExpression;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.selectExpression;
 
 /**
@@ -182,7 +183,7 @@ public class PredicatePushDownRule extends ExplorationCascadesRule<SelectExpress
     private static final BindingMatcher<Quantifier.ForEach> forEachQuantifierMatcher =
             forEachQuantifierWithoutDefaultOnEmptyOverRef(belowReferenceMatcher);
     private static final BindingMatcher<SelectExpression> root =
-            selectExpression(forEachQuantifierMatcher);
+            selectExpression(forEachQuantifierMatcher).where(isExploratoryExpression());
 
     public PredicatePushDownRule() {
         super(root);

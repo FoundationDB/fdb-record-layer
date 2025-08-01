@@ -24,7 +24,7 @@ import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
-import com.google.common.collect.ImmutableSetMultimap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
@@ -53,7 +53,7 @@ public class PredicateMultiMap {
      * Backing multimap.
      */
     @Nonnull
-    private final ImmutableSetMultimap<QueryPredicate, PredicateMapping> map;
+    private final SetMultimap<QueryPredicate, PredicateMapping> map;
 
     /**
      * Functional interface to reapply a predicate if necessary.
@@ -197,6 +197,13 @@ public class PredicateMultiMap {
 
         @Nonnull
         Value applyCompensationForResult(@Nonnull CorrelationIdentifier baseAlias);
+
+        @Nonnull
+        static ResultCompensationFunction ofTranslation(@Nonnull final Value resultValue,
+                                                        @Nonnull final CorrelationIdentifier nestingAlias) {
+            return of(baseAlias -> resultValue.translateCorrelations(
+                    TranslationMap.ofAliases(nestingAlias, baseAlias), false));
+        }
 
         @Nonnull
         static ResultCompensationFunction of(@Nonnull final Function<CorrelationIdentifier, Value> compensationFunction) {
@@ -433,7 +440,7 @@ public class PredicateMultiMap {
                         (partialMatch, boundPrefixMap, pullUp) -> PredicateCompensationFunction.noCompensationNeeded();
                 this.parameterAliasOptional = Optional.empty();
                 this.comparisonRangeOptional = Optional.empty();
-                this.constraint = QueryPlanConstraint.tautology();
+                this.constraint = QueryPlanConstraint.noConstraint();
             }
 
             @Nonnull
@@ -493,11 +500,13 @@ public class PredicateMultiMap {
     }
 
     protected PredicateMultiMap(@Nonnull final SetMultimap<QueryPredicate, PredicateMapping> map) {
-        this.map = ImmutableSetMultimap.copyOf(map);
+        SetMultimap<QueryPredicate, PredicateMapping> copy = Multimaps.newSetMultimap(new LinkedIdentityMap<>(), LinkedIdentitySet::new);
+        map.entries().forEach(entry -> copy.put(entry.getKey(), entry.getValue()));
+        this.map = Multimaps.unmodifiableSetMultimap(copy);
     }
 
     @Nonnull
-    protected ImmutableSetMultimap<QueryPredicate, PredicateMapping> getMap() {
+    protected SetMultimap<QueryPredicate, PredicateMapping> getMap() {
         return map;
     }
 

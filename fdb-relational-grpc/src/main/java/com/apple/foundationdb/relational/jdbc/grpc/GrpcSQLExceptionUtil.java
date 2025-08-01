@@ -125,6 +125,11 @@ public final class GrpcSQLExceptionUtil {
     @Nullable
     public static SQLException map(StatusRuntimeException statusRuntimeException) {
         Status status = StatusProto.fromThrowable(statusRuntimeException);
+        return map(status);
+    }
+
+    @Nullable
+    public static SQLException map(final Status status) {
         if (status.getCode() != CODE_ON_SQLEXCEPTION) {
             return null;
         }

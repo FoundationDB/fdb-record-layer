@@ -57,6 +57,8 @@ dmlStatement
 ddlStatement
     : createStatement
     | dropStatement
+    | createTempFunction
+    | dropTempFunction
     ;
 
 transactionStatement
@@ -167,8 +169,20 @@ indexAttribute
     : LEGACY_EXTREMUM_EVER
     ;
 
+createTempFunction
+    : CREATE (OR REPLACE)? TEMPORARY tempSqlInvokedFunction
+    ;
+
+dropTempFunction
+    : DROP TEMPORARY FUNCTION (IF EXISTS)? schemaQualifiedRoutineName=fullId
+    ;
+
 createFunction
     : CREATE sqlInvokedFunction
+    ;
+
+tempSqlInvokedFunction
+    : functionSpecification ON COMMIT DROP FUNCTION routineBody
     ;
 
 sqlInvokedFunction

@@ -198,7 +198,7 @@ public class LuceneIndexScrubbingToolsMissing extends ValueIndexScrubbingToolsMi
             throw LuceneExceptions.toRecordCoreException("failed getIndexWriter", e);
         }
         try {
-            DirectoryReader directoryReader = directoryManager.getDirectoryReader(groupingKey, partitionId);
+            DirectoryReader directoryReader = directoryManager.getWriterReader(groupingKey, partitionId);
             final LucenePrimaryKeySegmentIndex.DocumentIndexEntry documentIndexEntry = segmentIndex.findDocument(directoryReader, rec.getPrimaryKey());
             if (documentIndexEntry == null) {
                 // Here: the document had not been found in the PK segment index

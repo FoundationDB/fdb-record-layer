@@ -41,16 +41,16 @@ public class PlanPartitionMatchers {
 
     @Nonnull
     @SuppressWarnings("unchecked")
-    public static <R extends Reference> BindingMatcher<R> planPartitions(@Nonnull final BindingMatcher<? extends Iterable<PlanPartition>> downstream) {
-        return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<R>)(Class<?>)Reference.class,
+    public static BindingMatcher<Reference> planPartitions(@Nonnull final BindingMatcher<? extends Iterable<PlanPartition>> downstream) {
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(Reference.class,
                 Extractor.of(Reference::toPlanPartitions, name -> "planPartitions(" + name + ")"),
                 downstream);
     }
 
     @Nonnull
     @SuppressWarnings("unchecked")
-    public static BindingMatcher<Collection<PlanPartition>> filterPartition(@Nonnull final Predicate<PlanPartition> predicate,
-                                                                            @Nonnull final BindingMatcher<? extends Iterable<PlanPartition>> downstream) {
+    public static BindingMatcher<Collection<PlanPartition>> filterPlanPartitions(@Nonnull final Predicate<PlanPartition> predicate,
+                                                                                 @Nonnull final BindingMatcher<? extends Iterable<PlanPartition>> downstream) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<Collection<PlanPartition>>)(Class<?>)Collection.class,
                 Extractor.of(planPartitions ->
                         planPartitions.stream()

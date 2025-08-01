@@ -193,6 +193,15 @@ public abstract class Quantifier implements Correlated<Quantifier> {
             return isNullOnEmpty;
         }
 
+        @Nonnull
+        @Override
+        public Type getFlowedObjectType() {
+            // If null on empty, then we may return null, so we need to update
+            // the nullability of our returned type to reflect that
+            Type baseType = super.getFlowedObjectType();
+            return baseType.overrideIfNullable(isNullOnEmpty);
+        }
+
         @Override
         @Nonnull
         public Builder<? extends Quantifier, ? extends Builder<?, ?>> toBuilder() {
@@ -809,19 +818,6 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     @Nonnull
     public Quantifier rebase(@Nonnull final AliasMap translationMap) {
         throw new UnsupportedOperationException("rebase not supported on quantifier");
-    }
-
-    @Nonnull
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public Quantifier translateGraph(@Nonnull final Memoizer memoizer,
-                                     @Nonnull final TranslationMap translationMap,
-                                     final boolean shouldSimplifyValues) {
-        final Reference rangesOver = getRangesOver();
-        final Reference translatedReference =
-                getRangesOver().translateGraph(memoizer, translationMap, shouldSimplifyValues);
-        return rangesOver == translatedReference
-               ? this
-               : overNewReference(translatedReference);
     }
 
     @Nonnull

@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
@@ -30,11 +32,15 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Plan
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * A rule call implementation for the simplification of {@link Value} trees. This rule call implements the logic for
@@ -60,29 +66,40 @@ public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL
     @Nonnull
     private final BASE current;
     @Nonnull
+    private final EvaluationContext evaluationContext;
+    @Nonnull
     private final PlannerBindings bindings;
     @Nonnull
     private final AliasMap equivalenceMap;
     @Nonnull
     private final Set<CorrelationIdentifier> constantAliases;
     @Nonnull
+    private QueryPlanConstraint resultQueryPlanConstraint;
+    @Nonnull
     private final LinkedIdentitySet<RESULT> results;
     private boolean shouldReExplore;
+    @Nonnull
+    private final Function<BASE, QueryPlanConstraint> retrieveQueryPlanConstraintFunction;
 
     public AbstractRuleCall(@Nonnull final PlannerRule<CALL, ? extends BASE> rule,
                             @Nonnull final BASE root,
                             @Nonnull final BASE current,
+                            @Nonnull final EvaluationContext evaluationContext,
                             @Nonnull final PlannerBindings bindings,
                             @Nonnull final AliasMap equivalenceMap,
-                            @Nonnull final Set<CorrelationIdentifier> constantAliases) {
+                            @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                            @Nonnull final Function<BASE, QueryPlanConstraint> retrieveQueryPlanConstraintFunction) {
         this.rule = rule;
         this.root = root;
         this.current = current;
+        this.evaluationContext = evaluationContext;
         this.bindings = bindings;
         this.equivalenceMap = equivalenceMap;
+        this.resultQueryPlanConstraint = QueryPlanConstraint.noConstraint();
         this.results = new LinkedIdentitySet<>();
         this.constantAliases = ImmutableSet.copyOf(constantAliases);
         this.shouldReExplore = false;
+        this.retrieveQueryPlanConstraintFunction = retrieveQueryPlanConstraintFunction;
     }
 
     @Nonnull
@@ -93,6 +110,23 @@ public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL
     @Nonnull
     public BASE getCurrent() {
         return current;
+    }
+
+    @Nonnull
+    @Override
+    public EvaluationContext getEvaluationContext() {
+        return evaluationContext;
+    }
+
+    @Nonnull
+    protected Function<BASE, QueryPlanConstraint> getRetrieveQueryPlanConstraintFunction() {
+        return retrieveQueryPlanConstraintFunction;
+    }
+
+    @Nonnull
+    public QueryPlanConstraint getQueryPlanConstraint(@Nonnull final BASE base) {
+        final var constraintFromFunction = retrieveQueryPlanConstraintFunction.apply(base);
+        return constraintFromFunction == null ? QueryPlanConstraint.noConstraint() : constraintFromFunction;
     }
 
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
@@ -121,20 +155,43 @@ public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL
         return constantAliases;
     }
 
+    public void yieldResult(@Nonnull final RESULT value) {
+        yieldResult(value, QueryPlanConstraint.noConstraint());
+    }
+
     @SuppressWarnings("PMD.CompareObjectsWithEquals") // deliberate use of == equality check for short-circuit condition
-    public void yieldResult(@Nonnull RESULT value) {
+    public void yieldResult(@Nonnull final RESULT value,
+                            @Nonnull final QueryPlanConstraint additionalQueryPlanConstraint) {
         if (value == current) {
             return;
         }
-
+        composeAdditionalConstraint(additionalQueryPlanConstraint);
         results.add(value);
     }
 
+    protected void composeAdditionalConstraint(final @Nonnull QueryPlanConstraint additionalQueryPlanConstraint) {
+        if (resultQueryPlanConstraint.isConstrained()) {
+            this.resultQueryPlanConstraint = resultQueryPlanConstraint.compose(additionalQueryPlanConstraint);
+        }
+    }
+
+    public void yieldResultAndReExplore(@Nonnull final RESULT value) {
+        yieldResultAndReExplore(value, QueryPlanConstraint.noConstraint());
+    }
+
+
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public void yieldAndReExplore(@Nonnull RESULT value) {
+    public void yieldResultAndReExplore(@Nonnull RESULT value,
+                                        @Nonnull final QueryPlanConstraint additionalQueryPlanConstraint) {
         Verify.verify(value != current);
+        composeAdditionalConstraint(additionalQueryPlanConstraint);
         results.add(value);
         shouldReExplore = true;
+    }
+
+    @Nonnull
+    public QueryPlanConstraint getResultQueryPlanConstraint() {
+        return resultQueryPlanConstraint;
     }
 
     @Nonnull
@@ -144,5 +201,49 @@ public class AbstractRuleCall<RESULT, CALL extends AbstractRuleCall<RESULT, CALL
 
     public boolean shouldReExplore() {
         return shouldReExplore;
+    }
+
+    @Nonnull
+    public YieldResultBuilder yieldResultBuilder() {
+        return new YieldResultBuilder();
+    }
+
+    public final class YieldResultBuilder {
+        @Nonnull
+        private final List<BASE> bases;
+
+        public YieldResultBuilder() {
+            this.bases = Lists.newArrayList();
+        }
+
+        @SuppressWarnings({"UseBulkOperation", "ManualArrayToCollectionCopy"}) // due to varargs warning when using bulk operations
+        @SafeVarargs
+        public final YieldResultBuilder addConstraintsFrom(@Nonnull final BASE... additionalBases) {
+            for (final var additionalBase : additionalBases) {
+                bases.add(additionalBase);
+            }
+            return this;
+        }
+
+        public YieldResultBuilder addConstraintsFrom(@Nonnull Iterable<? extends BASE> additionalBases) {
+            Streams.stream(additionalBases).forEach(bases::add);
+            return this;
+        }
+
+        public void yieldResult(@Nonnull final RESULT value) {
+            AbstractRuleCall.this.yieldResult(value, computeConstraintFromBases());
+        }
+
+        public void yieldResultAndReExplore(@Nonnull final RESULT value) {
+            AbstractRuleCall.this.yieldResultAndReExplore(value, computeConstraintFromBases());
+        }
+
+        @Nonnull
+        private QueryPlanConstraint computeConstraintFromBases() {
+            return bases.stream()
+                    .map(AbstractRuleCall.this::getQueryPlanConstraint)
+                    .reduce(QueryPlanConstraint::compose)
+                    .orElse(QueryPlanConstraint.noConstraint());
+        }
     }
 }

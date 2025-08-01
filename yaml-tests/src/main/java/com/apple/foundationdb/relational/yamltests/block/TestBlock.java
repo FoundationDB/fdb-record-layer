@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests.block;
 
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
@@ -34,10 +35,12 @@ import com.google.common.base.Verify;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opentest4j.TestAbortedException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -101,6 +104,7 @@ public final class TestBlock extends ConnectedBlock {
     static final String OPTION_CONNECTION_LIFECYCLE = "connection_lifecycle";
     static final String OPTION_CONNECTION_LIFECYCLE_TEST = "test";
     static final String OPTION_CONNECTION_LIFECYCLE_BLOCK = "block";
+    static final String OPTION_CONNECTION_OPTIONS = "connection_options";
     static final String OPTION_STATEMENT_TYPE = "statement_type";
     static final String OPTION_STATEMENT_TYPE_SIMPLE = "simple";
     static final String OPTION_STATEMENT_TYPE_PREPARED = "prepared";
@@ -190,6 +194,7 @@ public final class TestBlock extends ConnectedBlock {
         private ConnectionLifecycle connectionLifecycle = ConnectionLifecycle.TEST;
         private StatementType statementType = StatementType.BOTH;
         private SupportedVersionCheck supportedVersionCheck = SupportedVersionCheck.supported();
+        private Options connectionOptions = Options.none();
 
         private void verifyPreset(@Nonnull String preset) {
             switch (preset) {
@@ -247,6 +252,21 @@ public final class TestBlock extends ConnectedBlock {
             }
             supportedVersionCheck = SupportedVersionCheck.parseOptions(optionsMap, executionContext);
             setOptionConnectionLifecycle(optionsMap);
+            if (optionsMap.containsKey(OPTION_CONNECTION_OPTIONS)) {
+                connectionOptions = parseConnectionOptions(Matchers.map(optionsMap.get(OPTION_CONNECTION_OPTIONS)));
+            }
+        }
+
+        Options parseConnectionOptions(@Nonnull Map<?, ?> map) {
+            final Options.Builder optionsBuilder = Options.builder();
+            for (final Map.Entry<?, ?> entry : map.entrySet()) {
+                try {
+                    optionsBuilder.withOption(Options.Name.valueOf(Matchers.string(entry.getKey())), entry.getValue());
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+            return optionsBuilder.build();
         }
 
         private void setWithExecutionContext(@Nonnull YamlExecutionContext executionContext) {
@@ -352,19 +372,27 @@ public final class TestBlock extends ConnectedBlock {
                 }
                 Assert.thatUnchecked(resolvedCommand instanceof QueryCommand, "Illegal Format: Test is expected to start with a query.");
                 final QueryCommand queryCommand = (QueryCommand)resolvedCommand;
+                if (queryCommand.isNeedsSerialEnvironment()) {
+                    options.mode = ExecutionMode.ORDERED;
+                    options.repetition = 1;
+                }
+
                 queryCommands.add(queryCommand);
                 var runAsPreparedMix = getRunAsPreparedMix(options.statementType, options.repetition, randomGenerator);
                 for (int i = 0; i < options.repetition; i++) {
-                    executables.add(createTestExecutable(queryCommand, false, randomGenerator, runAsPreparedMix.getLeft().get(i)));
+                    executables.add(createTestExecutable(queryCommand, false, randomGenerator,
+                            runAsPreparedMix.getLeft().get(i), options.connectionOptions));
                 }
                 if (options.checkCache) {
-                    executableTestsWithCacheCheck.add(createTestExecutable(queryCommand, true, randomGenerator, runAsPreparedMix.getRight()));
+                    executableTestsWithCacheCheck.add(createTestExecutable(queryCommand, true,
+                            randomGenerator, runAsPreparedMix.getRight(), options.connectionOptions));
                 }
             }
             if (options.mode != ExecutionMode.ORDERED) {
                 Collections.shuffle(executables, randomGenerator);
                 Collections.shuffle(executableTestsWithCacheCheck, randomGenerator);
             }
+
             Assert.thatUnchecked(!executables.isEmpty(), "‼️ Test block at line " + lineNumber + " have no tests to execute");
             return new TestBlock(lineNumber, blockName, queryCommands, executables, executableTestsWithCacheCheck,
                     executionContext.inferConnectionURI(testsMap.getOrDefault(BLOCK_CONNECT, null)), options, executionContext);
@@ -398,16 +426,35 @@ public final class TestBlock extends ConnectedBlock {
             }
             // Check for the caught exceptions in each of the QueryCommands.
             queryCommands.stream().map(QueryCommand::getMaybeExecutionThrowable).filter(Objects::nonNull).findFirst().ifPresent(
-                    e -> maybeFailureException = executionContext.wrapContext(e,
-                            () -> String.format(Locale.ROOT, "‼️ Some failed/unsuccessful test in test block at line %d. Options: %s", getLineNumber(), options),
-                            String.format(TEST_BLOCK + " [%s] ", options), getLineNumber()));
+                    e -> {
+                        final Throwable unwrappedException = unwrapExecutionExceptionIfNeeded(e);
+                        maybeFailureException = executionContext.wrapContext(unwrappedException,
+                                () -> String.format(Locale.ROOT, "‼️ Some failed/unsuccessful test in test block at line %d. Options: %s", getLineNumber(), options),
+                                String.format(TEST_BLOCK + " [%s] ", options), getLineNumber());
+                    });
+        } catch (TestAbortedException tAE) {
+            throw tAE;
         } catch (Throwable e) {
-            maybeFailureException = executionContext.wrapContext(e,
+            final Throwable unwrappedException = unwrapExecutionExceptionIfNeeded(e);
+            if (unwrappedException instanceof TestAbortedException) {
+                throw (TestAbortedException)unwrappedException;
+            }
+            maybeFailureException = executionContext.wrapContext(unwrappedException,
                     () -> String.format(Locale.ROOT, "‼️ Failed to execute test block at line %d. Options: %s", getLineNumber(), options),
                     String.format(TEST_BLOCK + " [%s] ", options), getLineNumber());
         }
         executables.clear();
         executableTestsWithCacheCheck.clear();
+    }
+
+    @Nonnull
+    private Throwable unwrapExecutionExceptionIfNeeded(@Nonnull final Throwable t) {
+        if (t instanceof ExecutionException) {
+            if (t.getCause() != null) {
+                return t.getCause();
+            }
+        }
+        return t;
     }
 
     @Nonnull
@@ -470,8 +517,16 @@ public final class TestBlock extends ConnectedBlock {
 
     @Nonnull
     private static Consumer<YamlConnection> createTestExecutable(QueryCommand queryCommand, boolean checkCache,
-                                                                 @Nonnull Random random, boolean runAsPreparedStatement) {
+                                                                 @Nonnull Random random, boolean runAsPreparedStatement,
+                                                                 @Nonnull Options connectionOptions) {
         final var executor = queryCommand.instantiateExecutor(random, runAsPreparedStatement);
-        return connection -> queryCommand.execute(connection, checkCache, executor);
+        return connection -> {
+            try {
+                connection.setConnectionOptions(connectionOptions);
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+            queryCommand.execute(connection, checkCache, executor);
+        };
     }
 }

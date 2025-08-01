@@ -172,11 +172,11 @@ public class SqlVisitorTests {
         final PlanContext planContext = PlanContext.Builder
                 .create()
                 .fromDatabase(database)
-                .fromRecordStore(store)
+                .fromRecordStore(store, Options.none())
                 .withSchemaTemplate(embeddedConnection.getSchemaTemplate())
                 .withMetricsCollector(embeddedConnection.getMetricCollector())
                 .build();
-        final PlanGenerator planGenerator = PlanGenerator.of(Optional.empty(), planContext, store.getRecordMetaData(), store.getRecordStoreState(), Options.NONE);
+        final PlanGenerator planGenerator = PlanGenerator.create(Optional.empty(), planContext, store.getRecordMetaData(), store.getRecordStoreState(), Options.NONE);
         Assertions.assertDoesNotThrow(() -> planGenerator.getPlan(query));
     }
 }

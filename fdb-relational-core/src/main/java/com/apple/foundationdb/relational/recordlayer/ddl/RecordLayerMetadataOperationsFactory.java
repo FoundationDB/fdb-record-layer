@@ -29,6 +29,8 @@ import com.apple.foundationdb.relational.api.ddl.CreateSchemaTemplateConstantAct
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
+import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -86,6 +88,22 @@ public class RecordLayerMetadataOperationsFactory implements MetadataOperationsF
     @Nonnull
     public ConstantAction getSetStoreStateConstantAction(@Nonnull URI dbUri, @Nonnull String schemaName) {
         return new RecordLayerSetStoreStateConstantAction(dbUri, schemaName, rlConfig, baseKeySpace, catalog);
+    }
+
+    @Nonnull
+    @Override
+    public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull SchemaTemplate template,
+                                                                   boolean throwIfExists,
+                                                                   @Nonnull RecordLayerInvokedRoutine invokedRoutine,
+                                                                   @Nonnull PreparedParams preparedParams) {
+        return new CreateTemporaryFunctionConstantAction(template, throwIfExists, invokedRoutine, preparedParams);
+    }
+
+    @Nonnull
+    @Override
+    public ConstantAction getDropTemporaryFunctionConstantAction(boolean throwIfNotExists,
+                                                                 @Nonnull final String temporaryFunctionName) {
+        return new DropTemporaryFunctionConstantAction(throwIfNotExists, temporaryFunctionName);
     }
 
     public static class Builder {

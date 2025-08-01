@@ -21,15 +21,14 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
+import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
-import java.sql.Types;
 import java.util.Objects;
 import java.util.function.Supplier;
 
@@ -39,41 +38,42 @@ import java.util.function.Supplier;
 @API(API.Status.EXPERIMENTAL)
 public final class RelationalArrayMetaData implements ArrayMetaData {
 
-    private final FieldDescription element;
+    private final DataType.ArrayType type;
 
     private final Supplier<Integer> hashCodeSupplier;
 
-    private RelationalArrayMetaData(@Nonnull FieldDescription element) {
-        this.element = element;
+    private RelationalArrayMetaData(@Nonnull DataType.ArrayType type) {
+        this.type = type;
         this.hashCodeSupplier = Suppliers.memoize(this::calculateHashCode);
     }
 
-    public static RelationalArrayMetaData ofPrimitive(int sqlType, int nullable) {
-        return new RelationalArrayMetaData(FieldDescription.primitive("VALUE", sqlType, nullable));
-    }
-
-    public static RelationalArrayMetaData ofStruct(@Nonnull StructMetaData metaData, int nullable) {
-        return new RelationalArrayMetaData(FieldDescription.struct("VALUE", nullable, metaData));
+    @Nonnull
+    public static RelationalArrayMetaData of(@Nonnull DataType.ArrayType type) {
+        return new RelationalArrayMetaData(type);
     }
 
     @Override
-    public int isElementNullable() throws SQLException {
-        return element.isNullable();
+    public int isElementNullable() {
+        if (type.getElementType().isNullable()) {
+            return DatabaseMetaData.columnNullable;
+        } else {
+            return DatabaseMetaData.columnNoNulls;
+        }
     }
 
     @Override
     public String getElementName() throws SQLException {
-        return element.getName();
+        return "VALUE";
     }
 
     @Override
     public int getElementType() throws SQLException {
-        return element.getSqlTypeCode();
+        return type.getElementType().getJdbcSqlCode();
     }
 
     @Override
-    public String getElementTypeName() throws SQLException {
-        return SqlTypeNamesSupport.getSqlTypeName(element.getSqlTypeCode());
+    public String getElementTypeName() {
+        return SqlTypeNamesSupport.getSqlTypeName(type.getElementType().getJdbcSqlCode());
     }
 
     /**
@@ -86,10 +86,10 @@ public final class RelationalArrayMetaData implements ArrayMetaData {
      */
     @Override
     public StructMetaData getElementStructMetaData() throws SQLException {
-        if (element.getSqlTypeCode() != Types.STRUCT) {
+        if (type.getElementType().getCode() != DataType.Code.STRUCT) {
             throw new RelationalException("Element is not of STRUCT type", ErrorCode.CANNOT_CONVERT_TYPE).toSqlException();
         }
-        return element.getFieldMetaData();
+        return RelationalStructMetaData.of((DataType.StructType) type.getElementType());
     }
 
     /**
@@ -102,15 +102,21 @@ public final class RelationalArrayMetaData implements ArrayMetaData {
      */
     @Override
     public ArrayMetaData getElementArrayMetaData() throws SQLException {
-        if (element.getSqlTypeCode() != Types.ARRAY) {
+        if (type.getElementType().getCode() != DataType.Code.ARRAY) {
             throw new RelationalException("Element is not of ARRAY type", ErrorCode.CANNOT_CONVERT_TYPE).toSqlException();
         }
-        return element.getArrayMetaData();
+        return RelationalArrayMetaData.of((DataType.ArrayType) type.getElementType());
     }
 
     @Nonnull
-    public FieldDescription getElementField() {
-        return element;
+    @Override
+    public DataType.ArrayType asRelationalType() throws SQLException {
+        return type;
+    }
+
+    @Nonnull
+    public DataType getElementDataType() {
+        return type.getElementType();
     }
 
     @Override
@@ -132,7 +138,7 @@ public final class RelationalArrayMetaData implements ArrayMetaData {
         if (otherMetadata == this) {
             return true;
         }
-        return element.equals(otherMetadata.element);
+        return type.equals(otherMetadata.type);
     }
 
     @Override
@@ -141,7 +147,7 @@ public final class RelationalArrayMetaData implements ArrayMetaData {
     }
 
     private int calculateHashCode() {
-        return Objects.hash(element);
+        return Objects.hash(type);
     }
 
 }

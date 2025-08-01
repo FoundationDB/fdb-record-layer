@@ -31,6 +31,7 @@ import com.google.common.collect.LinkedListMultimap;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
+import org.opentest4j.TestAbortedException;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
@@ -83,6 +84,7 @@ public final class YamlExecutionContext {
     private final List<String> connectionURIs = new ArrayList<>();
     // Additional options that can be set by the runners to impact test execution
     private final ContextOptions additionalOptions;
+    private final Map<String, String> transactionSetups = new HashMap<>();
 
     public static class YamlExecutionError extends RuntimeException {
 
@@ -247,6 +249,20 @@ public final class YamlExecutionContext {
         }
     }
 
+    public void registerTransactionSetup(final String name, final String command) {
+        // Note: at the time of writing, this is only called by code that is iterating over a Map from yaml, so it will
+        // not prevent two entries in the yaml file itself
+        Assert.thatUnchecked(!transactionSetups.containsKey(name), ErrorCode.INTERNAL_ERROR,
+                () -> "Transaction setup " + name + " is defined multiple times.");
+        transactionSetups.put(name, command);
+    }
+
+    public String getTransactionSetup(final Object name) {
+        return Matchers.notNull(
+                transactionSetups.get(Matchers.string(name, "setup reference")),
+                "transaction setup " + name + " is not defined");
+    }
+
     @Nonnull
     public List<Block> getFinalizeBlocks() {
         return finalizeBlocks;
@@ -265,7 +281,7 @@ public final class YamlExecutionContext {
      * test_run: lineNumber of query, query run as a simple statement or as prepared statement, parameters (if any)
      * test_block: lineNumber of test_block, seed used for randomization, execution properties
      *
-     * @param e the throwable that needs to be wrapped
+     * @param throwable the throwable that needs to be wrapped
      * @param msg additional context
      * @param identifier The name of the element type to which the context is associated to.
      * @param lineNumber the line number in the YAMSQL file to which the context is associated to.
@@ -273,7 +289,7 @@ public final class YamlExecutionContext {
      * @return wrapped {@link YamlExecutionError}
      */
     @Nonnull
-    public YamlExecutionError wrapContext(@Nullable Throwable e, @Nonnull Supplier<String> msg, @Nonnull String identifier, int lineNumber) {
+    public RuntimeException wrapContext(@Nonnull Throwable throwable, @Nonnull Supplier<String> msg, @Nonnull String identifier, int lineNumber) {
         String fileName;
         if (resourcePath.contains("/")) {
             final String[] split = resourcePath.split("/");
@@ -281,16 +297,19 @@ public final class YamlExecutionContext {
         } else {
             fileName = resourcePath;
         }
-        if (e instanceof YamlExecutionError) {
-            final var oldStackTrace = e.getStackTrace();
+
+        if (throwable instanceof TestAbortedException) {
+            return (TestAbortedException)throwable;
+        } else if (throwable instanceof YamlExecutionError) {
+            final var oldStackTrace = throwable.getStackTrace();
             final var newStackTrace = new StackTraceElement[oldStackTrace.length + 1];
             System.arraycopy(oldStackTrace, 0, newStackTrace, 0, oldStackTrace.length);
             newStackTrace[oldStackTrace.length] = new StackTraceElement("YAML_FILE", identifier, fileName, lineNumber);
-            e.setStackTrace(newStackTrace);
-            return (YamlExecutionError) e;
+            throwable.setStackTrace(newStackTrace);
+            return (YamlExecutionError)throwable;
         } else {
             // wrap
-            final var wrapper = new YamlExecutionError(msg.get(), e);
+            final var wrapper = new YamlExecutionError(msg.get(), throwable);
             wrapper.setStackTrace(new StackTraceElement[]{new StackTraceElement("YAML_FILE", identifier, fileName, lineNumber)});
             return wrapper;
         }

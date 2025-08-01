@@ -115,7 +115,7 @@ public class InMemoryRelationalStatement implements RelationalStatement {
                     .withUserVersion(0)
                     .build();
 
-            final var planGenerator = PlanGenerator.of(Optional.empty(), ctx, ctx.getMetaData(), new RecordStoreState(null, Map.of()), Options.NONE);
+            final var planGenerator = PlanGenerator.create(Optional.empty(), ctx, ctx.getMetaData(), new RecordStoreState(null, Map.of()), Options.NONE);
             final Plan<?> plan = planGenerator.getPlan(sql);
             if (plan instanceof QueryPlan) {
                 throw new SQLFeatureNotSupportedException("Cannot execute queries in the InMemory Relational version, it's only good for Direct Access API");

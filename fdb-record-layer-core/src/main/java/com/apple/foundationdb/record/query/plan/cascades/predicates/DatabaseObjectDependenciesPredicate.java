@@ -36,7 +36,7 @@ import com.apple.foundationdb.record.planprotos.PDatabaseObjectDependenciesPredi
 import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
@@ -141,8 +141,8 @@ public class DatabaseObjectDependenciesPredicate extends AbstractQueryPredicate 
 
     @Nonnull
     @Override
-    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final QueryPredicate other,
-                                                       @Nonnull final ValueEquivalence valueEquivalence) {
+    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final QueryPredicate other,
+                                                    @Nonnull final ValueEquivalence valueEquivalence) {
         return super.equalsWithoutChildren(other, valueEquivalence)
                 .filter(ignored -> {
                     final DatabaseObjectDependenciesPredicate otherDatabaseObjectDependenciesPredicate =

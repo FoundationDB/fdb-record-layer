@@ -72,7 +72,7 @@ test_block:
                  {B: 10, Q: 90.2, X: 5}]
     -
       - query: select * from (select A.B, C as Q, W.X from values (1, 2.0, (3, 4, 'foo')), (10, 90.2, (5, 6.0, 'bar')) as A(B, C, W(X, Y, Z))) as u where b < 8
-      - explain: "EXPLODE array((@c20 AS B, @c22 AS C, (@c25 AS X, promote(@c27 AS DOUBLE) AS Y, @c29 AS Z) AS W), (@c34 AS B, @c36 AS C, (@c39 AS X, @c41 AS Y, @c43 AS Z) AS W)) | MAP (_.B AS B, _.C AS Q, _.W.X AS X) | FILTER _.B LESS_THAN @c68"
+      - explain: "EXPLODE array((@c20 AS B, @c22 AS C, (@c25 AS X, promote(@c27 AS DOUBLE) AS Y, @c29 AS Z) AS W), (@c34 AS B, @c36 AS C, (@c39 AS X, @c41 AS Y, @c43 AS Z) AS W)) | FILTER _.B LESS_THAN @c68 | MAP (_.B AS B, _.C AS Q, _.W.X AS X)"
       - result: [{B: 1, Q: 2.0, X: 3}]
     -
       - query: select * from range(1, 4)

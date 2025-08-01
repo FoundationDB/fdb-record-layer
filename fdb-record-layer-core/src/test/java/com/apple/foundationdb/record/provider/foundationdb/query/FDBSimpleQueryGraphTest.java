@@ -64,6 +64,7 @@ import com.google.common.collect.ImmutableSet;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 
@@ -217,6 +218,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    @Disabled(value = "Null-on-empty quantifiers must be below selects until we address: https://github.com/FoundationDB/fdb-record-layer/issues/3431")
     void testPlanQueryOnRestNoWithNullOnEmpty() {
         CascadesPlanner cascadesPlanner = setUp();
         final var plan = planGraph(
@@ -250,6 +252,7 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    @Disabled(value = "Null-on-empty quantifiers must be below selects until we address: https://github.com/FoundationDB/fdb-record-layer/issues/3431")
     void testPlanQueryOnNameWithNullOnEmpty() {
         CascadesPlanner cascadesPlanner = setUp();
         final var plan = planGraph(
@@ -661,12 +664,11 @@ public class FDBSimpleQueryGraphTest extends FDBRecordStoreQueryTestBase {
 
         final BindingMatcher<? extends RecordQueryPlan> planMatcher =
                 flatMapPlan(
-                        descendantPlans(
-                                indexPlan()
-                                        .where(indexName("RestaurantRecord$name"))
-                                        .and(scanComparisons(range("[[name],[name]]")))),
-                        typeFilterPlan(scanPlan().where(scanComparisons(range("[EQUALS q6.review.reviewer]"))))
-                                .where(recordTypes(containsAll(ImmutableSet.of("RestaurantReviewer")))));
+                        indexPlan()
+                                .where(indexName("RestaurantRecord$name"))
+                                .and(scanComparisons(range("[[name],[name]]"))),
+                        descendantPlans(typeFilterPlan(scanPlan().where(scanComparisons(equalities(only(anyValueComparison())))))
+                                .where(recordTypes(containsAll(ImmutableSet.of("RestaurantReviewer"))))));
 
         assertMatchesExactly(plan, planMatcher);
     }

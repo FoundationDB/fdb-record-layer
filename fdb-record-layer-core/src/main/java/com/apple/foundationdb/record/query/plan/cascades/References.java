@@ -137,7 +137,7 @@ public class References {
         }
 
         return refs.stream()
-                .map(ref -> Objects.requireNonNull(translationsCache.get(ref)))
+                .map(ref -> translationsCache.getOrDefault(ref, ref))
                 .collect(ImmutableList.toImmutableList());
     }
 

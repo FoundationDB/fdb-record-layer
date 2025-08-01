@@ -20,17 +20,16 @@
 
 package com.apple.foundationdb.relational.api;
 
-import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
+import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.MessageTuple;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
-import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
 import java.net.URI;
@@ -191,20 +190,6 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
             case Types.BINARY:
                 return getBytes(oneBasedPosition);
             case Types.OTHER:
-                final var object = getObjectInternal(getZeroBasedPosition(oneBasedPosition));
-                // This is a temporary workaround to support UUID as a primitive type. The fix essentially involves
-                // delaying the conversion of a message field (of type UUID) in the messageTuple until now when we can
-                // (little bit) predict that the field is actually a pre-defined UUID message. If the UUID message
-                // field is of sql.Types.OTHER (rather than sql.Types.STRUCT), we can expect that the plan is baked with
-                // the future-supported UUID type, and hence the result expects a JAVA UUID object. This can be
-                // removed (and pushed to MessageTuple) once we have proper and complete support for UUID.
-                if (object instanceof DynamicMessage) {
-                    final var msg = (DynamicMessage) object;
-                    if (TupleFieldsHelper.isTupleField(msg.getDescriptorForType())) {
-                        return TupleFieldsHelper.fromProto(msg, msg.getDescriptorForType());
-                    }
-                }
-                return object;
             default:
                 return getObjectInternal(getZeroBasedPosition(oneBasedPosition));
         }
@@ -257,8 +242,6 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
             for (final var t : coll) {
                 if (t instanceof Message) {
                     elements.add(new ImmutableRowStruct(new MessageTuple((Message) t), arrayMetaData.getElementStructMetaData()));
-                } else if (t instanceof ByteString) {
-                    elements.add(((ByteString) t).toByteArray());
                 } else {
                     elements.add(t);
                 }
@@ -272,15 +255,14 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
                 throw new SQLException("Array", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
             }
             Descriptors.FieldDescriptor fieldDescriptor = message.getDescriptorForType().findFieldByName(NullableArrayUtils.getRepeatedFieldName());
+            final var fieldValues = (Collection<?>) message.getField(fieldDescriptor);
             final var elements = new ArrayList<>();
-            final var coll = (Collection<?>) message.getField(fieldDescriptor);
-            for (final var t : coll) {
-                if (t instanceof Message) {
-                    elements.add(new ImmutableRowStruct(new MessageTuple((Message) t), arrayMetaData.getElementStructMetaData()));
-                } else if (t instanceof ByteString) {
-                    elements.add(((ByteString) t).toByteArray());
-                } else {
-                    elements.add(t);
+            for (var fieldValue : fieldValues) {
+                final var sanitizedFieldValue = MessageTuple.sanitizeField(fieldValue);
+                if (sanitizedFieldValue instanceof Message) {
+                    elements.add(new ImmutableRowStruct(new MessageTuple((Message) sanitizedFieldValue), arrayMetaData.getElementStructMetaData()));
+                }  else {
+                    elements.add(sanitizedFieldValue);
                 }
             }
             return new RowArray(elements, arrayMetaData);
@@ -309,6 +291,11 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
             return new ImmutableRowStruct((Row) obj, metaData.getStructMetaData(oneBasedColumn));
         } else if (obj instanceof Message) {
             return new ImmutableRowStruct(new MessageTuple((Message) obj), metaData.getStructMetaData(oneBasedColumn));
+        } else if (obj instanceof UUID) {
+            // We now have logic to understand UUID and convert it to primitive type, however, we still might have
+            // plans that would treat UUID as a 'struct'. In this case, we re-convert UUID back to struct.
+            final var uuid = (UUID) obj;
+            return new ImmutableRowStruct(new ArrayRow(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits()), metaData.getStructMetaData(oneBasedColumn));
         } else {
             throw new SQLException("Struct", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
         }

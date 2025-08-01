@@ -45,14 +45,15 @@ import org.junit.jupiter.api.extension.ParameterResolutionException;
 import org.junit.jupiter.api.extension.ParameterResolver;
 import org.junit.jupiter.api.extension.TestTemplateInvocationContext;
 import org.junit.jupiter.api.extension.TestTemplateInvocationContextProvider;
+import org.opentest4j.TestAbortedException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -87,20 +88,27 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
 
     @Override
     public void beforeAll(final ExtensionContext context) throws Exception {
+        maintainConfigs = List.of(
+                new CorrectExplains(new EmbeddedConfig(clusterFile)),
+                new CorrectMetrics(new EmbeddedConfig(clusterFile)),
+                new CorrectExplainsAndMetrics(new EmbeddedConfig(clusterFile)),
+                new ShowPlanOnDiff(new EmbeddedConfig(clusterFile))
+        );
         if (Boolean.parseBoolean(System.getProperty("tests.runQuick", "false"))) {
             testConfigs = List.of(new EmbeddedConfig(clusterFile));
-            maintainConfigs = List.of();
+        } else if (Boolean.parseBoolean(System.getProperty("tests.runRPC", "false"))) {
+            testConfigs = List.of(new JDBCInProcessConfig(clusterFile));
         } else {
-            AtomicInteger serverPort = new AtomicInteger(1111);
             List<File> jars = ExternalServer.getAvailableServers();
             // Fail the test if there are no available servers. This would force the execution in "runQuick" mode in case
             // we don't have access to the artifacts.
             // Potentially, we can relax this a little if all tests are disabled for multi-server execution, but this is
             // not a likely scenario.
             Assertions.assertFalse(jars.isEmpty(), "There are no external servers available to run");
-            servers = jars.stream()
-                    .map(jar -> new ExternalServer(jar, serverPort.getAndIncrement(), serverPort.getAndIncrement(), clusterFile))
-                    .collect(Collectors.toList());
+            servers = new ArrayList<>();
+            for (File jar : jars) {
+                servers.add(new ExternalServer(jar, clusterFile));
+            }
             for (ExternalServer server : servers) {
                 server.start();
             }
@@ -115,12 +123,6 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
                     // The configs for multi-server testing
                     externalServerConfigs).collect(Collectors.toList());
 
-            maintainConfigs = List.of(
-                    new CorrectExplains(new EmbeddedConfig(clusterFile)),
-                    new CorrectMetrics(new EmbeddedConfig(clusterFile)),
-                    new CorrectExplainsAndMetrics(new EmbeddedConfig(clusterFile)),
-                    new ShowPlanOnDiff(new EmbeddedConfig(clusterFile))
-            );
         }
         for (final YamlTestConfig testConfig : Iterables.concat(testConfigs, maintainConfigs)) {
             testConfig.beforeAll();
@@ -303,6 +305,8 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
                             config.getRunnerOptions());
                     try {
                         yamlRunner.run();
+                    } catch (TestAbortedException tAE) {
+                        throw tAE;
                     } catch (Exception e) {
                         logger.error("‼️ running test file '{}' was not successful", fileName, e);
                         throw e;

@@ -90,12 +90,15 @@ public class EliminateArithmeticValueWithConstantRule extends ValueSimplificatio
             return;
         }
 
+        final var yieldBuilder = call.yieldResultBuilder();
         if (constantAliases.containsAll(children.get(0).getCorrelatedTo())) {
             // this first child is the constant one, the second child is not
-            call.yieldResult(children.get(1));
+            yieldBuilder.addConstraintsFrom(arithmeticValue, children.get(0))
+                    .yieldResult(children.get(1));
         } else if (constantAliases.containsAll(children.get(1).getCorrelatedTo())) {
             // this second child is the constant one, the first child is not
-            call.yieldResult(children.get(0));
+            yieldBuilder.addConstraintsFrom(arithmeticValue, children.get(1))
+                    .yieldResult(children.get(0));
         } // else they are both not constant
     }
 }

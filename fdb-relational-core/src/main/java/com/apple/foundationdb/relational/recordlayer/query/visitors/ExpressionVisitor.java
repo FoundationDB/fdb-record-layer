@@ -47,7 +47,6 @@ import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalPlanFragment;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
-import com.apple.foundationdb.relational.recordlayer.query.QueryExecutionContext;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.recordlayer.query.StringTrieNode;
 import com.apple.foundationdb.relational.recordlayer.query.TautologicalValue;
@@ -513,7 +512,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             semanticAnalyzer.validateInListItems(inListItems);
             final var arrayType = semanticAnalyzer.resolveArrayTypeFromValues(inListItems);
             result = Expression.ofUnnamed(getDelegate().getPlanGenerationContext()
-                    .processComplexLiteral(QueryExecutionContext.OrderedLiteral.constantId(tokenIndex), arrayType));
+                    .processComplexLiteral(tokenIndex, arrayType));
         } else {
             final var inListItems = visitExpressions(ctx.expressions());
             result = getDelegate().resolveFunction("__internal_array", inListItems.asList().toArray(new Expression[0]));
@@ -844,16 +843,31 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private static Expression coerceIfNecessary(@Nonnull Expression expression,
                                                 @Nonnull Type targetType) {
         final var value = expression.getUnderlying();
+        final var maybeCoercedValue = coerceValueIfNecessary(expression.getUnderlying(), targetType);
+        if (value != maybeCoercedValue) {
+            return new Expression(expression.getName(), DataTypeUtils.toRelationalType(maybeCoercedValue.getResultType()), maybeCoercedValue);
+        } else {
+            return expression;
+        }
+    }
+
+    @Nonnull
+    private static Value coerceValueIfNecessary(@Nonnull Value value, @Nonnull Type targetType) {
         final var resultType = value.getResultType();
         if (resultType.isUnresolved() ||
                 (resultType.isPrimitive() && PromoteValue.isPromotionNeeded(resultType, targetType))) {
-            final var promoteValue = PromoteValue.inject(value, targetType);
-            return new Expression(expression.getName(), DataTypeUtils.toRelationalType(promoteValue.getResultType()), promoteValue);
+            return PromoteValue.inject(value, targetType);
         }
-        return expression;
+        if (resultType.isArray() && PromoteValue.isPromotionNeeded(resultType, targetType) && value instanceof AbstractArrayConstructorValue) {
+            Assert.thatUnchecked(targetType.isArray(), "Cannot convert array type to non-array type");
+            final var targetElementType = ((Type.Array) targetType).getElementType();
+            return AbstractArrayConstructorValue.LightArrayConstructorValue.of(Streams.stream(value.getChildren()).map(c -> coerceValueIfNecessary(c, targetElementType)).collect(Collectors.toList()));
+        }
+        return value;
     }
 
     @Nonnull

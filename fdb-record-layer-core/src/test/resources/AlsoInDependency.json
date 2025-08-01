@@ -1,0 +1,80 @@
+{
+  "records": {
+    "dependency": [
+      "record_metadata_options.proto",
+      "tuple_fields.proto"
+    ],
+    "message_type": [
+      {
+        "name": "RecordTypeUnion",
+        "field": [
+          {
+            "name": "_UUID",
+            "number": 1,
+            "type": "TYPE_MESSAGE",
+            "type_name": "UUID"
+          },
+          {
+            "name": "_T2",
+            "number": 2,
+            "type": "TYPE_MESSAGE",
+            "type_name": "T2"
+          }
+
+        ]
+      },
+      {
+        "name": "UUID",
+        "field": [
+          {
+            "name": "ID",
+            "number": 1,
+            "type": "TYPE_INT64"
+          }
+        ]
+      },
+      {
+        "name": "T2",
+        "field": [
+          {
+            "name": "ID",
+            "number": 1,
+            "type": "TYPE_INT64"
+          },
+          {
+            "name": "uuid",
+            "number": 2,
+            "type": "TYPE_MESSAGE",
+            "type_name": "UUID"
+          },
+          {
+            "name": "uuid2",
+            "number": 3,
+            "type": "TYPE_MESSAGE",
+            "type_name": "com.apple.foundationdb.record.UUID"
+          }
+        ]
+      }
+    ]
+  },
+  "record_types": [
+    {
+      "name": "UUID",
+      "primary_key": {
+        "field": {
+          "field_name": "ID",
+          "fan_type": "SCALAR"
+        }
+      }
+    },
+    {
+      "name": "T2",
+      "primary_key": {
+        "field": {
+          "field_name": "ID",
+          "fan_type": "SCALAR"
+        }
+      }
+    }
+  ]
+}

@@ -37,6 +37,7 @@ import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.serde.RecordMetadataDeserializer;
+import com.apple.foundationdb.relational.recordlayer.query.Literals;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
@@ -432,6 +433,57 @@ public class SchemaTemplateSerDeTests {
         Assertions.assertTrue(peekingDeserializer.hasOneCompilationRequestFor("SqlFunction3"));
     }
 
+    @ParameterizedTest(name = "schema template builder preserving intermingledTables flag set to {0}")
+    @ValueSource(booleans = {true, false})
+    public void schemaTemplateToBuilderPreservesIntermingledTablesFlag(boolean intermingleTables) {
+        var sampleRecordSchemaTemplate = RecordLayerSchemaTemplate.newBuilder()
+                .setName("TestSchemaTemplate")
+                .setVersion(42)
+                .addAuxiliaryType(DataType.StructType.from(
+                        "Subtype",
+                        List.of(DataType.StructType.Field.from("field1", DataType.Primitives.INTEGER.type(), 0)),
+                        true))
+                .setIntermingleTables(intermingleTables)
+                .addTable(
+                        RecordLayerTable.newBuilder(intermingleTables)
+                                .setName("T1")
+                                .addColumn(RecordLayerColumn.newBuilder()
+                                        .setName("COL1")
+                                        .setDataType(
+                                                DataType.StructType.from(
+                                                        "Subtype",
+                                                        List.of(DataType.StructType.Field.from("field1", DataType.Primitives.INTEGER.type(), 1)),
+                                                        true))
+                                        .build())
+                                .build())
+                .build();
+
+        // make sure the intermingleTables flag is preserved after creating the invoked routine in the builder
+        // as well as in the built schema template.
+        var builder = sampleRecordSchemaTemplate.toBuilder();
+        Assertions.assertEquals(intermingleTables, builder.isIntermingleTables());
+        sampleRecordSchemaTemplate = builder.build();
+        Assertions.assertEquals(intermingleTables, sampleRecordSchemaTemplate.isIntermingleTables());
+
+        // add temporary invoked routine.
+        builder.addInvokedRoutine(RecordLayerInvokedRoutine.newBuilder()
+                .setName("SqlFunction1")
+                .setDescription("CREATE FUNCTION SqlFunction1(IN Q BIGINT) AS SELECT * FROM T1 WHERE col1 < Q")
+                .setTemporary(true)
+                .withCompilableRoutine(CompiledFunctionStub::new)
+                .build());
+
+        // build the schema template
+        final var newSchemaTemplate = builder.build();
+
+        // make sure the intermingleTables flag is preserved after creating the invoked routine in the builder
+        // as well as the built schema template.
+        builder = newSchemaTemplate.toBuilder();
+        Assertions.assertEquals(intermingleTables, builder.isIntermingleTables());
+        sampleRecordSchemaTemplate = builder.build();
+        Assertions.assertEquals(intermingleTables, sampleRecordSchemaTemplate.isIntermingleTables());
+    }
+
     @Nonnull
     private static RecordMetadataDeserializerWithPeekingFunctionSupplier recMetadataSampleWithFunctions(@Nonnull final String... functions) {
         final var schemaTemplateBuilder = RecordLayerSchemaTemplate.newBuilder()
@@ -498,7 +550,8 @@ public class SchemaTemplateSerDeTests {
     private static final class CompiledFunctionStub extends CompiledSqlFunction {
         @SuppressWarnings("DataFlowIssue") // only for test.
         CompiledFunctionStub() {
-            super("something", ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty(), null);
+            super("something", ImmutableList.of(), ImmutableList.of(), ImmutableList.of(),
+                    Optional.empty(), null, Literals.empty());
         }
     }
 
@@ -556,7 +609,7 @@ public class SchemaTemplateSerDeTests {
                     .withPlannerConfiguration(PlannerConfiguration.ofAllAvailableIndexes())
                     .withUserVersion(0)
                     .build();
-            return PlanGenerator.of(Optional.empty(), ctx, ctx.getMetaData(), new RecordStoreState(null, Map.of()), Options.NONE);
+            return PlanGenerator.create(Optional.empty(), ctx, ctx.getMetaData(), new RecordStoreState(null, Map.of()), Options.NONE);
         }
     }
 }

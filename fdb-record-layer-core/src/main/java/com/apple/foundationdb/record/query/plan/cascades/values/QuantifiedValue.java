@@ -21,8 +21,9 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.collect.ImmutableMap;
@@ -50,7 +51,7 @@ public interface QuantifiedValue extends LeafValue {
 
     @Nonnull
     @Override
-    default BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+    default ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
         return LeafValue.super.equalsWithoutChildren(other)
                 .filter(ignored -> getAlias().equals(((QuantifiedValue)other).getAlias()));
     }
@@ -58,6 +59,7 @@ public interface QuantifiedValue extends LeafValue {
     @Nonnull
     @Override
     default Map<Value, Value> pullUp(@Nonnull final Iterable<? extends Value> toBePulledUpValues,
+                                     @Nonnull final EvaluationContext evaluationContext,
                                      @Nonnull final AliasMap aliasMap,
                                      @Nonnull final Set<CorrelationIdentifier> constantAliases,
                                      @Nonnull final CorrelationIdentifier upperBaseAlias) {
@@ -76,6 +78,6 @@ public interface QuantifiedValue extends LeafValue {
             return translatedMapBuilder.build();
         }
 
-        return LeafValue.super.pullUp(toBePulledUpValues, aliasMap, constantAliases, upperBaseAlias);
+        return LeafValue.super.pullUp(toBePulledUpValues, evaluationContext, aliasMap, constantAliases, upperBaseAlias);
     }
 }

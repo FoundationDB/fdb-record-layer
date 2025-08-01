@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
+import com.apple.foundationdb.relational.recordlayer.query.Literals;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
@@ -60,7 +61,7 @@ import java.util.Optional;
  * function plan as a leg of a binary join, where
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-public class CompiledSqlFunction extends UserDefinedFunction {
+public class CompiledSqlFunction extends UserDefinedFunction implements  WithPlanGenerationSideEffects {
 
     @Nonnull
     private final RelationalExpression body;
@@ -68,14 +69,19 @@ public class CompiledSqlFunction extends UserDefinedFunction {
     @Nonnull
     private final Optional<CorrelationIdentifier> parametersCorrelation;
 
+    @Nonnull
+    private final Literals literals;
+
     protected CompiledSqlFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
                                   @Nonnull final List<Type> parameterTypes,
                                   @Nonnull final List<Optional<? extends Typed>> parameterDefaults,
                                   @Nonnull final Optional<CorrelationIdentifier> parametersCorrelation,
-                                  @Nonnull final RelationalExpression body) {
+                                  @Nonnull final RelationalExpression body,
+                                  @Nonnull final Literals literals) {
         super(functionName, parameterNames, parameterTypes, parameterDefaults);
         this.parametersCorrelation = parametersCorrelation;
         this.body = body;
+        this.literals = literals;
     }
 
     @Nonnull
@@ -107,10 +113,10 @@ public class CompiledSqlFunction extends UserDefinedFunction {
                 argumentValue = Assert.castUnchecked(Assert.optionalUnchecked(getDefaultValue(paramIdx)), Value.class);
             } else {
                 final var providedArgValue = Assert.castUnchecked(arguments.get(paramIdx), Value.class);
-                final var isPromotionNeeded = PromoteValue.isPromotionNeeded(providedArgValue.getResultType(), conputeParameterType(paramIdx));
-                Assert.thatUnchecked(!isPromotionNeeded || PromoteValue.isPromotable(providedArgValue.getResultType(), conputeParameterType(paramIdx)),
+                final var isPromotionNeeded = PromoteValue.isPromotionNeeded(providedArgValue.getResultType(), computeParameterType(paramIdx));
+                Assert.thatUnchecked(!isPromotionNeeded || PromoteValue.isPromotable(providedArgValue.getResultType(), computeParameterType(paramIdx)),
                         ErrorCode.UNDEFINED_FUNCTION, () -> "could not find function matching the provided arguments");
-                argumentValue = PromoteValue.inject(providedArgValue, conputeParameterType(paramIdx));
+                argumentValue = PromoteValue.inject(providedArgValue, computeParameterType(paramIdx));
             }
             resultBuilder.addResultColumn(Column.of(Optional.of(getParameterName(paramIdx)), argumentValue));
         }
@@ -144,10 +150,10 @@ public class CompiledSqlFunction extends UserDefinedFunction {
                 argumentValue = Assert.castUnchecked(Assert.optionalUnchecked(getDefaultValue(name), ErrorCode.UNDEFINED_FUNCTION,
                         () -> "could not find function matching the provided arguments"), Value.class);
             }
-            final var isPromotionNeeded = PromoteValue.isPromotionNeeded(argumentValue.getResultType(), conputeParameterType(name));
-            Assert.thatUnchecked(!isPromotionNeeded || PromoteValue.isPromotable(argumentValue.getResultType(), conputeParameterType(name)),
+            final var isPromotionNeeded = PromoteValue.isPromotionNeeded(argumentValue.getResultType(), computeParameterType(name));
+            Assert.thatUnchecked(!isPromotionNeeded || PromoteValue.isPromotable(argumentValue.getResultType(), computeParameterType(name)),
                     ErrorCode.UNDEFINED_FUNCTION, () -> "could not find function matching the provided arguments");
-            final var maybePromotedArgument = PromoteValue.inject(argumentValue, conputeParameterType(name));
+            final var maybePromotedArgument = PromoteValue.inject(argumentValue, computeParameterType(name));
             resultBuilder.addResultColumn(Column.of(Optional.of(name), maybePromotedArgument));
         }
         final var qun = Quantifier.forEach(Reference.initialOf(resultBuilder.addQuantifier(rangeOfOnePlan()).build().buildSelect()),
@@ -158,6 +164,12 @@ public class CompiledSqlFunction extends UserDefinedFunction {
                 .addQuantifier(qun);
         bodyQun.computeFlowedColumns().forEach(selectBuilder::addResultColumn);
         return selectBuilder.build().buildSelect();
+    }
+
+    @Nonnull
+    @Override
+    public Literals getAuxiliaryLiterals() {
+        return literals;
     }
 
     /**
@@ -198,10 +210,12 @@ public class CompiledSqlFunction extends UserDefinedFunction {
             private RelationalExpression body;
             private Quantifier.ForEach qun;
             private final Expressions parameters;
+            private Literals literals;
 
             private FinalBuilder(@Nonnull final StepBuilder outerBuilder, @Nonnull final Expressions parameters) {
                 this.outerBuilder = outerBuilder;
                 this.parameters = parameters;
+                this.literals = Literals.empty();
             }
 
             @Nonnull
@@ -225,12 +239,18 @@ public class CompiledSqlFunction extends UserDefinedFunction {
             }
 
             @Nonnull
+            public FinalBuilder setLiterals(@Nonnull final Literals literals) {
+                this.literals = literals;
+                return this;
+            }
+
+            @Nonnull
             public CompiledSqlFunction build() {
                 final List<Optional<? extends Typed>> defaultsValuesList = Streams.stream(parameters.underlying())
                         .map(v -> v instanceof ThrowsValue ? Optional.<Value>empty() : Optional.of(v))
                         .collect(ImmutableList.toImmutableList());
                 return new CompiledSqlFunction(outerBuilder.name, parameters.argumentNames(), parameters.underlyingTypes(),
-                        defaultsValuesList, getParametersCorrelation().map(Quantifier::getAlias), body);
+                        defaultsValuesList, getParametersCorrelation().map(Quantifier::getAlias), body, literals);
             }
         }
 
