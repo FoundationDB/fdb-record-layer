@@ -165,7 +165,7 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
         return AsyncUtil.mapIterable(itemsIterable, keyValue -> {
             final byte[] key = keyValue.getKey();
             final byte[] value = keyValue.getValue();
-            final Tuple primaryKey = getDataSubspace().unpack(key);
+            final Tuple primaryKey = getDataSubspace().unpack(key).getNestedTuple(1);
             return nodeFromRaw(primaryKey, key, value);
         });
     }

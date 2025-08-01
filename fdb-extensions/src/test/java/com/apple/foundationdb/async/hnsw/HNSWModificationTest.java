@@ -42,9 +42,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Tests testing insert/update/deletes of data into/in/from {@link RTree}s.
@@ -147,31 +151,68 @@ public class HNSWModificationTest {
     @Test
     public void testBasicInsert() {
         final Random random = new Random(0);
+        final AtomicLong nextNodeId = new AtomicLong(0L);
         final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool());
 
         db.run(tr -> {
             for (int i = 0; i < 10; i ++) {
-                hnsw.insert(tr, createRandomPrimaryKey(random), createRandomVector(random, 728)).join();
+                hnsw.insert(tr, createNextPrimaryKey(nextNodeId), createRandomVector(random, 728)).join();
             }
             return null;
         });
     }
 
     @Test
-    public void testBasicInsertAndScanLayer() {
+    public void testBasicInsertAndScanLayer() throws Exception {
         final Random random = new Random(0);
-        final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool());
+        final AtomicLong nextNodeId = new AtomicLong(0L);
+        final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
+                HNSW.DEFAULT_CONFIG.toBuilder().setM(4).setMMax(4).setMMax0(10).build(),
+                OnWriteListener.NOOP, OnReadListener.NOOP);
 
         db.run(tr -> {
-            for (int i = 0; i < 20; i ++) {
-                hnsw.insert(tr, createRandomPrimaryKey(random), createRandomVector(random, 728)).join();
+            for (int i = 0; i < 100; i ++) {
+                hnsw.insert(tr, createNextPrimaryKey(nextNodeId), createRandomVector(random, 2)).join();
             }
             return null;
         });
 
-        hnsw.scanLayer(db, 0, 100, node -> {
-            System.out.println(node);
-        });
+        int layer = 0;
+        while (true) {
+            if (!dumpLayer(hnsw, layer++)) {
+                break;
+            }
+        }
+    }
+
+    private boolean dumpLayer(final HNSW hnsw, final int layer) throws IOException {
+        final String verticesFileName = "/Users/nseemann/Downloads/vertices-" + layer + ".csv";
+        final String edgesFileName = "/Users/nseemann/Downloads/edges-" + layer + ".csv";
+
+        final AtomicLong numReadAtomic = new AtomicLong(0L);
+        try (final BufferedWriter verticesWriter = new BufferedWriter(new FileWriter(verticesFileName));
+                final BufferedWriter edgesWriter = new BufferedWriter(new FileWriter(edgesFileName))) {
+            hnsw.scanLayer(db, layer, 100, node -> {
+                final CompactNode compactNode = node.asCompactNode();
+                final Vector<Half> vector = compactNode.getVector();
+                try {
+                    verticesWriter.write(compactNode.getPrimaryKey().getLong(0) + "," +
+                            vector.getComponent(0) + "," +
+                            vector.getComponent(1));
+                    verticesWriter.newLine();
+
+                    for (final var neighbor : compactNode.getNeighbors()) {
+                        edgesWriter.write(compactNode.getPrimaryKey().getLong(0) + "," +
+                                neighbor.getPrimaryKey().getLong(0));
+                        edgesWriter.newLine();
+                    }
+                    numReadAtomic.getAndIncrement();
+                } catch (final IOException e) {
+                    throw new RuntimeException("unable to write to file", e);
+                }
+            });
+        }
+        return numReadAtomic.get() != 0;
     }
 
     private <N extends NodeReference> void writeNode(@Nonnull final Transaction transaction,
@@ -225,6 +266,11 @@ public class HNSWModificationTest {
     @Nonnull
     private static Tuple createRandomPrimaryKey(final @Nonnull Random random) {
         return Tuple.from(random.nextLong());
+    }
+
+    @Nonnull
+    private static Tuple createNextPrimaryKey(@Nonnull final AtomicLong nextIdAtomic) {
+        return Tuple.from(nextIdAtomic.getAndIncrement());
     }
 
     @Nonnull
