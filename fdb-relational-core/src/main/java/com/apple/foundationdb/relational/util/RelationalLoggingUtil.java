@@ -23,6 +23,8 @@ package com.apple.foundationdb.relational.util;
 import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerTimerEvents;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.OptionsUtils;
@@ -32,13 +34,24 @@ import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nullable;
+import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 @API(API.Status.EXPERIMENTAL)
 public class RelationalLoggingUtil {
     public static void publishPlanGenerationLogs(Logger logger, KeyValueLogMessage message, @Nullable Plan<?> plan,
-                                                 @Nullable RelationalException e, long totalTime, Options options) {
+                                                 @Nullable RelationalException e, @Nullable StoreTimer storeTimer,
+                                                 long totalTime, Options options) {
         final boolean logQuery = options.getOption(Options.Name.LOG_QUERY);
         final boolean isSlow = totalTime > (long) options.getOption(Options.Name.LOG_SLOW_QUERY_THRESHOLD_MICROS);
+
+        if (storeTimer != null) {
+            Optional.ofNullable(storeTimer.getCounter(PlannerTimerEvents.REWRITING_PHASE_COMPLETE)).ifPresent(
+                    (c) -> message.addKeyAndValue("plannerRewritingPhaseTimeMicros", TimeUnit.NANOSECONDS.toMicros(c.getTimeNanos())));
+            Optional.ofNullable(storeTimer.getCounter(PlannerTimerEvents.PLANNING_PHASE_COMPLETE)).ifPresent(
+                    (c) -> message.addKeyAndValue("plannerPlanningPhaseTimeMicros", TimeUnit.NANOSECONDS.toMicros(c.getTimeNanos())));
+        }
+
         message.addKeyAndValue("totalPlanTimeMicros", totalTime);
         if (plan != null) {
             if (plan instanceof QueryPlan.PhysicalQueryPlan) {
