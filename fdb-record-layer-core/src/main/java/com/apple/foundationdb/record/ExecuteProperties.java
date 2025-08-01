@@ -117,6 +117,7 @@ public class ExecuteProperties {
         return copy(skip, rowLimit, timeLimit, isolationLevel, state, failOnScanLimitReached, defaultCursorStreamingMode, isDryRun);
     }
 
+
     /**
      * Get the limit on the number of rows that will be returned as it would be passed to FDB.
      * @return the limit or {@link ReadTransaction#ROW_LIMIT_UNLIMITED} if there is no limit.

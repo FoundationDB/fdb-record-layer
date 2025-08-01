@@ -451,9 +451,9 @@ public class GroupByTest extends FDBRecordStoreQueryTestBase {
                         streamingAggregationPlan(
                                 mapPlan(indexPlan().where(indexName("MySimpleRecord$bit_bucket"))))
                                 .where(aggregations(recordConstructorValue(exactly(bitmapConstructAggValue(anyValue()))))
-                                        .and(groupings(recordConstructorValue(exactly(
-                                                fieldValueWithLastFieldName(anyValue(), PrimitiveMatchers.equalsObject("str_value_indexed")),
-                                                arithmeticValue(exactly(anyValue(), anyValue())))))))));
+                                .and(groupings(recordConstructorValue(exactly(
+                                        fieldValueWithLastFieldName(anyValue(), PrimitiveMatchers.equalsObject("str_value_indexed")),
+                                        arithmeticValue(exactly(anyValue(), anyValue())))))))));
     }
 
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)

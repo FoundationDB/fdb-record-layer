@@ -496,7 +496,7 @@ public abstract class MultidimensionalIndexTestBase extends FDBRecordStoreQueryT
     }
 
     void indexReadTest(final boolean useAsync, final long seed, final int numRecords, @Nonnull final String storage,
-                       final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
+                   final boolean storeHilbertValues, final boolean useNodeSlotIndex) throws Exception {
         final RecordMetaDataHook additionalIndexes =
                 metaDataBuilder -> {
                     addCalendarNameStartEpochIndex(metaDataBuilder);
