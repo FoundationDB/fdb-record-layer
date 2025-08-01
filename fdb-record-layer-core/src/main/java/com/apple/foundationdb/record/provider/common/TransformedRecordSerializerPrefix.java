@@ -73,9 +73,6 @@ class TransformedRecordSerializerPrefix {
     protected static final int TYPE_MASK = 0x07;
     protected static final int KEY_SHIFT = 3;
 
-    private TransformedRecordSerializerPrefix() {
-    }
-
     @SuppressWarnings("fallthrough")
     public static boolean decodePrefix(@Nonnull TransformedRecordSerializerState state, @Nonnull Tuple primaryKey) {
         final long prefix = readVarint(state, primaryKey);
