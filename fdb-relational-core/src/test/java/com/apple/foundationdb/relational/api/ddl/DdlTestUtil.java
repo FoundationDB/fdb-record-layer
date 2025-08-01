@@ -251,7 +251,11 @@ public class DdlTestUtil {
                 if (extension != null && extension.hasUsage() && extension.getUsage() == RecordMetaDataOptionsProto.RecordTypeOptions.Usage.UNION) {
                     //we found the Union Descriptor
                     for (DescriptorProtos.FieldDescriptorProto tableDescs : typeDesc.getFieldList()) {
-                        tableNames.add(tableDescs.getTypeName());
+                        String name = tableDescs.getTypeName();
+                        if (name.startsWith(".")) {
+                            name = name.substring(1);
+                        }
+                        tableNames.add(name);
                     }
                 }
             }
