@@ -796,6 +796,8 @@ public class HNSW {
                                         new InsertNeighborsChangeSet<>(new BaseNeighborsChangeSet<>(ImmutableList.of()),
                                                 newNode.getNeighbors());
 
+                                storageAdapter.writeNode(transaction, newNode, layer, newNodeChangeSet);
+
                                 // create change sets for each selected neighbor and insert new node into them
                                 final Map<Tuple /* primaryKey */, NeighborsChangeSet<N>> neighborChangeSetMap =
                                         Maps.newLinkedHashMap();
@@ -824,7 +826,6 @@ public class HNSW {
                                                             });
                                                 }, MAX_CONCURRENT_NEIGHBOR_FETCHES, getExecutor())
                                         .thenApply(changeSets -> {
-                                            storageAdapter.writeNode(transaction, newNode, layer, newNodeChangeSet);
                                             for (int i = 0; i < selectedNeighbors.size(); i++) {
                                                 final NodeReferenceAndNode<N> selectedNeighbor = selectedNeighbors.get(i);
                                                 final NeighborsChangeSet<N> changeSet = changeSets.get(i);
@@ -895,6 +896,8 @@ public class HNSW {
         if (selectedNeighborNode.getNeighbors().size() < mMax) {
             return CompletableFuture.completedFuture(null);
         } else {
+            debug(l -> l.debug("pruning neighborhood of key={} which has numNeighbors={} out of mMax={}",
+                    selectedNeighborNode.getPrimaryKey(), selectedNeighborNode.getNeighbors().size(), mMax));
             return fetchNeighborhood(storageAdapter, transaction, layer, neighborChangeSet.merge(), nodeCache)
                     .thenCompose(nodeReferenceWithVectors -> {
                         final ImmutableList.Builder<NodeReferenceWithDistance> nodeReferencesWithDistancesBuilder =
@@ -1079,7 +1082,7 @@ public class HNSW {
 
     @Nonnull
     private StorageAdapter<? extends NodeReference> getStorageAdapterForLayer(final int layer) {
-        return layer > 0
+        return false && layer > 0
                ? new InliningStorageAdapter(getConfig(), InliningNode.factory(), getSubspace(), getOnWriteListener(), getOnReadListener())
                : new CompactStorageAdapter(getConfig(), CompactNode.factory(), getSubspace(), getOnWriteListener(), getOnReadListener());
     }
