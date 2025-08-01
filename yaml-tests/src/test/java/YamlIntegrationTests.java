@@ -22,6 +22,7 @@ import com.apple.foundationdb.relational.yamltests.MaintainYamlTestConfig;
 import com.apple.foundationdb.relational.yamltests.YamlTest;
 import com.apple.foundationdb.relational.yamltests.YamlTestConfigFilters;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.TestTemplate;
 
 /**
@@ -35,6 +36,7 @@ import org.junit.jupiter.api.TestTemplate;
 @YamlTest
 public class YamlIntegrationTests {
     @TestTemplate
+    @Tag("Quicky")
     public void showcasingTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("showcasing-tests.yamsql");
     }

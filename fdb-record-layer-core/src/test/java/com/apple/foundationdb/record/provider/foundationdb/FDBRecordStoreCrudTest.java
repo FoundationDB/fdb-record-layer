@@ -54,6 +54,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 @Tag(Tags.RequiresFDB)
 @Execution(ExecutionMode.CONCURRENT)
+@Tag("Quicky")
 public class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
 
     @Test
