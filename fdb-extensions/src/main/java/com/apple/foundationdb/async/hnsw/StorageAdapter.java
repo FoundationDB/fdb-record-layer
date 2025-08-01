@@ -28,6 +28,7 @@ import com.christianheina.langx.half4j.Half;
 import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -90,6 +91,9 @@ interface StorageAdapter<N extends NodeReference> {
 
     void writeNode(@Nonnull Transaction transaction, @Nonnull Node<N> node, int layer,
                    @Nonnull NeighborsChangeSet<N> changeSet);
+
+    Iterable<Node<N>> scanLayer(@Nonnull ReadTransaction readTransaction, int layer, @Nullable Tuple lastPrimaryKey,
+                                int maxNumRead);
 
     @Nonnull
     static CompletableFuture<EntryNodeReference> fetchEntryNodeReference(@Nonnull final ReadTransaction readTransaction,

@@ -25,13 +25,17 @@ import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.christianheina.langx.half4j.Half;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -66,27 +70,35 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
 
         return AsyncUtil.collect(readTransaction.getRange(Range.startsWith(rangeKey),
                         ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL), readTransaction.getExecutor())
-                .thenApply(keyValues -> {
-                    final OnReadListener onReadListener = getOnReadListener();
+                .thenApply(keyValues -> nodeFromRaw(primaryKey, keyValues));
+    }
 
-                    final ImmutableList.Builder<NodeReferenceWithVector> nodeReferencesWithVectorBuilder = ImmutableList.builder();
-                    for (final KeyValue keyValue : keyValues) {
-                        final byte[] key = keyValue.getKey();
-                        final byte[] value = keyValue.getValue();
-                        onReadListener.onKeyValueRead(key, value);
-                        final Tuple neighborKeyTuple = getDataSubspace().unpack(key);
-                        final Tuple neighborValueTuple = Tuple.fromBytes(value);
+    @Nonnull
+    private Node<NodeReferenceWithVector> nodeFromRaw(final @Nonnull Tuple primaryKey, final List<KeyValue> keyValues) {
+        final OnReadListener onReadListener = getOnReadListener();
 
-                        final Tuple neighborPrimaryKey = neighborKeyTuple.getNestedTuple(2); // neighbor primary key
-                        final Vector<Half> neighborVector = StorageAdapter.vectorFromTuple(neighborValueTuple); // the entire value is the vector
-                        nodeReferencesWithVectorBuilder.add(new NodeReferenceWithVector(neighborPrimaryKey, neighborVector));
-                    }
+        final ImmutableList.Builder<NodeReferenceWithVector> nodeReferencesWithVectorBuilder = ImmutableList.builder();
+        for (final KeyValue keyValue : keyValues) {
+            nodeReferencesWithVectorBuilder.add(neighborFromRaw(keyValue.getKey(), keyValue.getValue()));
+        }
 
-                    final Node<NodeReferenceWithVector> node =
-                            getNodeFactory().create(primaryKey, null, nodeReferencesWithVectorBuilder.build());
-                    onReadListener.onNodeRead(node);
-                    return node;
-                });
+        final Node<NodeReferenceWithVector> node =
+                getNodeFactory().create(primaryKey, null, nodeReferencesWithVectorBuilder.build());
+        onReadListener.onNodeRead(node);
+        return node;
+    }
+
+    @Nonnull
+    private NodeReferenceWithVector neighborFromRaw(final @Nonnull byte[] key, final byte[] value) {
+        final OnReadListener onReadListener = getOnReadListener();
+
+        onReadListener.onKeyValueRead(key, value);
+        final Tuple neighborKeyTuple = getDataSubspace().unpack(key);
+        final Tuple neighborValueTuple = Tuple.fromBytes(value);
+
+        final Tuple neighborPrimaryKey = neighborKeyTuple.getNestedTuple(2); // neighbor primary key
+        final Vector<Half> neighborVector = StorageAdapter.vectorFromTuple(neighborValueTuple); // the entire value is the vector
+        return new NodeReferenceWithVector(neighborPrimaryKey, neighborVector);
     }
 
     @Override
@@ -121,5 +133,44 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
                                   @Nonnull final Node<NodeReferenceWithVector> node,
                                   @Nonnull final Tuple neighborPrimaryKey) {
         return getDataSubspace().pack(Tuple.from(layer, node.getPrimaryKey(), neighborPrimaryKey));
+    }
+
+    @Override
+    public Iterable<Node<NodeReferenceWithVector>> scanLayer(@Nonnull final ReadTransaction readTransaction, int layer,
+                                                             @Nullable final Tuple lastPrimaryKey, int maxNumRead) {
+        final byte[] layerPrefix = getDataSubspace().pack(Tuple.from(layer));
+        final Range range =
+                lastPrimaryKey == null
+                ? Range.startsWith(layerPrefix)
+                : new Range(ByteArrayUtil.strinc(getDataSubspace().pack(Tuple.from(layer, lastPrimaryKey))),
+                        ByteArrayUtil.strinc(layerPrefix));
+        final AsyncIterable<KeyValue> itemsIterable =
+                readTransaction.getRange(range,
+                        maxNumRead, false, StreamingMode.ITERATOR);
+        int numRead = 0;
+        Tuple nodePrimaryKey = null;
+        ImmutableList.Builder<Node<NodeReferenceWithVector>> nodeBuilder = ImmutableList.builder();
+        ImmutableList.Builder<NodeReferenceWithVector> neighborsBuilder = ImmutableList.builder();
+        for (final KeyValue item: itemsIterable) {
+            final NodeReferenceWithVector neighbor =
+                    neighborFromRaw(item.getKey(), item.getValue());
+            final Tuple primaryKeyFromNodeReference = neighbor.getPrimaryKey();
+            if (nodePrimaryKey == null) {
+                nodePrimaryKey = primaryKeyFromNodeReference;
+            } else {
+                if (!nodePrimaryKey.equals(primaryKeyFromNodeReference)) {
+                    nodeBuilder.add(getNodeFactory().create(nodePrimaryKey, null, neighborsBuilder.build()));
+                }
+            }
+            neighborsBuilder.add(neighbor);
+            numRead ++;
+        }
+
+        // there may be a rest
+        if (numRead > 0 && numRead < maxNumRead) {
+            nodeBuilder.add(getNodeFactory().create(nodePrimaryKey, null, neighborsBuilder.build()));
+        }
+
+        return nodeBuilder.build();
     }
 }

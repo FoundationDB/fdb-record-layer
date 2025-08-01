@@ -157,6 +157,23 @@ public class HNSWModificationTest {
         });
     }
 
+    @Test
+    public void testBasicInsertAndScanLayer() {
+        final Random random = new Random(0);
+        final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool());
+
+        db.run(tr -> {
+            for (int i = 0; i < 20; i ++) {
+                hnsw.insert(tr, createRandomPrimaryKey(random), createRandomVector(random, 728)).join();
+            }
+            return null;
+        });
+
+        hnsw.scanLayer(db, 0, 100, node -> {
+            System.out.println(node);
+        });
+    }
+
     private <N extends NodeReference> void writeNode(@Nonnull final Transaction transaction,
                                                      @Nonnull final StorageAdapter<N> storageAdapter,
                                                      @Nonnull final Node<N> node,

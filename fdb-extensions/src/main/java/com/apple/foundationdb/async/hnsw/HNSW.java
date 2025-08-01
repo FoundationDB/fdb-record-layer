@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.async.hnsw;
 
+import com.apple.foundationdb.Database;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
@@ -34,6 +35,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -1052,6 +1054,27 @@ public class HNSW {
                         .create(primaryKey, vector, ImmutableList.of()), layer,
                 new BaseNeighborsChangeSet<>(ImmutableList.of()));
         debug(l -> l.debug("written lonely node at key={} on layer={}", primaryKey, layer));
+    }
+
+    public void scanLayer(@Nonnull final Database db,
+                          final int layer,
+                          final int batchSize,
+                          @Nonnull final Consumer<Node<? extends NodeReference>> nodeConsumer) {
+        final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(layer);
+        final AtomicReference<Tuple> lastPrimaryKeyAtomic = new AtomicReference<>();
+        Tuple newPrimaryKey;
+        do {
+            final Tuple lastPrimaryKey = lastPrimaryKeyAtomic.get();
+            lastPrimaryKeyAtomic.set(null);
+            newPrimaryKey = db.run(tr -> {
+                Streams.stream(storageAdapter.scanLayer(tr, layer, lastPrimaryKey, batchSize))
+                        .forEach(node -> {
+                            nodeConsumer.accept(node);
+                            lastPrimaryKeyAtomic.set(node.getPrimaryKey());
+                        });
+                return lastPrimaryKeyAtomic.get();
+            }, executor);
+        } while (newPrimaryKey != null);
     }
 
     @Nonnull
