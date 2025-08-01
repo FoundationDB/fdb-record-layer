@@ -24,7 +24,7 @@ package com.apple.foundationdb.record.transform;
 option java_package = "com.apple.foundationdb.record";
 option java_outer_classname = "TestRecordsTransformProto";
 
-import "record_metadata_options.proto";
+//import "record_metadata_options.proto";
 
 message DefaultTransformMessage {
   message MessageAa {
