@@ -70,6 +70,7 @@ public abstract class ValueEquivalence {
     @Nonnull
     private final Supplier<Optional<ValueEquivalence>> inverseOptionalSupplier;
 
+    @SuppressWarnings("this-escape")
     protected ValueEquivalence() {
         this.inverseOptionalSupplier = Suppliers.memoize(this::computeInverseMaybe);
     }

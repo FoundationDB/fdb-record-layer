@@ -56,7 +56,7 @@ public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRe
             this.outerJoined = outerJoined;
         }
 
-        public boolean isOuterJoined() {
+        public final boolean isOuterJoined() {
             return outerJoined;
         }
 
@@ -116,6 +116,7 @@ public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRe
         super(name, recordTypeKey, metaDataBuilder);
     }
 
+    @SuppressWarnings("this-escape")
     public JoinedRecordTypeBuilder(@Nonnull RecordMetaDataProto.JoinedRecordType typeProto, @Nonnull RecordMetaDataBuilder metaDataBuilder) {
         super(typeProto.getName(), LiteralKeyExpression.fromProtoValue(typeProto.getRecordTypeKey()), metaDataBuilder);
         for (RecordMetaDataProto.JoinedRecordType.JoinConstituent joinConstituent : typeProto.getJoinConstituentsList()) {
@@ -140,7 +141,7 @@ public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRe
      * @return the newly added constituent
      */
     @Nonnull
-    public JoinConstituent addConstituent(@Nonnull String name, @Nonnull RecordTypeBuilder recordType, boolean isOuterJoined) {
+    public final JoinConstituent addConstituent(@Nonnull String name, @Nonnull RecordTypeBuilder recordType, boolean isOuterJoined) {
         return addConstituent(new JoinConstituent(name, recordType, isOuterJoined));
     }
 
@@ -162,7 +163,7 @@ public class JoinedRecordTypeBuilder extends SyntheticRecordTypeBuilder<JoinedRe
      * @return the newly added join
      */
     @Nonnull
-    public Join addJoin(@Nonnull String left, @Nonnull KeyExpression leftExpression, @Nonnull String right, @Nonnull KeyExpression rightExpression) {
+    public final Join addJoin(@Nonnull String left, @Nonnull KeyExpression leftExpression, @Nonnull String right, @Nonnull KeyExpression rightExpression) {
         if (leftExpression.getColumnSize() != rightExpression.getColumnSize()) {
             throw new RecordCoreArgumentException("Two sides of join are not the same size and will never match")
                     .addLogInfo("left", leftExpression, "right", rightExpression);
