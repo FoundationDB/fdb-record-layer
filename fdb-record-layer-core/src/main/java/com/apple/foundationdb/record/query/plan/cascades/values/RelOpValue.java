@@ -1074,8 +1074,15 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
         @Nullable
         public Object eval(@Nullable final Object arg1, @Nullable final Object arg2) {
+            // handle nulls
             if (arg1 == null || arg2 == null) {
-                return null;
+                if (type == Comparisons.Type.IS_DISTINCT_FROM) {
+                    return arg1 != null || arg2 != null;
+                } else if (type == Comparisons.Type.NOT_DISTINCT_FROM) {
+                    return arg1 == null && arg2 == null;
+                } else {
+                    return null;
+                }
             }
             return evaluateFunction.apply(arg1, arg2);
         }
