@@ -70,29 +70,29 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
 
         return AsyncUtil.collect(readTransaction.getRange(Range.startsWith(rangeKey),
                         ReadTransaction.ROW_LIMIT_UNLIMITED, false, StreamingMode.WANT_ALL), readTransaction.getExecutor())
-                .thenApply(keyValues -> nodeFromRaw(primaryKey, keyValues));
+                .thenApply(keyValues -> nodeFromRaw(layer, primaryKey, keyValues));
     }
 
     @Nonnull
-    private Node<NodeReferenceWithVector> nodeFromRaw(final @Nonnull Tuple primaryKey, final List<KeyValue> keyValues) {
+    private Node<NodeReferenceWithVector> nodeFromRaw(final int layer, final @Nonnull Tuple primaryKey, final List<KeyValue> keyValues) {
         final OnReadListener onReadListener = getOnReadListener();
 
         final ImmutableList.Builder<NodeReferenceWithVector> nodeReferencesWithVectorBuilder = ImmutableList.builder();
         for (final KeyValue keyValue : keyValues) {
-            nodeReferencesWithVectorBuilder.add(neighborFromRaw(keyValue.getKey(), keyValue.getValue()));
+            nodeReferencesWithVectorBuilder.add(neighborFromRaw(layer, keyValue.getKey(), keyValue.getValue()));
         }
 
         final Node<NodeReferenceWithVector> node =
                 getNodeFactory().create(primaryKey, null, nodeReferencesWithVectorBuilder.build());
-        onReadListener.onNodeRead(node);
+        onReadListener.onNodeRead(layer, node);
         return node;
     }
 
     @Nonnull
-    private NodeReferenceWithVector neighborFromRaw(final @Nonnull byte[] key, final byte[] value) {
+    private NodeReferenceWithVector neighborFromRaw(final int layer, final @Nonnull byte[] key, final byte[] value) {
         final OnReadListener onReadListener = getOnReadListener();
 
-        onReadListener.onKeyValueRead(key, value);
+        onReadListener.onKeyValueRead(layer, key, value);
         final Tuple neighborKeyTuple = getDataSubspace().unpack(key);
         final Tuple neighborValueTuple = Tuple.fromBytes(value);
 
@@ -153,7 +153,7 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
         ImmutableList.Builder<NodeReferenceWithVector> neighborsBuilder = ImmutableList.builder();
         for (final KeyValue item: itemsIterable) {
             final NodeReferenceWithVector neighbor =
-                    neighborFromRaw(item.getKey(), item.getValue());
+                    neighborFromRaw(layer, item.getKey(), item.getValue());
             final Tuple primaryKeyFromNodeReference = neighbor.getPrimaryKey();
             if (nodePrimaryKey == null) {
                 nodePrimaryKey = primaryKeyFromNodeReference;

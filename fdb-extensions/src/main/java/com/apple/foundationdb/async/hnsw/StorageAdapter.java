@@ -107,7 +107,7 @@ interface StorageAdapter<N extends NodeReference> {
                     if (valueBytes == null) {
                         return null; // not a single node in the index
                     }
-                    onReadListener.onKeyValueRead(key, valueBytes);
+                    onReadListener.onKeyValueRead(-1, key, valueBytes);
 
                     final Tuple entryTuple = Tuple.fromBytes(valueBytes);
                     final int lMax = (int)entryTuple.getLong(0);

@@ -41,7 +41,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -74,7 +76,7 @@ public class HNSW {
     public static final int DEFAULT_M = 16;
     public static final int DEFAULT_M_MAX = DEFAULT_M;
     public static final int DEFAULT_M_MAX_0 = 2 * DEFAULT_M;
-    public static final int DEFAULT_EF_SEARCH = 64;
+    public static final int DEFAULT_EF_SEARCH = 100;
     public static final int DEFAULT_EF_CONSTRUCTION = 200;
     public static final boolean DEFAULT_EXTEND_CANDIDATES = false;
     public static final boolean DEFAULT_KEEP_PRUNED_CONNECTIONS = false;
@@ -403,6 +405,7 @@ public class HNSW {
     @SuppressWarnings("checkstyle:MethodName") // method name introduced by paper
     @Nonnull
     public CompletableFuture<? extends List<? extends NodeReferenceAndNode<? extends NodeReference>>> kNearestNeighborsSearch(@Nonnull final ReadTransaction readTransaction,
+                                                                                                                              final int k,
                                                                                                                               final int efSearch,
                                                                                                                               @Nonnull final Vector<Half> queryVector) {
         return StorageAdapter.fetchEntryNodeReference(readTransaction, getSubspace(), getOnReadListener())
@@ -450,7 +453,17 @@ public class HNSW {
 
                     return searchLayer(storageAdapter, readTransaction,
                             ImmutableList.of(nodeReference), 0, efSearch,
-                            Maps.newConcurrentMap(), queryVector);
+                            Maps.newConcurrentMap(), queryVector)
+                            .thenApply(searchResult -> {
+                                // reverse the original deque
+                                final int size = searchResult.size();
+                                final int start = Math.max(0, size - k);
+
+                                final ArrayList<? extends NodeReferenceAndNode<?>> topKReversed =
+                                        Lists.newArrayList(searchResult.subList(start, size));
+                                Collections.reverse(topKReversed);
+                                return topKReversed;
+                            });
                 });
     }
 
@@ -579,14 +592,13 @@ public class HNSW {
         }).thenCompose(ignored ->
                 fetchSomeNodesIfNotCached(storageAdapter, readTransaction, layer, nearestNeighbors, nodeCache))
                 .thenApply(searchResult -> {
-                    debug(l -> {
-                        l.debug("searched layer={} for efSearch={} with result=={}", layer, efSearch,
-                                searchResult.stream()
-                                        .map(nodeReferenceAndNode ->
-                                                "(primaryKey=" + nodeReferenceAndNode.getNodeReferenceWithDistance().getPrimaryKey() +
-                                                        ",distance=" + nodeReferenceAndNode.getNodeReferenceWithDistance().getDistance() + ")")
-                                        .collect(Collectors.joining(",")));
-                    });
+                    debug(l ->
+                            l.debug("searched layer={} for efSearch={} with result=={}", layer, efSearch,
+                                    searchResult.stream()
+                                            .map(nodeReferenceAndNode ->
+                                                    "(primaryKey=" + nodeReferenceAndNode.getNodeReferenceWithDistance().getPrimaryKey() +
+                                                            ",distance=" + nodeReferenceAndNode.getNodeReferenceWithDistance().getDistance() + ")")
+                                            .collect(Collectors.joining(","))));
                     return searchResult;
                 });
     }
@@ -1091,6 +1103,12 @@ public class HNSW {
         double lambda = 1.0 / Math.log(getConfig().getM());
         double u = 1.0 - random.nextDouble();  // Avoid log(0)
         return (int) Math.floor(-Math.log(u) * lambda);
+    }
+
+    private void info(@Nonnull final Consumer<Logger> loggerConsumer) {
+        if (logger.isInfoEnabled()) {
+            loggerConsumer.accept(logger);
+        }
     }
 
     private void debug(@Nonnull final Consumer<Logger> loggerConsumer) {

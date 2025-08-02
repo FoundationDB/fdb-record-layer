@@ -79,18 +79,18 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
                     if (valueBytes == null) {
                         throw new IllegalStateException("cannot fetch node");
                     }
-                    return nodeFromRaw(primaryKey, keyBytes, valueBytes);
+                    return nodeFromRaw(layer, primaryKey, keyBytes, valueBytes);
                 });
     }
 
     @Nonnull
-    private Node<NodeReference> nodeFromRaw(final @Nonnull Tuple primaryKey, @Nonnull final byte[] keyBytes,
-                                            @Nonnull final byte[] valueBytes) {
+    private Node<NodeReference> nodeFromRaw(final int layer, final @Nonnull Tuple primaryKey,
+                                            @Nonnull final byte[] keyBytes, @Nonnull final byte[] valueBytes) {
         final Tuple nodeTuple = Tuple.fromBytes(valueBytes);
         final Node<NodeReference> node = nodeFromTuples(primaryKey, nodeTuple);
         final OnReadListener onReadListener = getOnReadListener();
-        onReadListener.onNodeRead(node);
-        onReadListener.onKeyValueRead(keyBytes, valueBytes);
+        onReadListener.onNodeRead(layer, node);
+        onReadListener.onKeyValueRead(layer, keyBytes, valueBytes);
         return node;
     }
 
@@ -139,16 +139,17 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
         for (final NodeReference neighborReference : neighbors) {
             neighborItems.add(neighborReference.getPrimaryKey());
         }
-        if (logger.isDebugEnabled()) {
-            logger.debug("written neighbors of primaryKey={}, oldSize={}, newSize={}", node.getPrimaryKey(),
-                    node.getNeighbors().size(), neighborItems.size());
-        }
-
         nodeItems.add(Tuple.fromList(neighborItems));
+
         final Tuple nodeTuple = Tuple.fromList(nodeItems);
 
         transaction.set(key, nodeTuple.pack());
         getOnWriteListener().onNodeWritten(layer, node);
+
+        if (logger.isDebugEnabled()) {
+            logger.debug("written neighbors of primaryKey={}, oldSize={}, newSize={}", node.getPrimaryKey(),
+                    node.getNeighbors().size(), neighborItems.size());
+        }
     }
 
     public Iterable<Node<NodeReference>> scanLayer(@Nonnull final ReadTransaction readTransaction, int layer,
@@ -166,7 +167,7 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
             final byte[] key = keyValue.getKey();
             final byte[] value = keyValue.getValue();
             final Tuple primaryKey = getDataSubspace().unpack(key).getNestedTuple(1);
-            return nodeFromRaw(primaryKey, key, value);
+            return nodeFromRaw(layer, primaryKey, key, value);
         });
     }
 }

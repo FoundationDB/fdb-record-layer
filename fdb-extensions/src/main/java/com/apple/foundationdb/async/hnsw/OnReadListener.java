@@ -30,19 +30,16 @@ public interface OnReadListener {
     OnReadListener NOOP = new OnReadListener() {
     };
 
-    default void onSlotIndexEntryRead(@Nonnull final byte[] key) {
-        // nothing
-    }
-
     default <N extends NodeReference> CompletableFuture<Node<N>> onAsyncRead(@Nonnull CompletableFuture<Node<N>> future) {
         return future;
     }
 
-    default void onNodeRead(@Nonnull Node<? extends NodeReference> node) {
+    default void onNodeRead(int layer, @Nonnull Node<? extends NodeReference> node) {
         // nothing
     }
 
-    default void onKeyValueRead(@Nonnull byte[] key,
+    default void onKeyValueRead(int layer,
+                                @Nonnull byte[] key,
                                 @Nonnull byte[] value) {
         // nothing
     }

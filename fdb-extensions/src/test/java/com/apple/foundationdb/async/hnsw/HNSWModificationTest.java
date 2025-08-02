@@ -30,6 +30,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.christianheina.langx.half4j.Half;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 import org.assertj.core.util.Lists;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,7 +48,10 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -151,14 +155,48 @@ public class HNSWModificationTest {
     @Test
     public void testBasicInsert() {
         final Random random = new Random(0);
-        final AtomicLong nextNodeId = new AtomicLong(0L);
-        final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool());
+        final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
 
-        db.run(tr -> {
-            for (int i = 0; i < 10; i ++) {
-                hnsw.insert(tr, createNextPrimaryKey(nextNodeId), createRandomVector(random, 728)).join();
+        final TestOnReadListener onReadListener = new TestOnReadListener();
+
+        final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
+                HNSW.DEFAULT_CONFIG.toBuilder().setMetric(Metric.COSINE_METRIC).setEfConstruction(34).setM(16).setMMax(16).setMMax0(32).build(),
+                OnWriteListener.NOOP, onReadListener);
+
+        for (int i = 0; i < 10000;) {
+            i += basicInsertBatch(hnsw, random, 100, nextNodeIdAtomic, onReadListener);
+        }
+
+        onReadListener.reset();
+        final long beginTs = System.nanoTime();
+        final List<? extends NodeReferenceAndNode<?>> result =
+                db.run(tr -> hnsw.kNearestNeighborsSearch(tr, 10, 20, createRandomVector(random, 768)).join());
+        final long endTs = System.nanoTime();
+
+        for (NodeReferenceAndNode<?> nodeReferenceAndNode : result) {
+            final NodeReferenceWithDistance nodeReferenceWithDistance = nodeReferenceAndNode.getNodeReferenceWithDistance();
+            logger.info("nodeId ={} at distance={}", nodeReferenceWithDistance.getPrimaryKey().getLong(0),
+                    nodeReferenceWithDistance.getDistance());
+        }
+        System.out.println(onReadListener.getNodeCountByLayer());
+        System.out.println(onReadListener.getBytesReadByLayer());
+
+        logger.info("search transaction took elapsedTime={}ms", TimeUnit.NANOSECONDS.toMillis(endTs - beginTs));
+    }
+
+    private int basicInsertBatch(@Nonnull final HNSW hnsw, @Nonnull final Random random, final int batchSize,
+                                 @Nonnull final AtomicLong nextNodeIdAtomic, @Nonnull final TestOnReadListener onReadListener) {
+        return db.run(tr -> {
+            onReadListener.reset();
+            final long nextNodeId = nextNodeIdAtomic.get();
+            final long beginTs = System.nanoTime();
+            for (int i = 0; i < batchSize; i ++) {
+                hnsw.insert(tr, createNextPrimaryKey(nextNodeIdAtomic), createRandomVector(random, 768)).join();
             }
-            return null;
+            final long endTs = System.nanoTime();
+            logger.info("inserted batchSize={} records starting at nodeId={} took elapsedTime={}ms, readCounts={}, MSums={}", batchSize, nextNodeId,
+                    TimeUnit.NANOSECONDS.toMillis(endTs - beginTs), onReadListener.getNodeCountByLayer(), onReadListener.getSumMByLayer());
+            return batchSize;
         });
     }
 
@@ -182,6 +220,18 @@ public class HNSWModificationTest {
             if (!dumpLayer(hnsw, layer++)) {
                 break;
             }
+        }
+    }
+
+    @Test
+    public void testManyVectors() {
+        final Random random = new Random();
+        for (long l = 0L; l < 3000000; l ++) {
+            final Vector.HalfVector randomVector = createRandomVector(random, 768);
+            final Tuple vectorTuple = StorageAdapter.tupleFromVector(randomVector);
+            final Vector<Half> roundTripVector = StorageAdapter.vectorFromTuple(vectorTuple);
+            Vector.comparativeDistance(Metric.EuclideanMetric.EUCLIDEAN_METRIC, randomVector, roundTripVector);
+            Assertions.assertEquals(randomVector, roundTripVector);
         }
     }
 
@@ -281,5 +331,47 @@ public class HNSWModificationTest {
             components[d] = HNSWHelpers.halfValueOf(random.nextDouble());
         }
         return new Vector.HalfVector(components);
+    }
+
+    private static class TestOnReadListener implements OnReadListener {
+        final Map<Integer, Long> nodeCountByLayer;
+        final Map<Integer, Long> sumMByLayer;
+        final Map<Integer, Long> bytesReadByLayer;
+
+        public TestOnReadListener() {
+            this.nodeCountByLayer = Maps.newConcurrentMap();
+            this.sumMByLayer = Maps.newConcurrentMap();
+            this.bytesReadByLayer = Maps.newConcurrentMap();
+        }
+
+        public Map<Integer, Long> getNodeCountByLayer() {
+            return nodeCountByLayer;
+        }
+
+        public Map<Integer, Long> getBytesReadByLayer() {
+            return bytesReadByLayer;
+        }
+
+        public Map<Integer, Long> getSumMByLayer() {
+            return sumMByLayer;
+        }
+
+        public void reset() {
+            nodeCountByLayer.clear();
+            bytesReadByLayer.clear();
+            sumMByLayer.clear();
+        }
+
+        @Override
+        public void onNodeRead(final int layer, @Nonnull final Node<? extends NodeReference> node) {
+            nodeCountByLayer.compute(layer, (l, oldValue) -> (oldValue == null ? 0 : oldValue) + 1L);
+            sumMByLayer.compute(layer, (l, oldValue) -> (oldValue == null ? 0 : oldValue) + node.getNeighbors().size());
+        }
+
+        @Override
+        public void onKeyValueRead(final int layer, @Nonnull final byte[] key, @Nonnull final byte[] value) {
+            bytesReadByLayer.compute(layer, (l, oldValue) -> (oldValue == null ? 0 : oldValue) +
+                    key.length + value.length);
+        }
     }
 }
