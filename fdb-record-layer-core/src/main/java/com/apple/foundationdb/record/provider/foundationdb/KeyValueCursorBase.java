@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.cursors.AsyncIteratorCursor;
 import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ZeroCopyByteString;
@@ -245,6 +246,11 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             // Handle the continuation and then turn the endpoints into one byte array on the
             // left (inclusive) and another on the right (exclusive).
             prefixLength = calculatePrefixLength();
+
+            // When both endpoints are prefix strings, we should strip off the last byte \x00 from Tuple
+            if (lowEndpoint == EndpointType.PREFIX_STRING && highEndpoint == EndpointType.PREFIX_STRING) {
+                prefixLength--;
+            }
 
             reverse = scanProperties.isReverse();
             if (continuation != null) {
