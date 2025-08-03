@@ -1322,7 +1322,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     .setContext(context).setContinuation(continuation)
                     .setLow(low, lowEndpoint)
                     .setHigh(high, highEndpoint)
-                    .setScanProperties(scanProperties.with(ExecuteProperties::clearRowAndTimeLimits).with(ExecuteProperties::clearState))
+                    .setScanProperties(scanProperties.with(ExecuteProperties::clearRowAndTimeLimits).with(ExecuteProperties::clearSkipAndLimit).with(ExecuteProperties::clearState))
                     .build();
             rawRecords = new SplitHelper.KeyValueUnsplitter(context, recordsSubspace, keyValues, useOldVersionFormat(), sizeInfo, scanProperties.isReverse(),
                     new CursorLimitManager(context, scanProperties.with(ExecuteProperties::clearReturnedRowLimit)))
