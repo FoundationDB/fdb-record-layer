@@ -21,6 +21,8 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.MacroFunction;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.metadata.DataType;
@@ -875,6 +877,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
+    public Identifier visitFullIdRoutineBody(@Nonnull RelationalParser.FullIdRoutineBodyContext ctx) {
+        return getDelegate().visitFullId(ctx.fullId());
+    }
+
+    @Nonnull
+    @Override
     public Identifier visitTableName(@Nonnull RelationalParser.TableNameContext ctx) {
         return getDelegate().visitTableName(ctx);
     }
@@ -1201,6 +1209,24 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public Object visitIfNotExists(@Nonnull RelationalParser.IfNotExistsContext ctx) {
         return getDelegate().visitIfNotExists(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public MacroFunction visitMacroFunction(@Nonnull RelationalParser.MacroFunctionContext ctx) {
+        return getDelegate().visitMacroFunction(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Object visitMacroFunctionName(@Nonnull RelationalParser.MacroFunctionNameContext ctx) {
+        return getDelegate().visitMacroFunctionName(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Object visitMacroFunctionCall(@Nonnull RelationalParser.MacroFunctionCallContext ctx) {
+        return getDelegate().visitMacroFunctionCall(ctx);
     }
 
     @Nonnull

@@ -307,6 +307,14 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
+    public Expression visitMacroFunctionCall(@Nonnull RelationalParser.MacroFunctionCallContext ctx) {
+        final var functionName = ctx.macroFunctionName().getText();
+        Expressions arguments = visitFunctionArgs(ctx.functionArgs());
+        return getDelegate().resolveFunction(functionName, arguments.asList().toArray(new Expression[0]));
+    }
+
+    @Nonnull
+    @Override
     public Expression visitCaseFunctionCall(@Nonnull RelationalParser.CaseFunctionCallContext ctx) {
         final ImmutableList.Builder<Value> implications = ImmutableList.builder();
         final ImmutableList.Builder<Expression> pickerValues = ImmutableList.builder();

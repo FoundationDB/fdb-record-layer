@@ -883,6 +883,117 @@ public class StandardQueryTests {
     }
 
     @Test
+    void testUserDefinedFunction() throws Exception {
+        final String schemaTemplate = "CREATE TYPE AS STRUCT LATLON (latitude string, longitude string)\n" +
+                "CREATE TYPE AS STRUCT Location (name string, coord LATLON)" +
+                "CREATE TABLE T1(uid bigint, loc Location, PRIMARY KEY(uid))\n" +
+                "CREATE FUNCTION lat(IN x TYPE LOCATION) RETURNS string AS x.coord.latitude\n" +
+                "CREATE FUNCTION loc_name(IN x TYPE LOCATION) RETURNS string AS x.name\n" +
+                "CREATE FUNCTION id(IN x BIGINT) RETURNS bigint AS x\n";
+
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var s = ddl.setSchemaAndGetConnection().createStatement()) {
+                insertLocationComplexRecord(s, 1L, "Apple Park Visitor Center", "37.3", "-120.0");
+            }
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM T1 WHERE loc_name(loc) = ?name")) {
+                ps.setString("name", "Apple Park Visitor Center");
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow()
+                            .hasColumn("UID", 1L)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void testUserDefinedFunction2() throws Exception {
+        final String schemaTemplate = "CREATE TYPE AS STRUCT LATLON (latitude string, longitude string)\n" +
+                "CREATE TYPE AS STRUCT Location (name string, coord LATLON)" +
+                "CREATE TABLE T1(uid bigint, loc Location, PRIMARY KEY(uid))\n" +
+                "CREATE FUNCTION lat(IN x TYPE Location) RETURNS string AS x.coord.latitude\n" +
+                "CREATE FUNCTION \"name\"(IN x TYPE Location) RETURNS string AS x.name\n" +
+                "CREATE FUNCTION id(IN x bigint) RETURNS bigint AS x\n";
+
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var s = ddl.setSchemaAndGetConnection().createStatement()) {
+                insertLocationComplexRecord(s, 1L, "Apple Park Visitor Center", "37.3", "-120.0");
+            }
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM T1 WHERE lat(loc) = ?loc")) {
+                ps.setString("loc", "37.3");
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void testUserDefinedFunction3() throws Exception {
+        final String schemaTemplate = "CREATE TYPE AS STRUCT LATLON (latitude string, longitude string)\n" +
+                "CREATE TYPE AS STRUCT Location (name string, coord LATLON)" +
+                "CREATE TABLE T1(uid bigint, loc Location, PRIMARY KEY(uid))\n" +
+                //"CREATE FUNCTION lat(IN x TYPE Location) RETURNS string AS x.coord.latitude\n" +
+                "CREATE FUNCTION \"name\"(IN x TYPE Location) RETURNS string AS x.name\n" +
+                "CREATE FUNCTION id(IN x bigint) RETURNS bigint AS x";
+
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var s = ddl.setSchemaAndGetConnection().createStatement()) {
+                insertLocationComplexRecord(s, 1L, "Apple Park Visitor Center", "37.3", "-120.0");
+            }
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM T1 WHERE id(uid) = ?id")) {
+                ps.setLong("id", 1L);
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow()
+                            .hasColumn("UID", 1L)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void testIncorrectUserDefinedFunction() throws Exception {
+        final String schemaTemplate1 = "CREATE TYPE AS STRUCT LATLON (latitude string, longitude string)\n" +
+                "CREATE TYPE AS STRUCT Location (name string, coord LATLON)" +
+                "CREATE TABLE T1(uid bigint, loc Location, PRIMARY KEY(uid))\n" +
+                "CREATE FUNCTION lat(IN x TYPE Location) RETURNS string AS x.coor.latitude\n"; // "coor" is wrong
+
+        // fail to build the MacroFunctionValue in the DDL step
+        Assertions.assertThrows(SQLException.class, () -> Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate1).build()).getMessage();
+
+        /*
+        final String schemaTemplate2 = "CREATE TYPE AS STRUCT LATLON (latitude string, longitude string)\n" +
+                "CREATE TYPE AS STRUCT Location (name string, coord LATLON)" +
+                "CREATE TABLE T1(uid bigint, loc Location, PRIMARY KEY(uid))\n" +
+                "CREATE FUNCTION id(IN x bigint) RETURNS string AS x\n"; // wrong return type
+        // fail to build the MacroFunctionValue in the DDL step
+        final var errorMsg2 = Assertions.assertThrows(SQLException.class, () -> Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate2).build()).getMessage();
+        Assertions.assertTrue(errorMsg2.contains("Result data types don't match"));
+
+         */
+
+        final String schemaTemplate3 = "CREATE TYPE AS STRUCT LATLON (latitude string, longitude string)\n" +
+                "CREATE TYPE AS STRUCT Location (name string, coord LATLON)" +
+                "CREATE TABLE T1(uid bigint, loc Location, PRIMARY KEY(uid))\n" +
+                "CREATE FUNCTION name(IN x TYPE Location) RETURNS string AS x.name\n";  // name is a reserved word
+
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate3).build()) {
+            try (var s = ddl.setSchemaAndGetConnection().createStatement()) {
+                insertLocationComplexRecord(s, 1L, "Apple Park Visitor Center", "37.3", "-120.0");
+            }
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM T1 WHERE name(loc) = ?name")) {
+                ps.setString("name", "Apple Park Visitor Center");
+                final var errorMsg3 = Assertions.assertThrows(SQLException.class, ps::executeQuery).getMessage();
+                Assertions.assertTrue(errorMsg3.contains("syntax error"));
+            }
+        }
+    }
+
+
+    @Test
     void testBitmap() throws Exception {
         final String query = "SELECT BITMAP_CONSTRUCT_AGG(BITMAP_BIT_POSITION(uid)) as bitmap, category, BITMAP_BUCKET_OFFSET(uid) as offset FROM T1\n" +
                 "GROUP BY category, BITMAP_BUCKET_OFFSET(uid)\n";
@@ -1555,6 +1666,22 @@ public class StandardQueryTests {
                         .build())
                 .build();
         int cnt = s.executeInsert("RESTAURANTCOMPLEXRECORD", struct);
+        Assertions.assertEquals(1, cnt, "Incorrect insertion count");
+    }
+
+    private void insertLocationComplexRecord(@Nonnull RelationalStatement s, long uid, @Nonnull final String name, @Nonnull String latitude, @Nonnull String longitude) throws SQLException {
+        var coord = EmbeddedRelationalStruct.newBuilder()
+                .addString("LATITUDE", latitude)
+                .addString("LONGITUDE", longitude)
+                .build();
+        var struct = EmbeddedRelationalStruct.newBuilder()
+                .addLong("UID", uid)
+                .addStruct("LOC", EmbeddedRelationalStruct.newBuilder()
+                        .addString("NAME", name)
+                        .addStruct("COORD", coord)
+                        .build())
+                .build();
+        int cnt = s.executeInsert("T1", struct);
         Assertions.assertEquals(1, cnt, "Incorrect insertion count");
     }
 }

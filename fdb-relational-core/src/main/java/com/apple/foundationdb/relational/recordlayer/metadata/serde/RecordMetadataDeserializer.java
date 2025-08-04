@@ -24,7 +24,9 @@ import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.query.plan.cascades.MacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
@@ -106,6 +108,8 @@ public class RecordMetadataDeserializer {
                 if (function.getValue() instanceof RawSqlFunction) {
                     schemaTemplateBuilder.addInvokedRoutine(generateInvokedRoutineBuilder(metadataProvider, function.getKey(),
                             Assert.castUnchecked(function.getValue(), RawSqlFunction.class).getDefinition()).build());
+                } else if (function.getValue() instanceof MacroFunction) {
+                    schemaTemplateBuilder.addInvokedRoutine(generateInvokedRoutineBuilder(function.getKey(), (MacroFunction)function.getValue()).build());
                 }
             }
         }
@@ -165,6 +169,14 @@ public class RecordMetadataDeserializer {
                 .setDescription(body)
                 .setTemporary(false)
                 .withCompilableRoutine(getSqlFunctionCompiler(name, metadata, body));
+    }
+
+    @Nonnull
+    private RecordLayerInvokedRoutine.Builder generateInvokedRoutineBuilder(@Nonnull final String name,
+                                                                            @Nonnull final MacroFunction macroFunction) {
+        return RecordLayerInvokedRoutine.newBuilder()
+                .setName(name)
+                .withMacroFunctionSupplier(() -> macroFunction);
     }
 
     @Nonnull

@@ -93,7 +93,7 @@ public class RecordMetadataSerializer extends SkeletonVisitor {
             return;
         }
         final var recordLayerInvokedRoutine = Assert.castUnchecked(invokedRoutine, RecordLayerInvokedRoutine.class);
-        getBuilder().addUserDefinedFunction(recordLayerInvokedRoutine.asRawFunction());
+        getBuilder().addUserDefinedFunction(recordLayerInvokedRoutine.asSerializableFunction());
     }
 
     @Override

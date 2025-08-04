@@ -21,9 +21,14 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.MacroFunction;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -236,7 +241,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final ImmutableSet.Builder<RelationalParser.StructDefinitionContext> structClauses = ImmutableSet.builder();
         final ImmutableSet.Builder<RelationalParser.TableDefinitionContext> tableClauses = ImmutableSet.builder();
         final ImmutableSet.Builder<RelationalParser.IndexDefinitionContext> indexClauses = ImmutableSet.builder();
-        final ImmutableSet.Builder<RelationalParser.SqlInvokedFunctionContext> functionClauses = ImmutableSet.builder();
+        final ImmutableSet.Builder<RelationalParser.SqlInvokedFunctionContext> sqlInvokedFunctionClauses = ImmutableSet.builder();
+        final ImmutableSet.Builder<RelationalParser.MacroFunctionContext> macroFunctionClauses = ImmutableSet.builder();
         for (final var templateClause : ctx.templateClause()) {
             if (templateClause.enumDefinition() != null) {
                 metadataBuilder.addAuxiliaryType(visitEnumDefinition(templateClause.enumDefinition()));
@@ -245,7 +251,9 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             } else if (templateClause.tableDefinition() != null) {
                 tableClauses.add(templateClause.tableDefinition());
             } else if (templateClause.sqlInvokedFunction() != null) {
-                functionClauses.add(templateClause.sqlInvokedFunction());
+                sqlInvokedFunctionClauses.add(templateClause.sqlInvokedFunction());
+            } else if (templateClause.macroFunction() != null) {
+                macroFunctionClauses.add(templateClause.macroFunction());
             } else {
                 Assert.thatUnchecked(templateClause.indexDefinition() != null);
                 indexClauses.add(templateClause.indexDefinition());
@@ -256,9 +264,14 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final var indexes = indexClauses.build().stream().map(this::visitIndexDefinition).collect(ImmutableList.toImmutableList());
         // TODO: this is currently relying on the lexical order of the function to resolve function dependencies which
         //       is limited.
-        functionClauses.build().forEach(functionClause -> {
+        sqlInvokedFunctionClauses.build().forEach(functionClause -> {
             final var invokedRoutine = getInvokedRoutineMetadata(functionClause, functionClause.functionSpecification(),
                     functionClause.routineBody(), metadataBuilder.build());
+            metadataBuilder.addInvokedRoutine(invokedRoutine);
+        });
+        macroFunctionClauses.build().forEach(functionClause -> {
+            final var invokedRoutine = getMacroFunctionMetadata(functionClause, functionClause.functionSpecification(),
+                    functionClause.macroFunctionBody(), metadataBuilder.build());
             metadataBuilder.addInvokedRoutine(invokedRoutine);
         });
         for (final var index : indexes) {
@@ -352,6 +365,35 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 .build();
     }
 
+    @Nonnull
+    private RecordLayerInvokedRoutine getMacroFunctionMetadata(@Nonnull final ParserRuleContext functionCtx,
+                                                                @Nonnull final RelationalParser.FunctionSpecificationContext functionSpecCtx,
+                                                                @Nonnull final RelationalParser.MacroFunctionBodyContext bodyCtx,
+                                                                @Nonnull final RecordLayerSchemaTemplate ddlCatalog) {
+        // parse the index SQL query using the newly constructed metadata.
+        getDelegate().replaceSchemaTemplate(ddlCatalog);
+
+        // 1. get the function name.
+        final var functionName = visitFullId(functionSpecCtx.schemaQualifiedRoutineName).toString();
+
+        // 2. get the function SQL definition string.
+        final var queryString = getDelegate().getPlanGenerationContext().getQuery();
+        final var start = functionCtx.start.getStartIndex();
+        final var stop = functionCtx.stop.getStopIndex() + 1; // inclusive.
+        final var functionDefinition = "CREATE " + queryString.substring(start, stop);
+
+        // 3. visit the SQL string to generate (compile) the corresponding SQL plan.
+        final var macroFunction = visitMacroFunction(functionSpecCtx, bodyCtx);
+
+        // 4. Return it.
+        return RecordLayerInvokedRoutine.newBuilder()
+                .setName(functionName)
+                .setDescription(functionDefinition)
+                .withMacroFunctionSupplier(() -> macroFunction)
+                .setNormalizedDescription(getDelegate().getPlanGenerationContext().getCanonicalQueryString())
+                .build();
+    }
+
     @Override
     public ProceduralPlan visitCreateTempFunction(@Nonnull RelationalParser.CreateTempFunctionContext ctx) {
         final var invokedRoutine = getInvokedRoutineMetadata(ctx, ctx.tempSqlInvokedFunction().functionSpecification(),
@@ -378,6 +420,44 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         return visitSqlInvokedFunction(ctx.functionSpecification(), ctx.routineBody(), true);
     }
 
+    @Nonnull
+    @Override
+    public MacroFunction visitMacroFunction(@Nonnull RelationalParser.MacroFunctionContext ctx) {
+        return visitMacroFunction(ctx.functionSpecification(), ctx.macroFunctionBody());
+    }
+
+    @Nonnull
+    private MacroFunction visitMacroFunction(@Nonnull final RelationalParser.FunctionSpecificationContext functionSpecCtx,
+                                                        @Nonnull final RelationalParser.MacroFunctionBodyContext bodyCtx) {
+        // get the function name.
+        final var functionName = visitFullId(functionSpecCtx.schemaQualifiedRoutineName).toString();
+
+        // run implementation-specific validations.
+        final var props = functionSpecCtx.routineCharacteristics();
+        // SQL-invoked routine 11.60, syntax rules, section 6.f.ii
+        boolean isNullReturnOnNull = props.nullCallClause() != null && props.nullCallClause().RETURNS() != null;
+        // ... currently we support only CALLED ON NULL INPUT (which is implicitly set if not defined).
+        Assert.thatUnchecked(!isNullReturnOnNull, "only CALLED ON NULL INPUT clause is supported");
+        boolean isScalar = functionSpecCtx.returnsClause() != null &&
+                functionSpecCtx.returnsClause().returnsType().returnsTableType() == null;
+        Assert.thatUnchecked(isScalar, "Macro functions must be scalar");
+        final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
+
+        // argumentValue
+        // Expressions
+        List<Identifier> paramNameIdList = new ArrayList<>();
+        List<QuantifiedObjectValue> paramValueList = new ArrayList<>();
+        for (RelationalParser.SqlParameterDeclarationContext sqlParameterDeclarationContext: functionSpecCtx.sqlParameterDeclarationList().sqlParameterDeclarations().sqlParameterDeclaration()) {
+            paramNameIdList.add(visitUid(sqlParameterDeclarationContext.sqlParameterName));
+            DataType paramType = visitFunctionColumnType(sqlParameterDeclarationContext.parameterType);
+            paramValueList.add(QuantifiedObjectValue.of(CorrelationIdentifier.uniqueID(), DataTypeUtils.toRecordLayerType(paramType)));
+        }
+
+        final var functionBody = visitFullId((RelationalParser.FullIdContext)bodyCtx.getChild(1));
+        Optional<Value> fieldValue = semanticAnalyzer.lookupNestedField(functionBody, paramNameIdList.get(0), paramValueList.get(0));
+        return new MacroFunction(functionName, paramValueList, fieldValue.get());
+    }
+
     @Override
     public CompiledSqlFunction visitSqlInvokedFunction(@Nonnull RelationalParser.SqlInvokedFunctionContext ctx) {
         return visitSqlInvokedFunction(ctx.functionSpecification(), ctx.routineBody(), false);
@@ -402,6 +482,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         boolean isScalar = functionSpecCtx.returnsClause() != null &&
                 functionSpecCtx.returnsClause().returnsType().returnsTableType() == null;
         Assert.thatUnchecked(!isScalar, "only table functions are supported");
+
         Assert.thatUnchecked(isSqlParameterStyle, ErrorCode.UNSUPPORTED_OPERATION, "only sql-style parameters are supported");
         // todo: rework Java UDFs to go through this code path as well.
         Assert.thatUnchecked(language == InvokedRoutine.Language.SQL, ErrorCode.UNSUPPORTED_OPERATION,

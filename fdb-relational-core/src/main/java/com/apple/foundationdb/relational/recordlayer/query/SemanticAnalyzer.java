@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.InOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NotValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
@@ -500,6 +501,45 @@ public class SemanticAnalyzer {
         final var attributeExpression = FieldValue.ofFieldsAndFuseIfPossible(existingExpression.getUnderlying(), fieldPath);
         final var nestedAttribute = new Expression(Optional.of(requestedIdentifier), type, attributeExpression);
         return Optional.of(nestedAttribute);
+    }
+
+    @Nonnull
+    public Optional<Value> lookupNestedField(@Nonnull Identifier requestedIdentifier,
+                                             @Nonnull Identifier paramId,
+                                             @Nonnull QuantifiedObjectValue existingValue) {
+        Assert.thatUnchecked(requestedIdentifier.prefixedWith(paramId), "Invalid function definition");
+
+        // x -> x
+        if (requestedIdentifier.fullyQualifiedName().size() == paramId.fullyQualifiedName().size()) {
+            // Assert.thatUnchecked(existingValue.getResultType().equals(DataTypeUtils.toRecordLayerType(targetDataType)), ErrorCode.DATATYPE_MISMATCH, "Result data types don't match!");
+            return Optional.of(existingValue);
+        }
+        // find nested field path
+        final var remainingPath = requestedIdentifier.removePrefix(paramId);
+        final ImmutableList.Builder<FieldValue.Accessor> accessors = ImmutableList.builder();
+        DataType existingDataType = DataTypeUtils.toRelationalType(existingValue.getResultType());
+        for (String s : remainingPath) {
+            if (existingDataType.getCode() != DataType.Code.STRUCT) {
+                return Optional.empty();
+            }
+            final var fields = ((DataType.StructType) existingDataType).getFields();
+            var found = false;
+            for (int j = 0; j < fields.size(); j++) {
+                if (fields.get(j).getName().equals(s)) {
+                    accessors.add(new FieldValue.Accessor(fields.get(j).getName(), j));
+                    existingDataType = fields.get(j).getType();
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return Optional.empty();
+            }
+        }
+        final var fieldPath = FieldValue.resolveFieldPath(existingValue.getResultType(), accessors.build());
+        final var fieldValue = FieldValue.ofFieldsAndFuseIfPossible(existingValue, fieldPath);
+        // Assert.thatUnchecked(fieldValue.getResultType().equals(DataTypeUtils.toRecordLayerType(targetDataType)), ErrorCode.DATATYPE_MISMATCH, "Result data types don't match!");
+        return Optional.of(fieldValue);
     }
 
     @Nonnull

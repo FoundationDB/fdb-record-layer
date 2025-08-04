@@ -20,13 +20,16 @@
 
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
+import com.apple.foundationdb.record.query.plan.cascades.MacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Supplier;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Objects;
 
 public class RecordLayerInvokedRoutine implements InvokedRoutine {
@@ -42,8 +45,11 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
 
     private final boolean isTemporary;
 
-    @Nonnull
+    @Nullable
     private final Supplier<CompiledSqlFunction> compilableSqlFunctionSupplier;
+
+    @Nullable
+    private final Supplier<MacroFunction> macroFunctionSupplier;
 
     public RecordLayerInvokedRoutine(@Nonnull final String description,
                                      @Nonnull final String normalizedDescription,
@@ -56,6 +62,19 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         this.isTemporary = isTemporary;
         // TODO this used to be memoized
         this.compilableSqlFunctionSupplier = compilableSqlFunctionSupplier;
+        this.macroFunctionSupplier = null;
+    }
+
+    public RecordLayerInvokedRoutine(@Nonnull final String description,
+                                     @Nonnull final String normalizedDescription,
+                                     @Nonnull final String name,
+                                     @Nonnull final Supplier<MacroFunction> macroFunctionSupplier) {
+        this.description = description;
+        this.normalizedDescription = normalizedDescription;
+        this.name = name;
+        this.macroFunctionSupplier = macroFunctionSupplier;
+        this.isTemporary = false;
+        this.compilableSqlFunctionSupplier = null;
     }
 
     @Nonnull
@@ -70,9 +89,13 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         return normalizedDescription;
     }
 
-    @Nonnull
+    @Nullable
     public Supplier<CompiledSqlFunction> getCompilableSqlFunctionSupplier() {
         return compilableSqlFunctionSupplier;
+    }
+
+    public Supplier<? extends UserDefinedFunction> getUserDefinedFunctionSupplier() {
+        return compilableSqlFunctionSupplier == null ? macroFunctionSupplier : compilableSqlFunctionSupplier;
     }
 
     @Nonnull
@@ -87,8 +110,12 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     }
 
     @Nonnull
-    public RawSqlFunction asRawFunction() {
-        return new RawSqlFunction(getName(), getDescription());
+    public UserDefinedFunction asSerializableFunction() {
+        if (compilableSqlFunctionSupplier != null) {
+            return new RawSqlFunction(getName(), getDescription());
+        } else {
+            return macroFunctionSupplier.get();
+        }
     }
 
     @Override
@@ -133,6 +160,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         private String normalizedDescription;
         private String name;
         private Supplier<CompiledSqlFunction> compilableSqlFunctionSupplier;
+        private Supplier<MacroFunction> macroFunctionSupplier;
         private boolean isTemporary;
 
         private Builder() {
@@ -163,6 +191,12 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         }
 
         @Nonnull
+        public Builder withMacroFunctionSupplier(@Nonnull final Supplier<MacroFunction> macroFunctionSupplier) {
+            this.macroFunctionSupplier = macroFunctionSupplier;
+            return this;
+        }
+
+        @Nonnull
         public Builder setTemporary(boolean isTemporary) {
             this.isTemporary = isTemporary;
             return this;
@@ -171,10 +205,17 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         @Nonnull
         public RecordLayerInvokedRoutine build() {
             Assert.notNullUnchecked(name);
-            Assert.notNullUnchecked(description);
-            Assert.notNullUnchecked(compilableSqlFunctionSupplier);
-            return new RecordLayerInvokedRoutine(description, normalizedDescription, name, isTemporary,
-                    compilableSqlFunctionSupplier);
+            // Assert.notNullUnchecked(description);
+            // only 1 function supplier != null
+            Assert.thatUnchecked(compilableSqlFunctionSupplier == null || macroFunctionSupplier == null);
+            Assert.thatUnchecked(compilableSqlFunctionSupplier != null || macroFunctionSupplier != null);
+            if (compilableSqlFunctionSupplier != null) {
+                return new RecordLayerInvokedRoutine(description, normalizedDescription, name, isTemporary,
+                        compilableSqlFunctionSupplier);
+            } else {
+                return new RecordLayerInvokedRoutine(description, normalizedDescription, name,
+                        macroFunctionSupplier);
+            }
         }
     }
 }

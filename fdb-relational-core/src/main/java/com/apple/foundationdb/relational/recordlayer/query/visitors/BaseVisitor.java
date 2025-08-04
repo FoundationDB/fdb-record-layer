@@ -21,6 +21,8 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.MacroFunction;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
@@ -435,6 +437,11 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     @Override
     public CompiledSqlFunction visitSqlInvokedFunction(RelationalParser.SqlInvokedFunctionContext ctx) {
         return ddlVisitor.visitSqlInvokedFunction(ctx);
+    }
+
+    @Override
+    public MacroFunction visitMacroFunction(RelationalParser.MacroFunctionContext ctx) {
+        return ddlVisitor.visitMacroFunction(ctx);
     }
 
     @Override
@@ -1032,6 +1039,12 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     @Override
+    public Identifier visitFullIdRoutineBody(@Nonnull RelationalParser.FullIdRoutineBodyContext ctx) {
+        return identifierVisitor.visitFullId(ctx.fullId());
+    }
+
+    @Nonnull
+    @Override
     public Identifier visitTableName(@Nonnull RelationalParser.TableNameContext ctx) {
         return identifierVisitor.visitTableName(ctx);
     }
@@ -1376,6 +1389,19 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     @Override
     public Expression visitScalarFunctionCall(@Nonnull RelationalParser.ScalarFunctionCallContext ctx) {
         return expressionVisitor.visitScalarFunctionCall(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitMacroFunctionCall(@Nonnull RelationalParser.MacroFunctionCallContext ctx) {
+        return expressionVisitor.visitMacroFunctionCall(ctx);
+    }
+
+
+    @Nonnull
+    @Override
+    public Object visitMacroFunctionName(@Nonnull RelationalParser.MacroFunctionNameContext ctx) {
+        return visitChildren(ctx);
     }
 
     @Nonnull

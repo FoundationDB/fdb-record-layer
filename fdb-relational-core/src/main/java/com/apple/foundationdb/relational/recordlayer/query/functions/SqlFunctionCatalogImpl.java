@@ -86,13 +86,13 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
     @Nonnull
     private Optional<? extends CatalogedFunction> lookupUserDefinedFunction(@Nonnull final String name,
                                                                             @Nonnull final Expressions expressions) {
-        return userDefinedFunctionCatalog.lookup(name, expressions);
+        return userDefinedFunctionCatalog.lookup(name.toUpperCase(Locale.ROOT), expressions);
     }
 
     @Override
     public boolean containsFunction(@Nonnull final String name) {
         return builtInSynonyms.containsKey(name.toLowerCase(Locale.ROOT))
-                || userDefinedFunctionCatalog.containsFunction(name);
+                || userDefinedFunctionCatalog.containsFunction(name.toUpperCase(Locale.ROOT));
     }
 
     @Override
@@ -157,7 +157,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
         metadata.getInvokedRoutines().forEach(func ->
                 functionCatalog.registerUserDefinedFunction(
                         Assert.notNullUnchecked(func.getName()),
-                        func.getCompilableSqlFunctionSupplier()));
+                        func.getUserDefinedFunctionSupplier()));
         return functionCatalog;
     }
 }
