@@ -87,7 +87,7 @@ public final class YamlExecutionContext {
     private final ContextOptions additionalOptions;
     private final Map<String, String> transactionSetups = new HashMap<>();
     @Nonnull
-    private final Options connectionOptions;
+    private Options connectionOptions;
 
     public static class YamlExecutionError extends RuntimeException {
 
@@ -98,14 +98,14 @@ public final class YamlExecutionContext {
         }
     }
 
-    private YamlExecutionContext(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory,
-                                 @Nonnull final ContextOptions additionalOptions, @Nonnull final Options connectionOptions) throws RelationalException {
+    YamlExecutionContext(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory,
+                         @Nonnull final ContextOptions additionalOptions) throws RelationalException {
         this.connectionFactory = factory;
         this.resourcePath = resourcePath;
         this.editedFileStream = additionalOptions.getOrDefault(OPTION_CORRECT_EXPLAIN, false)
                                 ? loadYamlResource(resourcePath) : null;
         this.additionalOptions = additionalOptions;
-        this.connectionOptions = connectionOptions;
+        this.connectionOptions = Options.none();
         this.expectedMetricsMap = loadMetricsResource(resourcePath);
         this.actualMetricsMap = new TreeMap<>(Comparator.comparing(QueryAndLocation::getLineNumber)
                 .thenComparing(QueryAndLocation::getBlockName)
@@ -125,6 +125,15 @@ public final class YamlExecutionContext {
     @Nonnull
     public Options getConnectionOptions() {
         return connectionOptions;
+    }
+
+    public void setConnectionOptions(@Nonnull final Options connectionOptions) {
+        this.connectionOptions = connectionOptions;
+    }
+
+    @Nonnull
+    public String getResourcePath() {
+        return resourcePath;
     }
 
     @Nonnull
@@ -502,13 +511,6 @@ public final class YamlExecutionContext {
         return tokens[0];
     }
 
-    @Nonnull
-    public static Builder newBuilder(@Nonnull final String resourcePath,
-                                     @Nonnull final YamlConnectionFactory connectionFactory,
-                                     @Nonnull final ContextOptions additionalOptions) {
-        return new Builder(resourcePath, connectionFactory, additionalOptions);
-    }
-
     private static class QueryAndLocation {
         @Nonnull
         private final String blockName;
@@ -611,77 +613,6 @@ public final class YamlExecutionContext {
         @Override
         public String toString() {
             return name;
-        }
-    }
-
-    public static class Builder {
-        @Nonnull
-        private String resourcePath;
-
-        @Nonnull
-        private YamlConnectionFactory connectionFactory;
-
-        @Nonnull
-        private ContextOptions additionalOptions;
-
-        @Nonnull
-        private Options connectionOptions;
-
-        private Builder(@Nonnull final String resourcePath,
-                        @Nonnull final YamlConnectionFactory connectionFactory,
-                        @Nonnull final ContextOptions additionalOptions) {
-            this.resourcePath = resourcePath;
-            this.connectionFactory = connectionFactory;
-            this.additionalOptions = additionalOptions;
-            connectionOptions = Options.none();
-        }
-
-        @Nonnull
-        public Builder setResourcePath(@Nonnull final String resourcePath) {
-            this.resourcePath = resourcePath;
-            return this;
-        }
-
-        @Nonnull
-        public String getResourcePath() {
-            return resourcePath;
-        }
-
-        @Nonnull
-        public Builder setConnectionFactory(@Nonnull final YamlConnectionFactory connectionFactory) {
-            this.connectionFactory = connectionFactory;
-            return this;
-        }
-
-        @Nonnull
-        public Builder setAdditionalOptions(@Nonnull final ContextOptions contextOptions) {
-            this.additionalOptions = contextOptions;
-            return this;
-        }
-
-        @Nonnull
-        public YamlConnectionFactory getConnectionFactory() {
-            return connectionFactory;
-        }
-
-        @Nonnull
-        public ContextOptions getAdditionalOptions() {
-            return additionalOptions;
-        }
-
-        @Nonnull
-        public Builder setConnectionOptions(@Nonnull final Options connectionOptions) {
-            this.connectionOptions = connectionOptions;
-            return this;
-        }
-
-        @Nonnull
-        public YamlExecutionContext build() throws RelationalException {
-            Assert.notNull(resourcePath);
-            Assert.notNull(connectionFactory);
-            Assert.notNull(additionalOptions);
-            Assert.notNull(connectionOptions);
-            return new YamlExecutionContext(resourcePath, connectionFactory, additionalOptions, connectionOptions);
         }
     }
 }

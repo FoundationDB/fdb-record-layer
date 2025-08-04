@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 
 import javax.annotation.Nonnull;
-import java.util.Optional;
 
 /**
  * Block is a single region in the YAMSQL file that can either be a
@@ -42,27 +41,6 @@ import java.util.Optional;
  * </ul>
  */
 public interface Block {
-
-    @Nonnull
-    static Optional<PreambleBlock> parsePreambleBlock(@Nonnull Object region, @Nonnull YamlExecutionContext.Builder executionContextBuilder) {
-        final var blockObject = Matchers.map(region, "block");
-        Assert.thatUnchecked(blockObject.size() == 1,
-                "Illegal Format: A preamble block is expected to be a map of size 1 keys: " + blockObject.keySet());
-        final var entry = Matchers.firstEntry(blockObject, "block key-value");
-        final var linedObject = CustomYamlConstructor.LinedObject.cast(entry.getKey(), () -> "Invalid block key-value pair: " + entry);
-        final var lineNumber = linedObject.getLineNumber();
-        final String blockKey = Matchers.notNull(Matchers.string(linedObject.getObject(), "block key"), "block key");
-        try {
-            if (blockKey.equals(PreambleBlock.OPTIONS)) {
-                return Optional.of(PreambleBlock.parse(lineNumber, entry.getValue(), executionContextBuilder));
-            }
-        } catch (Exception e) {
-            throw YamlExecutionContext.wrapContext(executionContextBuilder.getResourcePath(), e,
-                    () -> "Error parsing block at line " + lineNumber, blockKey, lineNumber);
-        }
-        return Optional.empty();
-    }
-
 
     /**
      * Looks at the block to determine if its one of the valid blocks. If it is a valid one, parses it to that. This
@@ -91,6 +69,9 @@ public interface Block {
                     return TestBlock.parse(blockNumber, lineNumber, entry.getValue(), executionContext);
                 case SetupBlock.SchemaTemplateBlock.SCHEMA_TEMPLATE_BLOCK:
                     return SetupBlock.SchemaTemplateBlock.parse(lineNumber, entry.getValue(), executionContext);
+                case PreambleBlock.OPTIONS:
+                    Assert.that(blockNumber == 0, "File-wide options must be the first block, but found one at line " + lineNumber);
+                    return PreambleBlock.parse(lineNumber, entry.getValue(), executionContext);
                 default:
                     throw new RuntimeException("Cannot recognize the type of block");
             }

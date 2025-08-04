@@ -24,10 +24,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.relational.yamltests.block.Block;
-import com.apple.foundationdb.relational.yamltests.block.PreambleBlock;
 import com.apple.foundationdb.relational.yamltests.block.TestBlock;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Streams;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
@@ -62,46 +59,33 @@ public final class YamlRunner {
     private final String resourcePath;
 
     @Nonnull
-    private final YamlExecutionContext.Builder executionContextBuilder;
+    private final YamlExecutionContext executionContext;
 
     public YamlRunner(@Nonnull String resourcePath, @Nonnull YamlConnectionFactory factory,
-                      @Nonnull final YamlExecutionContext.ContextOptions additionalOptions) {
+                      @Nonnull final YamlExecutionContext.ContextOptions additionalOptions) throws RelationalException {
         this.resourcePath = resourcePath;
-        this.executionContextBuilder = YamlExecutionContext.newBuilder(resourcePath, factory, additionalOptions);
+        this.executionContext = new YamlExecutionContext(resourcePath, factory, additionalOptions);
     }
 
     public void run() throws Exception {
         try {
-            final var loaderOptions = new LoaderOptions();
+            LoaderOptions loaderOptions = new LoaderOptions();
             loaderOptions.setAllowDuplicateKeys(true);
-            final var dumperOptions = new DumperOptions();
+            DumperOptions dumperOptions = new DumperOptions();
             final var yaml = new Yaml(new CustomYamlConstructor(loaderOptions), new Representer(dumperOptions),
                     new DumperOptions(), loaderOptions, new Resolver());
 
             final var testBlocks = new ArrayList<TestBlock>();
-            YamlExecutionContext executionContext;
+            int blockNumber = 0;
             try (var inputStream = getInputStream(resourcePath)) {
-                final var regions = Streams.stream(yaml.loadAll(inputStream)).collect(ImmutableList.toImmutableList());
-
-                // Step 1/3: process preamble block (if any)
-                Optional<PreambleBlock> preambleBlockMaybe = Optional.empty();
-                if (!regions.isEmpty()) {
-                    preambleBlockMaybe = Block.parsePreambleBlock(regions.get(0), executionContextBuilder);
-                    preambleBlockMaybe.ifPresent(preambleBlock ->
-                            executionContextBuilder.setConnectionOptions(preambleBlock.getBlockOptions().getOptions()));
-                }
-
-                // Step 2/3: build the YAML execution context, potentially with file-specific options set in the preamble block
-                executionContext = executionContextBuilder.build();
-
-                // Step 3/3: carry on with the other blocks
-                for (int i = preambleBlockMaybe.isPresent() ? 1 : 0; i < regions.size(); i++) {
-                    final var block = Block.parse(regions.get(i), i, executionContext);
-                    logger.debug("⚪️ Executing block starting at line {} in {}", block.getLineNumber(), resourcePath);
+                for (var doc : yaml.loadAll(inputStream)) {
+                    final var block = Block.parse(doc, blockNumber, executionContext);
+                    logger.debug("⚪️ Executing block at line {} in {}", block.getLineNumber(), resourcePath);
                     block.execute();
                     if (block instanceof TestBlock) {
                         testBlocks.add((TestBlock)block);
                     }
+                    blockNumber++;
                 }
             }
             for (var block : executionContext.getFinalizeBlocks()) {
@@ -109,8 +93,8 @@ public final class YamlRunner {
                 block.execute();
             }
             evaluateTestBlockResults(testBlocks);
-            replaceTestFileIfRequired(executionContext);
-            replaceMetricsFileIfRequired(executionContext);
+            replaceTestFileIfRequired();
+            replaceMetricsFileIfRequired();
         } catch (RelationalException | IOException e) {
             logger.error("‼️ running test file '{}' was not successful", resourcePath, e);
             throw e;
@@ -156,7 +140,7 @@ public final class YamlRunner {
         return inputStream;
     }
 
-    private void replaceTestFileIfRequired(final YamlExecutionContext executionContext) {
+    private void replaceTestFileIfRequired() {
         if (executionContext.getEditedFileStream() == null || !executionContext.isDirty()) {
             return;
         }
@@ -173,7 +157,7 @@ public final class YamlRunner {
         }
     }
 
-    private void replaceMetricsFileIfRequired(@Nonnull final YamlExecutionContext executionContext) throws RelationalException {
+    private void replaceMetricsFileIfRequired() throws RelationalException {
         if (!executionContext.isDirtyMetrics()) {
             return;
         }
