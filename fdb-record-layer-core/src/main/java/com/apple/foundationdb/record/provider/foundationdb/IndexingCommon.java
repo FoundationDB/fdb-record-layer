@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
-import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.tuple.Tuple;
 
@@ -50,10 +49,10 @@ import java.util.stream.Collectors;
 
 @API(API.Status.INTERNAL)
 public class IndexingCommon {
+    // TODO? get uuid from caller to allow lock takeover
     private final UUID uuid = UUID.randomUUID();
 
     @Nonnull private final FDBDatabaseRunner runner;
-    @Nullable private SynchronizedSessionRunner synchronizedSessionRunner = null;
 
     @Nonnull private final FDBRecordStore.Builder recordStoreBuilder;
     @Nonnull private final AtomicLong totalRecordsScanned;
@@ -176,11 +175,6 @@ public class IndexingCommon {
 
     @Nonnull
     public FDBDatabaseRunner getRunner() {
-        return synchronizedSessionRunner == null ? runner : synchronizedSessionRunner;
-    }
-
-    @Nonnull
-    public FDBDatabaseRunner getNonSynchronizedRunner() {
         return runner;
     }
 
@@ -258,15 +252,6 @@ public class IndexingCommon {
         return recordStoreBuilder;
     }
 
-    @Nullable
-    public SynchronizedSessionRunner getSynchronizedSessionRunner() {
-        return synchronizedSessionRunner;
-    }
-
-    public void setSynchronizedSessionRunner(@Nullable final SynchronizedSessionRunner synchronizedSessionRunner) {
-        this.synchronizedSessionRunner = synchronizedSessionRunner;
-    }
-
     @Nonnull
     public AtomicLong getTotalRecordsScanned() {
         return totalRecordsScanned;
@@ -287,8 +272,5 @@ public class IndexingCommon {
 
     public void close() {
         runner.close();
-        if (synchronizedSessionRunner != null) {
-            synchronizedSessionRunner.close();
-        }
     }
 }
