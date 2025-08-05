@@ -160,19 +160,35 @@ public abstract class IndexingBase {
             lastProgressSnapshot = StoreTimerSnapshot.from(timer);
         }
         message.addKeyAndValue(LogMessageKeys.SESSION_ID, common.getUuid());
-        return handleStateAndDoBuildIndexAsync(markReadable, message).whenComplete((vignore, ex) -> {
-            message.addKeysAndValues(indexingLogMessageKeyValues()) // add these here to pick up state accumulated during build
-                    .addKeysAndValues(common.indexLogMessageKeyValues())
-                    .addKeyAndValue(LogMessageKeys.TOTAL_MICROS, TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - startNanos));
-            if (LOGGER.isWarnEnabled() && (ex != null)) {
-                message.addKeyAndValue(LogMessageKeys.RESULT, "failure");
-                message.addKeysAndValues(throttle.logMessageKeyValues()); // this "last attempt" snapshot information can help debugging
-                LOGGER.warn(message.toString(), ex);
-            } else if (LOGGER.isInfoEnabled()) {
-                message.addKeyAndValue(LogMessageKeys.RESULT, "success");
-                LOGGER.info(message.toString());
-            }
-        });
+        AtomicReference<Throwable> indexingException = new AtomicReference<>(null);
+        return handleStateAndDoBuildIndexAsync(markReadable, message)
+                .handle((ret, ex) -> {
+                    if (ex != null) {
+                        indexingException.set(ex);
+                    }
+                    message.addKeysAndValues(indexingLogMessageKeyValues()) // add these here to pick up state accumulated during build
+                            .addKeysAndValues(common.indexLogMessageKeyValues())
+                            .addKeyAndValue(LogMessageKeys.TOTAL_MICROS, TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - startNanos));
+                    if (LOGGER.isWarnEnabled() && (ex != null)) {
+                        message.addKeyAndValue(LogMessageKeys.RESULT, "failure");
+                        message.addKeysAndValues(throttle.logMessageKeyValues()); // this "last attempt" snapshot information can help debugging
+                        LOGGER.warn(message.toString(), ex);
+                    } else if (LOGGER.isInfoEnabled()) {
+                        message.addKeyAndValue(LogMessageKeys.RESULT, "success");
+                        LOGGER.info(message.toString());
+                    }
+                    return ret;
+                })
+                .thenCompose(ignore -> clearHeartbeats())
+                .handle((ignore, exIgnore) -> {
+                    Throwable ex = indexingException.get();
+                    if (ex instanceof RuntimeException) {
+                        throw (RuntimeException) ex;
+                    } else if (ex != null) {
+                        throw new RuntimeException(ex);
+                    }
+                    return null;
+                });
     }
 
     abstract List<Object> indexingLogMessageKeyValues();
@@ -266,7 +282,7 @@ public abstract class IndexingBase {
     @Nonnull
     public CompletableFuture<Boolean> markReadableIfBuilt() {
         AtomicBoolean allReadable = new AtomicBoolean(true);
-        return common.getRunner().runAsync(context -> openRecordStore(context).thenCompose(store ->
+        return getRunner().runAsync(context -> openRecordStore(context).thenCompose(store ->
             forEachTargetIndex(index -> {
                 if (store.isIndexReadable(index)) {
                     return AsyncUtil.DONE;
@@ -313,12 +329,9 @@ public abstract class IndexingBase {
     private CompletableFuture<Boolean> markIndexReadableSingleTarget(Index index, AtomicBoolean anythingChanged,
                                                                      AtomicReference<RuntimeException> runtimeExceptionAtomicReference) {
         // An extension function to reduce markIndexReadable's complexity
-        return common.getRunner().runAsync(context ->
+        return getRunner().runAsync(context ->
                 common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync()
                         .thenCompose(store -> {
-                            if (heartbeat != null) {
-                                heartbeat.clearHeartbeat(store, index);
-                            }
                             return policy.shouldAllowUniquePendingState(store) ?
                                    store.markIndexReadableOrUniquePending(index) :
                                    store.markIndexReadable(index);
@@ -352,12 +365,13 @@ public abstract class IndexingBase {
 
     @Nonnull
     private CompletableFuture<Void> setIndexingTypeOrThrow(FDBRecordStore store, boolean continuedBuild, Index index, IndexBuildProto.IndexBuildIndexingStamp newStamp) {
+        final CompletableFuture<Void> checkUpdateHeartbeat = updateHeartbeat(true, store, index);
         if (forceStampOverwrite && !continuedBuild) {
             // Fresh session + overwrite = no questions asked
             store.saveIndexingTypeStamp(index, newStamp);
-            return AsyncUtil.DONE;
+            return checkUpdateHeartbeat;
         }
-        return store.loadIndexingTypeStampAsync(index)
+        return checkUpdateHeartbeat.thenCompose(ignore -> store.loadIndexingTypeStampAsync(index)
                 .thenCompose(savedStamp -> {
                     if (savedStamp == null) {
                         if (continuedBuild && newStamp.getMethod() !=
@@ -399,7 +413,7 @@ public abstract class IndexingBase {
                     }
                     // fall down to exception
                     throw newPartlyBuiltException(continuedBuild, savedStamp, newStamp, index);
-                });
+                }));
     }
 
     private boolean shouldAllowTypeConversionContinue(IndexBuildProto.IndexBuildIndexingStamp newStamp, IndexBuildProto.IndexBuildIndexingStamp savedStamp) {
@@ -521,7 +535,7 @@ public abstract class IndexingBase {
 
         validateTimeLimit(toWait);
 
-        CompletableFuture<Boolean> delay = MoreAsyncUtil.delayedFuture(toWait, TimeUnit.MILLISECONDS, common.getRunner().getScheduledExecutor()).thenApply(vignore3 -> true);
+        CompletableFuture<Boolean> delay = MoreAsyncUtil.delayedFuture(toWait, TimeUnit.MILLISECONDS, getRunner().getScheduledExecutor()).thenApply(vignore3 -> true);
         if (getRunner().getTimer() != null) {
             delay = getRunner().getTimer().instrument(FDBStoreTimer.Events.INDEXER_DELAY, delay, getRunner().getExecutor());
         }
@@ -834,6 +848,25 @@ public abstract class IndexingBase {
         }
         return AsyncUtil.DONE;
     }
+
+    private CompletableFuture<Void> clearHeartbeats() {
+        // Here: if the heartbeat was *not* cleared while marking the index readable, it would be cleared in
+        // these dedicated transaction. Heartbeat clearing is not a blocker but a "best effort" operation.
+        if (heartbeat == null) {
+            return AsyncUtil.DONE;
+        }
+        return forEachTargetIndex(this::clearHeartbeatSingleTarget);
+    }
+
+    private CompletableFuture<Void> clearHeartbeatSingleTarget(Index index) {
+        return getRunner().runAsync(context ->
+                common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync()
+                        .thenApply(store -> {
+                            heartbeat.clearHeartbeat(store, index);
+                            return null;
+                        }));
+    }
+
 
     private boolean shouldValidate() {
         final long minimalInterval = policy.getCheckIndexingMethodFrequencyMilliseconds();
