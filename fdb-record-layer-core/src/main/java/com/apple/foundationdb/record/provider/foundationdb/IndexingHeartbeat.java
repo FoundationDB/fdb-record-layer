@@ -84,14 +84,17 @@ public class IndexingHeartbeat {
     }
 
     private void validateNonCompetingHeartbeat(KeyValue kv) {
-        final Tuple keyTuple = Tuple.from(kv.getKey());
+        final Tuple keyTuple = Tuple.fromBytes(kv.getKey());
+        if (keyTuple.size() < 2) { // expecting 8
+            return;
+        }
         final UUID otherSessionId = keyTuple.getUUID(keyTuple.size() - 1);
         final long now = nowMilliseconds();
         if (!otherSessionId.equals(this.sessionId)) {
             try {
-                final IndexBuildProto.IndexingHeartbeat otherHearbeat = IndexBuildProto.IndexingHeartbeat.parseFrom(kv.getValue());
-                final long age = otherHearbeat.getHeartbeatTimeMilliseconds() - now;
-                if (age < TimeUnit.SECONDS.toMillis(10)) {
+                final IndexBuildProto.IndexingHeartbeat otherHeartbeat = IndexBuildProto.IndexingHeartbeat.parseFrom(kv.getValue());
+                final long age = now - otherHeartbeat.getHeartbeatTimeMilliseconds();
+                if (age > 0 && age < TimeUnit.SECONDS.toMillis(10)) {
                     throw new SynchronizedSessionLockedException("Failed to initialize the session because of an existing session in progress");
                     // TODO: log details
                 }
