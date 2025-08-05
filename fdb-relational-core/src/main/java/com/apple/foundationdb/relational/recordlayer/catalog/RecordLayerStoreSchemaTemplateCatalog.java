@@ -173,7 +173,7 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
         final var tupleRange = new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE);
         try (var cursor = recordStore.scanRecords(tupleRange, ContinuationImpl.BEGIN.getExecutionState(), ScanProperties.REVERSE_SCAN)) {
             final var cursorResult = cursor.getNext();
-            final var schemaExists = cursorResult.get() != null && !cursorResult.getContinuation().isEnd();
+            final var schemaExists = !cursorResult.getContinuation().isEnd() && cursorResult.get() != null;
             Assert.thatUnchecked(schemaExists, ErrorCode.UNKNOWN_SCHEMA_TEMPLATE,
                     "SchemaTemplate '" + templateName + "' is not in catalog");
             return toSchemaTemplate(Assert.notNullUnchecked(cursorResult.get()).getRecord());
