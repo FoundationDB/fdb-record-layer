@@ -90,7 +90,7 @@ utilityStatement
 
 templateClause
     :
-        CREATE ( structDefinition | tableDefinition | enumDefinition | indexDefinition | sqlInvokedFunction | macroFunction)
+        CREATE ( structDefinition | tableDefinition | enumDefinition | indexDefinition | sqlInvokedFunction)
     ;
 
 createStatement
@@ -177,20 +177,12 @@ dropTempFunction
     : DROP TEMPORARY FUNCTION (IF EXISTS)? schemaQualifiedRoutineName=fullId
     ;
 
-createFunction
-    : CREATE sqlInvokedFunction
-    ;
-
 tempSqlInvokedFunction
     : functionSpecification ON COMMIT DROP FUNCTION routineBody
     ;
 
 sqlInvokedFunction
-    : functionSpecification routineBody
-    ;
-
-macroFunction
-    : functionSpecification macroFunctionBody
+    : functionSpecification (routineBody | macroFunctionBody)
     ;
 
 functionSpecification

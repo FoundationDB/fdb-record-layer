@@ -425,23 +425,13 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     }
 
     @Override
-    public CompiledSqlFunction visitCreateFunction(final RelationalParser.CreateFunctionContext ctx) {
-        return ddlVisitor.visitCreateFunction(ctx);
-    }
-
-    @Override
     public CompiledSqlFunction visitTempSqlInvokedFunction(final RelationalParser.TempSqlInvokedFunctionContext ctx) {
         return ddlVisitor.visitTempSqlInvokedFunction(ctx);
     }
 
     @Override
-    public CompiledSqlFunction visitSqlInvokedFunction(RelationalParser.SqlInvokedFunctionContext ctx) {
+    public UserDefinedFunction visitSqlInvokedFunction(RelationalParser.SqlInvokedFunctionContext ctx) {
         return ddlVisitor.visitSqlInvokedFunction(ctx);
-    }
-
-    @Override
-    public MacroFunction visitMacroFunction(RelationalParser.MacroFunctionContext ctx) {
-        return ddlVisitor.visitMacroFunction(ctx);
     }
 
     @Override

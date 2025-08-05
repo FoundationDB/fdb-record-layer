@@ -242,7 +242,6 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final ImmutableSet.Builder<RelationalParser.TableDefinitionContext> tableClauses = ImmutableSet.builder();
         final ImmutableSet.Builder<RelationalParser.IndexDefinitionContext> indexClauses = ImmutableSet.builder();
         final ImmutableSet.Builder<RelationalParser.SqlInvokedFunctionContext> sqlInvokedFunctionClauses = ImmutableSet.builder();
-        final ImmutableSet.Builder<RelationalParser.MacroFunctionContext> macroFunctionClauses = ImmutableSet.builder();
         for (final var templateClause : ctx.templateClause()) {
             if (templateClause.enumDefinition() != null) {
                 metadataBuilder.addAuxiliaryType(visitEnumDefinition(templateClause.enumDefinition()));
@@ -252,8 +251,6 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 tableClauses.add(templateClause.tableDefinition());
             } else if (templateClause.sqlInvokedFunction() != null) {
                 sqlInvokedFunctionClauses.add(templateClause.sqlInvokedFunction());
-            } else if (templateClause.macroFunction() != null) {
-                macroFunctionClauses.add(templateClause.macroFunction());
             } else {
                 Assert.thatUnchecked(templateClause.indexDefinition() != null);
                 indexClauses.add(templateClause.indexDefinition());
@@ -265,14 +262,13 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         // TODO: this is currently relying on the lexical order of the function to resolve function dependencies which
         //       is limited.
         sqlInvokedFunctionClauses.build().forEach(functionClause -> {
-            final var invokedRoutine = getInvokedRoutineMetadata(functionClause, functionClause.functionSpecification(),
-                    functionClause.routineBody(), metadataBuilder.build());
-            metadataBuilder.addInvokedRoutine(invokedRoutine);
-        });
-        macroFunctionClauses.build().forEach(functionClause -> {
-            final var invokedRoutine = getMacroFunctionMetadata(functionClause, functionClause.functionSpecification(),
-                    functionClause.macroFunctionBody(), metadataBuilder.build());
-            metadataBuilder.addInvokedRoutine(invokedRoutine);
+            if (functionClause.routineBody() != null) {
+                metadataBuilder.addInvokedRoutine(getInvokedRoutineMetadata(functionClause, functionClause.functionSpecification(),
+                        functionClause.routineBody(), metadataBuilder.build()));
+            } else {
+                metadataBuilder.addInvokedRoutine(getMacroFunctionMetadata(functionClause, functionClause.functionSpecification(),
+                        functionClause.macroFunctionBody(), metadataBuilder.build()));
+            }
         });
         for (final var index : indexes) {
             final var table = metadataBuilder.extractTable(index.getTableName());
@@ -411,19 +407,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Override
-    public CompiledSqlFunction visitCreateFunction(@Nonnull RelationalParser.CreateFunctionContext ctx) {
-        return visitSqlInvokedFunction(ctx.sqlInvokedFunction());
-    }
-
-    @Override
     public CompiledSqlFunction visitTempSqlInvokedFunction(@Nonnull RelationalParser.TempSqlInvokedFunctionContext ctx) {
         return visitSqlInvokedFunction(ctx.functionSpecification(), ctx.routineBody(), true);
-    }
-
-    @Nonnull
-    @Override
-    public MacroFunction visitMacroFunction(@Nonnull RelationalParser.MacroFunctionContext ctx) {
-        return visitMacroFunction(ctx.functionSpecification(), ctx.macroFunctionBody());
     }
 
     @Nonnull
@@ -459,8 +444,12 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Override
-    public CompiledSqlFunction visitSqlInvokedFunction(@Nonnull RelationalParser.SqlInvokedFunctionContext ctx) {
-        return visitSqlInvokedFunction(ctx.functionSpecification(), ctx.routineBody(), false);
+    public UserDefinedFunction visitSqlInvokedFunction(@Nonnull RelationalParser.SqlInvokedFunctionContext ctx) {
+        if (ctx.routineBody() != null) {
+            return visitSqlInvokedFunction(ctx.functionSpecification(), ctx.routineBody(), false);
+        } else {
+            return visitMacroFunction(ctx.functionSpecification(), ctx.macroFunctionBody());
+        }
     }
 
     private CompiledSqlFunction visitSqlInvokedFunction(@Nonnull final RelationalParser.FunctionSpecificationContext functionSpecCtx,

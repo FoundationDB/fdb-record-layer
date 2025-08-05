@@ -261,17 +261,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     }
 
     @Override
-    public CompiledSqlFunction visitCreateFunction(final RelationalParser.CreateFunctionContext ctx) {
-        return getDelegate().visitCreateFunction(ctx);
-    }
-
-    @Override
     public CompiledSqlFunction visitTempSqlInvokedFunction(final RelationalParser.TempSqlInvokedFunctionContext ctx) {
         return getDelegate().visitTempSqlInvokedFunction(ctx);
     }
 
     @Override
-    public CompiledSqlFunction visitSqlInvokedFunction(@Nonnull RelationalParser.SqlInvokedFunctionContext ctx) {
+    public UserDefinedFunction visitSqlInvokedFunction(@Nonnull RelationalParser.SqlInvokedFunctionContext ctx) {
         return getDelegate().visitSqlInvokedFunction(ctx);
     }
 
@@ -1209,12 +1204,6 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public Object visitIfNotExists(@Nonnull RelationalParser.IfNotExistsContext ctx) {
         return getDelegate().visitIfNotExists(ctx);
-    }
-
-    @Nonnull
-    @Override
-    public MacroFunction visitMacroFunction(@Nonnull RelationalParser.MacroFunctionContext ctx) {
-        return getDelegate().visitMacroFunction(ctx);
     }
 
     @Nonnull
