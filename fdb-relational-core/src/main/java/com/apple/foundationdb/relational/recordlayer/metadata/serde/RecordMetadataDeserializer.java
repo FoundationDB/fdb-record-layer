@@ -168,7 +168,7 @@ public class RecordMetadataDeserializer {
                 .setName(name)
                 .setDescription(body)
                 .setTemporary(false)
-                .withCompilableRoutine(getSqlFunctionCompiler(name, metadata, body));
+                .withUserDefinedFunctionSupplier(getSqlFunctionCompiler(name, metadata, body), true);
     }
 
     @Nonnull
@@ -176,7 +176,7 @@ public class RecordMetadataDeserializer {
                                                                             @Nonnull final MacroFunction macroFunction) {
         return RecordLayerInvokedRoutine.newBuilder()
                 .setName(name)
-                .withUserDefinedFunctionSupplier(() -> macroFunction);
+                .withUserDefinedFunctionSupplier(() -> macroFunction, false);
     }
 
     @Nonnull

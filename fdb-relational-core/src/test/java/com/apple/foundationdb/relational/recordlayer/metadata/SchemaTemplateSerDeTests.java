@@ -470,7 +470,7 @@ public class SchemaTemplateSerDeTests {
                 .setName("SqlFunction1")
                 .setDescription("CREATE FUNCTION SqlFunction1(IN Q BIGINT) AS SELECT * FROM T1 WHERE col1 < Q")
                 .setTemporary(true)
-                .withCompilableRoutine(CompiledFunctionStub::new)
+                .withUserDefinedFunctionSupplier(CompiledFunctionStub::new, true)
                 .build());
 
         // build the schema template
@@ -513,7 +513,7 @@ public class SchemaTemplateSerDeTests {
             schemaTemplateBuilder.addInvokedRoutine(RecordLayerInvokedRoutine.newBuilder()
                     .setName(functionName)
                     .setDescription(functionDescription)
-                    .withCompilableRoutine(CompiledFunctionStub::new)
+                    .withUserDefinedFunctionSupplier(CompiledFunctionStub::new, true)
                     .build());
         }
 

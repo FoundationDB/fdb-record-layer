@@ -69,10 +69,10 @@ public class CreateTemporaryFunctionConstantAction implements ConstantAction  {
         // transaction.
         // this should be simplified once https://github.com/FoundationDB/fdb-record-layer/issues/3394 is fixed.
         final var routineBuilder = invokedRoutine.toBuilder();
-        routineBuilder.withCompilableRoutine(() ->
+        routineBuilder.withUserDefinedFunctionSupplier(() ->
                 RoutineParser.sqlFunctionParser(transactionBoundSchemaTemplate)
                         .parseTemporaryFunction(invokedRoutine.getName(), invokedRoutine.getDescription(),
-                                PreparedParams.copyOf(preparedParams)));
+                                PreparedParams.copyOf(preparedParams)), true);
         final var schemaTemplateWithTempFunction = transactionBoundSchemaTemplate.toBuilder()
                 .replaceInvokedRoutine(routineBuilder.build()).build();
         txn.setBoundSchemaTemplate(schemaTemplateWithTempFunction);

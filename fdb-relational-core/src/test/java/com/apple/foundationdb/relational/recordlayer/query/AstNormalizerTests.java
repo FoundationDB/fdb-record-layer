@@ -407,7 +407,7 @@ public class AstNormalizerTests {
                         .setDescription(functionDdl)
                         .setNormalizedDescription(canonicalFunctionDdl)
                         // invoking the compiled routine should only happen during plan generation.
-                        .withCompilableRoutine(() -> new CompiledSqlFunction("", ImmutableList.of(), ImmutableList.of(),
+                        .withUserDefinedFunctionSupplier(() -> new CompiledSqlFunction("", ImmutableList.of(), ImmutableList.of(),
                                 ImmutableList.of(), Optional.empty(), null, Literals.empty()) {
                             @Nonnull
                             @Override
@@ -426,7 +426,7 @@ public class AstNormalizerTests {
                             public RelationalExpression encapsulate(@Nonnull final Map<String, ? extends Typed> namedArguments) {
                                 throw new NotImplementedException("unexpected call");
                             }
-                        })
+                        }, true)
                         .build())
                 .build();
     }
