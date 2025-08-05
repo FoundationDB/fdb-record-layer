@@ -22,7 +22,7 @@ package com.apple.foundationdb.relational.yamltests;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.Assert;
-import com.apple.foundationdb.relational.yamltests.block.FileOptions;
+import com.apple.foundationdb.relational.yamltests.block.PreambleBlock;
 import com.apple.foundationdb.relational.yamltests.block.SetupBlock;
 import com.apple.foundationdb.relational.yamltests.block.TestBlock;
 import com.apple.foundationdb.relational.yamltests.block.TransactionSetupsBlock;
@@ -59,7 +59,7 @@ public class CustomYamlConstructor extends SafeConstructor {
         yamlConstructors.put(new Tag("!current_version"), new ConstructCurrentVersion());
 
         //blocks
-        requireLineNumber.add(FileOptions.OPTIONS);
+        requireLineNumber.add(PreambleBlock.OPTIONS);
         requireLineNumber.add(SetupBlock.SETUP_BLOCK);
         requireLineNumber.add(SetupBlock.SchemaTemplateBlock.SCHEMA_TEMPLATE_BLOCK);
         requireLineNumber.add(TransactionSetupsBlock.TRANSACTION_SETUP);
@@ -200,7 +200,7 @@ public class CustomYamlConstructor extends SafeConstructor {
 
         @Override
         public Object construct(Node node) {
-            return FileOptions.CurrentVersion.INSTANCE;
+            return PreambleBlock.CurrentVersion.INSTANCE;
         }
     }
 }

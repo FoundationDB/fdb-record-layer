@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,13 +20,15 @@
 
 package com.apple.foundationdb.relational.utils;
 
-import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
+import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.recordlayer.Utils;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
+import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -34,12 +36,16 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 public class DatabaseRule implements BeforeEachCallback, BeforeAllCallback, AfterEachCallback, AfterAllCallback {
-    private final RelationalExtension relationalExtension;
+
+    @Nonnull
     private final URI databasePath;
 
-    public DatabaseRule(RelationalExtension relationalExtension, URI databasePath) {
-        this.relationalExtension = relationalExtension;
+    @Nonnull
+    private final Options options;
+
+    public DatabaseRule(@Nonnull final URI databasePath, @Nonnull final Options options) {
         this.databasePath = databasePath;
+        this.options = options;
     }
 
     @Override
@@ -64,6 +70,7 @@ public class DatabaseRule implements BeforeEachCallback, BeforeAllCallback, Afte
 
     private void setup() throws SQLException {
         try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
+            Utils.setConnectionOptions(connection, options);
             connection.setSchema("CATALOG");
             try (Statement statement = connection.createStatement()) {
                 statement.executeUpdate("DROP DATABASE IF EXISTS \"" + databasePath.getPath() + "\"");
@@ -74,6 +81,7 @@ public class DatabaseRule implements BeforeEachCallback, BeforeAllCallback, Afte
 
     private void tearDown() throws SQLException {
         try (Connection connection = DriverManager.getConnection("jdbc:embed:/__SYS")) {
+            Utils.setConnectionOptions(connection, options);
             connection.setSchema("CATALOG");
             try (Statement statement = connection.createStatement()) {
                 statement.executeUpdate("DROP DATABASE \"" + databasePath.getPath() + "\"");
@@ -81,6 +89,7 @@ public class DatabaseRule implements BeforeEachCallback, BeforeAllCallback, Afte
         }
     }
 
+    @Nonnull
     public URI getDbUri() {
         return databasePath;
     }

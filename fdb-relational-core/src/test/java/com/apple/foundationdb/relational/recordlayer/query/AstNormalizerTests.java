@@ -407,7 +407,7 @@ public class AstNormalizerTests {
                         .setDescription(functionDdl)
                         .setNormalizedDescription(canonicalFunctionDdl)
                         // invoking the compiled routine should only happen during plan generation.
-                        .withUserDefinedFunctionSupplier(() -> new CompiledSqlFunction("", ImmutableList.of(), ImmutableList.of(),
+                        .withUserDefinedRoutine(ignored -> new CompiledSqlFunction("", ImmutableList.of(), ImmutableList.of(),
                                 ImmutableList.of(), Optional.empty(), null, Literals.empty()) {
                             @Nonnull
                             @Override

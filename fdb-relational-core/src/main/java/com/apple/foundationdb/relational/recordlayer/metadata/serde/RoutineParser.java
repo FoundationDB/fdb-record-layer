@@ -39,10 +39,11 @@ import java.net.URI;
 public interface RoutineParser {
 
     @Nonnull
-    UserDefinedFunction parse(@Nonnull String routineString);
+    UserDefinedFunction parse(@Nonnull String routineString, boolean isCaseSensitive);
 
     @Nonnull
-    UserDefinedFunction parseTemporaryFunction(@Nonnull String functionName, @Nonnull String routineString, @Nonnull PreparedParams preparedParams);
+    UserDefinedFunction parseTemporaryFunction(@Nonnull String functionName, @Nonnull String routineString,
+                                               @Nonnull PreparedParams preparedParams, boolean isCaseSensitive);
 
     class DefaultSqlFunctionParser implements RoutineParser {
 
@@ -55,7 +56,7 @@ public interface RoutineParser {
 
         @Nonnull
         @Override
-        public CompiledSqlFunction parse(@Nonnull final String routineString) {
+        public CompiledSqlFunction parse(@Nonnull final String routineString, boolean isCaseSensitive) {
             final RelationalParser.SqlInvokedFunctionContext parsed;
             try {
                 parsed = QueryParser.parseFunction(routineString);
@@ -65,7 +66,7 @@ public interface RoutineParser {
             final var planGenerationContext = new MutablePlanGenerationContext(PreparedParams.empty(),
                     PlanHashable.PlanHashMode.VC0, routineString, routineString, 0);
             final var visitor = new BaseVisitor(planGenerationContext, metaData, new NoOpQueryFactory(),
-                    NoOpMetadataOperationsFactory.INSTANCE, URI.create(""), false);
+                    NoOpMetadataOperationsFactory.INSTANCE, URI.create(""), isCaseSensitive);
             return (CompiledSqlFunction)visitor.visitSqlInvokedFunction(parsed);
         }
 
@@ -73,7 +74,8 @@ public interface RoutineParser {
         @Override
         public CompiledSqlFunction parseTemporaryFunction(@Nonnull final String functionName,
                                                           @Nonnull final String routineString,
-                                                          @Nonnull final PreparedParams preparedParams) {
+                                                          @Nonnull final PreparedParams preparedParams,
+                                                          boolean isCaseSensitive) {
             final RelationalParser.TempSqlInvokedFunctionContext parsed;
             try {
                 parsed = QueryParser.parseTemporaryFunction(routineString);
@@ -84,7 +86,7 @@ public interface RoutineParser {
                     PlanHashable.PlanHashMode.VC0, routineString, routineString, 0);
             planGenerationContext.getLiteralsBuilder().setScope(functionName);
             final var visitor = new BaseVisitor(planGenerationContext, metaData, new NoOpQueryFactory(),
-                    NoOpMetadataOperationsFactory.INSTANCE, URI.create(""), false);
+                    NoOpMetadataOperationsFactory.INSTANCE, URI.create(""), isCaseSensitive);
             return visitor.visitTempSqlInvokedFunction(parsed);
         }
     }

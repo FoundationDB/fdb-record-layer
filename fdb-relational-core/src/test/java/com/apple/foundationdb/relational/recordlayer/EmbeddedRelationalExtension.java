@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.provider.foundationdb.APIVersion;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
@@ -39,32 +38,44 @@ import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.io.Closeable;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Collections;
-import java.util.function.Supplier;
 
 public class EmbeddedRelationalExtension implements RelationalExtension, BeforeEachCallback, AfterEachCallback {
 
+    @Nonnull
     private final KeySpace keySpace;
-    private final Supplier<RecordLayerMetadataOperationsFactory.Builder> ddlFactoryBuilder;
+
+    @Nullable
     private RelationalDriver driver;
+
+    @Nullable
     private EmbeddedRelationalEngine engine;
-    private final MetricRegistry storeTimer = new MetricRegistry();
+
+    @Nonnull
+    private final MetricRegistry storeTimer;
+
+    @Nonnull
+    private final Options options;
 
     public EmbeddedRelationalExtension() {
-        this(RecordLayerMetadataOperationsFactory::defaultFactory);
+        this(Options.none());
     }
 
-    public EmbeddedRelationalExtension(Supplier<RecordLayerMetadataOperationsFactory.Builder> ddlFactory) {
+    public EmbeddedRelationalExtension(@Nonnull final Options options) {
         final RelationalKeyspaceProvider keyspaceProvider = RelationalKeyspaceProvider.instance();
         keyspaceProvider.registerDomainIfNotExists("TEST");
         this.keySpace = keyspaceProvider.getKeySpace();
-        this.ddlFactoryBuilder = ddlFactory;
+        this.storeTimer = new MetricRegistry();
+        this.options = options;
     }
 
     @Override
-    public void afterEach(ExtensionContext context) throws Exception {
+    public void afterEach(ExtensionContext ignored) throws Exception {
         if (driver != null) {
             DriverManager.deregisterDriver(driver);
             driver = null;
@@ -72,32 +83,33 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
     }
 
     @Override
-    public void beforeEach(ExtensionContext context) throws Exception {
+    public void beforeEach(ExtensionContext ignored) throws Exception {
         setup();
     }
 
     private void setup() throws RelationalException, SQLException {
-        RecordLayerConfig rlCfg = RecordLayerConfig.getDefault();
-        //here we are extending the StorageCluster so that we can track which internal Databases were
+        // here we are extending the StorageCluster so that we can track which internal Databases were
         // connected to and we can validate that they were all closed properly
 
         // This needs to be done prior to the first call to factory.getDatabase()
         FDBDatabaseFactory.instance().setAPIVersion(APIVersion.API_VERSION_7_1);
 
-        final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase();
-        StoreCatalog storeCatalog;
-        try (var txn = new DirectFdbConnection(database).getTransactionManager().createTransaction(Options.NONE)) {
+        final var database = FDBDatabaseFactory.instance().getDatabase();
+        final StoreCatalog storeCatalog;
+        try (var connection = new DirectFdbConnection(database);
+                var txn = connection.getTransactionManager().createTransaction(Options.NONE)) {
             storeCatalog = StoreCatalogProvider.getCatalog(txn, keySpace);
             txn.commit();
         }
 
-        RecordLayerMetadataOperationsFactory ddlFactory = ddlFactoryBuilder.get()
+        final var config = RecordLayerConfig.getDefault();
+        final var ddlFactory = RecordLayerMetadataOperationsFactory.defaultFactory()
                 .setBaseKeySpace(keySpace)
-                .setRlConfig(rlCfg)
+                .setRlConfig(config)
                 .setStoreCatalog(storeCatalog)
                 .build();
         engine = RecordLayerEngine.makeEngine(
-                rlCfg,
+                config,
                 Collections.singletonList(database),
                 keySpace,
                 storeCatalog,
@@ -108,11 +120,48 @@ public class EmbeddedRelationalExtension implements RelationalExtension, BeforeE
         DriverManager.registerDriver(driver);
     }
 
+    @Nullable
     public EmbeddedRelationalEngine getEngine() {
         return engine;
     }
 
+    @Nullable
     public RelationalDriver getDriver() {
         return driver;
+    }
+
+    @Nonnull
+    public static Resource newAsResource() throws Exception {
+        return new Resource(new EmbeddedRelationalExtension());
+    }
+
+    @Nonnull
+    public static Resource newAsResource(@Nonnull final Options options) throws Exception {
+        return new Resource(new EmbeddedRelationalExtension(options));
+    }
+
+    public static final class Resource implements Closeable {
+
+        @Nonnull
+        private final EmbeddedRelationalExtension underlyingExtension;
+
+        Resource(@Nonnull final EmbeddedRelationalExtension underlyingExtension) throws Exception {
+            this.underlyingExtension = underlyingExtension;
+            this.underlyingExtension.beforeEach(null);
+        }
+
+        @Override
+        public void close() {
+            try {
+                underlyingExtension.afterEach(null);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        @Nonnull
+        public EmbeddedRelationalExtension getUnderlyingExtension() {
+            return underlyingExtension;
+        }
     }
 }

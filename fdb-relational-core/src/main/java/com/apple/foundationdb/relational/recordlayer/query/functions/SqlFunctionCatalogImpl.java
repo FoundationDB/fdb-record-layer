@@ -36,7 +36,6 @@ import javax.annotation.Nonnull;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 /**
  * A catalog of built-in and user-defined SQL functions.
@@ -50,8 +49,8 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
     @Nonnull
     private final UserDefinedFunctionCatalog userDefinedFunctionCatalog;
 
-    private SqlFunctionCatalogImpl() {
-        this.userDefinedFunctionCatalog = new UserDefinedFunctionCatalog();
+    private SqlFunctionCatalogImpl(boolean isCaseSensitive) {
+        this.userDefinedFunctionCatalog = new UserDefinedFunctionCatalog(isCaseSensitive);
     }
 
     @Nonnull
@@ -101,7 +100,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
     }
 
     public void registerUserDefinedFunction(@Nonnull final String functionName,
-                                            @Nonnull final Supplier<? extends UserDefinedFunction> functionSupplier) {
+                                            @Nonnull final Function<Boolean, ? extends UserDefinedFunction> functionSupplier) {
         userDefinedFunctionCatalog.registerFunction(functionName, functionSupplier);
     }
 
@@ -152,8 +151,9 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
     }
 
     @Nonnull
-    public static SqlFunctionCatalogImpl newInstance(@Nonnull RecordLayerSchemaTemplate metadata) {
-        final var functionCatalog = new SqlFunctionCatalogImpl();
+    public static SqlFunctionCatalogImpl newInstance(@Nonnull final RecordLayerSchemaTemplate metadata,
+                                                     boolean isCaseSensitive) {
+        final var functionCatalog = new SqlFunctionCatalogImpl(isCaseSensitive);
         metadata.getInvokedRoutines().forEach(func ->
                 functionCatalog.registerUserDefinedFunction(
                         Assert.notNullUnchecked(func.getName()),

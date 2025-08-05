@@ -44,6 +44,7 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ListColumn;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ListColumnMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Struct;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Type;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Uuid;
 import com.apple.foundationdb.relational.util.PositionalIndex;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
@@ -226,6 +227,8 @@ public class TypeConversion {
                 return Type.VERSION;
             case ENUM:
                 return Type.ENUM;
+            case UUID:
+                return Type.UUID;
             default:
                 throw new RelationalException("not supported in toProtobuf: " + type, ErrorCode.INTERNAL_ERROR).toUncheckedWrappedException();
         }
@@ -461,6 +464,13 @@ public class TypeConversion {
             case DOUBLE:
                 column = toColumn(wasNull ? null : (Double) value,
                         (a, b) -> a == null ? b.clearDouble() : b.setDouble(a));
+                break;
+            case UUID:
+                column = toColumn(wasNull ? null : (UUID) value,
+                        (a, b) -> a == null ? b.clearUuid() : b.setUuid(Uuid.newBuilder()
+                                .setMostSignificantBits(a.getMostSignificantBits())
+                                .setLeastSignificantBits(a.getLeastSignificantBits())
+                                .build()));
                 break;
             default:
                 throw new SQLException("DataType: " + field.getType() + " not supported",

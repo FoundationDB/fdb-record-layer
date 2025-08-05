@@ -24,10 +24,10 @@ import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.util.Assert;
-import com.google.common.base.Supplier;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
+import java.util.function.Function;
 
 public class RecordLayerInvokedRoutine implements InvokedRoutine {
 
@@ -43,21 +43,21 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     private final boolean isTemporary;
     private final boolean isCompiledSql;
     @Nonnull
-    private final Supplier<? extends UserDefinedFunction> userDefinedFunctionSupplier;
+    private final Function<Boolean, UserDefinedFunction> userDefinedRoutine;
 
     public RecordLayerInvokedRoutine(@Nonnull final String description,
                                      @Nonnull final String normalizedDescription,
                                      @Nonnull final String name,
                                      boolean isTemporary,
                                      boolean isCompiledSql,
-                                     @Nonnull final Supplier<? extends UserDefinedFunction> userDefinedFunctionSupplier) {
+                                     @Nonnull final Function<Boolean, UserDefinedFunction> userDefinedRoutine) {
         this.description = description;
         this.normalizedDescription = normalizedDescription;
         this.name = name;
         this.isTemporary = isTemporary;
         this.isCompiledSql = isCompiledSql;
         // TODO this used to be memoized
-        this.userDefinedFunctionSupplier = userDefinedFunctionSupplier;
+        this.userDefinedRoutine = userDefinedRoutine;
     }
 
     @Nonnull
@@ -73,8 +73,8 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     }
 
     @Nonnull
-    public Supplier<? extends UserDefinedFunction> getUserDefinedFunctionSupplier() {
-        return userDefinedFunctionSupplier;
+    public Function<Boolean, UserDefinedFunction> getUserDefinedFunctionSupplier() {
+        return userDefinedRoutine;
     }
 
     @Nonnull
@@ -93,7 +93,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         if (isCompiledSql) {
             return new RawSqlFunction(getName(), getDescription());
         } else {
-            return userDefinedFunctionSupplier.get();
+            return userDefinedRoutine.apply(false);
         }
     }
 
@@ -131,14 +131,14 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
                 .setDescription(getDescription())
                 .setNormalizedDescription(getNormalizedDescription())
                 .setTemporary(isTemporary())
-                .withUserDefinedFunctionSupplier(getUserDefinedFunctionSupplier(), isCompiledSql);
+                .withUserDefinedRoutine(getUserDefinedFunctionSupplier(), isCompiledSql);
     }
 
     public static final class Builder {
         private String description;
         private String normalizedDescription;
         private String name;
-        private Supplier<? extends UserDefinedFunction> userDefinedFunctionSupplier;
+        private Function<Boolean, UserDefinedFunction> userDefinedFunctionSupplier;
         private boolean isTemporary;
         private boolean isCompiledSql;
 
@@ -164,7 +164,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         }
 
         @Nonnull
-        public Builder withUserDefinedFunctionSupplier(@Nonnull final Supplier<? extends UserDefinedFunction> userDefinedFunctionSupplier, final boolean isCompiledSql) {
+        public Builder withUserDefinedRoutine(@Nonnull final Function<Boolean, UserDefinedFunction> userDefinedFunctionSupplier, final boolean isCompiledSql) {
             this.userDefinedFunctionSupplier = userDefinedFunctionSupplier;
             this.isCompiledSql = isCompiledSql;
             return this;

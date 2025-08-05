@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -219,11 +219,6 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
                                                                int version) {
         final var deserializer = new RecordMetadataDeserializer(metaData);
         return deserializer.getSchemaTemplate(templateName, version);
-    }
-
-    @Nonnull
-    public static RecordLayerSchemaTemplate fromRecordMetadataWithFakeTemplateNameAndVersion(@Nonnull RecordMetaData metaData) {
-        return fromRecordMetadata(metaData, "fakeTemplateName", 1);
     }
 
     /**
