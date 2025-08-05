@@ -426,23 +426,14 @@ public class HNSW {
                         return CompletableFuture.completedFuture(entryState);
                     }
 
-                    final AtomicReference<NodeReferenceWithDistance> nodeReferenceAtomic =
-                            new AtomicReference<>(entryState);
-
-                    return MoreAsyncUtil.forLoop(entryLayer,
-                            layer -> layer > 0,
-                            layer -> layer - 1,
-                            layer -> {
-                                final var storageAdapter = getStorageAdapterForLayer(layer);
-                                final var greedyIn = nodeReferenceAtomic.get();
-                                return greedySearchLayer(storageAdapter, readTransaction, greedyIn, layer,
-                                        queryVector)
-                                        .thenApply(greedyState -> {
-                                            nodeReferenceAtomic.set(greedyState);
-                                            return null;
-                                        });
-                            }, executor)
-                            .thenApply(ignored -> nodeReferenceAtomic.get());
+                    return MoreAsyncUtil.forLoop(entryLayer, entryState,
+                                    layer -> layer > 0,
+                                    layer -> layer - 1,
+                                    (layer, previousNodeReference) -> {
+                                        final var storageAdapter = getStorageAdapterForLayer(layer);
+                                        return greedySearchLayer(storageAdapter, readTransaction, previousNodeReference,
+                                                layer, queryVector);
+                                    }, executor);
                 }).thenCompose(nodeReference -> {
                     if (nodeReference == null) {
                         return CompletableFuture.completedFuture(null);
@@ -747,44 +738,40 @@ public class HNSW {
                     debug(l -> l.debug("entry node with key {} at layer {}", entryNodeReference.getPrimaryKey(),
                             lMax));
 
-                    final AtomicReference<NodeReferenceWithDistance> nodeReferenceAtomic =
-                            new AtomicReference<>(new NodeReferenceWithDistance(entryNodeReference.getPrimaryKey(),
+                    final NodeReferenceWithDistance initialNodeReference =
+                            new NodeReferenceWithDistance(entryNodeReference.getPrimaryKey(),
                                     entryNodeReference.getVector(),
-                                    Vector.comparativeDistance(metric, entryNodeReference.getVector(), newVector)));
-                    MoreAsyncUtil.forLoop(lMax,
-                            layer -> layer > insertionLayer,
-                            layer -> layer - 1,
-                            layer -> {
-                                final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(layer);
-                                return greedySearchLayer(storageAdapter, transaction,
-                                        nodeReferenceAtomic.get(), layer, newVector)
-                                        .thenApply(nodeReference -> {
-                                            nodeReferenceAtomic.set(nodeReference);
-                                            return null;
-                                        });
-                            }, executor);
-
-                    debug(l -> {
-                        final NodeReference nodeReference = nodeReferenceAtomic.get();
-                        l.debug("nearest entry point at lMax={} is at key={}", lMax, nodeReference.getPrimaryKey());
-                    });
-
-                    final AtomicReference<List<NodeReferenceWithDistance>> nearestNeighborsAtomic =
-                            new AtomicReference<>(ImmutableList.of(nodeReferenceAtomic.get()));
-
-                    return MoreAsyncUtil.forLoop(Math.min(lMax, insertionLayer),
-                            layer -> layer >= 0,
-                            layer -> layer - 1,
-                            layer -> {
-                                final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(layer);
-                                return insertIntoLayer(storageAdapter, transaction,
-                                        nearestNeighborsAtomic.get(), layer, newPrimaryKey, newVector)
-                                        .thenCompose(nearestNeighbors -> {
-                                            nearestNeighborsAtomic.set(nearestNeighbors);
-                                            return AsyncUtil.DONE;
-                                        });
-                            }, executor);
+                                    Vector.comparativeDistance(metric, entryNodeReference.getVector(), newVector));
+                    return MoreAsyncUtil.forLoop(lMax, initialNodeReference,
+                                    layer -> layer > insertionLayer,
+                                    layer -> layer - 1,
+                                    (layer, previousNodeReference) -> {
+                                        final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(layer);
+                                        return greedySearchLayer(storageAdapter, transaction,
+                                                previousNodeReference, layer, newVector);
+                                    }, executor)
+                            .thenCompose(nodeReference ->
+                                    insertIntoLayers(transaction, newPrimaryKey, newVector, nodeReference,
+                                            lMax, insertionLayer));
                 }).thenCompose(ignored -> AsyncUtil.DONE);
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> insertIntoLayers(final @Nonnull Transaction transaction,
+                                                     final @Nonnull Tuple newPrimaryKey,
+                                                     final @Nonnull Vector<Half> newVector,
+                                                     final NodeReferenceWithDistance nodeReference, final int lMax, final int insertionLayer) {
+        debug(l -> {
+            l.debug("nearest entry point at lMax={} is at key={}", lMax, nodeReference.getPrimaryKey());
+        });
+        return MoreAsyncUtil.<List<NodeReferenceWithDistance>>forLoop(Math.min(lMax, insertionLayer), ImmutableList.of(nodeReference),
+                layer -> layer >= 0,
+                layer -> layer - 1,
+                (layer, previousNodeReferences) -> {
+                    final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(layer);
+                    return insertIntoLayer(storageAdapter, transaction,
+                            previousNodeReferences, layer, newPrimaryKey, newVector);
+                }, executor).thenCompose(ignored -> AsyncUtil.DONE);
     }
 
     @Nonnull

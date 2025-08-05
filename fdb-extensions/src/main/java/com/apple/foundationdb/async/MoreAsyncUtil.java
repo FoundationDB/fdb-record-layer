@@ -46,10 +46,10 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.function.IntFunction;
 import java.util.function.IntPredicate;
 import java.util.function.IntUnaryOperator;
 import java.util.function.Predicate;
@@ -1058,22 +1058,25 @@ public class MoreAsyncUtil {
         return result;
     }
 
-    public static CompletableFuture<Void> forLoop(final int startI, @Nonnull final IntPredicate conditionPredicate,
-                                                  @Nonnull final IntUnaryOperator stepFunction,
-                                                  @Nonnull final IntFunction<CompletableFuture<Void>> body,
-                                                  @Nonnull final Executor executor) {
+    public static <U> CompletableFuture<U> forLoop(final int startI, @Nullable final U startU,
+                                                   @Nonnull final IntPredicate conditionPredicate,
+                                                   @Nonnull final IntUnaryOperator stepFunction,
+                                                   @Nonnull final BiFunction<Integer, U, CompletableFuture<U>> body,
+                                                   @Nonnull final Executor executor) {
         final AtomicInteger loopVariableAtomic = new AtomicInteger(startI);
+        final AtomicReference<U> lastResultAtomic = new AtomicReference<>(startU);
         return AsyncUtil.whileTrue(() -> {
             final int loopVariable = loopVariableAtomic.get();
             if (!conditionPredicate.test(loopVariable)) {
                 return AsyncUtil.READY_FALSE;
             }
-            return body.apply(loopVariable)
-                    .thenApply(ignored -> {
+            return body.apply(loopVariable, lastResultAtomic.get())
+                    .thenApply(result -> {
                         loopVariableAtomic.set(stepFunction.applyAsInt(loopVariable));
+                        lastResultAtomic.set(result);
                         return true;
                     });
-        }, executor);
+        }, executor).thenApply(ignored -> lastResultAtomic.get());
     }
 
     @SuppressWarnings("unchecked")

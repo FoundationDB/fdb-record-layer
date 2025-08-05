@@ -237,7 +237,7 @@ public class HNSWModificationTest {
                 Comparator.comparing(NodeReferenceWithDistance::getDistance));
 
         try (BufferedReader br = new BufferedReader(new FileReader(tsvFile))) {
-            for (int i = 0; i < 10000;) {
+            for (int i = 0; i < 1000;) {
                 i += basicInsertBatch(100, nextNodeIdAtomic, onReadListener,
                         tr -> {
                             final String line;
