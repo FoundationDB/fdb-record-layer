@@ -720,13 +720,11 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      */
     @API(API.Status.DEPRECATED)
     public B setUseSynchronizedSession(boolean useSynchronizedSession) {
-        configBuilder.setUseSynchronizedSession(useSynchronizedSession);
         return self();
     }
 
     /**
      * Set the lease length in milliseconds if the synchronized session is used. The default value is {@link OnlineIndexOperationConfig#DEFAULT_LEASE_LENGTH_MILLIS}.
-     * @see #setUseSynchronizedSession(boolean)
      * @see com.apple.foundationdb.synchronizedsession.SynchronizedSession
      * @param leaseLengthMillis length between last access and lease's end time in milliseconds
      * @return this builder

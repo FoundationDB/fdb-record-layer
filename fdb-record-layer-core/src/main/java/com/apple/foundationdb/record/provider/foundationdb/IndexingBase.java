@@ -150,7 +150,7 @@ public abstract class IndexingBase {
 
     // buildIndexAsync - the main indexing function. Builds and commits indexes asynchronously; throttling to avoid overloading the system.
     @SuppressWarnings("PMD.CloseResource")
-    public CompletableFuture<Void> buildIndexAsync(boolean markReadable, boolean useSyncLock) {
+    public CompletableFuture<Void> buildIndexAsync(boolean markReadable) {
         KeyValueLogMessage message = KeyValueLogMessage.build("build index online",
                 LogMessageKeys.SHOULD_MARK_READABLE, markReadable);
         long startNanos = System.nanoTime();
@@ -179,6 +179,8 @@ public abstract class IndexingBase {
                     }
                     return ret;
                 })
+                // Here: if the heartbeat was *not* cleared while marking the index readable, it would be cleared in
+                // these dedicated transaction. Heartbeat clearing is not a blocker but a "best effort" operation.
                 .thenCompose(ignore -> clearHeartbeats())
                 .handle((ignore, exIgnore) -> {
                     Throwable ex = indexingException.get();
@@ -322,6 +324,7 @@ public abstract class IndexingBase {
             if (ex != null) {
                 throw ex;
             }
+            heartbeat = null; // Here: heartbeats had been successfully cleared. No need to clear again
             return anythingChanged.get();
         });
     }
@@ -332,12 +335,14 @@ public abstract class IndexingBase {
         return getRunner().runAsync(context ->
                 common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync()
                         .thenCompose(store -> {
+                            clearHeartbeatSingleTarget(store, index);
                             return policy.shouldAllowUniquePendingState(store) ?
                                    store.markIndexReadableOrUniquePending(index) :
                                    store.markIndexReadable(index);
                         })
         ).handle((changed, ex) -> {
             if (ex == null) {
+                heartbeat = null; // Here: all heartbeats were successfully cleared withing the set readable transactions. No need to clear again.
                 if (Boolean.TRUE.equals(changed)) {
                     anythingChanged.set(true);
                 }
@@ -358,7 +363,7 @@ public abstract class IndexingBase {
     private CompletableFuture<Void> setIndexingTypeOrThrow(FDBRecordStore store, boolean continuedBuild) {
         // continuedBuild is set if this session isn't a continuation of a previous indexing
         IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp = getIndexingTypeStamp(store);
-        heartbeat = new IndexingHeartbeat(common.getUuid(), indexingTypeStamp.getMethod());
+        heartbeat = new IndexingHeartbeat(common.getUuid(), indexingTypeStamp.getMethod(), common.config.getLeaseLengthMillis());
 
         return forEachTargetIndex(index -> setIndexingTypeOrThrow(store, continuedBuild, index, indexingTypeStamp));
     }
@@ -850,21 +855,26 @@ public abstract class IndexingBase {
     }
 
     private CompletableFuture<Void> clearHeartbeats() {
-        // Here: if the heartbeat was *not* cleared while marking the index readable, it would be cleared in
-        // these dedicated transaction. Heartbeat clearing is not a blocker but a "best effort" operation.
         if (heartbeat == null) {
             return AsyncUtil.DONE;
         }
-        return forEachTargetIndex(this::clearHeartbeatSingleTarget);
+        return forEachTargetIndex(this::clearHeartbeatSingleTarget)
+                .thenAccept(ignore -> heartbeat = null);
     }
 
     private CompletableFuture<Void> clearHeartbeatSingleTarget(Index index) {
         return getRunner().runAsync(context ->
                 common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync()
                         .thenApply(store -> {
-                            heartbeat.clearHeartbeat(store, index);
+                            clearHeartbeatSingleTarget(store, index);
                             return null;
                         }));
+    }
+
+    private void clearHeartbeatSingleTarget(FDBRecordStore store, Index index) {
+        if (heartbeat != null) {
+            heartbeat.clearHeartbeat(store, index);
+        }
     }
 
 
