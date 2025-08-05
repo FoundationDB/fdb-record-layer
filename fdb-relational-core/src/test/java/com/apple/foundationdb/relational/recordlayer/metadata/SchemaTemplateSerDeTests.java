@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@ import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.util.Assert;
+import com.google.common.base.Function;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -470,7 +471,7 @@ public class SchemaTemplateSerDeTests {
                 .setName("SqlFunction1")
                 .setDescription("CREATE FUNCTION SqlFunction1(IN Q BIGINT) AS SELECT * FROM T1 WHERE col1 < Q")
                 .setTemporary(true)
-                .withCompilableRoutine(CompiledFunctionStub::new)
+                .withCompilableRoutine(ignored -> new CompiledFunctionStub())
                 .build());
 
         // build the schema template
@@ -513,7 +514,7 @@ public class SchemaTemplateSerDeTests {
             schemaTemplateBuilder.addInvokedRoutine(RecordLayerInvokedRoutine.newBuilder()
                     .setName(functionName)
                     .setDescription(functionDescription)
-                    .withCompilableRoutine(CompiledFunctionStub::new)
+                    .withCompilableRoutine(igored -> new CompiledFunctionStub())
                     .build());
         }
 
@@ -567,12 +568,12 @@ public class SchemaTemplateSerDeTests {
 
         @Nonnull
         @Override
-        protected Supplier<CompiledSqlFunction> getSqlFunctionCompiler(@Nonnull final String name,
-                                                                       @Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
-                                                                       @Nonnull final String functionBody) {
-            return () -> {
+        protected Function<Boolean, CompiledSqlFunction> getSqlFunctionCompiler(@Nonnull final String name,
+                                                                                @Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
+                                                                                @Nonnull final String functionBody) {
+            return isCaseSensitive -> {
                 invocationsCount.merge(name, 1, Integer::sum);
-                return super.getSqlFunctionCompiler(name, metadata, functionBody).get();
+                return super.getSqlFunctionCompiler(name, metadata, functionBody).apply(isCaseSensitive);
             };
         }
 

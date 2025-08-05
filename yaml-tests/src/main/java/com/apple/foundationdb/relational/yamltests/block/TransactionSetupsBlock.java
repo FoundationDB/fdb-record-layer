@@ -37,7 +37,16 @@ public class TransactionSetupsBlock {
             final String transactionSetupCommand = Matchers.string(entry.getValue(), "transaction setup command");
             executionContext.registerTransactionSetup(transactionSetupName, transactionSetupCommand);
         }
-        return new NoOpBlock(lineNumber);
-    }
+        return new Block() {
+            @Override
+            public int getLineNumber() {
+                return lineNumber;
+            }
 
+            @Override
+            public void execute() {
+                // no-op
+            }
+        };
+    }
 }
