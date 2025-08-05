@@ -501,11 +501,6 @@ public class OnlineIndexer implements AutoCloseable {
      * any retriable errors that it encounters while it runs the build. At the end, it marks the index readable in the
      * store.
      * </p>
-     * <p>
-     * One may consider to set the index state precondition to {@link IndexStatePrecondition#ERROR_IF_DISABLED_CONTINUE_IF_WRITE_ONLY}
-     * and {@link OnlineIndexer.Builder#setUseSynchronizedSession(boolean)} to {@code false}, which makes the indexer
-     * follow the same behavior as before version 2.8.90.0. But it is not recommended.
-     * </p>
      * @return a future that will be ready when the build has completed
      * @throws com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException the build is stopped
      * because there may be another build running actively on this index.
@@ -518,8 +513,7 @@ public class OnlineIndexer implements AutoCloseable {
     @VisibleForTesting
     @Nonnull
     CompletableFuture<Void> buildIndexAsync(boolean markReadable) {
-        boolean useSyncLock = (!indexingPolicy.isMutual() || fallbackToRecordsScan) && common.config.shouldUseSynchronizedSession();
-        return indexingLauncher(() -> getIndexer().buildIndexAsync(markReadable, useSyncLock));
+        return indexingLauncher(() -> getIndexer().buildIndexAsync(markReadable));
     }
 
     /**
@@ -763,11 +757,6 @@ public class OnlineIndexer implements AutoCloseable {
          * Set how should {@link #buildIndexAsync()} (or its variations) build the index based on its state. Normally
          * this should be {@link IndexStatePrecondition#BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY} if the index is
          * not corrupted.
-         * <p>
-         * One may consider setting it to {@link IndexStatePrecondition#ERROR_IF_DISABLED_CONTINUE_IF_WRITE_ONLY} and
-         * {@link #setUseSynchronizedSession(boolean)} to {@code false}, which makes the indexer follow the same behavior
-         * as before version 2.8.90.0. But it is not recommended.
-         * </p>
          * @see IndexStatePrecondition
          * @param indexStatePrecondition build option to use
          * @return this builder
@@ -1449,7 +1438,6 @@ public class OnlineIndexer implements AutoCloseable {
              * by other threads/processes/systems with the exact same parameters, are attempting to concurrently build this
              * index. To allow that, the indexer will:
              * <ol>
-             *   <li> Avoid the indexing lock - i.e. assume that {@link OnlineIndexer.Builder#setUseSynchronizedSession(boolean)} was called with false</li>
              *   <li> Divide the records space to fragments, then iterate the fragments in a way that minimize the interference, while
              *      indexing each fragment independently.</li>
              *   <li> Handle indexing conflicts, when occurred.</li>

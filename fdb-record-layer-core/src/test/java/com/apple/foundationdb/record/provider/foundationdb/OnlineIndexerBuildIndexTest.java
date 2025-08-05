@@ -180,7 +180,6 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
         if (!safeBuild) {
             indexingPolicy.setIfDisabled(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                     .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR);
-            builder.setUseSynchronizedSession(false);
         }
         if (sourceIndex != null) {
             indexingPolicy.setSourceIndex(sourceIndex.getName())

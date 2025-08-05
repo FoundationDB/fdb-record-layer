@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
@@ -715,15 +716,17 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @see SynchronizedSessionRunner
      * @param useSynchronizedSession use synchronize session if true, otherwise false
      * @return this builder
+     *
+     * @deprecated Synchronized sessions are now determined by the indexing method.
      */
+    @API(API.Status.DEPRECATED)
+    @Deprecated(since = "4.4.3.0", forRemoval = true)
     public B setUseSynchronizedSession(boolean useSynchronizedSession) {
-        configBuilder.setUseSynchronizedSession(useSynchronizedSession);
         return self();
     }
 
     /**
      * Set the lease length in milliseconds if the synchronized session is used. The default value is {@link OnlineIndexOperationConfig#DEFAULT_LEASE_LENGTH_MILLIS}.
-     * @see #setUseSynchronizedSession(boolean)
      * @see com.apple.foundationdb.synchronizedsession.SynchronizedSession
      * @param leaseLengthMillis length between last access and lease's end time in milliseconds
      * @return this builder

@@ -406,7 +406,6 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                 // once" may not hold true. With the two options, it is running doBuildIndexAsync effectively. Probably
                 // it would be better if this test can test the config loader with bare metal OnlineIndexer.runAsync
                 // instead.
-                .setUseSynchronizedSession(false)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                         .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
