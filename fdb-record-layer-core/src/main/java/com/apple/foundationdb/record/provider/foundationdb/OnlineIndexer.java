@@ -521,8 +521,7 @@ public class OnlineIndexer implements AutoCloseable {
     @VisibleForTesting
     @Nonnull
     CompletableFuture<Void> buildIndexAsync(boolean markReadable) {
-        boolean useSyncLock = (!indexingPolicy.isMutual() || fallbackToRecordsScan) && common.config.shouldUseSynchronizedSession();
-        return indexingLauncher(() -> getIndexer().buildIndexAsync(markReadable, useSyncLock));
+        return indexingLauncher(() -> getIndexer().buildIndexAsync(markReadable));
     }
 
     /**

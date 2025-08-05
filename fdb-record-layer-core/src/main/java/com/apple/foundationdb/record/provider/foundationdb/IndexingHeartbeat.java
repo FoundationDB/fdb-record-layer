@@ -33,17 +33,18 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import javax.annotation.Nonnull;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 public class IndexingHeartbeat {
     // [prefix, xid] -> [indexing-type, genesis time, heartbeat time]
     final UUID sessionId;
     final IndexBuildProto.IndexBuildIndexingStamp.Method indexingMethod;
     final long genesisTimeMilliseconds;
+    final long leaseLength;
 
-    public IndexingHeartbeat(final UUID sessionId, IndexBuildProto.IndexBuildIndexingStamp.Method indexingMethod) {
+    public IndexingHeartbeat(final UUID sessionId, IndexBuildProto.IndexBuildIndexingStamp.Method indexingMethod, long leaseLength) {
         this.sessionId = sessionId;
         this.indexingMethod = indexingMethod;
+        this.leaseLength = leaseLength;
         this.genesisTimeMilliseconds = nowMilliseconds();
     }
 
@@ -94,7 +95,7 @@ public class IndexingHeartbeat {
             try {
                 final IndexBuildProto.IndexingHeartbeat otherHeartbeat = IndexBuildProto.IndexingHeartbeat.parseFrom(kv.getValue());
                 final long age = now - otherHeartbeat.getHeartbeatTimeMilliseconds();
-                if (age > 0 && age < TimeUnit.SECONDS.toMillis(10)) {
+                if (age > 0 && age < leaseLength) {
                     throw new SynchronizedSessionLockedException("Failed to initialize the session because of an existing session in progress");
                     // TODO: log details
                 }
