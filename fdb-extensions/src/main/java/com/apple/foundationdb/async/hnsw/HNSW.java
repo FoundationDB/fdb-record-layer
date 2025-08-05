@@ -41,9 +41,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +49,7 @@ import java.util.Objects;
 import java.util.Queue;
 import java.util.Random;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.PriorityBlockingQueue;
@@ -455,14 +454,23 @@ public class HNSW {
                             ImmutableList.of(nodeReference), 0, efSearch,
                             Maps.newConcurrentMap(), queryVector)
                             .thenApply(searchResult -> {
-                                // reverse the original deque
-                                final int size = searchResult.size();
-                                final int start = Math.max(0, size - k);
+                                // reverse the original queue
+                                final TreeSet<NodeReferenceAndNode<? extends NodeReference>> sortedTopK =
+                                        new TreeSet<>(
+                                                Comparator.comparing(nodeReferenceAndNode ->
+                                                        nodeReferenceAndNode.getNodeReferenceWithDistance().getDistance()));
 
-                                final ArrayList<? extends NodeReferenceAndNode<?>> topKReversed =
-                                        Lists.newArrayList(searchResult.subList(start, size));
-                                Collections.reverse(topKReversed);
-                                return topKReversed;
+                                for (final NodeReferenceAndNode<?> nodeReferenceAndNode : searchResult) {
+                                    if (sortedTopK.size() < k || sortedTopK.last().getNodeReferenceWithDistance().getDistance() >
+                                            nodeReferenceAndNode.getNodeReferenceWithDistance().getDistance()) {
+                                        sortedTopK.add(nodeReferenceAndNode);
+                                    }
+
+                                    if (sortedTopK.size() > k) {
+                                        sortedTopK.remove(sortedTopK.last());
+                                    }
+                                }
+                                return ImmutableList.copyOf(sortedTopK);
                             });
                 });
     }
@@ -592,13 +600,12 @@ public class HNSW {
         }).thenCompose(ignored ->
                 fetchSomeNodesIfNotCached(storageAdapter, readTransaction, layer, nearestNeighbors, nodeCache))
                 .thenApply(searchResult -> {
-                    debug(l ->
-                            l.debug("searched layer={} for efSearch={} with result=={}", layer, efSearch,
-                                    searchResult.stream()
-                                            .map(nodeReferenceAndNode ->
-                                                    "(primaryKey=" + nodeReferenceAndNode.getNodeReferenceWithDistance().getPrimaryKey() +
-                                                            ",distance=" + nodeReferenceAndNode.getNodeReferenceWithDistance().getDistance() + ")")
-                                            .collect(Collectors.joining(","))));
+                    debug(l -> l.debug("searched layer={} for efSearch={} with result=={}", layer, efSearch,
+                            searchResult.stream()
+                                    .map(nodeReferenceAndNode ->
+                                            "(primaryKey=" + nodeReferenceAndNode.getNodeReferenceWithDistance().getPrimaryKey() +
+                                                    ",distance=" + nodeReferenceAndNode.getNodeReferenceWithDistance().getDistance() + ")")
+                                    .collect(Collectors.joining(","))));
                     return searchResult;
                 });
     }

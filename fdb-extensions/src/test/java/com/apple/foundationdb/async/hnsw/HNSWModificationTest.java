@@ -22,6 +22,8 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.hnsw.Vector.HalfVector;
 import com.apple.foundationdb.async.rtree.RTree;
 import com.apple.foundationdb.test.TestDatabaseExtension;
 import com.apple.foundationdb.test.TestExecutors;
@@ -36,23 +38,34 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableSet;
+import java.util.Objects;
 import java.util.Random;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 
 /**
  * Tests testing insert/update/deletes of data into/in/from {@link RTree}s.
@@ -159,18 +172,20 @@ public class HNSWModificationTest {
 
         final TestOnReadListener onReadListener = new TestOnReadListener();
 
+        final int dimensions = 128;
         final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
-                HNSW.DEFAULT_CONFIG.toBuilder().setMetric(Metric.COSINE_METRIC).setEfConstruction(34).setM(16).setMMax(16).setMMax0(32).build(),
+                HNSW.DEFAULT_CONFIG.toBuilder().setMetric(Metric.EUCLIDEAN_METRIC).setM(32).setMMax(32).setMMax0(64).build(),
                 OnWriteListener.NOOP, onReadListener);
 
-        for (int i = 0; i < 10000;) {
-            i += basicInsertBatch(hnsw, random, 100, nextNodeIdAtomic, onReadListener);
+        for (int i = 0; i < 1000;) {
+            i += basicInsertBatch(100, nextNodeIdAtomic, onReadListener,
+                    tr -> hnsw.insert(tr, createNextPrimaryKey(nextNodeIdAtomic), createRandomVector(random, dimensions)));
         }
 
         onReadListener.reset();
         final long beginTs = System.nanoTime();
         final List<? extends NodeReferenceAndNode<?>> result =
-                db.run(tr -> hnsw.kNearestNeighborsSearch(tr, 10, 20, createRandomVector(random, 768)).join());
+                db.run(tr -> hnsw.kNearestNeighborsSearch(tr, 10, 100, createRandomVector(random, dimensions)).join());
         final long endTs = System.nanoTime();
 
         for (NodeReferenceAndNode<?> nodeReferenceAndNode : result) {
@@ -184,20 +199,106 @@ public class HNSWModificationTest {
         logger.info("search transaction took elapsedTime={}ms", TimeUnit.NANOSECONDS.toMillis(endTs - beginTs));
     }
 
-    private int basicInsertBatch(@Nonnull final HNSW hnsw, @Nonnull final Random random, final int batchSize,
-                                 @Nonnull final AtomicLong nextNodeIdAtomic, @Nonnull final TestOnReadListener onReadListener) {
+    private int basicInsertBatch(final int batchSize,
+                                 @Nonnull final AtomicLong nextNodeIdAtomic, @Nonnull final TestOnReadListener onReadListener,
+                                 @Nonnull final Function<Transaction, CompletableFuture<Void>> insertFunction) {
         return db.run(tr -> {
             onReadListener.reset();
             final long nextNodeId = nextNodeIdAtomic.get();
             final long beginTs = System.nanoTime();
             for (int i = 0; i < batchSize; i ++) {
-                hnsw.insert(tr, createNextPrimaryKey(nextNodeIdAtomic), createRandomVector(random, 768)).join();
+                insertFunction.apply(tr).join();
             }
             final long endTs = System.nanoTime();
             logger.info("inserted batchSize={} records starting at nodeId={} took elapsedTime={}ms, readCounts={}, MSums={}", batchSize, nextNodeId,
                     TimeUnit.NANOSECONDS.toMillis(endTs - beginTs), onReadListener.getNodeCountByLayer(), onReadListener.getSumMByLayer());
             return batchSize;
         });
+    }
+
+    @Test
+    @Timeout(value = 150, unit = TimeUnit.MINUTES)
+    public void testSIFTInsert10k() throws Exception {
+        final Metric metric = Metric.EUCLIDEAN_METRIC;
+        final int k = 10;
+        final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
+
+        final TestOnReadListener onReadListener = new TestOnReadListener();
+
+        final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
+                HNSW.DEFAULT_CONFIG.toBuilder().setMetric(metric).setM(32).setMMax(32).setMMax0(64).build(),
+                OnWriteListener.NOOP, onReadListener);
+
+        final String tsvFile = "/Users/nseemann/Downloads/train-100k.tsv";
+        final int dimensions = 128;
+
+        final AtomicReference<HalfVector> queryVectorAtomic = new AtomicReference<>();
+        final NavigableSet<NodeReferenceWithDistance> trueResults = new ConcurrentSkipListSet<>(
+                Comparator.comparing(NodeReferenceWithDistance::getDistance));
+
+        try (BufferedReader br = new BufferedReader(new FileReader(tsvFile))) {
+            for (int i = 0; i < 10000;) {
+                i += basicInsertBatch(100, nextNodeIdAtomic, onReadListener,
+                        tr -> {
+                            final String line;
+                            try {
+                                line = br.readLine();
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+
+                            final String[] values = Objects.requireNonNull(line).split("\t");
+                            Assertions.assertEquals(dimensions, values.length);
+                            final Half[] halfs = new Half[dimensions];
+
+                            for (int c = 0; c < values.length; c++) {
+                                final String value = values[c];
+                                halfs[c] = HNSWHelpers.halfValueOf(Double.parseDouble(value));
+                            }
+                            final Tuple currentPrimaryKey = createNextPrimaryKey(nextNodeIdAtomic);
+                            final HalfVector currentVector = new HalfVector(halfs);
+                            final HalfVector queryVector = queryVectorAtomic.get();
+                            if (queryVector == null) {
+                                queryVectorAtomic.set(currentVector);
+                                return AsyncUtil.DONE;
+                            } else {
+                                final double currentDistance =
+                                        Vector.comparativeDistance(metric, currentVector, queryVector);
+                                if (trueResults.size() < k || trueResults.last().getDistance() > currentDistance) {
+                                    trueResults.add(
+                                            new NodeReferenceWithDistance(currentPrimaryKey, currentVector,
+                                                    Vector.comparativeDistance(metric, currentVector, queryVector)));
+                                }
+                                if (trueResults.size() > k) {
+                                    trueResults.remove(trueResults.last());
+                                }
+                                return hnsw.insert(tr, currentPrimaryKey, currentVector);
+                            }
+                        });
+            }
+        }
+
+        onReadListener.reset();
+        final long beginTs = System.nanoTime();
+        final List<? extends NodeReferenceAndNode<?>> results =
+                db.run(tr -> hnsw.kNearestNeighborsSearch(tr, k, 100, queryVectorAtomic.get()).join());
+        final long endTs = System.nanoTime();
+
+        for (NodeReferenceAndNode<?> nodeReferenceAndNode : results) {
+            final NodeReferenceWithDistance nodeReferenceWithDistance = nodeReferenceAndNode.getNodeReferenceWithDistance();
+            logger.info("retrieved result nodeId = {} at distance= {}", nodeReferenceWithDistance.getPrimaryKey().getLong(0),
+                    nodeReferenceWithDistance.getDistance());
+        }
+
+        for (final NodeReferenceWithDistance nodeReferenceWithDistance : trueResults) {
+            logger.info("true result nodeId ={} at distance={}", nodeReferenceWithDistance.getPrimaryKey().getLong(0),
+                    nodeReferenceWithDistance.getDistance());
+        }
+
+        System.out.println(onReadListener.getNodeCountByLayer());
+        System.out.println(onReadListener.getBytesReadByLayer());
+
+        logger.info("search transaction took elapsedTime={}ms", TimeUnit.NANOSECONDS.toMillis(endTs - beginTs));
     }
 
     @Test
@@ -224,15 +325,90 @@ public class HNSWModificationTest {
     }
 
     @Test
-    public void testManyVectors() {
+    public void testManyRandomVectors() {
         final Random random = new Random();
         for (long l = 0L; l < 3000000; l ++) {
-            final Vector.HalfVector randomVector = createRandomVector(random, 768);
+            final HalfVector randomVector = createRandomVector(random, 768);
             final Tuple vectorTuple = StorageAdapter.tupleFromVector(randomVector);
             final Vector<Half> roundTripVector = StorageAdapter.vectorFromTuple(vectorTuple);
             Vector.comparativeDistance(Metric.EuclideanMetric.EUCLIDEAN_METRIC, randomVector, roundTripVector);
             Assertions.assertEquals(randomVector, roundTripVector);
         }
+    }
+
+    @Test
+    @Timeout(value = 150, unit = TimeUnit.MINUTES)
+    public void testSIFTVectors() throws Exception {
+        final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
+
+        final TestOnReadListener onReadListener = new TestOnReadListener();
+
+        final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
+                HNSW.DEFAULT_CONFIG.toBuilder().setMetric(Metric.EUCLIDEAN_METRIC).setM(32).setMMax(32).setMMax0(64).build(),
+                OnWriteListener.NOOP, onReadListener);
+
+
+        final String tsvFile = "/Users/nseemann/Downloads/train-100k.tsv";
+        final int dimensions = 128;
+        final var referenceVector = createRandomVector(new Random(0), dimensions);
+        long count = 0L;
+        double mean = 0.0d;
+        double mean2 = 0.0d;
+
+        try (BufferedReader br = new BufferedReader(new FileReader(tsvFile))) {
+            for (int i = 0; i < 100_000; i ++) {
+                final String line;
+                try {
+                    line = br.readLine();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+
+                final String[] values = Objects.requireNonNull(line).split("\t");
+                Assertions.assertEquals(dimensions, values.length);
+                final Half[] halfs = new Half[dimensions];
+                for (int c = 0; c < values.length; c++) {
+                    final String value = values[c];
+                    halfs[c] = HNSWHelpers.halfValueOf(Double.parseDouble(value));
+                }
+                final HalfVector newVector = new HalfVector(halfs);
+                final double distance = Vector.comparativeDistance(Metric.EUCLIDEAN_METRIC, referenceVector, newVector);
+                count++;
+                final double delta = distance - mean;
+                mean += delta / count;
+                final double delta2 = distance - mean;
+                mean2 += delta * delta2;
+            }
+        }
+        final double sampleVariance = mean2 / (count - 1);
+        final double standardDeviation = Math.sqrt(sampleVariance);
+        logger.info("mean={}, sample_variance={}, stddeviation={}, cv={}", mean, sampleVariance, standardDeviation,
+                standardDeviation / mean);
+    }
+
+
+    @ParameterizedTest
+    @ValueSource(ints = {2, 3, 10, 100, 768})
+    public void testManyVectorsStandardDeviation(final int dimensionality) {
+        final Random random = new Random();
+        final Metric metric = Metric.EuclideanMetric.EUCLIDEAN_METRIC;
+        long count = 0L;
+        double mean = 0.0d;
+        double mean2 = 0.0d;
+        for (long i = 0L; i < 100000; i ++) {
+            final HalfVector vector1 = createRandomVector(random, dimensionality);
+            final HalfVector vector2 = createRandomVector(random, dimensionality);
+            final double distance = Vector.comparativeDistance(metric, vector1, vector2);
+            count = i + 1;
+            final double delta = distance - mean;
+            mean += delta / count;
+            final double delta2 = distance - mean;
+            mean2 += delta * delta2;
+        }
+        final double sampleVariance = mean2 / (count - 1);
+        final double standardDeviation = Math.sqrt(sampleVariance);
+        logger.info("mean={}, sample_variance={}, stddeviation={}, cv={}", mean, sampleVariance, standardDeviation,
+                standardDeviation / mean);
     }
 
     private boolean dumpLayer(final HNSW hnsw, final int layer) throws IOException {
@@ -324,13 +500,13 @@ public class HNSWModificationTest {
     }
 
     @Nonnull
-    private Vector.HalfVector createRandomVector(@Nonnull final Random random, final int dimensionality) {
+    private HalfVector createRandomVector(@Nonnull final Random random, final int dimensionality) {
         final Half[] components = new Half[dimensionality];
         for (int d = 0; d < dimensionality; d ++) {
             // don't ask
             components[d] = HNSWHelpers.halfValueOf(random.nextDouble());
         }
-        return new Vector.HalfVector(components);
+        return new HalfVector(components);
     }
 
     private static class TestOnReadListener implements OnReadListener {
