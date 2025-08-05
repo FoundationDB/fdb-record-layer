@@ -37,6 +37,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvoked
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
+import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.annotations.VisibleForTesting;
@@ -626,7 +627,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             // immediate materialization of temporary function, this is required to collect any auxiliary literals discovered
             // during plan generation of the temporary function. The literals and combined with query literals and provided
             // for the execution of a (cached) physical plan.
-            final var compiledFunction = recordLayerRoutine.getCompilableSqlFunctionSupplier().get();
+            final var compiledFunction = (CompiledSqlFunction)recordLayerRoutine.getUserDefinedFunctionSupplier().get();
             astNormalizer.queryHasherContextBuilder.getLiteralsBuilder().importLiterals(compiledFunction.getAuxiliaryLiterals());
         }
         return new NormalizationResult(

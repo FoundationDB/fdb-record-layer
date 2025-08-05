@@ -49,7 +49,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     private final Supplier<CompiledSqlFunction> compilableSqlFunctionSupplier;
 
     @Nullable
-    private final Supplier<MacroFunction> macroFunctionSupplier;
+    private final Supplier<UserDefinedFunction> userDefinedFunctionSupplier;
 
     public RecordLayerInvokedRoutine(@Nonnull final String description,
                                      @Nonnull final String normalizedDescription,
@@ -62,17 +62,17 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         this.isTemporary = isTemporary;
         // TODO this used to be memoized
         this.compilableSqlFunctionSupplier = compilableSqlFunctionSupplier;
-        this.macroFunctionSupplier = null;
+        this.userDefinedFunctionSupplier = null;
     }
 
     public RecordLayerInvokedRoutine(@Nonnull final String description,
                                      @Nonnull final String normalizedDescription,
                                      @Nonnull final String name,
-                                     @Nonnull final Supplier<MacroFunction> macroFunctionSupplier) {
+                                     @Nonnull final Supplier<UserDefinedFunction> userDefinedFunctionSupplier) {
         this.description = description;
         this.normalizedDescription = normalizedDescription;
         this.name = name;
-        this.macroFunctionSupplier = macroFunctionSupplier;
+        this.userDefinedFunctionSupplier = userDefinedFunctionSupplier;
         this.isTemporary = false;
         this.compilableSqlFunctionSupplier = null;
     }
@@ -95,7 +95,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     }
 
     public Supplier<? extends UserDefinedFunction> getUserDefinedFunctionSupplier() {
-        return compilableSqlFunctionSupplier == null ? macroFunctionSupplier : compilableSqlFunctionSupplier;
+        return compilableSqlFunctionSupplier == null ? userDefinedFunctionSupplier : compilableSqlFunctionSupplier;
     }
 
     @Nonnull
@@ -114,7 +114,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         if (compilableSqlFunctionSupplier != null) {
             return new RawSqlFunction(getName(), getDescription());
         } else {
-            return macroFunctionSupplier.get();
+            return userDefinedFunctionSupplier.get();
         }
     }
 
@@ -160,7 +160,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         private String normalizedDescription;
         private String name;
         private Supplier<CompiledSqlFunction> compilableSqlFunctionSupplier;
-        private Supplier<MacroFunction> macroFunctionSupplier;
+        private Supplier<UserDefinedFunction> userDefinedFunctionSupplier;
         private boolean isTemporary;
 
         private Builder() {
@@ -191,8 +191,8 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         }
 
         @Nonnull
-        public Builder withMacroFunctionSupplier(@Nonnull final Supplier<MacroFunction> macroFunctionSupplier) {
-            this.macroFunctionSupplier = macroFunctionSupplier;
+        public Builder withUserDefinedFunctionSupplier(@Nonnull final Supplier<UserDefinedFunction> userDefinedFunctionSupplier) {
+            this.userDefinedFunctionSupplier = userDefinedFunctionSupplier;
             return this;
         }
 
@@ -207,14 +207,14 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
             Assert.notNullUnchecked(name);
             // Assert.notNullUnchecked(description);
             // only 1 function supplier != null
-            Assert.thatUnchecked(compilableSqlFunctionSupplier == null || macroFunctionSupplier == null);
-            Assert.thatUnchecked(compilableSqlFunctionSupplier != null || macroFunctionSupplier != null);
+            Assert.thatUnchecked(compilableSqlFunctionSupplier == null || userDefinedFunctionSupplier == null);
+            Assert.thatUnchecked(compilableSqlFunctionSupplier != null || userDefinedFunctionSupplier != null);
             if (compilableSqlFunctionSupplier != null) {
                 return new RecordLayerInvokedRoutine(description, normalizedDescription, name, isTemporary,
                         compilableSqlFunctionSupplier);
             } else {
                 return new RecordLayerInvokedRoutine(description, normalizedDescription, name,
-                        macroFunctionSupplier);
+                        userDefinedFunctionSupplier);
             }
         }
     }

@@ -389,7 +389,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         return RecordLayerInvokedRoutine.newBuilder()
                 .setName(functionName)
                 .setDescription(functionDefinition)
-                .withMacroFunctionSupplier(() -> macroFunction)
+                .withUserDefinedFunctionSupplier(() -> macroFunction)
                 .setNormalizedDescription(getDelegate().getPlanGenerationContext().getCanonicalQueryString())
                 .build();
     }

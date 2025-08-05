@@ -176,7 +176,7 @@ public class RecordMetadataDeserializer {
                                                                             @Nonnull final MacroFunction macroFunction) {
         return RecordLayerInvokedRoutine.newBuilder()
                 .setName(name)
-                .withMacroFunctionSupplier(() -> macroFunction);
+                .withUserDefinedFunctionSupplier(() -> macroFunction);
     }
 
     @Nonnull
