@@ -24,10 +24,10 @@ import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.util.Assert;
-import com.google.common.base.Supplier;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
+import java.util.function.Function;
 
 public class RecordLayerInvokedRoutine implements InvokedRoutine {
 
@@ -43,13 +43,13 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     private final boolean isTemporary;
 
     @Nonnull
-    private final Supplier<CompiledSqlFunction> compilableSqlFunctionSupplier;
+    private final Function<Boolean, CompiledSqlFunction> compilableSqlFunctionSupplier;
 
     public RecordLayerInvokedRoutine(@Nonnull final String description,
                                      @Nonnull final String normalizedDescription,
                                      @Nonnull final String name,
                                      boolean isTemporary,
-                                     @Nonnull final Supplier<CompiledSqlFunction> compilableSqlFunctionSupplier) {
+                                     @Nonnull final Function<Boolean, CompiledSqlFunction> compilableSqlFunctionSupplier) {
         this.description = description;
         this.normalizedDescription = normalizedDescription;
         this.name = name;
@@ -71,7 +71,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     }
 
     @Nonnull
-    public Supplier<CompiledSqlFunction> getCompilableSqlFunctionSupplier() {
+    public Function<Boolean, CompiledSqlFunction> getCompilableSqlFunctionSupplier() {
         return compilableSqlFunctionSupplier;
     }
 
@@ -132,7 +132,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         private String description;
         private String normalizedDescription;
         private String name;
-        private Supplier<CompiledSqlFunction> compilableSqlFunctionSupplier;
+        private Function<Boolean, CompiledSqlFunction> compilableSqlFunctionSupplier;
         private boolean isTemporary;
 
         private Builder() {
@@ -157,7 +157,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         }
 
         @Nonnull
-        public Builder withCompilableRoutine(@Nonnull final Supplier<CompiledSqlFunction> compilableSqlFunctionSupplier) {
+        public Builder withCompilableRoutine(@Nonnull final Function<Boolean, CompiledSqlFunction> compilableSqlFunctionSupplier) {
             this.compilableSqlFunctionSupplier = compilableSqlFunctionSupplier;
             return this;
         }

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
@@ -85,6 +86,8 @@ public final class YamlExecutionContext {
     // Additional options that can be set by the runners to impact test execution
     private final ContextOptions additionalOptions;
     private final Map<String, String> transactionSetups = new HashMap<>();
+    @Nonnull
+    private Options connectionOptions;
 
     public static class YamlExecutionError extends RuntimeException {
 
@@ -102,6 +105,7 @@ public final class YamlExecutionContext {
         this.editedFileStream = additionalOptions.getOrDefault(OPTION_CORRECT_EXPLAIN, false)
                                 ? loadYamlResource(resourcePath) : null;
         this.additionalOptions = additionalOptions;
+        this.connectionOptions = Options.none();
         this.expectedMetricsMap = loadMetricsResource(resourcePath);
         this.actualMetricsMap = new TreeMap<>(Comparator.comparing(QueryAndLocation::getLineNumber)
                 .thenComparing(QueryAndLocation::getBlockName)
@@ -119,8 +123,22 @@ public final class YamlExecutionContext {
     }
 
     @Nonnull
+    public Options getConnectionOptions() {
+        return connectionOptions;
+    }
+
+    public void setConnectionOptions(@Nonnull final Options connectionOptions) {
+        this.connectionOptions = connectionOptions;
+    }
+
+    @Nonnull
+    public String getResourcePath() {
+        return resourcePath;
+    }
+
+    @Nonnull
     public YamlConnectionFactory getConnectionFactory() {
-        return connectionFactory;
+        return YamlConnectionFactoryWithOptions.newInstance(connectionFactory, connectionOptions);
     }
 
     public boolean shouldCorrectExplains() {
@@ -290,6 +308,32 @@ public final class YamlExecutionContext {
      */
     @Nonnull
     public RuntimeException wrapContext(@Nonnull Throwable throwable, @Nonnull Supplier<String> msg, @Nonnull String identifier, int lineNumber) {
+        return wrapContext(resourcePath, throwable, msg, identifier, lineNumber);
+    }
+
+    /**
+     * Wraps exceptions/errors with more context. This is used to hierarchically add more context to an exception. In case
+     * the {@link Throwable} is a {@link YamlExecutionError}, this method adds additional context to its StackTrace in
+     * the form of a new {@link StackTraceElement}, else it just wraps the throwable.
+     * <br>
+     * The general flow of execution of a test in any file is: file to test_block to test_run to query_config. If an
+     * exception/failure occurs in testing for a particular query_config, the following is the context that can be added
+     * incrementally at appropriate places in code:
+     * <br>
+     * query_config: lineNumber of the expected result
+     * test_run: lineNumber of query, query run as a simple statement or as prepared statement, parameters (if any)
+     * test_block: lineNumber of test_block, seed used for randomization, execution properties
+     *
+     * @param throwable the throwable that needs to be wrapped
+     * @param msg additional context
+     * @param identifier The name of the element type to which the context is associated to.
+     * @param lineNumber the line number in the YAMSQL file to which the context is associated to.
+     *
+     * @return wrapped {@link YamlExecutionError}
+     */
+    @Nonnull
+    public static RuntimeException wrapContext(@Nonnull final String resourcePath, @Nonnull Throwable throwable,
+                                        @Nonnull Supplier<String> msg, @Nonnull String identifier, int lineNumber) {
         String fileName;
         if (resourcePath.contains("/")) {
             final String[] split = resourcePath.split("/");

@@ -37,7 +37,7 @@ public class MetricsCollectionTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relational, MetricsCollectionTest.class, TestSchemas.restaurant());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(MetricsCollectionTest.class, TestSchemas.restaurant());
 
     @Test
     void canRecoverFDBLevelMetrics() {

@@ -18,8 +18,10 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.util;
+package com.apple.foundationdb.relational.utils;
 
+import com.apple.foundationdb.relational.util.EventSampler;
+import com.apple.foundationdb.relational.util.Sampler;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 

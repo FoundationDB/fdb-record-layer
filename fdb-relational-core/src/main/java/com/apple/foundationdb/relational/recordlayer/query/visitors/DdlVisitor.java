@@ -266,7 +266,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             final var tableWithIndex = RecordLayerTable.Builder.from(table).addIndex(index).build();
             metadataBuilder.addTable(tableWithIndex);
         }
-        return ProceduralPlan.of(metadataOperationsFactory.getCreateSchemaTemplateConstantAction(metadataBuilder.build(), Options.NONE));
+        return ProceduralPlan.of(metadataOperationsFactory.getSaveSchemaTemplateConstantAction(metadataBuilder.build(), Options.NONE));
     }
 
     @Nonnull
@@ -346,7 +346,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         return RecordLayerInvokedRoutine.newBuilder()
                 .setName(functionName)
                 .setDescription(functionDefinition)
-                .withCompilableRoutine(() -> compiledSqlFunction)
+                .withCompilableRoutine(ignored -> compiledSqlFunction)
                 .setNormalizedDescription(getDelegate().getPlanGenerationContext().getCanonicalQueryString())
                 .setTemporary(isTemporary)
                 .build();
