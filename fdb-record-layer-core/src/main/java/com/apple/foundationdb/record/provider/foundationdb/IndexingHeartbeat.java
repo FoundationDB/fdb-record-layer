@@ -96,7 +96,11 @@ public class IndexingHeartbeat {
                 final IndexBuildProto.IndexingHeartbeat otherHeartbeat = IndexBuildProto.IndexingHeartbeat.parseFrom(kv.getValue());
                 final long age = now - otherHeartbeat.getHeartbeatTimeMilliseconds();
                 if (age > 0 && age < leaseLength) {
-                    throw new SynchronizedSessionLockedException("Failed to initialize the session because of an existing session in progress");
+                    throw new SynchronizedSessionLockedException("Failed to initialize the session because of an existing session in progress")
+                            .addLogInfo(LogMessageKeys.SESSION_ID, sessionId)
+                            .addLogInfo(LogMessageKeys.EXISTING_SESSION_ID, otherSessionId)
+                            .addLogInfo(LogMessageKeys.AGE_MILLISECONDS, age)
+                            .addLogInfo(LogMessageKeys.TIME_LIMIT_MILLIS, leaseLength);
                     // TODO: log details
                 }
             } catch (InvalidProtocolBufferException e) {
