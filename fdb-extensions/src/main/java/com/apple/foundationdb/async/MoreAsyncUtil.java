@@ -23,7 +23,6 @@ package com.apple.foundationdb.async;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.util.LoggableException;
 import com.google.common.base.Suppliers;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
@@ -31,11 +30,11 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -1105,23 +1104,14 @@ public class MoreAsyncUtil {
 
                 final int index = indexAtomic.getAndIncrement();
                 working.add(body.apply(currentItem)
-                        .thenAccept(resultNode -> {
-                            Objects.requireNonNull(resultNode);
-                            resultArray[index] = resultNode;
-                        }));
+                        .thenAccept(result -> resultArray[index] = result));
             }
 
             if (working.isEmpty()) {
                 return AsyncUtil.READY_FALSE;
             }
             return AsyncUtil.whenAny(working).thenApply(ignored -> true);
-        }, executor).thenApply(ignored -> {
-            final ImmutableList.Builder<U> resultBuilder = ImmutableList.builder();
-            for (final Object o : resultArray) {
-                resultBuilder.add((U)o);
-            }
-            return resultBuilder.build();
-        });
+        }, executor).thenApply(ignored -> Arrays.asList((U[])resultArray));
     }
 
     /**

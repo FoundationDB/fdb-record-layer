@@ -22,7 +22,6 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.Transaction;
-import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.hnsw.Vector.HalfVector;
 import com.apple.foundationdb.async.rtree.RTree;
 import com.apple.foundationdb.test.TestDatabaseExtension;
@@ -60,7 +59,6 @@ import java.util.Map;
 import java.util.NavigableSet;
 import java.util.Objects;
 import java.util.Random;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -178,8 +176,8 @@ public class HNSWModificationTest {
                 OnWriteListener.NOOP, onReadListener);
 
         for (int i = 0; i < 1000;) {
-            i += basicInsertBatch(100, nextNodeIdAtomic, onReadListener,
-                    tr -> hnsw.insert(tr, createNextPrimaryKey(nextNodeIdAtomic), createRandomVector(random, dimensions)));
+            i += basicInsertBatch(hnsw, 100, nextNodeIdAtomic, onReadListener,
+                    tr -> new NodeReferenceWithVector(createNextPrimaryKey(nextNodeIdAtomic), createRandomVector(random, dimensions)));
         }
 
         onReadListener.reset();
@@ -199,18 +197,44 @@ public class HNSWModificationTest {
         logger.info("search transaction took elapsedTime={}ms", TimeUnit.NANOSECONDS.toMillis(endTs - beginTs));
     }
 
-    private int basicInsertBatch(final int batchSize,
+    private int basicInsertBatch(final HNSW hnsw, final int batchSize,
                                  @Nonnull final AtomicLong nextNodeIdAtomic, @Nonnull final TestOnReadListener onReadListener,
-                                 @Nonnull final Function<Transaction, CompletableFuture<Void>> insertFunction) {
+                                 @Nonnull final Function<Transaction, NodeReferenceWithVector> insertFunction) {
         return db.run(tr -> {
             onReadListener.reset();
             final long nextNodeId = nextNodeIdAtomic.get();
             final long beginTs = System.nanoTime();
             for (int i = 0; i < batchSize; i ++) {
-                insertFunction.apply(tr).join();
+                final var newNodeReference = insertFunction.apply(tr);
+                if (newNodeReference != null) {
+                    hnsw.insert(tr, newNodeReference).join();
+                }
             }
             final long endTs = System.nanoTime();
             logger.info("inserted batchSize={} records starting at nodeId={} took elapsedTime={}ms, readCounts={}, MSums={}", batchSize, nextNodeId,
+                    TimeUnit.NANOSECONDS.toMillis(endTs - beginTs), onReadListener.getNodeCountByLayer(), onReadListener.getSumMByLayer());
+            return batchSize;
+        });
+    }
+
+    private int insertBatch(final HNSW hnsw, final int batchSize,
+                            @Nonnull final AtomicLong nextNodeIdAtomic, @Nonnull final TestOnReadListener onReadListener,
+                            @Nonnull final Function<Transaction, NodeReferenceWithVector> insertFunction) {
+        return db.run(tr -> {
+            onReadListener.reset();
+            final long nextNodeId = nextNodeIdAtomic.get();
+            final long beginTs = System.nanoTime();
+            final ImmutableList.Builder<NodeReferenceWithVector> nodeReferenceWithVectorBuilder =
+                    ImmutableList.builder();
+            for (int i = 0; i < batchSize; i ++) {
+                final var newNodeReference = insertFunction.apply(tr);
+                if (newNodeReference != null) {
+                    nodeReferenceWithVectorBuilder.add(newNodeReference);
+                }
+            }
+            hnsw.insertBatch(tr, nodeReferenceWithVectorBuilder.build()).join();
+            final long endTs = System.nanoTime();
+            logger.info("inserted batch batchSize={} records starting at nodeId={} took elapsedTime={}ms, readCounts={}, MSums={}", batchSize, nextNodeId,
                     TimeUnit.NANOSECONDS.toMillis(endTs - beginTs), onReadListener.getNodeCountByLayer(), onReadListener.getSumMByLayer());
             return batchSize;
         });
@@ -237,8 +261,8 @@ public class HNSWModificationTest {
                 Comparator.comparing(NodeReferenceWithDistance::getDistance));
 
         try (BufferedReader br = new BufferedReader(new FileReader(tsvFile))) {
-            for (int i = 0; i < 1000;) {
-                i += basicInsertBatch(100, nextNodeIdAtomic, onReadListener,
+            for (int i = 0; i < 10000;) {
+                i += basicInsertBatch(hnsw, 100, nextNodeIdAtomic, onReadListener,
                         tr -> {
                             final String line;
                             try {
@@ -260,7 +284,7 @@ public class HNSWModificationTest {
                             final HalfVector queryVector = queryVectorAtomic.get();
                             if (queryVector == null) {
                                 queryVectorAtomic.set(currentVector);
-                                return AsyncUtil.DONE;
+                                return null;
                             } else {
                                 final double currentDistance =
                                         Vector.comparativeDistance(metric, currentVector, queryVector);
@@ -272,7 +296,92 @@ public class HNSWModificationTest {
                                 if (trueResults.size() > k) {
                                     trueResults.remove(trueResults.last());
                                 }
-                                return hnsw.insert(tr, currentPrimaryKey, currentVector);
+                                return new NodeReferenceWithVector(currentPrimaryKey, currentVector);
+                            }
+                        });
+            }
+        }
+
+        onReadListener.reset();
+        final long beginTs = System.nanoTime();
+        final List<? extends NodeReferenceAndNode<?>> results =
+                db.run(tr -> hnsw.kNearestNeighborsSearch(tr, k, 100, queryVectorAtomic.get()).join());
+        final long endTs = System.nanoTime();
+
+        for (NodeReferenceAndNode<?> nodeReferenceAndNode : results) {
+            final NodeReferenceWithDistance nodeReferenceWithDistance = nodeReferenceAndNode.getNodeReferenceWithDistance();
+            logger.info("retrieved result nodeId = {} at distance= {}", nodeReferenceWithDistance.getPrimaryKey().getLong(0),
+                    nodeReferenceWithDistance.getDistance());
+        }
+
+        for (final NodeReferenceWithDistance nodeReferenceWithDistance : trueResults) {
+            logger.info("true result nodeId ={} at distance={}", nodeReferenceWithDistance.getPrimaryKey().getLong(0),
+                    nodeReferenceWithDistance.getDistance());
+        }
+
+        System.out.println(onReadListener.getNodeCountByLayer());
+        System.out.println(onReadListener.getBytesReadByLayer());
+
+        logger.info("search transaction took elapsedTime={}ms", TimeUnit.NANOSECONDS.toMillis(endTs - beginTs));
+    }
+
+    @Test
+    @Timeout(value = 150, unit = TimeUnit.MINUTES)
+    public void testSIFTInsert10kWithBatchInsert() throws Exception {
+        final Metric metric = Metric.EUCLIDEAN_METRIC;
+        final int k = 10;
+        final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
+
+        final TestOnReadListener onReadListener = new TestOnReadListener();
+
+        final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
+                HNSW.DEFAULT_CONFIG.toBuilder().setMetric(metric).setM(32).setMMax(32).setMMax0(64).build(),
+                OnWriteListener.NOOP, onReadListener);
+
+        final String tsvFile = "/Users/nseemann/Downloads/train-100k.tsv";
+        final int dimensions = 128;
+
+        final AtomicReference<HalfVector> queryVectorAtomic = new AtomicReference<>();
+        final NavigableSet<NodeReferenceWithDistance> trueResults = new ConcurrentSkipListSet<>(
+                Comparator.comparing(NodeReferenceWithDistance::getDistance));
+
+        try (BufferedReader br = new BufferedReader(new FileReader(tsvFile))) {
+            for (int i = 0; i < 10000;) {
+                i += insertBatch(hnsw, 100, nextNodeIdAtomic, onReadListener,
+                        tr -> {
+                            final String line;
+                            try {
+                                line = br.readLine();
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+
+                            final String[] values = Objects.requireNonNull(line).split("\t");
+                            Assertions.assertEquals(dimensions, values.length);
+                            final Half[] halfs = new Half[dimensions];
+
+                            for (int c = 0; c < values.length; c++) {
+                                final String value = values[c];
+                                halfs[c] = HNSWHelpers.halfValueOf(Double.parseDouble(value));
+                            }
+                            final Tuple currentPrimaryKey = createNextPrimaryKey(nextNodeIdAtomic);
+                            final HalfVector currentVector = new HalfVector(halfs);
+                            final HalfVector queryVector = queryVectorAtomic.get();
+                            if (queryVector == null) {
+                                queryVectorAtomic.set(currentVector);
+                                return null;
+                            } else {
+                                final double currentDistance =
+                                        Vector.comparativeDistance(metric, currentVector, queryVector);
+                                if (trueResults.size() < k || trueResults.last().getDistance() > currentDistance) {
+                                    trueResults.add(
+                                            new NodeReferenceWithDistance(currentPrimaryKey, currentVector,
+                                                    Vector.comparativeDistance(metric, currentVector, queryVector)));
+                                }
+                                if (trueResults.size() > k) {
+                                    trueResults.remove(trueResults.last());
+                                }
+                                return new NodeReferenceWithVector(currentPrimaryKey, currentVector);
                             }
                         });
             }
@@ -306,7 +415,7 @@ public class HNSWModificationTest {
         final Random random = new Random(0);
         final AtomicLong nextNodeId = new AtomicLong(0L);
         final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
-                HNSW.DEFAULT_CONFIG.toBuilder().setM(4).setMMax(4).setMMax0(10).build(),
+                HNSW.DEFAULT_CONFIG.toBuilder().setM(4).setMMax(4).setMMax0(4).build(),
                 OnWriteListener.NOOP, OnReadListener.NOOP);
 
         db.run(tr -> {

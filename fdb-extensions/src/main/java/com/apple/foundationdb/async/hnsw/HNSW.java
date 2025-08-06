@@ -59,6 +59,9 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.apple.foundationdb.async.MoreAsyncUtil.forEach;
+import static com.apple.foundationdb.async.MoreAsyncUtil.forLoop;
+
 /**
  * TODO.
  */
@@ -70,6 +73,7 @@ public class HNSW {
 
     public static final int MAX_CONCURRENT_NODE_READS = 16;
     public static final int MAX_CONCURRENT_NEIGHBOR_FETCHES = 3;
+    public static final int MAX_CONCURRENT_SEARCHES = 10;
     @Nonnull public static final Random DEFAULT_RANDOM = new Random(0L);
     @Nonnull public static final Metric DEFAULT_METRIC = new Metric.EuclideanMetric();
     public static final int DEFAULT_M = 16;
@@ -697,10 +701,15 @@ public class HNSW {
                                                                                                                     @Nonnull final Iterable<R> nodeReferences,
                                                                                                                     @Nonnull final Function<R, U> fetchBypassFunction,
                                                                                                                     @Nonnull final BiFunction<R, Node<N>, U> biMapFunction) {
-        return MoreAsyncUtil.forEach(nodeReferences,
+        return forEach(nodeReferences,
                 currentNeighborReference -> fetchNodeIfNecessaryAndApply(storageAdapter, readTransaction, layer,
                         currentNeighborReference, fetchBypassFunction, biMapFunction), MAX_CONCURRENT_NODE_READS,
                 getExecutor());
+    }
+
+    @Nonnull
+    public CompletableFuture<Void> insert(@Nonnull final Transaction transaction, @Nonnull final NodeReferenceWithVector nodeReferenceWithVector) {
+        return insert(transaction, nodeReferenceWithVector.getPrimaryKey(), nodeReferenceWithVector.getVector());
     }
 
     @Nonnull
@@ -720,9 +729,9 @@ public class HNSW {
                                 new EntryNodeReference(newPrimaryKey, newVector, insertionLayer), getOnWriteListener());
                         debug(l -> l.debug("written entry node reference with key={} on layer={}", newPrimaryKey, insertionLayer));
                     } else {
-                        final int entryNodeLayer = entryNodeReference.getLayer();
-                        if (insertionLayer > entryNodeLayer) {
-                            writeLonelyNodes(transaction, newPrimaryKey, newVector, insertionLayer, entryNodeLayer);
+                        final int lMax = entryNodeReference.getLayer();
+                        if (insertionLayer > lMax) {
+                            writeLonelyNodes(transaction, newPrimaryKey, newVector, insertionLayer, lMax);
                             StorageAdapter.writeEntryNodeReference(transaction, getSubspace(),
                                     new EntryNodeReference(newPrimaryKey, newVector, insertionLayer), getOnWriteListener());
                             debug(l -> l.debug("written entry node reference with key={} on layer={}", newPrimaryKey, insertionLayer));
@@ -757,13 +766,104 @@ public class HNSW {
     }
 
     @Nonnull
-    private CompletableFuture<Void> insertIntoLayers(final @Nonnull Transaction transaction,
-                                                     final @Nonnull Tuple newPrimaryKey,
-                                                     final @Nonnull Vector<Half> newVector,
-                                                     final NodeReferenceWithDistance nodeReference, final int lMax, final int insertionLayer) {
-        debug(l -> {
-            l.debug("nearest entry point at lMax={} is at key={}", lMax, nodeReference.getPrimaryKey());
-        });
+    public CompletableFuture<Void> insertBatch(@Nonnull final Transaction transaction,
+                                               @Nonnull List<NodeReferenceWithVector> batch) {
+        final Metric metric = getConfig().getMetric();
+
+        // determine the layer each item should be inserted at
+        final Random random = getConfig().getRandom();
+        final List<NodeReferenceWithLayer> batchWithLayers = Lists.newArrayListWithCapacity(batch.size());
+        for (final NodeReferenceWithVector current : batch) {
+            batchWithLayers.add(new NodeReferenceWithLayer(current.getPrimaryKey(), current.getVector(),
+                    insertionLayer(random)));
+        }
+        // sort the layers in reverse order
+        batchWithLayers.sort(Comparator.comparing(NodeReferenceWithLayer::getL).reversed());
+
+        return StorageAdapter.fetchEntryNodeReference(transaction, getSubspace(), getOnReadListener())
+                .thenCompose(entryNodeReference -> {
+                    final int lMax = entryNodeReference == null ? -1 : entryNodeReference.getLayer();
+
+                    return forEach(batchWithLayers,
+                            item -> {
+                                if (lMax == -1) {
+                                    return CompletableFuture.completedFuture(null);
+                                }
+
+                                final Vector<Half> itemVector = item.getVector();
+                                final int itemL = item.getL();
+
+                                final NodeReferenceWithDistance initialNodeReference =
+                                        new NodeReferenceWithDistance(entryNodeReference.getPrimaryKey(),
+                                                entryNodeReference.getVector(),
+                                                Vector.comparativeDistance(metric, entryNodeReference.getVector(), itemVector));
+
+                                return MoreAsyncUtil.forLoop(lMax, initialNodeReference,
+                                        layer -> layer > itemL,
+                                        layer -> layer - 1,
+                                        (layer, previousNodeReference) -> {
+                                            final StorageAdapter<? extends NodeReference> storageAdapter = getStorageAdapterForLayer(layer);
+                                            return greedySearchLayer(storageAdapter, transaction,
+                                                    previousNodeReference, layer, itemVector);
+                                        }, executor);
+                            }, MAX_CONCURRENT_SEARCHES, getExecutor())
+                            .thenCompose(searchEntryReferences ->
+                                    forLoop(0, entryNodeReference,
+                                            index -> index < batchWithLayers.size(),
+                                            index -> index + 1,
+                                            (index, currentEntryNodeReference) -> {
+                                                final NodeReferenceWithLayer item = batchWithLayers.get(index);
+                                                final Tuple itemPrimaryKey = item.getPrimaryKey();
+                                                final Vector<Half> itemVector = item.getVector();
+                                                final int itemL = item.getL();
+
+                                                final EntryNodeReference newEntryNodeReference;
+                                                final int currentLMax;
+
+                                                if (entryNodeReference == null) {
+                                                    // this is the first node
+                                                    writeLonelyNodes(transaction, itemPrimaryKey, itemVector, itemL, -1);
+                                                    newEntryNodeReference =
+                                                            new EntryNodeReference(itemPrimaryKey, itemVector, itemL);
+                                                    StorageAdapter.writeEntryNodeReference(transaction, getSubspace(),
+                                                            newEntryNodeReference, getOnWriteListener());
+                                                    debug(l -> l.debug("written entry node reference with key={} on layer={}", itemPrimaryKey, itemL));
+
+                                                    return CompletableFuture.completedFuture(newEntryNodeReference);
+                                                } else {
+                                                    currentLMax = currentEntryNodeReference.getLayer();
+                                                    if (itemL > currentLMax) {
+                                                        writeLonelyNodes(transaction, itemPrimaryKey, itemVector, itemL, lMax);
+                                                        newEntryNodeReference =
+                                                                new EntryNodeReference(itemPrimaryKey, itemVector, itemL);
+                                                        StorageAdapter.writeEntryNodeReference(transaction, getSubspace(),
+                                                                newEntryNodeReference, getOnWriteListener());
+                                                        debug(l -> l.debug("written entry node reference with key={} on layer={}", itemPrimaryKey, itemL));
+                                                    } else {
+                                                        newEntryNodeReference = entryNodeReference;
+                                                    }
+                                                }
+
+                                                debug(l -> l.debug("entry node with key {} at layer {}",
+                                                        currentEntryNodeReference.getPrimaryKey(), currentLMax));
+
+                                                final var currentSearchEntry =
+                                                        searchEntryReferences.get(index);
+
+                                                return insertIntoLayers(transaction, itemPrimaryKey, itemVector, currentSearchEntry,
+                                                        lMax, itemL).thenApply(ignored -> newEntryNodeReference);
+                                            }, getExecutor()));
+                }).thenCompose(ignored -> AsyncUtil.DONE);
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> insertIntoLayers(@Nonnull final Transaction transaction,
+                                                     @Nonnull final Tuple newPrimaryKey,
+                                                     @Nonnull final Vector<Half> newVector,
+                                                     @Nonnull final NodeReferenceWithDistance nodeReference,
+                                                     final int lMax,
+                                                     final int insertionLayer) {
+        debug(l -> l.debug("nearest entry point at lMax={} is at key={}", lMax, nodeReference.getPrimaryKey()));
         return MoreAsyncUtil.<List<NodeReferenceWithDistance>>forLoop(Math.min(lMax, insertionLayer), ImmutableList.of(nodeReference),
                 layer -> layer >= 0,
                 layer -> layer - 1,
@@ -817,7 +917,7 @@ public class HNSW {
                                 }
 
                                 final int currentMMax = layer == 0 ? getConfig().getMMax0() : getConfig().getMMax();
-                                return MoreAsyncUtil.forEach(selectedNeighbors,
+                                return forEach(selectedNeighbors,
                                                 selectedNeighbor -> {
                                                     final Node<N> selectedNeighborNode = selectedNeighbor.getNode();
                                                     final NeighborsChangeSet<N> changeSet =
@@ -1108,6 +1208,45 @@ public class HNSW {
     private void debug(@Nonnull final Consumer<Logger> loggerConsumer) {
         if (logger.isDebugEnabled()) {
             loggerConsumer.accept(logger);
+        }
+    }
+
+    private static class NodeReferenceWithLayer extends NodeReferenceWithVector {
+        @SuppressWarnings("checkstyle:MemberName")
+        private final int l;
+
+        public NodeReferenceWithLayer(@Nonnull final Tuple primaryKey, @Nonnull final Vector<Half> vector,
+                                      final int l) {
+            super(primaryKey, vector);
+            this.l = l;
+        }
+
+        public int getL() {
+            return l;
+        }
+    }
+
+    private static class NodeReferenceWithSearchEntry extends NodeReferenceWithVector {
+        @SuppressWarnings("checkstyle:MemberName")
+        private final int l;
+        @Nonnull
+        private final NodeReferenceWithDistance nodeReferenceWithDistance;
+
+        public NodeReferenceWithSearchEntry(@Nonnull final Tuple primaryKey, @Nonnull final Vector<Half> vector,
+                                            final int l,
+                                            @Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance) {
+            super(primaryKey, vector);
+            this.l = l;
+            this.nodeReferenceWithDistance = nodeReferenceWithDistance;
+        }
+
+        public int getL() {
+            return l;
+        }
+
+        @Nonnull
+        public NodeReferenceWithDistance getNodeReferenceWithDistance() {
+            return nodeReferenceWithDistance;
         }
     }
 }
