@@ -488,6 +488,7 @@ public class OnlineIndexOperationConfig {
          * @deprecated Synchronized sessions are now determined by the indexing method.
          */
         @API(API.Status.DEPRECATED)
+        @SuppressWarnings("PMD.AvoidUsingHardCodedIP") // version is not IP
         @Deprecated(since = "4.4.3.0", forRemoval = true)
         public Builder setUseSynchronizedSession(boolean useSynchronizedSession) {
             // no-op
