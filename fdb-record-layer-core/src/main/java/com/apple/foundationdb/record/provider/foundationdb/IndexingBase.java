@@ -1028,10 +1028,12 @@ public abstract class IndexingBase {
         }))
                 .thenCompose(vignore -> setIndexingTypeOrThrow(store, false))
                 .thenCompose(vignore -> rebuildIndexInternalAsync(store))
-                .thenCompose(vignore -> forEachTargetIndex(index -> {
-                    clearHeartbeatSingleTarget(store, index);
+                .thenApply(vignore -> {
+                    for (Index index: common.getTargetIndexes()) {
+                        clearHeartbeatSingleTarget(store, index);
+                    }
                     return null;
-                }));
+                });
     }
 
     abstract CompletableFuture<Void> rebuildIndexInternalAsync(FDBRecordStore store);
