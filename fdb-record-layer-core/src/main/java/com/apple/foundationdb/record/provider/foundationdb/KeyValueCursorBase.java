@@ -209,7 +209,12 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             }
             try {
                 RecordCursorProto.KeyValueCursorContinuation continuationProto = RecordCursorProto.KeyValueCursorContinuation.parseFrom(rawBytes);
-                return continuationProto.getContinuation().toByteArray();
+                if (continuationProto.hasPrefixLength()) {
+                    return continuationProto.getContinuation().toByteArray();
+                } else {
+                    System.out.println("wrong deserialization");
+                    return rawBytes;
+                }
             } catch (InvalidProtocolBufferException ipbe) {
                 return rawBytes;
             }
@@ -219,7 +224,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         private RecordCursorProto.KeyValueCursorContinuation toProto() {
             RecordCursorProto.KeyValueCursorContinuation.Builder builder = RecordCursorProto.KeyValueCursorContinuation.newBuilder();
             ByteString base = ZeroCopyByteString.wrap(Objects.requireNonNull(lastKey));
-            return builder.setContinuation(base.substring(prefixLength, lastKey.length)).build();
+            return builder.setContinuation(base.substring(prefixLength, lastKey.length)).setPrefixLength(prefixLength).build();
         }
     }
 
