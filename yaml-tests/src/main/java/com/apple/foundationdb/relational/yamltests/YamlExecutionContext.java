@@ -435,7 +435,7 @@ public final class YamlExecutionContext {
             infoMap.put("insert_time_ms", TimeUnit.NANOSECONDS.toMillis(countersAndTimers.getInsertTimeNs()));
             infoMap.put("insert_new_count", countersAndTimers.getInsertNewCount());
             infoMap.put("insert_reused_count", countersAndTimers.getInsertReusedCount());
-            mmap.put(identifier.getBlockName(), infoMap); // TODO fixme
+            mmap.put(identifier.getBlockName(), infoMap);
         }
 
         try (var fos = new FileOutputStream(fileName)) {
