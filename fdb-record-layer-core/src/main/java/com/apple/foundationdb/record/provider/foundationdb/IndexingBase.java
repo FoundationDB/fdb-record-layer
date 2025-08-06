@@ -1027,7 +1027,11 @@ public abstract class IndexingBase {
             return rangeSet.insertRangeAsync(null, null);
         }))
                 .thenCompose(vignore -> setIndexingTypeOrThrow(store, false))
-                .thenCompose(vignore -> rebuildIndexInternalAsync(store));
+                .thenCompose(vignore -> rebuildIndexInternalAsync(store))
+                .thenCompose(vignore -> forEachTargetIndex(index -> {
+                    clearHeartbeatSingleTarget(store, index);
+                    return null;
+                }));
     }
 
     abstract CompletableFuture<Void> rebuildIndexInternalAsync(FDBRecordStore store);
