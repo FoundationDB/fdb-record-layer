@@ -58,6 +58,7 @@ public enum LogMessageKeys {
     TRANSACTION_ID,
     TRANSACTION_NAME,
     AGE_SECONDS,
+    AGE_MILLISECONDS,
     CONSTITUENT,
     TOTAL_MICROS,
     // record splitting/unsplitting
@@ -162,6 +163,7 @@ public enum LogMessageKeys {
     RECORDS_PER_SECOND,
     DOCUMENT,
     SESSION_ID,
+    EXISTING_SESSION_ID,
     INDEXER_SESSION_ID,
     INDEXER_ID,
     INDEX_STATE_PRECONDITION,
