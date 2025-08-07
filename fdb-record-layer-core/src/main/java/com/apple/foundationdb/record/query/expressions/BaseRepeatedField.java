@@ -104,18 +104,4 @@ abstract class BaseRepeatedField extends BaseField {
         }
     }
 
-    /**
-     * Base implementation of {@link #queryHash}.
-     * This implementation makes each concrete subclass implement its own version of {@link #queryHash} so that they are
-     * guided to add their own class modifier (See {@link com.apple.foundationdb.record.ObjectPlanHash ObjectPlanHash}).
-     * This implementation is meant to give subclasses common functionality for their own implementation.
-     * @param hashKind the query hash kind to use
-     * @param baseHash the subclass' base hash (concrete identifier)
-     * @param hashables the rest of the subclass' hashable parameters (if any)
-     * @return the query hash value calculated
-     */
-    @Override
-    protected int baseQueryHash(@Nonnull final QueryHashKind hashKind, ObjectPlanHash baseHash, Object... hashables) {
-        return super.baseQueryHash(hashKind, baseHash, emptyMode, hashables);
-    }
 }

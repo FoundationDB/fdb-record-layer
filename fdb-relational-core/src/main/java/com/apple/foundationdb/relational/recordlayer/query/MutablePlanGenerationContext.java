@@ -26,6 +26,8 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -165,8 +167,24 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         }
         final var leftCov = ConstantObjectValue.of(Quantifier.constant(), leftTokenId, type);
         final var rightCov = ConstantObjectValue.of(Quantifier.constant(), rightTokenId, type);
+
+        // we can replace the relatively complex predicate below with a much simpler one: (leftCov isNotDistinctFrom rightCov)
+        // once https://github.com/FoundationDB/fdb-record-layer/issues/3504 is in, but this is ok for now.
+
+        // Term1: left != null AND right != null AND left = right
+        final var leftIsNotNull = new ValuePredicate(leftCov, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL));
+        final var rightIsNotNull = new ValuePredicate(rightCov, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL));
         final var equalityPredicate = new ValuePredicate(leftCov, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, rightCov));
-        equalityConstraints.add(equalityPredicate);
+        final var notNullComparison = AndPredicate.and(ImmutableList.of(leftIsNotNull, rightIsNotNull, equalityPredicate));
+
+        // Term2: left = null AND right = null
+        final var leftIsNull = new ValuePredicate(leftCov, new Comparisons.NullComparison(Comparisons.Type.IS_NULL));
+        final var rightIsNull = new ValuePredicate(rightCov, new Comparisons.NullComparison(Comparisons.Type.IS_NULL));
+        final var bothAreNullComparison = AndPredicate.and(leftIsNull, rightIsNull);
+
+        // Term1 OR Term2
+        final var constraint = OrPredicate.or(notNullComparison, bothAreNullComparison);
+        equalityConstraints.add(constraint);
     }
 
 

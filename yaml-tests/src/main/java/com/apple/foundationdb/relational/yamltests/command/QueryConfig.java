@@ -28,7 +28,7 @@ import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
-import com.apple.foundationdb.relational.yamltests.block.FileOptions;
+import com.apple.foundationdb.relational.yamltests.block.PreambleBlock;
 import com.apple.foundationdb.relational.yamltests.generated.stats.PlannerMetricsProto;
 import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
@@ -81,10 +81,12 @@ public abstract class QueryConfig {
     public static final String QUERY_CONFIG_PLAN_HASH = "planHash";
     public static final String QUERY_CONFIG_NO_CHECKS = "noChecks";
     public static final String QUERY_CONFIG_MAX_ROWS = "maxRows";
-    public static final String QUERY_CONFIG_SUPPORTED_VERSION = FileOptions.SUPPORTED_VERSION_OPTION;
+    public static final String QUERY_CONFIG_SUPPORTED_VERSION = PreambleBlock.PREAMBLE_BLOCK_SUPPORTED_VERSION;
     public static final String QUERY_CONFIG_INITIAL_VERSION_AT_LEAST = "initialVersionAtLeast";
     public static final String QUERY_CONFIG_INITIAL_VERSION_LESS_THAN = "initialVersionLessThan";
     public static final String QUERY_CONFIG_NO_OP = "noOp";
+    public static final String QUERY_CONFIG_SETUP = "setup";
+    public static final String QUERY_CONFIG_SETUP_REFERENCE = "setupReference";
     public static final String QUERY_CONFIG_DEBUGGER = "debugger";
 
     private static final Set<String> RESULT_CONFIGS = ImmutableSet.of(QUERY_CONFIG_ERROR, QUERY_CONFIG_COUNT, QUERY_CONFIG_RESULT, QUERY_CONFIG_UNORDERED_RESULT);
@@ -466,6 +468,16 @@ public abstract class QueryConfig {
         };
     }
 
+    private static QueryConfig getSetupConfig(final Object value, final int lineNumber, final YamlExecutionContext executionContext) {
+        return new QueryConfig(QUERY_CONFIG_SETUP, value, lineNumber, executionContext) {
+            @Override
+            void checkResultInternal(@Nonnull final String currentQuery, @Nonnull final Object actual,
+                                     @Nonnull final String queryDescription) throws SQLException {
+                Assert.failUnchecked("No results to check on a setup config");
+            }
+        };
+    }
+
     private static QueryConfig getDebuggerConfig(@Nonnull Object value, int lineNumber, @Nonnull YamlExecutionContext executionContext) {
         return new QueryConfig(QUERY_CONFIG_DEBUGGER, DebuggerImplementation.valueOf(((String)value).toUpperCase(Locale.ROOT)),
                 lineNumber, executionContext) {
@@ -478,7 +490,7 @@ public abstract class QueryConfig {
 
     @Nonnull
     public static QueryConfig getSupportedVersionConfig(Object rawVersion, final int lineNumber, final YamlExecutionContext executionContext) {
-        final SupportedVersionCheck check = SupportedVersionCheck.parse(rawVersion, executionContext);
+        final SupportedVersionCheck check = SupportedVersionCheck.parse(rawVersion, executionContext.getConnectionFactory().getVersionsUnderTest());
         if (!check.isSupported()) {
             return new SkipConfig(QUERY_CONFIG_SUPPORTED_VERSION, rawVersion, lineNumber, executionContext, check.getMessage());
         }
@@ -542,7 +554,7 @@ public abstract class QueryConfig {
 
     private static QueryConfig getInitialVersionCheckConfig(Object key, Object value, int lineNumber, YamlExecutionContext executionContext) {
         try {
-            SemanticVersion versionArgument = FileOptions.parseVersion(value);
+            SemanticVersion versionArgument = PreambleBlock.parseVersion(value);
             if (QUERY_CONFIG_INITIAL_VERSION_AT_LEAST.equals(key)) {
                 return new InitialVersionCheckConfig(QueryConfig.QUERY_CONFIG_INITIAL_VERSION_AT_LEAST, value, lineNumber, executionContext,
                         versionArgument, SemanticVersion.max());
@@ -590,10 +602,14 @@ public abstract class QueryConfig {
             return getCheckResultConfig(false, key, value, lineNumber, executionContext);
         } else if (QUERY_CONFIG_MAX_ROWS.equals(key)) {
             return getMaxRowConfig(value, lineNumber, executionContext);
+        } else if (QUERY_CONFIG_SETUP.equals(key)) {
+            return getSetupConfig(value, lineNumber, executionContext);
+        } else if (QUERY_CONFIG_SETUP_REFERENCE.equals(key)) {
+            return getSetupConfig(executionContext.getTransactionSetup(value), lineNumber, executionContext);
         } else if (QUERY_CONFIG_DEBUGGER.equals(key)) {
             return getDebuggerConfig(value, lineNumber, executionContext);
         } else {
-            throw Assert.failUnchecked("‼️ '%s' is not a valid configuration");
+            throw Assert.failUnchecked("‼️ '" + key + "' is not a valid configuration");
         }
     }
 

@@ -1,5 +1,5 @@
 /*
- * MultiServerConfig.java
+ * ExternalMultiServerConfig.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -31,6 +31,7 @@ import java.util.List;
 
 /**
  * Run against multiple external servers, alternating commands that go against each.
+ * Notably, even if the versions are the same, you can catch issues where something is jvm specific (e.g. planHash).
  */
 public class ExternalMultiServerConfig implements YamlTestConfig {
 

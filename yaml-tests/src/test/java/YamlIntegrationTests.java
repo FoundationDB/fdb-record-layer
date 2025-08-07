@@ -295,4 +295,14 @@ public class YamlIntegrationTests {
     public void transactionalCallsTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("transactions-tests.yamsql");
     }
+
+    @TestTemplate
+    public void literalExtractionTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("null-extraction-tests.yamsql");
+    }
+
+    @TestTemplate
+    public void caseSensitivityTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("case-sensitivity.yamsql");
+    }
 }

@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -266,7 +266,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             final var tableWithIndex = RecordLayerTable.Builder.from(table).addIndex(index).build();
             metadataBuilder.addTable(tableWithIndex);
         }
-        return ProceduralPlan.of(metadataOperationsFactory.getCreateSchemaTemplateConstantAction(metadataBuilder.build(), Options.NONE));
+        return ProceduralPlan.of(metadataOperationsFactory.getSaveSchemaTemplateConstantAction(metadataBuilder.build(), Options.NONE));
     }
 
     @Nonnull
@@ -346,7 +346,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         return RecordLayerInvokedRoutine.newBuilder()
                 .setName(functionName)
                 .setDescription(functionDefinition)
-                .withCompilableRoutine(() -> compiledSqlFunction)
+                .withCompilableRoutine(ignored -> compiledSqlFunction)
                 .setNormalizedDescription(getDelegate().getPlanGenerationContext().getCanonicalQueryString())
                 .setTemporary(isTemporary)
                 .build();
@@ -359,6 +359,13 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         var throwIfExists = ctx.REPLACE() == null;
         return ProceduralPlan.of(metadataOperationsFactory.getCreateTemporaryFunctionConstantAction(getDelegate().getSchemaTemplate(),
                 throwIfExists, invokedRoutine, PreparedParams.copyOf(getDelegate().getPlanGenerationContext().getPreparedParams())));
+    }
+
+    @Override
+    public ProceduralPlan visitDropTempFunction(@Nonnull RelationalParser.DropTempFunctionContext ctx) {
+        final var functionName = visitFullId(ctx.schemaQualifiedRoutineName).toString();
+        var throwIfNotExists = ctx.IF() == null && ctx.EXISTS() == null;
+        return ProceduralPlan.of(metadataOperationsFactory.getDropTemporaryFunctionConstantAction(throwIfNotExists, functionName));
     }
 
     @Override

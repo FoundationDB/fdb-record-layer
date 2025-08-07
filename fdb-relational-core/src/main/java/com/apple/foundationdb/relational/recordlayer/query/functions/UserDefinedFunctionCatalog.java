@@ -33,19 +33,22 @@ import javax.annotation.Nonnull;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Supplier;
+import java.util.function.Function;
 
 final class UserDefinedFunctionCatalog {
 
     @Nonnull
-    private final Map<String, Supplier<? extends UserDefinedFunction>> functionsMap;
+    private final Map<String, Function<Boolean, ? extends UserDefinedFunction>> functionsMap;
 
-    UserDefinedFunctionCatalog() {
+    private final boolean isCaseSensitive;
+
+    UserDefinedFunctionCatalog(boolean isCaseSensitive) {
+        this.isCaseSensitive = isCaseSensitive;
         this.functionsMap = new LinkedHashMap<>();
     }
 
     void registerFunction(@Nonnull final String functionName,
-                          @Nonnull final Supplier<? extends UserDefinedFunction> function) {
+                          @Nonnull final Function<Boolean, ? extends UserDefinedFunction> function) {
         functionsMap.put(functionName, function);
     }
 
@@ -61,7 +64,7 @@ final class UserDefinedFunctionCatalog {
         }
 
         // lazy-compile the function
-        final var function = functionSupplier.get();
+        final var function = functionSupplier.apply(isCaseSensitive);
 
         // either all arguments are named, or none is named.
         // I think partial naming is supported in SQL standard, but we do not support that at the moment.

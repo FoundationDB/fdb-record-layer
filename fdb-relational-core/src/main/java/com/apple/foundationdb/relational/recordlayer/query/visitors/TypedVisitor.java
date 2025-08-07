@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -178,6 +178,9 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Override
     ProceduralPlan visitCreateTempFunction(RelationalParser.CreateTempFunctionContext ctx);
+
+    @Override
+    ProceduralPlan visitDropTempFunction(RelationalParser.DropTempFunctionContext ctx);
 
     @Override
     CompiledSqlFunction visitCreateFunction(RelationalParser.CreateFunctionContext ctx);

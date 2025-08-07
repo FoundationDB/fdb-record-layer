@@ -1,5 +1,5 @@
 /*
- * NoOpBlock.java
+ * SQLFunction.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,25 +18,13 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.yamltests.block;
+package com.apple.foundationdb.relational.yamltests.command;
 
-/**
- * A block that does nothing.
- */
-class NoOpBlock implements Block {
-    private final int lineNumber;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-    NoOpBlock(int lineNumber) {
-        this.lineNumber = lineNumber;
-    }
+import java.sql.SQLException;
 
-    @Override
-    public int getLineNumber() {
-        return this.lineNumber;
-    }
-
-    @Override
-    public void execute() {
-
-    }
+@FunctionalInterface
+public interface SQLFunction<T, R> {
+    R apply(T t) throws SQLException, RelationalException;
 }
