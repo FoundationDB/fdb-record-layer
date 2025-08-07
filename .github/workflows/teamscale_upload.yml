@@ -43,7 +43,7 @@ jobs:
       - name: 'Unzip artifact'
         run: unzip "${{ runner.temp }}/artifacts/coverage-report.zip" -d "${{ runner.temp }}/artifacts"
       - name: 'Upload coverage'
-        uses: 'cqse/teamscale-upload-action@v2.9.6'
+        uses: 'cqse/teamscale-upload-action@8d10b6693b9242420ef2062dbefc36af6e88d587'
         with:
           server: 'https://fdb.teamscale.io'
           project: 'foundationdb-fdb-record-layer'
