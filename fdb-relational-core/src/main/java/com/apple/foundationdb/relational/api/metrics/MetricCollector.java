@@ -20,15 +20,12 @@
 
 package com.apple.foundationdb.relational.api.metrics;
 
-import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Supplier;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Locale;
-import java.util.Optional;
 
 /**
  * MetricCollector provides a utility API to register events and counts while performing operations in the Relational
@@ -98,16 +95,5 @@ public interface MetricCollector {
      * safety to ensure that the events are not lost when destroying the collector.
      * */
     default void flush() {
-    }
-
-    /**
-     * Return an instance of {@link com.apple.foundationdb.record.provider.common.StoreTimer} that corresponds to
-     * this metric collector, if possible.
-     *
-     * @return an instance of {@link com.apple.foundationdb.record.provider.common.StoreTimer} or an empty {@link Optional}
-     */
-    @Nullable
-    default StoreTimer getRecordLayerStoreTimer() {
-        return null;
     }
 }

@@ -41,7 +41,6 @@ message PEvent {
     PInsertIntoMemoEvent insert_into_memo_event = 11;
     PTranslateCorrelationsEvent translate_correlations_event = 12;
     PInitiatePlannerPhaseEvent initiate_planner_phase_event = 13;
-    PFinalizePlannerPhaseEvent finalize_planner_phase_event = 14;
   }
 }
 
@@ -103,10 +102,6 @@ message PExecutingTaskEvent {
 }
 
 message PInitiatePlannerPhaseEvent {
-  optional PAbstractEventWithState super = 1;
-}
-
-message PFinalizePlannerPhaseEvent {
   optional PAbstractEventWithState super = 1;
 }
 

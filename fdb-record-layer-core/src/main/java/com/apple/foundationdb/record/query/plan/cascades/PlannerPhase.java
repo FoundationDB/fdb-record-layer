@@ -35,8 +35,8 @@ import java.util.function.Function;
  */
 public enum PlannerPhase {
     // note that the phase are declared in a counterintuitive inverse way since a phase has to specify the next phase
-    PLANNING(PlanningRuleSet.getDefault(), PlannerStage.PLANNED, PlanningCostModel::new, PlannerTimerEvents.PLANNING_PHASE_COMPLETE),
-    REWRITING(RewritingRuleSet.getDefault(), PlannerStage.CANONICAL, RewritingCostModel::new, PlannerTimerEvents.REWRITING_PHASE_COMPLETE, PLANNING);
+    PLANNING(PlanningRuleSet.getDefault(), PlannerStage.PLANNED, PlanningCostModel::new),
+    REWRITING(RewritingRuleSet.getDefault(), PlannerStage.CANONICAL, RewritingCostModel::new, PLANNING);
 
     @Nonnull
     private final CascadesRuleSet ruleSet;
@@ -46,26 +46,21 @@ public enum PlannerPhase {
     private final Function<RecordQueryPlannerConfiguration, CascadesCostModel> costModelCreator;
     @Nullable
     private final PlannerPhase nextPhase;
-    @Nonnull
-    private final PlannerTimerEvents phaseCompletionTimerEvent;
 
     PlannerPhase(@Nonnull final CascadesRuleSet ruleSet,
                  @Nonnull final PlannerStage targetStage,
-                 @Nonnull final Function<RecordQueryPlannerConfiguration, CascadesCostModel> costModelCreator,
-                 @Nonnull final PlannerTimerEvents phaseCompletionTimerEvent) {
-        this(ruleSet, targetStage, costModelCreator, phaseCompletionTimerEvent, null);
+                 @Nonnull final Function<RecordQueryPlannerConfiguration, CascadesCostModel> costModelCreator) {
+        this(ruleSet, targetStage, costModelCreator, null);
     }
 
     PlannerPhase(@Nonnull final CascadesRuleSet ruleSet,
                  @Nonnull final PlannerStage targetStage,
                  @Nonnull final Function<RecordQueryPlannerConfiguration, CascadesCostModel> costModelCreator,
-                 @Nonnull final PlannerTimerEvents phaseCompletionTimerEvent,
                  @Nullable final PlannerPhase nextPhase) {
         this.ruleSet = ruleSet;
         this.targetStage = targetStage;
         this.costModelCreator = costModelCreator;
         this.nextPhase = nextPhase;
-        this.phaseCompletionTimerEvent = phaseCompletionTimerEvent;
     }
 
     @Nonnull
@@ -90,11 +85,6 @@ public enum PlannerPhase {
 
     public boolean hasNextPhase() {
         return nextPhase != null;
-    }
-
-    @Nonnull
-    public PlannerTimerEvents getPhaseCompletionTimerEvent() {
-        return phaseCompletionTimerEvent;
     }
 
     @Nonnull

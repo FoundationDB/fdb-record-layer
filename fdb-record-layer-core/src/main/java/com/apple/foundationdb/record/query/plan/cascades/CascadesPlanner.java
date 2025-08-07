@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
-import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -56,7 +55,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
@@ -214,8 +212,6 @@ public class CascadesPlanner implements QueryPlanner {
     private final RecordMetaData metaData;
     @Nonnull
     private final RecordStoreState recordStoreState;
-    @Nullable
-    private final StoreTimer storeTimer;
     @Nonnull
     private Reference currentRoot;
     @Nonnull
@@ -232,14 +228,9 @@ public class CascadesPlanner implements QueryPlanner {
     private int maxQueueSize;
 
     public CascadesPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState) {
-        this(metaData, recordStoreState, null);
-    }
-
-    public CascadesPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState, @Nullable StoreTimer storeTimer) {
         this.configuration = RecordQueryPlannerConfiguration.builder().build();
         this.metaData = metaData;
         this.recordStoreState = recordStoreState;
-        this.storeTimer = storeTimer;
         // Placeholders until we get a query.
         this.currentRoot = Reference.empty();
         this.planContext = PlanContext.emptyContext();
@@ -533,41 +524,6 @@ public class CascadesPlanner implements QueryPlanner {
         Debugger.Event toTaskEvent(Location location);
     }
 
-    private class FinalizePlannerPhase implements Task {
-        @Nonnull
-        private final PlannerPhase plannerPhase;
-        private final long phaseStartTime;
-
-        public FinalizePlannerPhase(@Nonnull final PlannerPhase plannerPhase, long phaseStartTime) {
-            this.plannerPhase = plannerPhase;
-            this.phaseStartTime = phaseStartTime;
-        }
-
-        @Override
-        @Nonnull
-        public PlannerPhase getPlannerPhase() {
-            return plannerPhase;
-        }
-
-        @Override
-        public void execute() {
-            if (storeTimer != null) {
-                storeTimer.record(plannerPhase.getPhaseCompletionTimerEvent(), System.nanoTime() - phaseStartTime);
-            }
-        }
-
-        @Override
-        @Nonnull
-        public Debugger.Event toTaskEvent(final Location location) {
-            return new Debugger.FinalizePlannerPhaseEvent(plannerPhase, currentRoot, taskStack, location);
-        }
-
-        @Override
-        public String toString() {
-            return "FinalizePlannerPhase(" + plannerPhase.name() + ")";
-        }
-    }
-
     /**
      * Globally initiate a new planner phase.
      * Simplified push/execute overview:
@@ -596,12 +552,10 @@ public class CascadesPlanner implements QueryPlanner {
 
         @Override
         public void execute() {
-            var phaseStartTime = System.nanoTime();
             if (plannerPhase.hasNextPhase()) {
                 // if there is another phase push it first so it gets executed at the very end
                 taskStack.push(new InitiatePlannerPhase(plannerPhase.getNextPhase()));
             }
-            taskStack.push(new FinalizePlannerPhase(plannerPhase, phaseStartTime));
             taskStack.push(new OptimizeGroup(plannerPhase, currentRoot));
             taskStack.push(new ExploreGroup(plannerPhase, currentRoot));
         }

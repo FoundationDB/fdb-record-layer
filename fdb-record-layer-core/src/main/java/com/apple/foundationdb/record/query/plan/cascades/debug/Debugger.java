@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PEven
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PExecutingTaskEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PExploreExpressionEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PExploreGroupEvent;
-import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PFinalizePlannerPhaseEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PInitiatePlannerPhaseEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PInsertIntoMemoEvent;
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PMatchPartition;
@@ -261,8 +260,7 @@ public interface Debugger {
         TRANSFORM,
         INSERT_INTO_MEMO,
         TRANSLATE_CORRELATIONS,
-        INITPHASE,
-        FINALIZEPHASE
+        INITPHASE
     }
 
     /**
@@ -528,42 +526,6 @@ public interface Debugger {
         public PEvent.Builder toEventBuilder() {
             return PEvent.newBuilder()
                     .setExecutingTaskEvent(toProto());
-        }
-    }
-
-    class FinalizePlannerPhaseEvent extends AbstractEventWithState {
-        public FinalizePlannerPhaseEvent(@Nonnull final PlannerPhase plannerPhase,
-                                         @Nonnull final Reference rootReference,
-                                         @Nonnull final Deque<Task> taskStack,
-                                         @Nonnull final Location location) {
-            super(plannerPhase, rootReference, taskStack, location);
-        }
-
-        @Override
-        @Nonnull
-        public String getDescription() {
-            return "finalizing planner phase " + getPlannerPhase().name();
-        }
-
-        @Override
-        @Nonnull
-        public Shorthand getShorthand() {
-            return Shorthand.FINALIZEPHASE;
-        }
-
-        @Nonnull
-        @Override
-        public PFinalizePlannerPhaseEvent toProto() {
-            return PFinalizePlannerPhaseEvent.newBuilder()
-                    .setSuper(toAbstractEventWithStateProto())
-                    .build();
-        }
-
-        @Nonnull
-        @Override
-        public PEvent.Builder toEventBuilder() {
-            return PEvent.newBuilder()
-                    .setFinalizePlannerPhaseEvent(toProto());
         }
     }
 
