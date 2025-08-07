@@ -64,13 +64,15 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.Refer
  * while debugging.
  */
 @SuppressWarnings("PMD.SystemPrintln")
-public class DebuggerWithSymbolTables implements Debugger {
+public class DebuggerWithSymbolTables implements SymbolDebugger, StatsDebugger {
     private static final Logger logger = LoggerFactory.getLogger(DebuggerWithSymbolTables.class);
 
     private final boolean isSane;
     private final boolean isRecordEvents;
     private final Iterable<PEvent> prerecordedEventProtoIterable;
-    private final Deque<State> stateStack;
+    private final Deque<EventState> eventStateStack;
+    private final Deque<SymbolTables> symbolTablesStack;
+
     @Nullable
     private String queryAsString;
     @Nullable
@@ -84,14 +86,20 @@ public class DebuggerWithSymbolTables implements Debugger {
         this.isRecordEvents = isRecordEvents;
         this.prerecordedEventProtoIterable = prerecordedEventsFileName == null
                                       ? null : eventProtosFromFile(prerecordedEventsFileName);
-        this.stateStack = new ArrayDeque<>();
+        this.eventStateStack = new ArrayDeque<>();
+        this.symbolTablesStack = new ArrayDeque<>();
         this.planContext = null;
         this.singletonToIndexMap = Maps.newHashMap();
     }
 
     @Nonnull
-    State getCurrentState() {
-        return Objects.requireNonNull(stateStack.peek());
+    EventState getCurrentEventState() {
+        return Objects.requireNonNull(eventStateStack.peek());
+    }
+
+    @Nonnull
+    SymbolTables getCurrentSymbolState() {
+        return Objects.requireNonNull(symbolTablesStack.peek());
     }
 
     @Nullable
@@ -111,27 +119,27 @@ public class DebuggerWithSymbolTables implements Debugger {
 
     @Override
     public int onGetIndex(@Nonnull final Class<?> clazz) {
-        return getCurrentState().getIndex(clazz);
+        return getCurrentSymbolState().getIndex(clazz);
     }
 
     @Override
     public int onUpdateIndex(@Nonnull final Class<?> clazz, @Nonnull final IntUnaryOperator updateFn) {
-        return getCurrentState().updateIndex(clazz, updateFn);
+        return getCurrentSymbolState().updateIndex(clazz, updateFn);
     }
 
     @Override
     public void onRegisterExpression(@Nonnull final RelationalExpression expression) {
-        getCurrentState().registerExpression(expression);
+        getCurrentSymbolState().registerExpression(expression);
     }
 
     @Override
     public void onRegisterReference(@Nonnull final Reference reference) {
-        getCurrentState().registerReference(reference);
+        getCurrentSymbolState().registerReference(reference);
     }
 
     @Override
     public void onRegisterQuantifier(@Nonnull final Quantifier quantifier) {
-        getCurrentState().registerQuantifier(quantifier);
+        getCurrentSymbolState().registerQuantifier(quantifier);
     }
 
     @Override
@@ -157,7 +165,8 @@ public class DebuggerWithSymbolTables implements Debugger {
 
     @Override
     public void onQuery(@Nonnull final String recordQuery, @Nonnull final PlanContext planContext) {
-        this.stateStack.push(State.copyOf(getCurrentState()));
+        this.eventStateStack.push(EventState.copyOf(getCurrentEventState()));
+        this.symbolTablesStack.push(SymbolTables.copyOf(getCurrentSymbolState()));
         this.queryAsString = recordQuery;
         this.planContext = planContext;
 
@@ -165,17 +174,20 @@ public class DebuggerWithSymbolTables implements Debugger {
     }
 
     void restartState() {
-        stateStack.pop();
-        stateStack.push(State.copyOf(getCurrentState()));
+        eventStateStack.pop();
+        eventStateStack.push(EventState.copyOf(getCurrentEventState()));
+
+        symbolTablesStack.pop();
+        symbolTablesStack.push(SymbolTables.copyOf(getCurrentSymbolState()));
     }
 
     @Override
     @SuppressWarnings("PMD.GuardLogStatement") // false positive
     public void onEvent(final Event event) {
-        if ((queryAsString == null) || (planContext == null) || stateStack.isEmpty()) {
+        if ((queryAsString == null) || (planContext == null) || eventStateStack.isEmpty()) {
             return;
         }
-        getCurrentState().addCurrentEvent(event);
+        getCurrentEventState().addCurrentEvent(event);
         if (logger.isTraceEnabled()) {
             if (event.getLocation() == Location.END && event instanceof TransformRuleCallEvent) {
                 final TransformRuleCallEvent transformRuleCallEvent = (TransformRuleCallEvent)event;
@@ -237,7 +249,7 @@ public class DebuggerWithSymbolTables implements Debugger {
     @Nullable
     @Override
     public String nameForObject(@Nonnull final Object object) {
-        final State state = getCurrentState();
+        final SymbolTables state = getCurrentSymbolState();
         if (object instanceof RelationalExpression) {
             @Nullable final Integer id = state.getInvertedExpressionsCache().getIfPresent(object);
             return (id == null) ? null : "exp" + id;
@@ -254,8 +266,8 @@ public class DebuggerWithSymbolTables implements Debugger {
 
     @Override
     public void onDone() {
-        if (!stateStack.isEmpty() && queryAsString != null) {
-            final var state = Objects.requireNonNull(stateStack.peek());
+        if (!eventStateStack.isEmpty() && queryAsString != null) {
+            final var state = Objects.requireNonNull(eventStateStack.peek());
             if (logger.isInfoEnabled()) {
                 logger.info(KeyValueLogMessage.of("planning done",
                         "query", Objects.requireNonNull(queryAsString).substring(0, Math.min(queryAsString.length(), 30)),
@@ -323,28 +335,23 @@ public class DebuggerWithSymbolTables implements Debugger {
         };
     }
 
-    @Override
-    public String showStats() {
-        State currentState = stateStack.peek();
-        if (currentState != null) {
-            return currentState.showStats();
-        }
-        return "no stats";
-    }
-
     @Nonnull
     @Override
     public Optional<StatsMaps> getStatsMaps() {
-        State currentState = stateStack.peek();
-        if (currentState != null) {
-            return Optional.of(currentState.getStatsMaps());
+        EventState currentEventState = eventStateStack.peek();
+        if (currentEventState != null) {
+            return Optional.of(currentEventState.getStatsMaps());
         }
         return Optional.empty();
     }
 
     private void reset() {
-        this.stateStack.clear();
-        this.stateStack.push(State.initial(isRecordEvents, isRecordEvents, prerecordedEventProtoIterable));
+        this.eventStateStack.clear();
+        this.eventStateStack.push(EventState.initial(isRecordEvents, isRecordEvents, prerecordedEventProtoIterable));
+
+        this.symbolTablesStack.clear();
+        this.symbolTablesStack.push(new SymbolTables());
+
         this.planContext = null;
         this.queryAsString = null;
     }
@@ -399,7 +406,7 @@ public class DebuggerWithSymbolTables implements Debugger {
     public static void printForEachExpression(@Nonnull final Reference root) {
         forEachExpression(root, expression -> {
             System.out.println("expression: " +
-                    Debugger.mapDebugger(debugger -> debugger.nameForObject(expression)).orElseThrow() + "; " +
+                    SymbolDebugger.mapDebugger(debugger -> debugger.nameForObject(expression)).orElseThrow() + "; " +
                     "hashCodeWithoutChildren: " + expression.hashCodeWithoutChildren() + "explain: " + expression);
         });
     }

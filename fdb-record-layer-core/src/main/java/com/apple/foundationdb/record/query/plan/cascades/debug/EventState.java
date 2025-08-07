@@ -23,18 +23,12 @@ package com.apple.foundationdb.record.query.plan.cascades.debug;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PEvent;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.base.Verify;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,22 +42,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
-import java.util.function.IntUnaryOperator;
 
 @SuppressWarnings("PMD.SystemPrintln")
-public class State {
+public class EventState {
     @Nonnull
-    private static final Logger logger = LoggerFactory.getLogger(State.class);
-
-    @Nonnull
-    private final Map<Class<?>, Integer> classToIndexMap;
-    @Nonnull
-    private final Cache<Integer, RelationalExpression> expressionCache;
-    @Nonnull private final Cache<RelationalExpression, Integer> invertedExpressionsCache;
-    @Nonnull private final Cache<Integer, Reference> referenceCache;
-    @Nonnull private final Cache<Reference, Integer> invertedReferenceCache;
-    @Nonnull private final Cache<Integer, Quantifier> quantifierCache;
-    @Nonnull private final Cache<Quantifier, Integer> invertedQuantifierCache;
+    private static final Logger logger = LoggerFactory.getLogger(EventState.class);
 
     @Nullable private final List<Debugger.Event> events;
     @Nullable private final List<PEvent> eventProtos;
@@ -76,35 +59,16 @@ public class State {
 
     @Nonnull private final Deque<Pair<Class<? extends Debugger.Event>, EventDurations>> eventProfilingStack;
 
-    private int currentTick;
-    private final long startTs;
+    protected int currentTick;
+    protected final long startTs;
 
-    public static State initial(final boolean isRecordEvents, final boolean isRecordEventProtos,
-                                @Nullable Iterable<PEvent> prerecordedEventProtoIterable) {
-        return new State(isRecordEvents, isRecordEventProtos, prerecordedEventProtoIterable);
+    public static EventState initial(final boolean isRecordEvents, final boolean isRecordEventProtos,
+                                     @Nullable Iterable<PEvent> prerecordedEventProtoIterable) {
+        return new EventState(isRecordEvents, isRecordEventProtos, prerecordedEventProtoIterable);
     }
 
-    public static State copyOf(final State source) {
-        final Cache<Integer, RelationalExpression> copyExpressionCache = CacheBuilder.newBuilder().weakValues().build();
-        source.getExpressionCache().asMap().forEach(copyExpressionCache::put);
-        final Cache<RelationalExpression, Integer> copyInvertedExpressionsCache = CacheBuilder.newBuilder().weakKeys().build();
-        source.getInvertedExpressionsCache().asMap().forEach(copyInvertedExpressionsCache::put);
-        final Cache<Integer, Reference> copyReferenceCache = CacheBuilder.newBuilder().weakValues().build();
-        source.getReferenceCache().asMap().forEach(copyReferenceCache::put);
-        final Cache<Reference, Integer> copyInvertedReferenceCache = CacheBuilder.newBuilder().weakKeys().build();
-        source.getInvertedReferenceCache().asMap().forEach(copyInvertedReferenceCache::put);
-        final Cache<Integer, Quantifier> copyQuantifierCache = CacheBuilder.newBuilder().weakValues().build();
-        source.getQuantifierCache().asMap().forEach(copyQuantifierCache::put);
-        final Cache<Quantifier, Integer> copyInvertedQuantifierCache = CacheBuilder.newBuilder().weakKeys().build();
-        source.getInvertedQuantifierCache().asMap().forEach(copyInvertedQuantifierCache::put);
-
-        return new State(source.getClassToIndexMap(),
-                copyExpressionCache,
-                copyInvertedExpressionsCache,
-                copyReferenceCache,
-                copyInvertedReferenceCache,
-                copyQuantifierCache,
-                copyInvertedQuantifierCache,
+    public static EventState copyOf(final EventState source) {
+        return new EventState(
                 source.events == null ? null : Lists.newArrayList(source.events),
                 source.eventProtos == null ? null : Lists.newArrayList(source.eventProtos),
                 source.prerecordedEventProtoIterable,
@@ -115,15 +79,9 @@ public class State {
                 source.getStartTs());
     }
 
-    private State(final boolean isRecordEvents, final boolean isRecordEventProtos,
-                  @Nullable final Iterable<PEvent> prerecordedEventProtoIterable) {
-        this(Maps.newHashMap(),
-                CacheBuilder.newBuilder().weakValues().build(),
-                CacheBuilder.newBuilder().weakKeys().build(),
-                CacheBuilder.newBuilder().weakValues().build(),
-                CacheBuilder.newBuilder().weakKeys().build(),
-                CacheBuilder.newBuilder().weakValues().build(),
-                CacheBuilder.newBuilder().weakKeys().build(),
+    protected EventState(final boolean isRecordEvents, final boolean isRecordEventProtos,
+                         @Nullable final Iterable<PEvent> prerecordedEventProtoIterable) {
+        this(
                 isRecordEventProtos ? Lists.newArrayList() : null,
                 isRecordEvents ? Lists.newArrayList() : null,
                 prerecordedEventProtoIterable,
@@ -134,13 +92,7 @@ public class State {
                 System.nanoTime());
     }
 
-    private State(@Nonnull final Map<Class<?>, Integer> classToIndexMap,
-                  @Nonnull final Cache<Integer, RelationalExpression> expressionCache,
-                  @Nonnull final Cache<RelationalExpression, Integer> invertedExpressionsCache,
-                  @Nonnull final Cache<Integer, Reference> referenceCache,
-                  @Nonnull final Cache<Reference, Integer> invertedReferenceCache,
-                  @Nonnull final Cache<Integer, Quantifier> quantifierCache,
-                  @Nonnull final Cache<Quantifier, Integer> invertedQuantifierCache,
+    protected EventState(
                   @Nullable final List<Debugger.Event> events,
                   @Nullable final List<PEvent> eventProtos,
                   @Nullable final Iterable<PEvent> prerecordedEventProtoIterable,
@@ -149,13 +101,7 @@ public class State {
                   @Nonnull final Deque<Pair<Class<? extends Debugger.Event>, EventDurations>> eventProfilingStack,
                   final int currentTick,
                   final long startTs) {
-        this.classToIndexMap = Maps.newHashMap(classToIndexMap);
-        this.expressionCache = expressionCache;
-        this.invertedExpressionsCache = invertedExpressionsCache;
-        this.referenceCache = referenceCache;
-        this.invertedReferenceCache = invertedReferenceCache;
-        this.quantifierCache = quantifierCache;
-        this.invertedQuantifierCache = invertedQuantifierCache;
+
         this.events = events;
         this.eventProtos = eventProtos;
         this.prerecordedEventProtoIterable = prerecordedEventProtoIterable;
@@ -166,41 +112,6 @@ public class State {
         this.eventProfilingStack = eventProfilingStack;
         this.currentTick = currentTick;
         this.startTs = startTs;
-    }
-
-    @Nonnull
-    private Map<Class<?>, Integer> getClassToIndexMap() {
-        return classToIndexMap;
-    }
-
-    @Nonnull
-    public Cache<Integer, RelationalExpression> getExpressionCache() {
-        return expressionCache;
-    }
-
-    @Nonnull
-    public Cache<RelationalExpression, Integer> getInvertedExpressionsCache() {
-        return invertedExpressionsCache;
-    }
-
-    @Nonnull
-    public Cache<Integer, Reference> getReferenceCache() {
-        return referenceCache;
-    }
-
-    @Nonnull
-    public Cache<Reference, Integer> getInvertedReferenceCache() {
-        return invertedReferenceCache;
-    }
-
-    @Nonnull
-    public Cache<Integer, Quantifier> getQuantifierCache() {
-        return quantifierCache;
-    }
-
-    @Nonnull
-    public Cache<Quantifier, Integer> getInvertedQuantifierCache() {
-        return invertedQuantifierCache;
     }
 
     @Nullable
@@ -226,41 +137,6 @@ public class State {
         return startTs;
     }
 
-    public int getIndex(final Class<?> clazz) {
-        return classToIndexMap.getOrDefault(clazz, 0);
-    }
-
-    @CanIgnoreReturnValue
-    public int updateIndex(final Class<?> clazz, IntUnaryOperator computeFn) {
-        return classToIndexMap.compute(clazz, (c, value) -> value == null ? computeFn.applyAsInt(0) : computeFn.applyAsInt(value));
-    }
-
-    public void registerExpression(final RelationalExpression expression) {
-        if (invertedExpressionsCache.getIfPresent(expression) == null) {
-            final int index = getIndex(RelationalExpression.class);
-            expressionCache.put(index, expression);
-            invertedExpressionsCache.put(expression, index);
-            updateIndex(RelationalExpression.class, i -> i + 1);
-        }
-    }
-
-    public void registerReference(final Reference reference) {
-        if (invertedReferenceCache.getIfPresent(reference) == null) {
-            final int index = getIndex(Reference.class);
-            referenceCache.put(index, reference);
-            invertedReferenceCache.put(reference, index);
-            updateIndex(Reference.class, i -> i + 1);
-        }
-    }
-
-    public void registerQuantifier(final Quantifier quantifier) {
-        if (invertedQuantifierCache.getIfPresent(quantifier) == null) {
-            final int index = getIndex(Quantifier.class);
-            quantifierCache.put(index, quantifier);
-            invertedQuantifierCache.put(quantifier, index);
-            updateIndex(Quantifier.class, i -> i + 1);
-        }
-    }
 
     @SuppressWarnings("unchecked")
     public void addCurrentEvent(@Nonnull final Debugger.Event event) {
