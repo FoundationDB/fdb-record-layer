@@ -305,4 +305,9 @@ public class YamlIntegrationTests {
     public void caseSensitivityTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("case-sensitivity.yamsql");
     }
+
+    @TestTemplate
+    public void simpleQueryWithDifferentDebuggersTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("simple-query-with-different-debuggers.yamsql");
+    }
 }
