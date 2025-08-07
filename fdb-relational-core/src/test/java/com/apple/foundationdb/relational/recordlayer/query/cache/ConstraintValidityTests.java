@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -46,6 +47,7 @@ import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.testing.FakeTicker;
 import org.apache.commons.lang3.tuple.Pair;
@@ -73,7 +75,7 @@ public class ConstraintValidityTests {
 
     @RegisterExtension
     @Order(2)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, RelationalPlanCacheTests.class, TestSchemas.score());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(RelationalPlanCacheTests.class, TestSchemas.score());
 
     @RegisterExtension
     @Order(3)
@@ -200,10 +202,19 @@ public class ConstraintValidityTests {
 
     @Nonnull
     private static QueryPredicate covsEqualsConstraints(int leftTokenIndex, int rightTokenIndex) {
-        return new ValuePredicate(ConstantObjectValue.of(Quantifier.constant(),
-                        constantId(leftTokenIndex), Type.primitiveType(Type.TypeCode.INT)),
-                new Comparisons.ValueComparison(Comparisons.Type.EQUALS, ConstantObjectValue.of(Quantifier.constant(),
-                        constantId(rightTokenIndex), Type.primitiveType(Type.TypeCode.INT))));
+        final var leftCov = ConstantObjectValue.of(Quantifier.constant(), constantId(leftTokenIndex), Type.primitiveType(Type.TypeCode.INT));
+        final var rightCov = ConstantObjectValue.of(Quantifier.constant(), constantId(rightTokenIndex), Type.primitiveType(Type.TypeCode.INT));
+
+        final var leftIsNotNull = new ValuePredicate(leftCov, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL));
+        final var rightIsNotNull = new ValuePredicate(rightCov, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL));
+        final var equalityPredicate = new ValuePredicate(leftCov, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, rightCov));
+        final var notNullComparison = AndPredicate.and(ImmutableList.of(leftIsNotNull, rightIsNotNull, equalityPredicate));
+
+        final var leftIsNull = new ValuePredicate(leftCov, new Comparisons.NullComparison(Comparisons.Type.IS_NULL));
+        final var rightIsNull = new ValuePredicate(rightCov, new Comparisons.NullComparison(Comparisons.Type.IS_NULL));
+        final var bothAreNullComparison = AndPredicate.and(leftIsNull, rightIsNull);
+
+        return OrPredicate.or(notNullComparison, bothAreNullComparison);
     }
 
     @Nonnull

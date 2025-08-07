@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,10 +42,16 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public class StoreCatalogProvider {
+
     /**
-     * Get {@link StoreCatalog} instance.
+     * Creates and initializes a new {@link StoreCatalog} instance.
+     *
+     * @param txn the transaction used for catalog initialization
+     * @param keySpace the keyspace in which the catalog will operate
+     * @return a fully initialized {@link StoreCatalog} instance
+     * @throws RelationalException if catalog creation or initialization fails
      */
-    public static StoreCatalog getCatalog(Transaction txn, KeySpace keySpace) throws RelationalException {
+    public static StoreCatalog getCatalog(@Nonnull final Transaction txn, @Nonnull final KeySpace keySpace) throws RelationalException {
         return new RecordLayerStoreCatalog(keySpace).initialize(txn);
     }
 

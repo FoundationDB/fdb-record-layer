@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
@@ -34,9 +35,12 @@ import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.net.URI;
 import java.sql.SQLException;
@@ -112,7 +116,6 @@ public class TemporaryFunctionTests {
                 RelationalAssertions.assertThrowsSqlException(() -> statement.execute("create temporary function foo(in x bigint) " + // attempt to create function with the same name.
                         "on commit drop function as select * from t1 where a < 40 + x "))
                         .hasErrorCode(ErrorCode.DUPLICATE_FUNCTION);
-
             }
             try (var statement = connection.createStatement()) {
                 RelationalAssertions.assertThrowsSqlException(() -> statement.execute("create or replace temporary function foo(in x bigint) " + // attempt to create function with the same name.
@@ -209,6 +212,165 @@ public class TemporaryFunctionTests {
                 invokeAndVerifyTempFunction(statement);
                 invokeAndVerifyTempFunction(statement);
                 invokeAndVerifyTempFunction(statement);
+            }
+            connection.rollback();
+        }
+    }
+
+    @Test
+    void dropTemporaryFunctionWorks() throws Exception {
+        final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
+            }
+            final var connection = ddl.getConnection();
+            connection.setAutoCommit(false);
+            // at least 1 function is defined
+            try (var statement = connection.createStatement()) {
+                statement.execute("create or replace temporary function sq1(in x bigint) on commit drop function as select * from t1 where a < 40 + x ");
+                invokeAndVerifyTempFunction(statement);
+                RelationalAssertions.assertThrowsSqlException(() -> statement.execute("drop temporary function sq2"))
+                        .containsInMessage("Attempt to DROP an undefined temporary function: SQ2");
+                statement.execute("drop temporary function sq1");
+                RelationalAssertions.assertThrowsSqlException(() -> statement.execute("select * from sq1(x => 34)"))
+                        .containsInMessage("Unknown function SQ1");
+            }
+            connection.rollback();
+            // no temporary functions defined
+            try (var statement = connection.createStatement()) {
+                RelationalAssertions.assertThrowsSqlException(() -> statement.execute("drop temporary function sq1"))
+                        .containsInMessage("Attempt to DROP an undefined temporary function: SQ1");
+            }
+            connection.rollback();
+        }
+    }
+
+    @Test
+    void dropNonTemporaryFunctionFails() throws Exception {
+        final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk)) " +
+                "create function sq0(in x bigint) as select * from t1 where a > x";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
+            }
+            final var connection = ddl.getConnection();
+            connection.setAutoCommit(false);
+            // at least 1 function is defined
+            try (var statement = connection.createStatement()) {
+                statement.execute("create or replace temporary function sq1(in x bigint) on commit drop function as select * from t1 where a < 40 + x ");
+                invokeAndVerifyTempFunction(statement);
+                statement.execute("drop temporary function sq1");
+                // this should fail as sq0 is not temporary in nature
+                RelationalAssertions.assertThrowsSqlException(() -> statement.execute("drop temporary function sq0"))
+                        .containsInMessage("Attempt to DROP an non-temporary function: SQ0");
+            }
+            connection.rollback();
+        }
+    }
+
+    @Test
+    void dropTemporaryFunctionIfExistsWorks() throws Exception {
+        final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
+            }
+            final var connection = ddl.getConnection();
+            connection.setAutoCommit(false);
+            // at least 1 function is defined
+            try (var statement = connection.createStatement()) {
+                statement.execute("create or replace temporary function sq1(in x bigint) on commit drop function as select * from t1 where a < 40 + x ");
+                invokeAndVerifyTempFunction(statement);
+                statement.execute("drop temporary function if exists sq2");
+                statement.execute("drop temporary function if exists sq1");
+                RelationalAssertions.assertThrowsSqlException(() -> statement.execute("select * from sq1(x => 34)"))
+                        .containsInMessage("Unknown function SQ1");
+            }
+            connection.rollback();
+            // function is not defined
+            try (var statement = connection.createStatement()) {
+                statement.execute("drop temporary function if exists sq1");
+            }
+            connection.rollback();
+        }
+    }
+
+    @Test
+    void dropTemporaryFunctionMultipleCallsWorks() throws Exception {
+        final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
+            }
+            final var connection = ddl.getConnection();
+            connection.setAutoCommit(false);
+            // at least 1 function is defined
+            try (var statement = connection.createStatement()) {
+                statement.execute("create or replace temporary function sq1(in x bigint) on commit drop function as select * from t1 where a < 40 + x ");
+                invokeAndVerifyTempFunction(statement);
+                statement.execute("drop temporary function sq1");
+                RelationalAssertions.assertThrowsSqlException(() -> statement.execute("drop temporary function sq1"))
+                        .containsInMessage("Attempt to DROP an undefined temporary function: SQ1");
+                RelationalAssertions.assertThrowsSqlException(() -> statement.execute("drop temporary function sq1"))
+                        .containsInMessage("Attempt to DROP an undefined temporary function: SQ1");
+                RelationalAssertions.assertThrowsSqlException(() -> statement.execute("drop temporary function sq1"))
+                        .containsInMessage("Attempt to DROP an undefined temporary function: SQ1");
+            }
+            connection.rollback();
+            // function is not defined
+            try (var statement = connection.createStatement()) {
+                statement.execute("drop temporary function if exists sq1");
+            }
+            connection.rollback();
+        }
+    }
+
+    // This tests defines nested temporary functions and then tries to query the outer function while the inner function
+    // is dropped. This execution is expected to fail however it doesn't owing to the following missing bit about
+    // understanding the metadata object dependency.
+    // See: https://github.com/FoundationDB/fdb-record-layer/issues/3493.
+    @Disabled
+    @Test
+    void dropNestedTemporaryFunctionCallsWorks() throws Exception {
+        final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1(pk, a) values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
+            }
+            final var connection = ddl.getConnection();
+            connection.setAutoCommit(false);
+            // create parent function (sq0)
+            try (var statement = connection.prepareStatement("create temporary function sq0(in x bigint) " +
+                    "on commit drop function as select * from t1 where a < ?param + x + 3")) {
+                statement.setLong("param", 40);
+                statement.execute();
+            }
+            // create child function (sq1) referencing parent function (sq0), using similar literal identifiers.
+            try (var statement = connection.prepareStatement("create temporary function sq1(in x bigint) " +
+                    "on commit drop function as select * from sq0(3) where a > ?param + x + 3")) {
+                statement.setLong("param", 5);
+                statement.execute();
+            }
+            // call the function (sq1) now, again, using the same literal identifiers.
+            // expansion should result in the following query:
+            // select * from t1 where a < 40 + 3 + 3 and a > 5 + 3 + 3 and a > 5
+            //                        ^                  ^                 ^
+            //                        |                  |                 |
+            //                        |                  |                 |
+            //                    from sq0           from sq1           from the query
+            try (var statement = connection.prepareStatement("select * from sq1(x => 3) where a > ?param options (log query)")) {
+                statement.setLong("param", 5);
+                invokeAndVerify(statement::executeQuery, CheckPlanCache.SHOULD_MISS, 2L, 20L, 3L, 30L, 4L, 40L);
+            }
+            // drop parent function (sq0)
+            try (var statement = connection.createStatement()) {
+                statement.execute("drop temporary function sq0");
+            }
+            // should fail now that function sq0 is not present
+            try (var statement = connection.prepareStatement("select * from sq1(x => 3) where a > ?param options (log query)")) {
+                statement.setLong("param", 5);
+                RelationalAssertions.assertThrowsSqlException(statement::execute);
             }
             connection.rollback();
         }
@@ -780,7 +942,6 @@ public class TemporaryFunctionTests {
                 statement.execute();
             }
             // re-call the function (sq1) now, again, using the same literal identifiers.
-            // expansion should result in the following, relatively complex, rewrite:
             // select Q.a, Q.pk from                                                        <---- the query
             //               (select Y.a, Y.pk from                                         <---- sq1(3) expansion
             //                           (select a + 3 as a, pk from t1 where a < 20) as Y,   <---- sq0(3) expansion
@@ -820,6 +981,71 @@ public class TemporaryFunctionTests {
                     continuation = resultSet.getContinuation();
                 }
                 Assertions.assertTrue(continuation.atEnd());
+            }
+            connection.rollback();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void createTemporaryFunctionCaseSensitivityOption(boolean isCaseSensitive) throws Exception {
+        final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
+        try (var ddl = Ddl.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, isCaseSensitive)
+                .database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
+            }
+            final var connection = ddl.getConnection();
+            connection.setAutoCommit(false);
+            connection.setOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, isCaseSensitive);
+
+            try (var statement = connection.createStatement()) {
+                statement.execute("create temporary function sq1(in x bigint) on commit drop function as select * from t1 where a < 40 + x ");
+                invokeAndVerifyTempFunction(statement);
+            }
+            connection.rollback();
+        }
+    }
+
+    @Test
+    void attemptToCreateTemporaryFunctionWithDifferentCaseSensitivityOptionCase1() throws Exception {
+        final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
+        try (var ddl = Ddl.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true)
+                .database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
+            }
+            final var connection = ddl.getConnection();
+            connection.setAutoCommit(false);
+            connection.setOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, false);
+
+            try (var statement = connection.createStatement()) {
+                RelationalAssertions.assertThrowsSqlException(() -> statement.execute("create temporary function sq1(in x bigint) " +
+                                "on commit drop function as select * from t1 where a < 40 + x "))
+                        .hasErrorCode(ErrorCode.UNDEFINED_TABLE)
+                        .hasMessageContaining("Unknown table T1");
+            }
+            connection.rollback();
+        }
+    }
+
+    @Test
+    void attemptToCreateTemporaryFunctionWithDifferentCaseSensitivityOptionCase2() throws Exception {
+        final String schemaTemplate = "create table t1(pk bigint, a bigint, primary key(pk))";
+        try (var ddl = Ddl.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, false)
+                .database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (1, 10), (2, 20), (3, 30), (4, 40), (5, 50)");
+            }
+            final var connection = ddl.getConnection();
+            connection.setAutoCommit(false);
+            connection.setOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true);
+
+            try (var statement = connection.createStatement()) {
+                RelationalAssertions.assertThrowsSqlException(() -> statement.execute("create temporary function sq1(in x bigint) " +
+                                "on commit drop function as select * from t1 where a < 40 + x "))
+                        .hasErrorCode(ErrorCode.UNDEFINED_TABLE)
+                        .hasMessageContaining("Unknown table t1");
             }
             connection.rollback();
         }

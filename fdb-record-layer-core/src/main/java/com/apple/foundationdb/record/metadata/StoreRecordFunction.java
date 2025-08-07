@@ -67,8 +67,4 @@ public class StoreRecordFunction<T> extends RecordFunction<T> {
         return super.basePlanHash(mode, BASE_HASH);
     }
 
-    @Override
-    public int queryHash(@Nonnull final QueryHashKind hashKind) {
-        return super.baseQueryHash(hashKind, BASE_HASH);
-    }
 }

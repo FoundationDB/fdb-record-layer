@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 import java.util.HashMap;
 import java.util.Locale;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -150,10 +151,10 @@ public class RecordMetadataDeserializer {
 
     @Nonnull
     @VisibleForTesting
-    protected Supplier<CompiledSqlFunction> getSqlFunctionCompiler(@Nonnull final String name,
-                                                                   @Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
-                                                                   @Nonnull final String functionBody) {
-        return () -> RoutineParser.sqlFunctionParser(metadata.get()).parse(functionBody);
+    protected Function<Boolean, CompiledSqlFunction> getSqlFunctionCompiler(@Nonnull final String name,
+                                                                            @Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
+                                                                            @Nonnull final String functionBody) {
+        return isCaseSensitive -> RoutineParser.sqlFunctionParser(metadata.get()).parse(functionBody, isCaseSensitive);
     }
 
     @Nonnull

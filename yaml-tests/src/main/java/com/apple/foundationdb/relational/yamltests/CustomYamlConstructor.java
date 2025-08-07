@@ -22,9 +22,10 @@ package com.apple.foundationdb.relational.yamltests;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.Assert;
-import com.apple.foundationdb.relational.yamltests.block.FileOptions;
+import com.apple.foundationdb.relational.yamltests.block.PreambleBlock;
 import com.apple.foundationdb.relational.yamltests.block.SetupBlock;
 import com.apple.foundationdb.relational.yamltests.block.TestBlock;
+import com.apple.foundationdb.relational.yamltests.block.TransactionSetupsBlock;
 import com.apple.foundationdb.relational.yamltests.command.Command;
 import com.apple.foundationdb.relational.yamltests.command.QueryConfig;
 import org.yaml.snakeyaml.LoaderOptions;
@@ -58,9 +59,10 @@ public class CustomYamlConstructor extends SafeConstructor {
         yamlConstructors.put(new Tag("!current_version"), new ConstructCurrentVersion());
 
         //blocks
-        requireLineNumber.add(FileOptions.OPTIONS);
+        requireLineNumber.add(PreambleBlock.OPTIONS);
         requireLineNumber.add(SetupBlock.SETUP_BLOCK);
         requireLineNumber.add(SetupBlock.SchemaTemplateBlock.SCHEMA_TEMPLATE_BLOCK);
+        requireLineNumber.add(TransactionSetupsBlock.TRANSACTION_SETUP);
         requireLineNumber.add(TestBlock.TEST_BLOCK);
         // commands
         requireLineNumber.add(Command.COMMAND_LOAD_SCHEMA_TEMPLATE);
@@ -78,6 +80,8 @@ public class CustomYamlConstructor extends SafeConstructor {
         requireLineNumber.add(QueryConfig.QUERY_CONFIG_SUPPORTED_VERSION);
         requireLineNumber.add(QueryConfig.QUERY_CONFIG_INITIAL_VERSION_LESS_THAN);
         requireLineNumber.add(QueryConfig.QUERY_CONFIG_INITIAL_VERSION_AT_LEAST);
+        requireLineNumber.add(QueryConfig.QUERY_CONFIG_SETUP);
+        requireLineNumber.add(QueryConfig.QUERY_CONFIG_SETUP_REFERENCE);
         requireLineNumber.add(QueryConfig.QUERY_CONFIG_DEBUGGER);
     }
 
@@ -196,7 +200,7 @@ public class CustomYamlConstructor extends SafeConstructor {
 
         @Override
         public Object construct(Node node) {
-            return FileOptions.CurrentVersion.INSTANCE;
+            return PreambleBlock.CurrentVersion.INSTANCE;
         }
     }
 }

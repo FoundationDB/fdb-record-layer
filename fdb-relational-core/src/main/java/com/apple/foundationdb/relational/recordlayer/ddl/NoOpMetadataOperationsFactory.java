@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ public final class NoOpMetadataOperationsFactory implements MetadataOperationsFa
 
     @Nonnull
     @Override
-    public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate templateName, @Nonnull Options templateProperties) {
+    public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate templateName, @Nonnull Options templateProperties) {
         return NoOpConstantAction.INSTANCE;
     }
 
@@ -72,9 +72,16 @@ public final class NoOpMetadataOperationsFactory implements MetadataOperationsFa
 
     @Nonnull
     @Override
-    public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template, boolean throwIfNotExists,
+    public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template, boolean throwIfExists,
                                                                    @Nonnull final RecordLayerInvokedRoutine invokedRoutine,
                                                                    @Nonnull final PreparedParams preparedParams) {
+        return NoOpConstantAction.INSTANCE;
+    }
+
+    @Nonnull
+    @Override
+    public ConstantAction getDropTemporaryFunctionConstantAction(boolean throwIfNotExists,
+                                                                 @Nonnull final String temporaryFunctionName) {
         return NoOpConstantAction.INSTANCE;
     }
 

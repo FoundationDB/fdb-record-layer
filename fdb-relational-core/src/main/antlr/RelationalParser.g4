@@ -3,7 +3,7 @@ MySQL (Positive Technologies) grammar
 The MIT License (MIT).
 Copyright (c) 2015-2017, Ivan Kochurkin (kvanttt@gmail.com), Positive Technologies.
 Copyright (c) 2017, Ivan Khudyashev (IHudyashov@ptsecurity.com)
-Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -58,6 +58,7 @@ ddlStatement
     : createStatement
     | dropStatement
     | createTempFunction
+    | dropTempFunction
     ;
 
 transactionStatement
@@ -170,6 +171,10 @@ indexAttribute
 
 createTempFunction
     : CREATE (OR REPLACE)? TEMPORARY tempSqlInvokedFunction
+    ;
+
+dropTempFunction
+    : DROP TEMPORARY FUNCTION (IF EXISTS)? schemaQualifiedRoutineName=fullId
     ;
 
 createFunction

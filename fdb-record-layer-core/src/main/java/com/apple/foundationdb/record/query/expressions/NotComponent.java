@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.NotPredicate;
-import com.apple.foundationdb.record.util.HashUtils;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -139,11 +138,6 @@ public class NotComponent implements ComponentWithSingleChild, BooleanComponent 
             default:
                 throw new UnsupportedOperationException("Hash kind " + mode.getKind() + " is not supported");
         }
-    }
-
-    @Override
-    public int queryHash(@Nonnull final QueryHashKind hashKind) {
-        return HashUtils.queryHash(hashKind, BASE_HASH, getChild());
     }
 
     @Nonnull

@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@ import com.apple.foundationdb.relational.recordlayer.HollowTransactionManager;
 import com.apple.foundationdb.relational.recordlayer.RecordStoreAndRecordContextTransaction;
 import com.apple.foundationdb.relational.recordlayer.ddl.AbstractMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.ddl.CreateTemporaryFunctionConstantAction;
+import com.apple.foundationdb.relational.recordlayer.ddl.DropTemporaryFunctionConstantAction;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
@@ -67,16 +68,24 @@ public class TransactionBoundDatabase extends AbstractDatabase {
     @Nonnull
     final Options options;
 
-    private static final MetadataOperationsFactory metadataOperationsFactory = new AbstractMetadataOperationsFactory() {
+    private static final MetadataOperationsFactory onlyTemporaryFunctionOperationsFactory = new AbstractMetadataOperationsFactory() {
         @Nonnull
         @Override
-        public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template, final boolean throwIfNotExists, @Nonnull final RecordLayerInvokedRoutine invokedRoutine, @Nonnull final PreparedParams preparedParams) {
-            return new CreateTemporaryFunctionConstantAction(template, throwIfNotExists, invokedRoutine, preparedParams);
+        public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template, final boolean throwIfExists,
+                                                                       @Nonnull final RecordLayerInvokedRoutine invokedRoutine,
+                                                                       @Nonnull final PreparedParams preparedParams) {
+            return new CreateTemporaryFunctionConstantAction(template, throwIfExists, invokedRoutine, preparedParams);
+        }
+
+        @Nonnull
+        @Override
+        public ConstantAction getDropTemporaryFunctionConstantAction(final boolean throwIfNotExists, @Nonnull final String temporaryFunctionName) {
+            return new DropTemporaryFunctionConstantAction(throwIfNotExists, temporaryFunctionName);
         }
     };
 
     public TransactionBoundDatabase(URI uri, @Nonnull Options options, @Nullable RelationalPlanCache planCache) {
-        super(metadataOperationsFactory, NoOpQueryFactory.INSTANCE, planCache);
+        super(onlyTemporaryFunctionOperationsFactory, NoOpQueryFactory.INSTANCE, planCache);
         this.uri = uri;
         this.options = options;
     }

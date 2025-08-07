@@ -299,7 +299,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         @Nullable final LucenePrimaryKeySegmentIndex segmentIndex = directoryManager.getDirectory(groupingKey, partitionId).getPrimaryKeySegmentIndex();
 
         if (segmentIndex != null) {
-            final DirectoryReader directoryReader = directoryManager.getDirectoryReader(groupingKey, partitionId);
+            final DirectoryReader directoryReader = directoryManager.getWriterReader(groupingKey, partitionId);
             final LucenePrimaryKeySegmentIndex.DocumentIndexEntry documentIndexEntry = segmentIndex.findDocument(directoryReader, primaryKey);
             if (documentIndexEntry != null) {
                 state.context.ensureActive().clear(documentIndexEntry.entryKey); // TODO: Only if valid?
@@ -702,14 +702,15 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     @SuppressWarnings("PMD.CloseResource") // the indexReader and directory are closed by the directoryManager
     private CompletableFuture<LuceneMetadataInfo.LuceneInfo> getLuceneInfo(final Tuple groupingKey, final Integer partitionId) {
         try {
-            final IndexReader indexReader = directoryManager.getIndexReader(groupingKey, partitionId);
-            final FDBDirectory directory = getDirectory(groupingKey, partitionId);
-            final CompletableFuture<Integer> fieldInfosFuture = directory.getFieldInfosCount();
-            return directory.listAllAsync()
-                    .thenCombine(fieldInfosFuture, (fileList, fieldInfosCount) ->
-                            new LuceneMetadataInfo.LuceneInfo(
-                                    indexReader.numDocs(),
-                                    fileList, fieldInfosCount));
+            try (IndexReader indexReader = directoryManager.getIndexReader(groupingKey, partitionId)) {
+                final FDBDirectory directory = getDirectory(groupingKey, partitionId);
+                final CompletableFuture<Integer> fieldInfosFuture = directory.getFieldInfosCount();
+                return directory.listAllAsync()
+                        .thenCombine(fieldInfosFuture, (fileList, fieldInfosCount) ->
+                                new LuceneMetadataInfo.LuceneInfo(
+                                        indexReader.numDocs(),
+                                        fileList, fieldInfosCount));
+            }
         } catch (IOException e) {
             return CompletableFuture.failedFuture(e);
         }

@@ -133,8 +133,4 @@ public class NestedField extends BaseNestedField {
         }
     }
 
-    @Override
-    public int queryHash(@Nonnull final QueryHashKind hashKind) {
-        return super.baseQueryHash(hashKind, BASE_HASH, getChild());
-    }
 }

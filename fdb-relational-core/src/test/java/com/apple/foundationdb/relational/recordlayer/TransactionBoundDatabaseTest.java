@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ public class TransactionBoundDatabaseTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule dbRule = new SimpleDatabaseRule(relational, TransactionBoundDatabaseTest.class, TestSchemas.restaurant());
+    public final SimpleDatabaseRule dbRule = new SimpleDatabaseRule(TransactionBoundDatabaseTest.class, TestSchemas.restaurant());
 
     @RegisterExtension
     @Order(2)
@@ -156,6 +156,95 @@ public class TransactionBoundDatabaseTest {
                     Assertions.assertThat(routinesInBoundSchemaTemplates)
                             .hasSize(1)
                             .anyMatch(routine -> routine.getName().equals("REST_FUNC"));
+                }
+            }
+        }
+    }
+
+    @Test
+    void dropTemporaryFunction() throws RelationalException, SQLException {
+        final var embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
+        final var store = getStore(embeddedConnection);
+        final var schemaTemplate = getSchemaTemplate(embeddedConnection);
+
+        try (FDBRecordContext context = createNewContext(embeddedConnection)) {
+            final var newStore = store.asBuilder().setMetaDataProvider(store.getMetaDataProvider()).setContext(context).open();
+            try (Transaction transaction = new RecordStoreAndRecordContextTransaction(newStore, context, schemaTemplate)) {
+                EmbeddedRelationalDriver driver = new EmbeddedRelationalDriver(new TransactionBoundEmbeddedRelationalEngine());
+                try (RelationalConnection conn = driver.connect(dbRule.getConnectionUri(), transaction, Options.NONE)) {
+                    conn.setSchema("TEST_SCHEMA");
+                    try (RelationalStatement statement = conn.createStatement()) {
+                        statement.executeUpdate("CREATE TEMPORARY FUNCTION REST_FUNC() ON COMMIT DROP FUNCTION AS SELECT * FROM RESTAURANT WHERE REST_NO > 1000");
+                    }
+                    Assertions.assertThat(transaction.getBoundSchemaTemplateMaybe()).isPresent();
+                    Assertions.assertThat(transaction.getBoundSchemaTemplateMaybe().get().getInvokedRoutines())
+                            .hasSize(1)
+                            .anyMatch(routine -> routine.getName().equals("REST_FUNC"));
+                    try (RelationalStatement statement = conn.createStatement()) {
+                        statement.executeUpdate("DROP TEMPORARY FUNCTION REST_FUNC");
+                    }
+                    Assertions.assertThat(transaction.getBoundSchemaTemplateMaybe()).isPresent();
+                    Assertions.assertThat(transaction.getBoundSchemaTemplateMaybe().get().getInvokedRoutines())
+                            .isEmpty();
+                }
+            }
+        }
+    }
+
+    @Test
+    void dropTemporaryIfExistFunction() throws RelationalException, SQLException {
+        final var embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
+        final var store = getStore(embeddedConnection);
+        final var schemaTemplate = getSchemaTemplate(embeddedConnection);
+
+        try (FDBRecordContext context = createNewContext(embeddedConnection)) {
+            final var newStore = store.asBuilder().setMetaDataProvider(store.getMetaDataProvider()).setContext(context).open();
+            try (Transaction transaction = new RecordStoreAndRecordContextTransaction(newStore, context, schemaTemplate)) {
+                EmbeddedRelationalDriver driver = new EmbeddedRelationalDriver(new TransactionBoundEmbeddedRelationalEngine());
+                try (RelationalConnection conn = driver.connect(dbRule.getConnectionUri(), transaction, Options.NONE)) {
+                    conn.setSchema("TEST_SCHEMA");
+                    try (RelationalStatement statement = conn.createStatement()) {
+                        statement.executeUpdate("CREATE TEMPORARY FUNCTION REST_FUNC() ON COMMIT DROP FUNCTION AS SELECT * FROM RESTAURANT WHERE REST_NO > 1000");
+                    }
+                    Assertions.assertThat(transaction.getBoundSchemaTemplateMaybe()).isPresent();
+                    Assertions.assertThat(transaction.getBoundSchemaTemplateMaybe().get().getInvokedRoutines())
+                            .hasSize(1)
+                            .anyMatch(routine -> routine.getName().equals("REST_FUNC"));
+                    try (RelationalStatement statement = conn.createStatement()) {
+                        statement.executeUpdate("DROP TEMPORARY FUNCTION IF EXISTS REST_FUNC");
+                    }
+                    Assertions.assertThat(transaction.getBoundSchemaTemplateMaybe()).isPresent();
+                    Assertions.assertThat(transaction.getBoundSchemaTemplateMaybe().get().getInvokedRoutines())
+                            .isEmpty();
+                    try (RelationalStatement statement = conn.createStatement()) {
+                        statement.executeUpdate("DROP TEMPORARY FUNCTION IF EXISTS DOES_NOT_EXISTS");
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    void unsetTransactionBoundSchemaTemplate() throws RelationalException, SQLException {
+        final var embeddedConnection = connRule.getUnderlyingEmbeddedConnection();
+        final var store = getStore(embeddedConnection);
+        final var schemaTemplate = getSchemaTemplate(embeddedConnection);
+
+        try (FDBRecordContext context = createNewContext(embeddedConnection)) {
+            final var newStore = store.asBuilder().setMetaDataProvider(store.getMetaDataProvider()).setContext(context).open();
+            try (Transaction transaction = new RecordStoreAndRecordContextTransaction(newStore, context, schemaTemplate)) {
+                EmbeddedRelationalDriver driver = new EmbeddedRelationalDriver(new TransactionBoundEmbeddedRelationalEngine());
+                try (RelationalConnection conn = driver.connect(dbRule.getConnectionUri(), transaction, Options.NONE)) {
+                    conn.setSchema("TEST_SCHEMA");
+                    try (RelationalStatement statement = conn.createStatement()) {
+                        statement.executeUpdate("CREATE TEMPORARY FUNCTION REST_FUNC() ON COMMIT DROP FUNCTION AS SELECT * FROM RESTAURANT WHERE REST_NO > 1000");
+                    }
+                    Assertions.assertThat(transaction.getBoundSchemaTemplateMaybe()).isPresent();
+                    Assertions.assertThat(transaction.getBoundSchemaTemplateMaybe().get().getInvokedRoutines())
+                            .hasSize(1)
+                            .anyMatch(routine -> routine.getName().equals("REST_FUNC"));
+                    transaction.unsetBoundSchemaTemplate();
+                    Assertions.assertThat(transaction.getBoundSchemaTemplateMaybe()).isEmpty();
                 }
             }
         }

@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.yamltests.command.Command;
 import com.apple.foundationdb.relational.yamltests.command.QueryCommand;
 import com.apple.foundationdb.relational.yamltests.command.QueryConfig;
 import com.apple.foundationdb.relational.yamltests.command.SkippedCommand;
+import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
 import com.google.common.base.Verify;
 import org.apache.commons.lang3.tuple.Pair;
@@ -50,6 +51,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -186,7 +188,7 @@ public final class TestBlock extends ConnectedBlock {
      *     <li>Using the {@link YamlExecutionContext}. See {@link TestBlockOptions#setWithExecutionContext}</li>
      * </ul>
      */
-    private static class TestBlockOptions {
+    public static class TestBlockOptions {
         private int repetition = 5;
         private ExecutionMode mode = ExecutionMode.PARALLELIZED;
         private long seed = System.currentTimeMillis();
@@ -228,7 +230,7 @@ public final class TestBlock extends ConnectedBlock {
             }
         }
 
-        private void setWithOptionsMap(@Nonnull Map<?, ?> optionsMap, @Nonnull YamlExecutionContext executionContext) {
+        private void setWithOptionsMap(@Nonnull Map<?, ?> optionsMap, Set<SemanticVersion> versionsUnderTest) {
             setOptionExecutionModeAndRepetition(optionsMap);
             if (optionsMap.containsKey(OPTION_SEED)) {
                 this.seed = Matchers.longValue(optionsMap.get(OPTION_SEED));
@@ -250,16 +252,17 @@ public final class TestBlock extends ConnectedBlock {
                         break;
                 }
             }
-            supportedVersionCheck = SupportedVersionCheck.parseOptions(optionsMap, executionContext);
+            supportedVersionCheck = SupportedVersionCheck.parseOptions(optionsMap, versionsUnderTest);
             setOptionConnectionLifecycle(optionsMap);
             if (optionsMap.containsKey(OPTION_CONNECTION_OPTIONS)) {
                 connectionOptions = parseConnectionOptions(Matchers.map(optionsMap.get(OPTION_CONNECTION_OPTIONS)));
             }
         }
 
-        Options parseConnectionOptions(@Nonnull Map<?, ?> map) {
-            final Options.Builder optionsBuilder = Options.builder();
-            for (final Map.Entry<?, ?> entry : map.entrySet()) {
+        @Nonnull
+        public static Options parseConnectionOptions(@Nonnull final Map<?, ?> map) {
+            final var optionsBuilder = Options.builder();
+            for (final var entry : map.entrySet()) {
                 try {
                     optionsBuilder.withOption(Options.Name.valueOf(Matchers.string(entry.getKey())), entry.getValue());
                 } catch (SQLException e) {
@@ -347,7 +350,8 @@ public final class TestBlock extends ConnectedBlock {
             }
             // higher priority than the preset is that of options map, set the options according to that, if any is present.
             if (testsMap.get(TEST_BLOCK_OPTIONS) != null) {
-                options.setWithOptionsMap(CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(testsMap.get(TEST_BLOCK_OPTIONS))), executionContext);
+                options.setWithOptionsMap(CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(testsMap.get(TEST_BLOCK_OPTIONS))),
+                        executionContext.getConnectionFactory().getVersionsUnderTest());
             }
             // execution context carries the highest priority, try setting options per that if it has some options to override.
             options.setWithExecutionContext(executionContext);

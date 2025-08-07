@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints;
@@ -91,7 +93,7 @@ public class RelationalPlanCacheTests {
 
     @RegisterExtension
     @Order(2)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, RelationalPlanCacheTests.class, TestSchemas.books());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(RelationalPlanCacheTests.class, TestSchemas.books());
 
     @RegisterExtension
     @Order(3)
@@ -178,10 +180,19 @@ public class RelationalPlanCacheTests {
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     @Nonnull
     private static QueryPredicate strEq(final int tokenIndex1, final Optional<String> scope1, final int tokenIndex2, final Optional<String> scope2) {
-        return new ValuePredicate(ConstantObjectValue.of(Quantifier.constant(),
-                constantId(tokenIndex1, scope1), Type.primitiveType(Type.TypeCode.STRING)),
-                new Comparisons.ValueComparison(Comparisons.Type.EQUALS, ConstantObjectValue.of(Quantifier.constant(),
-                        constantId(tokenIndex2, scope2), Type.primitiveType(Type.TypeCode.STRING))));
+        final var leftCov = ConstantObjectValue.of(Quantifier.constant(), constantId(tokenIndex1, scope1), Type.primitiveType(Type.TypeCode.STRING));
+        final var rightCov = ConstantObjectValue.of(Quantifier.constant(), constantId(tokenIndex2, scope2), Type.primitiveType(Type.TypeCode.STRING));
+
+        final var leftIsNotNull = new ValuePredicate(leftCov, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL));
+        final var rightIsNotNull = new ValuePredicate(rightCov, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL));
+        final var equalityPredicate = new ValuePredicate(leftCov, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, rightCov));
+        final var notNullComparison = AndPredicate.and(ImmutableList.of(leftIsNotNull, rightIsNotNull, equalityPredicate));
+
+        final var leftIsNull = new ValuePredicate(leftCov, new Comparisons.NullComparison(Comparisons.Type.IS_NULL));
+        final var rightIsNull = new ValuePredicate(rightCov, new Comparisons.NullComparison(Comparisons.Type.IS_NULL));
+        final var bothAreNullComparison = AndPredicate.and(leftIsNull, rightIsNull);
+
+        return OrPredicate.or(notNullComparison, bothAreNullComparison);
     }
 
     @Nonnull
