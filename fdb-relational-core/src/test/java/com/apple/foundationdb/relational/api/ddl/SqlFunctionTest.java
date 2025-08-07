@@ -64,7 +64,7 @@ public class SqlFunctionTest {
 
     @RegisterExtension
     @Order(2)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, DdlStatementParsingTest.class, TestSchemas.books());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(DdlStatementParsingTest.class, TestSchemas.books());
 
     @RegisterExtension
     @Order(3)
@@ -132,8 +132,8 @@ public class SqlFunctionTest {
         shouldWorkWithInjectedFactory(sql, preparedParams, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
-            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template,
-                                                                        @Nonnull final Options ignored) {
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template,
+                                                                      @Nonnull final Options ignored) {
                 t.set(template);
                 return txn -> {
                 };

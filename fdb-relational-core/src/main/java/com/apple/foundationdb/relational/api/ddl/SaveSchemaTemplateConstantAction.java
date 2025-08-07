@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,12 +30,12 @@ import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import javax.annotation.Nonnull;
 
 @API(API.Status.EXPERIMENTAL)
-public class CreateSchemaTemplateConstantAction implements ConstantAction {
+public class SaveSchemaTemplateConstantAction implements ConstantAction {
     private final SchemaTemplate template;
     private final SchemaTemplateCatalog catalog;
 
-    public CreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                              @Nonnull SchemaTemplateCatalog catalog) {
+    public SaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
+                                            @Nonnull SchemaTemplateCatalog catalog) {
         this.template = template;
         this.catalog = catalog;
     }

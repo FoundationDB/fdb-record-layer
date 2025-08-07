@@ -1,9 +1,9 @@
 /*
- * FileOptions.java
+ * PreambleBlock.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests.block;
 
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.yamltests.CustomYamlConstructor;
 import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
@@ -29,34 +30,43 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assumptions;
 
+import javax.annotation.Nonnull;
 import java.util.Map;
 
 /**
- * Block that configures aspects of the test that do not require a connection yet.
- * <p>
- *     This supports the following sub-commands:
- *     <ul>
- *         <li>{@code supported_version}: if this is set, it will disable the test when running against a server
- *         older than a specific version. The special yaml tag {@code !current_version} can be used to indicate that
- *         it should work against the current code, but is not expected to work with any older versions.
- *         In the future, the release script will update these automatically to the version being released.
- *         <p>
- *             <b>Example:</b>
- *             <pre>{@code
- *                 ---
- *                 options:
- *                     supported_version: !current_version
- *             }</pre>
- *     </ul>
+ * A block that collects all file-wide options. It does <li>not</li> have an execution, but merely acts as a placeholder
+ * for global options set in the preamble of the test file.
  */
-public class FileOptions {
-    public static final String OPTIONS = "options";
-    public static final String SUPPORTED_VERSION_OPTION = "supported_version";
-    private static final Logger logger = LogManager.getLogger(FileOptions.class);
+public class PreambleBlock implements Block {
 
-    public static Block parse(int lineNumber, Object document, YamlExecutionContext executionContext) {
-        final Map<?, ?> options = CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(document, OPTIONS));
-        final SupportedVersionCheck check = SupportedVersionCheck.parseOptions(options, executionContext);
+    public static final String OPTIONS = "options";
+    public static final String PREAMBLE_BLOCK_SUPPORTED_VERSION = "supported_version";
+    public static final String PREAMBLE_BLOCK_CONNECTION_OPTIONS = "connection_options";
+    private static final Logger logger = LogManager.getLogger(PreambleBlock.class);
+
+    private final int lineNumber;
+
+    PreambleBlock(int lineNumber) {
+        this.lineNumber = lineNumber;
+    }
+
+    @Override
+    public int getLineNumber() {
+        return this.lineNumber;
+    }
+
+    @Override
+    public void execute() {
+        // no-op.
+    }
+
+    @Nonnull
+    public static PreambleBlock parse(int lineNumber, @Nonnull final Object document,
+                                      @Nonnull final YamlExecutionContext executionContext) {
+        final Map<?, ?> optionsMap = CustomYamlConstructor.LinedObject.unlineKeys(Matchers.map(document, OPTIONS));
+
+        // read the supported version option, and immediately abort the test if the version check fails.
+        final SupportedVersionCheck check = SupportedVersionCheck.parseOptions(optionsMap, executionContext.getConnectionFactory().getVersionsUnderTest());
         if (!check.isSupported()) {
             // IntelliJ, at least, doesn't display the reason, so log it
             if (logger.isInfoEnabled()) {
@@ -64,9 +74,16 @@ public class FileOptions {
             }
             Assumptions.assumeTrue(check.isSupported(), check.getMessage());
         }
-        return new NoOpBlock(lineNumber);
+        var connectionOptions = Options.none();
+        if (optionsMap.containsKey(PREAMBLE_BLOCK_CONNECTION_OPTIONS)) {
+            connectionOptions = TestBlock.TestBlockOptions.parseConnectionOptions(Matchers.map(optionsMap.get(PREAMBLE_BLOCK_CONNECTION_OPTIONS)));
+        }
+
+        executionContext.setConnectionOptions(connectionOptions);
+        return new PreambleBlock(lineNumber);
     }
 
+    @Nonnull
     public static SemanticVersion parseVersion(Object rawVersion) {
         if (rawVersion instanceof CurrentVersion) {
             return SemanticVersion.current();

@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ public class SqlInsertTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension,
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(
             BasicMetadataTest.class, "CREATE TABLE simple (rest_no bigint, name string, primary key(rest_no)) " +
             "CREATE TYPE AS STRUCT location (address string, latitude string, longitude string) " +
             "CREATE TABLE with_loc (rest_no bigint, name string, loc location, primary key(rest_no))");

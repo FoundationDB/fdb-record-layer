@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ public class OptionScopeTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule db = new SimpleDatabaseRule(relationalExtension, UniqueIndexTests.class, TestSchemas.books());
+    public final SimpleDatabaseRule db = new SimpleDatabaseRule(UniqueIndexTests.class, TestSchemas.books());
 
     @Test
     public void optionTakenFromConnection() throws SQLException, RelationalException {
