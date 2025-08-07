@@ -7,6 +7,40 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.5
 
+### 4.5.4.0
+
+<h4> New Features </h4>
+
+* Interpret full-supported UUID type correctly in JDBC server  - [PR #3515](https://github.com/FoundationDB/fdb-record-layer/pull/3515)
+<h4> Bug Fixes </h4>
+
+* Fix case-sensitivity handling - [PR #3511](https://github.com/FoundationDB/fdb-record-layer/pull/3511)
+* Remove synchronized blocks from FDBDirectoryWrapper - [PR #3494](https://github.com/FoundationDB/fdb-record-layer/pull/3494)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Chore - Update copyright date - [PR #3528](https://github.com/FoundationDB/fdb-record-layer/pull/3528)
+
+</details>
+
+
+**[Full Changelog (4.5.3.0...4.5.4.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.5.3.0...4.5.4.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.4.8.0`, ❌`4.4.9.0`, ❌`4.4.10.0`, ❌`4.4.11.0`, ✅`4.4.12.0`, ✅`4.4.14.0`, ✅`4.4.15.0`, ✅`4.5.1.0`, ✅`4.5.2.0`, ✅`4.5.3.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16753916516)
+
+
+
 ### 4.5.3.0
 
 
