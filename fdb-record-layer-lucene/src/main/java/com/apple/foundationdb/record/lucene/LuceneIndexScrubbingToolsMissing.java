@@ -173,13 +173,12 @@ public class LuceneIndexScrubbingToolsMissing extends ValueIndexScrubbingToolsMi
             }
             return AsyncUtil.DONE;
         }
-        return partitioner.tryGetPartitionInfo(rec, groupingKey).thenApply(partitionInfo -> {
+        return partitioner.tryGetPartitionInfo(rec, groupingKey).thenAccept(partitionInfo -> {
             if (partitionInfo == null) {
                 issue.compareAndSet(null, Pair.of(MissingIndexReason.NOT_IN_PARTITION, groupingKey));
             } else if (isMissingIndexKey(rec, partitionInfo.getId(), groupingKey)) {
                 issue.compareAndSet(null, Pair.of(MissingIndexReason.NOT_IN_PK_SEGMENT_INDEX, groupingKey));
             }
-            return null;
         });
     }
 
