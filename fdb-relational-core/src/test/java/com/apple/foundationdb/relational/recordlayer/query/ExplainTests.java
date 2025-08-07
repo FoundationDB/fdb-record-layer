@@ -40,6 +40,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import java.net.URI;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.Collections;
 import java.util.List;
 
 public class ExplainTests {
@@ -71,6 +72,21 @@ public class ExplainTests {
         final var expectedTypes = List.of(Types.VARCHAR, Types.INTEGER, Types.VARCHAR, Types.VARCHAR, Types.STRUCT, Types.STRUCT);
         final var expectedContLabels = List.of("EXECUTION_STATE", "VERSION", "PLAN_HASH_MODE");
         final var expectedContTypes = List.of(Types.BINARY, Types.INTEGER, Types.VARCHAR);
+        final var expectedPlannerMetricsLabels = List.of(
+                "TASK_COUNT",
+                "TASK_TOTAL_TIME_NS",
+                "TRANSFORM_COUNT",
+                "TRANSFORM_TIME_NS",
+                "TRANSFORM_YIELD_COUNT",
+                "INSERT_TIME_NS",
+                "INSERT_NEW_COUNT",
+                "INSERT_REUSED_COUNT",
+                "REWRITING_PHASE_TASK_COUNT",
+                "PLANNING_PHASE_TASK_COUNT",
+                "REWRITING_PHASE_TASKS_TOTAL_TIME_NS",
+                "PLANNING_PHASE_TASKS_TOTAL_TIME_NS"
+        );
+        final var expectedPlannerMetricsTypes = Collections.nCopies(expectedPlannerMetricsLabels.size(), Types.BIGINT);
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
             try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord")) {
@@ -87,7 +103,12 @@ public class ExplainTests {
                         org.junit.jupiter.api.Assertions.assertEquals(expectedContLabels.get(i), actualContinuationMetadata.getColumnLabel(i + 1));
                         org.junit.jupiter.api.Assertions.assertEquals(expectedContTypes.get(i), actualContinuationMetadata.getColumnType(i + 1));
                     }
-
+                    final var actualPlannerMetricsMetadata = actualMetadata.getStructMetaData(6);
+                    org.junit.jupiter.api.Assertions.assertEquals(expectedPlannerMetricsLabels.size(), actualPlannerMetricsMetadata.getColumnCount());
+                    for (int i = 0; i < expectedPlannerMetricsLabels.size(); i++) {
+                        org.junit.jupiter.api.Assertions.assertEquals(expectedPlannerMetricsLabels.get(i), actualPlannerMetricsMetadata.getColumnLabel(i + 1));
+                        org.junit.jupiter.api.Assertions.assertEquals(expectedPlannerMetricsTypes.get(i), actualPlannerMetricsMetadata.getColumnType(i + 1));
+                    }
                 }
             }
         }

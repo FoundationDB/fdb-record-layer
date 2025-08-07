@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.QueryPlanInfoKeys;
 import com.apple.foundationdb.record.query.plan.QueryPlanResult;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Stats;
@@ -88,6 +89,7 @@ import java.sql.SQLException;
 import java.sql.Struct;
 import java.util.ArrayList;
 import java.util.Collections;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -296,7 +298,11 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                             DataType.StructType.Field.from("TRANSFORM_YIELD_COUNT", DataType.Primitives.LONG.type(), 4),
                             DataType.StructType.Field.from("INSERT_TIME_NS", DataType.Primitives.LONG.type(), 5),
                             DataType.StructType.Field.from("INSERT_NEW_COUNT", DataType.Primitives.LONG.type(), 6),
-                            DataType.StructType.Field.from("INSERT_REUSED_COUNT", DataType.Primitives.LONG.type(), 7)),
+                            DataType.StructType.Field.from("INSERT_REUSED_COUNT", DataType.Primitives.LONG.type(), 7),
+                            DataType.StructType.Field.from("REWRITING_PHASE_TASK_COUNT", DataType.Primitives.LONG.type(), 8),
+                            DataType.StructType.Field.from("PLANNING_PHASE_TASK_COUNT", DataType.Primitives.LONG.type(), 9),
+                            DataType.StructType.Field.from("REWRITING_PHASE_TASKS_TOTAL_TIME_NS", DataType.Primitives.LONG.type(), 10),
+                            DataType.StructType.Field.from("PLANNING_PHASE_TASKS_TOTAL_TIME_NS", DataType.Primitives.LONG.type(), 11)),
                     true);
             final var explainStructType = DataType.StructType.from(
                     "EXPLAIN", List.of(
@@ -320,25 +326,35 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                 plannerMetrics = null;
             } else {
                 final var plannerEventClassStatsMap = plannerStatsMaps.getEventClassStatsMap();
-                final var executingTasksStats =
+
+                final var aggregateExecutingTasksStats =
                         Optional.ofNullable(plannerEventClassStatsMap.get(Debugger.ExecutingTaskEvent.class));
-                final var transformRuleCallStats =
+                final var aggregateTransformRuleCallStats =
                         Optional.ofNullable(plannerEventClassStatsMap.get(Debugger.TransformRuleCallEvent.class));
-                final var insertIntoMemoStats =
+                final var aggregateInsertIntoMemoStats =
                         Optional.ofNullable(plannerEventClassStatsMap.get(Debugger.InsertIntoMemoEvent.class));
+
+                final var executingTasksStatsForRewritingPhase =
+                        plannerStatsMaps.getEventWithStateClassStatsMapByPlannerPhase(PlannerPhase.REWRITING)
+                                .map(m -> m.get(Debugger.ExecutingTaskEvent.class));
+                final var executingTasksStatsForPlanningPhase =
+                        plannerStatsMaps.getEventWithStateClassStatsMapByPlannerPhase(PlannerPhase.PLANNING)
+                                .map(m -> m.get(Debugger.ExecutingTaskEvent.class));
 
                 plannerMetrics =
                         new ImmutableRowStruct(new ArrayRow(
-                                executingTasksStats.map(s -> s.getCount(Debugger.Location.BEGIN)).orElse(0L),
-                                executingTasksStats.map(Stats::getTotalTimeInNs).orElse(0L),
-                                transformRuleCallStats.map(s -> s.getCount(Debugger.Location.BEGIN)).orElse(0L),
-                                transformRuleCallStats.map(Stats::getOwnTimeInNs).orElse(0L),
-                                transformRuleCallStats.map(s -> s.getCount(Debugger.Location.YIELD)).orElse(0L),
-                                insertIntoMemoStats.map(Stats::getOwnTimeInNs).orElse(0L),
-                                insertIntoMemoStats.map(s -> s.getCount(Debugger.Location.NEW)).orElse(0L),
-                                insertIntoMemoStats.map(s -> s.getCount(Debugger.Location.REUSED)).orElse(0L),
-                                parsedContinuation.getVersion(),
-                                parsedContinuation.getCompiledStatement() == null ? null : parsedContinuation.getCompiledStatement().getPlanSerializationMode()
+                                aggregateExecutingTasksStats.map(s -> s.getCount(Debugger.Location.BEGIN)).orElse(0L),
+                                aggregateExecutingTasksStats.map(Stats::getTotalTimeInNs).orElse(0L),
+                                aggregateTransformRuleCallStats.map(s -> s.getCount(Debugger.Location.BEGIN)).orElse(0L),
+                                aggregateTransformRuleCallStats.map(Stats::getOwnTimeInNs).orElse(0L),
+                                aggregateTransformRuleCallStats.map(s -> s.getCount(Debugger.Location.YIELD)).orElse(0L),
+                                aggregateInsertIntoMemoStats.map(Stats::getOwnTimeInNs).orElse(0L),
+                                aggregateInsertIntoMemoStats.map(s -> s.getCount(Debugger.Location.NEW)).orElse(0L),
+                                aggregateInsertIntoMemoStats.map(s -> s.getCount(Debugger.Location.REUSED)).orElse(0L),
+                                executingTasksStatsForRewritingPhase.map(s -> s.getCount(Debugger.Location.BEGIN)).orElse(0L),
+                                executingTasksStatsForPlanningPhase.map(s -> s.getCount(Debugger.Location.BEGIN)).orElse(0L),
+                                executingTasksStatsForRewritingPhase.map(Stats::getTotalTimeInNs).orElse(0L),
+                                executingTasksStatsForPlanningPhase.map(Stats::getTotalTimeInNs).orElse(0L)
                         ), RelationalStructMetaData.of(plannerMetricsStructType));
             }
 
