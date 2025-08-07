@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.query.plan.explain.ExplainLevel;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import javax.annotation.Nonnull;
@@ -45,7 +44,7 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
 
     private final boolean isForExplain;
 
-    private int explainLevel;
+    private final boolean isVerboseExplainLevel;
 
     private final int parameterHash;
 
@@ -56,12 +55,12 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
                                             @Nullable byte[] continuation,
                                             int parameterHash,
                                             boolean isForExplain,
-                                            int explainLevel,
+                                            boolean isVerboseExplainLevel,
                                             @Nonnull final PlanHashable.PlanHashMode planHashMode) {
         this.literals = literals;
         this.continuation = continuation;
         this.isForExplain = isForExplain;
-        this.explainLevel = explainLevel;
+        this.isVerboseExplainLevel = isVerboseExplainLevel;
         this.parameterHash = parameterHash;
         this.planHashMode = planHashMode;
     }
@@ -96,8 +95,8 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
     }
 
     @Override
-    public int getExplainLevel() {
-        return explainLevel;
+    public boolean isVerboseExplainLevel() {
+        return isVerboseExplainLevel;
     }
 
     @Nonnull
@@ -117,7 +116,7 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
 
         private boolean isForExplain;
 
-        private int explainLevel;
+        private boolean isVerboseExplainLevel;
 
         @Nullable
         private byte[] continuation;
@@ -132,7 +131,7 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
             this.isForExplain = false;
             this.continuation = null;
             this.planHashMode = null;
-            this.explainLevel = ExplainLevel.SOME_DETAILS;
+            this.isVerboseExplainLevel = false;
         }
 
         @Nonnull
@@ -160,8 +159,8 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
         }
 
         @Nonnull
-        public Builder setExplainLevel(int level) {
-            this.explainLevel = level;
+        public Builder setIsVerboseExplainLevel(boolean isVerboseExplainLevel) {
+            this.isVerboseExplainLevel = isVerboseExplainLevel;
             return this;
         }
 
@@ -174,7 +173,7 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
         @Nonnull
         public NormalizedQueryExecutionContext build() {
             return new NormalizedQueryExecutionContext(literalsBuilder.build(), continuation,
-                    parameterHash, isForExplain, explainLevel,
+                    parameterHash, isForExplain, isVerboseExplainLevel,
                     Objects.requireNonNull(planHashMode));
         }
     }

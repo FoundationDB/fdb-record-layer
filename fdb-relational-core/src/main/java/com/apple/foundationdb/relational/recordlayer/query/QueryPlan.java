@@ -200,7 +200,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         public String explain() {
             final var executeProperties = queryExecutionContext.getExecutionPropertiesBuilder();
             List<String> explainComponents = new ArrayList<>();
-            explainComponents.add(ExplainPlanVisitor.toStringForExternalExplain(recordQueryPlan, queryExecutionContext.getExplainLevel()));
+            explainComponents.add(ExplainPlanVisitor.toStringForExternalExplain(recordQueryPlan, queryExecutionContext.isVerboseExplainLevel()));
             if (executeProperties.getReturnedRowLimit() != ReadTransaction.ROW_LIMIT_UNLIMITED) {
                 explainComponents.add("(limit=" + executeProperties.getReturnedRowLimit() + ")");
             }

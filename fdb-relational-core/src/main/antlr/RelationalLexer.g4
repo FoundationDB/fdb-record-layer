@@ -147,7 +147,6 @@ MASTER_BIND:                         'MASTER_BIND';
 MASTER_SSL_VERIFY_SERVER_CERT:       'MASTER_SSL_VERIFY_SERVER_CERT';
 MATCH:                               'MATCH';
 MAXVALUE:                            'MAXVALUE';
-MINIMAL:                             'MINIMAL';
 MODIFIES:                            'MODIFIES';
 NATURAL:                             'NATURAL';
 NOT:                                 'NOT';

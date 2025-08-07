@@ -60,7 +60,7 @@ public interface QueryExecutionContext {
 
     boolean isForExplain(); // todo (yhatem) remove.
 
-    int getExplainLevel();
+    boolean isVerboseExplainLevel();
 
     @Nonnull
     PlanHashable.PlanHashMode getPlanHashMode();

@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.explain.ExplainLevel;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.generated.RelationalLexer;
@@ -538,11 +537,9 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     public QueryPlan.LogicalQueryPlan visitFullDescribeStatement(@Nonnull RelationalParser.FullDescribeStatementContext ctx) {
         getDelegate().getPlanGenerationContext().setForExplain(ctx.EXPLAIN() != null);
         if (!ctx.describeObjectClause().getTokens(RelationalLexer.VERBOSE).isEmpty()) {
-            getDelegate().getPlanGenerationContext().setExplainLevel(ExplainLevel.ALL_DETAILS);
-        } else if (!ctx.describeObjectClause().getTokens(RelationalLexer.MINIMAL).isEmpty()) {
-            getDelegate().getPlanGenerationContext().setExplainLevel(ExplainLevel.STRUCTURE);
+            getDelegate().getPlanGenerationContext().setIsVerboseExplainLevel(true);
         } else {
-            getDelegate().getPlanGenerationContext().setExplainLevel(ExplainLevel.SOME_DETAILS);
+            getDelegate().getPlanGenerationContext().setIsVerboseExplainLevel(false);
         }
         final var logicalOperator = Assert.castUnchecked(ctx.describeObjectClause().accept(this), LogicalOperator.class);
         return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(), getDelegate().getPlanGenerationContext(), "TODO");

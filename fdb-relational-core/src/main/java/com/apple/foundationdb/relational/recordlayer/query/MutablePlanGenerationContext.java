@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.EvaluatesToValue
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.OfTypeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.explain.ExplainLevel;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -88,7 +87,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
 
     private boolean forExplain;
 
-    private int explainLevel;
+    private boolean isVerboseExplainLevel;
 
     @Nullable
     private byte[] continuation;
@@ -262,7 +261,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         constantObjectValues = new LinkedList<>();
         shouldProcessLiteral = true;
         forExplain = false;
-        this.explainLevel = ExplainLevel.SOME_DETAILS;
+        isVerboseExplainLevel = false;
         setContinuation(null);
         equalityConstraints = ImmutableList.builder();
     }
@@ -339,8 +338,8 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     }
 
     @Override
-    public int getExplainLevel() {
-        return explainLevel;
+    public boolean isVerboseExplainLevel() {
+        return isVerboseExplainLevel;
     }
 
     @Nonnull
@@ -378,8 +377,8 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         this.forExplain = forExplain;
     }
 
-    public void setExplainLevel(final int explainLevel) {
-        this.explainLevel = explainLevel;
+    public void setIsVerboseExplainLevel(boolean isVerboseExplainLevel) {
+        this.isVerboseExplainLevel = isVerboseExplainLevel;
     }
 
     @Nonnull

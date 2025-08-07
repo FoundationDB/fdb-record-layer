@@ -73,7 +73,7 @@ public class ExplainTests {
         final var expectedContTypes = List.of(Types.BINARY, Types.INTEGER, Types.VARCHAR);
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN VERBOSE SELECT * FROM RestaurantComplexRecord")) {
+            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord")) {
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     final var actualMetadata = resultSet.getMetaData();
                     org.junit.jupiter.api.Assertions.assertEquals(expectedLabels.size(), actualMetadata.getColumnCount());
@@ -102,7 +102,7 @@ public class ExplainTests {
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     final var assertResult = ResultSetAssert.assertThat(resultSet);
                     assertResult.hasNextRow()
-                            .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>)")
+                            .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX)")
                             .hasColumn("PLAN_HASH", -1635569052L)
                             .hasColumn("PLAN_CONTINUATION", null);
                     assertResult.hasNoNextRow();
@@ -128,7 +128,7 @@ public class ExplainTests {
                     try (final RelationalResultSet resultSet = ps.executeQuery()) {
                         final var assertResult = ResultSetAssert.assertThat(resultSet);
                         assertResult.hasNextRow()
-                                .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>)")
+                                .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX)")
                                 .hasColumn("PLAN_HASH", -1635569052L);
                         final var continuationInfo = resultSet.getStruct(5);
                         org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
@@ -159,7 +159,7 @@ public class ExplainTests {
                     try (final RelationalResultSet resultSet = ps.executeQuery()) {
                         final var assertResult = ResultSetAssert.assertThat(resultSet);
                         assertResult.hasNextRow()
-                                .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>)")
+                                .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX)")
                                 .hasColumn("PLAN_HASH", -1635569052L);
                         final var continuationInfo = resultSet.getStruct(5);
                         org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
@@ -190,7 +190,7 @@ public class ExplainTests {
                     try (final RelationalResultSet resultSet = ps.executeQuery()) {
                         final var assertResult = ResultSetAssert.assertThat(resultSet);
                         assertResult.hasNextRow()
-                                .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>)")
+                                .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX)")
                                 .hasColumn("PLAN_HASH", -1635569052L);
                         final var continuationInfo = resultSet.getStruct(5);
                         org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
@@ -224,24 +224,6 @@ public class ExplainTests {
     }
 
     @Test
-    void explainMinimalTest() throws Exception {
-        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
-            executeInsert(ddl);
-            try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN MINIMAL SELECT * FROM RestaurantComplexRecord where COUNT(reviews) > 3 and COUNT(reviews) < 100")) {
-                ps.setMaxRows(2);
-                try (final RelationalResultSet resultSet = ps.executeQuery()) {
-                    final var assertResult = ResultSetAssert.assertThat(resultSet);
-                    assertResult.hasNextRow()
-                            .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX) | FILTER count_star(*) GREATER_THAN promote(@c12 AS LONG) AND count_star(*) LESS_THAN promote(@c19 AS LONG)")
-                            .hasColumn("PLAN_HASH", -1697137247L)
-                            .hasColumn("PLAN_CONTINUATION", null);
-                    assertResult.hasNoNextRow();
-                }
-            }
-        }
-    }
-
-    @Test
     void explainDefaultTest() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
@@ -250,7 +232,7 @@ public class ExplainTests {
                 try (final RelationalResultSet resultSet = ps.executeQuery()) {
                     final var assertResult = ResultSetAssert.assertThat(resultSet);
                     assertResult.hasNextRow()
-                            .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>) | FILTER count_star(*) GREATER_THAN promote(@c11 AS LONG) AND count_star(*) LESS_THAN promote(@c18 AS LONG)")
+                            .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX) | FILTER count_star(*) GREATER_THAN promote(@c11 AS LONG) AND count_star(*) LESS_THAN promote(@c18 AS LONG)")
                             .hasColumn("PLAN_HASH", -1697137247L)
                             .hasColumn("PLAN_CONTINUATION", null);
                     assertResult.hasNoNextRow();
