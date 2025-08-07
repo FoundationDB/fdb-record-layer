@@ -166,10 +166,12 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         @Override
         public ByteString toByteString() {
             if (serializationMode == SerializationMode.TO_OLD) {
+                // lastKey = null when source iterator hit limit that we passed down.
                 if (lastKey == null) {
                     return ByteString.EMPTY;
                 }
                 ByteString base = ZeroCopyByteString.wrap(lastKey);
+                // when prefixLength == lastKey.length, toByteString() also returns ByteString.EMPTY
                 return base.substring(prefixLength, lastKey.length);
             } else {
                 return toProto().toByteString();
@@ -179,8 +181,11 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         @Nullable
         @Override
         public byte[] toBytes() {
+            if (lastKey == null) {
+                return null;
+            }
             ByteString byteString = toByteString();
-            return byteString.isEmpty() ? null : byteString.toByteArray();
+            return byteString.isEmpty() ? new byte[0] : byteString.toByteArray();
         }
 
         @Nullable
@@ -212,7 +217,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
                 if (continuationProto.hasPrefixLength()) {
                     return continuationProto.getContinuation().toByteArray();
                 } else {
-                    System.out.println("wrong deserialization");
+                    // parseFrom can parse an old serialization result as the new proto, wrong deserialization
                     return rawBytes;
                 }
             } catch (InvalidProtocolBufferException ipbe) {
@@ -223,8 +228,14 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         @Nonnull
         private RecordCursorProto.KeyValueCursorContinuation toProto() {
             RecordCursorProto.KeyValueCursorContinuation.Builder builder = RecordCursorProto.KeyValueCursorContinuation.newBuilder();
-            ByteString base = ZeroCopyByteString.wrap(Objects.requireNonNull(lastKey));
-            return builder.setContinuation(base.substring(prefixLength, lastKey.length)).setPrefixLength(prefixLength).build();
+            if (lastKey == null) {
+                // proto.hasContinuation() = false when lastKey = null
+                return builder.setPrefixLength(prefixLength).build();
+            } else {
+                ByteString base = ZeroCopyByteString.wrap(Objects.requireNonNull(lastKey));
+                // proto.hasContinuation() = ByteString.EMPTY when prefixLength = lastKey.length
+                return builder.setContinuation(base.substring(prefixLength, lastKey.length)).setPrefixLength(prefixLength).build();
+            }
         }
     }
 
@@ -272,7 +283,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
 
         protected Builder(@Nonnull Subspace subspace) {
             this.subspace = subspace;
-            this.serializationMode = SerializationMode.TO_OLD;
+            this.serializationMode = SerializationMode.TO_NEW;
         }
 
         /**
