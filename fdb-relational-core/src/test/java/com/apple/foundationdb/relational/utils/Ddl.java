@@ -20,8 +20,10 @@
 
 package com.apple.foundationdb.relational.utils;
 
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
+import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.util.Assert;
 
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -51,14 +53,15 @@ public class Ddl implements AutoCloseable {
                @Nonnull final URI dbPath,
                @Nonnull final String schemaName,
                @Nonnull final String templateDefinition,
-               @Nullable SchemaTemplateRule.SchemaTemplateOptions options,
+               @Nonnull final Options options,
+               @Nullable SchemaTemplateRule.SchemaTemplateOptions schemaTemplateOptions,
                @Nullable final ExtensionContext extensionContext) throws Exception {
         final String templateName = dbPath.getPath().substring(dbPath.getPath().lastIndexOf("/") + 1);
 
         this.relationalExtension = relationalExtension;
-        this.templateRule = new SchemaTemplateRule(this.relationalExtension, templateName + "_TEMPLATE", options, templateDefinition);
-        this.databaseRule = new DatabaseRule(this.relationalExtension, dbPath);
-        this.schemaRule = new SchemaRule(this.relationalExtension, schemaName, dbPath, templateRule.getTemplateName());
+        this.templateRule = new SchemaTemplateRule(templateName + "_TEMPLATE", options, schemaTemplateOptions, templateDefinition);
+        this.databaseRule = new DatabaseRule(dbPath, options);
+        this.schemaRule = new SchemaRule(schemaName, dbPath, templateRule.getSchemaTemplateName(), options);
         this.extensionContext = extensionContext;
 
         try {
@@ -93,6 +96,7 @@ public class Ddl implements AutoCloseable {
         }
 
         this.connection = DriverManager.getConnection("jdbc:embed://" + databaseRule.getDbUri().toString()).unwrap(RelationalConnection.class);
+        Utils.setConnectionOptions(connection, options);
     }
 
     @Nonnull
@@ -108,7 +112,7 @@ public class Ddl implements AutoCloseable {
 
     @Nonnull
     public String getSchemaTemplateName() {
-        return this.templateRule.getTemplateName();
+        return this.templateRule.getSchemaTemplateName();
     }
 
     @Override
@@ -127,8 +131,11 @@ public class Ddl implements AutoCloseable {
         @Nullable
         private String templateDefinition;
 
+        @Nonnull
+        private Options options;
+
         @Nullable
-        private SchemaTemplateRule.SchemaTemplateOptions options;
+        private SchemaTemplateRule.SchemaTemplateOptions schemaTemplateOptions;
 
         @Nullable
         private String schemaName;
@@ -140,6 +147,7 @@ public class Ddl implements AutoCloseable {
         private ExtensionContext extensionContext;
 
         private Builder() {
+            options = Options.none();
         }
 
         @Nonnull
@@ -155,8 +163,24 @@ public class Ddl implements AutoCloseable {
         }
 
         @Nonnull
-        public Builder options(@Nullable SchemaTemplateRule.SchemaTemplateOptions options) {
+        public Builder withOptions(@Nonnull final Options options) {
             this.options = options;
+            return this;
+        }
+
+        @Nonnull
+        public Builder withOption(@Nonnull final Options.Name name, Object value) {
+            try {
+                options = Options.builder().fromOptions(options).withOption(name, value).build();
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+            return this;
+        }
+
+        @Nonnull
+        public Builder schemaTemplateOptions(@Nullable SchemaTemplateRule.SchemaTemplateOptions options) {
+            this.schemaTemplateOptions = options;
             return this;
         }
 
@@ -186,7 +210,7 @@ public class Ddl implements AutoCloseable {
                 schemaName = "testSchema";
             }
             Assert.notNull(extension);
-            return new Ddl(extension, database, schemaName, templateDefinition, options, extensionContext);
+            return new Ddl(extension, database, schemaName, templateDefinition, options, schemaTemplateOptions, extensionContext);
         }
     }
 

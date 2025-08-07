@@ -55,26 +55,27 @@ public interface SchemaTemplateCatalog {
     boolean doesSchemaTemplateExist(@Nonnull Transaction txn, @Nonnull String templateName, int version) throws RelationalException;
 
     /**
-     * Load the latest version of the schema template.
+     * Loads the latest version of the specified schema template.
      *
-     * @param txn        the transaction
-     * @param templateName the name of the template to be loaded
-     * @return whether the template exists.
-     * @throws RelationalException with {@link ErrorCode#UNKNOWN_SCHEMA_TEMPLATE} if the template cannot be found,
-     *                           or other error code if something else goes wrong.
+     * @param txn the transaction context for the operation
+     * @param templateName the name of the schema template to load
+     * @return {@code true} if the template exists and was loaded successfully, {@code false} otherwise
+     * @throws RelationalException with {@link ErrorCode#UNKNOWN_SCHEMA_TEMPLATE} if the template
+     *                             is not found, or with other error codes for additional failures
      */
     @Nonnull
     SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName) throws RelationalException;
 
     /**
-     * Load a specific version of the schema template.
+     * Loads a specific version of the schema template.
      *
-     * @param txn        the transaction
-     * @param templateName the name of the template to be loaded
-     * @param version the version of the template to be loaded
-     * @return whether the template exists.
-     * @throws RelationalException with {@link ErrorCode#UNKNOWN_SCHEMA_TEMPLATE} if the template cannot be found,
-     *                           or other error code if something else goes wrong.
+     * @param txn the transaction context for the operation
+     * @param templateName the name of the schema template to load
+     * @param version the specific version number of the template to load
+     * @return {@code true} if the template exists and was loaded successfully, {@code false} otherwise
+     * @throws RelationalException with {@link ErrorCode#UNKNOWN_SCHEMA_TEMPLATE} if the template
+     *                             or specified version is not found, or with other error codes
+     *                             for additional failures
      */
     @Nonnull
     SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName, int version) throws RelationalException;

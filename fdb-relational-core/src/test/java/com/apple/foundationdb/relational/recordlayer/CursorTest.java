@@ -54,7 +54,7 @@ public class CursorTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension,
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(
             CursorTest.class,
             TestSchemas.restaurant());
 

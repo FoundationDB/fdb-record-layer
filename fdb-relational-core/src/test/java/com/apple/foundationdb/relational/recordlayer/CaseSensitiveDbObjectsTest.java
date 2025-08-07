@@ -54,8 +54,9 @@ public class CaseSensitiveDbObjectsTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, CaseSensitiveDbObjectsTest.class,
-            SCHEMA_TEMPLATE, new SchemaTemplateRule.SchemaTemplateOptions(true, true));
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(CaseSensitiveDbObjectsTest.class,
+            SCHEMA_TEMPLATE, Options.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true).build(),
+            new SchemaTemplateRule.SchemaTemplateOptions(true, true));
 
     @RegisterExtension
     @Order(2)

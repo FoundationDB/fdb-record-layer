@@ -36,8 +36,8 @@ import java.net.URI;
 public abstract class AbstractMetadataOperationsFactory implements MetadataOperationsFactory {
     @Nonnull
     @Override
-    public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
-        return NoOpMetadataOperationsFactory.INSTANCE.getCreateSchemaTemplateConstantAction(template, templateProperties);
+    public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
+        return NoOpMetadataOperationsFactory.INSTANCE.getSaveSchemaTemplateConstantAction(template, templateProperties);
     }
 
     @Nonnull
@@ -73,8 +73,10 @@ public abstract class AbstractMetadataOperationsFactory implements MetadataOpera
     @Nonnull
     @Override
     public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template, boolean throwIfExists,
-                                                                   @Nonnull final RecordLayerInvokedRoutine invokedRoutine, @Nonnull final PreparedParams preparedParams) {
-        return NoOpMetadataOperationsFactory.INSTANCE.getCreateTemporaryFunctionConstantAction(template, throwIfExists, invokedRoutine, preparedParams);
+                                                                   @Nonnull final RecordLayerInvokedRoutine invokedRoutine,
+                                                                   @Nonnull final PreparedParams preparedParams) {
+        return NoOpMetadataOperationsFactory.INSTANCE.getCreateTemporaryFunctionConstantAction(template, throwIfExists, invokedRoutine,
+                preparedParams);
     }
 
     @Nonnull

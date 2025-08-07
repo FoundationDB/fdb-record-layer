@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,11 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.util;
+package com.apple.foundationdb.relational.utils;
 
+import com.apple.foundationdb.relational.util.Clock;
+import com.apple.foundationdb.relational.util.Clocks;
+import com.apple.foundationdb.relational.util.TokenBucketSampler;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 

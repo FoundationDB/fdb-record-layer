@@ -54,7 +54,7 @@ public class SimpleDirectAccessInsertionTests {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule db = new SimpleDatabaseRule(relationalExtension, SimpleDirectAccessInsertionTests.class, TestSchemas.restaurant());
+    public final SimpleDatabaseRule db = new SimpleDatabaseRule(SimpleDirectAccessInsertionTests.class, TestSchemas.restaurant());
 
     @Test
     void useScanContinuationInQueryShouldNotWork() throws Exception {
