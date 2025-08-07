@@ -155,7 +155,7 @@ public class RecordMetadataDeserializer {
 
     @Nonnull
     @VisibleForTesting
-    protected Function<Boolean, CompiledSqlFunction> getSqlFunctionCompiler(@Nonnull final String name,
+    protected Function<Boolean, UserDefinedFunction> getSqlFunctionCompiler(@Nonnull final String name,
                                                                             @Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
                                                                             @Nonnull final String functionBody) {
         return isCaseSensitive -> RoutineParser.sqlFunctionParser(metadata.get()).parse(functionBody, isCaseSensitive);
@@ -169,7 +169,7 @@ public class RecordMetadataDeserializer {
                 .setName(name)
                 .setDescription(body)
                 .setTemporary(false)
-                .withUserDefinedRoutine(ignored -> (UserDefinedFunction)getSqlFunctionCompiler(name, metadata, body), true);
+                .withUserDefinedRoutine(ignored -> getSqlFunctionCompiler(name, metadata, body).apply(ignored), true);
     }
 
     @Nonnull

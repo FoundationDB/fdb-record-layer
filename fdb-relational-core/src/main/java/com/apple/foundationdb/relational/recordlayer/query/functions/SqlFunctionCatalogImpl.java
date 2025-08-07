@@ -85,7 +85,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
     @Nonnull
     private Optional<? extends CatalogedFunction> lookupUserDefinedFunction(@Nonnull final String name,
                                                                             @Nonnull final Expressions expressions) {
-        return userDefinedFunctionCatalog.lookup(name.toUpperCase(Locale.ROOT), expressions);
+        return userDefinedFunctionCatalog.lookup(name, expressions);
     }
 
     @Override
