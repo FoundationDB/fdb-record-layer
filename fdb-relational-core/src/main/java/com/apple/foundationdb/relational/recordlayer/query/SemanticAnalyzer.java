@@ -815,11 +815,11 @@ public class SemanticAnalyzer {
      * @return A {@link LogicalOperator} representing the semantics of the requested SQL table function.
      */
     @Nonnull
-    public LogicalOperator resolveTableFunction(@Nonnull final String functionName, @Nonnull final Expressions arguments,
+    public LogicalOperator resolveTableFunction(@Nonnull final Identifier functionName, @Nonnull final Expressions arguments,
                                                 boolean flattenSingleItemRecords) {
-        Assert.thatUnchecked(functionCatalog.containsFunction(functionName), ErrorCode.UNDEFINED_FUNCTION,
+        Assert.thatUnchecked(functionCatalog.containsFunction(functionName.getName()), ErrorCode.UNDEFINED_FUNCTION,
                 () -> String.format(Locale.ROOT, "Unknown function %s", functionName));
-        final var tableFunction = functionCatalog.lookupFunction(functionName, arguments);
+        final var tableFunction = functionCatalog.lookupFunction(functionName.getName(), arguments);
         if (tableFunction instanceof BuiltInFunction) {
             Assert.thatUnchecked(tableFunction instanceof BuiltInTableFunction, functionName + " is not a table-valued function");
         }
@@ -838,11 +838,11 @@ public class SemanticAnalyzer {
             final var tableFunctionExpression = new TableFunctionExpression(Assert.castUnchecked(resultingValue, StreamingValue.class));
             final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(tableFunctionExpression));
             final var output = Expressions.of(LogicalOperator.convertToExpressions(resultingQuantifier));
-            return LogicalOperator.newUnnamedOperator(output, resultingQuantifier);
+            return LogicalOperator.newNamedOperator(functionName, output, resultingQuantifier);
         }
         final var relationalExpression = Assert.castUnchecked(resultingValue, RelationalExpression.class);
         final var topQun = Quantifier.forEach(Reference.initialOf(relationalExpression));
-        return LogicalOperator.newUnnamedOperator(Expressions.fromQuantifier(topQun), topQun);
+        return LogicalOperator.newNamedOperator(functionName, Expressions.fromQuantifier(topQun), topQun);
     }
 
     // TODO: this will be removed once we unify both Java- and SQL-UDFs.

@@ -219,7 +219,7 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     }
 
     @Nonnull
-    public LogicalOperator resolveTableValuedFunction(@Nonnull String functionName, @Nonnull Expressions arguments) {
+    public LogicalOperator resolveTableValuedFunction(@Nonnull Identifier functionName, @Nonnull Expressions arguments) {
         return getSemanticAnalyzer().resolveTableFunction(functionName, arguments, true);
     }
 

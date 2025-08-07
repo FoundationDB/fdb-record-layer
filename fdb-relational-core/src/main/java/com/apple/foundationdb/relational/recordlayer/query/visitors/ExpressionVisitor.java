@@ -87,7 +87,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Override
     public LogicalOperator visitTableFunction(@Nonnull RelationalParser.TableFunctionContext ctx) {
-        final var functionName = visitTableFunctionName(ctx.tableFunctionName()).toString();
+        final var functionName = visitTableFunctionName(ctx.tableFunctionName());
         return ctx.tableFunctionArgs() == null
                 ? getDelegate().resolveTableValuedFunction(functionName, Expressions.empty())
                 : getDelegate().resolveTableValuedFunction(functionName, visitTableFunctionArgs(ctx.tableFunctionArgs()));

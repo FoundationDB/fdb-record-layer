@@ -983,6 +983,35 @@ public class TemporaryFunctionTests {
         }
     }
 
+    @Test
+    void correlatedJoinsOverTemporaryTables() throws Exception {
+        final String schemaTemplate = "create type as struct city(name string, population bigint) " +
+                "create table country(id bigint, name string, continent string, cities city array, primary key(id))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into country values " +
+                        "(1, 'USA', 'North America', [('New York' ,8419600), ('Los Angeles', 3980400)]), " +
+                        "(2, 'Canada', 'North America', [('Toronto', 2731571), ('Montreal', 1760400)]), " +
+                        "(3, 'Brazil', 'South America', [('Rio de Janeiro', 6795900), ('Sao Paulo', 12303800)]), " +
+                        "(4, 'France', 'Europe', [('Paris', 2148327), ('Lyon', 516855)])");
+            }
+            final var connection = ddl.getConnection();
+            connection.setAutoCommit(false);
+            try (var statement = connection.prepareStatement("create temporary function northAmericaCountries() " +
+                    "on commit drop function as select * from country where continent = 'North America'")) {
+                statement.execute();
+            }
+            try (var statement = connection.prepareStatement("select A.name from northAmericaCountries, (select * from northAmericaCountries.cities) as A where population > 8000000")) {
+                try (var resultSet = statement.executeQuery()) {
+                    Assertions.assertTrue(resultSet.next());
+                    Assertions.assertEquals("New York", resultSet.getString(1));
+                    Assertions.assertFalse(resultSet.next());
+                }
+            }
+            connection.rollback();
+        }
+    }
+
     private void invokeAndVerifyTempFunction(final RelationalStatement statement) throws SQLException {
         Assertions.assertTrue(statement.execute("select * from sq1(x => 2)"));
         invokeAndVerify(statement::getResultSet, 1L, 10L, 2L, 20L, 3L, 30L, 4L, 40L);
