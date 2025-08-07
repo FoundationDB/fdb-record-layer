@@ -193,13 +193,13 @@ public class SortedFileReader<V> implements AutoCloseable {
             }
         }
         entryStream.skipRawBytes(entryStream.readRawVarint32());
-        final V record = adapter.readValue(entryStream);
+        final V value = adapter.readValue(entryStream);
         recordPosition++;
         recordSectionPosition++;
         if (timer != null) {
             timer.recordSinceNanoTime(SortEvents.Events.FILE_SORT_LOAD_RECORD, startTime);
         }
-        return record;
+        return value;
     }
 
     public int getRecordPosition() {
