@@ -91,7 +91,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
     @Override
     public boolean containsFunction(@Nonnull final String name) {
         return builtInSynonyms.containsKey(name.toLowerCase(Locale.ROOT))
-                || userDefinedFunctionCatalog.containsFunction(name.toUpperCase(Locale.ROOT));
+                || userDefinedFunctionCatalog.containsFunction(name);
     }
 
     @Override
