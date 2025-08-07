@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -189,6 +189,7 @@ public final class PlanContext {
         }
 
         @Nonnull
+        @VisibleForTesting
         public Builder withMetadata(@Nonnull RecordMetaData metadata) {
             this.metaData = metadata;
             return this;
@@ -207,24 +208,27 @@ public final class PlanContext {
         }
 
         @Nonnull
+        @VisibleForTesting
         public Builder withPlannerConfiguration(@Nonnull PlannerConfiguration plannerConfiguration) {
             this.plannerConfiguration = plannerConfiguration;
             return this;
         }
 
         @Nonnull
+        @VisibleForTesting
         public Builder withUserVersion(int userVersion) {
             this.userVersion = userVersion;
             return this;
         }
 
         @Nonnull
-        public Builder isCaseSensitive(boolean isCaseSensitive) {
+        private Builder isCaseSensitive(boolean isCaseSensitive) {
             this.isCaseSensitive = isCaseSensitive;
             return this;
         }
 
         @Nonnull
+        @VisibleForTesting
         public Builder withConstantActionFactory(@Nonnull MetadataOperationsFactory metadataOperationsFactory) {
             this.metadataOperationsFactory = metadataOperationsFactory;
             return this;
@@ -262,13 +266,14 @@ public final class PlanContext {
         }
 
         @Nonnull
-        public Builder fromRecordStore(@Nonnull FDBRecordStoreBase<?> recordStore, @Nonnull final Options options) throws RelationalException {
+        public Builder fromRecordStore(@Nonnull FDBRecordStoreBase<?> recordStore, @Nonnull final Options options) {
             final var plannerConfig = recordStore.getRecordStoreState().allIndexesReadable() ?
                     PlannerConfiguration.ofAllAvailableIndexes(options) :
                     PlannerConfiguration.of(getReadableIndexes(recordStore.getRecordMetaData(), recordStore.getRecordStoreState()), options);
             return withPlannerConfiguration(plannerConfig)
                     .withMetadata(recordStore.getRecordMetaData())
-                    .withUserVersion(recordStore.getRecordStoreState().getStoreHeader().getUserVersion());
+                    .withUserVersion(recordStore.getRecordStoreState().getStoreHeader().getUserVersion())
+                    .isCaseSensitive(options.getOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS));
         }
 
         @Nonnull

@@ -1,0 +1,153 @@
+#
+# case-sensitivity.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+options:
+    supported_version: 4.5.4.0
+    connection_options:
+      CASE_SENSITIVE_IDENTIFIERS: true
+---
+# the tables Table1, TaBlE1, and TABLE1 can coexist because case-sensitivity option is set to true,
+# if this option was set to false, the creation of this schema template shall fail
+# unless quotes are used.
+schema_template:
+    create table Table1(id bigint, col1 bigint, col2 bigint, primary key(id))
+    create table TaBlE1(x bigint, y string, primary key(x))
+    create table TABLE2(a bigint, b string, primary key(a))
+    create table table2(id bigint, col1 bigint, col2 bigint, primary key(id))
+    create index i1 as select col2, col1 from Table1 order by col2, col1
+    create index I1 as select y, x from TaBlE1 order by y, x
+    create function f1 ( in a bigint, in b bigint ) as select col1 as x, col2 from Table1 where col1 = a and col2 = b
+    create function F1 ( in A bigint, in B bigint ) as select col1 + 100 as X, col2 from Table1 where col1 = A and col2 = B
+    create function f2 (in c bigint) as select * from f1(a => 10, b => 1) where x + c = 10
+    create function F2 (in C bigint) as select * from F1(A => 10, B => 1) where X + C = 110
+---
+setup:
+  steps:
+    - query: insert into Table1
+        values (1, 10, 1),
+               (2, 10, 2),
+               (6, 20, 6),
+               (7, 20, 7)
+    - query: insert into TaBlE1
+        values (1, 'foo'),
+               (2, 'bar')
+    - query: insert into TABLE2
+        values (10, 'blah'),
+               (20, 'bleh')
+    - query: insert into table2
+        values (10, 100, 10),
+               (20, 100, 20),
+               (60, 200, 60),
+               (70, 200, 70)
+---
+test_block:
+  name: case-sensitivity-on
+  preset: single_repetition_ordered
+  options:
+    connection_options:
+      CASE_SENSITIVE_IDENTIFIERS: true
+  tests:
+    -
+      - query: with c1 as (select col1, col2 from Table1) select col1, col2 from c1
+      - unorderedResult: [{COL1: 10, COL2: 1},
+                          {COL1: 10, COL2: 2},
+                          {COL1: 20, COL2: 6},
+                          {COL1: 20, COL2: 7}]
+    -
+      - query: select * from Table1, TaBlE1 where col1 = 10
+      - unorderedResult: [{ID: 1, COL1: 10, COL2: 1, X: 1, Y: 'foo'},
+                          {ID: 2, COL1: 10, COL2: 2, X: 1, Y: 'foo'},
+                          {ID: 1, COL1: 10, COL2: 1, X: 2, Y: 'bar'},
+                          {ID: 2, COL1: 10, COL2: 2, X: 2, Y: 'bar'}]
+    -
+      - query: select * from "Table1", "TaBlE1" where "col1" = 10
+      - unorderedResult: [{ID: 1, COL1: 10, COL2: 1, X: 1, Y: 'foo'},
+                          {ID: 2, COL1: 10, COL2: 2, X: 1, Y: 'foo'},
+                          {ID: 1, COL1: 10, COL2: 1, X: 2, Y: 'bar'},
+                          {ID: 2, COL1: 10, COL2: 2, X: 2, Y: 'bar'}]
+    -
+      - query: select * from table1
+      - error: "42F01"
+    -
+      - query: select * from TABLE2
+      - unorderedResult: [{A: 10, B: 'blah'},
+                          {A: 20, B: 'bleh'}]
+---
+test_block:
+  name: functions-case-sensitivity-on
+  preset: single_repetition_ordered
+  options:
+    connection_options:
+      CASE_SENSITIVE_IDENTIFIERS: true
+  tests:
+    -
+      - query: select * from f2(0)
+      - unorderedResult: [{x: 10, col2: 1}]
+    -
+      - query: select * from F2(0)
+      - unorderedResult: [{X: 110, col2: 1}]
+---
+test_block:
+  name: case-sensitivity-off
+  preset: single_repetition_ordered
+  options:
+    connection_options:
+      CASE_SENSITIVE_IDENTIFIERS: false
+  tests:
+    -
+      - query: with c1 as (select col1, col2 from Table1) select col1, col2 from c1
+      - error: "42F01"
+    -
+      - query: with c1 as (select col1, col2 from "Table1") select col1, col2 from c1
+      - error: "42703"
+    -
+      - query: with c1 as (select "col1", "col2" from "Table1") select "col1", "col2" from c1
+      - unorderedResult: [{COL1: 10, COL2: 1},
+                          {COL1: 10, COL2: 2},
+                          {COL1: 20, COL2: 6},
+                          {COL1: 20, COL2: 7}]
+    -
+      - query: select * from "Table1", "TaBlE1" where "col1" = 10
+      - unorderedResult: [{ID: 1, COL1: 10, COL2: 1, X: 1, Y: 'foo'},
+                          {ID: 2, COL1: 10, COL2: 2, X: 1, Y: 'foo'},
+                          {ID: 1, COL1: 10, COL2: 1, X: 2, Y: 'bar'},
+                          {ID: 2, COL1: 10, COL2: 2, X: 2, Y: 'bar'}]
+    -
+      - query: select * from "TABLE2"
+      - unorderedResult: [{A: 10, B: 'blah'},
+                          {A: 20, B: 'bleh'}]
+    -
+      - query: select * from TABLE2
+      - unorderedResult: [{A: 10, B: 'blah'},
+                          {A: 20, B: 'bleh'}]
+# when case-sensitivity is off, identifiers are upper-cased, so the following query works, however
+# this can lead to unexpected behavior, considering that TABLE2 was created with that intentional casing
+# since CASE_SENSITIVE_IDENTIFIERS was set to 'true' when it was created.
+    -
+      - query: select * from table2
+      - unorderedResult: [{A: 10, B: 'blah'},
+                          {A: 20, B: 'bleh'}]
+    -
+# it is still possible, though, to query the table in case-sensitive.
+      - query: select * from "table2"
+      - unorderedResult: [{ID: 10, COL1: 100, COL2: 10},
+                          {ID: 20, COL1: 100, COL2: 20},
+                          {ID: 60, COL1: 200, COL2: 60},
+                          {ID: 70, COL1: 200, COL2: 70}]
+...

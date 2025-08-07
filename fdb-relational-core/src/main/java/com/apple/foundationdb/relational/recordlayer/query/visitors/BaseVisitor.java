@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -161,7 +161,11 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     public SqlFunctionCatalog createFunctionCatalog(@Nonnull final RecordLayerSchemaTemplate metadata) {
-        return SqlFunctionCatalog.newInstance(metadata);
+        return SqlFunctionCatalog.newInstance(metadata, isCaseSensitive());
+    }
+
+    public boolean isCaseSensitive() {
+        return caseSensitive;
     }
 
     @Nonnull

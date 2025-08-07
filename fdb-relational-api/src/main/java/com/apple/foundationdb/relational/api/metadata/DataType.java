@@ -68,6 +68,7 @@ public abstract class DataType {
         typeCodeJdbcTypeMap.put(Code.DOUBLE, Types.DOUBLE);
         typeCodeJdbcTypeMap.put(Code.STRING, Types.VARCHAR);
         typeCodeJdbcTypeMap.put(Code.ENUM, Types.OTHER);
+        typeCodeJdbcTypeMap.put(Code.UUID, Types.OTHER);
         typeCodeJdbcTypeMap.put(Code.BYTES, Types.BINARY);
         typeCodeJdbcTypeMap.put(Code.VERSION, Types.BINARY);
         typeCodeJdbcTypeMap.put(Code.STRUCT, Types.STRUCT);
@@ -801,6 +802,79 @@ public abstract class DataType {
         }
     }
 
+    public static final class UuidType extends DataType {
+        @Nonnull
+        private static final UuidType NOT_NULLABLE_INSTANCE = new UuidType(false);
+
+        @Nonnull
+        private static final UuidType NULLABLE_INSTANCE = new UuidType(true);
+
+        @Nonnull
+        private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
+
+        private UuidType(boolean isNullable) {
+            super(isNullable, true, Code.UUID);
+        }
+
+        @Override
+        @Nonnull
+        public DataType withNullable(boolean isNullable) {
+            if (isNullable) {
+                return Primitives.NULLABLE_UUID.type();
+            } else {
+                return Primitives.UUID.type();
+            }
+        }
+
+        @Override
+        public boolean isResolved() {
+            return true;
+        }
+
+        @Nonnull
+        @Override
+        public DataType resolve(@Nonnull Map<String, Named> resolutionMap) {
+            return this;
+        }
+
+        @Nonnull
+        public static UuidType nullable() {
+            return NULLABLE_INSTANCE;
+        }
+
+        @Nonnull
+        public static UuidType notNullable() {
+            return NOT_NULLABLE_INSTANCE;
+        }
+
+        private int computeHashCode() {
+            return Objects.hash(getCode(), isNullable());
+        }
+
+        @Override
+        public int hashCode() {
+            return hashCodeSupplier.get();
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+
+            if (!(other instanceof UuidType)) {
+                return false;
+            }
+            final var otherUuidType = (UuidType) other;
+            return this.isNullable() == otherUuidType.isNullable();
+        }
+
+        @Override
+        public String toString() {
+            return "uuid" + (isNullable() ? " ∪ ∅" : "");
+        }
+    }
+
     public static final class NullType extends DataType {
 
         @Nonnull
@@ -1426,6 +1500,7 @@ public abstract class DataType {
         BYTES,
         VERSION,
         ENUM,
+        UUID,
         STRUCT,
         ARRAY,
         UNKNOWN,
@@ -1443,6 +1518,7 @@ public abstract class DataType {
         STRING(StringType.notNullable()),
         BYTES(BytesType.notNullable()),
         VERSION(VersionType.notNullable()),
+        UUID(UuidType.notNullable()),
         NULLABLE_BOOLEAN(BooleanType.nullable()),
         NULLABLE_LONG(LongType.nullable()),
         NULLABLE_INTEGER(IntegerType.nullable()),
@@ -1451,6 +1527,7 @@ public abstract class DataType {
         NULLABLE_STRING(StringType.nullable()),
         NULLABLE_BYTES(BytesType.nullable()),
         NULLABLE_VERSION(VersionType.nullable()),
+        NULLABLE_UUID(UuidType.nullable()),
         NULL(NullType.INSTANCE)
         ;
 

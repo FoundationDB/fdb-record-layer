@@ -109,7 +109,9 @@ public abstract class Command {
 
     abstract void executeInternal(@Nonnull YamlConnection connection) throws SQLException, RelationalException;
 
-    private static void applyMetadataOperationEmbedded(@Nonnull EmbeddedRelationalConnection connection, @Nonnull RecordLayerConfig rlConfig, @Nonnull ApplyState applyState) throws SQLException, RelationalException {
+    private static void applyMetadataOperationEmbedded(@Nonnull EmbeddedRelationalConnection connection,
+                                                       @Nonnull RecordLayerConfig rlConfig, @Nonnull ApplyState applyState)
+            throws SQLException, RelationalException {
         StoreCatalog backingCatalog = connection.getBackingCatalog();
         RecordLayerMetadataOperationsFactory metadataOperationsFactory = new RecordLayerMetadataOperationsFactory.Builder()
                 .setBaseKeySpace(RelationalKeyspaceProvider.instance().getKeySpace())
@@ -154,7 +156,9 @@ public abstract class Command {
                 // current connection should be __SYS/catalog
                 // save schema template
                 ApplyState applyState = (RecordLayerMetadataOperationsFactory factory, Transaction txn) -> {
-                    factory.getCreateSchemaTemplateConstantAction(CommandUtil.fromProto(value), Options.NONE).execute(txn);
+                    final var options = Options.none();
+                    final var schemaTemplate = CommandUtil.fromProto(value);
+                    factory.getSaveSchemaTemplateConstantAction(schemaTemplate, options).execute(txn);
                 };
                 final EmbeddedRelationalConnection embedded = connection.tryGetEmbedded();
                 if (embedded != null) {

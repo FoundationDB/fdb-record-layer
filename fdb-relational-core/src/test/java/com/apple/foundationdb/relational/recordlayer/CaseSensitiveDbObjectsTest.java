@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,8 +54,9 @@ public class CaseSensitiveDbObjectsTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, CaseSensitiveDbObjectsTest.class,
-            SCHEMA_TEMPLATE, new SchemaTemplateRule.SchemaTemplateOptions(true, true));
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(CaseSensitiveDbObjectsTest.class,
+            SCHEMA_TEMPLATE, Options.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true).build(),
+            new SchemaTemplateRule.SchemaTemplateOptions(true, true));
 
     @RegisterExtension
     @Order(2)
