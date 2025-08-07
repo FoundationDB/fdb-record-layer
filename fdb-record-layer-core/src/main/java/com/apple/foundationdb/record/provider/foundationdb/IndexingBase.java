@@ -342,7 +342,6 @@ public abstract class IndexingBase {
                         })
         ).handle((changed, ex) -> {
             if (ex == null) {
-                heartbeat = null; // Here: all heartbeats were successfully cleared withing the set readable transactions. No need to clear again.
                 if (Boolean.TRUE.equals(changed)) {
                     anythingChanged.set(true);
                 }
@@ -1028,11 +1027,10 @@ public abstract class IndexingBase {
         }))
                 .thenCompose(vignore -> setIndexingTypeOrThrow(store, false))
                 .thenCompose(vignore -> rebuildIndexInternalAsync(store))
-                .thenApply(vignore -> {
+                .whenComplete((ignore, ignoreEx) -> {
                     for (Index index: common.getTargetIndexes()) {
                         clearHeartbeatSingleTarget(store, index);
                     }
-                    return null;
                 });
     }
 
