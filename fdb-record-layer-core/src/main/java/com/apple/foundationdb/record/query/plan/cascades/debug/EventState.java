@@ -23,10 +23,10 @@ package com.apple.foundationdb.record.query.plan.cascades.debug;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PEvent;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import org.slf4j.Logger;
@@ -35,29 +35,30 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.TimeUnit;
 
 @SuppressWarnings("PMD.SystemPrintln")
 public class EventState {
     @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(EventState.class);
 
-    @Nullable private final List<Debugger.Event> events;
-    @Nullable private final List<PEvent> eventProtos;
-    @Nullable private final Iterable<PEvent> prerecordedEventProtoIterable;
-    @Nullable private Iterator<PEvent> prerecordedEventProtoIterator;
+    @Nullable protected final List<Debugger.Event> events;
+    @Nullable protected final List<PEvent> eventProtos;
+    @Nullable protected final Iterable<PEvent> prerecordedEventProtoIterable;
+    @Nullable protected Iterator<PEvent> prerecordedEventProtoIterator;
 
-    @Nonnull private final Map<Class<? extends Debugger.Event>, MutableStats> eventClassStatsMap;
+    @Nonnull protected final Map<Class<? extends Debugger.Event>, MutableStats> eventWithoutStateClassStatsMap;
+    @Nonnull protected final Map<PlannerPhase, Map<Class<? extends Debugger.EventWithState>, MutableStats>> eventWithStateClassStatsMapByPlannerPhase;
 
-    @Nonnull private final Map<Class<? extends CascadesRule<?>>, MutableStats> plannerRuleClassStatsMap;
+    @Nonnull protected final Map<Class<? extends CascadesRule<?>>, MutableStats> plannerRuleClassStatsMap;
 
-    @Nonnull private final Deque<Pair<Class<? extends Debugger.Event>, EventDurations>> eventProfilingStack;
+    @Nonnull protected final Deque<Pair<Class<? extends Debugger.Event>, EventDurations>> eventProfilingStack;
 
     protected int currentTick;
     protected final long startTs;
@@ -72,7 +73,8 @@ public class EventState {
                 source.events == null ? null : Lists.newArrayList(source.events),
                 source.eventProtos == null ? null : Lists.newArrayList(source.eventProtos),
                 source.prerecordedEventProtoIterable,
-                Maps.newLinkedHashMap(source.eventClassStatsMap),
+                Maps.newLinkedHashMap(source.eventWithoutStateClassStatsMap),
+                Maps.newEnumMap(source.eventWithStateClassStatsMapByPlannerPhase),
                 Maps.newLinkedHashMap(source.plannerRuleClassStatsMap),
                 new ArrayDeque<>(source.eventProfilingStack),
                 source.getCurrentTick(),
@@ -86,6 +88,7 @@ public class EventState {
                 isRecordEvents ? Lists.newArrayList() : null,
                 prerecordedEventProtoIterable,
                 Maps.newLinkedHashMap(),
+                Maps.newEnumMap(PlannerPhase.class),
                 Maps.newLinkedHashMap(),
                 new ArrayDeque<>(),
                 -1,
@@ -93,21 +96,23 @@ public class EventState {
     }
 
     protected EventState(
-                  @Nullable final List<Debugger.Event> events,
-                  @Nullable final List<PEvent> eventProtos,
-                  @Nullable final Iterable<PEvent> prerecordedEventProtoIterable,
-                  @Nonnull final Map<Class<? extends Debugger.Event>, MutableStats> eventClassStatsMap,
-                  @Nonnull final Map<Class<? extends CascadesRule<?>>, MutableStats> plannerRuleClassStatsMap,
-                  @Nonnull final Deque<Pair<Class<? extends Debugger.Event>, EventDurations>> eventProfilingStack,
-                  final int currentTick,
-                  final long startTs) {
+            @Nullable final List<Debugger.Event> events,
+            @Nullable final List<PEvent> eventProtos,
+            @Nullable final Iterable<PEvent> prerecordedEventProtoIterable,
+            @Nonnull final Map<Class<? extends Debugger.Event>, MutableStats> eventWithoutStateClassStatsMap,
+            @Nonnull final Map<PlannerPhase, Map<Class<? extends Debugger.EventWithState>, MutableStats>> eventWithStateClassStatsMapByPlannerPhase,
+            @Nonnull final Map<Class<? extends CascadesRule<?>>, MutableStats> plannerRuleClassStatsMap,
+            @Nonnull final Deque<Pair<Class<? extends Debugger.Event>, EventDurations>> eventProfilingStack,
+            final int currentTick,
+            final long startTs) {
 
         this.events = events;
         this.eventProtos = eventProtos;
         this.prerecordedEventProtoIterable = prerecordedEventProtoIterable;
         this.prerecordedEventProtoIterator = prerecordedEventProtoIterable == null
                                              ? null : prerecordedEventProtoIterable.iterator();
-        this.eventClassStatsMap = eventClassStatsMap;
+        this.eventWithoutStateClassStatsMap = eventWithoutStateClassStatsMap;
+        this.eventWithStateClassStatsMapByPlannerPhase = eventWithStateClassStatsMapByPlannerPhase;
         this.plannerRuleClassStatsMap = plannerRuleClassStatsMap;
         this.eventProfilingStack = eventProfilingStack;
         this.currentTick = currentTick;
@@ -179,7 +184,7 @@ public class EventState {
                 final long totalTime = currentTsInNs - eventDurations.getStartTsInNs();
                 final long ownTime = totalTime - eventDurations.getAdjustmentForOwnTimeInNs();
 
-                final MutableStats forEventClass = getEventStatsForEventClass(currentEventClass);
+                final MutableStats forEventClass = getEventStatsForEvent(event);
                 forEventClass.increaseTotalTimeInNs(totalTime);
                 forEventClass.increaseOwnTimeInNs(ownTime);
                 if (event instanceof Debugger.TransformRuleCallEvent) {
@@ -229,8 +234,9 @@ public class EventState {
 
     @SuppressWarnings("unchecked")
     private void updateCounts(@Nonnull final Debugger.Event event) {
-        final MutableStats forEventClass = getEventStatsForEventClass(event.getClass());
+        final MutableStats forEventClass = getEventStatsForEvent(event);
         forEventClass.increaseCount(event.getLocation(), 1L);
+
         if (event instanceof Debugger.EventWithRule) {
             final CascadesRule<?> rule = ((Debugger.EventWithRule)event).getRule();
             final Class<? extends CascadesRule<?>> ruleClass = (Class<? extends CascadesRule<?>>)rule.getClass();
@@ -239,17 +245,31 @@ public class EventState {
         }
     }
 
-    private MutableStats getEventStatsForEventClass(@Nonnull Class<? extends Debugger.Event> eventClass) {
-        return eventClassStatsMap.compute(eventClass, (eC, mutableStats) -> mutableStats != null ? mutableStats : new MutableStats());
+    private MutableStats getEventStatsForEvent(@Nonnull Debugger.Event event) {
+        return (event instanceof Debugger.EventWithState) ?
+               getEventStatsForEventWithStateClassByPlannerPhase((Debugger.EventWithState)event) :
+               getEventStatsForEventWithoutStateClass(event.getClass());
+    }
+
+    private MutableStats getEventStatsForEventWithoutStateClass(@Nonnull Class<? extends Debugger.Event> eventClass) {
+        return eventWithoutStateClassStatsMap.compute(eventClass, (eC, mutableStats) -> mutableStats != null ? mutableStats : new MutableStats());
+    }
+
+    private MutableStats getEventStatsForEventWithStateClassByPlannerPhase(@Nonnull Debugger.EventWithState event) {
+        return eventWithStateClassStatsMapByPlannerPhase.computeIfAbsent(event.getPlannerPhase(), pP -> new LinkedHashMap<>())
+                .computeIfAbsent(event.getClass(), (eC) -> new MutableStats());
     }
 
     private MutableStats getEventStatsForPlannerRuleClass(@Nonnull Class<? extends CascadesRule<?>> plannerRuleClass) {
-        return plannerRuleClassStatsMap.compute(plannerRuleClass, (eC, mutableStats) -> mutableStats != null ? mutableStats : new MutableStats());
+        return plannerRuleClassStatsMap.computeIfAbsent(plannerRuleClass, (eC) -> new MutableStats());
     }
 
     @Nonnull
     StatsMaps getStatsMaps() {
-        return new StatsMaps(eventClassStatsMap, plannerRuleClassStatsMap);
+        return new StatsMaps(
+                Collections.unmodifiableMap(eventWithoutStateClassStatsMap),
+                Collections.unmodifiableMap(eventWithStateClassStatsMapByPlannerPhase),
+                Collections.unmodifiableMap(plannerRuleClassStatsMap));
     }
 
     private static class MutableStats extends Stats {

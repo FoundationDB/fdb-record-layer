@@ -20,12 +20,14 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.debug;
 
+import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 /** Only used by debuggers to display stats.*/
@@ -39,16 +41,32 @@ public class StatsViewer {
         }
 
         StringBuilder tableBuilder = new StringBuilder();
-        tableBuilder.append("<table class=\"table\">");
-        tableHeader(tableBuilder, "Event");
-        final ImmutableMap<String, Stats> eventStatsMap =
-                statsMaps.get().getEventClassStatsMap().entrySet()
-                        .stream()
-                        .map(entry -> Pair.of(entry.getKey().getSimpleName(), entry.getValue()))
-                        .sorted(Map.Entry.comparingByKey())
-                        .collect(ImmutableMap.toImmutableMap(Pair::getKey, Pair::getValue));
-        tableBody(tableBuilder, eventStatsMap);
-        tableBuilder.append("</table>");
+
+        final var phaseNameToStatsMap = ImmutableMap.of(
+                "Rewriting", statsMaps.get().getEventWithStateClassStatsMapByPlannerPhase(PlannerPhase.REWRITING),
+                "Planning", statsMaps.get().getEventWithStateClassStatsMapByPlannerPhase(PlannerPhase.PLANNING),
+                "Unspecified", Optional.of(statsMaps.get().getEventWithoutStateClassStatsMap())
+        );
+
+        for (final var phaseNameToStatsMapEntry : phaseNameToStatsMap.entrySet()) {
+            if (phaseNameToStatsMapEntry.getValue().map(Map::isEmpty).orElse(false)) {
+                continue;
+            }
+
+            tableBuilder.append("<h4>").append(phaseNameToStatsMapEntry.getKey()).append(" Phase:</h4>");
+            tableBuilder.append("<table class=\"table\">");
+            tableHeader(tableBuilder, "Event");
+
+            final ImmutableMap<String, Stats> eventStatsMap =
+                    phaseNameToStatsMapEntry.getValue().get().entrySet()
+                            .stream()
+                            .map(entry -> Pair.of(entry.getKey().getSimpleName(), entry.getValue()))
+                            .sorted(Map.Entry.comparingByKey())
+                            .collect(ImmutableMap.toImmutableMap(Pair::getKey, Pair::getValue));
+
+            tableBody(tableBuilder, eventStatsMap);
+            tableBuilder.append("</table>");
+        }
 
         final String eventProfilingString = tableBuilder.toString();
 
