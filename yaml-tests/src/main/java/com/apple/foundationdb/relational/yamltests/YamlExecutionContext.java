@@ -47,6 +47,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -106,7 +107,9 @@ public final class YamlExecutionContext {
         this.additionalOptions = additionalOptions;
         this.connectionOptions = Options.none();
         this.expectedMetricsMap = loadMetricsResource(resourcePath);
-        this.actualMetricsMap = new TreeMap<>();
+        this.actualMetricsMap = new TreeMap<>(Comparator.comparing(QueryAndLocation::getLineNumber)
+                .thenComparing(QueryAndLocation::getBlockName)
+                .thenComparing(QueryAndLocation::getQuery));
         if (isNightly()) {
             logger.info("ℹ️ Running in the NIGHTLY context.");
             if (shouldCorrectExplains() || shouldCorrectMetrics()) {
@@ -509,7 +512,7 @@ public final class YamlExecutionContext {
         return tokens[0];
     }
 
-    private static class QueryAndLocation implements Comparable<QueryAndLocation> {
+    private static class QueryAndLocation {
         @Nonnull
         private final PlannerMetricsProto.Identifier identifier;
         private final int lineNumber;
@@ -554,19 +557,6 @@ public final class YamlExecutionContext {
         @Override
         public int hashCode() {
             return Objects.hash(identifier, lineNumber);
-        }
-
-        @Override
-        public int compareTo(final QueryAndLocation o) {
-            int lineCmp = Integer.compare(lineNumber, o.lineNumber);
-            if (lineCmp != 0) {
-                return lineCmp;
-            }
-            int blockCmp = getBlockName().compareTo(o.getBlockName());
-            if (blockCmp != 0) {
-                return blockCmp;
-            }
-            return getQuery().compareTo(o.getQuery());
         }
     }
 
