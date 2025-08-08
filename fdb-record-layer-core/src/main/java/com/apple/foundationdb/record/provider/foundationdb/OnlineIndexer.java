@@ -608,10 +608,10 @@ public class OnlineIndexer implements AutoCloseable {
     /**
      * Get the current indexing heartbeats for a given index (single target or primary index).
      * @param maxCount safety valve to limit number items to read. Typically set to zero to keep unlimited.
-     * @return map of session ids to {@link IndexBuildProto.IndexingHeartbeat}
+     * @return map of session ids to {@link IndexBuildProto.IndexBuildHeartbeat}
      */
     @API(API.Status.EXPERIMENTAL)
-    public Map<UUID, IndexBuildProto.IndexingHeartbeat> getIndexingHeartbeats(int maxCount) {
+    public Map<UUID, IndexBuildProto.IndexBuildHeartbeat> getIndexingHeartbeats(int maxCount) {
         return asyncToSync(FDBStoreTimer.Waits.WAIT_INDEX_READ_HEARTBEATS,
                 getIndexer().getIndexingHeartbeats(maxCount));
     }

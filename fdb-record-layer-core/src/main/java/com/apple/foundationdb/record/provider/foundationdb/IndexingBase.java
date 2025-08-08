@@ -1102,7 +1102,7 @@ public abstract class IndexingBase {
         return true;
     }
 
-    public CompletableFuture<Map<UUID, IndexBuildProto.IndexingHeartbeat>> getIndexingHeartbeats(int maxCount) {
+    public CompletableFuture<Map<UUID, IndexBuildProto.IndexBuildHeartbeat>> getIndexingHeartbeats(int maxCount) {
         return getRunner().runAsync(context -> openRecordStore(context)
                         .thenCompose(store -> IndexingHeartbeat.getIndexingHeartbeats(store, common.getPrimaryIndex(), maxCount)));
     }
