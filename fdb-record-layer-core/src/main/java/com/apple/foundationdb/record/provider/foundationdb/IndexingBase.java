@@ -1102,6 +1102,16 @@ public abstract class IndexingBase {
         return true;
     }
 
+    public CompletableFuture<Map<UUID, IndexBuildProto.IndexingHeartbeat>> getIndexingHeartbeats(int maxCount) {
+        return getRunner().runAsync(context -> openRecordStore(context)
+                        .thenCompose(store -> IndexingHeartbeat.getIndexingHeartbeats(store, common.getPrimaryIndex(), maxCount)));
+    }
+
+    public CompletableFuture<Integer> clearIndexingHeartbeats(long minAgenMilliseconds, int maxIteration) {
+        return getRunner().runAsync(context -> openRecordStore(context)
+                .thenCompose(store -> IndexingHeartbeat.clearIndexingHeartbeats(store, common.getPrimaryIndex(), minAgenMilliseconds, maxIteration)));
+    }
+
     /**
      * Thrown when the indexing process fails to meet a precondition.
      */
