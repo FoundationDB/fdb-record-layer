@@ -66,13 +66,15 @@ import java.util.function.Function;
  * As the planner is currently single-threaded as per planning of a query, we keep an instance of an implementor of
  * this class in the thread-local. (per-thread singleton).
  * The main mean of communication with the debugger is the set of statics defined within this interface.
+ * There are two interfaces that extend this interface which provides different debugging functionalities,
+ * see {@link StatsDebugger} and {@link SymbolDebugger} for more details.
  * </p>
- * <b>Debugging functionality should only be enabled in test cases, never in deployments</b>.
  * <p>
  * In order to enable debugging capabilities, clients should use {@link #setDebugger} which sets a debugger to be used
  * for the current thread. Once set, the planner starts interacting with the debugger in order to communicate important
  * state changes, like <em>begin of planning</em>, <em>end of planner</em>, etc.
  * </p>
+ * <b>Certain debugger implementations should only be enabled in test cases, never in deployments</b>.
  * <p>
  * Clients using the debugger should never hold on/manage/use an instance of a debugger directly. Instead, clients
  * should use {@link #withDebugger} and {@link #mapDebugger} to invoke methods on the currently installed debugger.

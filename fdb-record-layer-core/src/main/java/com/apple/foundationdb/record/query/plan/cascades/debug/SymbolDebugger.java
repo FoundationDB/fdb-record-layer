@@ -32,6 +32,16 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntUnaryOperator;
 
+/**
+ * <p>
+ * This interface extends the {@link Debugger} interface and provides functionality related to
+ * registering different symbols (i.e. objects) during planning and retrieving debugging-friendly
+ * names for them.
+ * <p>
+ * Similar to the {@link Debugger} interface, the main mean of communication with the debugger
+ * for operations related to recording events is the set of statics defined within this interface.
+ * </p>
+ */
 public interface SymbolDebugger extends Debugger {
     @Nonnull
     static Optional<SymbolDebugger> getDebuggerMaybe() {

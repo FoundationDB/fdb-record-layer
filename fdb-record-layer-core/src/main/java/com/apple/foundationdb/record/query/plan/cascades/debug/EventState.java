@@ -43,6 +43,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+/**
+ * A class used by different implementations of {@link StatsDebugger} to record {@link Debugger.Event} and produce
+ * stats (number of events, total time taken by events of a specific type, etc.) for the recorded events.
+ */
 @SuppressWarnings("PMD.SystemPrintln")
 public class EventState {
     @Nonnull

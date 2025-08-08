@@ -35,7 +35,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Implementation of a lightweight debugger that only maintains debugging events for calculating {@link Stats}
  * (i.e. it implements only the {@link StatsDebugger} interface).
- * This debugger is safe for use in production.
+ * This debugger is safe for use in deployments.
  */
 public class LightweightDebugger implements StatsDebugger {
     private static final Logger logger = LoggerFactory.getLogger(LightweightDebugger.class);

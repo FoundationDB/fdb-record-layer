@@ -34,6 +34,11 @@ import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.function.IntUnaryOperator;
 
+/**
+ * A class used by different implementations of {@link SymbolDebugger} to map different types of objects
+ * during planning ({@link RelationalExpression}, {@link Reference}, {@link Quantifier}) to unique indices, which
+ * is used to generate debugging-friendly names for these objects.
+ */
 public class SymbolTables {
     @Nonnull
     private final Map<Class<?>, Integer> classToIndexMap;

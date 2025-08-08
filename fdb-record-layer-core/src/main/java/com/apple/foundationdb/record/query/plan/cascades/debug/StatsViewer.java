@@ -30,7 +30,19 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-/** Only used by debuggers to display stats.*/
+/**
+ * A class that can be used to view {@link Stats} for all {@link Debugger.Event} collected by {@link StatsDebugger}
+ * during planning in a browser.
+ * <p>
+ * To view the stats, evaluate the following expression in a debugging session at a breakpoint before the Cascades planner
+ * returns the plan:
+ * <pre>
+ *     StatsViewer.showStats(StatsDebugger.getDebuggerMaybe().get())
+ * </pre>
+ *
+ * The stats will be displayed in a new window of the system browser.
+ * </p>
+ */
 @SuppressWarnings("unused")
 public class StatsViewer {
     public static String showStats(@Nonnull final StatsDebugger statsDebugger) {
