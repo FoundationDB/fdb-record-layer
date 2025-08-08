@@ -138,7 +138,17 @@ columnType
     : primitiveType | customType=uid;
 
 primitiveType
-    : BOOLEAN | INTEGER | BIGINT | FLOAT | DOUBLE | STRING | BYTES;
+    : BOOLEAN | INTEGER | BIGINT | FLOAT | DOUBLE | STRING | BYTES | vectorType;
+
+vectorType
+    : VECTOR '(' length=DECIMAL_LITERAL ')'
+    | VECTOR16 '(' length=DECIMAL_LITERAL ')'
+    | VECTOR32 '(' length=DECIMAL_LITERAL ')'
+    | VECTOR64 '(' length=DECIMAL_LITERAL ')'
+    | HALFVECTOR '(' length=DECIMAL_LITERAL ')'
+    | FLOATVECTOR '(' length=DECIMAL_LITERAL ')'
+    | DOUBLEVECTOR '(' length=DECIMAL_LITERAL ')'
+    ;
 
 columnConstraint
     : nullNotnull                                                   #nullColumnConstraint

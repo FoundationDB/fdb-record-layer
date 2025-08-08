@@ -370,10 +370,14 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
         return ddlVisitor.visitColumnType(ctx);
     }
 
-    @Nonnull
     @Override
-    public DataType visitPrimitiveType(@Nonnull RelationalParser.PrimitiveTypeContext ctx) {
-        return ddlVisitor.visitPrimitiveType(ctx);
+    public Object visitPrimitiveType(final RelationalParser.PrimitiveTypeContext ctx) {
+        return visitChildren(ctx);
+    }
+
+    @Override
+    public Object visitVectorType(final RelationalParser.VectorTypeContext ctx) {
+        return visitChildren(ctx);
     }
 
     @Nonnull

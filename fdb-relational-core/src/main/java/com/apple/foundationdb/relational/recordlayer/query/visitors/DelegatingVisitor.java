@@ -200,10 +200,14 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitColumnType(ctx);
     }
 
-    @Nonnull
     @Override
-    public DataType visitPrimitiveType(@Nonnull RelationalParser.PrimitiveTypeContext ctx) {
+    public Object visitPrimitiveType(final RelationalParser.PrimitiveTypeContext ctx) {
         return getDelegate().visitPrimitiveType(ctx);
+    }
+
+    @Override
+    public Object visitVectorType(final RelationalParser.VectorTypeContext ctx) {
+        return getDelegate().visitVectorType(ctx);
     }
 
     @Nonnull

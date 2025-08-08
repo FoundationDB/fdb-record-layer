@@ -267,8 +267,8 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    public void uuidProtoTest(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("uuid-proto.yamsql");
+    public void uuidTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("uuid.yamsql");
     }
 
     @TestTemplate
@@ -304,5 +304,10 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void caseSensitivityTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("case-sensitivity.yamsql");
+    }
+
+    @TestTemplate
+    public void vectorTypeTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("vector-type.yamsql");
     }
 }

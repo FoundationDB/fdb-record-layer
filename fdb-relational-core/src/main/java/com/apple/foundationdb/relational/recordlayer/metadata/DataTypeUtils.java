@@ -61,6 +61,12 @@ public class DataTypeUtils {
 
         final var typeCode = type.getTypeCode();
 
+        // if the type code is BYTES,
+        if (typeCode.equals(Type.TypeCode.VECTOR)) {
+            final var vectorType = (Type.Vector)type;
+            return DataType.VectorType.of(vectorType.getPrecision(), vectorType.getDimensions(), vectorType.isNullable());
+        }
+
         if (typeCode == Type.TypeCode.ANY || typeCode == Type.TypeCode.NONE || typeCode == Type.TypeCode.NULL || typeCode == Type.TypeCode.UNKNOWN) {
             return DataType.UnknownType.instance();
         }
@@ -112,10 +118,19 @@ public class DataTypeUtils {
             return primitivesMap.get(type);
         }
 
+        // handle bytes with fixed size and precision.
+        if (type.getCode().equals(DataType.Code.VECTOR)) {
+            final var vectorType = (DataType.VectorType)type;
+            final var precision = vectorType.getPrecision();
+            final var dimensions = vectorType.getDimensions();
+            return Type.Vector.of(type.isNullable(), precision, dimensions);
+        }
+
         switch (type.getCode()) {
             case STRUCT:
                 final var struct = (DataType.StructType) type;
-                final var fields = struct.getFields().stream().map(field -> Type.Record.Field.of(DataTypeUtils.toRecordLayerType(field.getType()), Optional.of(field.getName()), Optional.of(field.getIndex()))).collect(Collectors.toList());
+                final var fields = struct.getFields().stream().map(field -> Type.Record.Field.of(DataTypeUtils.toRecordLayerType(field.getType()),
+                        Optional.of(field.getName()), Optional.of(field.getIndex()))).collect(Collectors.toList());
                 return Type.Record.fromFieldsWithName(struct.getName(), struct.isNullable(), fields);
             case ARRAY:
                 final var asArray = (DataType.ArrayType) type;
@@ -123,11 +138,13 @@ public class DataTypeUtils {
                 // but since in RL we store the elements as a 'repeated' field, there is not a way to tell if an element is explicitly 'null'.
                 // The current RL behavior loses the nullability information even if the constituent of Type.Array is explicitly marked 'nullable'. Hence,
                 // the check here avoids silently swallowing the requirement.
-                Assert.thatUnchecked(asArray.getElementType().getCode() == DataType.Code.NULL || !asArray.getElementType().isNullable(), ErrorCode.UNSUPPORTED_OPERATION, "No support for nullable array elements.");
+                Assert.thatUnchecked(asArray.getElementType().getCode() == DataType.Code.NULL || !asArray.getElementType().isNullable(),
+                        ErrorCode.UNSUPPORTED_OPERATION, "No support for nullable array elements.");
                 return new Type.Array(asArray.isNullable(), toRecordLayerType(asArray.getElementType()));
             case ENUM:
                 final var asEnum = (DataType.EnumType) type;
-                final List<Type.Enum.EnumValue> enumValues = asEnum.getValues().stream().map(v -> new Type.Enum.EnumValue(v.getName(), v.getNumber())).collect(Collectors.toList());
+                final List<Type.Enum.EnumValue> enumValues = asEnum.getValues().stream().map(v -> new Type.Enum.EnumValue(v.getName(),
+                        v.getNumber())).collect(Collectors.toList());
                 return new Type.Enum(asEnum.isNullable(), enumValues, asEnum.getName());
             case UNKNOWN:
                 return new Type.Any();
