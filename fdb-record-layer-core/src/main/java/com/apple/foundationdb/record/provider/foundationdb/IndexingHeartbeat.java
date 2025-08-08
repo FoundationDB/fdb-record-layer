@@ -31,8 +31,11 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import javax.annotation.Nonnull;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class IndexingHeartbeat {
     // [prefix, xid] -> [indexing-type, genesis time, heartbeat time]
@@ -74,7 +77,7 @@ public class IndexingHeartbeat {
                             if (!hasNext) {
                                 return false;
                             }
-                            validateNonCompetingHeartbeat(iterator.next());
+                            validateNonCompetingHeartbeat(iterator.next(), nowMilliseconds());
                             return true;
                         }));
 
@@ -84,13 +87,12 @@ public class IndexingHeartbeat {
         }
     }
 
-    private void validateNonCompetingHeartbeat(KeyValue kv) {
+    private void validateNonCompetingHeartbeat(KeyValue kv, long now) {
         final Tuple keyTuple = Tuple.fromBytes(kv.getKey());
         if (keyTuple.size() < 2) { // expecting 8
             return;
         }
         final UUID otherSessionId = keyTuple.getUUID(keyTuple.size() - 1);
-        final long now = nowMilliseconds();
         if (!otherSessionId.equals(this.sessionId)) {
             try {
                 final IndexBuildProto.IndexingHeartbeat otherHeartbeat = IndexBuildProto.IndexingHeartbeat.parseFrom(kv.getValue());
@@ -101,7 +103,6 @@ public class IndexingHeartbeat {
                             .addLogInfo(LogMessageKeys.EXISTING_SESSION_ID, otherSessionId)
                             .addLogInfo(LogMessageKeys.AGE_MILLISECONDS, age)
                             .addLogInfo(LogMessageKeys.TIME_LIMIT_MILLIS, leaseLength);
-                    // TODO: log details
                 }
             } catch (InvalidProtocolBufferException e) {
                 throw new RuntimeException(e);
@@ -113,8 +114,71 @@ public class IndexingHeartbeat {
         store.ensureContextActive().clear(IndexingSubspaces.indexheartbeatSubspace(store, index, sessionId).pack());
     }
 
+    public static CompletableFuture<Map<UUID, IndexBuildProto.IndexingHeartbeat>> getIndexingHeartbeats(FDBRecordStore store, Index index, int maxCount) {
+        final Map<UUID, IndexBuildProto.IndexingHeartbeat> ret = new HashMap<>();
+        final AsyncIterator<KeyValue> iterator = heartbeatsIterator(store, index);
+        final AtomicInteger iterationCount = new AtomicInteger(0);
+        return AsyncUtil.whileTrue(() -> iterator.onHasNext()
+                        .thenApply(hasNext -> {
+                            if (!hasNext) {
+                                return false;
+                            }
+                            if (maxCount > 0 && maxCount < iterationCount.incrementAndGet()) {
+                                return false;
+                            }
+                            final KeyValue kv = iterator.next();
+                            final Tuple keyTuple = Tuple.fromBytes(kv.getKey());
+                            if (keyTuple.size() < 2) { // expecting 8
+                                return true; // ignore, next
+                            }
+                            final UUID otherSessionId = keyTuple.getUUID(keyTuple.size() - 1);
+                            try {
+                                final IndexBuildProto.IndexingHeartbeat otherHeartbeat = IndexBuildProto.IndexingHeartbeat.parseFrom(kv.getValue());
+                                ret.put(otherSessionId, otherHeartbeat);
+                            } catch (InvalidProtocolBufferException e) {
+                                // put a NONE heartbeat to indicate an invalid item
+                                ret.put(otherSessionId, IndexBuildProto.IndexingHeartbeat.newBuilder()
+                                        .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.NONE)
+                                        .build());
+                            }
+                            return true;
+                        }))
+                .thenApply(ignore -> ret);
+    }
 
-    public AsyncIterator<KeyValue> heartbeatsIterator(FDBRecordStore store, Index index) {
+    public static CompletableFuture<Integer> clearIndexingHeartbeats(@Nonnull FDBRecordStore store, @Nonnull Index index, long minAgenMilliseconds, int maxIteration) {
+        final AsyncIterator<KeyValue> iterator = heartbeatsIterator(store, index);
+        final AtomicInteger deleteCount = new AtomicInteger(0);
+        final AtomicInteger iterationCount = new AtomicInteger(0);
+        final long now = nowMilliseconds();
+        return AsyncUtil.whileTrue(() -> iterator.onHasNext()
+                        .thenApply(hasNext -> {
+                            if (!hasNext) {
+                                return false;
+                            }
+                            if (maxIteration > 0 && maxIteration < iterationCount.incrementAndGet()) {
+                                return false;
+                            }
+                            final KeyValue kv = iterator.next();
+                            boolean shouldRemove;
+                            try {
+                                final IndexBuildProto.IndexingHeartbeat otherHeartbeat = IndexBuildProto.IndexingHeartbeat.parseFrom(kv.getValue());
+                                // remove heartbeat if too old
+                                shouldRemove = now + minAgenMilliseconds <= otherHeartbeat.getHeartbeatTimeMilliseconds();
+                            } catch (InvalidProtocolBufferException e) {
+                                // remove heartbeat if invalid
+                                shouldRemove = true;
+                            }
+                            if (shouldRemove) {
+                                store.ensureContextActive().clear(kv.getKey());
+                                deleteCount.incrementAndGet();
+                            }
+                            return true;
+                        }))
+                .thenApply(ignore -> deleteCount.get());
+    }
+
+    public static AsyncIterator<KeyValue> heartbeatsIterator(FDBRecordStore store, Index index) {
         return store.getContext().ensureActive().snapshot().getRange(IndexingSubspaces.indexheartbeatSubspace(store, index).range()).iterator();
     }
 
