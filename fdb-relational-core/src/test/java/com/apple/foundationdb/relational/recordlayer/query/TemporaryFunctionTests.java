@@ -1052,7 +1052,7 @@ public class TemporaryFunctionTests {
     }
 
     @Test
-    void correlatedJoinsOverTemporaryTables() throws Exception {
+    void unpivotRepeatedFieldInSqlFunctionWorksCorrectly() throws Exception {
         final String schemaTemplate = "create type as struct city(name string, population bigint) " +
                 "create table country(id bigint, name string, continent string, cities city array, primary key(id))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
