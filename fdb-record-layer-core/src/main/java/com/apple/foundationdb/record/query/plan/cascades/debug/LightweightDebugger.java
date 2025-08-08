@@ -85,6 +85,8 @@ public class LightweightDebugger implements StatsDebugger {
 
     @Override
     public void onQuery(@Nonnull final String recordQuery, @Nonnull final PlanContext planContext) {
+        reset();
+
         this.queryAsString = recordQuery;
         this.planContext = planContext;
 

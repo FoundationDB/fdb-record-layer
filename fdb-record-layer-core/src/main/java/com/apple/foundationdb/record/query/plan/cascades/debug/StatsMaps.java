@@ -75,7 +75,7 @@ public class StatsMaps {
 
     @Nonnull
     public Map<Class<? extends Debugger.Event>, Stats> getEventWithoutStateClassStatsMap() {
-        return immutableEventClassStatsMapSupplier.get();
+        return immutableEventWithoutStateClassStatsMapSupplier.get();
     }
 
     @Nonnull
