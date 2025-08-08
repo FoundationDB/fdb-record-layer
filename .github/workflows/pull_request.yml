@@ -158,10 +158,13 @@ jobs:
         uses: ./actions/setup-base-env
       - name: 'Download artifacts'
         uses: actions/download-artifact@v4
+        id: download-coverage-artifacts
         with:
           pattern: |
             *-coverage-data
           merge-multiple: true
+      - name: 'log coverage artifacts'
+        run: ls -AR ${{ steps.download-coverage-artifacts.outputs.download-path }}
       - name: Run JaCoCo Report
         uses: ./actions/run-gradle
         with:
