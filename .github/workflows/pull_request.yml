@@ -61,6 +61,7 @@ jobs:
           name: core-coverage-data
           path: |
             **/.out/jacoco/*.exec
+            **/.out/libs/*.jar
           include-hidden-files: true
           retention-days: 1
 
@@ -95,6 +96,7 @@ jobs:
           name: lucene-coverage-data
           path: |
             **/.out/jacoco/*.exec
+            **/.out/libs/*.jar
           include-hidden-files: true
           retention-days: 1
 
