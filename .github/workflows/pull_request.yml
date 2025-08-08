@@ -162,7 +162,6 @@ jobs:
         with:
           pattern: |
             *-coverage-data
-          merge-multiple: true
       - name: 'log coverage artifacts'
         run: ls -AR ${{ steps.download-coverage-artifacts.outputs.download-path }}
       - name: Run JaCoCo Report
