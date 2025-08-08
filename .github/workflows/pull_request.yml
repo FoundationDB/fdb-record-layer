@@ -46,7 +46,7 @@ jobs:
       - name: Run Gradle Test
         uses: ./actions/gradle-test
         with:
-          gradle_command: :fdb-record-layer-core:test :fdb-record-layer-core:destructiveTest
+          gradle_command: :fdb-record-layer-core:jar :fdb-record-layer-core:test :fdb-record-layer-core:destructiveTest
           gradle_args: -PreleaseBuild=false -PpublishBuild=false
       - name: Publish Test Reports
         if: always()
@@ -81,7 +81,7 @@ jobs:
       - name: Run Gradle Test
         uses: ./actions/gradle-test
         with:
-          gradle_command: :fdb-record-layer-lucene:test :fdb-record-layer-lucene:destructiveTest
+          gradle_command: :fdb-record-layer-lucene:jar :fdb-record-layer-lucene:test :fdb-record-layer-lucene:destructiveTest
           gradle_args: -PreleaseBuild=false -PpublishBuild=false
       - name: Publish Test Reports
         if: always()
@@ -177,7 +177,7 @@ jobs:
       - name: Run JaCoCo Report
         uses: ./actions/run-gradle
         with:
-          gradle_command: compileJava codeCoverageReport
+          gradle_command: codeCoverageReport
       - name: Publish Coverage Report
         uses: actions/upload-artifact@v4.6.0
         with:
