@@ -50,6 +50,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
@@ -602,6 +603,29 @@ public class OnlineIndexer implements AutoCloseable {
         // any indexer will do
         return asyncToSync(FDBStoreTimer.Waits.WAIT_INDEX_TYPESTAMP_OPERATION,
                 getIndexer().performIndexingStampOperation(op, id, ttlSeconds));
+    }
+
+    /**
+     * Get the current indexing heartbeats for a given index (single target or primary index).
+     * @param maxCount safety valve to limit number items to read. Typically set to zero to keep unlimited.
+     * @return map of session ids to {@link IndexBuildProto.IndexingHeartbeat}
+     */
+    @API(API.Status.EXPERIMENTAL)
+    public Map<UUID, IndexBuildProto.IndexingHeartbeat> getIndexingHeartbeats(int maxCount) {
+        return asyncToSync(FDBStoreTimer.Waits.WAIT_INDEX_READ_HEARTBEATS,
+                getIndexer().getIndexingHeartbeats(maxCount));
+    }
+
+    /**
+     * Clear old indexing heartbeats for a given index (single target or primary index).
+     * @param minAgenMilliseconds minimum heartbeat age (in milliseconds) to clear.
+     * @param maxIteration safety valve to limit number of items to check. Typically set to zero to keep unlimited
+     * @return number of cleared heartbeats
+     */
+    @API(API.Status.EXPERIMENTAL)
+    public int clearIndexingHeartbeats(long minAgenMilliseconds, int maxIteration) {
+        return asyncToSync(FDBStoreTimer.Waits.WAIT_INDEX_CLEAR_HEARTBEATS,
+                getIndexer().clearIndexingHeartbeats(minAgenMilliseconds, maxIteration));
     }
 
     /**
