@@ -156,23 +156,22 @@ jobs:
         uses: actions/checkout@v4.2.2
       - name: Setup Base Environment
         uses: ./actions/setup-base-env
+      # It looks like, if you try to download them all as a pattern, the nested directories get stripped
+      # so the coverage data (for e.g. lucene) does not end up in the appropirate subproject directory
       - name: 'Download lucene'
         uses: actions/download-artifact@v4
         with:
           name: lucene-coverage-data
-          path: coverage/lucene
       - name: 'Download core'
         uses: actions/download-artifact@v4
         with:
           name: core-coverage-data
-          path: coverage/core
       - name: 'Download other'
         uses: actions/download-artifact@v4
         with:
           name: other-coverage-data
-          path: coverage/other
       - name: 'log coverage artifacts'
-        run: ls -AR coverage
+        run: ls -AR .
       - name: Run JaCoCo Report
         uses: ./actions/run-gradle
         with:
