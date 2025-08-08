@@ -47,7 +47,7 @@ message IndexBuildIndexingStamp {
   optional string blockID = 7; // optional, a short string that describes the reason for the block.
  }
 
- message IndexingHeartbeat {
+ message IndexBuildHeartbeat {
     required IndexBuildIndexingStamp.Method method = 1;
     required int64 genesisTimeMilliseconds = 2;
     required int64 heartbeatTimeMilliseconds = 3;

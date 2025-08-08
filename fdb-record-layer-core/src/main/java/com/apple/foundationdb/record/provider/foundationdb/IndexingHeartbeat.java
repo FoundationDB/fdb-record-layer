@@ -53,7 +53,7 @@ public class IndexingHeartbeat {
 
     public void updateHeartbeat(@Nonnull FDBRecordStore store, @Nonnull Index index) {
         byte[] key = IndexingSubspaces.indexheartbeatSubspace(store, index, sessionId).pack();
-        byte[] value = IndexBuildProto.IndexingHeartbeat.newBuilder()
+        byte[] value = IndexBuildProto.IndexBuildHeartbeat.newBuilder()
                 .setMethod(indexingMethod)
                 .setGenesisTimeMilliseconds(genesisTimeMilliseconds)
                 .setHeartbeatTimeMilliseconds(nowMilliseconds())
@@ -95,7 +95,7 @@ public class IndexingHeartbeat {
         final UUID otherSessionId = keyTuple.getUUID(keyTuple.size() - 1);
         if (!otherSessionId.equals(this.sessionId)) {
             try {
-                final IndexBuildProto.IndexingHeartbeat otherHeartbeat = IndexBuildProto.IndexingHeartbeat.parseFrom(kv.getValue());
+                final IndexBuildProto.IndexBuildHeartbeat otherHeartbeat = IndexBuildProto.IndexBuildHeartbeat.parseFrom(kv.getValue());
                 final long age = now - otherHeartbeat.getHeartbeatTimeMilliseconds();
                 if (age > 0 && age < leaseLength) {
                     throw new SynchronizedSessionLockedException("Failed to initialize the session because of an existing session in progress")
@@ -114,8 +114,8 @@ public class IndexingHeartbeat {
         store.ensureContextActive().clear(IndexingSubspaces.indexheartbeatSubspace(store, index, sessionId).pack());
     }
 
-    public static CompletableFuture<Map<UUID, IndexBuildProto.IndexingHeartbeat>> getIndexingHeartbeats(FDBRecordStore store, Index index, int maxCount) {
-        final Map<UUID, IndexBuildProto.IndexingHeartbeat> ret = new HashMap<>();
+    public static CompletableFuture<Map<UUID, IndexBuildProto.IndexBuildHeartbeat>> getIndexingHeartbeats(FDBRecordStore store, Index index, int maxCount) {
+        final Map<UUID, IndexBuildProto.IndexBuildHeartbeat> ret = new HashMap<>();
         final AsyncIterator<KeyValue> iterator = heartbeatsIterator(store, index);
         final AtomicInteger iterationCount = new AtomicInteger(0);
         return AsyncUtil.whileTrue(() -> iterator.onHasNext()
@@ -133,11 +133,11 @@ public class IndexingHeartbeat {
                             }
                             final UUID otherSessionId = keyTuple.getUUID(keyTuple.size() - 1);
                             try {
-                                final IndexBuildProto.IndexingHeartbeat otherHeartbeat = IndexBuildProto.IndexingHeartbeat.parseFrom(kv.getValue());
+                                final IndexBuildProto.IndexBuildHeartbeat otherHeartbeat = IndexBuildProto.IndexBuildHeartbeat.parseFrom(kv.getValue());
                                 ret.put(otherSessionId, otherHeartbeat);
                             } catch (InvalidProtocolBufferException e) {
                                 // put a NONE heartbeat to indicate an invalid item
-                                ret.put(otherSessionId, IndexBuildProto.IndexingHeartbeat.newBuilder()
+                                ret.put(otherSessionId, IndexBuildProto.IndexBuildHeartbeat.newBuilder()
                                         .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.NONE)
                                         .build());
                             }
@@ -162,9 +162,9 @@ public class IndexingHeartbeat {
                             final KeyValue kv = iterator.next();
                             boolean shouldRemove;
                             try {
-                                final IndexBuildProto.IndexingHeartbeat otherHeartbeat = IndexBuildProto.IndexingHeartbeat.parseFrom(kv.getValue());
+                                final IndexBuildProto.IndexBuildHeartbeat otherHeartbeat = IndexBuildProto.IndexBuildHeartbeat.parseFrom(kv.getValue());
                                 // remove heartbeat if too old
-                                shouldRemove = now + minAgenMilliseconds <= otherHeartbeat.getHeartbeatTimeMilliseconds();
+                                shouldRemove = now + minAgenMilliseconds >= otherHeartbeat.getHeartbeatTimeMilliseconds();
                             } catch (InvalidProtocolBufferException e) {
                                 // remove heartbeat if invalid
                                 shouldRemove = true;
