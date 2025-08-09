@@ -21,10 +21,12 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.record.IndexBuildProto;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
+import com.apple.foundationdb.tuple.Tuple;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -33,14 +35,20 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Verify indexing heartbeat activity (query & clear).
  */
-public class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
+class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
+
+
     @Test
     void testHeartbeatLowLevel() {
         List<Index> indexes = new ArrayList<>();
@@ -98,4 +106,78 @@ public class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
             Assertions.assertThat(queried).isEmpty();
         }
     }
+
+    @Test
+    void testMutualIndexersHeartbeatsClearAfterBuild() {
+        // Assert that the heartbeats are cleared after building
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        int numRecords = 77;
+        populateData(numRecords);
+        int boundarySize = 23;
+        final List<Tuple> boundariesList = getBoundariesList(numRecords, boundarySize);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+
+        IntStream.rangeClosed(1, 5).parallel().forEach(i -> {
+            try (OnlineIndexer indexer = newIndexerBuilder(indexes)
+                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                            .setMutualIndexingBoundaries(boundariesList))
+                    .build()) {
+                indexer.buildIndex();
+            }
+        });
+
+        for (Index index : indexes) {
+            try (OnlineIndexer indexer = newIndexerBuilder(index).build()) {
+                Assertions.assertThat(indexer.getIndexingHeartbeats(0)).isEmpty();
+            }
+        }
+    }
+
+    @Test
+    void testMutualIndexersHeartbeatsClearAfterCrash() {
+        // Assert that the heartbeats are cleared after crash
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        int numRecords = 98;
+        populateData(numRecords);
+        int boundarySize = 20;
+        final List<Tuple> boundariesList = getBoundariesList(numRecords, boundarySize);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+
+        final String testThrowMsg = "Intentionally crash during test";
+        IntStream.rangeClosed(1, 9).parallel().forEach(i -> {
+            final AtomicLong counter = new AtomicLong(0);
+            try (OnlineIndexer indexer = newIndexerBuilder(indexes)
+                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                            .setMutualIndexingBoundaries(boundariesList)
+                            .build())
+                    .setConfigLoader(old -> {
+                        // Unfortunately, we cannot verify that at least one heartbeat exists from this
+                        // block, as it would have been nesting "asyncToSync" functions. But there are other tests
+                        // that verify the "sync lock" functionality.
+                        if (counter.incrementAndGet() > 2) {
+                            throw new RecordCoreException(testThrowMsg);
+                        }
+                        return old;
+                    })
+                    .build()) {
+                RecordCoreException e = assertThrows(RecordCoreException.class, indexer::buildIndex);
+                assertTrue(e.getMessage().contains(testThrowMsg));
+            }
+        });
+
+        for (Index index : indexes) {
+            try (OnlineIndexer indexer = newIndexerBuilder(index).build()) {
+                Assertions.assertThat(indexer.getIndexingHeartbeats(0)).isEmpty();
+            }
+        }
+    }
+
 }
