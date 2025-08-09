@@ -209,6 +209,7 @@ public final class IndexingSubspaces {
         eraseAllIndexingScrubbingData(context, store, index);
         context.clear(Range.startsWith(indexBuildScannedRecordsSubspace(store, index).pack()));
         context.clear(Range.startsWith(indexBuildTypeSubspace(store, index).pack()));
+        // The heartbeats, unlike the sync lock, may be erased here. If needed, an appropriate heartbeat will be set after the clearing within the same transaction.
         context.clear(Range.startsWith(indexheartbeatSubspace(store, index).pack()));
     }
 }

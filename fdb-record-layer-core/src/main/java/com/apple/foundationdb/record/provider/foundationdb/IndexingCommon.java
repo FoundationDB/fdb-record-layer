@@ -49,7 +49,6 @@ import java.util.stream.Collectors;
 
 @API(API.Status.INTERNAL)
 public class IndexingCommon {
-    // TODO? get uuid from caller to allow lock takeover
     private final UUID uuid = UUID.randomUUID();
 
     @Nonnull private final FDBDatabaseRunner runner;
