@@ -1251,7 +1251,7 @@ public class OnlineIndexer implements AutoCloseable {
             private DesiredAction ifReadable = DesiredAction.CONTINUE;
             private boolean doAllowUniquePendingState = false;
             private Set<TakeoverTypes> allowedTakeoverSet = null;
-            private long checkIndexingStampFrequency = 30_000;
+            private long checkIndexingStampFrequency = 10_000;
             private boolean useMutualIndexing = false;
             private List<Tuple> useMutualIndexingBoundaries = null;
             private boolean allowUnblock = false;
