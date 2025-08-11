@@ -219,8 +219,6 @@ public class TypeConversion {
                 return Type.FLOAT;
             case STRING:
                 return Type.STRING;
-            case UUID:
-                return Type.UUID;
             case STRUCT:
                 return Type.STRUCT;
             case ARRAY:
