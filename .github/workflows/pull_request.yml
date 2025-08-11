@@ -123,9 +123,6 @@ jobs:
             destructiveTest
             -x :fdb-record-layer-core:destructiveTest
             -x :fdb-record-layer-lucene:destructiveTest
-            jar
-            -x :fdb-record-layer-core:jar
-            -x :fdb-record-layer-lucene:jar
           gradle_args: -PreleaseBuild=false -PpublishBuild=false
       - name: Publish Test Reports
         if: always()
