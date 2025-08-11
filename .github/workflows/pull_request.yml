@@ -178,8 +178,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: other-coverage-data
-      - name: 'log coverage artifacts'
-        run: ls -AR .
       - name: Run JaCoCo Report
         uses: ./actions/run-gradle
         with:
