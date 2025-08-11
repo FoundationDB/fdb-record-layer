@@ -305,7 +305,6 @@ public abstract class IndexingBase {
         ).thenApply(ignore -> allReadable.get()), common.indexLogMessageKeyValues("IndexingBase::markReadableIfBuilt"));
     }
 
-
     @Nonnull
     public CompletableFuture<Boolean> markIndexReadable(boolean markReadablePlease) {
         if (!markReadablePlease) {
@@ -861,6 +860,14 @@ public abstract class IndexingBase {
                 .thenAccept(ignore -> heartbeat = null);
     }
 
+    private void clearHeartbeats(FDBRecordStore store) {
+        if (heartbeat != null) {
+            for (Index index : common.getTargetIndexes()) {
+                clearHeartbeatSingleTarget(store, index);
+            }
+        }
+    }
+
     private CompletableFuture<Void> clearHeartbeatSingleTarget(Index index) {
         return getRunner().runAsync(context ->
                 common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync()
@@ -1027,11 +1034,8 @@ public abstract class IndexingBase {
         }))
                 .thenCompose(vignore -> setIndexingTypeOrThrow(store, false))
                 .thenCompose(vignore -> rebuildIndexInternalAsync(store))
-                .whenComplete((ignore, ignoreEx) -> {
-                    for (Index index: common.getTargetIndexes()) {
-                        clearHeartbeatSingleTarget(store, index);
-                    }
-                });
+                // If any of the indexes' heartbeats, for any reason, was not cleared during "mark readable", clear it here
+                .whenComplete((ignore, ignoreEx) ->  clearHeartbeats(store));
     }
 
     abstract CompletableFuture<Void> rebuildIndexInternalAsync(FDBRecordStore store);
