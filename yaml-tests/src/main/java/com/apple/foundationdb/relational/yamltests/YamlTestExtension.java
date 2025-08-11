@@ -117,14 +117,11 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
             Stream<YamlTestConfig> localTestingConfigs = localConfigs(mixedModeOnly, singleExternalVersionOnly);
             Stream<YamlTestConfig> externalServerConfigs = externalServerConfigs(singleExternalVersionOnly);
 
-//            testConfigs = Stream.concat(
-//                    // The configs for local testing (single server)
-//                    localTestingConfigs,
-//                    // The configs for multi-server testing
-//                    externalServerConfigs).collect(Collectors.toList());
-
-            testConfigs = externalServerConfigs.collect(Collectors.toList());
-
+            testConfigs = Stream.concat(
+                    // The configs for local testing (single server)
+                    localTestingConfigs,
+                    // The configs for multi-server testing
+                    externalServerConfigs).collect(Collectors.toList());
         }
         for (final YamlTestConfig testConfig : Iterables.concat(testConfigs, maintainConfigs)) {
             testConfig.beforeAll();
