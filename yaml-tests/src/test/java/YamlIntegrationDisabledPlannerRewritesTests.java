@@ -256,7 +256,6 @@ public class YamlIntegrationDisabledPlannerRewritesTests {
     }
 
     @TestTemplate
-    @MaintainYamlTestConfig(value = YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
     public void uuidTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql(PREFIX + "/uuid.yamsql");
     }
