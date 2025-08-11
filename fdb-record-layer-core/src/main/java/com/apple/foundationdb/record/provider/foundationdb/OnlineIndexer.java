@@ -502,14 +502,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Builds an index across multiple transactions.
-     * <p>
-     * If it is set to use synchronized sessions, it stops with {@link com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException}
-     * when there is another runner actively working on the same index. It first checks and updates index states and
-     * clear index data respecting the {@link IndexStatePrecondition} being set. It then builds the index across
-     * multiple transactions honoring the rate-limiting parameters set in the constructor of this class. It also retries
-     * any retriable errors that it encounters while it runs the build. At the end, it marks the index readable in the
-     * store.
-     * </p>
+     * This is a slow and retrying operation that is intended to be executed by background processes.
      * @return a future that will be ready when the build has completed
      * @throws com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException the build is stopped
      * because there may be another build running actively on this index.
