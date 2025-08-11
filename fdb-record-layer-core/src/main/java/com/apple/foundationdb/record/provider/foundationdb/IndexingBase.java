@@ -363,18 +363,18 @@ public abstract class IndexingBase {
         IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp = getIndexingTypeStamp(store);
         heartbeat = new IndexingHeartbeat(common.getIndexerId(), indexingTypeStamp.getMethod(), common.config.getLeaseLengthMillis());
 
-        return forEachTargetIndex(index -> setIndexingTypeOrThrow(store, continuedBuild, index, indexingTypeStamp));
+        return forEachTargetIndex(index -> setIndexingTypeOrThrow(store, continuedBuild, index, indexingTypeStamp)
+                .thenApply(ignore -> updateHeartbeat(true, store, index)));
     }
 
     @Nonnull
     private CompletableFuture<Void> setIndexingTypeOrThrow(FDBRecordStore store, boolean continuedBuild, Index index, IndexBuildProto.IndexBuildIndexingStamp newStamp) {
-        final CompletableFuture<Void> checkUpdateHeartbeat = updateHeartbeat(true, store, index);
         if (forceStampOverwrite && !continuedBuild) {
             // Fresh session + overwrite = no questions asked
             store.saveIndexingTypeStamp(index, newStamp);
-            return checkUpdateHeartbeat;
+            return AsyncUtil.DONE ;
         }
-        return checkUpdateHeartbeat.thenCompose(ignore -> store.loadIndexingTypeStampAsync(index)
+        return store.loadIndexingTypeStampAsync(index)
                 .thenCompose(savedStamp -> {
                     if (savedStamp == null) {
                         if (continuedBuild && newStamp.getMethod() !=
@@ -416,7 +416,7 @@ public abstract class IndexingBase {
                     }
                     // fall down to exception
                     throw newPartlyBuiltException(continuedBuild, savedStamp, newStamp, index);
-                }));
+                });
     }
 
     private boolean shouldAllowTypeConversionContinue(IndexBuildProto.IndexBuildIndexingStamp newStamp, IndexBuildProto.IndexBuildIndexingStamp savedStamp) {
