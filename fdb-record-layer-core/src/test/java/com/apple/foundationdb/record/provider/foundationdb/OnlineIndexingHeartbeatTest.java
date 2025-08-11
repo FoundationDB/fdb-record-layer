@@ -77,7 +77,7 @@ class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
             Map<UUID, IndexBuildProto.IndexBuildHeartbeat> queried = indexer.getIndexingHeartbeats(0);
             Assertions.assertThat(queried).hasSize(count);
             Assertions.assertThat(queried.keySet())
-                    .containsExactlyInAnyOrderElementsOf(Arrays.stream(heartbeats).map(ht -> ht.sessionId).collect(Collectors.toList()));
+                    .containsExactlyInAnyOrderElementsOf(Arrays.stream(heartbeats).map(ht -> ht.indexerId).collect(Collectors.toList()));
 
             // Query, partial
             queried = indexer.getIndexingHeartbeats(5);
@@ -95,7 +95,7 @@ class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
             Map<UUID, IndexBuildProto.IndexBuildHeartbeat> queried = indexer.getIndexingHeartbeats(100);
             Assertions.assertThat(queried).hasSize(count);
             Assertions.assertThat(queried.keySet())
-                    .containsExactlyInAnyOrderElementsOf(Arrays.stream(heartbeats).map(ht -> ht.sessionId).collect(Collectors.toList()));
+                    .containsExactlyInAnyOrderElementsOf(Arrays.stream(heartbeats).map(ht -> ht.indexerId).collect(Collectors.toList()));
 
             // clear all
             int countDeleted = indexer.clearIndexingHeartbeats(0, 0);

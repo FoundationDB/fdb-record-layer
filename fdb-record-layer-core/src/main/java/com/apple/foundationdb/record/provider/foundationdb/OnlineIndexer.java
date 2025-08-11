@@ -439,7 +439,11 @@ public class OnlineIndexer implements AutoCloseable {
      * the lock.
      * @return a future that will be ready when the lock is released
      * @see SynchronizedSession#endAnySession
+     * @deprecated synchronized build was replaced. The functionality of this function can be done with {@link #blockIndexBuilds}
      */
+    @API(API.Status.DEPRECATED)
+    @SuppressWarnings("PMD.AvoidUsingHardCodedIP") // version is not IP
+    @Deprecated(since = "4.4.3.0", forRemoval = true)
     public CompletableFuture<Void> stopOngoingOnlineIndexBuildsAsync() {
         return runner.runAsync(context -> openRecordStore(context).thenAccept(recordStore ->
                 stopOngoingOnlineIndexBuilds(recordStore, index)),
@@ -448,7 +452,11 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Synchronous/blocking version of {@link #stopOngoingOnlineIndexBuildsAsync()}.
+     * @deprecated synchronized build was replaced. The functionality of this function can be done with {@link #blockIndexBuilds}
      */
+    @API(API.Status.DEPRECATED)
+    @SuppressWarnings("PMD.AvoidUsingHardCodedIP") // version is not IP
+    @Deprecated(since = "4.4.3.0", forRemoval = true)
     public void stopOngoingOnlineIndexBuilds() {
         runner.asyncToSync(FDBStoreTimer.Waits.WAIT_STOP_ONLINE_INDEX_BUILD, stopOngoingOnlineIndexBuildsAsync());
     }
@@ -458,7 +466,11 @@ public class OnlineIndexer implements AutoCloseable {
      * the lock.
      * @param recordStore record store whose index builds need to be stopped
      * @param index the index whose builds need to be stopped
+     * @deprecated synchronized build was replaced. The functionality of this function can be done with {@link #blockIndexBuilds}
      */
+    @API(API.Status.DEPRECATED)
+    @SuppressWarnings("PMD.AvoidUsingHardCodedIP") // version is not IP
+    @Deprecated(since = "4.4.3.0", forRemoval = true)
     public static void stopOngoingOnlineIndexBuilds(@Nonnull FDBRecordStore recordStore, @Nonnull Index index) {
         SynchronizedSession.endAnySession(recordStore.ensureContextActive(), IndexingSubspaces.indexBuildLockSubspace(recordStore, index));
     }
@@ -466,7 +478,11 @@ public class OnlineIndexer implements AutoCloseable {
     /**
      * Synchronous/blocking version of {@link #checkAnyOngoingOnlineIndexBuildsAsync()}.
      * @return <code>true</code> if the index is being built and <code>false</code> otherwise
+     * @deprecated synchronized build was replaced. The functionality of this function can be done with {@link #getIndexingHeartbeats(int)}
      */
+    @API(API.Status.DEPRECATED)
+    @SuppressWarnings("PMD.AvoidUsingHardCodedIP") // version is not IP
+    @Deprecated(since = "4.4.3.0", forRemoval = true)
     public boolean checkAnyOngoingOnlineIndexBuilds() {
         return runner.asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_ONGOING_ONLINE_INDEX_BUILD, checkAnyOngoingOnlineIndexBuildsAsync());
     }
@@ -475,7 +491,11 @@ public class OnlineIndexer implements AutoCloseable {
      * Check if the index is being built by any of the {@link OnlineIndexer}s (only if they use {@link SynchronizedSession}s),
      * including <i>this</i> {@link OnlineIndexer}.
      * @return a future that will complete to <code>true</code> if the index is being built and <code>false</code> otherwise
+     * @deprecated synchronized build was replaced. The functionality of this function can be done with {@link #getIndexingHeartbeats(int)}
      */
+    @API(API.Status.DEPRECATED)
+    @SuppressWarnings("PMD.AvoidUsingHardCodedIP") // version is not IP
+    @Deprecated(since = "4.4.3.0", forRemoval = true)
     public CompletableFuture<Boolean> checkAnyOngoingOnlineIndexBuildsAsync() {
         return runner.runAsync(context -> openRecordStore(context).thenCompose(recordStore ->
                 checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index)),
@@ -487,21 +507,18 @@ public class OnlineIndexer implements AutoCloseable {
      * @param recordStore record store whose index builds need to be checked
      * @param index the index to check for ongoing index builds
      * @return a future that will complete to <code>true</code> if the index is being built and <code>false</code> otherwise
+     * @deprecated synchronized build was replaced. The functionality of this function can be done with {@link #getIndexingHeartbeats(int)}
      */
+    @API(API.Status.DEPRECATED)
+    @SuppressWarnings("PMD.AvoidUsingHardCodedIP") // version is not IP
+    @Deprecated(since = "4.4.3.0", forRemoval = true)
     public static CompletableFuture<Boolean> checkAnyOngoingOnlineIndexBuildsAsync(@Nonnull FDBRecordStore recordStore, @Nonnull Index index) {
         return SynchronizedSession.checkActiveSessionExists(recordStore.ensureContextActive(), IndexingSubspaces.indexBuildLockSubspace(recordStore, index));
     }
 
     /**
      * Builds an index across multiple transactions.
-     * <p>
-     * If it is set to use synchronized sessions, it stops with {@link com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException}
-     * when there is another runner actively working on the same index. It first checks and updates index states and
-     * clear index data respecting the {@link IndexStatePrecondition} being set. It then builds the index across
-     * multiple transactions honoring the rate-limiting parameters set in the constructor of this class. It also retries
-     * any retriable errors that it encounters while it runs the build. At the end, it marks the index readable in the
-     * store.
-     * </p>
+     * This is a slow and retrying operation that is intended to be executed by background processes.
      * @return a future that will be ready when the build has completed
      * @throws com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException the build is stopped
      * because there may be another build running actively on this index.
