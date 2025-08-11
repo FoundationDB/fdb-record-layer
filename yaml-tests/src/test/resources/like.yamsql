@@ -61,7 +61,14 @@ setup:
         ( 9, 'banana'),
         (10, 'bench'),
         (11, 'bento'),
-        (12, 'canal')
+        (12, 'c'),
+        (13, 'cabal'),
+        (14, 'camel'),
+        (15, 'canal'),
+        (16, 'capital'),
+        (17, 'catch-all'),
+        (18, 'cavalry'),
+        (19, 'cb')
         ;
 ---
 test_block:
@@ -160,7 +167,14 @@ test_block:
           { C1:  9, C2: banana},
           { C1: 10, C2: bench},
           { C1: 11, C2: bento},
-          { C1: 12, C2: canal},
+          { C1: 12, C2: c},
+          { C1: 13, C2: cabal},
+          { C1: 14, C2: camel},
+          { C1: 15, C2: canal},
+          { C1: 16, C2: capital},
+          { C1: 17, C2: catch-all},
+          { C1: 18, C2: cavalry},
+          { C1: 19, C2: cb},
         ]
     -
       - query: select * from C WHERE C2 LIKE 'a%'
@@ -251,7 +265,63 @@ test_block:
     -
       - query: select * from C WHERE C2 LIKE 'c%'
       - result: [
-          { C1: 12, C2: canal},
+          { C1: 12, C2: c},
+          { C1: 13, C2: cabal},
+          { C1: 14, C2: camel},
+          { C1: 15, C2: canal},
+          { C1: 16, C2: capital},
+          { C1: 17, C2: catch-all},
+          { C1: 18, C2: cavalry},
+          { C1: 19, C2: cb},
+        ]
+    -
+      - query: select * from C WHERE C2 LIKE 'ca%'
+      # In theory, this could be executed optimally with prefix string scan with the prefix "ca"
+      - explain: "COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
+      - result: [
+          { C1: 13, C2: cabal},
+          { C1: 14, C2: camel},
+          { C1: 15, C2: canal},
+          { C1: 16, C2: capital},
+          { C1: 17, C2: catch-all},
+          { C1: 18, C2: cavalry},
+        ]
+    -
+      - query: select * from C WHERE C2 LIKE 'ca_al'
+      # In theory, this could be optimized with prefix string scan with the prefix "ca" followed by compensation
+      # to handle filtering out based on the tail
+      - explain: "COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
+      - result: [
+          { C1: 13, C2: cabal},
+          { C1: 15, C2: canal},
+        ]
+    -
+      - query: select * from C WHERE C2 LIKE 'ca%al'
+      # In theory, this could be optimized with prefix string scan with the prefix "ca" followed by compensation
+      # to handle matching the tail
+      - explain: "COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
+      - result: [
+          { C1: 13, C2: cabal},
+          { C1: 15, C2: canal},
+          { C1: 16, C2: capital},
+        ]
+    -
+      - query: select * from C WHERE C2 LIKE 'ca_al%'
+      - explain: "COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
+      - result: [
+          { C1: 13, C2: cabal},
+          { C1: 15, C2: canal},
+          { C1: 18, C2: cavalry},
+        ]
+    -
+      - query: select * from C WHERE C2 LIKE 'ca%al%'
+      - explain: "COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
+      - result: [
+          { C1: 13, C2: cabal},
+          { C1: 15, C2: canal},
+          { C1: 16, C2: capital},
+          { C1: 17, C2: catch-all},
+          { C1: 18, C2: cavalry},
         ]
     -
       - query: select * from C WHERE C2 LIKE 'd%'
