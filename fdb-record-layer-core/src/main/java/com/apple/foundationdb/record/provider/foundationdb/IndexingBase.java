@@ -152,14 +152,14 @@ public abstract class IndexingBase {
     @SuppressWarnings("PMD.CloseResource")
     public CompletableFuture<Void> buildIndexAsync(boolean markReadable) {
         KeyValueLogMessage message = KeyValueLogMessage.build("build index online",
-                LogMessageKeys.SHOULD_MARK_READABLE, markReadable);
+                LogMessageKeys.SHOULD_MARK_READABLE, markReadable,
+                LogMessageKeys.INDEXER_ID, common.getIndexerId());
         long startNanos = System.nanoTime();
         FDBDatabaseRunner runner = getRunner();
         final FDBStoreTimer timer = runner.getTimer();
         if ( timer != null) {
             lastProgressSnapshot = StoreTimerSnapshot.from(timer);
         }
-        message.addKeyAndValue(LogMessageKeys.SESSION_ID, common.getUuid());
         AtomicReference<Throwable> indexingException = new AtomicReference<>(null);
         return handleStateAndDoBuildIndexAsync(markReadable, message)
                 .handle((ret, ex) -> {
@@ -362,7 +362,7 @@ public abstract class IndexingBase {
     private CompletableFuture<Void> setIndexingTypeOrThrow(FDBRecordStore store, boolean continuedBuild) {
         // continuedBuild is set if this session isn't a continuation of a previous indexing
         IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp = getIndexingTypeStamp(store);
-        heartbeat = new IndexingHeartbeat(common.getUuid(), indexingTypeStamp.getMethod(), common.config.getLeaseLengthMillis());
+        heartbeat = new IndexingHeartbeat(common.getIndexerId(), indexingTypeStamp.getMethod(), common.config.getLeaseLengthMillis());
 
         return forEachTargetIndex(index -> setIndexingTypeOrThrow(store, continuedBuild, index, indexingTypeStamp));
     }
@@ -506,7 +506,7 @@ public abstract class IndexingBase {
                                                 IndexBuildProto.IndexBuildIndexingStamp savedStamp,
                                                 IndexBuildProto.IndexBuildIndexingStamp expectedStamp,
                                                 Index index) {
-        return new PartlyBuiltException(savedStamp, expectedStamp, index, common.getUuid(),
+        return new PartlyBuiltException(savedStamp, expectedStamp, index, common.getIndexerId(),
                 savedStamp.getBlock() ?
                 "This index was partly built, and blocked" :
                 "This index was partly built by another method");
@@ -901,7 +901,7 @@ public abstract class IndexingBase {
         }
         if (typeStamp == null || typeStamp.getMethod() != expectedTypeStamp.getMethod() || isTypeStampBlocked(typeStamp)) {
             throw new PartlyBuiltException(typeStamp, expectedTypeStamp,
-                    index, common.getUuid(), "Indexing stamp had changed");
+                    index, common.getIndexerId(), "Indexing stamp had changed");
         }
     }
 
@@ -1041,7 +1041,7 @@ public abstract class IndexingBase {
             throw new ValidationException(msg,
                     LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
                     LogMessageKeys.SOURCE_INDEX, policy.getSourceIndex(),
-                    LogMessageKeys.INDEXER_ID, common.getUuid());
+                    LogMessageKeys.INDEXER_ID, common.getIndexerId());
         }
     }
 

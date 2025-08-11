@@ -49,7 +49,7 @@ import java.util.stream.Collectors;
 
 @API(API.Status.INTERNAL)
 public class IndexingCommon {
-    private final UUID uuid = UUID.randomUUID();
+    private final UUID indexerId = UUID.randomUUID();
 
     @Nonnull private final FDBDatabaseRunner runner;
 
@@ -135,8 +135,8 @@ public class IndexingCommon {
         }
     }
 
-    public UUID getUuid() {
-        return uuid;
+    public UUID getIndexerId() {
+        return indexerId;
     }
 
     public List<Object> indexLogMessageKeyValues() {
@@ -156,7 +156,7 @@ public class IndexingCommon {
         logIf(true, keyValues,
                 LogMessageKeys.TARGET_INDEX_NAME, getTargetIndexesNames(),
                 LogMessageKeys.RECORDS_SCANNED, totalRecordsScanned.get(),
-                LogMessageKeys.INDEXER_ID, uuid);
+                LogMessageKeys.INDEXER_ID, indexerId);
 
         if (moreKeyValues != null && !moreKeyValues.isEmpty()) {
             keyValues.addAll(moreKeyValues);
