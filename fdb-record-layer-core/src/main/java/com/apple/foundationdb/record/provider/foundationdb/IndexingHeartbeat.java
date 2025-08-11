@@ -39,20 +39,20 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class IndexingHeartbeat {
     // [prefix, xid] -> [indexing-type, genesis time, heartbeat time]
-    final UUID sessionId;
+    final UUID indexerId;
     final IndexBuildProto.IndexBuildIndexingStamp.Method indexingMethod;
     final long genesisTimeMilliseconds;
     final long leaseLength;
 
-    public IndexingHeartbeat(final UUID sessionId, IndexBuildProto.IndexBuildIndexingStamp.Method indexingMethod, long leaseLength) {
-        this.sessionId = sessionId;
+    public IndexingHeartbeat(final UUID indexerId, IndexBuildProto.IndexBuildIndexingStamp.Method indexingMethod, long leaseLength) {
+        this.indexerId = indexerId;
         this.indexingMethod = indexingMethod;
         this.leaseLength = leaseLength;
         this.genesisTimeMilliseconds = nowMilliseconds();
     }
 
     public void updateHeartbeat(@Nonnull FDBRecordStore store, @Nonnull Index index) {
-        byte[] key = IndexingSubspaces.indexheartbeatSubspace(store, index, sessionId).pack();
+        byte[] key = IndexingSubspaces.indexheartbeatSubspace(store, index, indexerId).pack();
         byte[] value = IndexBuildProto.IndexBuildHeartbeat.newBuilder()
                 .setMethod(indexingMethod)
                 .setGenesisTimeMilliseconds(genesisTimeMilliseconds)
@@ -93,13 +93,13 @@ public class IndexingHeartbeat {
             return;
         }
         final UUID otherSessionId = keyTuple.getUUID(keyTuple.size() - 1);
-        if (!otherSessionId.equals(this.sessionId)) {
+        if (!otherSessionId.equals(this.indexerId)) {
             try {
                 final IndexBuildProto.IndexBuildHeartbeat otherHeartbeat = IndexBuildProto.IndexBuildHeartbeat.parseFrom(kv.getValue());
                 final long age = now - otherHeartbeat.getHeartbeatTimeMilliseconds();
                 if (age > 0 && age < leaseLength) {
                     throw new SynchronizedSessionLockedException("Failed to initialize the session because of an existing session in progress")
-                            .addLogInfo(LogMessageKeys.SESSION_ID, sessionId)
+                            .addLogInfo(LogMessageKeys.SESSION_ID, indexerId)
                             .addLogInfo(LogMessageKeys.EXISTING_SESSION_ID, otherSessionId)
                             .addLogInfo(LogMessageKeys.AGE_MILLISECONDS, age)
                             .addLogInfo(LogMessageKeys.TIME_LIMIT_MILLIS, leaseLength);
@@ -111,7 +111,7 @@ public class IndexingHeartbeat {
     }
 
     public void clearHeartbeat(@Nonnull FDBRecordStore store, @Nonnull Index index) {
-        store.ensureContextActive().clear(IndexingSubspaces.indexheartbeatSubspace(store, index, sessionId).pack());
+        store.ensureContextActive().clear(IndexingSubspaces.indexheartbeatSubspace(store, index, indexerId).pack());
     }
 
     public static CompletableFuture<Map<UUID, IndexBuildProto.IndexBuildHeartbeat>> getIndexingHeartbeats(FDBRecordStore store, Index index, int maxCount) {
