@@ -66,6 +66,7 @@ public class IndexingHeartbeat {
         switch (indexingMethod) {
             case SCRUB_REPAIR:
             case MUTUAL_BY_RECORDS:
+                updateHeartbeat(store, index);
                 return AsyncUtil.DONE;
 
             case BY_RECORDS:
@@ -79,7 +80,11 @@ public class IndexingHeartbeat {
                             }
                             validateNonCompetingHeartbeat(iterator.next(), nowMilliseconds());
                             return true;
-                        }));
+                        }))
+                        .thenApply(ignore -> {
+                            updateHeartbeat(store, index);
+                            return null;
+                        });
 
             default:
                 throw new IndexingBase.ValidationException("invalid indexing method",
@@ -92,15 +97,15 @@ public class IndexingHeartbeat {
         if (keyTuple.size() < 2) { // expecting 8
             return;
         }
-        final UUID otherSessionId = keyTuple.getUUID(keyTuple.size() - 1);
-        if (!otherSessionId.equals(this.indexerId)) {
+        final UUID otherIndexerId = keyTuple.getUUID(keyTuple.size() - 1);
+        if (!otherIndexerId.equals(this.indexerId)) {
             try {
                 final IndexBuildProto.IndexBuildHeartbeat otherHeartbeat = IndexBuildProto.IndexBuildHeartbeat.parseFrom(kv.getValue());
                 final long age = now - otherHeartbeat.getHeartbeatTimeMilliseconds();
                 if (age > 0 && age < leaseLength) {
                     throw new SynchronizedSessionLockedException("Failed to initialize the session because of an existing session in progress")
-                            .addLogInfo(LogMessageKeys.SESSION_ID, indexerId)
-                            .addLogInfo(LogMessageKeys.EXISTING_SESSION_ID, otherSessionId)
+                            .addLogInfo(LogMessageKeys.INDEXER_ID, indexerId)
+                            .addLogInfo(LogMessageKeys.EXISTING_INDEXER_ID, otherIndexerId)
                             .addLogInfo(LogMessageKeys.AGE_MILLISECONDS, age)
                             .addLogInfo(LogMessageKeys.TIME_LIMIT_MILLIS, leaseLength);
                 }
@@ -131,13 +136,13 @@ public class IndexingHeartbeat {
                             if (keyTuple.size() < 2) { // expecting 8
                                 return true; // ignore, next
                             }
-                            final UUID otherSessionId = keyTuple.getUUID(keyTuple.size() - 1);
+                            final UUID otherIndexerId = keyTuple.getUUID(keyTuple.size() - 1);
                             try {
                                 final IndexBuildProto.IndexBuildHeartbeat otherHeartbeat = IndexBuildProto.IndexBuildHeartbeat.parseFrom(kv.getValue());
-                                ret.put(otherSessionId, otherHeartbeat);
+                                ret.put(otherIndexerId, otherHeartbeat);
                             } catch (InvalidProtocolBufferException e) {
                                 // put a NONE heartbeat to indicate an invalid item
-                                ret.put(otherSessionId, IndexBuildProto.IndexBuildHeartbeat.newBuilder()
+                                ret.put(otherIndexerId, IndexBuildProto.IndexBuildHeartbeat.newBuilder()
                                         .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.NONE)
                                         .build());
                             }
