@@ -48,7 +48,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
 
-
     @Test
     void testHeartbeatLowLevel() {
         List<Index> indexes = new ArrayList<>();

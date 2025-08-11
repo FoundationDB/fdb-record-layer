@@ -364,7 +364,7 @@ public abstract class IndexingBase {
         heartbeat = new IndexingHeartbeat(common.getIndexerId(), indexingTypeStamp.getMethod(), common.config.getLeaseLengthMillis());
 
         return forEachTargetIndex(index -> setIndexingTypeOrThrow(store, continuedBuild, index, indexingTypeStamp)
-                .thenApply(ignore -> updateHeartbeat(true, store, index)));
+                .thenCompose(ignore -> updateHeartbeat(true, store, index)));
     }
 
     @Nonnull
