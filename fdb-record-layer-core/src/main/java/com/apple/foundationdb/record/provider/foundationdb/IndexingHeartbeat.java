@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
-import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import javax.annotation.Nonnull;
@@ -73,12 +72,29 @@ public class IndexingHeartbeat {
             case MULTI_TARGET_BY_RECORDS:
             case BY_INDEX:
                 final AsyncIterator<KeyValue> iterator = heartbeatsIterator(store, index);
+                final long now = nowMilliseconds();
                 return AsyncUtil.whileTrue(() -> iterator.onHasNext()
                         .thenApply(hasNext -> {
                             if (!hasNext) {
                                 return false;
                             }
-                            validateNonCompetingHeartbeat(iterator.next(), nowMilliseconds());
+                            final KeyValue kv = iterator.next();
+                            try {
+                                final UUID otherIndexerId = heartbeatKeyToIndexerId(store, index, kv.getKey());
+                                if (!otherIndexerId.equals(this.indexerId)) {
+                                    final IndexBuildProto.IndexBuildHeartbeat otherHeartbeat = IndexBuildProto.IndexBuildHeartbeat.parseFrom(kv.getValue());
+                                    final long age = now - otherHeartbeat.getHeartbeatTimeMilliseconds();
+                                    if (age > 0 && age < leaseLength) {
+                                        throw new SynchronizedSessionLockedException("Failed to initialize the session because of an existing session in progress")
+                                                .addLogInfo(LogMessageKeys.INDEXER_ID, indexerId)
+                                                .addLogInfo(LogMessageKeys.EXISTING_INDEXER_ID, otherIndexerId)
+                                                .addLogInfo(LogMessageKeys.AGE_MILLISECONDS, age)
+                                                .addLogInfo(LogMessageKeys.TIME_LIMIT_MILLIS, leaseLength);
+                                    }
+                                }
+                            } catch (InvalidProtocolBufferException e) {
+                                throw new RuntimeException(e);
+                            }
                             return true;
                         }))
                         .thenApply(ignore -> {
@@ -89,29 +105,6 @@ public class IndexingHeartbeat {
             default:
                 throw new IndexingBase.ValidationException("invalid indexing method",
                         LogMessageKeys.INDEXING_METHOD, indexingMethod);
-        }
-    }
-
-    private void validateNonCompetingHeartbeat(KeyValue kv, long now) {
-        final Tuple keyTuple = Tuple.fromBytes(kv.getKey());
-        if (keyTuple.size() < 2) { // expecting 8
-            return;
-        }
-        final UUID otherIndexerId = keyTuple.getUUID(keyTuple.size() - 1);
-        if (!otherIndexerId.equals(this.indexerId)) {
-            try {
-                final IndexBuildProto.IndexBuildHeartbeat otherHeartbeat = IndexBuildProto.IndexBuildHeartbeat.parseFrom(kv.getValue());
-                final long age = now - otherHeartbeat.getHeartbeatTimeMilliseconds();
-                if (age > 0 && age < leaseLength) {
-                    throw new SynchronizedSessionLockedException("Failed to initialize the session because of an existing session in progress")
-                            .addLogInfo(LogMessageKeys.INDEXER_ID, indexerId)
-                            .addLogInfo(LogMessageKeys.EXISTING_INDEXER_ID, otherIndexerId)
-                            .addLogInfo(LogMessageKeys.AGE_MILLISECONDS, age)
-                            .addLogInfo(LogMessageKeys.TIME_LIMIT_MILLIS, leaseLength);
-                }
-            } catch (InvalidProtocolBufferException e) {
-                throw new RuntimeException(e);
-            }
         }
     }
 
@@ -132,11 +125,7 @@ public class IndexingHeartbeat {
                                 return false;
                             }
                             final KeyValue kv = iterator.next();
-                            final Tuple keyTuple = Tuple.fromBytes(kv.getKey());
-                            if (keyTuple.size() < 2) { // expecting 8
-                                return true; // ignore, next
-                            }
-                            final UUID otherIndexerId = keyTuple.getUUID(keyTuple.size() - 1);
+                            final UUID otherIndexerId = heartbeatKeyToIndexerId(store, index, kv.getKey());
                             try {
                                 final IndexBuildProto.IndexBuildHeartbeat otherHeartbeat = IndexBuildProto.IndexBuildHeartbeat.parseFrom(kv.getValue());
                                 ret.put(otherIndexerId, otherHeartbeat);
@@ -183,10 +172,13 @@ public class IndexingHeartbeat {
                 .thenApply(ignore -> deleteCount.get());
     }
 
-    public static AsyncIterator<KeyValue> heartbeatsIterator(FDBRecordStore store, Index index) {
+    private static AsyncIterator<KeyValue> heartbeatsIterator(FDBRecordStore store, Index index) {
         return store.getContext().ensureActive().snapshot().getRange(IndexingSubspaces.indexheartbeatSubspace(store, index).range()).iterator();
     }
 
+    private static UUID heartbeatKeyToIndexerId(FDBRecordStore store, Index index, byte[] key) {
+        return IndexingSubspaces.indexheartbeatSubspace(store, index).unpack(key).getUUID(0);
+    }
 
     private static long nowMilliseconds() {
         return System.currentTimeMillis();
