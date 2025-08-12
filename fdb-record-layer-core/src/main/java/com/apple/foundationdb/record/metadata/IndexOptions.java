@@ -223,6 +223,15 @@ public class IndexOptions {
      */
     public static final String RTREE_USE_NODE_SLOT_INDEX = "rtreeUseNodeSlotIndex";
 
+    public static final String HNSW_METRIC = "hnswMetric";
+    public static final String HNSW_M = "hnswM";
+    public static final String HNSW_M_MAX = "hnswMax";
+    public static final String HNSW_M_MAX_0 = "hnswMax0";
+    public static final String HNSW_EF_SEARCH = "hnswEfSearch";
+    public static final String HNSW_EF_CONSTRUCTION = "hnswEfConstruction";
+    public static final String HNSW_EXTEND_CANDIDATES = "hnswExtendCandidates";
+    public static final String HNSW_KEEP_PRUNED_CONNECTIONS = "hnswKeepPrunedConnections";
+
     private IndexOptions() {
     }
 }

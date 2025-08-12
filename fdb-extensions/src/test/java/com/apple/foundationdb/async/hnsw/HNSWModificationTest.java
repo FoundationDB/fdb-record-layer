@@ -1,5 +1,5 @@
 /*
- * RTreeModificationTest.java
+ * HNSWModificationTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -172,7 +172,8 @@ public class HNSWModificationTest {
 
         final int dimensions = 128;
         final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
-                HNSW.DEFAULT_CONFIG.toBuilder().setMetric(Metric.EUCLIDEAN_METRIC).setM(32).setMMax(32).setMMax0(64).build(),
+                HNSW.DEFAULT_CONFIG.toBuilder().setMetric(Metrics.EUCLIDEAN_METRIC.getMetric())
+                        .setM(32).setMMax(32).setMMax0(64).build(),
                 OnWriteListener.NOOP, onReadListener);
 
         for (int i = 0; i < 1000;) {
@@ -243,7 +244,7 @@ public class HNSWModificationTest {
     @Test
     @Timeout(value = 150, unit = TimeUnit.MINUTES)
     public void testSIFTInsert10k() throws Exception {
-        final Metric metric = Metric.EUCLIDEAN_METRIC;
+        final Metric metric = Metrics.EUCLIDEAN_METRIC.getMetric();
         final int k = 10;
         final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
 
@@ -328,7 +329,7 @@ public class HNSWModificationTest {
     @Test
     @Timeout(value = 150, unit = TimeUnit.MINUTES)
     public void testSIFTInsert10kWithBatchInsert() throws Exception {
-        final Metric metric = Metric.EUCLIDEAN_METRIC;
+        final Metric metric = Metrics.EUCLIDEAN_METRIC.getMetric();
         final int k = 10;
         final AtomicLong nextNodeIdAtomic = new AtomicLong(0L);
 
@@ -440,7 +441,7 @@ public class HNSWModificationTest {
             final HalfVector randomVector = createRandomVector(random, 768);
             final Tuple vectorTuple = StorageAdapter.tupleFromVector(randomVector);
             final Vector<Half> roundTripVector = StorageAdapter.vectorFromTuple(vectorTuple);
-            Vector.comparativeDistance(Metric.EuclideanMetric.EUCLIDEAN_METRIC, randomVector, roundTripVector);
+            Vector.comparativeDistance(Metrics.EUCLIDEAN_METRIC.getMetric(), randomVector, roundTripVector);
             Assertions.assertEquals(randomVector, roundTripVector);
         }
     }
@@ -453,7 +454,8 @@ public class HNSWModificationTest {
         final TestOnReadListener onReadListener = new TestOnReadListener();
 
         final HNSW hnsw = new HNSW(rtSubspace.getSubspace(), TestExecutors.defaultThreadPool(),
-                HNSW.DEFAULT_CONFIG.toBuilder().setMetric(Metric.EUCLIDEAN_METRIC).setM(32).setMMax(32).setMMax0(64).build(),
+                HNSW.DEFAULT_CONFIG.toBuilder().setMetric(Metrics.EUCLIDEAN_METRIC.getMetric())
+                        .setM(32).setMMax(32).setMMax0(64).build(),
                 OnWriteListener.NOOP, onReadListener);
 
 
@@ -481,7 +483,8 @@ public class HNSWModificationTest {
                     halfs[c] = HNSWHelpers.halfValueOf(Double.parseDouble(value));
                 }
                 final HalfVector newVector = new HalfVector(halfs);
-                final double distance = Vector.comparativeDistance(Metric.EUCLIDEAN_METRIC, referenceVector, newVector);
+                final double distance = Vector.comparativeDistance(Metrics.EUCLIDEAN_METRIC.getMetric(),
+                        referenceVector, newVector);
                 count++;
                 final double delta = distance - mean;
                 mean += delta / count;
@@ -500,7 +503,7 @@ public class HNSWModificationTest {
     @ValueSource(ints = {2, 3, 10, 100, 768})
     public void testManyVectorsStandardDeviation(final int dimensionality) {
         final Random random = new Random();
-        final Metric metric = Metric.EuclideanMetric.EUCLIDEAN_METRIC;
+        final Metric metric = Metrics.EUCLIDEAN_METRIC.getMetric();
         long count = 0L;
         double mean = 0.0d;
         double mean2 = 0.0d;

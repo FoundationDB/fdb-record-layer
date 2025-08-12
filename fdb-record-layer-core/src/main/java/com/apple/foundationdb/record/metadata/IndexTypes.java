@@ -164,6 +164,11 @@ public class IndexTypes {
      */
     public static final String MULTIDIMENSIONAL = "multidimensional";
 
+    /**
+     * An index using an HNSW structure.
+     */
+    public static final String VECTOR = "vector";
+
     private IndexTypes() {
     }
 }
