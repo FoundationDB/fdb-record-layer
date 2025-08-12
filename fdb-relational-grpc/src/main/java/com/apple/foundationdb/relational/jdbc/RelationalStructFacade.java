@@ -36,6 +36,7 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ListColumn;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.ListColumnMetadata;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Struct;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Type;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.column.Uuid;
 import com.apple.foundationdb.relational.util.PositionalIndex;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.google.common.annotations.VisibleForTesting;
@@ -478,6 +479,19 @@ class RelationalStructFacade implements RelationalStruct {
         }
 
         @Override
+        public RelationalStructBuilder addUuid(final String fieldName, @Nullable final UUID uuid) {
+            int offset = addMetadata(ColumnMetadata.newBuilder()
+                    .setName(fieldName).setJavaSqlTypesCode(Types.OTHER).setType(Type.UUID).build());
+            if (uuid == null) {
+                this.listColumnBuilder.addColumn(offset, Column.newBuilder().build());
+            } else {
+                final var uuidColumn = Uuid.newBuilder().setMostSignificantBits(uuid.getMostSignificantBits()).setLeastSignificantBits(uuid.getLeastSignificantBits()).build();
+                this.listColumnBuilder.addColumn(offset, Column.newBuilder().setUuid(uuidColumn).build());
+            }
+            return this;
+        }
+
+        @Override
         public RelationalStructBuilder addObject(final String fieldName, @Nullable final Object obj) throws SQLException {
             throw new SQLException("Not implemented " + Thread.currentThread() .getStackTrace()[1] .getMethodName());
         }
@@ -575,6 +589,8 @@ class RelationalStructFacade implements RelationalStruct {
                     return nullable ? DataType.Primitives.NULLABLE_BOOLEAN.type() : DataType.Primitives.BOOLEAN.type();
                 case BYTES:
                     return nullable ? DataType.Primitives.NULLABLE_BYTES.type() : DataType.Primitives.BYTES.type();
+                case UUID:
+                    return nullable ? DataType.Primitives.NULLABLE_UUID.type() : DataType.Primitives.UUID.type();
                 case STRING:
                     return nullable ? DataType.Primitives.NULLABLE_STRING.type() : DataType.Primitives.STRING.type();
                 case VERSION:

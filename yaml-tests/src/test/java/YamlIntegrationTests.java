@@ -267,8 +267,8 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    public void uuidProtoTest(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("uuid-proto.yamsql");
+    public void uuidTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("uuid.yamsql");
     }
 
     @TestTemplate
