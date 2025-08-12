@@ -18,7 +18,7 @@
 # limitations under the License.
 ---
 options:
-  supported_version: !current_version
+  supported_version: 4.5.5.0
 ---
 schema_template:
     create table ta(a bigint, b uuid, primary key(a))
@@ -59,7 +59,7 @@ setup:
                (6, '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6', 1)
 ---
 test_block:
-  supported_version: !current_version
+  supported_version: 4.5.5.0
   name: insertion-tests
   preset: single_repetition_ordered
   tests:
