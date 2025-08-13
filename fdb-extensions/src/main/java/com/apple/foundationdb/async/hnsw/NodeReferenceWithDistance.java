@@ -26,7 +26,7 @@ import com.christianheina.langx.half4j.Half;
 import javax.annotation.Nonnull;
 import java.util.Objects;
 
-class NodeReferenceWithDistance extends NodeReferenceWithVector {
+public class NodeReferenceWithDistance extends NodeReferenceWithVector {
     private final double distance;
 
     public NodeReferenceWithDistance(@Nonnull final Tuple primaryKey, @Nonnull final Vector<Half> vector,

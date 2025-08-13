@@ -59,6 +59,9 @@ public abstract class Vector<R extends Number> {
     }
 
     @Nonnull
+    public abstract byte[] getRawData();
+
+    @Nonnull
     public abstract Vector<Half> toHalfVector();
 
     @Nonnull
@@ -102,10 +105,13 @@ public abstract class Vector<R extends Number> {
     public static class HalfVector extends Vector<Half> {
         @Nonnull
         private final Supplier<DoubleVector> toDoubleVectorSupplier;
+        @Nonnull
+        private final Supplier<byte[]> toRawDataSupplier;
 
         public HalfVector(@Nonnull final Half[] data) {
             super(data);
             this.toDoubleVectorSupplier = Suppliers.memoize(this::computeDoubleVector);
+            this.toRawDataSupplier = Suppliers.memoize(this::computeRawData);
         }
 
         @Nonnull
@@ -127,6 +133,22 @@ public abstract class Vector<R extends Number> {
                 result[i] = data[i].doubleValue();
             }
             return new DoubleVector(result);
+        }
+
+        @Nonnull
+        @Override
+        public byte[] getRawData() {
+            return toRawDataSupplier.get();
+        }
+
+        @Nonnull
+        private byte[] computeRawData() {
+            return StorageAdapter.bytesFromVector(this);
+        }
+
+        @Nonnull
+        public static HalfVector halfVectorFromBytes(@Nonnull final byte[] vectorBytes) {
+            return StorageAdapter.vectorFromBytes(vectorBytes);
         }
     }
 
@@ -158,6 +180,13 @@ public abstract class Vector<R extends Number> {
         @Override
         public DoubleVector toDoubleVector() {
             return this;
+        }
+
+        @Nonnull
+        @Override
+        public byte[] getRawData() {
+            // TODO
+            throw new UnsupportedOperationException("not implemented yet");
         }
     }
 

@@ -117,9 +117,12 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
 
     public void writeNeighbor(@Nonnull final Transaction transaction, final int layer,
                               @Nonnull final Node<NodeReferenceWithVector> node, @Nonnull final NodeReferenceWithVector neighbor) {
-        transaction.set(getNeighborKey(layer, node, neighbor.getPrimaryKey()),
-                StorageAdapter.tupleFromVector(neighbor.getVector()).pack());
+        final byte[] neighborKey = getNeighborKey(layer, node, neighbor.getPrimaryKey());
+        final byte[] value = StorageAdapter.tupleFromVector(neighbor.getVector()).pack();
+        transaction.set(neighborKey,
+                value);
         getOnWriteListener().onNeighborWritten(layer, node, neighbor);
+        getOnWriteListener().onKeyValueWritten(layer, neighborKey, value);
     }
 
     public void deleteNeighbor(@Nonnull final Transaction transaction, final int layer,

@@ -143,8 +143,10 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
 
         final Tuple nodeTuple = Tuple.fromList(nodeItems);
 
-        transaction.set(key, nodeTuple.pack());
+        final byte[] value = nodeTuple.pack();
+        transaction.set(key, value);
         getOnWriteListener().onNodeWritten(layer, node);
+        getOnWriteListener().onKeyValueWritten(layer, key, value);
 
         if (logger.isDebugEnabled()) {
             logger.debug("written neighbors of primaryKey={}, oldSize={}, newSize={}", node.getPrimaryKey(),

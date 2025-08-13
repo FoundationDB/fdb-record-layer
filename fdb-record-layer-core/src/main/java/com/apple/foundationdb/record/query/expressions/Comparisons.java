@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.async.hnsw.Vector;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -633,7 +634,13 @@ public class Comparisons {
         @API(API.Status.EXPERIMENTAL)
         SORT(false),
         @API(API.Status.EXPERIMENTAL)
-        LIKE;
+        LIKE,
+        @API(API.Status.EXPERIMENTAL)
+        DISTANCE_RANK_EQUALS(true),
+        @API(API.Status.EXPERIMENTAL)
+        DISTANCE_RANK_LESS_THAN,
+        @API(API.Status.EXPERIMENTAL)
+        DISTANCE_RANK_LESS_THAN_OR_EQUAL;
 
         @Nonnull
         private static final Supplier<BiMap<Type, PComparisonType>> protoEnumBiMapSupplier =
@@ -1760,6 +1767,9 @@ public class Comparisons {
                                            @Nonnull final ParameterRelationshipGraph parameterRelationshipGraph,
                                            @Nonnull final Value limitValue) {
             super(type, comparandValue, parameterRelationshipGraph);
+            Verify.verify(type == Type.DISTANCE_RANK_EQUALS ||
+                    type == Type.DISTANCE_RANK_LESS_THAN ||
+                    type == Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL);
             this.limitValue = limitValue;
         }
 
@@ -1805,7 +1815,8 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public Comparison translateCorrelations(@Nonnull final TranslationMap translationMap, final boolean shouldSimplifyValues) {
+        public DistanceRankValueComparison translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                                 final boolean shouldSimplifyValues) {
             if (getComparandValue().getCorrelatedTo()
                     .stream()
                     .noneMatch(translationMap::containsSourceAlias) &&
@@ -1902,6 +1913,18 @@ public class Comparisons {
         @Override
         public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
             return PComparison.newBuilder().setDistanceRankValueComparison(toProto(serializationContext)).build();
+        }
+
+        @Nullable
+        public Vector<? extends Number> getVector(@Nullable final FDBRecordStoreBase<?> store, final @Nullable EvaluationContext context) {
+            return (Vector<? extends Number>)getComparand(store, context);
+        }
+
+        public int getLimit(@Nullable final FDBRecordStoreBase<?> store, final @Nullable EvaluationContext context) {
+            if (context == null) {
+                throw EvaluationContextRequiredException.instance();
+            }
+            return (int)Objects.requireNonNull(getLimitValue().eval(store, context));
         }
 
         @Nonnull

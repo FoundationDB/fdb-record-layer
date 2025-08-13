@@ -128,25 +128,35 @@ interface StorageAdapter<N extends NodeReference> {
                 StorageAdapter.tupleFromVector(entryNodeReference.getVector())).pack();
         transaction.set(key,
                 value);
-        onWriteListener.onKeyValueWritten(key, value);
+        onWriteListener.onKeyValueWritten(entryNodeReference.getLayer(), key, value);
     }
 
     @Nonnull
-    static Vector<Half> vectorFromTuple(final Tuple vectorTuple) {
-        final byte[] vectorAsBytes = vectorTuple.getBytes(0);
-        final int bytesLength = vectorAsBytes.length;
+    static Vector.HalfVector vectorFromTuple(final Tuple vectorTuple) {
+        return vectorFromBytes(vectorTuple.getBytes(0));
+    }
+
+    @Nonnull
+    static Vector.HalfVector vectorFromBytes(final byte[] vectorBytes) {
+        final int bytesLength = vectorBytes.length;
         Verify.verify(bytesLength % 2 == 0);
         final int componentSize = bytesLength >>> 1;
         final Half[] vectorHalfs = new Half[componentSize];
         for (int i = 0; i < componentSize; i ++) {
-            vectorHalfs[i] = Half.shortBitsToHalf(shortFromBytes(vectorAsBytes, i << 1));
+            vectorHalfs[i] = Half.shortBitsToHalf(shortFromBytes(vectorBytes, i << 1));
         }
         return new Vector.HalfVector(vectorHalfs);
     }
 
+
     @Nonnull
     @SuppressWarnings("PrimitiveArrayArgumentToVarargsMethod")
     static Tuple tupleFromVector(final Vector<Half> vector) {
+        return Tuple.from(bytesFromVector(vector));
+    }
+
+    @Nonnull
+    static byte[] bytesFromVector(final Vector<Half> vector) {
         final byte[] vectorBytes = new byte[2 * vector.size()];
         for (int i = 0; i < vector.size(); i ++) {
             final byte[] componentBytes = bytesFromShort(Half.halfToShortBits(vector.getComponent(i)));
@@ -154,7 +164,7 @@ interface StorageAdapter<N extends NodeReference> {
             vectorBytes[indexTimesTwo] = componentBytes[0];
             vectorBytes[indexTimesTwo + 1] = componentBytes[1];
         }
-        return Tuple.from(vectorBytes);
+        return vectorBytes;
     }
 
     static short shortFromBytes(final byte[] bytes, final int offset) {

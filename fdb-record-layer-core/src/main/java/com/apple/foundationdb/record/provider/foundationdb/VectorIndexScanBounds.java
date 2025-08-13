@@ -21,42 +21,41 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.async.rtree.RTree;
+import com.apple.foundationdb.async.hnsw.Vector;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TupleRange;
-import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 
 import javax.annotation.Nonnull;
-import java.util.List;
-import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /**
- * {@link IndexScanBounds} for a multidimensional index scan. A multidimensional scan bounds object contains a
- * {@link #prefixRange} and a {@link SpatialPredicate} which can be almost arbitrarily complex. The prefix range
- * is a regular tuple range informing the index maintainer how to constrain the search over the non-multidimensional
- * fields that can be viewed as a prefix whose data is stored in a regular one-dimensional index. The spatial predicate
- * implements methods to quickly establish geometric overlap and containment. Spatial predicates do have internal
- * structure as they can delegate to contained other spatial predicates thus allowing to form e.g. logical conjuncts
- * or disjuncts.
+ * TODO.
  */
 @API(API.Status.EXPERIMENTAL)
-public class MultidimensionalIndexScanBounds implements IndexScanBounds {
+public class VectorIndexScanBounds implements IndexScanBounds {
     @Nonnull
     private final TupleRange prefixRange;
 
     @Nonnull
-    private final SpatialPredicate spatialPredicate;
+    private final Comparisons.Type comparisonType;
+    @Nullable
+    private final Vector<? extends Number> queryVector;
+    private final int limit;
 
     @Nonnull
     private final TupleRange suffixRange;
 
-    public MultidimensionalIndexScanBounds(@Nonnull final TupleRange prefixRange,
-                                           @Nonnull final SpatialPredicate spatialPredicate,
-                                           @Nonnull final TupleRange suffixRange) {
+    public VectorIndexScanBounds(@Nonnull final TupleRange prefixRange,
+                                 @Nonnull final Comparisons.Type comparisonType,
+                                 @Nullable final Vector<? extends Number> queryVector,
+                                 final int limit,
+                                 @Nonnull final TupleRange suffixRange) {
         this.prefixRange = prefixRange;
-        this.spatialPredicate = spatialPredicate;
+        this.comparisonType = comparisonType;
+        this.queryVector = queryVector;
+        this.limit = limit;
         this.suffixRange = suffixRange;
     }
 
@@ -72,8 +71,28 @@ public class MultidimensionalIndexScanBounds implements IndexScanBounds {
     }
 
     @Nonnull
-    public SpatialPredicate getSpatialPredicate() {
-        return spatialPredicate;
+    public Comparisons.Type getComparisonType() {
+        return comparisonType;
+    }
+
+    @Nullable
+    public Vector<? extends Number> getQueryVector() {
+        return queryVector;
+    }
+
+    public int getLimit() {
+        return limit;
+    }
+
+    public int getAdjustedLimit() {
+        switch (getComparisonType()) {
+            case DISTANCE_RANK_LESS_THAN:
+                return limit - 1;
+            case DISTANCE_RANK_LESS_THAN_OR_EQUAL:
+                return limit;
+            default:
+                throw new RecordCoreException("unsupported comparison");
+        }
     }
 
     @Nonnull
@@ -81,157 +100,16 @@ public class MultidimensionalIndexScanBounds implements IndexScanBounds {
         return suffixRange;
     }
 
-    /**
-     * Method to compute if the rectangle handed in overlaps with this scan bounds object. This method is invoked when
-     * the R-tree data structure of a multidimensional index is searched. Note that this method can be implemented using
-     * a best-effort approach as it is permissible to indicate overlap between {@code mbr} and {@code this} when there
-     * is in fact no overlap. The rate of false-positives directly influences the search performance in the
-     * multidimensional index.
-     * @param mbr the minimum-bounding {@link RTree.Rectangle}
-     * @return {@code true} if {@code this} overlaps with {@code mbr}
-     */
-    public boolean overlapsMbrApproximately(@Nonnull RTree.Rectangle mbr) {
-        return spatialPredicate.overlapsMbrApproximately(mbr);
-    }
-
-    /**
-     * Method to compute if the point handed in is contained by this scan bounds object.
-     * @param position the {@link RTree.Point}
-     * @return {@code true} if {@code position} is contained by {@code this}
-     */
-    public boolean containsPosition(@Nonnull RTree.Point position) {
-        return spatialPredicate.containsPosition(position);
-    }
-
-    /**
-     * Spatial predicate. The implementing classes form a boolean algebra of sorts. Most notably {@link Hypercube}
-     * represents the logical variables, while {@link And} and {@link Or} can be used to build up more complex powerful
-     * bounds.
-     */
-    public interface SpatialPredicate {
-        SpatialPredicate TAUTOLOGY = new SpatialPredicate() {
-            @Override
-            public boolean overlapsMbrApproximately(@Nonnull final RTree.Rectangle mbr) {
-                return true;
-            }
-
-            @Override
-            public boolean containsPosition(@Nonnull final RTree.Point position) {
-                return true;
-            }
-        };
-
-        boolean overlapsMbrApproximately(@Nonnull RTree.Rectangle mbr);
-
-        boolean containsPosition(@Nonnull RTree.Point position);
-    }
-
-    /**
-     * Scan bounds that consists of other {@link SpatialPredicate}s to form a logical OR.
-     */
-    public static class Or implements SpatialPredicate {
-        @Nonnull
-        private final List<SpatialPredicate> children;
-
-        public Or(@Nonnull final List<SpatialPredicate> children) {
-            this.children = ImmutableList.copyOf(children);
-        }
-
-        @Override
-        public boolean overlapsMbrApproximately(@Nonnull final RTree.Rectangle mbr) {
-            return children.stream()
-                    .anyMatch(child -> child.overlapsMbrApproximately(mbr));
-        }
-
-        @Override
-        public boolean containsPosition(@Nonnull final RTree.Point position) {
-            return children.stream()
-                    .anyMatch(child -> child.containsPosition(position));
-        }
-
-        @Override
-        public String toString() {
-            return children.stream().map(Object::toString).collect(Collectors.joining(" or "));
-        }
-    }
-
-    /**
-     * Scan bounds that consists of other {@link SpatialPredicate}s to form a logical AND.
-     */
-    public static class And implements SpatialPredicate {
-        @Nonnull
-        private final List<SpatialPredicate> children;
-
-        public And(@Nonnull final List<SpatialPredicate> children) {
-            this.children = ImmutableList.copyOf(children);
-        }
-
-        @Override
-        public boolean overlapsMbrApproximately(@Nonnull final RTree.Rectangle mbr) {
-            return children.stream()
-                    .allMatch(child -> child.overlapsMbrApproximately(mbr));
-        }
-
-        @Override
-        public boolean containsPosition(@Nonnull final RTree.Point position) {
-            return children.stream()
-                    .allMatch(child -> child.containsPosition(position));
-        }
-
-        @Override
-        public String toString() {
-            return children.stream().map(Object::toString).collect(Collectors.joining(" and "));
-        }
-    }
-
-    /**
-     * Scan bounds describing an n-dimensional hypercube.
-     */
-    public static class Hypercube implements SpatialPredicate {
-        @Nonnull
-        private final List<TupleRange> dimensionRanges;
-
-        public Hypercube(@Nonnull final List<TupleRange> dimensionRanges) {
-            this.dimensionRanges = ImmutableList.copyOf(dimensionRanges);
-        }
-
-        @Override
-        public boolean overlapsMbrApproximately(@Nonnull final RTree.Rectangle mbr) {
-            Preconditions.checkArgument(mbr.getNumDimensions() == dimensionRanges.size());
-
-            for (int d = 0; d < mbr.getNumDimensions(); d++) {
-                final Tuple lowTuple = Tuple.from(mbr.getLow(d));
-                final Tuple highTuple = Tuple.from(mbr.getHigh(d));
-                final TupleRange dimensionRange = dimensionRanges.get(d);
-                if (!dimensionRange.overlaps(lowTuple, highTuple)) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        @Override
-        public boolean containsPosition(@Nonnull final RTree.Point position) {
-            Preconditions.checkArgument(position.getNumDimensions() == dimensionRanges.size());
-
-            for (int d = 0; d < position.getNumDimensions(); d++) {
-                final Tuple coordinate = Tuple.from(position.getCoordinate(d));
-                final TupleRange dimensionRange = dimensionRanges.get(d);
-                if (!dimensionRange.contains(coordinate)) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        @Nonnull
-        public List<TupleRange> getDimensionRanges() {
-            return dimensionRanges;
-        }
-
-        @Override
-        public String toString() {
-            return "HyperCube:[" + dimensionRanges + "]";
+    public boolean isWithinLimit(int rank) {
+        switch (getComparisonType()) {
+            case DISTANCE_RANK_EQUALS:
+                return rank == limit;
+            case DISTANCE_RANK_LESS_THAN:
+                return rank < limit;
+            case DISTANCE_RANK_LESS_THAN_OR_EQUAL:
+                return rank <= limit;
+            default:
+                throw new RecordCoreException("unsupported comparison");
         }
     }
 }

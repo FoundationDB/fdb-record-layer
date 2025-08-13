@@ -30,15 +30,16 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.planprotos.PIndexScanParameters;
-import com.apple.foundationdb.record.planprotos.PMultidimensionalIndexScanComparisons;
-import com.apple.foundationdb.record.provider.foundationdb.MultidimensionalIndexScanBounds.Hypercube;
+import com.apple.foundationdb.record.planprotos.PVectorIndexScanComparisons;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.expressions.Comparisons.DistanceRankValueComparison;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -46,7 +47,6 @@ import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -54,19 +54,19 @@ import java.util.Set;
  * {@link ScanComparisons} for use in a multidimensional index scan.
  */
 @API(API.Status.UNSTABLE)
-public class MultidimensionalIndexScanComparisons implements IndexScanParameters {
+public class VectorIndexScanComparisons implements IndexScanParameters {
     @Nonnull
     private final ScanComparisons prefixScanComparisons;
     @Nonnull
-    private final List<ScanComparisons> dimensionsScanComparisons;
+    private final DistanceRankValueComparison distanceRankValueComparison;
     @Nonnull
     private final ScanComparisons suffixScanComparisons;
 
-    public MultidimensionalIndexScanComparisons(@Nonnull final ScanComparisons prefixScanComparisons,
-                                                @Nonnull final List<ScanComparisons> dimensionsScanComparisons,
-                                                @Nonnull final ScanComparisons suffixKeyComparisonRanges) {
+    public VectorIndexScanComparisons(@Nonnull final ScanComparisons prefixScanComparisons,
+                                      @Nonnull final DistanceRankValueComparison distanceRankValueComparison,
+                                      @Nonnull final ScanComparisons suffixKeyComparisonRanges) {
         this.prefixScanComparisons = prefixScanComparisons;
-        this.dimensionsScanComparisons = dimensionsScanComparisons;
+        this.distanceRankValueComparison = distanceRankValueComparison;
         this.suffixScanComparisons = suffixKeyComparisonRanges;
     }
 
@@ -82,8 +82,8 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
     }
 
     @Nonnull
-    public List<ScanComparisons> getDimensionsScanComparisons() {
-        return dimensionsScanComparisons;
+    public DistanceRankValueComparison getDistanceRankValueComparison() {
+        return distanceRankValueComparison;
     }
 
     @Nonnull
@@ -93,20 +93,16 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
 
     @Nonnull
     @Override
-    public MultidimensionalIndexScanBounds bind(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final Index index,
-                                                @Nonnull final EvaluationContext context) {
-        final ImmutableList.Builder<TupleRange> dimensionsTupleRangeBuilder = ImmutableList.builder();
-        for (final ScanComparisons dimensionScanComparison : dimensionsScanComparisons) {
-            dimensionsTupleRangeBuilder.add(dimensionScanComparison.toTupleRange(store, context));
-        }
-        final Hypercube hypercube = new Hypercube(dimensionsTupleRangeBuilder.build());
-        return new MultidimensionalIndexScanBounds(prefixScanComparisons.toTupleRange(store, context),
-                hypercube, suffixScanComparisons.toTupleRange(store, context));
+    public VectorIndexScanBounds bind(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final Index index,
+                                      @Nonnull final EvaluationContext context) {
+        return new VectorIndexScanBounds(prefixScanComparisons.toTupleRange(store, context),
+                distanceRankValueComparison.getType(), distanceRankValueComparison.getVector(store, context),
+                distanceRankValueComparison.getLimit(store, context), suffixScanComparisons.toTupleRange(store, context));
     }
 
     @Override
     public int planHash(@Nonnull PlanHashMode mode) {
-        return PlanHashable.objectsPlanHash(mode, prefixScanComparisons, dimensionsScanComparisons,
+        return PlanHashable.objectsPlanHash(mode, prefixScanComparisons, distanceRankValueComparison,
                 suffixScanComparisons);
     }
 
@@ -123,16 +119,19 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
                            ? prefixScanComparisons.explain().getExplainTokens()
                            : new ExplainTokens().addToString(tupleRange);
 
-        final var dimensions =
-                new ExplainTokens().addSequence(() -> new ExplainTokens().addCommaAndWhiteSpace(),
-                        () -> dimensionsScanComparisons.stream()
-                                .map(dimensionScanComparisons -> {
-                                    @Nullable var dimensionTupleRange = dimensionScanComparisons.toTupleRangeWithoutContext();
-                                    return dimensionTupleRange == null
-                                           ? dimensionScanComparisons.explain().getExplainTokens()
-                                           : new ExplainTokens().addToString(dimensionTupleRange);
-                                }).iterator());
-
+        ExplainTokens distanceRank;
+        try {
+            @Nullable var vector = distanceRankValueComparison.getVector(null, null);
+            int limit = distanceRankValueComparison.getLimit(null, null);
+            distanceRank =
+                    new ExplainTokens().addNested(vector == null
+                                                  ? new ExplainTokens().addKeyword("null")
+                                                  : new ExplainTokens().addToString(vector));
+            distanceRank.addKeyword(distanceRankValueComparison.getType().name()).addWhitespace().addToString(limit);
+        } catch (final Comparisons.EvaluationContextRequiredException e) {
+            distanceRank =
+                    new ExplainTokens().addNested(distanceRankValueComparison.explain().getExplainTokens());
+        }
 
         tupleRange = suffixScanComparisons.toTupleRangeWithoutContext();
         final var suffix = tupleRange == null
@@ -140,9 +139,10 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
                            : new ExplainTokens().addToString(tupleRange);
 
         return ExplainTokensWithPrecedence.of(prefix.addOptionalWhitespace().addToString(":{").addOptionalWhitespace()
-                .addNested(dimensions).addOptionalWhitespace().addToString("}:").addOptionalWhitespace().addNested(suffix));
+                .addNested(distanceRank).addOptionalWhitespace().addToString("}:").addOptionalWhitespace().addNested(suffix));
     }
 
+    @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
     @Override
     public void getPlannerGraphDetails(@Nonnull ImmutableList.Builder<String> detailsBuilder, @Nonnull ImmutableMap.Builder<String, Attribute> attributeMapBuilder) {
         @Nullable TupleRange tupleRange = prefixScanComparisons.toTupleRangeWithoutContext();
@@ -155,17 +155,16 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
             attributeMapBuilder.put("pcomparisons", Attribute.gml(prefixScanComparisons.toString()));
         }
 
-        for (int d = 0; d < dimensionsScanComparisons.size(); d++) {
-            final ScanComparisons dimensionScanComparisons = dimensionsScanComparisons.get(d);
-            tupleRange = dimensionScanComparisons.toTupleRangeWithoutContext();
-            if (tupleRange != null) {
-                detailsBuilder.add("dim" + d + ": " + tupleRange.getLowEndpoint().toString(false) + "{{dlow" + d + "}}, {{dhigh" + d + "}}" + tupleRange.getHighEndpoint().toString(true));
-                attributeMapBuilder.put("dlow" + d, Attribute.gml(tupleRange.getLow() == null ? "-∞" : tupleRange.getLow().toString()));
-                attributeMapBuilder.put("dhigh" + d, Attribute.gml(tupleRange.getHigh() == null ? "∞" : tupleRange.getHigh().toString()));
-            } else {
-                detailsBuilder.add("dim" + d + " comparisons: " + "{{dcomparisons" + d + "}}");
-                attributeMapBuilder.put("dcomparisons" + d, Attribute.gml(dimensionScanComparisons.toString()));
-            }
+        try {
+            @Nullable var vector = distanceRankValueComparison.getVector(null, null);
+            int limit = distanceRankValueComparison.getLimit(null, null);
+            detailsBuilder.add("distanceRank: {{vector}} {{type}} {{limit}}");
+            attributeMapBuilder.put("vector", Attribute.gml(String.valueOf(vector)));
+            attributeMapBuilder.put("type", Attribute.gml(distanceRankValueComparison.getType()));
+            attributeMapBuilder.put("limit", Attribute.gml(limit));
+        } catch (final Comparisons.EvaluationContextRequiredException e) {
+            detailsBuilder.add("distanceRank: {{comparison}}");
+            attributeMapBuilder.put("comparison", Attribute.gml(distanceRankValueComparison));
         }
 
         tupleRange = suffixScanComparisons.toTupleRangeWithoutContext();
@@ -184,8 +183,7 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
     public Set<CorrelationIdentifier> getCorrelatedTo() {
         final ImmutableSet.Builder<CorrelationIdentifier> correlatedToBuilder = ImmutableSet.builder();
         correlatedToBuilder.addAll(prefixScanComparisons.getCorrelatedTo());
-        correlatedToBuilder.addAll(dimensionsScanComparisons.stream()
-                .flatMap(dimensionScanComparison -> dimensionScanComparison.getCorrelatedTo().stream()).iterator());
+        correlatedToBuilder.addAll(distanceRankValueComparison.getCorrelatedTo());
         correlatedToBuilder.addAll(suffixScanComparisons.getCorrelatedTo());
         return correlatedToBuilder.build();
     }
@@ -206,20 +204,14 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
             return false;
         }
 
-        final MultidimensionalIndexScanComparisons that = (MultidimensionalIndexScanComparisons)other;
+        final VectorIndexScanComparisons that = (VectorIndexScanComparisons)other;
 
         if (!prefixScanComparisons.semanticEquals(that.prefixScanComparisons, aliasMap)) {
             return false;
         }
-        if (dimensionsScanComparisons.size() != that.dimensionsScanComparisons.size()) {
+
+        if (!distanceRankValueComparison.semanticEquals(that.distanceRankValueComparison, aliasMap)) {
             return false;
-        }
-        for (int i = 0; i < dimensionsScanComparisons.size(); i++) {
-            final ScanComparisons dimensionScanComparison = dimensionsScanComparisons.get(i);
-            final ScanComparisons otherDimensionScanComparison = that.dimensionsScanComparisons.get(i);
-            if (!dimensionScanComparison.semanticEquals(otherDimensionScanComparison, aliasMap)) {
-                return false;
-            }
         }
         return suffixScanComparisons.semanticEquals(that.suffixScanComparisons, aliasMap);
     }
@@ -227,9 +219,7 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
     @Override
     public int semanticHashCode() {
         int hashCode = prefixScanComparisons.semanticHashCode();
-        for (final ScanComparisons dimensionScanComparison : dimensionsScanComparisons) {
-            hashCode = 31 * hashCode + dimensionScanComparison.semanticHashCode();
-        }
+        hashCode = 31 * hashCode + distanceRankValueComparison.semanticHashCode();
         return 31 * hashCode + suffixScanComparisons.semanticHashCode();
     }
 
@@ -241,39 +231,32 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
         final ScanComparisons translatedPrefixScanComparisons =
                 prefixScanComparisons.translateCorrelations(translationMap, shouldSimplifyValues);
 
-        final ImmutableList.Builder<ScanComparisons> translatedDimensionScanComparisonBuilder = ImmutableList.builder();
-        boolean isSameDimensionsScanComparisons = true;
-        for (final ScanComparisons dimensionScanComparisons : dimensionsScanComparisons) {
-            final ScanComparisons translatedDimensionScanComparison =
-                    dimensionScanComparisons.translateCorrelations(translationMap, shouldSimplifyValues);
-            if (translatedDimensionScanComparison != dimensionScanComparisons) {
-                isSameDimensionsScanComparisons = false;
-            }
-            translatedDimensionScanComparisonBuilder.add(translatedDimensionScanComparison);
-        }
+        final DistanceRankValueComparison translatedDistanceRankValueComparison =
+                distanceRankValueComparison.translateCorrelations(translationMap, shouldSimplifyValues);
 
         final ScanComparisons translatedSuffixKeyScanComparisons =
                 suffixScanComparisons.translateCorrelations(translationMap, shouldSimplifyValues);
 
-        if (translatedPrefixScanComparisons != prefixScanComparisons || !isSameDimensionsScanComparisons ||
+        if (translatedPrefixScanComparisons != prefixScanComparisons ||
+                translatedDistanceRankValueComparison != distanceRankValueComparison ||
                 translatedSuffixKeyScanComparisons != suffixScanComparisons) {
-            return withComparisons(translatedPrefixScanComparisons, translatedDimensionScanComparisonBuilder.build(),
+            return withComparisons(translatedPrefixScanComparisons, translatedDistanceRankValueComparison,
                     translatedSuffixKeyScanComparisons);
         }
         return this;
     }
 
     @Nonnull
-    protected MultidimensionalIndexScanComparisons withComparisons(@Nonnull final ScanComparisons prefixScanComparisons,
-                                                                   @Nonnull final List<ScanComparisons> dimensionsComparisonRanges,
-                                                                   @Nonnull final ScanComparisons suffixKeyScanComparisons) {
-        return new MultidimensionalIndexScanComparisons(prefixScanComparisons, dimensionsComparisonRanges,
+    protected VectorIndexScanComparisons withComparisons(@Nonnull final ScanComparisons prefixScanComparisons,
+                                                         @Nonnull final DistanceRankValueComparison distanceRankValueComparison,
+                                                         @Nonnull final ScanComparisons suffixKeyScanComparisons) {
+        return new VectorIndexScanComparisons(prefixScanComparisons, distanceRankValueComparison,
                 suffixKeyScanComparisons);
     }
 
     @Override
     public String toString() {
-        return "BY_VALUE(MD):" + prefixScanComparisons + ":" + dimensionsScanComparisons + ":" + suffixScanComparisons;
+        return "BY_VALUE(VECTOR):" + prefixScanComparisons + ":" + distanceRankValueComparison + ":" + suffixScanComparisons;
     }
 
     @Override
@@ -290,12 +273,10 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
 
     @Nonnull
     @Override
-    public PMultidimensionalIndexScanComparisons toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        final PMultidimensionalIndexScanComparisons.Builder builder = PMultidimensionalIndexScanComparisons.newBuilder();
+    public PVectorIndexScanComparisons toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        final PVectorIndexScanComparisons.Builder builder = PVectorIndexScanComparisons.newBuilder();
         builder.setPrefixScanComparisons(prefixScanComparisons.toProto(serializationContext));
-        for (final ScanComparisons dimensionsScanComparison : dimensionsScanComparisons) {
-            builder.addDimensionsScanComparisons(dimensionsScanComparison.toProto(serializationContext));
-        }
+        builder.setDistanceRankValueComparison(distanceRankValueComparison.toProto(serializationContext));
         builder.setSuffixScanComparisons(suffixScanComparisons.toProto(serializationContext));
         return builder.build();
     }
@@ -303,26 +284,22 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
     @Nonnull
     @Override
     public PIndexScanParameters toIndexScanParametersProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PIndexScanParameters.newBuilder().setMultidimensionalIndexScanComparisons(toProto(serializationContext)).build();
+        return PIndexScanParameters.newBuilder().setVectorIndexScanComparisons(toProto(serializationContext)).build();
     }
 
     @Nonnull
-    public static MultidimensionalIndexScanComparisons fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                                 @Nonnull final PMultidimensionalIndexScanComparisons multidimensionalIndexScanComparisonsProto) {
-        final ImmutableList.Builder<ScanComparisons> dimensionScanComparisonsBuilder = ImmutableList.builder();
-        for (int i = 0; i < multidimensionalIndexScanComparisonsProto.getDimensionsScanComparisonsCount(); i ++) {
-            dimensionScanComparisonsBuilder.add(ScanComparisons.fromProto(serializationContext,
-                    multidimensionalIndexScanComparisonsProto.getDimensionsScanComparisons(i)));
-        }
-        return new MultidimensionalIndexScanComparisons(ScanComparisons.fromProto(serializationContext, Objects.requireNonNull(multidimensionalIndexScanComparisonsProto.getPrefixScanComparisons())),
-                dimensionScanComparisonsBuilder.build(),
-                ScanComparisons.fromProto(serializationContext, Objects.requireNonNull(multidimensionalIndexScanComparisonsProto.getSuffixScanComparisons())));
+    public static VectorIndexScanComparisons fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                       @Nonnull final PVectorIndexScanComparisons vectorIndexScanComparisonsProto) {
+        return new VectorIndexScanComparisons(ScanComparisons.fromProto(serializationContext,
+                Objects.requireNonNull(vectorIndexScanComparisonsProto.getPrefixScanComparisons())),
+                Objects.requireNonNull(DistanceRankValueComparison.fromProto(serializationContext, vectorIndexScanComparisonsProto.getDistanceRankValueComparison())),
+                ScanComparisons.fromProto(serializationContext, Objects.requireNonNull(vectorIndexScanComparisonsProto.getSuffixScanComparisons())));
     }
 
     @Nonnull
-    public static MultidimensionalIndexScanComparisons byValue(@Nullable ScanComparisons prefixScanComparisons,
-                                                               @Nonnull final List<ScanComparisons> dimensionsComparisonRanges,
-                                                               @Nullable ScanComparisons suffixKeyScanComparisons) {
+    public static VectorIndexScanComparisons byValue(@Nullable ScanComparisons prefixScanComparisons,
+                                                     @Nonnull final DistanceRankValueComparison distanceRankValueComparison,
+                                                     @Nullable ScanComparisons suffixKeyScanComparisons) {
         if (prefixScanComparisons == null) {
             prefixScanComparisons = ScanComparisons.EMPTY;
         }
@@ -331,25 +308,25 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
             suffixKeyScanComparisons = ScanComparisons.EMPTY;
         }
 
-        return new MultidimensionalIndexScanComparisons(prefixScanComparisons, dimensionsComparisonRanges, suffixKeyScanComparisons);
+        return new VectorIndexScanComparisons(prefixScanComparisons, distanceRankValueComparison, suffixKeyScanComparisons);
     }
 
     /**
      * Deserializer.
      */
     @AutoService(PlanDeserializer.class)
-    public static class Deserializer implements PlanDeserializer<PMultidimensionalIndexScanComparisons, MultidimensionalIndexScanComparisons> {
+    public static class Deserializer implements PlanDeserializer<PVectorIndexScanComparisons, VectorIndexScanComparisons> {
         @Nonnull
         @Override
-        public Class<PMultidimensionalIndexScanComparisons> getProtoMessageClass() {
-            return PMultidimensionalIndexScanComparisons.class;
+        public Class<PVectorIndexScanComparisons> getProtoMessageClass() {
+            return PVectorIndexScanComparisons.class;
         }
 
         @Nonnull
         @Override
-        public MultidimensionalIndexScanComparisons fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                              @Nonnull final PMultidimensionalIndexScanComparisons multidimensionalIndexScanComparisonsProto) {
-            return MultidimensionalIndexScanComparisons.fromProto(serializationContext, multidimensionalIndexScanComparisonsProto);
+        public VectorIndexScanComparisons fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                    @Nonnull final PVectorIndexScanComparisons vectorIndexScanComparisonsProto) {
+            return VectorIndexScanComparisons.fromProto(serializationContext, vectorIndexScanComparisonsProto);
         }
     }
 }

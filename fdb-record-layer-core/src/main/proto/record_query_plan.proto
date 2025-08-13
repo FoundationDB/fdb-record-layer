@@ -1189,6 +1189,9 @@ message PComparison {
     TEXT_CONTAINS_ANY_PREFIX = 17;
     SORT = 18;
     LIKE = 19;
+    DISTANCE_RANK_EQUALS = 20;
+    DISTANCE_RANK_LESS_THAN = 21;
+    DISTANCE_RANK_LESS_THAN_OR_EQUAL = 22;
   }
 
   extensions 5000 to max;
@@ -1620,6 +1623,7 @@ message PIndexScanParameters {
     PIndexScanComparisons index_scan_comparisons = 2;
     PMultidimensionalIndexScanComparisons multidimensional_index_scan_comparisons = 3;
     PTimeWindowScanComparisons time_window_scan_comparisons = 4;
+    PVectorIndexScanComparisons vector_index_scan_comparisons = 5;
   }
 }
 
@@ -1653,6 +1657,12 @@ message PTimeWindowForFunction {
 message PTimeWindowScanComparisons {
  optional PIndexScanComparisons super = 1;
  optional PTimeWindowForFunction time_window = 2;
+}
+
+message PVectorIndexScanComparisons {
+  optional PScanComparisons prefix_scan_comparisons = 1;
+  optional PDistanceRankValueComparison distance_rank_value_comparison = 2;
+  optional PScanComparisons suffix_scan_comparisons = 3;
 }
 
 enum PIndexFetchMethod {

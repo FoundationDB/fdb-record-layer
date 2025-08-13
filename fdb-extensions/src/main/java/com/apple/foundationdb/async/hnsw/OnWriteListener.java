@@ -43,8 +43,7 @@ public interface OnWriteListener {
         // nothing
     }
 
-    default void onKeyValueWritten(@Nonnull byte[] key,
-                                   @Nonnull byte[] value) {
+    default void onKeyValueWritten(final int layer, @Nonnull byte[] key, @Nonnull byte[] value) {
         // nothing
     }
 }

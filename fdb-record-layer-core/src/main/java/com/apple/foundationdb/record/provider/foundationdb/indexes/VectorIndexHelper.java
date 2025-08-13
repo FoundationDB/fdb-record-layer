@@ -85,8 +85,7 @@ public class VectorIndexHelper {
      */
     public enum Events implements StoreTimer.DetailEvent {
         VECTOR_SCAN("scanning the HNSW of a vector index"),
-        VECTOR_SKIP_SCAN("skip scan the prefix tuples of a vector index scan"),
-        VECTOR_MODIFICATION("modifying the HNSW of a vector index");
+        VECTOR_SKIP_SCAN("skip scan the prefix tuples of a vector index scan");
 
         private final String title;
         private final String logKey;
