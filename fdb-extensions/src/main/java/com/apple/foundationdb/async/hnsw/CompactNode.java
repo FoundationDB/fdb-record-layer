@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.async.hnsw;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.tuple.Tuple;
 import com.christianheina.langx.half4j.Half;
 
@@ -37,6 +38,7 @@ public class CompactNode extends AbstractNode<NodeReference> {
         @SuppressWarnings("unchecked")
         @Nonnull
         @Override
+        @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
         public Node<NodeReference> create(@Nonnull final Tuple primaryKey, @Nullable final Vector<Half> vector,
                                           @Nonnull final List<? extends NodeReference> neighbors) {
             return new CompactNode(primaryKey, Objects.requireNonNull(vector), (List<NodeReference>)neighbors);

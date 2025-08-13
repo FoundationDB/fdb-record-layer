@@ -644,11 +644,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return recordBuilder.build();
     }
 
+    @SuppressWarnings("unchecked")
     @Nonnull
     private <M extends Message> FDBStoredRecord<M> serializeAndSaveRecord(@Nonnull RecordSerializer<M> typedSerializer, @Nonnull final FDBStoredRecordBuilder<M> recordBuilder,
                                                                           @Nonnull final RecordMetaData metaData, @Nullable FDBStoredSizes oldSizeInfo) {
         final Tuple primaryKey = recordBuilder.getPrimaryKey();
         final FDBRecordVersion version = recordBuilder.getVersion();
+
+        //        final M record = recordBuilder.getRecord();
+        //        M cleansed_rec = (M)record.toBuilder()
+        //                .clearField(record.getDescriptorForType().findFieldByName("vector_data"))
+        //                .build();
+
         final byte[] serialized = typedSerializer.serialize(metaData, recordBuilder.getRecordType(), recordBuilder.getRecord(), getTimer());
         final FDBRecordVersion splitVersion = useOldVersionFormat() ? null : version;
         final SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo();

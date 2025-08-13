@@ -36,7 +36,7 @@ public interface Node<N extends NodeReference> {
     Tuple getPrimaryKey();
 
     @Nonnull
-    N getSelfReference(@Nullable final Vector<Half> vector);
+    N getSelfReference(@Nullable Vector<Half> vector);
 
     @Nonnull
     List<N> getNeighbors();

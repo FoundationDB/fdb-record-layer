@@ -57,11 +57,13 @@ class InsertNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
     }
 
     @Nonnull
+    @Override
     public NeighborsChangeSet<N> getParent() {
         return parent;
     }
 
     @Nonnull
+    @Override
     public Iterable<N> merge() {
         return Iterables.concat(getParent().merge(), insertedNeighborsMap.values());
     }

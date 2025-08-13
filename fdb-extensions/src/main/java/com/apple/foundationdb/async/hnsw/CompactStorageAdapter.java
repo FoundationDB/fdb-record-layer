@@ -154,6 +154,8 @@ class CompactStorageAdapter extends AbstractStorageAdapter<NodeReference> implem
         }
     }
 
+    @Nonnull
+    @Override
     public Iterable<Node<NodeReference>> scanLayer(@Nonnull final ReadTransaction readTransaction, int layer,
                                                    @Nullable final Tuple lastPrimaryKey, int maxNumRead) {
         final byte[] layerPrefix = getDataSubspace().pack(Tuple.from(layer));

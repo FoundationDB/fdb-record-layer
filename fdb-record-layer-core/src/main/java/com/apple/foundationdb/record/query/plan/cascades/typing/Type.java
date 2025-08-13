@@ -1198,23 +1198,8 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     }
 
     class Vector implements Type {
-
-        static final class JavaVectorType {
-            private final ByteString underlying;
-
-            JavaVectorType(@Nonnull final ByteString underlying) {
-                this.underlying = underlying;
-            }
-
-            public ByteString getUnderlying() {
-                return underlying;
-            }
-        }
-
         private final boolean isNullable;
-
         private final int precision;
-
         private final int dimensions;
 
         private Vector(final boolean isNullable, final int precision, final int dimensions) {
@@ -1317,6 +1302,18 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                                        @Nonnull final PVectorType vectorTypeProto) {
             Verify.verify(vectorTypeProto.hasIsNullable());
             return new Vector(vectorTypeProto.getIsNullable(), vectorTypeProto.getPrecision(), vectorTypeProto.getDimensions());
+        }
+
+        static final class JavaVectorType {
+            private final ByteString underlying;
+
+            JavaVectorType(@Nonnull final ByteString underlying) {
+                this.underlying = underlying;
+            }
+
+            public ByteString getUnderlying() {
+                return underlying;
+            }
         }
 
         /**

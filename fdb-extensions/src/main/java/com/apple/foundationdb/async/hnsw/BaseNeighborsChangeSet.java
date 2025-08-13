@@ -41,11 +41,13 @@ class BaseNeighborsChangeSet<N extends NodeReference> implements NeighborsChange
     }
 
     @Nullable
+    @Override
     public BaseNeighborsChangeSet<N> getParent() {
         return null;
     }
 
     @Nonnull
+    @Override
     public List<N> merge() {
         return neighbors;
     }

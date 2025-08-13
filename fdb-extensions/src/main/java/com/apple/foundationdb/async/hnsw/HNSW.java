@@ -430,7 +430,7 @@ public class HNSW {
                         return CompletableFuture.completedFuture(entryState);
                     }
 
-                    return MoreAsyncUtil.forLoop(entryLayer, entryState,
+                    return forLoop(entryLayer, entryState,
                                     layer -> layer > 0,
                                     layer -> layer - 1,
                                     (layer, previousNodeReference) -> {
@@ -751,7 +751,7 @@ public class HNSW {
                             new NodeReferenceWithDistance(entryNodeReference.getPrimaryKey(),
                                     entryNodeReference.getVector(),
                                     Vector.comparativeDistance(metric, entryNodeReference.getVector(), newVector));
-                    return MoreAsyncUtil.forLoop(lMax, initialNodeReference,
+                    return forLoop(lMax, initialNodeReference,
                                     layer -> layer > insertionLayer,
                                     layer -> layer - 1,
                                     (layer, previousNodeReference) -> {
@@ -778,7 +778,7 @@ public class HNSW {
                     insertionLayer(random)));
         }
         // sort the layers in reverse order
-        batchWithLayers.sort(Comparator.comparing(NodeReferenceWithLayer::getL).reversed());
+        batchWithLayers.sort(Comparator.comparing(NodeReferenceWithLayer::getLayer).reversed());
 
         return StorageAdapter.fetchEntryNodeReference(transaction, getSubspace(), getOnReadListener())
                 .thenCompose(entryNodeReference -> {
@@ -791,14 +791,14 @@ public class HNSW {
                                 }
 
                                 final Vector<Half> itemVector = item.getVector();
-                                final int itemL = item.getL();
+                                final int itemL = item.getLayer();
 
                                 final NodeReferenceWithDistance initialNodeReference =
                                         new NodeReferenceWithDistance(entryNodeReference.getPrimaryKey(),
                                                 entryNodeReference.getVector(),
                                                 Vector.comparativeDistance(metric, entryNodeReference.getVector(), itemVector));
 
-                                return MoreAsyncUtil.forLoop(lMax, initialNodeReference,
+                                return forLoop(lMax, initialNodeReference,
                                         layer -> layer > itemL,
                                         layer -> layer - 1,
                                         (layer, previousNodeReference) -> {
@@ -815,7 +815,7 @@ public class HNSW {
                                                 final NodeReferenceWithLayer item = batchWithLayers.get(index);
                                                 final Tuple itemPrimaryKey = item.getPrimaryKey();
                                                 final Vector<Half> itemVector = item.getVector();
-                                                final int itemL = item.getL();
+                                                final int itemL = item.getLayer();
 
                                                 final EntryNodeReference newEntryNodeReference;
                                                 final int currentLMax;
@@ -1078,14 +1078,13 @@ public class HNSW {
                 }).thenCompose(selectedNeighbors ->
                         fetchSomeNodesIfNotCached(storageAdapter, readTransaction, layer, selectedNeighbors, nodeCache))
                 .thenApply(selectedNeighbors -> {
-                    debug(l -> {
-                        l.debug("selected neighbors={}",
-                                selectedNeighbors.stream()
-                                        .map(selectedNeighbor ->
-                                                "(primaryKey=" + selectedNeighbor.getNodeReferenceWithDistance().getPrimaryKey() +
-                                                        ",distance=" + selectedNeighbor.getNodeReferenceWithDistance().getDistance() + ")")
-                                        .collect(Collectors.joining(",")));
-                    });
+                    debug(l ->
+                            l.debug("selected neighbors={}",
+                                    selectedNeighbors.stream()
+                                            .map(selectedNeighbor ->
+                                                    "(primaryKey=" + selectedNeighbor.getNodeReferenceWithDistance().getPrimaryKey() +
+                                                            ",distance=" + selectedNeighbor.getNodeReferenceWithDistance().getDistance() + ")")
+                                            .collect(Collectors.joining(","))));
                     return selectedNeighbors;
                 });
     }
@@ -1199,6 +1198,7 @@ public class HNSW {
         return (int) Math.floor(-Math.log(u) * lambda);
     }
 
+    @SuppressWarnings("PMD.UnusedPrivateMethod")
     private void info(@Nonnull final Consumer<Logger> loggerConsumer) {
         if (logger.isInfoEnabled()) {
             loggerConsumer.accept(logger);
@@ -1212,41 +1212,32 @@ public class HNSW {
     }
 
     private static class NodeReferenceWithLayer extends NodeReferenceWithVector {
-        @SuppressWarnings("checkstyle:MemberName")
-        private final int l;
+        private final int layer;
 
         public NodeReferenceWithLayer(@Nonnull final Tuple primaryKey, @Nonnull final Vector<Half> vector,
-                                      final int l) {
+                                      final int layer) {
             super(primaryKey, vector);
-            this.l = l;
+            this.layer = layer;
         }
 
-        public int getL() {
-            return l;
-        }
-    }
-
-    private static class NodeReferenceWithSearchEntry extends NodeReferenceWithVector {
-        @SuppressWarnings("checkstyle:MemberName")
-        private final int l;
-        @Nonnull
-        private final NodeReferenceWithDistance nodeReferenceWithDistance;
-
-        public NodeReferenceWithSearchEntry(@Nonnull final Tuple primaryKey, @Nonnull final Vector<Half> vector,
-                                            final int l,
-                                            @Nonnull final NodeReferenceWithDistance nodeReferenceWithDistance) {
-            super(primaryKey, vector);
-            this.l = l;
-            this.nodeReferenceWithDistance = nodeReferenceWithDistance;
+        public int getLayer() {
+            return layer;
         }
 
-        public int getL() {
-            return l;
+        @Override
+        public boolean equals(final Object o) {
+            if (!(o instanceof NodeReferenceWithLayer)) {
+                return false;
+            }
+            if (!super.equals(o)) {
+                return false;
+            }
+            return layer == ((NodeReferenceWithLayer)o).layer;
         }
 
-        @Nonnull
-        public NodeReferenceWithDistance getNodeReferenceWithDistance() {
-            return nodeReferenceWithDistance;
+        @Override
+        public int hashCode() {
+            return Objects.hash(super.hashCode(), layer);
         }
     }
 }

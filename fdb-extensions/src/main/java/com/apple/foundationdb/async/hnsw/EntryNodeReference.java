@@ -24,6 +24,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.christianheina.langx.half4j.Half;
 
 import javax.annotation.Nonnull;
+import java.util.Objects;
 
 class EntryNodeReference extends NodeReferenceWithVector {
     private final int layer;
@@ -35,5 +36,21 @@ class EntryNodeReference extends NodeReferenceWithVector {
 
     public int getLayer() {
         return layer;
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+        if (!(o instanceof EntryNodeReference)) {
+            return false;
+        }
+        if (!super.equals(o)) {
+            return false;
+        }
+        return layer == ((EntryNodeReference)o).layer;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), layer);
     }
 }

@@ -1864,6 +1864,26 @@ public class Comparisons {
         }
 
         @Override
+        public final boolean equals(final Object o) {
+            if (!(o instanceof DistanceRankValueComparison)) {
+                return false;
+            }
+            final DistanceRankValueComparison that = (DistanceRankValueComparison)o;
+            if (!super.equals(o)) {
+                return false;
+            }
+
+            return limitValue.equals(that.limitValue);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = super.hashCode();
+            result = 31 * result + limitValue.hashCode();
+            return result;
+        }
+
+        @Override
         public String toString() {
             return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
         }
@@ -1877,6 +1897,7 @@ public class Comparisons {
                     .addNested(getLimitValue().explain().getExplainTokens()));
         }
 
+        @Override
         public int computeHashCode() {
             return Objects.hash(getType().name(), getComparandValue(), getLimitValue());
         }

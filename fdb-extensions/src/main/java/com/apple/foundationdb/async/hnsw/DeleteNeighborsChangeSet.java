@@ -52,11 +52,13 @@ class DeleteNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
     }
 
     @Nonnull
+    @Override
     public NeighborsChangeSet<N> getParent() {
         return parent;
     }
 
     @Nonnull
+    @Override
     public Iterable<N> merge() {
         return Iterables.filter(getParent().merge(),
                 current -> !deletedNeighborsPrimaryKeys.contains(current.getPrimaryKey()));

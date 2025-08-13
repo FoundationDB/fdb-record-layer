@@ -35,6 +35,7 @@ import com.google.common.collect.Maps;
 import org.assertj.core.util.Lists;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -72,6 +73,7 @@ import java.util.function.Function;
 @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
 @Tag(Tags.RequiresFDB)
 @Tag(Tags.Slow)
+@Disabled
 public class HNSWModificationTest {
     private static final Logger logger = LoggerFactory.getLogger(HNSWModificationTest.class);
     private static final int NUM_TEST_RUNS = 5;

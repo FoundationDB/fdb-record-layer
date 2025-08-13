@@ -1057,6 +1057,7 @@ public class MoreAsyncUtil {
         return result;
     }
 
+    @Nonnull
     public static <U> CompletableFuture<U> forLoop(final int startI, @Nullable final U startU,
                                                    @Nonnull final IntPredicate conditionPredicate,
                                                    @Nonnull final IntUnaryOperator stepFunction,
@@ -1064,7 +1065,7 @@ public class MoreAsyncUtil {
                                                    @Nonnull final Executor executor) {
         final AtomicInteger loopVariableAtomic = new AtomicInteger(startI);
         final AtomicReference<U> lastResultAtomic = new AtomicReference<>(startU);
-        return AsyncUtil.whileTrue(() -> {
+        return whileTrue(() -> {
             final int loopVariable = loopVariableAtomic.get();
             if (!conditionPredicate.test(loopVariable)) {
                 return AsyncUtil.READY_FALSE;
@@ -1093,7 +1094,7 @@ public class MoreAsyncUtil {
         final AtomicInteger indexAtomic = new AtomicInteger(0);
         final Object[] resultArray = new Object[toBeProcessed.size()];
 
-        return AsyncUtil.whileTrue(() -> {
+        return whileTrue(() -> {
             working.removeIf(CompletableFuture::isDone);
 
             while (working.size() <= parallelism) {
@@ -1110,7 +1111,7 @@ public class MoreAsyncUtil {
             if (working.isEmpty()) {
                 return AsyncUtil.READY_FALSE;
             }
-            return AsyncUtil.whenAny(working).thenApply(ignored -> true);
+            return whenAny(working).thenApply(ignored -> true);
         }, executor).thenApply(ignored -> Arrays.asList((U[])resultArray));
     }
 

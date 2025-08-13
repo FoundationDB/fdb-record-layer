@@ -22,6 +22,7 @@ package com.apple.foundationdb.async.hnsw;
 
 import com.apple.foundationdb.tuple.Tuple;
 import com.christianheina.langx.half4j.Half;
+import com.google.common.base.Objects;
 
 import javax.annotation.Nonnull;
 
@@ -48,6 +49,22 @@ public class NodeReferenceWithVector extends NodeReference {
     @Override
     public NodeReferenceWithVector asNodeReferenceWithVector() {
         return this;
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+        if (!(o instanceof NodeReferenceWithVector)) {
+            return false;
+        }
+        if (!super.equals(o)) {
+            return false;
+        }
+        return Objects.equal(vector, ((NodeReferenceWithVector)o).vector);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(super.hashCode(), vector);
     }
 
     @Override

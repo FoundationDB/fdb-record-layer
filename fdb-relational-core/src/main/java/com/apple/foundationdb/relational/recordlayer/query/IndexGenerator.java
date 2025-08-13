@@ -812,12 +812,11 @@ public final class IndexGenerator {
 
 
         final var builder = RecordLayerIndex.newBuilder();
-        final var index = builder.setIndexType(IndexTypes.VECTOR)
+        return builder.setIndexType(IndexTypes.VECTOR)
                 .setName(tableName + "$hnsw")
                 .setOptions(indexOptions)
                 .setTableName(tableName)
                 .setKeyExpression(keyExpression)
                 .build();
-        return index;
     }
 }

@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension
 import com.apple.foundationdb.relational.utils.Ddl;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Order;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -37,7 +36,6 @@ import java.net.URI;
 import java.util.stream.Stream;
 
 public class VectorTypeTest {
-
     @RegisterExtension
     @Order(0)
     public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();

@@ -20,12 +20,9 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
-import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.metadata.DataType;
-import com.apple.foundationdb.relational.api.metadata.Index;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserVisitor;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
@@ -864,7 +861,7 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    Expressions visitPartitionClause(final RelationalParser.PartitionClauseContext ctx);
+    Expressions visitPartitionClause(RelationalParser.PartitionClauseContext ctx);
 
     @Nonnull
     @Override

@@ -87,6 +87,7 @@ public class VectorIndexMaintainerFactory implements IndexMaintainerFactory {
             }
 
             @Override
+            @SuppressWarnings("PMD.CompareObjectsWithEquals")
             public void validateChangedOptions(@Nonnull final Index oldIndex,
                                                @Nonnull final Set<String> changedOptions) {
                 if (!changedOptions.isEmpty()) {

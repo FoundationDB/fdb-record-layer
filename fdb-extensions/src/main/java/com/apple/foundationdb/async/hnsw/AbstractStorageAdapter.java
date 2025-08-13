@@ -129,6 +129,7 @@ abstract class AbstractStorageAdapter<N extends NodeReference> implements Storag
         return node;
     }
 
+    @Override
     public void writeNode(@Nonnull Transaction transaction, @Nonnull Node<N> node, int layer,
                           @Nonnull NeighborsChangeSet<N> changeSet) {
         writeNodeInternal(transaction, node, layer, changeSet);

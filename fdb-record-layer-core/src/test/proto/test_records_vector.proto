@@ -28,11 +28,17 @@ import "record_metadata_options.proto";
 
 option (schema).store_record_versions = true;
 
-message NaiveVectorRecord {
+message UngroupedVectorRecord {
   optional int64 rec_no = 1 [(field).primary_key = true];
   optional bytes vector_data = 2;
 }
 
+message GroupedVectorRecord {
+  optional int64 rec_no = 1 [(field).primary_key = true];
+  optional int32 groupId = 2;
+  optional bytes vector_data = 3;
+}
+
 message RecordTypeUnion {
-  optional NaiveVectorRecord _NaiveVectorRecord = 1;
+  optional UngroupedVectorRecord _NaiveVectorRecord = 1;
 }

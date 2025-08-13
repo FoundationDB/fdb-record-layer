@@ -63,6 +63,7 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
     }
 
     @Nonnull
+    @Override
     protected CompletableFuture<Node<NodeReferenceWithVector>> fetchNodeInternal(@Nonnull final ReadTransaction readTransaction,
                                                                                  final int layer,
                                                                                  @Nonnull final Tuple primaryKey) {
@@ -138,6 +139,7 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
         return getDataSubspace().pack(Tuple.from(layer, node.getPrimaryKey(), neighborPrimaryKey));
     }
 
+    @Nonnull
     @Override
     public Iterable<Node<NodeReferenceWithVector>> scanLayer(@Nonnull final ReadTransaction readTransaction, int layer,
                                                              @Nullable final Tuple lastPrimaryKey, int maxNumRead) {
