@@ -21,13 +21,17 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
+import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.api.metadata.Index;
 import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
@@ -41,6 +45,8 @@ import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
 import com.apple.foundationdb.relational.recordlayer.query.IndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
+import com.apple.foundationdb.relational.recordlayer.query.LogicalOperators;
+import com.apple.foundationdb.relational.recordlayer.query.LogicalPlanFragment;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryParser;
@@ -48,14 +54,17 @@ import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.antlr.v4.runtime.ParserRuleContext;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -173,6 +182,62 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         return tableBuilder.build();
     }
 
+    public RecordLayerIndex visitIntrinsicIndex(@Nonnull final RelationalParser.TableDefinitionContext ctx) {
+        Assert.thatUnchecked(ctx.organizedByClause() != null);
+        final var ddlCatalog = metadataBuilder.build();
+        // parse the index SQL query using the newly constructed metadata.
+        getDelegate().replaceSchemaTemplate(ddlCatalog);
+
+        // create a synthetic plan fragment comprising the table access only. This is important for resolving the
+        // components of the clause correctly, including the embedding column and the partitioning columns.
+        final var tableName = visitUid(ctx.uid());
+        final var logicalOperator = LogicalOperator.generateTableAccess(tableName, ImmutableSet.of(), getDelegate().getSemanticAnalyzer());
+
+        final var organizedByClause = ctx.organizedByClause();
+        final var embeddingColumnId = visitFullId(organizedByClause.embeddingsCol);
+        final var embeddingColumn = getDelegate().getSemanticAnalyzer().resolveIdentifier(embeddingColumnId, LogicalOperators.ofSingle(logicalOperator));
+
+        getDelegate().pushPlanFragment().setOperator(logicalOperator);
+        final var partitionExpressions = (organizedByClause.partitionClause() == null)
+                ? Expressions.empty()
+                : visitPartitionClause(organizedByClause.partitionClause());
+        getDelegate().popPlanFragment();
+        final var indexOptions = (organizedByClause.hnswConfigurations() == null)
+                ? ImmutableMap.<String, String>of()
+                : visitHnswConfigurations(organizedByClause.hnswConfigurations());
+
+        return IndexGenerator.generateHnswIndex(tableName.getName(), embeddingColumn, partitionExpressions, indexOptions);
+    }
+
+    @Nullable
+    @Override
+    public Object visitOrganizedByClause(final RelationalParser.OrganizedByClauseContext ctx) {
+        return null; // postpone processing, it should start exactly after the table is fully resolved.
+    }
+
+    @Nonnull
+    @Override
+    public Map<String, String> visitHnswConfigurations(final RelationalParser.HnswConfigurationsContext ctx) {
+        return ctx.hnswConfiguration().stream().map(this::visitHnswConfiguration)
+                .collect(ImmutableMap.toImmutableMap(
+                        NonnullPair::getLeft,
+                        NonnullPair::getRight,
+                        (existing, replacement) -> {
+                            throw new RelationalException("duplicate configuration '" + existing + "'", ErrorCode.SYNTAX_ERROR)
+                                    .toUncheckedWrappedException();
+                        }));
+    }
+
+    @Nonnull
+    @Override
+    public NonnullPair<String, String> visitHnswConfiguration(final RelationalParser.HnswConfigurationContext ctx) {
+        if (ctx.mValue != null) {
+            return NonnullPair.of("M", ctx.mValue.getText());
+        }
+        Assert.thatUnchecked(ctx.efConstructionValue != null);
+        return NonnullPair.of("EF_CONSTRUCTION", ctx.efConstructionValue.getText());
+    }
+
     @Nonnull
     @Override
     public RecordLayerTable visitStructDefinition(@Nonnull RelationalParser.StructDefinitionContext ctx) {
@@ -254,9 +319,16 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                 indexClauses.add(templateClause.indexDefinition());
             }
         }
+        final var indexes = ImmutableList.<RecordLayerIndex>builder();
         structClauses.build().stream().map(this::visitStructDefinition).map(RecordLayerTable::getDatatype).forEach(metadataBuilder::addAuxiliaryType);
-        tableClauses.build().stream().map(this::visitTableDefinition).forEach(metadataBuilder::addTable);
-        final var indexes = indexClauses.build().stream().map(this::visitIndexDefinition).collect(ImmutableList.toImmutableList());
+        for (final var tableClause : tableClauses.build()) {
+            metadataBuilder.addTable(visitTableDefinition(tableClause));
+            if (tableClause.organizedByClause() != null) {
+                visitIntrinsicIndex(tableClause);
+            }
+        }
+
+        indexClauses.build().stream().map(this::visitIndexDefinition).forEach(indexes::add);
         // TODO: this is currently relying on the lexical order of the function to resolve function dependencies which
         //       is limited.
         functionClauses.build().forEach(functionClause -> {
@@ -264,7 +336,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
                     functionClause.routineBody(), metadataBuilder.build());
             metadataBuilder.addInvokedRoutine(invokedRoutine);
         });
-        for (final var index : indexes) {
+        for (final var index : indexes.build()) {
             final var table = metadataBuilder.extractTable(index.getTableName());
             final var tableWithIndex = RecordLayerTable.Builder.from(table).addIndex(index).build();
             metadataBuilder.addTable(tableWithIndex);
@@ -507,5 +579,12 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Boolean visitNullColumnConstraint(@Nonnull RelationalParser.NullColumnConstraintContext ctx) {
         return ctx.nullNotnull().NOT() == null;
+    }
+
+    @Nonnull
+    @Override
+    public Expressions visitPartitionClause(final RelationalParser.PartitionClauseContext ctx) {
+        return Expressions.of(ctx.expression().stream().map(expContext ->
+                Assert.castUnchecked(visit(expContext), Expression.class)).collect(ImmutableList.toImmutableList()));
     }
 }

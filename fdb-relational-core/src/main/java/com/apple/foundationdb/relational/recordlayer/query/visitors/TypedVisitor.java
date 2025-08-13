@@ -20,9 +20,12 @@
 
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
+import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.api.metadata.Index;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.generated.RelationalParserVisitor;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
@@ -41,6 +44,7 @@ import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSql
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -133,6 +137,18 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Nonnull
     @Override
     RecordLayerTable visitTableDefinition(@Nonnull RelationalParser.TableDefinitionContext ctx);
+
+    @Nullable
+    @Override
+    Object visitOrganizedByClause(RelationalParser.OrganizedByClauseContext ctx);
+
+    @Nonnull
+    @Override
+    Map<String, String> visitHnswConfigurations(RelationalParser.HnswConfigurationsContext ctx);
+
+    @Nonnull
+    @Override
+    NonnullPair<String, String> visitHnswConfiguration(RelationalParser.HnswConfigurationContext ctx);
 
     @Nonnull
     @Override
@@ -845,6 +861,10 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Nonnull
     @Override
     Object visitWindowName(@Nonnull RelationalParser.WindowNameContext ctx);
+
+    @Nonnull
+    @Override
+    Expressions visitPartitionClause(final RelationalParser.PartitionClauseContext ctx);
 
     @Nonnull
     @Override

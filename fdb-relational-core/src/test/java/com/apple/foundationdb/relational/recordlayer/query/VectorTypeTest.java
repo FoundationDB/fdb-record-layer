@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension
 import com.apple.foundationdb.relational.utils.Ddl;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -64,6 +65,21 @@ public class VectorTypeTest {
                 final var relationalMetadata = (StructResultSetMetaData)metadata;
                 final var type = relationalMetadata.getRelationalDataType().getFields().get(1).getType();
                 Assertions.assertThat(type).isEqualTo(expectedType);
+            }
+        }
+    }
+
+    @Test
+    void hnswDDlSomeTest() throws Exception {
+        final String schemaTemplate = "create table photos(zone string, recordId string, " +
+                "embedding vector(768), primary key (zone, recordId), organized by hnsw(embedding partition by zone) with (m = 10, ef_construction = 5))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("select * from t1");
+                final var metadata = statement.getResultSet().getMetaData();
+                Assertions.assertThat(metadata).isInstanceOf(StructResultSetMetaData.class);
+                final var relationalMetadata = (StructResultSetMetaData)metadata;
+                final var type = relationalMetadata.getRelationalDataType().getFields().get(1).getType();
             }
         }
     }

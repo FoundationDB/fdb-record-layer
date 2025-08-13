@@ -122,8 +122,22 @@ structDefinition
     ;
 
 tableDefinition
-    : TABLE uid LEFT_ROUND_BRACKET columnDefinition (COMMA columnDefinition)* COMMA primaryKeyDefinition RIGHT_ROUND_BRACKET
+    : TABLE uid LEFT_ROUND_BRACKET columnDefinition (COMMA columnDefinition)* COMMA primaryKeyDefinition (COMMA organizedByClause)? RIGHT_ROUND_BRACKET
     ;
+
+organizedByClause
+    : ORGANIZED BY HNSW '(' embeddingsCol=fullId partitionClause? ')' hnswConfigurations?
+    ;
+
+hnswConfigurations
+    : WITH '(' hnswConfiguration (COMMA hnswConfiguration)* ')'
+    ;
+
+hnswConfiguration
+    : M '=' mValue=DECIMAL_LITERAL
+    | EF_CONSTRUCTION '=' efConstructionValue=DECIMAL_LITERAL
+    ;
+
 
 columnDefinition
     : colName=uid columnType ARRAY? columnConstraint?
@@ -1110,10 +1124,11 @@ frameRange
     | expression (PRECEDING | FOLLOWING)
     ;
 
+*/
+
 partitionClause
     : PARTITION BY expression (',' expression)*
     ;
-*/
 
 scalarFunctionName
     : functionNameBase
