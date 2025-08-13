@@ -719,7 +719,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         INT(Integer.class, FieldDescriptorProto.Type.TYPE_INT32, true, true),
         LONG(Long.class, FieldDescriptorProto.Type.TYPE_INT64, true, true),
         STRING(String.class, FieldDescriptorProto.Type.TYPE_STRING, true, false),
-        VECTOR(ByteString.class, FieldDescriptorProto.Type.TYPE_BYTES, true, false),
+        VECTOR(Vector.JavaVectorType.class, FieldDescriptorProto.Type.TYPE_BYTES, true, false),
         VERSION(FDBRecordVersion.class, FieldDescriptorProto.Type.TYPE_BYTES, true, false),
         ENUM(Enum.class, FieldDescriptorProto.Type.TYPE_ENUM, false, false),
         RECORD(Message.class, null, false, false),
@@ -1198,6 +1198,18 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     }
 
     class Vector implements Type {
+
+        static final class JavaVectorType {
+            private final ByteString underlying;
+
+            JavaVectorType(@Nonnull final ByteString underlying) {
+                this.underlying = underlying;
+            }
+
+            public ByteString getUnderlying() {
+                return underlying;
+            }
+        }
 
         private final boolean isNullable;
 

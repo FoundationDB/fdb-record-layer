@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexPredicate;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -81,7 +80,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.PeekingIterator;
-import com.ibm.icu.impl.locale.XCldrStub;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -791,17 +789,21 @@ public final class IndexGenerator {
         final var embeddingKeyExpression = toKeyExpression(embedding.getUnderlying());
         final var partitionKeyExpression = generate(ImmutableList.copyOf(partitionExpressions.underlying().iterator()),
                 Collections.emptyMap());
-        final var keyExpression = keyWithValue(concat(embeddingKeyExpression, partitionKeyExpression),
-                embeddingKeyExpression.getColumnSize());
+        final var keyExpression = keyWithValue(concat(partitionKeyExpression, embeddingKeyExpression),
+                partitionKeyExpression.getColumnSize());
 
         final var indexOptions = options.entrySet().stream().map( entry -> {
             final var key = entry.getKey();
             final var value = entry.getValue();
             switch (key) {
-                case "M":
+                case "HNSW_M":
                     return Map.entry(IndexOptions.HNSW_M, value);
-                case "EF_CONSTRUCTION":
+                case "HNSW_EF_CONSTRUCTION":
                     return Map.entry(IndexOptions.HNSW_EF_CONSTRUCTION, value);
+                case "HNSW_MMAX":
+                    return Map.entry(IndexOptions.HNSW_M_MAX, value);
+                case "HNSW_MMAX0":
+                    return Map.entry(IndexOptions.HNSW_M_MAX_0, value);
                 default:
                     throw new RelationalException("unknown HNSW option: " + key, ErrorCode.SYNTAX_ERROR)
                             .toUncheckedWrappedException();

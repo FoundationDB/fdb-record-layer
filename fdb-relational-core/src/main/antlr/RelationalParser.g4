@@ -134,8 +134,10 @@ hnswConfigurations
     ;
 
 hnswConfiguration
-    : M '=' mValue=DECIMAL_LITERAL
-    | EF_CONSTRUCTION '=' efConstructionValue=DECIMAL_LITERAL
+    : HNSW_M '=' mValue=DECIMAL_LITERAL
+    | HNSW_MMAX '=' mMaxValue=DECIMAL_LITERAL
+    | HNSW_MMAX0 '=' mMax0Value=DECIMAL_LITERAL
+    | HNSW_EF_CONSTRUCTION '=' efConstructionValue=DECIMAL_LITERAL
     ;
 
 

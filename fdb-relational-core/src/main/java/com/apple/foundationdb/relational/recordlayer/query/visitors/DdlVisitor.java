@@ -125,9 +125,9 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final SemanticAnalyzer.ParsedTypeInfo typeInfo;
         if (ctx.customType != null) {
             final var columnType = visitUid(ctx.customType);
-            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofCustomType(columnType, true, false);
+            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofCustomType(columnType, false, false);
         } else {
-            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofPrimitiveType(ctx.primitiveType(), true, false);
+            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofPrimitiveType(ctx.primitiveType(), false, false);
         }
         return semanticAnalyzer.lookupType(typeInfo, metadataBuilder::findType);
     }
@@ -157,9 +157,9 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         final SemanticAnalyzer.ParsedTypeInfo typeInfo;
         if (ctx.columnType().customType != null) {
             final var columnType = visitUid(ctx.columnType().customType);
-            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofCustomType(columnType, true, false);
+            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofCustomType(columnType, true, isRepeated);
         } else {
-            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofPrimitiveType(ctx.columnType().primitiveType(), true, false);
+            typeInfo = SemanticAnalyzer.ParsedTypeInfo.ofPrimitiveType(ctx.columnType().primitiveType(), true, isRepeated);
         }
         final var columnType = semanticAnalyzer.lookupType(typeInfo, metadataBuilder::findType);
         return RecordLayerColumn.newBuilder().setName(columnId.getName()).setDataType(columnType).build();
@@ -183,30 +183,33 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     public RecordLayerIndex visitIntrinsicIndex(@Nonnull final RelationalParser.TableDefinitionContext ctx) {
-        Assert.thatUnchecked(ctx.organizedByClause() != null);
-        final var ddlCatalog = metadataBuilder.build();
-        // parse the index SQL query using the newly constructed metadata.
-        getDelegate().replaceSchemaTemplate(ddlCatalog);
+        return getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() -> {
+            Assert.thatUnchecked(ctx.organizedByClause() != null);
+            final var ddlCatalog = metadataBuilder.build();
+            // parse the index SQL query using the newly constructed metadata.
+            getDelegate().replaceSchemaTemplate(ddlCatalog);
 
-        // create a synthetic plan fragment comprising the table access only. This is important for resolving the
-        // components of the clause correctly, including the embedding column and the partitioning columns.
-        final var tableName = visitUid(ctx.uid());
-        final var logicalOperator = LogicalOperator.generateTableAccess(tableName, ImmutableSet.of(), getDelegate().getSemanticAnalyzer());
+            // create a synthetic plan fragment comprising the table access only. This is important for resolving the
+            // components of the clause correctly, including the embedding column and the partitioning columns.
+            final var tableName = visitUid(ctx.uid());
+            final var logicalOperator = LogicalOperator.generateTableAccess(tableName, ImmutableSet.of(), getDelegate().getSemanticAnalyzer());
 
-        final var organizedByClause = ctx.organizedByClause();
-        final var embeddingColumnId = visitFullId(organizedByClause.embeddingsCol);
-        final var embeddingColumn = getDelegate().getSemanticAnalyzer().resolveIdentifier(embeddingColumnId, LogicalOperators.ofSingle(logicalOperator));
+            final var organizedByClause = ctx.organizedByClause();
 
-        getDelegate().pushPlanFragment().setOperator(logicalOperator);
-        final var partitionExpressions = (organizedByClause.partitionClause() == null)
-                ? Expressions.empty()
-                : visitPartitionClause(organizedByClause.partitionClause());
-        getDelegate().popPlanFragment();
-        final var indexOptions = (organizedByClause.hnswConfigurations() == null)
-                ? ImmutableMap.<String, String>of()
-                : visitHnswConfigurations(organizedByClause.hnswConfigurations());
+            final var embeddingColumnId = visitFullId(organizedByClause.embeddingsCol);
+            final var embeddingColumn = getDelegate().getSemanticAnalyzer().resolveIdentifier(embeddingColumnId, LogicalOperators.ofSingle(logicalOperator));
 
-        return IndexGenerator.generateHnswIndex(tableName.getName(), embeddingColumn, partitionExpressions, indexOptions);
+            getDelegate().pushPlanFragment().setOperator(logicalOperator);
+            final var partitionExpressions = (organizedByClause.partitionClause() == null)
+                                             ? Expressions.empty()
+                                             : visitPartitionClause(organizedByClause.partitionClause());
+            getDelegate().popPlanFragment();
+            final var indexOptions = (organizedByClause.hnswConfigurations() == null)
+                                     ? ImmutableMap.<String, String>of()
+                                     : visitHnswConfigurations(organizedByClause.hnswConfigurations());
+
+            return IndexGenerator.generateHnswIndex(tableName.getName(), embeddingColumn, partitionExpressions, indexOptions);
+        });
     }
 
     @Nullable
@@ -232,10 +235,19 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public NonnullPair<String, String> visitHnswConfiguration(final RelationalParser.HnswConfigurationContext ctx) {
         if (ctx.mValue != null) {
-            return NonnullPair.of("M", ctx.mValue.getText());
+            return NonnullPair.of("HNSW_M", ctx.mValue.getText());
         }
-        Assert.thatUnchecked(ctx.efConstructionValue != null);
-        return NonnullPair.of("EF_CONSTRUCTION", ctx.efConstructionValue.getText());
+        if (ctx.efConstructionValue != null) {
+            return NonnullPair.of("HNSW_EF_CONSTRUCTION", ctx.efConstructionValue.getText());
+        }
+        if (ctx.mMaxValue != null) {
+            return NonnullPair.of("HNSW_MMAX", ctx.mMaxValue.getText());
+        }
+        if (ctx.mMax0Value != null) {
+            return NonnullPair.of("HNSW_MMAX0", ctx.mMax0Value.getText());
+        }
+        Assert.failUnchecked(ErrorCode.SYNTAX_ERROR, "unknown hnsw configuration" + ctx);
+        return null;
     }
 
     @Nonnull
@@ -324,7 +336,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         for (final var tableClause : tableClauses.build()) {
             metadataBuilder.addTable(visitTableDefinition(tableClause));
             if (tableClause.organizedByClause() != null) {
-                visitIntrinsicIndex(tableClause);
+                indexes.add(visitIntrinsicIndex(tableClause));
             }
         }
 
