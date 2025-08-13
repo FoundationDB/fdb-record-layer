@@ -24,7 +24,7 @@ package com.apple.foundationdb.record.testOneOf;
 option java_package = "com.apple.foundationdb.record";
 option java_outer_classname = "TestRecordsOneOfProto";
 
-import "record_metadata_options.proto";
+//import "record_metadata_options.proto";
 
 message MySimpleRecord {
   optional int64 rec_no = 1;

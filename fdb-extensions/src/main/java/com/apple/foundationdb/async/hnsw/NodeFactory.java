@@ -1,9 +1,9 @@
 /*
- * test_records_duplicate_union_fields.proto
+ * NodeFactory.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,18 +17,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-syntax = "proto2";
 
-package com.apple.foundationdb.record.test.duplicateunionfields;
+package com.apple.foundationdb.async.hnsw;
 
-option java_package = "com.apple.foundationdb.record";
-option java_outer_classname = "TestRecordsDuplicateUnionFields";
+import com.apple.foundationdb.tuple.Tuple;
+import com.christianheina.langx.half4j.Half;
 
-//import "record_metadata_options.proto";
-import "test_records_1.proto";
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.List;
 
-message RecordTypeUnion {
-    optional test1.MySimpleRecord _MySimpleRecord_old = 1;
-    optional test1.MyOtherRecord _MyOtherRecord = 2;
-    optional test1.MySimpleRecord _MySimpleRecord_new = 3;
+public interface NodeFactory<N extends NodeReference> {
+    @Nonnull
+    Node<N> create(@Nonnull Tuple primaryKey, @Nullable Vector<Half> vector,
+                   @Nonnull List<? extends NodeReference> neighbors);
+
+    @Nonnull
+    NodeKind getNodeKind();
 }

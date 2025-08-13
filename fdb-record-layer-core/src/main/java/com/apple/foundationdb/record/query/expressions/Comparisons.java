@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.async.hnsw.Vector;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -38,6 +39,7 @@ import com.apple.foundationdb.record.metadata.expressions.InvertibleFunctionKeyE
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.planprotos.PComparison;
 import com.apple.foundationdb.record.planprotos.PComparison.PComparisonType;
+import com.apple.foundationdb.record.planprotos.PDistanceRankValueComparison;
 import com.apple.foundationdb.record.planprotos.PInvertedFunctionComparison;
 import com.apple.foundationdb.record.planprotos.PListComparison;
 import com.apple.foundationdb.record.planprotos.PMultiColumnComparison;
@@ -56,9 +58,6 @@ import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.explain.DefaultExplainFormatter;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.UsesValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.WithValue;
@@ -68,6 +67,9 @@ import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.explain.DefaultExplainFormatter;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.record.util.ProtoUtils;
@@ -632,7 +634,13 @@ public class Comparisons {
         @API(API.Status.EXPERIMENTAL)
         SORT(false),
         @API(API.Status.EXPERIMENTAL)
-        LIKE;
+        LIKE,
+        @API(API.Status.EXPERIMENTAL)
+        DISTANCE_RANK_EQUALS(true),
+        @API(API.Status.EXPERIMENTAL)
+        DISTANCE_RANK_LESS_THAN,
+        @API(API.Status.EXPERIMENTAL)
+        DISTANCE_RANK_LESS_THAN_OR_EQUAL;
 
         @Nonnull
         private static final Supplier<BiMap<Type, PComparisonType>> protoEnumBiMapSupplier =
@@ -1504,6 +1512,12 @@ public class Comparisons {
         @Nonnull
         private final Supplier<Integer> hashCodeSupplier;
 
+        protected ValueComparison(@Nonnull final PlanSerializationContext serializationContext,
+                                  @Nonnull final PValueComparison valueComparisonProto) {
+            this(Type.fromProto(serializationContext, Objects.requireNonNull(valueComparisonProto.getType())),
+                    Value.fromValueProto(serializationContext, Objects.requireNonNull(valueComparisonProto.getComparandValue())));
+        }
+
         public ValueComparison(@Nonnull final Type type,
                                @Nonnull final Value comparandValue) {
             this(type, comparandValue, ParameterRelationshipGraph.unbound());
@@ -1660,7 +1674,7 @@ public class Comparisons {
         }
 
         public int computeHashCode() {
-            return Objects.hash(type.name(), relatedByEquality());
+            return Objects.hash(type.name(), getComparandValue(), relatedByEquality());
         }
 
         private Set<String> relatedByEquality() {
@@ -1687,7 +1701,12 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public PValueComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return toValueComparisonProto(serializationContext);
+        }
+
+        @Nonnull
+        public PValueComparison toValueComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
             return PValueComparison.newBuilder()
                     .setType(type.toProto(serializationContext))
                     .setComparandValue(comparandValue.toValueProto(serializationContext))
@@ -1697,14 +1716,13 @@ public class Comparisons {
         @Nonnull
         @Override
         public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
-            return PComparison.newBuilder().setValueComparison(toProto(serializationContext)).build();
+            return PComparison.newBuilder().setValueComparison(toValueComparisonProto(serializationContext)).build();
         }
 
         @Nonnull
         public static ValueComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                 @Nonnull final PValueComparison valueComparisonProto) {
-            return new ValueComparison(Type.fromProto(serializationContext, Objects.requireNonNull(valueComparisonProto.getType())),
-                    Value.fromValueProto(serializationContext, Objects.requireNonNull(valueComparisonProto.getComparandValue())));
+            return new ValueComparison(serializationContext, valueComparisonProto);
         }
 
         /**
@@ -1723,6 +1741,214 @@ public class Comparisons {
             public ValueComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                              @Nonnull final PValueComparison valueComparisonProto) {
                 return ValueComparison.fromProto(serializationContext, valueComparisonProto);
+            }
+        }
+    }
+
+    public static class DistanceRankValueComparison extends ValueComparison {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Distance-Rank-Value-Comparison");
+
+        @Nonnull
+        private final Value limitValue;
+
+        protected DistanceRankValueComparison(@Nonnull PlanSerializationContext serializationContext,
+                                              @Nonnull final PDistanceRankValueComparison distanceRankValueComparisonProto) {
+            super(serializationContext, distanceRankValueComparisonProto.getSuper());
+            this.limitValue = Value.fromValueProto(serializationContext,
+                    Objects.requireNonNull(distanceRankValueComparisonProto.getLimitValue()));
+        }
+
+        public DistanceRankValueComparison(@Nonnull final Type type, @Nonnull final Value comparandValue,
+                                           @Nonnull final Value limitValue) {
+            this(type, comparandValue, ParameterRelationshipGraph.unbound(), limitValue);
+        }
+
+        public DistanceRankValueComparison(@Nonnull final Type type, @Nonnull final Value comparandValue,
+                                           @Nonnull final ParameterRelationshipGraph parameterRelationshipGraph,
+                                           @Nonnull final Value limitValue) {
+            super(type, comparandValue, parameterRelationshipGraph);
+            Verify.verify(type == Type.DISTANCE_RANK_EQUALS ||
+                    type == Type.DISTANCE_RANK_LESS_THAN ||
+                    type == Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL);
+            this.limitValue = limitValue;
+        }
+
+        @Nonnull
+        public Value getLimitValue() {
+            return limitValue;
+        }
+
+        @Nonnull
+        @Override
+        public Comparison withType(@Nonnull final Type newType) {
+            if (getType() == newType) {
+                return this;
+            }
+            return new ValueComparison(newType, getComparandValue(), parameterRelationshipGraph);
+        }
+
+        @Nonnull
+        @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
+        public ValueComparison withValue(@Nonnull final Value value) {
+            if (getComparandValue() == value) {
+                return this;
+            }
+            return new ValueComparison(getType(), value);
+        }
+
+        @Nonnull
+        @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
+        public Optional<Comparison> replaceValuesMaybe(@Nonnull final Function<Value, Optional<Value>> replacementFunction) {
+            return replacementFunction.apply(getComparandValue())
+                    .flatMap(replacedComparandValue ->
+                            replacementFunction.apply(getLimitValue()).map(replacedLimitValue -> {
+                                if (replacedComparandValue == getComparandValue() &&
+                                        replacedLimitValue == getLimitValue()) {
+                                    return this;
+                                }
+                                return new DistanceRankValueComparison(getType(), replacedComparandValue, parameterRelationshipGraph,
+                                        replacedLimitValue);
+                            }));
+        }
+
+        @Nonnull
+        @Override
+        public DistanceRankValueComparison translateCorrelations(@Nonnull final TranslationMap translationMap,
+                                                                 final boolean shouldSimplifyValues) {
+            if (getComparandValue().getCorrelatedTo()
+                    .stream()
+                    .noneMatch(translationMap::containsSourceAlias) &&
+                    getLimitValue().getCorrelatedTo()
+                            .stream()
+                            .noneMatch(translationMap::containsSourceAlias)) {
+                return this;
+            }
+
+            return new DistanceRankValueComparison(getType(),
+                    getComparandValue().translateCorrelations(translationMap, shouldSimplifyValues),
+                    parameterRelationshipGraph,
+                    getLimitValue().translateCorrelations(translationMap, shouldSimplifyValues));
+        }
+
+        @Nonnull
+        @Override
+        public Set<CorrelationIdentifier> getCorrelatedTo() {
+            return ImmutableSet.<CorrelationIdentifier>builder()
+                    .addAll(getComparandValue().getCorrelatedTo())
+                    .addAll(getLimitValue().getCorrelatedTo())
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public ConstrainedBoolean semanticEqualsTyped(@Nonnull final Comparison other, @Nonnull final ValueEquivalence valueEquivalence) {
+            return super.semanticEqualsTyped(other, valueEquivalence)
+                    .compose(ignored -> getLimitValue()
+                            .semanticEquals(((DistanceRankValueComparison)other).getLimitValue(),
+                                    valueEquivalence));
+        }
+
+        @Nullable
+        @Override
+        @SuppressWarnings("PMD.CompareObjectsWithEquals")
+        public Boolean eval(@Nullable FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object v) {
+            throw new RecordCoreException("this comparison can only be evaluated using an index");
+        }
+
+        @Nonnull
+        @Override
+        public String typelessString() {
+            return getComparandValue() + ":" + getLimitValue();
+        }
+
+        @Override
+        public String toString() {
+            return explain().getExplainTokens().render(DefaultExplainFormatter.forDebugging()).toString();
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokensWithPrecedence explain() {
+            return ExplainTokensWithPrecedence.of(new ExplainTokens().addKeyword(getType().name())
+                    .addWhitespace().addNested(getComparandValue().explain().getExplainTokens())
+                    .addKeyword(":").addWhitespace()
+                    .addNested(getLimitValue().explain().getExplainTokens()));
+        }
+
+        public int computeHashCode() {
+            return Objects.hash(getType().name(), getComparandValue(), getLimitValue());
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashMode mode) {
+            switch (mode.getKind()) {
+                case LEGACY:
+                case FOR_CONTINUATION:
+                    return PlanHashable.objectsPlanHash(mode, BASE_HASH, getType(), getComparandValue(), getLimitValue());
+                default:
+                    throw new UnsupportedOperationException("Hash Kind " + mode.name() + " is not supported");
+            }
+        }
+
+        @Nonnull
+        @Override
+        public Comparison withParameterRelationshipMap(@Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
+            Verify.verify(this.parameterRelationshipGraph.isUnbound());
+            return new DistanceRankValueComparison(getType(), getComparandValue(), parameterRelationshipGraph,
+                    getLimitValue());
+        }
+
+        @Nonnull
+        @Override
+        public PDistanceRankValueComparison toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PDistanceRankValueComparison.newBuilder()
+                    .setSuper(super.toValueComparisonProto(serializationContext))
+                    .setLimitValue(getLimitValue().toValueProto(serializationContext))
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public PComparison toComparisonProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PComparison.newBuilder().setDistanceRankValueComparison(toProto(serializationContext)).build();
+        }
+
+        @Nullable
+        public Vector<? extends Number> getVector(@Nullable final FDBRecordStoreBase<?> store, final @Nullable EvaluationContext context) {
+            return (Vector<? extends Number>)getComparand(store, context);
+        }
+
+        public int getLimit(@Nullable final FDBRecordStoreBase<?> store, final @Nullable EvaluationContext context) {
+            if (context == null) {
+                throw EvaluationContextRequiredException.instance();
+            }
+            return (int)Objects.requireNonNull(getLimitValue().eval(store, context));
+        }
+
+        @Nonnull
+        public static DistanceRankValueComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                            @Nonnull final PDistanceRankValueComparison distanceRankValueComparisonProto) {
+            return new DistanceRankValueComparison(serializationContext, distanceRankValueComparisonProto);
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PDistanceRankValueComparison, DistanceRankValueComparison> {
+            @Nonnull
+            @Override
+            public Class<PDistanceRankValueComparison> getProtoMessageClass() {
+                return PDistanceRankValueComparison.class;
+            }
+
+            @Nonnull
+            @Override
+            public DistanceRankValueComparison fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                         @Nonnull final PDistanceRankValueComparison distanceRankValueComparisonProto) {
+                return DistanceRankValueComparison.fromProto(serializationContext, distanceRankValueComparisonProto);
             }
         }
     }

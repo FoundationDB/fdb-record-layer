@@ -25,7 +25,7 @@ package com.apple.foundationdb.record.testnorecords;
 option java_package = "com.apple.foundationdb.record";
 option java_outer_classname = "TestNoRecordTypesProto";
 
-import "record_metadata_options.proto";
+//import "record_metadata_options.proto";
 
 message RecordTypeUnion {
 }
