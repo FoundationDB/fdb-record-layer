@@ -75,6 +75,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
@@ -484,7 +485,7 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    private KeyExpression generate(@Nonnull List<Value> fields, @Nonnull Map<Value, String> orderingFunctions) {
+    private static KeyExpression generate(@Nonnull List<Value> fields, @Nonnull Map<Value, String> orderingFunctions) {
         if (fields.isEmpty()) {
             return EmptyKeyExpression.EMPTY;
         } else if (fields.size() == 1) {
@@ -514,7 +515,7 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    private KeyExpression toKeyExpression(Value value, Map<Value, String> orderingFunctions) {
+    private static KeyExpression toKeyExpression(Value value, Map<Value, String> orderingFunctions) {
         var expr = toKeyExpression(value);
         if (orderingFunctions.containsKey(value)) {
             return function(orderingFunctions.get(value), expr);
@@ -524,7 +525,7 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    private KeyExpression toKeyExpression(@Nonnull Value value) {
+    private static KeyExpression toKeyExpression(@Nonnull Value value) {
         if (value instanceof VersionValue) {
             return VersionKeyExpression.VERSION;
         } else if (value instanceof FieldValue) {
@@ -739,12 +740,12 @@ public final class IndexGenerator {
     }
 
     @Nonnull
-    private KeyExpression toKeyExpression(@Nonnull List<Pair<String, Type>> fields) {
+    private static KeyExpression toKeyExpression(@Nonnull List<Pair<String, Type>> fields) {
         return toKeyExpression(fields, 0);
     }
 
     @Nonnull
-    private KeyExpression toKeyExpression(@Nonnull List<Pair<String, Type>> fields, int index) {
+    private static KeyExpression toKeyExpression(@Nonnull List<Pair<String, Type>> fields, int index) {
         Assert.thatUnchecked(!fields.isEmpty());
         final var field = fields.get(index);
         final var keyExpression = toKeyExpression(field.getLeft(), field.getRight());
@@ -778,5 +779,45 @@ public final class IndexGenerator {
     @Nonnull
     public static IndexGenerator from(@Nonnull RelationalExpression relationalExpression, boolean useLongBasedExtremumEver) {
         return new IndexGenerator(relationalExpression, useLongBasedExtremumEver);
+    }
+
+    @Nonnull
+    public static RecordLayerIndex generateHnswIndex(@Nonnull final String tableName,
+                                                     @Nonnull final Expression embedding,
+                                                     @Nonnull final Expressions partitionExpressions,
+                                                     @Nonnull final Map<String, String> options) {
+        final var embeddingKeyExpression = toKeyExpression(embedding.getUnderlying());
+        final var partitionKeyExpression = generate(ImmutableList.copyOf(partitionExpressions.underlying().iterator()),
+                Collections.emptyMap());
+        final var keyExpression = keyWithValue(concat(partitionKeyExpression, embeddingKeyExpression),
+                partitionKeyExpression.getColumnSize());
+
+        final var indexOptions = options.entrySet().stream().map( entry -> {
+            final var key = entry.getKey();
+            final var value = entry.getValue();
+            switch (key) {
+                case "HNSW_M":
+                    return Map.entry(IndexOptions.HNSW_M, value);
+                case "HNSW_EF_CONSTRUCTION":
+                    return Map.entry(IndexOptions.HNSW_EF_CONSTRUCTION, value);
+                case "HNSW_MMAX":
+                    return Map.entry(IndexOptions.HNSW_M_MAX, value);
+                case "HNSW_MMAX0":
+                    return Map.entry(IndexOptions.HNSW_M_MAX_0, value);
+                default:
+                    throw new RelationalException("unknown HNSW option: " + key, ErrorCode.SYNTAX_ERROR)
+                            .toUncheckedWrappedException();
+            }
+        }).collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+
+
+        final var builder = RecordLayerIndex.newBuilder();
+        final var index = builder.setIndexType(IndexTypes.VECTOR)
+                .setName(tableName + "$hnsw")
+                .setOptions(indexOptions)
+                .setTableName(tableName)
+                .setKeyExpression(keyExpression)
+                .build();
+        return index;
     }
 }

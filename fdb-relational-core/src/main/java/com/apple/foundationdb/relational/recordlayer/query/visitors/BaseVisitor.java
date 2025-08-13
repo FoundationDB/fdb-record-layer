@@ -55,6 +55,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -352,6 +353,23 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
         return ddlVisitor.visitTableDefinition(ctx);
     }
 
+    @Override
+    public Object visitOrganizedByClause(final RelationalParser.OrganizedByClauseContext ctx) {
+        return ddlVisitor.visitOrganizedByClause(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Map<String, String> visitHnswConfigurations(final RelationalParser.HnswConfigurationsContext ctx) {
+        return ddlVisitor.visitHnswConfigurations(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public NonnullPair<String, String> visitHnswConfiguration(final RelationalParser.HnswConfigurationContext ctx) {
+        return ddlVisitor.visitHnswConfiguration(ctx);
+    }
+
     @Nonnull
     @Override
     public Object visitColumnDefinition(@Nonnull RelationalParser.ColumnDefinitionContext ctx) {
@@ -370,10 +388,14 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
         return ddlVisitor.visitColumnType(ctx);
     }
 
-    @Nonnull
     @Override
-    public DataType visitPrimitiveType(@Nonnull RelationalParser.PrimitiveTypeContext ctx) {
-        return ddlVisitor.visitPrimitiveType(ctx);
+    public Object visitPrimitiveType(final RelationalParser.PrimitiveTypeContext ctx) {
+        return visitChildren(ctx);
+    }
+
+    @Override
+    public Object visitVectorType(final RelationalParser.VectorTypeContext ctx) {
+        return visitChildren(ctx);
     }
 
     @Nonnull
@@ -1500,6 +1522,12 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     @Override
     public Object visitWindowName(@Nonnull RelationalParser.WindowNameContext ctx) {
         return visitChildren(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expressions visitPartitionClause(final RelationalParser.PartitionClauseContext ctx) {
+        return ddlVisitor.visitPartitionClause(ctx);
     }
 
     @Nonnull

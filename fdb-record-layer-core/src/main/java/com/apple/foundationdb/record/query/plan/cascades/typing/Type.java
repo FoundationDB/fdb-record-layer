@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.planprotos.PType;
@@ -38,6 +39,7 @@ import com.apple.foundationdb.record.planprotos.PType.PRecordType;
 import com.apple.foundationdb.record.planprotos.PType.PRelationType;
 import com.apple.foundationdb.record.planprotos.PType.PTypeCode;
 import com.apple.foundationdb.record.planprotos.PType.PUuidType;
+import com.apple.foundationdb.record.planprotos.PType.PVectorType;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
@@ -416,12 +418,18 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     private static Type fromProtoType(@Nullable Descriptors.GenericDescriptor descriptor,
                                       @Nonnull Descriptors.FieldDescriptor.Type protoType,
                                       @Nonnull FieldDescriptorProto.Label protoLabel,
+                                      @Nullable DescriptorProtos.FieldOptions fieldOptions,
                                       boolean isNullable) {
-        final var typeCode = TypeCode.fromProtobufType(protoType);
+        final var typeCode = TypeCode.fromProtobufFieldDescriptor(protoType, fieldOptions);
         if (protoLabel == FieldDescriptorProto.Label.LABEL_REPEATED) {
             // collection type
-            return fromProtoTypeToArray(descriptor, protoType, typeCode, false);
+            return fromProtoTypeToArray(descriptor, protoType, typeCode, fieldOptions, false);
         } else if (typeCode.isPrimitive()) {
+            final var fieldOptionMaybe = Optional.ofNullable(fieldOptions).map(f -> f.getExtension(RecordMetaDataOptionsProto.field));
+            if (fieldOptionMaybe.isPresent() && fieldOptionMaybe.get().hasVectorOptions()) {
+                final var vectorOptions = fieldOptionMaybe.get().getVectorOptions();
+                return Type.Vector.of(isNullable, vectorOptions.getPrecision(), vectorOptions.getDimensions());
+            }
             return primitiveType(typeCode, isNullable);
         } else if (typeCode == TypeCode.ENUM) {
             final var enumDescriptor = (Descriptors.EnumDescriptor)Objects.requireNonNull(descriptor);
@@ -432,8 +440,10 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             if (NullableArrayTypeUtils.describesWrappedArray(messageDescriptor)) {
                 // find TypeCode of array elements
                 final var elementField = messageDescriptor.findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName());
-                final var elementTypeCode = TypeCode.fromProtobufType(elementField.getType());
-                return fromProtoTypeToArray(descriptor, protoType, elementTypeCode, true);
+                final var elementTypeCode = TypeCode.fromProtobufFieldDescriptor(elementField.getType(), elementField.getOptions());
+                return fromProtoTypeToArray(descriptor, protoType, elementTypeCode, fieldOptions, true);
+            } else if (TupleFieldsProto.UUID.getDescriptor().equals(messageDescriptor)) {
+                return Type.uuidType(isNullable);
             } else {
                 return Record.fromFieldDescriptorsMap(isNullable, Record.toFieldDescriptorMap(messageDescriptor.getFields()));
             }
@@ -451,7 +461,9 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
     @Nonnull
     private static Array fromProtoTypeToArray(@Nullable Descriptors.GenericDescriptor descriptor,
                                               @Nonnull Descriptors.FieldDescriptor.Type protoType,
-                                              @Nonnull TypeCode typeCode, boolean isNullable) {
+                                              @Nonnull TypeCode typeCode,
+                                              @Nullable DescriptorProtos.FieldOptions fieldOptions,
+                                              boolean isNullable) {
         if (typeCode.isPrimitive()) {
             final var primitiveType = primitiveType(typeCode, false);
             return new Array(isNullable, primitiveType);
@@ -463,10 +475,10 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             if (isNullable) {
                 Descriptors.Descriptor wrappedDescriptor = ((Descriptors.Descriptor)Objects.requireNonNull(descriptor)).findFieldByName(NullableArrayTypeUtils.getRepeatedFieldName()).getMessageType();
                 Objects.requireNonNull(wrappedDescriptor);
-                return new Array(true, fromProtoType(wrappedDescriptor, Descriptors.FieldDescriptor.Type.MESSAGE, FieldDescriptorProto.Label.LABEL_OPTIONAL, false));
+                return new Array(true, fromProtoType(wrappedDescriptor, Descriptors.FieldDescriptor.Type.MESSAGE, FieldDescriptorProto.Label.LABEL_OPTIONAL, fieldOptions, false));
             } else {
                 // case 2: any arbitrary sub message we don't understand
-                return new Array(false, fromProtoType(descriptor, protoType, FieldDescriptorProto.Label.LABEL_OPTIONAL, false));
+                return new Array(false, fromProtoType(descriptor, protoType, FieldDescriptorProto.Label.LABEL_OPTIONAL, fieldOptions, false));
             }
         }
     }
@@ -707,6 +719,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         INT(Integer.class, FieldDescriptorProto.Type.TYPE_INT32, true, true),
         LONG(Long.class, FieldDescriptorProto.Type.TYPE_INT64, true, true),
         STRING(String.class, FieldDescriptorProto.Type.TYPE_STRING, true, false),
+        VECTOR(Vector.JavaVectorType.class, FieldDescriptorProto.Type.TYPE_BYTES, true, false),
         VERSION(FDBRecordVersion.class, FieldDescriptorProto.Type.TYPE_BYTES, true, false),
         ENUM(Enum.class, FieldDescriptorProto.Type.TYPE_ENUM, false, false),
         RECORD(Message.class, null, false, false),
@@ -813,11 +826,12 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         /**
          * Generates a {@link TypeCode} that corresponds to the given protobuf
          * {@link com.google.protobuf.DescriptorProtos.FieldDescriptorProto.Type}.
-         * @param protobufType The protobuf type.
+         * @param protobufType The protobuf descriptor of the type.
          * @return A corresponding {@link TypeCode} instance.
          */
         @Nonnull
-        public static TypeCode fromProtobufType(@Nonnull final Descriptors.FieldDescriptor.Type protobufType) {
+        public static TypeCode fromProtobufFieldDescriptor(@Nonnull final Descriptors.FieldDescriptor.Type protobufType,
+                                                           @Nullable final DescriptorProtos.FieldOptions fieldOptions) {
             switch (protobufType) {
                 case DOUBLE:
                     return TypeCode.DOUBLE;
@@ -845,7 +859,15 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                 case MESSAGE:
                     return TypeCode.RECORD;
                 case BYTES:
+                {
+                    if (fieldOptions != null) {
+                        final var recordTypeOptions = fieldOptions.getExtension(RecordMetaDataOptionsProto.field);
+                        if (recordTypeOptions.hasVectorOptions()) {
+                            return TypeCode.VECTOR;
+                        }
+                    }
                     return TypeCode.BYTES;
+                }
                 default:
                     throw new IllegalArgumentException("unknown protobuf type " + protobufType);
             }
@@ -953,6 +975,7 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         @Nonnull
         private final TypeCode typeCode;
 
+        @Nonnull
         private final Supplier<Integer> hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
 
         private Primitive(final boolean isNullable, @Nonnull final TypeCode typeCode) {
@@ -985,12 +1008,12 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                                   @Nonnull final Optional<String> ignored,
                                   @Nonnull final FieldDescriptorProto.Label label) {
             final var protoType = Objects.requireNonNull(getTypeCode().getProtoType());
-            descriptorBuilder.addField(FieldDescriptorProto.newBuilder()
+            final var fieldDescriptorBuilder = FieldDescriptorProto.newBuilder()
                     .setNumber(fieldNumber)
                     .setName(fieldName)
                     .setType(protoType)
-                    .setLabel(label)
-                    .build());
+                    .setLabel(label);
+            descriptorBuilder.addField(fieldDescriptorBuilder.build());
         }
 
         @Override
@@ -1171,6 +1194,166 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         @Override
         public boolean equals(final Object other) {
             return other instanceof Null;
+        }
+    }
+
+    class Vector implements Type {
+
+        static final class JavaVectorType {
+            private final ByteString underlying;
+
+            JavaVectorType(@Nonnull final ByteString underlying) {
+                this.underlying = underlying;
+            }
+
+            public ByteString getUnderlying() {
+                return underlying;
+            }
+        }
+
+        private final boolean isNullable;
+
+        private final int precision;
+
+        private final int dimensions;
+
+        private Vector(final boolean isNullable, final int precision, final int dimensions) {
+            this.isNullable = isNullable;
+            this.precision = precision;
+            this.dimensions = dimensions;
+        }
+
+        @Nonnull
+        @SuppressWarnings("PMD.ReplaceVectorWithList")
+        public static Vector of(final boolean isNullable, final int precision, final int dimensions) {
+            return new Vector(isNullable, precision, dimensions);
+        }
+
+        @Override
+        public TypeCode getTypeCode() {
+            return TypeCode.VECTOR;
+        }
+
+        @Override
+        public boolean isPrimitive() {
+            return true;
+        }
+
+        @Override
+        public boolean isNullable() {
+            return isNullable;
+        }
+
+        @Nonnull
+        @Override
+        public Type withNullability(final boolean newIsNullable) {
+            if (isNullable == newIsNullable) {
+                return this;
+            }
+            return new Vector(newIsNullable, precision, dimensions);
+        }
+
+        public int getPrecision() {
+            return precision;
+        }
+
+        public int getDimensions() {
+            return dimensions;
+        }
+
+        @Nonnull
+        @Override
+        public ExplainTokens describe() {
+            final var resultExplainTokens = new ExplainTokens();
+            resultExplainTokens.addKeyword(getTypeCode().toString());
+            return resultExplainTokens.addOptionalWhitespace().addOpeningParen().addOptionalWhitespace()
+                    .addNested(new ExplainTokens().addToString(precision).addToString(", ").addToString(dimensions)).addOptionalWhitespace()
+                    .addClosingParen();
+        }
+
+        @Override
+        public void addProtoField(@Nonnull final TypeRepository.Builder typeRepositoryBuilder,
+                                  @Nonnull final DescriptorProto.Builder descriptorBuilder, final int fieldNumber,
+                                  @Nonnull final String fieldName, @Nonnull final Optional<String> typeNameOptional,
+                                  @Nonnull final FieldDescriptorProto.Label label) {
+            final var protoType = Objects.requireNonNull(getTypeCode().getProtoType());
+            FieldDescriptorProto.Builder builder = FieldDescriptorProto.newBuilder()
+                    .setNumber(fieldNumber)
+                    .setName(fieldName)
+                    .setType(protoType)
+                    .setLabel(label);
+            final var fieldOptions = RecordMetaDataOptionsProto.FieldOptions.newBuilder()
+                    .setVectorOptions(
+                            RecordMetaDataOptionsProto.FieldOptions.VectorOptions
+                                    .newBuilder()
+                                    .setPrecision(precision)
+                                    .setDimensions(dimensions)
+                                    .build())
+                    .build();
+            builder.getOptionsBuilder().setExtension(RecordMetaDataOptionsProto.field, fieldOptions);
+            typeNameOptional.ifPresent(builder::setTypeName);
+            descriptorBuilder.addField(builder);
+        }
+
+        @Nonnull
+        @Override
+        public PType toTypeProto(@Nonnull final PlanSerializationContext serializationContext) {
+            return PType.newBuilder().setVectorType(toProto(serializationContext)).build();
+        }
+
+        @Nonnull
+        @Override
+        public PVectorType toProto(@Nonnull final PlanSerializationContext serializationContext) {
+            final PVectorType.Builder vectorTypeBuilder = PVectorType.newBuilder()
+                    .setIsNullable(isNullable)
+                    .setDimensions(dimensions)
+                    .setPrecision(precision);
+            return vectorTypeBuilder.build();
+        }
+
+        @Nonnull
+        @SuppressWarnings("PMD.ReplaceVectorWithList")
+        public static Vector fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                       @Nonnull final PVectorType vectorTypeProto) {
+            Verify.verify(vectorTypeProto.hasIsNullable());
+            return new Vector(vectorTypeProto.getIsNullable(), vectorTypeProto.getPrecision(), vectorTypeProto.getDimensions());
+        }
+
+        /**
+         * Deserializer.
+         */
+        @AutoService(PlanDeserializer.class)
+        public static class Deserializer implements PlanDeserializer<PVectorType, Vector> {
+            @Nonnull
+            @Override
+            public Class<PVectorType> getProtoMessageClass() {
+                return PVectorType.class;
+            }
+
+            @Nonnull
+            @Override
+            @SuppressWarnings("PMD.ReplaceVectorWithList")
+            public Vector fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                    @Nonnull final PVectorType vectorTypeProto) {
+                return Vector.fromProto(serializationContext, vectorTypeProto);
+            }
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(getTypeCode().name(), precision, dimensions);
+        }
+
+        @Override
+        @SuppressWarnings("PMD.ReplaceVectorWithList")
+        public boolean equals(final Object o) {
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            final Vector vector = (Vector)o;
+            return isNullable == vector.isNullable
+                    && precision == vector.precision
+                    && dimensions == vector.dimensions;
         }
     }
 
@@ -2248,10 +2431,12 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             final var fieldsBuilder = ImmutableList.<Field>builder();
             for (final var entry : Objects.requireNonNull(fieldDescriptorMap).entrySet()) {
                 final var fieldDescriptor = entry.getValue();
+                final var fieldOptions = fieldDescriptor.getOptions();
                 fieldsBuilder.add(
                         new Field(fromProtoType(getTypeSpecificDescriptor(fieldDescriptor),
                                 fieldDescriptor.getType(),
                                 fieldDescriptor.toProto().getLabel(),
+                                fieldOptions,
                                 !fieldDescriptor.isRequired()),
                                 Optional.of(entry.getKey()),
                                 Optional.of(fieldDescriptor.getNumber())));

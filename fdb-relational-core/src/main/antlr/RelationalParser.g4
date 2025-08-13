@@ -122,8 +122,24 @@ structDefinition
     ;
 
 tableDefinition
-    : TABLE uid LEFT_ROUND_BRACKET columnDefinition (COMMA columnDefinition)* COMMA primaryKeyDefinition RIGHT_ROUND_BRACKET
+    : TABLE uid LEFT_ROUND_BRACKET columnDefinition (COMMA columnDefinition)* COMMA primaryKeyDefinition (COMMA organizedByClause)? RIGHT_ROUND_BRACKET
     ;
+
+organizedByClause
+    : ORGANIZED BY HNSW '(' embeddingsCol=fullId partitionClause? ')' hnswConfigurations?
+    ;
+
+hnswConfigurations
+    : WITH '(' hnswConfiguration (COMMA hnswConfiguration)* ')'
+    ;
+
+hnswConfiguration
+    : HNSW_M '=' mValue=DECIMAL_LITERAL
+    | HNSW_MMAX '=' mMaxValue=DECIMAL_LITERAL
+    | HNSW_MMAX0 '=' mMax0Value=DECIMAL_LITERAL
+    | HNSW_EF_CONSTRUCTION '=' efConstructionValue=DECIMAL_LITERAL
+    ;
+
 
 columnDefinition
     : colName=uid columnType ARRAY? columnConstraint?
@@ -138,7 +154,17 @@ columnType
     : primitiveType | customType=uid;
 
 primitiveType
-    : BOOLEAN | INTEGER | BIGINT | FLOAT | DOUBLE | STRING | BYTES;
+    : BOOLEAN | INTEGER | BIGINT | FLOAT | DOUBLE | STRING | BYTES | vectorType;
+
+vectorType
+    : VECTOR '(' length=DECIMAL_LITERAL ')'
+    | VECTOR16 '(' length=DECIMAL_LITERAL ')'
+    | VECTOR32 '(' length=DECIMAL_LITERAL ')'
+    | VECTOR64 '(' length=DECIMAL_LITERAL ')'
+    | HALFVECTOR '(' length=DECIMAL_LITERAL ')'
+    | FLOATVECTOR '(' length=DECIMAL_LITERAL ')'
+    | DOUBLEVECTOR '(' length=DECIMAL_LITERAL ')'
+    ;
 
 columnConstraint
     : nullNotnull                                                   #nullColumnConstraint
@@ -1100,10 +1126,11 @@ frameRange
     | expression (PRECEDING | FOLLOWING)
     ;
 
+*/
+
 partitionClause
     : PARTITION BY expression (',' expression)*
     ;
-*/
 
 scalarFunctionName
     : functionNameBase

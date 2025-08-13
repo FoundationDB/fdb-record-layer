@@ -77,6 +77,14 @@ import java.util.Objects;
 class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
 
     @Nonnull
+    private static final com.google.protobuf.ExtensionRegistry registry = com.google.protobuf.ExtensionRegistry.newInstance();
+
+    static {
+        registry.add(com.apple.foundationdb.record.RecordMetaDataOptionsProto.field);
+        registry.add(com.apple.foundationdb.record.RecordMetaDataOptionsProto.record);
+    }
+
+    @Nonnull
     private final RecordLayerSchema catalogSchema;
 
     @Nonnull
@@ -210,7 +218,7 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
         // deserialization of the same message over and over again.
         final Descriptors.Descriptor descriptor = message.getDescriptorForType();
         final ByteString bs = Assert.castUnchecked(message.getField(descriptor.findFieldByName(SchemaTemplateSystemTable.METADATA)), ByteString.class);
-        final RecordMetaData metaData = RecordMetaData.build(RecordMetaDataProto.MetaData.parseFrom(bs.toByteArray()));
+        final RecordMetaData metaData = RecordMetaData.newBuilder().setRecords(RecordMetaDataProto.MetaData.parseFrom(bs.toByteArray(), registry)).getRecordMetaData();
         final String name = message.getField(descriptor.findFieldByName(SchemaTemplateSystemTable.TEMPLATE_NAME)).toString();
         int templateVersion = (int) message.getField(descriptor.findFieldByName(SchemaTemplateSystemTable.TEMPLATE_VERSION));
         return RecordLayerSchemaTemplate.fromRecordMetadata(metaData, name, templateVersion);

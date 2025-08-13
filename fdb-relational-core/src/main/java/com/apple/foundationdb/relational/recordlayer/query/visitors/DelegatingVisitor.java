@@ -45,6 +45,7 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @API(API.Status.EXPERIMENTAL)
@@ -182,6 +183,24 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitTableDefinition(ctx);
     }
 
+    @Nullable
+    @Override
+    public Object visitOrganizedByClause(final RelationalParser.OrganizedByClauseContext ctx) {
+        return getDelegate().visitOrganizedByClause(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Map<String, String> visitHnswConfigurations(final RelationalParser.HnswConfigurationsContext ctx) {
+        return getDelegate().visitHnswConfigurations(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public NonnullPair<String, String> visitHnswConfiguration(final RelationalParser.HnswConfigurationContext ctx) {
+        return getDelegate().visitHnswConfiguration(ctx);
+    }
+
     @Nonnull
     @Override
     public Object visitColumnDefinition(@Nonnull RelationalParser.ColumnDefinitionContext ctx) {
@@ -200,10 +219,14 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitColumnType(ctx);
     }
 
-    @Nonnull
     @Override
-    public DataType visitPrimitiveType(@Nonnull RelationalParser.PrimitiveTypeContext ctx) {
+    public Object visitPrimitiveType(final RelationalParser.PrimitiveTypeContext ctx) {
         return getDelegate().visitPrimitiveType(ctx);
+    }
+
+    @Override
+    public Object visitVectorType(final RelationalParser.VectorTypeContext ctx) {
+        return getDelegate().visitVectorType(ctx);
     }
 
     @Nonnull
@@ -1339,6 +1362,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
     @Override
     public Object visitWindowName(@Nonnull RelationalParser.WindowNameContext ctx) {
         return getDelegate().visitWindowName(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Expressions visitPartitionClause(final RelationalParser.PartitionClauseContext ctx) {
+        return getDelegate().visitPartitionClause(ctx);
     }
 
     @Nonnull

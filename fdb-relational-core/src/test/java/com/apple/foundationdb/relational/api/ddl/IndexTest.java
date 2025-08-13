@@ -20,7 +20,9 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
@@ -40,6 +42,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
+import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
@@ -111,6 +114,11 @@ public class IndexTest {
 
     private void indexIs(@Nonnull final String stmt, @Nonnull final KeyExpression expectedKey, @Nonnull final String indexType,
                          @Nonnull final Consumer<Index> validator) throws Exception {
+        indexIs(stmt, expectedKey, indexType, "MV1", validator);
+    }
+
+    private void indexIs(@Nonnull final String stmt, @Nonnull final KeyExpression expectedKey, @Nonnull final String indexType,
+                         @Nonnull final String indexName, @Nonnull final Consumer<Index> validator) throws Exception {
         shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
@@ -123,7 +131,7 @@ public class IndexTest {
                 Assertions.assertEquals(1, table.getIndexes().size(), "Incorrect number of indexes!");
                 final Index index = Assert.optionalUnchecked(table.getIndexes().stream().findFirst());
                 Assertions.assertInstanceOf(RecordLayerIndex.class, index);
-                Assertions.assertEquals("MV1", index.getName(), "Incorrect index name!");
+                Assertions.assertEquals(indexName, index.getName(), "Incorrect index name!");
                 Assertions.assertEquals(indexType, index.getIndexType());
                 final KeyExpression actualKey = KeyExpression.fromProto(((RecordLayerIndex) index).getKeyExpression().toKeyExpression());
                 Assertions.assertEquals(expectedKey, actualKey);
@@ -896,7 +904,7 @@ public class IndexTest {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TYPE AS STRUCT A(x bigint) " +
                 "CREATE TABLE T(p bigint, a A array, primary key(p))" +
-                "CREATE INDEX mv1 AS SELECT SQ.x from T AS t, (select M.x from t.a AS M order by M.x) SQ";
+                "CREATE INDEX mv1 AS SELECT SQ.x from T AS t, (select Q.x from t.a AS Q order by Q.x) SQ";
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION, "order by is not supported in subquery");
     }
 
@@ -926,5 +934,51 @@ public class IndexTest {
         indexIs(stmt,
                 concat(field("COL1"), function("order_desc_nulls_last", field("COL2")), function("order_asc_nulls_last", field("COL3"))),
                 IndexTypes.VALUE);
+    }
+
+    @Test
+    void createHnswIndex() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "create table photos(zone string, recordId string, " +
+                "embedding vector(768), primary key (zone, recordId), organized by hnsw(embedding partition by zone) " +
+                "with (hnsw_m = 10, hnsw_ef_construction = 5))";
+        indexIs(stmt,
+                new KeyWithValueExpression(concat(field("ZONE"), field("EMBEDDING")), 1),
+                IndexTypes.VECTOR, "PHOTOS$hnsw", idx -> {
+                    Assertions.assertInstanceOf(RecordLayerIndex.class, idx);
+                    Assertions.assertEquals(ImmutableMap.of(IndexOptions.HNSW_M, "10", IndexOptions.HNSW_EF_CONSTRUCTION, "5"),
+                            ((RecordLayerIndex)idx).getOptions());
+                });
+    }
+
+    @Test
+    void createHnswIndexMultiplePartitions() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "create table photos(zone string, recordId string, name string," +
+                "embedding vector(768), primary key (zone, recordId), organized by hnsw(embedding partition by zone, name) " +
+                "with (hnsw_m = 10, hnsw_ef_construction = 5))";
+        indexIs(stmt,
+                new KeyWithValueExpression(concat(field("ZONE"), field("NAME"), field("EMBEDDING")), 2),
+                IndexTypes.VECTOR, "PHOTOS$hnsw", idx -> {
+                    Assertions.assertInstanceOf(RecordLayerIndex.class, idx);
+                    Assertions.assertEquals(ImmutableMap.of(IndexOptions.HNSW_M, "10", IndexOptions.HNSW_EF_CONSTRUCTION, "5"),
+                            ((RecordLayerIndex)idx).getOptions());
+                });
+    }
+
+    @Test
+    void createHnswIndexPartitionArithmeticExpression() throws Exception {
+        final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
+                "create table photos(zone string, recordId string, name string," +
+                "embedding vector(768), primary key (zone, recordId), organized by hnsw(embedding partition by zone + 3, name) " +
+                "with (hnsw_m = 10, hnsw_ef_construction = 5))";
+        indexIs(stmt,
+                new KeyWithValueExpression(concat(FunctionKeyExpression.create("add", concat(field("ZONE"), value(3))) ,
+                        field("NAME"), field("EMBEDDING")), 2),
+                IndexTypes.VECTOR, "PHOTOS$hnsw", idx -> {
+                    Assertions.assertInstanceOf(RecordLayerIndex.class, idx);
+                    Assertions.assertEquals(ImmutableMap.of(IndexOptions.HNSW_M, "10", IndexOptions.HNSW_EF_CONSTRUCTION, "5"),
+                            ((RecordLayerIndex)idx).getOptions());
+                });
     }
 }
