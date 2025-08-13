@@ -887,4 +887,32 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             fdb.setTrackLastSeenVersionOnRead(dbTracksReadVersionOnCommit);
         }
     }
+
+    @Test
+    @SuppressWarnings("removal")
+    void testDeprecatedSetUseSynchronizedSession() {
+        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 20).mapToObj(val ->
+                TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2((int)val + 1).build()
+        ).collect(Collectors.toList());
+        Index index = new Index("simple$value_2", field("num_value_2").ungrouped(), IndexTypes.SUM);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
+
+        openSimpleMetaData();
+        try (FDBRecordContext context = openContext()) {
+            records.forEach(recordStore::saveRecord);
+            context.commit();
+        }
+
+        openSimpleMetaData(hook);
+        disableAll(List.of(index));
+
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(index)
+                .setUseSynchronizedSession(true)
+                .build()) {
+            indexBuilder.buildIndex();
+        }
+
+        assertReadable(index);
+    }
 }

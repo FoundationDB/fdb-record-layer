@@ -186,6 +186,19 @@ public class OnlineIndexOperationConfig {
         return new Builder();
     }
 
+
+    /**
+     * Not used anymore.
+     * @return always false;
+     * @deprecated see {@link Builder#setUseSynchronizedSession(boolean)}
+     */
+    @API(API.Status.DEPRECATED)
+    @SuppressWarnings("PMD.AvoidUsingHardCodedIP") // version is not IP
+    @Deprecated(since = "4.4.3.0", forRemoval = true)
+    public boolean shouldUseSynchronizedSession() {
+        return false;
+    }
+
     public long getLeaseLengthMillis() {
         return leaseLengthMillis;
     }
@@ -496,8 +509,9 @@ public class OnlineIndexOperationConfig {
         }
 
         /**
-         * Set the lease length in milliseconds if the synchronized session is used. By default this is {@link #DEFAULT_LEASE_LENGTH_MILLIS}.
-         * @see com.apple.foundationdb.synchronizedsession.SynchronizedSession
+         * If the indexing session is not expected to be mutual, abort indexing if another session is active. This function
+         * defines the maximum age of another session's heartbeat to be considered an "active session".
+         * The default value is {@link #DEFAULT_LEASE_LENGTH_MILLIS}.
          * @param leaseLengthMillis length between last access and lease's end time in milliseconds
          * @return this builder
          */

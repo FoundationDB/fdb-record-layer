@@ -361,7 +361,11 @@ public abstract class IndexingBase {
     private CompletableFuture<Void> setIndexingTypeOrThrow(FDBRecordStore store, boolean continuedBuild) {
         // continuedBuild is set if this session isn't a continuation of a previous indexing
         IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp = getIndexingTypeStamp(store);
-        heartbeat = new IndexingHeartbeat(common.getIndexerId(), indexingTypeStamp.getMethod(), common.config.getLeaseLengthMillis());
+        final IndexBuildProto.IndexBuildIndexingStamp.Method method = indexingTypeStamp.getMethod();
+        boolean allowMutual =
+                method == IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS ||
+                method == IndexBuildProto.IndexBuildIndexingStamp.Method.SCRUB_REPAIR;
+        heartbeat = new IndexingHeartbeat(common.getIndexerId(), indexingTypeStamp.getMethod().toString(), common.config.getLeaseLengthMillis(), allowMutual);
 
         return forEachTargetIndex(index -> setIndexingTypeOrThrow(store, continuedBuild, index, indexingTypeStamp)
                 .thenCompose(ignore -> updateHeartbeat(true, store, index)));
