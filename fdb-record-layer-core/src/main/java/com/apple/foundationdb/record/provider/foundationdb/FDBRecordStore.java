@@ -4966,6 +4966,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     private void clearReadableIndexBuildData(Index index) {
         IndexingRangeSet.forIndexBuild(this, index).clear();
+        IndexingHeartbeat.clearAllHeartbeats(this, index);
     }
 
     @SuppressWarnings("PMD.CloseResource")

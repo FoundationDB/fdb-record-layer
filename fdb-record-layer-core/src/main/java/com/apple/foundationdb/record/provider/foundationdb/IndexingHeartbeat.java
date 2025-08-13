@@ -37,23 +37,25 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class IndexingHeartbeat {
-    // [prefix, xid] -> [indexing-type, genesis time, heartbeat time]
+    // [prefix, indexerId] -> [indexing-type, genesis time, heartbeat time]
     final UUID indexerId;
-    final IndexBuildProto.IndexBuildIndexingStamp.Method indexingMethod;
+    final String info;
     final long genesisTimeMilliseconds;
     final long leaseLength;
+    final boolean allowMutual;
 
-    public IndexingHeartbeat(final UUID indexerId, IndexBuildProto.IndexBuildIndexingStamp.Method indexingMethod, long leaseLength) {
+    public IndexingHeartbeat(final UUID indexerId, String info, long leaseLength, boolean allowMutual) {
         this.indexerId = indexerId;
-        this.indexingMethod = indexingMethod;
+        this.info = info;
         this.leaseLength = leaseLength;
+        this.allowMutual = allowMutual;
         this.genesisTimeMilliseconds = nowMilliseconds();
     }
 
     public void updateHeartbeat(@Nonnull FDBRecordStore store, @Nonnull Index index) {
         byte[] key = IndexingSubspaces.indexheartbeatSubspace(store, index, indexerId).pack();
         byte[] value = IndexBuildProto.IndexBuildHeartbeat.newBuilder()
-                .setMethod(indexingMethod)
+                .setInfo(info)
                 .setGenesisTimeMilliseconds(genesisTimeMilliseconds)
                 .setHeartbeatTimeMilliseconds(nowMilliseconds())
                 .build().toByteArray();
@@ -62,18 +64,14 @@ public class IndexingHeartbeat {
 
     public CompletableFuture<Void> checkAndUpdateHeartbeat(@Nonnull FDBRecordStore store, @Nonnull Index index) {
         // complete exceptionally if non-mutual, other exists
-        switch (indexingMethod) {
-            case SCRUB_REPAIR:
-            case MUTUAL_BY_RECORDS:
-                updateHeartbeat(store, index);
-                return AsyncUtil.DONE;
+        if (allowMutual) {
+            updateHeartbeat(store, index);
+            return AsyncUtil.DONE;
+        }
 
-            case BY_RECORDS:
-            case MULTI_TARGET_BY_RECORDS:
-            case BY_INDEX:
-                final AsyncIterator<KeyValue> iterator = heartbeatsIterator(store, index);
-                final long now = nowMilliseconds();
-                return AsyncUtil.whileTrue(() -> iterator.onHasNext()
+        final AsyncIterator<KeyValue> iterator = heartbeatsIterator(store, index);
+        final long now = nowMilliseconds();
+        return AsyncUtil.whileTrue(() -> iterator.onHasNext()
                         .thenApply(hasNext -> {
                             if (!hasNext) {
                                 return false;
@@ -85,6 +83,7 @@ public class IndexingHeartbeat {
                                     final IndexBuildProto.IndexBuildHeartbeat otherHeartbeat = IndexBuildProto.IndexBuildHeartbeat.parseFrom(kv.getValue());
                                     final long age = now - otherHeartbeat.getHeartbeatTimeMilliseconds();
                                     if (age > 0 && age < leaseLength) {
+                                        // For practical reasons, this exception is backward compatible to the Synchronized Lock one
                                         throw new SynchronizedSessionLockedException("Failed to initialize the session because of an existing session in progress")
                                                 .addLogInfo(LogMessageKeys.INDEXER_ID, indexerId)
                                                 .addLogInfo(LogMessageKeys.EXISTING_INDEXER_ID, otherIndexerId)
@@ -97,19 +96,18 @@ public class IndexingHeartbeat {
                             }
                             return true;
                         }))
-                        .thenApply(ignore -> {
-                            updateHeartbeat(store, index);
-                            return null;
-                        });
-
-            default:
-                throw new IndexingBase.ValidationException("invalid indexing method",
-                        LogMessageKeys.INDEXING_METHOD, indexingMethod);
-        }
+                .thenApply(ignore -> {
+                    updateHeartbeat(store, index);
+                    return null;
+                });
     }
 
     public void clearHeartbeat(@Nonnull FDBRecordStore store, @Nonnull Index index) {
         store.ensureContextActive().clear(IndexingSubspaces.indexheartbeatSubspace(store, index, indexerId).pack());
+    }
+
+    public static void clearAllHeartbeats(@Nonnull FDBRecordStore store, @Nonnull Index index) {
+        store.ensureContextActive().clear(IndexingSubspaces.indexheartbeatSubspace(store, index).range());
     }
 
     public static CompletableFuture<Map<UUID, IndexBuildProto.IndexBuildHeartbeat>> getIndexingHeartbeats(FDBRecordStore store, Index index, int maxCount) {
@@ -130,9 +128,9 @@ public class IndexingHeartbeat {
                                 final IndexBuildProto.IndexBuildHeartbeat otherHeartbeat = IndexBuildProto.IndexBuildHeartbeat.parseFrom(kv.getValue());
                                 ret.put(otherIndexerId, otherHeartbeat);
                             } catch (InvalidProtocolBufferException e) {
-                                // put a NONE heartbeat to indicate an invalid item
+                                // Let the caller know about this invalid heartbeat.
                                 ret.put(otherIndexerId, IndexBuildProto.IndexBuildHeartbeat.newBuilder()
-                                        .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.NONE)
+                                        .setInfo("<< Invalid Heartbeat >>")
                                         .build());
                             }
                             return true;
