@@ -21,6 +21,9 @@
 schema_template:
     create table A(a1 string, primary key(a1))
     create table B(b1 integer, b2 string, primary key(b1))
+    create table C(c1 integer, c2 string, primary key(c1))
+
+    create index c2 as select c2 from c order by c2
 ---
 setup:
   steps:
@@ -46,6 +49,27 @@ setup:
         (3, 'A'),
         (4, 'Z'),
         (5, 'B');
+    - query: insert into C values
+        ( 1, 'alphabet'),
+        ( 2, 'anticipation'),
+        ( 3, 'aplomb'),
+        ( 4, 'apple'),
+        ( 5, 'appliance'),
+        ( 6, 'application'),
+        ( 7, 'awry'),
+        ( 8, 'banal'),
+        ( 9, 'banana'),
+        (10, 'bench'),
+        (11, 'bento'),
+        (12, 'c'),
+        (13, 'cabal'),
+        (14, 'camel'),
+        (15, 'canal'),
+        (16, 'capital'),
+        (17, 'catch-all'),
+        (18, 'cavalry'),
+        (19, 'cb')
+        ;
 ---
 test_block:
   # TODO (Investigate `Missing binding for __const_CONSTANT` error with queries when using plan from cache)
@@ -128,6 +152,181 @@ test_block:
           {'ありがとう'},
           {'مدرسة'},
           {'\\||%'}]
+    -
+      - query: select * from C WHERE C2 LIKE '%'
+      - explain: "COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
+      - result: [
+          { C1:  1, C2: alphabet},
+          { C1:  2, C2: anticipation},
+          { C1:  3, C2: aplomb},
+          { C1:  4, C2: apple},
+          { C1:  5, C2: appliance},
+          { C1:  6, C2: application},
+          { C1:  7, C2: awry},
+          { C1:  8, C2: banal},
+          { C1:  9, C2: banana},
+          { C1: 10, C2: bench},
+          { C1: 11, C2: bento},
+          { C1: 12, C2: c},
+          { C1: 13, C2: cabal},
+          { C1: 14, C2: camel},
+          { C1: 15, C2: canal},
+          { C1: 16, C2: capital},
+          { C1: 17, C2: catch-all},
+          { C1: 18, C2: cavalry},
+          { C1: 19, C2: cb},
+        ]
+    -
+      - query: select * from C WHERE C2 LIKE 'a%'
+      - explain: "COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
+      - result: [
+          { C1:  1, C2: alphabet},
+          { C1:  2, C2: anticipation},
+          { C1:  3, C2: aplomb},
+          { C1:  4, C2: apple},
+          { C1:  5, C2: appliance},
+          { C1:  6, C2: application},
+          { C1:  7, C2: awry},
+        ]
+    -
+      - query: select * from C WHERE C2 LIKE 'ap%'
+      - explain: "COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
+      - result: [
+          { C1:  3, C2: aplomb},
+          { C1:  4, C2: apple},
+          { C1:  5, C2: appliance},
+          { C1:  6, C2: application},
+        ]
+    -
+      - query: select * from C WHERE C2 LIKE 'a%l%'
+      - explain: "COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
+      - result: [
+          { C1:  1, C2: alphabet},
+          { C1:  3, C2: aplomb},
+          { C1:  4, C2: apple},
+          { C1:  5, C2: appliance},
+          { C1:  6, C2: application},
+        ]
+    -
+      - query: select * from C WHERE C2 LIKE 'app%'
+      - result: [
+          { C1:  4, C2: apple},
+          { C1:  5, C2: appliance},
+          { C1:  6, C2: application},
+        ]
+    -
+      - query: select * from C WHERE C2 LIKE 'b%'
+      - result: [
+          { C1:  8, C2: banal},
+          { C1:  9, C2: banana},
+          { C1: 10, C2: bench},
+          { C1: 11, C2: bento},
+        ]
+    -
+      - query: select * from C WHERE C2 LIKE 'ba%'
+      - result: [
+          { C1:  8, C2: banal},
+          { C1:  9, C2: banana},
+        ]
+    -
+      - query: select * from C WHERE C2 LIKE 'ban%'
+      - result: [
+          { C1:  8, C2: banal},
+          { C1:  9, C2: banana},
+        ]
+    -
+      - query: select * from C WHERE C2 LIKE 'bana%'
+      - result: [
+          { C1:  8, C2: banal},
+          { C1:  9, C2: banana},
+        ]
+    -
+      - query: select * from C WHERE C2 LIKE 'banal%'
+      - result: [
+          { C1:  8, C2: banal},
+        ]
+    -
+      - query: select * from C WHERE C2 LIKE 'be%'
+      - result: [
+          { C1: 10, C2: bench},
+          { C1: 11, C2: bento},
+        ]
+    -
+      - query: select * from C WHERE C2 LIKE 'ben%'
+      - result: [
+          { C1: 10, C2: bench},
+          { C1: 11, C2: bento},
+        ]
+    -
+      - query: select * from C WHERE C2 LIKE 'bent%'
+      - result: [
+          { C1: 11, C2: bento},
+        ]
+    -
+      - query: select * from C WHERE C2 LIKE 'c%'
+      - result: [
+          { C1: 12, C2: c},
+          { C1: 13, C2: cabal},
+          { C1: 14, C2: camel},
+          { C1: 15, C2: canal},
+          { C1: 16, C2: capital},
+          { C1: 17, C2: catch-all},
+          { C1: 18, C2: cavalry},
+          { C1: 19, C2: cb},
+        ]
+    -
+      - query: select * from C WHERE C2 LIKE 'ca%'
+      # In theory, this could be executed optimally with prefix string scan with the prefix "ca"
+      - explain: "COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
+      - result: [
+          { C1: 13, C2: cabal},
+          { C1: 14, C2: camel},
+          { C1: 15, C2: canal},
+          { C1: 16, C2: capital},
+          { C1: 17, C2: catch-all},
+          { C1: 18, C2: cavalry},
+        ]
+    -
+      - query: select * from C WHERE C2 LIKE 'ca_al'
+      # In theory, this could be optimized with prefix string scan with the prefix "ca" followed by compensation
+      # to handle filtering out based on the tail
+      - explain: "COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
+      - result: [
+          { C1: 13, C2: cabal},
+          { C1: 15, C2: canal},
+        ]
+    -
+      - query: select * from C WHERE C2 LIKE 'ca%al'
+      # In theory, this could be optimized with prefix string scan with the prefix "ca" followed by compensation
+      # to handle matching the tail
+      - explain: "COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
+      - result: [
+          { C1: 13, C2: cabal},
+          { C1: 15, C2: canal},
+          { C1: 16, C2: capital},
+        ]
+    -
+      - query: select * from C WHERE C2 LIKE 'ca_al%'
+      - explain: "COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
+      - result: [
+          { C1: 13, C2: cabal},
+          { C1: 15, C2: canal},
+          { C1: 18, C2: cavalry},
+        ]
+    -
+      - query: select * from C WHERE C2 LIKE 'ca%al%'
+      - explain: "COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8 ESCAPE 'null' | FETCH"
+      - result: [
+          { C1: 13, C2: cabal},
+          { C1: 15, C2: canal},
+          { C1: 16, C2: capital},
+          { C1: 17, C2: catch-all},
+          { C1: 18, C2: cavalry},
+        ]
+    -
+      - query: select * from C WHERE C2 LIKE 'd%'
+      - result: [
+        ]
 ---
 # TODO (Investigate `Missing binding for __const_CONSTANT` error with queries when using plan from cache)
 test_block:

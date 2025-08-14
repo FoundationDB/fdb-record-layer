@@ -32,6 +32,7 @@ message Entry {
 message Identifier {
   optional string blockName = 1;
   optional string query = 2;
+  repeated string setups = 3;
 }
 
 message Info {

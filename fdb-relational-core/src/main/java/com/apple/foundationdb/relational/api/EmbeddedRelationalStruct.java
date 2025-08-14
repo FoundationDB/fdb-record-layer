@@ -83,6 +83,11 @@ public interface EmbeddedRelationalStruct extends RelationalStruct {
         }
 
         @Override
+        public Builder addUuid(String fieldName, @Nullable UUID uuid) {
+            return addField(fieldName, DataType.Primitives.UUID.type(), uuid);
+        }
+
+        @Override
         public RelationalStructBuilder addObject(String fieldName, @Nullable Object obj) throws SQLException {
             if (obj instanceof RelationalStruct) {
                 return addStruct(fieldName, (RelationalStruct) obj);

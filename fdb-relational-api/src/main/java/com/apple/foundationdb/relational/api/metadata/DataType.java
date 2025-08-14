@@ -37,6 +37,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -200,6 +201,8 @@ public abstract class DataType {
                 return Primitives.DOUBLE.type();
             } else if (obj instanceof String) {
                 return Primitives.STRING.type();
+            } else if (obj instanceof UUID) {
+                return Primitives.UUID.type();
             } else if (obj instanceof RelationalStruct) {
                 return ((RelationalStruct) obj).getMetaData().getRelationalDataType();
             } else if (obj instanceof RelationalArray) {
