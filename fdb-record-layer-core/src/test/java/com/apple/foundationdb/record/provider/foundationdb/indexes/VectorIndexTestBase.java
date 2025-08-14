@@ -45,11 +45,10 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.vector.TestRecordsVectorsProto;
-import com.apple.foundationdb.record.vector.TestRecordsVectorsProto.UngroupedVectorRecord;
+import com.apple.foundationdb.record.vector.TestRecordsVectorsProto.VectorRecord;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.christianheina.langx.half4j.Half;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
@@ -62,7 +61,6 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
@@ -70,6 +68,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -83,9 +82,13 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
     private static final SimpleDateFormat timeFormat = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss");
 
     @CanIgnoreReturnValue
-    RecordMetaDataBuilder addVectorIndex(@Nonnull final RecordMetaDataBuilder metaDataBuilder) {
-        metaDataBuilder.addIndex("UngroupedVectorRecord",
+    RecordMetaDataBuilder addVectorIndexes(@Nonnull final RecordMetaDataBuilder metaDataBuilder) {
+        metaDataBuilder.addIndex("VectorRecord",
                 new Index("UngroupedVectorIndex", new KeyWithValueExpression(field("vector_data"), 0),
+                        IndexTypes.VECTOR,
+                        ImmutableMap.of(IndexOptions.HNSW_METRIC, Metrics.EUCLIDEAN_METRIC.toString())));
+        metaDataBuilder.addIndex("VectorRecord",
+                new Index("GroupedVectorIndex", new KeyWithValueExpression(concat(field("group_id"), field("vector_data")), 1),
                         IndexTypes.VECTOR,
                         ImmutableMap.of(IndexOptions.HNSW_METRIC, Metrics.EUCLIDEAN_METRIC.toString())));
         return metaDataBuilder;
@@ -97,7 +100,7 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
 
     protected void openRecordStore(final FDBRecordContext context, final RecordMetaDataHook hook) throws Exception {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsVectorsProto.getDescriptor());
-        metaDataBuilder.getRecordType("UngroupedVectorRecord").setPrimaryKey(field("rec_no"));
+        metaDataBuilder.getRecordType("VectorRecord").setPrimaryKey(field("rec_no"));
         hook.apply(metaDataBuilder);
         createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
     }
@@ -107,14 +110,15 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
             final byte[] vector = randomVectorData(random, 128);
             random.nextBytes(vector);
 
-            //logRecord(recNo, vector);
-            return UngroupedVectorRecord.newBuilder()
+            return VectorRecord.newBuilder()
                     .setRecNo(recNo)
                     .setVectorData(ByteString.copyFrom(vector))
+                    .setGroupId(recNo.intValue() % 2)
                     .build();
         };
     }
 
+    @Nonnull
     static byte[] randomVectorData(final Random random, final int dimensions) {
         // we do this in this convoluted way to make sure we won't get NaNs and other special surprises
         final Half[] componentData = new Half[dimensions];
@@ -185,15 +189,15 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
 
     void basicWriteReadTest() throws Exception {
         final Random random = new Random();
-        saveRecords(false, this::addVectorIndex, random, 1000);
+        saveRecords(false, this::addVectorIndexes, random, 1000);
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, this::addVectorIndex);
+            openRecordStore(context, this::addVectorIndexes);
             for (long l = 0; l < 1000; l ++) {
                 FDBStoredRecord<Message> rec = recordStore.loadRecord(Tuple.from(l));
 
                 assertNotNull(rec);
-                UngroupedVectorRecord.Builder recordBuilder =
-                        UngroupedVectorRecord.newBuilder();
+                VectorRecord.Builder recordBuilder =
+                        VectorRecord.newBuilder();
                 recordBuilder.mergeFrom(rec.getRecord());
                 final var record = recordBuilder.build();
                 logRecord(record.getRecNo(), record.getVectorData());
@@ -204,7 +208,7 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
 
     void basicWriteIndexReadTest() throws Exception {
         final Random random = new Random(0);
-        saveRecords(false, this::addVectorIndex, random, 1000);
+        saveRecords(false, this::addVectorIndexes, random, 1000);
 
         final DistanceRankValueComparison distanceRankComparison =
                 new DistanceRankValueComparison(Comparisons.Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL,
@@ -217,7 +221,7 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
 
         final var baseRecordType =
                 Type.Record.fromFieldDescriptorsMap(
-                        Type.Record.toFieldDescriptorMap(UngroupedVectorRecord.getDescriptor().getFields()));
+                        Type.Record.toFieldDescriptorMap(VectorRecord.getDescriptor().getFields()));
 
         final var indexPlan = new RecordQueryIndexPlan("UngroupedVectorIndex", field("recNo"),
                 vectorIndexScanComparisons, IndexFetchMethod.SCAN_AND_FETCH,
@@ -225,12 +229,12 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
                 Optional.empty(), baseRecordType, QueryPlanConstraint.noConstraint());
 
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, this::addVectorIndex);
+            openRecordStore(context, this::addVectorIndexes);
 
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = executeQuery(indexPlan)) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
-                    UngroupedVectorRecord.Builder myrec = UngroupedVectorRecord.newBuilder();
+                    VectorRecord.Builder myrec = VectorRecord.newBuilder();
                     myrec.mergeFrom(Objects.requireNonNull(rec).getRecord());
                     System.out.println(myrec);
                 }
@@ -240,23 +244,41 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    private List<UngroupedVectorRecord> fetchBatchConcurrently(long startRecNo, int batchSize) throws Exception {
-        final ImmutableList.Builder<CompletableFuture<FDBStoredRecord<Message>>> futureBatchBuilder = ImmutableList.builder();
-        for (int i = 0; i < batchSize; i ++) {
-            final CompletableFuture<FDBStoredRecord<Message>> recordFuture = recordStore.loadRecordAsync(Tuple.from(startRecNo + i));
-            futureBatchBuilder.add(recordFuture);
-        }
-        final var batchFuture = AsyncUtil.getAll(futureBatchBuilder.build());
-        final var batch = batchFuture.get();
+    void basicWriteIndexReadGroupedTest() throws Exception {
+        final Random random = new Random(0);
+        saveRecords(false, this::addVectorIndexes, random, 1000);
 
-        return batch.stream()
-                .map(rec -> {
-                    assertNotNull(rec);
-                    UngroupedVectorRecord.Builder recordBuilder =
-                            UngroupedVectorRecord.newBuilder();
-                    recordBuilder.mergeFrom(rec.getRecord());
-                    return recordBuilder.build();
-                })
-                .collect(ImmutableList.toImmutableList());
+        final DistanceRankValueComparison distanceRankComparison =
+                new DistanceRankValueComparison(Comparisons.Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL,
+                        new LiteralValue<>(Type.Vector.of(false, 16, 128),
+                                randomVectorData(random, 128)),
+                        new LiteralValue<>(10));
+
+        final VectorIndexScanComparisons vectorIndexScanComparisons =
+                new VectorIndexScanComparisons(ScanComparisons.EMPTY, distanceRankComparison, ScanComparisons.EMPTY);
+
+        final var baseRecordType =
+                Type.Record.fromFieldDescriptorsMap(
+                        Type.Record.toFieldDescriptorMap(VectorRecord.getDescriptor().getFields()));
+
+        final var indexPlan = new RecordQueryIndexPlan("GroupedVectorIndex", field("recNo"),
+                vectorIndexScanComparisons, IndexFetchMethod.SCAN_AND_FETCH,
+                RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY, false, false,
+                Optional.empty(), baseRecordType, QueryPlanConstraint.noConstraint());
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addVectorIndexes);
+
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = executeQuery(indexPlan)) {
+                while (cursor.hasNext()) {
+                    FDBQueriedRecord<Message> rec = cursor.next();
+                    VectorRecord.Builder myrec = VectorRecord.newBuilder();
+                    myrec.mergeFrom(Objects.requireNonNull(rec).getRecord());
+                    System.out.println(myrec);
+                }
+            }
+
+            //commit(context);
+        }
     }
 }

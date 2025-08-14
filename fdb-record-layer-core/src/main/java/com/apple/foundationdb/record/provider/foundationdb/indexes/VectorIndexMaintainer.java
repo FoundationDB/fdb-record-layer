@@ -147,8 +147,10 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
                                             Tuple.fromBytes(indexEntryProto.getKey().toByteArray()),
                                             Tuple.fromBytes(indexEntryProto.getValue().toByteArray())));
                                 }
-                                return new ListCursor<>(indexEntriesBuilder.build(),
-                                        parsedContinuation.getInnerContinuation().toByteArray());
+                                final ImmutableList<IndexEntry> indexEntries = indexEntriesBuilder.build();
+                                return new ListCursor<>(indexEntries, parsedContinuation.getInnerContinuation().toByteArray())
+                                        .mapResult(result ->
+                                                result.withContinuation(new Continuation(indexEntries, result.getContinuation())));
                             }
 
                             final HNSW hnsw = new HNSW(hnswSubspace, getExecutor(), getConfig(),

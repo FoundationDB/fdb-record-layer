@@ -43,4 +43,9 @@ public class VectorIndexSimpleTest extends VectorIndexTestBase {
     void basicWriteIndexReadTest() throws Exception {
         super.basicWriteIndexReadTest();
     }
+
+    @Test
+    void basicWriteIndexReadGroupedTest() throws Exception {
+        super.basicWriteIndexReadGroupedTest();
+    }
 }
