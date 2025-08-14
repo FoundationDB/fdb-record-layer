@@ -199,6 +199,77 @@ public class KeyValueCursorTest {
     }
 
     @Test
+    public void prefixString() {
+        fdb.run(context -> {
+            fdb.database().run(tr -> {
+                for (int i = 0; i < 5; i++) {
+                    tr.set(subspace.pack(Tuple.from("apple", i)), Tuple.from("apple", i).pack());
+                }
+                return null;
+            });
+            TupleRange range = new TupleRange(
+                    Tuple.from("a"),
+                    Tuple.from("a"),
+                    EndpointType.PREFIX_STRING,
+                    EndpointType.PREFIX_STRING
+            );
+
+            KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
+                    .setContext(context)
+                    .setRange(range)
+                    .setContinuation(null)
+                    .setScanProperties(ScanProperties.FORWARD_SCAN)
+                    .build();
+            for (int j = 0; j < 5; j++) {
+                KeyValue kv = cursor.getNext().get();
+                assertArrayEquals(subspace.pack(Tuple.from("apple", j)), kv.getKey());
+                assertArrayEquals(Tuple.from("apple", j).pack(), kv.getValue());
+            }
+            assertThat(cursor.getNext().hasNext(), is(false));
+
+            cursor = KeyValueCursor.Builder.withSubspace(subspace)
+                    .setContext(context)
+                    .setRange(range)
+                    .setContinuation(null)
+                    .setScanProperties(new ScanProperties(ExecuteProperties.newBuilder().setReturnedRowLimit(2).build()))
+                    .build();
+            for (int j = 0; j < 2; j++) {
+                KeyValue kv = cursor.getNext().get();
+                assertArrayEquals(subspace.pack(Tuple.from("apple", j)), kv.getKey());
+                assertArrayEquals(Tuple.from("apple", j).pack(), kv.getValue());
+            }
+
+            cursor = KeyValueCursor.Builder.withSubspace(subspace)
+                    .setContext(context)
+                    .setRange(range)
+                    .setContinuation(cursor.getNext().getContinuation().toBytes())
+                    .setScanProperties(new ScanProperties(ExecuteProperties.newBuilder().setReturnedRowLimit(2).build()))
+                    .build();
+
+            for (int j = 2; j < 4; j++) {
+                KeyValue kv = cursor.getNext().get();
+                assertArrayEquals(subspace.pack(Tuple.from("apple", j)), kv.getKey());
+                assertArrayEquals(Tuple.from("apple", j).pack(), kv.getValue());
+            }
+
+            cursor = KeyValueCursor.Builder.withSubspace(subspace)
+                    .setContext(context)
+                    .setRange(range)
+                    .setContinuation(cursor.getNext().getContinuation().toBytes())
+                    .setScanProperties(new ScanProperties(ExecuteProperties.newBuilder().setReturnedRowLimit(1).build()))
+                    .build();
+
+            for (int j = 4; j < 5; j++) {
+                KeyValue kv = cursor.getNext().get();
+                assertArrayEquals(subspace.pack(Tuple.from("apple", j)), kv.getKey());
+                assertArrayEquals(Tuple.from("apple", j).pack(), kv.getValue());
+            }
+
+            return null;
+        });
+    }
+
+    @Test
     public void exclusiveRange() {
         fdb.run(context -> {
             KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
