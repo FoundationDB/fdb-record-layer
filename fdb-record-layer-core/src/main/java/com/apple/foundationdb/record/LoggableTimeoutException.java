@@ -51,6 +51,7 @@ public class LoggableTimeoutException extends TimeoutException implements Loggab
      *
      * @see #addLogInfo(Object...)
      */
+    @SuppressWarnings("this-escape")
     public LoggableTimeoutException(@Nonnull Throwable cause, @Nullable Object... keyValues) {
         super();
         super.initCause(cause);

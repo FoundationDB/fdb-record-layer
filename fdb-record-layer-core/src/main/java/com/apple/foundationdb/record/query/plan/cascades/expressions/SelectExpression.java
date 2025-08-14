@@ -108,6 +108,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
     @Nonnull
     private final Supplier<Set<Set<CorrelationIdentifier>>> independentQuantifiersPartitioningSupplier;
 
+    @SuppressWarnings("this-escape")
     public SelectExpression(@Nonnull Value resultValue,
                             @Nonnull List<? extends Quantifier> children,
                             @Nonnull List<? extends QueryPredicate> predicates) {
@@ -125,7 +126,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
 
     @Nonnull
     @Override
-    public Value getResultValue() {
+    public final Value getResultValue() {
         return resultValue;
     }
 
@@ -136,7 +137,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
 
     @Nonnull
     @Override
-    public List<? extends QueryPredicate> getPredicates() {
+    public final List<? extends QueryPredicate> getPredicates() {
         return predicates;
     }
 

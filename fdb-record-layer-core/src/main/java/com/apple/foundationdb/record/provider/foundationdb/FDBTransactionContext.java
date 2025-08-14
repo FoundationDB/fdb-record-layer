@@ -125,7 +125,7 @@ public class FDBTransactionContext {
     }
 
     @Nullable
-    public FDBStoreTimer getTimer() {
+    public final FDBStoreTimer getTimer() {
         return timer;
     }
 

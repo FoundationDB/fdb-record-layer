@@ -91,7 +91,7 @@ public class BoundRecordQuery {
         return recordQuery;
     }
 
-    public Set<String> getParameters() {
+    public final Set<String> getParameters() {
         return parametersSupplier.get();
     }
 

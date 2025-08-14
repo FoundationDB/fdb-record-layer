@@ -117,6 +117,7 @@ public class PartialMatch {
     @Nonnull
     private final Map<QueryPredicate, Optional<PredicateMapping>> memoizedPulledUpPredicateMap;
 
+    @SuppressWarnings("this-escape")
     public PartialMatch(@Nonnull final AliasMap boundAliasMap,
                         @Nonnull final MatchCandidate matchCandidate,
                         @Nonnull final Reference queryRef,
@@ -144,7 +145,7 @@ public class PartialMatch {
     }
 
     @Nonnull
-    public MatchCandidate getMatchCandidate() {
+    public final MatchCandidate getMatchCandidate() {
         return matchCandidate;
     }
 
@@ -164,7 +165,7 @@ public class PartialMatch {
     }
 
     @Nonnull
-    public MatchInfo getMatchInfo() {
+    public final MatchInfo getMatchInfo() {
         return matchInfo;
     }
 
@@ -178,7 +179,7 @@ public class PartialMatch {
     }
 
     @Nonnull
-    public Map<CorrelationIdentifier, ComparisonRange> getBoundParameterPrefixMap() {
+    public final Map<CorrelationIdentifier, ComparisonRange> getBoundParameterPrefixMap() {
         return boundParameterPrefixMapSupplier.get();
     }
 
@@ -286,7 +287,7 @@ public class PartialMatch {
     }
 
     @Nonnull
-    public PredicateMap getAccumulatedPredicateMap() {
+    public final PredicateMap getAccumulatedPredicateMap() {
         return accumulatedPredicateMapSupplier.get();
     }
 

@@ -212,7 +212,7 @@ public class Ordering {
     }
 
     @Nonnull
-    public SetMultimap<Value, Binding> getBindingMap() {
+    public final SetMultimap<Value, Binding> getBindingMap() {
         return bindingMap;
     }
 
