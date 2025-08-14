@@ -24,7 +24,9 @@ import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.query.plan.cascades.MacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
@@ -107,6 +109,8 @@ public class RecordMetadataDeserializer {
                 if (function.getValue() instanceof RawSqlFunction) {
                     schemaTemplateBuilder.addInvokedRoutine(generateInvokedRoutineBuilder(metadataProvider, function.getKey(),
                             Assert.castUnchecked(function.getValue(), RawSqlFunction.class).getDefinition()).build());
+                } else if (function.getValue() instanceof MacroFunction) {
+                    schemaTemplateBuilder.addInvokedRoutine(generateInvokedRoutineBuilder(function.getKey(), (MacroFunction)function.getValue()).build());
                 }
             }
         }
@@ -151,7 +155,7 @@ public class RecordMetadataDeserializer {
 
     @Nonnull
     @VisibleForTesting
-    protected Function<Boolean, CompiledSqlFunction> getSqlFunctionCompiler(@Nonnull final String name,
+    protected Function<Boolean, UserDefinedFunction> getSqlFunctionCompiler(@Nonnull final String name,
                                                                             @Nonnull final Supplier<RecordLayerSchemaTemplate> metadata,
                                                                             @Nonnull final String functionBody) {
         return isCaseSensitive -> RoutineParser.sqlFunctionParser(metadata.get()).parse(functionBody, isCaseSensitive);
@@ -165,7 +169,15 @@ public class RecordMetadataDeserializer {
                 .setName(name)
                 .setDescription(body)
                 .setTemporary(false)
-                .withCompilableRoutine(getSqlFunctionCompiler(name, metadata, body));
+                .withUserDefinedRoutine(ignored -> getSqlFunctionCompiler(name, metadata, body).apply(ignored), true);
+    }
+
+    @Nonnull
+    private RecordLayerInvokedRoutine.Builder generateInvokedRoutineBuilder(@Nonnull final String name,
+                                                                            @Nonnull final MacroFunction macroFunction) {
+        return RecordLayerInvokedRoutine.newBuilder()
+                .setName(name)
+                .withUserDefinedRoutine(ignored -> macroFunction, false);
     }
 
     @Nonnull

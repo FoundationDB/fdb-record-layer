@@ -67,7 +67,7 @@ public interface RoutineParser {
                     PlanHashable.PlanHashMode.VC0, routineString, routineString, 0);
             final var visitor = new BaseVisitor(planGenerationContext, metaData, new NoOpQueryFactory(),
                     NoOpMetadataOperationsFactory.INSTANCE, URI.create(""), isCaseSensitive);
-            return visitor.visitSqlInvokedFunction(parsed);
+            return (CompiledSqlFunction)visitor.visitSqlInvokedFunction(parsed);
         }
 
         @Nonnull

@@ -90,7 +90,7 @@ utilityStatement
 
 templateClause
     :
-        CREATE ( structDefinition | tableDefinition | enumDefinition | indexDefinition | sqlInvokedFunction )
+        CREATE ( structDefinition | tableDefinition | enumDefinition | indexDefinition | sqlInvokedFunction)
     ;
 
 createStatement
@@ -177,16 +177,12 @@ dropTempFunction
     : DROP TEMPORARY FUNCTION (IF EXISTS)? schemaQualifiedRoutineName=fullId
     ;
 
-createFunction
-    : CREATE sqlInvokedFunction
-    ;
-
 tempSqlInvokedFunction
     : functionSpecification ON COMMIT DROP FUNCTION routineBody
     ;
 
 sqlInvokedFunction
-    : functionSpecification routineBody
+    : functionSpecification (routineBody | macroFunctionBody)
     ;
 
 functionSpecification
@@ -267,6 +263,10 @@ routineBody
     : AS queryTerm         #statementBody
     | sqlReturnStatement   #expressionBody
     // | externalBodyReferences TODO
+    ;
+
+macroFunctionBody
+    : AS fullId            #fullIdRoutineBody
     ;
 
 sqlReturnStatement
@@ -927,6 +927,7 @@ functionCall
     : aggregateWindowedFunction                                     #aggregateFunctionCall // done (supported)
     | specificFunction                                              #specificFunctionCall //
     | scalarFunctionName '(' functionArgs? ')'                      #scalarFunctionCall // done (unsupported)
+    | macroFunctionName '(' functionArgs? ')'                       #macroFunctionCall
     ;
 
 specificFunction
@@ -1113,6 +1114,11 @@ scalarFunctionName
     | REPLACE | SUBSTR | SUBSTRING | SYSDATE | TRIM
     | UTC_DATE | UTC_TIME | UTC_TIMESTAMP
     | JAVA_CALL
+    ;
+
+macroFunctionName
+    : ID
+    | DOUBLE_QUOTE_ID
     ;
 
 functionArgs
