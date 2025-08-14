@@ -309,13 +309,13 @@ public class Commands {
         public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
                                       @Nonnull final Event event,
                                       @Nonnull final ParsedLine parsedLine) {
-            final State state = plannerRepl.getCurrentState();
-            final List<Event> events = state.getEvents();
+            final EventState eventState = plannerRepl.getCurrentState();
+            final List<Event> events = eventState.getEvents();
             if (events == null) {
                 plannerRepl.printlnError("Configuration mandates to not record events. Please turn on event recording and restart.");
                 return false;
             }
-            final Event e = events.get(state.getCurrentTick());
+            final Event e = events.get(eventState.getCurrentTick());
             plannerRepl.withProcessors(e, processor -> processor.onDetail(plannerRepl, e));
             return false;
         }
@@ -341,15 +341,15 @@ public class Commands {
         public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
                                       @Nonnull final Event event,
                                       @Nonnull final ParsedLine parsedLine) {
-            final State state = plannerRepl.getCurrentState();
-            final List<Event> events = state.getEvents();
+            final EventState eventState = plannerRepl.getCurrentState();
+            final List<Event> events = eventState.getEvents();
             if (events == null) {
                 plannerRepl.printlnError("Configuration mandates to not record events. Please turn on event recording and restart.");
                 return false;
             }
             for (int tick = 0; tick < events.size(); tick++) {
                 final Event e = events.get(tick);
-                if (state.getCurrentTick() == tick) {
+                if (eventState.getCurrentTick() == tick) {
                     plannerRepl.printHighlighted("==> ");
                 } else {
                     plannerRepl.print("    ");
@@ -382,7 +382,7 @@ public class Commands {
         public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
                                       @Nonnull final Event event,
                                       @Nonnull final ParsedLine parsedLine) {
-            final State state = plannerRepl.getCurrentState();
+            final SymbolTables state = plannerRepl.getCurrentSymbolState();
             final Cache<Integer, RelationalExpression> expressionCache = state.getExpressionCache();
             final List<Integer> ids = Lists.newArrayList(expressionCache.asMap().keySet());
             Collections.sort(ids);
@@ -452,7 +452,7 @@ public class Commands {
         public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
                                       @Nonnull final Event event,
                                       @Nonnull final ParsedLine parsedLine) {
-            final State state = plannerRepl.getCurrentState();
+            final SymbolTables state = plannerRepl.getCurrentSymbolState();
             final Cache<Integer, Reference> referenceCache = state.getReferenceCache();
             final List<Integer> ids = Lists.newArrayList(referenceCache.asMap().keySet());
             Collections.sort(ids);
@@ -724,7 +724,7 @@ public class Commands {
         public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
                                       @Nonnull final Event event,
                                       @Nonnull final ParsedLine parsedLine) {
-            final State state = plannerRepl.getCurrentState();
+            final SymbolTables state = plannerRepl.getCurrentSymbolState();
             final List<Integer> ids = Lists.newArrayList(state.getQuantifierCache().asMap().keySet());
             Collections.sort(ids);
             for (Integer id : ids) {
