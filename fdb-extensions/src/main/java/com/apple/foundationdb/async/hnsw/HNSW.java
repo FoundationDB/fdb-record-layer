@@ -36,6 +36,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
+import com.google.common.collect.TreeMultimap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,7 +50,6 @@ import java.util.Objects;
 import java.util.Queue;
 import java.util.Random;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.PriorityBlockingQueue;
@@ -450,22 +450,25 @@ public class HNSW {
                             Maps.newConcurrentMap(), queryVector)
                             .thenApply(searchResult -> {
                                 // reverse the original queue
-                                final TreeSet<NodeReferenceAndNode<? extends NodeReference>> sortedTopK =
-                                        new TreeSet<>(
-                                                Comparator.comparing(nodeReferenceAndNode ->
-                                                        nodeReferenceAndNode.getNodeReferenceWithDistance().getDistance()));
+                                final TreeMultimap<Double, NodeReferenceAndNode<? extends NodeReference>> sortedTopK =
+                                        TreeMultimap.create(Comparator.naturalOrder(),
+                                                Comparator.comparing(nodeReferenceAndNode -> nodeReferenceAndNode.getNode().getPrimaryKey()));
 
                                 for (final NodeReferenceAndNode<?> nodeReferenceAndNode : searchResult) {
-                                    if (sortedTopK.size() < k || sortedTopK.last().getNodeReferenceWithDistance().getDistance() >
+                                    if (sortedTopK.size() < k || sortedTopK.keySet().last() >
                                             nodeReferenceAndNode.getNodeReferenceWithDistance().getDistance()) {
-                                        sortedTopK.add(nodeReferenceAndNode);
+                                        sortedTopK.put(nodeReferenceAndNode.getNodeReferenceWithDistance().getDistance(),
+                                                nodeReferenceAndNode);
                                     }
 
                                     if (sortedTopK.size() > k) {
-                                        sortedTopK.remove(sortedTopK.last());
+                                        final Double lastKey = sortedTopK.keySet().last();
+                                        final NodeReferenceAndNode<?> lastNode = sortedTopK.get(lastKey).last();
+                                        sortedTopK.remove(lastKey, lastNode);
                                     }
                                 }
-                                return ImmutableList.copyOf(sortedTopK);
+
+                                return ImmutableList.copyOf(sortedTopK.values());
                             });
                 });
     }

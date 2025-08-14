@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.test.Tags;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -31,17 +30,17 @@ import org.slf4j.LoggerFactory;
  * Tests for multidimensional type indexes.
  */
 @Tag(Tags.RequiresFDB)
-@Disabled
 public class VectorIndexSimpleTest extends VectorIndexTestBase {
     private static final Logger logger = LoggerFactory.getLogger(VectorIndexSimpleTest.class);
 
+    @Override
     @Test
-    void basicReadTest() throws Exception {
-        super.basicReadTest();
+    void basicWriteReadTest() throws Exception {
+        super.basicWriteReadTest();
     }
 
     @Test
-    void basicConcurrentReadTest() throws Exception {
-        super.basicConcurrentReadTest(false);
+    void basicWriteIndexReadTest() throws Exception {
+        super.basicWriteIndexReadTest();
     }
 }

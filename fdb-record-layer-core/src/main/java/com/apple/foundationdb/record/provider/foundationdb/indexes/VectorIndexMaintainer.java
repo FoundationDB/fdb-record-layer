@@ -299,7 +299,8 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
                 state.index.trimPrimaryKey(primaryKeyParts);
                 final Tuple trimmedPrimaryKey = Tuple.fromList(primaryKeyParts);
                 final FDBStoreTimer timer = Objects.requireNonNull(getTimer());
-                final HNSW hnsw = new HNSW(rtSubspace, getExecutor(), getConfig(), new OnWrite(timer), OnReadListener.NOOP);
+                final HNSW hnsw =
+                        new HNSW(rtSubspace, getExecutor(), getConfig(), new OnWrite(timer), OnReadListener.NOOP);
                 if (remove) {
                     throw new UnsupportedOperationException("not implemented");
                 } else {

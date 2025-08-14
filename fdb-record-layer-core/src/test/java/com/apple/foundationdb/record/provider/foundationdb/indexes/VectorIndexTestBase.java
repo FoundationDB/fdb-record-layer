@@ -23,19 +23,32 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.hnsw.Metrics;
 import com.apple.foundationdb.async.hnsw.Vector;
+import com.apple.foundationdb.record.IndexFetchMethod;
+import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
+import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.expressions.Comparisons.DistanceRankValueComparison;
+import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
+import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.vector.TestRecordsVectorsProto;
+import com.apple.foundationdb.record.vector.TestRecordsVectorsProto.UngroupedVectorRecord;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
-import com.google.common.base.Preconditions;
+import com.christianheina.langx.half4j.Half;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -49,14 +62,13 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -92,41 +104,35 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
 
     static Function<Long, Message> getRecordGenerator(@Nonnull final Random random) {
         return recNo -> {
-            final byte[] vector = new byte[128 * 2];
+            final byte[] vector = randomVectorData(random, 128);
             random.nextBytes(vector);
 
             //logRecord(recNo, vector);
-            return TestRecordsVectorsProto.UngroupedVectorRecord.newBuilder()
+            return UngroupedVectorRecord.newBuilder()
                     .setRecNo(recNo)
                     .setVectorData(ByteString.copyFrom(vector))
                     .build();
         };
     }
 
-    public void saveRecords(final boolean useAsync, @Nonnull final RecordMetaDataHook hook, final long seed,
+    static byte[] randomVectorData(final Random random, final int dimensions) {
+        // we do this in this convoluted way to make sure we won't get NaNs and other special surprises
+        final Half[] componentData = new Half[dimensions];
+        for (int i = 0; i < componentData.length; i++) {
+            componentData[i] = Half.valueOf(random.nextFloat());
+        }
+
+        Vector.HalfVector vector = new Vector.HalfVector(componentData);
+        return vector.getRawData();
+    }
+
+    public void saveRecords(final boolean useAsync, @Nonnull final RecordMetaDataHook hook, @Nonnull final Random random,
                             final int numSamples)  {
-        final Random random = new Random(seed);
         final var recordGenerator = getRecordGenerator(random);
         if (useAsync) {
             Assertions.assertDoesNotThrow(() -> batchAsync(hook, numSamples, 100, recNo -> recordStore.saveRecordAsync(recordGenerator.apply(recNo))));
         } else {
             Assertions.assertDoesNotThrow(() -> batch(hook, numSamples, 100, recNo -> recordStore.saveRecord(recordGenerator.apply(recNo))));
-        }
-    }
-
-    public void deleteRecords(final boolean useAsync, @Nonnull final RecordMetaDataHook hook, final long seed, final int numRecords,
-                              final int numDeletes) throws Exception {
-        Preconditions.checkArgument(numDeletes <= numRecords);
-        final Random random = new Random(seed);
-        final List<Integer> recNos = IntStream.range(0, numRecords)
-                .boxed()
-                .collect(Collectors.toList());
-        Collections.shuffle(recNos, random);
-        final List<Integer> recNosToBeDeleted = recNos.subList(0, numDeletes);
-        if (useAsync) {
-            batchAsync(hook, recNosToBeDeleted.size(), 500, recNo -> recordStore.deleteRecordAsync(Tuple.from(recNo)));
-        } else {
-            batch(hook, recNosToBeDeleted.size(), 500, recNo -> recordStore.deleteRecord(Tuple.from(recNo)));
         }
     }
 
@@ -177,16 +183,17 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    void basicReadTest() throws Exception {
-        saveRecords(false, this::addVectorIndex, 0, 1000);
+    void basicWriteReadTest() throws Exception {
+        final Random random = new Random();
+        saveRecords(false, this::addVectorIndex, random, 1000);
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, this::addVectorIndex);
             for (long l = 0; l < 1000; l ++) {
                 FDBStoredRecord<Message> rec = recordStore.loadRecord(Tuple.from(l));
 
                 assertNotNull(rec);
-                TestRecordsVectorsProto.UngroupedVectorRecord.Builder recordBuilder =
-                        TestRecordsVectorsProto.UngroupedVectorRecord.newBuilder();
+                UngroupedVectorRecord.Builder recordBuilder =
+                        UngroupedVectorRecord.newBuilder();
                 recordBuilder.mergeFrom(rec.getRecord());
                 final var record = recordBuilder.build();
                 logRecord(record.getRecNo(), record.getVectorData());
@@ -195,20 +202,45 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    void basicConcurrentReadTest(final boolean useAsync) throws Exception {
-        saveRecords(useAsync, NO_HOOK, 0, 5000);
-        for (int i = 0; i < 1; i ++) {
-            try (FDBRecordContext context = openContext()) {
-                openRecordStore(context);
-                for (long l = 0; l < 5000; l += 20) {
-                    fetchBatchConcurrently(l, 20);
+    void basicWriteIndexReadTest() throws Exception {
+        final Random random = new Random(0);
+        saveRecords(false, this::addVectorIndex, random, 1000);
+
+        final DistanceRankValueComparison distanceRankComparison =
+                new DistanceRankValueComparison(Comparisons.Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL,
+                        new LiteralValue<>(Type.Vector.of(false, 16, 128),
+                                randomVectorData(random, 128)),
+                        new LiteralValue<>(10));
+
+        final VectorIndexScanComparisons vectorIndexScanComparisons =
+                new VectorIndexScanComparisons(ScanComparisons.EMPTY, distanceRankComparison, ScanComparisons.EMPTY);
+
+        final var baseRecordType =
+                Type.Record.fromFieldDescriptorsMap(
+                        Type.Record.toFieldDescriptorMap(UngroupedVectorRecord.getDescriptor().getFields()));
+
+        final var indexPlan = new RecordQueryIndexPlan("UngroupedVectorIndex", field("recNo"),
+                vectorIndexScanComparisons, IndexFetchMethod.SCAN_AND_FETCH,
+                RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY, false, false,
+                Optional.empty(), baseRecordType, QueryPlanConstraint.noConstraint());
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, this::addVectorIndex);
+
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = executeQuery(indexPlan)) {
+                while (cursor.hasNext()) {
+                    FDBQueriedRecord<Message> rec = cursor.next();
+                    UngroupedVectorRecord.Builder myrec = UngroupedVectorRecord.newBuilder();
+                    myrec.mergeFrom(Objects.requireNonNull(rec).getRecord());
+                    System.out.println(myrec);
                 }
-                commit(context);
             }
+
+            //commit(context);
         }
     }
 
-    private List<TestRecordsVectorsProto.UngroupedVectorRecord> fetchBatchConcurrently(long startRecNo, int batchSize) throws Exception {
+    private List<UngroupedVectorRecord> fetchBatchConcurrently(long startRecNo, int batchSize) throws Exception {
         final ImmutableList.Builder<CompletableFuture<FDBStoredRecord<Message>>> futureBatchBuilder = ImmutableList.builder();
         for (int i = 0; i < batchSize; i ++) {
             final CompletableFuture<FDBStoredRecord<Message>> recordFuture = recordStore.loadRecordAsync(Tuple.from(startRecNo + i));
@@ -220,8 +252,8 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
         return batch.stream()
                 .map(rec -> {
                     assertNotNull(rec);
-                    TestRecordsVectorsProto.UngroupedVectorRecord.Builder recordBuilder =
-                            TestRecordsVectorsProto.UngroupedVectorRecord.newBuilder();
+                    UngroupedVectorRecord.Builder recordBuilder =
+                            UngroupedVectorRecord.newBuilder();
                     recordBuilder.mergeFrom(rec.getRecord());
                     return recordBuilder.build();
                 })
