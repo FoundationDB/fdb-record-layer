@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.RecordPlannerConfigurationProto;
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlanningRuleSet;
@@ -622,9 +623,9 @@ public class RecordQueryPlannerConfiguration {
          */
         @CanIgnoreReturnValue
         @Nonnull
-        public Builder setDisabledTransformationRules(@Nonnull final Set<Class<? extends CascadesRule<?>>> disabledTransformationRules) {
+        public Builder setDisabledTransformationRules(@Nonnull final Set<Class<? extends AbstractCascadesRule<?>>> disabledTransformationRules) {
             protoBuilder.clearDisabledTransformationRules();
-            for (Class<? extends CascadesRule<?>> rule : disabledTransformationRules) {
+            for (Class<? extends AbstractCascadesRule<?>> rule : disabledTransformationRules) {
                 protoBuilder.addDisabledTransformationRules(rule.getSimpleName());
             }
             return this;
@@ -664,7 +665,7 @@ public class RecordQueryPlannerConfiguration {
         @Nonnull
         public Builder disableRewritingRules() {
             for (CascadesRule<?> rule : RewritingRuleSet.OPTIONAL_RULES) {
-                disableTransformationRule((Class<? extends CascadesRule<?>>) rule.getClass());
+                disableTransformationRule((Class<? extends AbstractCascadesRule<?>>) rule.getClass());
             }
             return this;
         }
@@ -676,7 +677,7 @@ public class RecordQueryPlannerConfiguration {
          */
         @CanIgnoreReturnValue
         @Nonnull
-        public Builder disableTransformationRule(@Nonnull Class<? extends CascadesRule<?>> ruleClass) {
+        public Builder disableTransformationRule(@Nonnull Class<? extends AbstractCascadesRule<?>> ruleClass) {
             protoBuilder.addDisabledTransformationRules(ruleClass.getSimpleName());
             return this;
         }
