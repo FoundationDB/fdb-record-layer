@@ -26,10 +26,15 @@ import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PRankValue;
 import com.apple.foundationdb.record.planprotos.PValue;
+import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -109,6 +114,26 @@ public class RankValue extends WindowedValue implements Value.IndexOnlyValue {
         public RankValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                    @Nonnull final PRankValue rankValueProto) {
             return RankValue.fromProto(serializationContext, rankValueProto);
+        }
+    }
+
+    /**
+     * The {@code rank} window function.
+     */
+    @AutoService(BuiltInFunction.class)
+    public static class RankFn extends BuiltInFunction<Value> {
+
+        public RankFn() {
+            super("rank", ImmutableList.of(Type.any(), Type.any()), RankFn::encapsulateInternal);
+        }
+
+        @Nonnull
+        private static RankValue encapsulateInternal(@Nonnull BuiltInFunction<Value> builtInFunction,
+                                                     @Nonnull final List<? extends Typed> arguments) {
+            Verify.verify(arguments.size() == 2); // ordering expressions must be present, ok for now.
+            final var partitioningValuesList = (AbstractArrayConstructorValue)arguments.get(0);
+            final var argumentValuesList = (AbstractArrayConstructorValue)arguments.get(1);
+            return new RankValue(partitioningValuesList.getChildren(), argumentValuesList.getChildren());
         }
     }
 }

@@ -1176,6 +1176,11 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
         return expressionVisitor.visitNullConstant(ctx);
     }
 
+    @Override
+    public Expression visitVectorConstant(final RelationalParser.VectorConstantContext ctx) {
+        return expressionVisitor.visitVectorConstant(ctx);
+    }
+
     @Nonnull
     @Override
     public Object visitStringDataType(@Nonnull RelationalParser.StringDataTypeContext ctx) {
@@ -1394,6 +1399,12 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     @Override
+    public Expression visitNonAggregateFunctionCall(final RelationalParser.NonAggregateFunctionCallContext ctx) {
+        return expressionVisitor.visitNonAggregateFunctionCall(ctx) ;
+    }
+
+    @Nonnull
+    @Override
     public Object visitSpecificFunctionCall(@Nonnull RelationalParser.SpecificFunctionCallContext ctx) {
         return visitChildren(ctx);
     }
@@ -1508,26 +1519,32 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     @Override
-    public Object visitNonAggregateWindowedFunction(@Nonnull RelationalParser.NonAggregateWindowedFunctionContext ctx) {
-        return visitChildren(ctx);
+    public Expression visitNonAggregateWindowedFunction(@Nonnull RelationalParser.NonAggregateWindowedFunctionContext ctx) {
+        return expressionVisitor.visitNonAggregateWindowedFunction(ctx);
     }
 
     @Nonnull
     @Override
-    public Object visitOverClause(@Nonnull RelationalParser.OverClauseContext ctx) {
-        return visitChildren(ctx);
+    public NonnullPair<Expressions, List<OrderByExpression>> visitOverClause(@Nonnull RelationalParser.OverClauseContext ctx) {
+        return expressionVisitor.visitOverClause(ctx);
     }
 
     @Nonnull
     @Override
-    public Object visitWindowName(@Nonnull RelationalParser.WindowNameContext ctx) {
+    public Identifier visitWindowName(@Nonnull RelationalParser.WindowNameContext ctx) {
+        return identifierVisitor.visitWindowName(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Object visitWindowSpec(final RelationalParser.WindowSpecContext ctx) {
         return visitChildren(ctx);
     }
 
     @Nonnull
     @Override
     public Expressions visitPartitionClause(final RelationalParser.PartitionClauseContext ctx) {
-        return ddlVisitor.visitPartitionClause(ctx);
+        return expressionVisitor.visitPartitionClause(ctx);
     }
 
     @Nonnull

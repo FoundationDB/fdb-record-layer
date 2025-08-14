@@ -23,9 +23,11 @@ package com.apple.foundationdb.relational.recordlayer.query;
 import com.apple.foundationdb.relational.api.StructResultSetMetaData;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
+import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.utils.Ddl;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -40,6 +42,9 @@ public class VectorTypeTest {
     @Order(0)
     public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
+    public VectorTypeTest() {
+        Utils.enableCascadesDebugger();
+    }
 
     @Nonnull
     public static Stream<Arguments> vectorArguments() {
@@ -63,6 +68,22 @@ public class VectorTypeTest {
                 final var relationalMetadata = (StructResultSetMetaData)metadata;
                 final var type = relationalMetadata.getRelationalDataType().getFields().get(1).getType();
                 Assertions.assertThat(type).isEqualTo(expectedType);
+            }
+        }
+    }
+
+    @Test
+    void selectFromHnsw() throws Exception {
+        final String schemaTemplate =  "create table photos(zone string, recordId string, name string," +
+                "embedding vector(3), primary key (zone, recordId), organized by hnsw(embedding partition by zone + 3, name) " +
+                "with (hnsw_m = 10, hnsw_ef_construction = 5))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                final var result = statement.execute("SELECT * FROM photos WHERE RANK() OVER (PARTITION BY zone ORDER BY euclidean_distance(embedding, vector(1.2, -0.5, 3.14)) DESC) < 10");
+                final var metadata = statement.getResultSet().getMetaData();
+                Assertions.assertThat(metadata).isInstanceOf(StructResultSetMetaData.class);
+                final var relationalMetadata = (StructResultSetMetaData)metadata;
+                final var type = relationalMetadata.getRelationalDataType().getFields().get(1).getType();
             }
         }
     }

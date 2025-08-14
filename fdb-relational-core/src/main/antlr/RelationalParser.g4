@@ -766,13 +766,14 @@ nullLiteral
 
 // done
 constant
-    : stringLiteral       #stringConstant // done
-    | decimalLiteral      #decimalConstant // done
-    | '-' decimalLiteral  #negativeDecimalConstant // done
-    | bytesLiteral        #bytesConstant // done
-    | booleanLiteral      #booleanConstant // done
-    | BIT_STRING          #bitStringConstant // done (unsupported)
-    | NOT? nullLiteral    #nullConstant // done (unsupported) - if NOT exists.
+    : stringLiteral                                                         #stringConstant // done
+    | decimalLiteral                                                        #decimalConstant // done
+    | '-' decimalLiteral                                                    #negativeDecimalConstant // done
+    | bytesLiteral                                                          #bytesConstant // done
+    | booleanLiteral                                                        #booleanConstant // done
+    | BIT_STRING                                                            #bitStringConstant // done (unsupported)
+    | NOT? nullLiteral                                                      #nullConstant // done (unsupported) - if NOT exists.
+    | VECTOR '(' dimension=REAL_LITERAL (COMMA dimension=REAL_LITERAL)* ')' #vectorConstant // done
     ;
 
 
@@ -951,8 +952,9 @@ ifNotExists
 
 functionCall
     : aggregateWindowedFunction                                     #aggregateFunctionCall // done (supported)
+    | nonAggregateWindowedFunction                                  #nonAggregateFunctionCall // done (supported)
     | specificFunction                                              #specificFunctionCall //
-    | scalarFunctionName '(' functionArgs? ')'                      #scalarFunctionCall // done (unsupported)
+    | scalarFunctionName '(' functionArgs? ')'                      #scalarFunctionCall // done (supported)
     ;
 
 specificFunction
@@ -1088,20 +1090,18 @@ nonAggregateWindowedFunction
     ;
 
 overClause
-    : OVER (/* '(' windowSpec? ')' |*/ windowName)
+    : OVER ( '(' windowSpec ')' | windowName)
     ;
 
 windowName
     : uid
     ;
 
-//commented out until we want to support window functions
-/* 
 windowSpec
-    : windowName? partitionClause? orderByClause? frameClause?
+    : windowName? partitionClause? orderByClause? /*frameClause?*/
     ;
 
-
+/*
 frameClause
     : frameUnits frameExtent
     ;
@@ -1125,7 +1125,6 @@ frameRange
     | UNBOUNDED (PRECEDING | FOLLOWING)
     | expression (PRECEDING | FOLLOWING)
     ;
-
 */
 
 partitionClause
@@ -1320,7 +1319,7 @@ functionNameBase
     | CREATE_DH_PARAMETERS | CREATE_DIGEST | CROSSES | CUME_DIST | DATABASE | DATE
     | DATEDIFF | DATE_FORMAT | DAY | DAYNAME | DAYOFMONTH
     | DAYOFWEEK | DAYOFYEAR | DECODE | DEGREES | DENSE_RANK | DES_DECRYPT
-    | DES_ENCRYPT | DIMENSION | DISJOINT | ELT | ENCODE
+    | DES_ENCRYPT | DIMENSION | DISJOINT | EUCLIDEAN_DISTANCE | ELT | ENCODE
     | ENCRYPT | ENDPOINT | ENVELOPE | EQUALS | EXP | EXPORT_SET
     | EXTERIORRING | EXTRACTVALUE | FIELD | FIND_IN_SET | FIRST_VALUE | FLOOR
     | FORMAT | FOUND_ROWS | FROM_BASE64 | FROM_DAYS

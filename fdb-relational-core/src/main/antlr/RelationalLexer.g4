@@ -969,6 +969,7 @@ DES_ENCRYPT:                         'DES_ENCRYPT';
 DIMENSION:                           'DIMENSION';
 DISJOINT:                            'DISJOINT';
 DRY:                                 'DRY';
+EUCLIDEAN_DISTANCE:                  'EUCLIDEAN_DISTANCE';
 ELT:                                 'ELT';
 ENABLE_LONG_ROWS:                    'ENABLE_LONG_ROWS';
 ENCODE:                              'ENCODE';
@@ -1289,7 +1290,7 @@ DECIMAL_LITERAL:                     DEC_DIGIT+ DECIMAL_TYPE_MODIFIER?;
 HEXADECIMAL_LITERAL:                 'X' STRING_LITERAL;
 BASE64_LITERAL:                      'B64' STRING_LITERAL;
 
-REAL_LITERAL:                        (DEC_DIGIT+)? '.' DEC_DIGIT+ REAL_TYPE_MODIFIER?
+REAL_LITERAL:                        MINUS? (DEC_DIGIT+)? '.' DEC_DIGIT+ REAL_TYPE_MODIFIER?
                                      | DEC_DIGIT+ '.' EXPONENT_NUM_PART REAL_TYPE_MODIFIER?
                                      | (DEC_DIGIT+)? '.' (DEC_DIGIT+ EXPONENT_NUM_PART) REAL_TYPE_MODIFIER?
                                      | DEC_DIGIT+ EXPONENT_NUM_PART REAL_TYPE_MODIFIER?;
@@ -1352,9 +1353,10 @@ fragment SQUOTA_STRING:              '\'' ('\'\'' | ~('\''))* '\'';
 fragment DEC_DIGIT:                  [0-9];
 fragment BIT_STRING_L:               'B' '\'' [01]+ '\'';
 
+fragment HALF_TYPE_MODIFIER:         ('H'|'h');
 fragment FLOAT_TYPE_MODIFIER:        ('F'|'f');
 fragment DOUBLE_TYPE_MODIFIER:       ('D'|'d');
-fragment REAL_TYPE_MODIFIER:         (FLOAT_TYPE_MODIFIER | DOUBLE_TYPE_MODIFIER);
+fragment REAL_TYPE_MODIFIER:         (HALF_TYPE_MODIFIER | FLOAT_TYPE_MODIFIER | DOUBLE_TYPE_MODIFIER);
 fragment INT_TYPE_MODIFIER:          ('I' | 'i');
 fragment LONG_TYPE_MODIFIER:         ('L' | 'l');
 fragment DECIMAL_TYPE_MODIFIER:      (INT_TYPE_MODIFIER | LONG_TYPE_MODIFIER);

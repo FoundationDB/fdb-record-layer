@@ -67,6 +67,8 @@ public abstract class Vector<R extends Number> {
     @Nonnull
     public abstract DoubleVector toDoubleVector();
 
+    public abstract int precision();
+
     @Override
     public boolean equals(final Object o) {
         if (!(o instanceof Vector)) {
@@ -126,6 +128,11 @@ public abstract class Vector<R extends Number> {
             return toDoubleVectorSupplier.get();
         }
 
+        @Override
+        public int precision() {
+            return 16;
+        }
+
         @Nonnull
         public DoubleVector computeDoubleVector() {
             Double[] result = new Double[data.length];
@@ -182,6 +189,11 @@ public abstract class Vector<R extends Number> {
             return this;
         }
 
+        @Override
+        public int precision() {
+            return 64;
+        }
+
         @Nonnull
         @Override
         public byte[] getRawData() {
@@ -190,9 +202,9 @@ public abstract class Vector<R extends Number> {
         }
     }
 
-    static <R extends Number> double distance(@Nonnull Metric metric,
-                                              @Nonnull final Vector<R> vector1,
-                                              @Nonnull final Vector<R> vector2) {
+    public static <R extends Number> double distance(@Nonnull Metric metric,
+                                                     @Nonnull final Vector<R> vector1,
+                                                     @Nonnull final Vector<R> vector2) {
         return metric.distance(vector1.toDoubleVector().getData(), vector2.toDoubleVector().getData());
     }
 

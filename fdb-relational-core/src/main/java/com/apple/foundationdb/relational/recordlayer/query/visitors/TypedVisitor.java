@@ -628,6 +628,9 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
     @Override
     Expression visitNullConstant(@Nonnull RelationalParser.NullConstantContext ctx);
 
+    @Override
+    Expression visitVectorConstant(RelationalParser.VectorConstantContext ctx);
+
     @Nonnull
     @Override
     Object visitStringDataType(@Nonnull RelationalParser.StringDataTypeContext ctx);
@@ -773,6 +776,10 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
+    Expression visitNonAggregateFunctionCall(final RelationalParser.NonAggregateFunctionCallContext ctx);
+
+    @Nonnull
+    @Override
     Object visitSpecificFunctionCall(@Nonnull RelationalParser.SpecificFunctionCallContext ctx);
 
     @Nonnull
@@ -849,15 +856,19 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    Object visitNonAggregateWindowedFunction(@Nonnull RelationalParser.NonAggregateWindowedFunctionContext ctx);
+    Expression visitNonAggregateWindowedFunction(@Nonnull RelationalParser.NonAggregateWindowedFunctionContext ctx);
 
     @Nonnull
     @Override
-    Object visitOverClause(@Nonnull RelationalParser.OverClauseContext ctx);
+    NonnullPair<Expressions, List<OrderByExpression>> visitOverClause(@Nonnull RelationalParser.OverClauseContext ctx);
 
     @Nonnull
     @Override
-    Object visitWindowName(@Nonnull RelationalParser.WindowNameContext ctx);
+    Identifier visitWindowName(@Nonnull RelationalParser.WindowNameContext ctx);
+
+    @Nonnull
+    @Override
+    Object visitWindowSpec(final RelationalParser.WindowSpecContext ctx);
 
     @Nonnull
     @Override

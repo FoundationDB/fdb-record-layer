@@ -1016,6 +1016,11 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
         return getDelegate().visitNullConstant(ctx);
     }
 
+    @Override
+    public Expression visitVectorConstant(final RelationalParser.VectorConstantContext ctx) {
+        return getDelegate().visitVectorConstant(ctx);
+    }
+
     @Nonnull
     @Override
     public Object visitStringDataType(@Nonnull RelationalParser.StringDataTypeContext ctx) {
@@ -1234,6 +1239,12 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
+    public Expression visitNonAggregateFunctionCall(final RelationalParser.NonAggregateFunctionCallContext ctx) {
+        return getDelegate().visitNonAggregateFunctionCall(ctx);
+    }
+
+    @Nonnull
+    @Override
     public Object visitSpecificFunctionCall(@Nonnull RelationalParser.SpecificFunctionCallContext ctx) {
         return getDelegate().visitSpecificFunctionCall(ctx);
     }
@@ -1348,20 +1359,26 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public Object visitNonAggregateWindowedFunction(@Nonnull RelationalParser.NonAggregateWindowedFunctionContext ctx) {
+    public Expression visitNonAggregateWindowedFunction(@Nonnull RelationalParser.NonAggregateWindowedFunctionContext ctx) {
         return getDelegate().visitNonAggregateWindowedFunction(ctx);
     }
 
     @Nonnull
     @Override
-    public Object visitOverClause(@Nonnull RelationalParser.OverClauseContext ctx) {
+    public NonnullPair<Expressions, List<OrderByExpression>> visitOverClause(@Nonnull RelationalParser.OverClauseContext ctx) {
         return getDelegate().visitOverClause(ctx);
     }
 
     @Nonnull
     @Override
-    public Object visitWindowName(@Nonnull RelationalParser.WindowNameContext ctx) {
+    public Identifier visitWindowName(@Nonnull RelationalParser.WindowNameContext ctx) {
         return getDelegate().visitWindowName(ctx);
+    }
+
+    @Nonnull
+    @Override
+    public Object visitWindowSpec(final RelationalParser.WindowSpecContext ctx) {
+        return getDelegate().visitWindowSpec(ctx);
     }
 
     @Nonnull

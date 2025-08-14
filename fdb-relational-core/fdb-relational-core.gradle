@@ -40,6 +40,7 @@ dependencies {
     implementation(libs.log4j.core)
     implementation(libs.caffeine)
     implementation(libs.caffeine.guava)
+    implementation(libs.half4j)
 
     antlr(libs.antlr)
 

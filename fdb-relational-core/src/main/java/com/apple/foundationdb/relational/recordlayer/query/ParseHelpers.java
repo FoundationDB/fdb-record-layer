@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
 
+import com.apple.foundationdb.async.hnsw.HNSWHelpers;
 import com.apple.foundationdb.record.query.plan.cascades.TreeLike;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -69,6 +70,9 @@ public final class ParseHelpers {
         if (valueAsString.contains(".")) {
             final var lastCharacter = valueAsString.charAt(lastCharIdx);
             switch (lastCharacter) {
+                case 'h':
+                case 'H': // fallthrough
+                    return HNSWHelpers.halfValueOf(Float.parseFloat(valueAsString.substring(0, lastCharIdx)));
                 case 'f': // fallthrough
                 case 'F':
                     return Float.parseFloat(valueAsString.substring(0, lastCharIdx));
