@@ -23,8 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TestRecords1Proto;
-import com.apple.foundationdb.record.logging.KeyValueLogMessage;
-import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -37,8 +35,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -50,7 +46,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -63,7 +58,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @Tag(Tags.Slow)
 class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
-    private static final Logger LOGGER = LoggerFactory.getLogger(OnlineIndexerMultiTargetTest.class);
 
     private void populateOtherData(final long numRecords) {
         List<TestRecords1Proto.MyOtherRecord> records = LongStream.range(0, numRecords).mapToObj(val ->
@@ -970,47 +964,4 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
         // happy indexes assertion
         assertReadable(indexes);
     }
-
-    @ParameterizedTest
-    @BooleanSource
-    void testMultiTargetIgnoringSyncLock(boolean reverseScan) {
-        // Simply build the index
-
-        final long numRecords = 180;
-
-        List<Index> indexes = new ArrayList<>();
-        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
-        indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
-        indexes.add(new Index("indexC", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
-        indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
-
-        populateData(numRecords);
-
-        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
-        openSimpleMetaData(hook);
-        disableAll(indexes);
-
-        IntStream.rangeClosed(0, 4).parallel().forEach(id -> {
-            snooze(100 - id);
-            try {
-                try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
-                        .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
-                                .setReverseScanOrder(reverseScan))
-                        .setLimit(5)
-                        .setUseSynchronizedSession(id == 0)
-                        .setMaxRetries(100) // enough to avoid giving up
-                        .build()) {
-                    indexBuilder.buildIndex(true);
-                }
-            } catch (IndexingBase.UnexpectedReadableException ex) {
-                LOGGER.info(KeyValueLogMessage.of("Ignoring lock, got exception",
-                        LogMessageKeys.SESSION_ID, id,
-                        LogMessageKeys.ERROR, ex.getMessage()));
-            }
-        });
-
-        assertReadable(indexes);
-        scrubAndValidate(indexes);
-    }
-
 }

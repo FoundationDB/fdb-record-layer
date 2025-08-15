@@ -406,7 +406,6 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                 // once" may not hold true. With the two options, it is running doBuildIndexAsync effectively. Probably
                 // it would be better if this test can test the config loader with bare metal OnlineIndexer.runAsync
                 // instead.
-                .setUseSynchronizedSession(false)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                         .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
@@ -887,5 +886,33 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             fdb.setTrackLastSeenVersionOnRead(dbTracksReadVersionOnRead);
             fdb.setTrackLastSeenVersionOnRead(dbTracksReadVersionOnCommit);
         }
+    }
+
+    @Test
+    @SuppressWarnings("removal")
+    void testDeprecatedSetUseSynchronizedSession() {
+        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 20).mapToObj(val ->
+                TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2((int)val + 1).build()
+        ).collect(Collectors.toList());
+        Index index = new Index("simple$value_2", field("num_value_2").ungrouped(), IndexTypes.SUM);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
+
+        openSimpleMetaData();
+        try (FDBRecordContext context = openContext()) {
+            records.forEach(recordStore::saveRecord);
+            context.commit();
+        }
+
+        openSimpleMetaData(hook);
+        disableAll(List.of(index));
+
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(index)
+                .setUseSynchronizedSession(true)
+                .build()) {
+            indexBuilder.buildIndex();
+        }
+
+        assertReadable(index);
     }
 }

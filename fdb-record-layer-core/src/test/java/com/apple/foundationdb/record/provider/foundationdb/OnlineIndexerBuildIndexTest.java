@@ -21,8 +21,8 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -34,7 +34,6 @@ import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedExcep
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.RandomizedTestUtils;
 import com.google.protobuf.Message;
-import org.junit.jupiter.api.Assertions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,6 +46,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ThreadLocalRandom;
@@ -180,7 +180,6 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
         if (!safeBuild) {
             indexingPolicy.setIfDisabled(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                     .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR);
-            builder.setUseSynchronizedSession(false);
         }
         if (sourceIndex != null) {
             indexingPolicy.setSourceIndex(sourceIndex.getName())
@@ -237,12 +236,6 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                         }
                     });
                 }
-            }
-            if (safeBuild) {
-                buildFuture = MoreAsyncUtil.composeWhenComplete(
-                        buildFuture,
-                        (result, ex) -> indexBuilder.checkAnyOngoingOnlineIndexBuildsAsync().thenAccept(Assertions::assertFalse),
-                        fdb::mapAsyncToSyncException);
             }
 
             if (recordsWhileBuilding != null && !recordsWhileBuilding.isEmpty()) {
@@ -312,6 +305,10 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                                 lessThanOrEqualTo((long)records.size() + additionalScans)
                         ));
             }
+        }
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(index).build()) {
+            final Map<UUID, IndexBuildProto.IndexBuildHeartbeat> heartbeats = indexBuilder.getIndexingHeartbeats(0);
+            assertTrue(heartbeats.isEmpty());
         }
         KeyValueLogMessage msg = KeyValueLogMessage.build("building index - completed", TestLogMessageKeys.INDEX, index);
         msg.addKeysAndValues(timer.getKeysAndValues());

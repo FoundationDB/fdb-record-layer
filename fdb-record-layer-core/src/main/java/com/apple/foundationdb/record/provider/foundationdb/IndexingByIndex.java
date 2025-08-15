@@ -103,7 +103,7 @@ public class IndexingByIndex extends IndexingBase {
         throw new ValidationException("no source index",
                 LogMessageKeys.INDEX_NAME, common.getIndex().getName(),
                 LogMessageKeys.SOURCE_INDEX, policy.getSourceIndex(),
-                LogMessageKeys.INDEXER_ID, common.getUuid());
+                LogMessageKeys.INDEXER_ID, common.getIndexerId());
     }
 
     @Nonnull

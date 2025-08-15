@@ -50,6 +50,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
@@ -438,7 +439,11 @@ public class OnlineIndexer implements AutoCloseable {
      * the lock.
      * @return a future that will be ready when the lock is released
      * @see SynchronizedSession#endAnySession
+     * @deprecated synchronized build was replaced. The functionality of this function can be done with {@link #blockIndexBuilds}
      */
+    @API(API.Status.DEPRECATED)
+    @SuppressWarnings("PMD.AvoidUsingHardCodedIP") // version is not IP
+    @Deprecated(since = "4.4.3.0", forRemoval = true)
     public CompletableFuture<Void> stopOngoingOnlineIndexBuildsAsync() {
         return runner.runAsync(context -> openRecordStore(context).thenAccept(recordStore ->
                 stopOngoingOnlineIndexBuilds(recordStore, index)),
@@ -447,7 +452,11 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Synchronous/blocking version of {@link #stopOngoingOnlineIndexBuildsAsync()}.
+     * @deprecated synchronized build was replaced. The functionality of this function can be done with {@link #blockIndexBuilds}
      */
+    @API(API.Status.DEPRECATED)
+    @SuppressWarnings("PMD.AvoidUsingHardCodedIP") // version is not IP
+    @Deprecated(since = "4.4.3.0", forRemoval = true)
     public void stopOngoingOnlineIndexBuilds() {
         runner.asyncToSync(FDBStoreTimer.Waits.WAIT_STOP_ONLINE_INDEX_BUILD, stopOngoingOnlineIndexBuildsAsync());
     }
@@ -457,7 +466,11 @@ public class OnlineIndexer implements AutoCloseable {
      * the lock.
      * @param recordStore record store whose index builds need to be stopped
      * @param index the index whose builds need to be stopped
+     * @deprecated synchronized build was replaced. The functionality of this function can be done with {@link #blockIndexBuilds}
      */
+    @API(API.Status.DEPRECATED)
+    @SuppressWarnings("PMD.AvoidUsingHardCodedIP") // version is not IP
+    @Deprecated(since = "4.4.3.0", forRemoval = true)
     public static void stopOngoingOnlineIndexBuilds(@Nonnull FDBRecordStore recordStore, @Nonnull Index index) {
         SynchronizedSession.endAnySession(recordStore.ensureContextActive(), IndexingSubspaces.indexBuildLockSubspace(recordStore, index));
     }
@@ -465,7 +478,11 @@ public class OnlineIndexer implements AutoCloseable {
     /**
      * Synchronous/blocking version of {@link #checkAnyOngoingOnlineIndexBuildsAsync()}.
      * @return <code>true</code> if the index is being built and <code>false</code> otherwise
+     * @deprecated synchronized build was replaced. The functionality of this function can be done with {@link #getIndexingHeartbeats(int)}
      */
+    @API(API.Status.DEPRECATED)
+    @SuppressWarnings("PMD.AvoidUsingHardCodedIP") // version is not IP
+    @Deprecated(since = "4.4.3.0", forRemoval = true)
     public boolean checkAnyOngoingOnlineIndexBuilds() {
         return runner.asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_ONGOING_ONLINE_INDEX_BUILD, checkAnyOngoingOnlineIndexBuildsAsync());
     }
@@ -474,7 +491,11 @@ public class OnlineIndexer implements AutoCloseable {
      * Check if the index is being built by any of the {@link OnlineIndexer}s (only if they use {@link SynchronizedSession}s),
      * including <i>this</i> {@link OnlineIndexer}.
      * @return a future that will complete to <code>true</code> if the index is being built and <code>false</code> otherwise
+     * @deprecated synchronized build was replaced. The functionality of this function can be done with {@link #getIndexingHeartbeats(int)}
      */
+    @API(API.Status.DEPRECATED)
+    @SuppressWarnings("PMD.AvoidUsingHardCodedIP") // version is not IP
+    @Deprecated(since = "4.4.3.0", forRemoval = true)
     public CompletableFuture<Boolean> checkAnyOngoingOnlineIndexBuildsAsync() {
         return runner.runAsync(context -> openRecordStore(context).thenCompose(recordStore ->
                 checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index)),
@@ -486,26 +507,18 @@ public class OnlineIndexer implements AutoCloseable {
      * @param recordStore record store whose index builds need to be checked
      * @param index the index to check for ongoing index builds
      * @return a future that will complete to <code>true</code> if the index is being built and <code>false</code> otherwise
+     * @deprecated synchronized build was replaced. The functionality of this function can be done with {@link #getIndexingHeartbeats(int)}
      */
+    @API(API.Status.DEPRECATED)
+    @SuppressWarnings("PMD.AvoidUsingHardCodedIP") // version is not IP
+    @Deprecated(since = "4.4.3.0", forRemoval = true)
     public static CompletableFuture<Boolean> checkAnyOngoingOnlineIndexBuildsAsync(@Nonnull FDBRecordStore recordStore, @Nonnull Index index) {
         return SynchronizedSession.checkActiveSessionExists(recordStore.ensureContextActive(), IndexingSubspaces.indexBuildLockSubspace(recordStore, index));
     }
 
     /**
      * Builds an index across multiple transactions.
-     * <p>
-     * If it is set to use synchronized sessions, it stops with {@link com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException}
-     * when there is another runner actively working on the same index. It first checks and updates index states and
-     * clear index data respecting the {@link IndexStatePrecondition} being set. It then builds the index across
-     * multiple transactions honoring the rate-limiting parameters set in the constructor of this class. It also retries
-     * any retriable errors that it encounters while it runs the build. At the end, it marks the index readable in the
-     * store.
-     * </p>
-     * <p>
-     * One may consider to set the index state precondition to {@link IndexStatePrecondition#ERROR_IF_DISABLED_CONTINUE_IF_WRITE_ONLY}
-     * and {@link OnlineIndexer.Builder#setUseSynchronizedSession(boolean)} to {@code false}, which makes the indexer
-     * follow the same behavior as before version 2.8.90.0. But it is not recommended.
-     * </p>
+     * This is a slow and retrying operation that is intended to be executed by background processes.
      * @return a future that will be ready when the build has completed
      * @throws com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException the build is stopped
      * because there may be another build running actively on this index.
@@ -518,8 +531,7 @@ public class OnlineIndexer implements AutoCloseable {
     @VisibleForTesting
     @Nonnull
     CompletableFuture<Void> buildIndexAsync(boolean markReadable) {
-        boolean useSyncLock = (!indexingPolicy.isMutual() || fallbackToRecordsScan) && common.config.shouldUseSynchronizedSession();
-        return indexingLauncher(() -> getIndexer().buildIndexAsync(markReadable, useSyncLock));
+        return indexingLauncher(() -> getIndexer().buildIndexAsync(markReadable));
     }
 
     /**
@@ -600,6 +612,29 @@ public class OnlineIndexer implements AutoCloseable {
         // any indexer will do
         return asyncToSync(FDBStoreTimer.Waits.WAIT_INDEX_TYPESTAMP_OPERATION,
                 getIndexer().performIndexingStampOperation(op, id, ttlSeconds));
+    }
+
+    /**
+     * Get the current indexing heartbeats for a given index (single target or primary index).
+     * @param maxCount safety valve to limit number items to read. Typically set to zero to keep unlimited.
+     * @return map of session ids to {@link IndexBuildProto.IndexBuildHeartbeat}
+     */
+    @API(API.Status.EXPERIMENTAL)
+    public Map<UUID, IndexBuildProto.IndexBuildHeartbeat> getIndexingHeartbeats(int maxCount) {
+        return asyncToSync(FDBStoreTimer.Waits.WAIT_INDEX_READ_HEARTBEATS,
+                getIndexer().getIndexingHeartbeats(maxCount));
+    }
+
+    /**
+     * Clear old indexing heartbeats for a given index (single target or primary index).
+     * @param minAgenMilliseconds minimum heartbeat age (in milliseconds) to clear.
+     * @param maxIteration safety valve to limit number of items to check. Typically set to zero to keep unlimited
+     * @return number of cleared heartbeats
+     */
+    @API(API.Status.EXPERIMENTAL)
+    public int clearIndexingHeartbeats(long minAgenMilliseconds, int maxIteration) {
+        return asyncToSync(FDBStoreTimer.Waits.WAIT_INDEX_CLEAR_HEARTBEATS,
+                getIndexer().clearIndexingHeartbeats(minAgenMilliseconds, maxIteration));
     }
 
     /**
@@ -763,11 +798,6 @@ public class OnlineIndexer implements AutoCloseable {
          * Set how should {@link #buildIndexAsync()} (or its variations) build the index based on its state. Normally
          * this should be {@link IndexStatePrecondition#BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY} if the index is
          * not corrupted.
-         * <p>
-         * One may consider setting it to {@link IndexStatePrecondition#ERROR_IF_DISABLED_CONTINUE_IF_WRITE_ONLY} and
-         * {@link #setUseSynchronizedSession(boolean)} to {@code false}, which makes the indexer follow the same behavior
-         * as before version 2.8.90.0. But it is not recommended.
-         * </p>
          * @see IndexStatePrecondition
          * @param indexStatePrecondition build option to use
          * @return this builder
@@ -1237,7 +1267,7 @@ public class OnlineIndexer implements AutoCloseable {
             private DesiredAction ifReadable = DesiredAction.CONTINUE;
             private boolean doAllowUniquePendingState = false;
             private Set<TakeoverTypes> allowedTakeoverSet = null;
-            private long checkIndexingStampFrequency = 60_000;
+            private long checkIndexingStampFrequency = 10_000;
             private boolean useMutualIndexing = false;
             private List<Tuple> useMutualIndexingBoundaries = null;
             private boolean allowUnblock = false;
@@ -1449,7 +1479,6 @@ public class OnlineIndexer implements AutoCloseable {
              * by other threads/processes/systems with the exact same parameters, are attempting to concurrently build this
              * index. To allow that, the indexer will:
              * <ol>
-             *   <li> Avoid the indexing lock - i.e. assume that {@link OnlineIndexer.Builder#setUseSynchronizedSession(boolean)} was called with false</li>
              *   <li> Divide the records space to fragments, then iterate the fragments in a way that minimize the interference, while
              *      indexing each fragment independently.</li>
              *   <li> Handle indexing conflicts, when occurred.</li>

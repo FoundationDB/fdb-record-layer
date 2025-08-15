@@ -75,7 +75,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
     @Nonnull
     private CompletableFuture<Void> scrubIndexAsync(IndexScrubbingTools.ScrubbingType type, AtomicLong count) {
         return AsyncUtil.composeHandle(
-                getScrubber(type, count).buildIndexAsync(false, common.config.shouldUseSynchronizedSession()),
+                getScrubber(type, count).buildIndexAsync(false),
                 (ignore, ex) -> {
                     if (ex != null) {
                         throw FDBExceptions.wrapException(ex);
