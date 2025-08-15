@@ -310,7 +310,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                             DataType.StructType.Field.from("EXECUTION_STATE", DataType.Primitives.BYTES.type(), 0),
                             DataType.StructType.Field.from("VERSION", DataType.Primitives.INTEGER.type(), 1),
                             DataType.StructType.Field.from("PLAN_HASH_MODE", DataType.Primitives.STRING.type(), 2),
-                            DataType.StructType.Field.from("SERIALIZED_PLAN_COMPLEXITY", DataType.Primitives.INTEGER.type(), 3)),
+                            DataType.StructType.Field.from("PLAN_HASH", DataType.Primitives.INTEGER.type(), 3),
+                            DataType.StructType.Field.from("SERIALIZED_PLAN_COMPLEXITY", DataType.Primitives.INTEGER.type(), 4)),
                     true);
             final var plannerMetricsStructType = DataType.StructType.from(
                     "PLANNER_METRICS", List.of(
@@ -338,6 +339,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                             parsedContinuation.getExecutionState(),
                             parsedContinuation.getVersion(),
                             parsedContinuation.getCompiledStatement() == null ? null : parsedContinuation.getCompiledStatement().getPlanSerializationMode(),
+                            parsedContinuation.getPlanHash(),
                             getPlanFromContinuation(parsedContinuation, executionContext).map(RecordQueryPlan::getComplexity).orElse(null)
                     ), RelationalStructMetaData.of(continuationStructType));
 
@@ -432,7 +434,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                 // 3. query constraints
                 //
 
-                final var serializationContext = new PlanSerializationContext(new DefaultPlanSerializationRegistry(), currentPlanHashMode);
+                final var serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, currentPlanHashMode);
 
                 final var literals = queryExecutionContext.getLiterals();
                 final var compiledStatementBuilder = CompiledStatement.newBuilder()
