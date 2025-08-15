@@ -69,8 +69,13 @@ public class ExplainTests {
     void explainResultSetMetadataTest() throws Exception {
         final var expectedLabels = List.of("PLAN", "PLAN_HASH", "PLAN_DOT", "PLAN_GML", "PLAN_CONTINUATION", "PLANNER_METRICS");
         final var expectedTypes = List.of(Types.VARCHAR, Types.INTEGER, Types.VARCHAR, Types.VARCHAR, Types.STRUCT, Types.STRUCT);
-        final var expectedContLabels = List.of("EXECUTION_STATE", "VERSION", "PLAN_HASH_MODE");
-        final var expectedContTypes = List.of(Types.BINARY, Types.INTEGER, Types.VARCHAR);
+        final var expectedContLabels = List.of(
+                "EXECUTION_STATE",
+                "VERSION",
+                "PLAN_HASH_MODE",
+                "SERIALIZED_PLAN_COMPLEXITY"
+        );
+        final var expectedContTypes = List.of(Types.BINARY, Types.INTEGER, Types.VARCHAR, Types.INTEGER);
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             executeInsert(ddl);
             try (RelationalPreparedStatement ps = ddl.setSchemaAndGetConnection().prepareStatement("EXPLAIN SELECT * FROM RestaurantComplexRecord")) {
@@ -136,6 +141,7 @@ public class ExplainTests {
                         assertStruct.hasValue("EXECUTION_STATE", new byte[]{0, 21, 1, 21, 11});
                         assertStruct.hasValue("VERSION", 1);
                         assertStruct.hasValue("PLAN_HASH_MODE", null);
+                        assertStruct.hasValue("SERIALIZED_PLAN_COMPLEXITY", null);
                     }
                 }
             }
@@ -167,6 +173,7 @@ public class ExplainTests {
                         assertStruct.hasValue("EXECUTION_STATE", new byte[]{0, 21, 1, 21, 11});
                         assertStruct.hasValue("VERSION", 1);
                         assertStruct.hasValue("PLAN_HASH_MODE", "VC0");
+                        assertStruct.hasValue("SERIALIZED_PLAN_COMPLEXITY", 1);
                     }
                 }
             }
@@ -198,6 +205,7 @@ public class ExplainTests {
                         assertStruct.hasValue("EXECUTION_STATE", new byte[]{0, 21, 1, 21, 11});
                         assertStruct.hasValue("VERSION", 1);
                         assertStruct.hasValue("PLAN_HASH_MODE", "VC0");
+                        assertStruct.hasValue("SERIALIZED_PLAN_COMPLEXITY", 1);
                     }
                 }
 

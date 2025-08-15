@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanHashable.PlanHashMode;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -251,7 +252,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                         throw ExceptionUtil.toRelationalException(ipbe);
                     }
                     if (queryExecutionContext.isForExplain()) {
-                        return executeExplain(parsedContinuation);
+                        return executeExplain(parsedContinuation, executionContext);
                     } else {
                         return executePhysicalPlan(recordLayerSchema, typedEvaluationContext, executionContext, parsedContinuation);
                     }
@@ -280,12 +281,36 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         }
 
         @Nonnull
-        private RelationalResultSet executeExplain(@Nonnull ContinuationImpl parsedContinuation) {
+        protected Optional<RecordQueryPlan> getPlanFromContinuation(@Nonnull ContinuationImpl parsedContinuation,
+                                                                    @Nonnull ExecutionContext executionContext) {
+            final var compiledStatement = parsedContinuation.getCompiledStatement();
+            if (compiledStatement == null || !compiledStatement.hasPlan() || !compiledStatement.hasPlanSerializationMode()) {
+                return Optional.empty();
+            }
+
+            try {
+                final var planSerializationMode = PlanValidator.validateSerializedPlanSerializationMode(
+                        compiledStatement,
+                        OptionsUtils.getValidPlanHashModes(executionContext.getOptions())
+                );
+                final var serializationContext = new PlanSerializationContext(
+                        DefaultPlanSerializationRegistry.INSTANCE, planSerializationMode
+                );
+                return Optional.of(
+                        RecordQueryPlan.fromRecordQueryPlanProto(serializationContext, compiledStatement.getPlan()));
+            } catch (RelationalException ex) {
+                return Optional.empty();
+            }
+        }
+
+        @Nonnull
+        private RelationalResultSet executeExplain(@Nonnull ContinuationImpl parsedContinuation, ExecutionContext executionContext) {
             final var continuationStructType = DataType.StructType.from(
                     "PLAN_CONTINUATION", List.of(
                             DataType.StructType.Field.from("EXECUTION_STATE", DataType.Primitives.BYTES.type(), 0),
                             DataType.StructType.Field.from("VERSION", DataType.Primitives.INTEGER.type(), 1),
-                            DataType.StructType.Field.from("PLAN_HASH_MODE", DataType.Primitives.STRING.type(), 2)),
+                            DataType.StructType.Field.from("PLAN_HASH_MODE", DataType.Primitives.STRING.type(), 2),
+                            DataType.StructType.Field.from("SERIALIZED_PLAN_COMPLEXITY", DataType.Primitives.INTEGER.type(), 3)),
                     true);
             final var plannerMetricsStructType = DataType.StructType.from(
                     "PLANNER_METRICS", List.of(
@@ -312,7 +337,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                                             new ImmutableRowStruct(new ArrayRow(
                             parsedContinuation.getExecutionState(),
                             parsedContinuation.getVersion(),
-                            parsedContinuation.getCompiledStatement() == null ? null : parsedContinuation.getCompiledStatement().getPlanSerializationMode()
+                            parsedContinuation.getCompiledStatement() == null ? null : parsedContinuation.getCompiledStatement().getPlanSerializationMode(),
+                            getPlanFromContinuation(parsedContinuation, executionContext).map(RecordQueryPlan::getComplexity).orElse(null)
                     ), RelationalStructMetaData.of(continuationStructType));
 
             final Struct plannerMetrics;
@@ -491,6 +517,26 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             }
 
             metricCollector.increment(RelationalMetric.RelationalCount.CONTINUATION_ACCEPTED);
+        }
+
+        @Override
+        @Nonnull
+        protected Optional<RecordQueryPlan> getPlanFromContinuation(@Nonnull ContinuationImpl parsedContinuation,
+                                                                    @Nonnull ExecutionContext executionContext) {
+            final var compiledStatement = parsedContinuation.getCompiledStatement();
+            if (compiledStatement == null || !compiledStatement.hasPlan() || !compiledStatement.hasPlanSerializationMode()) {
+                return Optional.empty();
+            }
+
+            final var currentPlan = this.getRecordQueryPlan();
+            final var continuationPlanHash = parsedContinuation.getPlanHash();
+            final var serializedPlanHashMode = PlanHashable.PlanHashMode.valueOf(compiledStatement.getPlanSerializationMode());
+            if (continuationPlanHash != null && continuationPlanHash.equals(currentPlan.planHash(serializedPlanHashMode))) {
+                return Optional.of(currentPlan);
+            }
+
+            // Fallback to deserializing the plan from the continuation
+            return super.getPlanFromContinuation(parsedContinuation, executionContext);
         }
     }
 
