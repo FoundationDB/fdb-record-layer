@@ -29,24 +29,16 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
-import com.apple.foundationdb.record.KeyRange;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordCursorContinuation;
-import com.apple.foundationdb.record.RecordCursorEndContinuation;
-import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
-import com.apple.foundationdb.record.cursors.ChainedCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
-import com.apple.foundationdb.record.lucene.directory.FDBDirectoryManager;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.common.StoreTimerSnapshot;
@@ -87,7 +79,6 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 /**
@@ -104,7 +95,7 @@ public class LucenePartitioner {
     private static final ConcurrentHashMap<String, KeyExpression> partitioningKeyExpressionCache = new ConcurrentHashMap<>();
     public static final int PARTITION_META_SUBSPACE = 0;
     public static final int PARTITION_DATA_SUBSPACE = 1;
-    private final IndexMaintainerState state;
+    final IndexMaintainerState state;
     private final boolean partitioningEnabled;
     private final String partitionFieldNameInLucene;
     private final int indexPartitionHighWatermark;
@@ -754,70 +745,6 @@ public class LucenePartitioner {
             return LucenePartitionInfoProto.LucenePartitionInfo.parseFrom(keyValue.getValue());
         } catch (InvalidProtocolBufferException e) {
             throw new RecordCoreException(e);
-        }
-    }
-
-    /**
-     * Re-balance full partitions, if applicable.
-     *
-     * @param start The continuation at which to resume rebalancing, as returned from a previous call to
-     * {@code rebalancePartitions}.
-     * @param documentCount max number of documents to move in each transaction
-     * @param logMessages {@link com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner} additional log messages
-     * @return a continuation at which to resume rebalancing in another call to {@code rebalancePartitions}
-     */
-    @Nonnull
-    public CompletableFuture<RecordCursorContinuation> rebalancePartitions(RecordCursorContinuation start, int documentCount, RepartitioningLogMessages logMessages) {
-        // This function will iterate the grouping keys
-        final KeyExpression rootExpression = state.index.getRootExpression();
-
-        if (! (rootExpression instanceof GroupingKeyExpression)) {
-            return processPartitionRebalancing(Tuple.from(), documentCount, logMessages).thenApply(movedCount -> {
-                if (movedCount > 0) {
-                    // we did something, repeat
-                    return RecordCursorStartContinuation.START;
-                } else {
-                    return RecordCursorEndContinuation.END;
-                }
-            });
-        }
-
-        GroupingKeyExpression expression = (GroupingKeyExpression) rootExpression;
-        final int groupingCount = expression.getGroupingCount();
-
-        final ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(
-                props -> props.clearState().setReturnedRowLimit(1));
-
-        final Range range = state.indexSubspace.range();
-        final KeyRange keyRange = new KeyRange(range.begin, range.end);
-        final Subspace subspace = state.indexSubspace;
-        try (RecordCursor<Tuple> cursor = new ChainedCursor<>(
-                state.context,
-                lastKey -> FDBDirectoryManager.nextTuple(state.context, subspace, keyRange, lastKey, scanProperties, groupingCount),
-                Tuple::pack,
-                Tuple::fromBytes,
-                start.toBytes(),
-                ScanProperties.FORWARD_SCAN)) {
-            AtomicReference<RecordCursorContinuation> continuation = new AtomicReference<>(start);
-            return AsyncUtil.whileTrue(() -> cursor.onNext().thenCompose(cursorResult -> {
-                if (cursorResult.hasNext()) {
-                    final Tuple groupingKey = Tuple.fromItems(cursorResult.get().getItems().subList(0, groupingCount));
-                    return processPartitionRebalancing(groupingKey, documentCount, logMessages)
-                            .thenCompose(movedCount -> {
-                                if (movedCount > 0) {
-                                    // we did something, stop so we can create a new transaction
-                                    return AsyncUtil.READY_FALSE;
-                                } else {
-                                    // we didn't do anything, we can proceed to the next group
-                                    continuation.set(cursorResult.getContinuation());
-                                    return AsyncUtil.READY_TRUE;
-                                }
-                            });
-                } else {
-                    continuation.set(cursorResult.getContinuation());
-                    return AsyncUtil.READY_FALSE;
-                }
-            }), state.context.getExecutor()).thenApply(ignored -> continuation.get());
         }
     }
 

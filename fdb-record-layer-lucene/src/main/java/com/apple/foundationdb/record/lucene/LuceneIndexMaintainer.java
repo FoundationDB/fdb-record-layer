@@ -20,20 +20,26 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.KeyValue;
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.KeyRange;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorEndContinuation;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.cursors.ChainedCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.directory.AgilityContext;
@@ -46,6 +52,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
@@ -59,9 +66,11 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScrubbingTools;
+import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.StandardIndexMaintainer;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
+import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.Message;
@@ -95,6 +104,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -406,16 +416,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         final FDBRecordStore.Builder storeBuilder = state.store.asBuilder();
         FDBDatabaseRunner runner = state.context.newRunner();
         runner.setMaxAttempts(1); // retries (and throttling) are performed by the caller
-        return rebalancePartitions(runner, storeBuilder, state, mergeControl)
-                .whenComplete((result, error) -> {
-                    runner.close();
-                });
-    }
-
-    private static CompletableFuture<Void> rebalancePartitions(final FDBDatabaseRunner runner,
-                                                               final FDBRecordStore.Builder storeBuilder,
-                                                               final IndexMaintainerState state,
-                                                               final IndexDeferredMaintenanceControl mergeControl) {
         FDBStoreTimer timer = state.context.getTimer();
         if (timer != null) {
             timer.increment(LuceneEvents.Counts.LUCENE_REPARTITION_CALLS);
@@ -426,19 +426,104 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         AtomicInteger maxIterations = new AtomicInteger(Math.max(1, maxDocumentsToMove / repartitionDocumentCount));
         LucenePartitioner.RepartitioningLogMessages repartitioningLogMessages = new LucenePartitioner.RepartitioningLogMessages(-1, Tuple.from(), 0);
         return AsyncUtil.whileTrue(
-                () -> runner.runAsync(
-                        context -> context.instrument(LuceneEvents.Events.LUCENE_REBALANCE_PARTITION_TRANSACTION,
-                                storeBuilder.setContext(context).openAsync().thenCompose(store ->
-                                        getPartitioner(state.index, store).rebalancePartitions(continuation.get(), repartitionDocumentCount, repartitioningLogMessages)
-                                                .thenApply(newContinuation -> {
-                                                    if (newContinuation.isEnd() || maxIterations.decrementAndGet() == 0) {
-                                                        mergeControl.setRepartitionCapped(!newContinuation.isEnd());
-                                                        return false;
+                        () -> runner.runAsync(
+                                context -> context.instrument(LuceneEvents.Events.LUCENE_REBALANCE_PARTITION_TRANSACTION,
+                                        storeBuilder.setContext(context).openAsync().thenCompose(store ->
+                                        {
+                                            CompletableFuture<RecordCursorContinuation> result;
+                                            LucenePartitioner lucenePartitioner = getPartitioner(state.index, store);
+                                            RecordCursorContinuation start = continuation.get();
+                                            // This function will iterate the grouping keys
+                                            final KeyExpression rootExpression = lucenePartitioner.state.index.getRootExpression();
+
+                                            if (! (rootExpression instanceof GroupingKeyExpression)) {
+                                                result = lucenePartitioner.processPartitionRebalancing(Tuple.from(), repartitionDocumentCount, repartitioningLogMessages).thenApply(movedCount -> {
+                                                    if (movedCount > 0) {
+                                                        // we did something, repeat
+                                                        return RecordCursorStartContinuation.START;
                                                     } else {
-                                                        continuation.set(newContinuation);
-                                                        return true;
+                                                        return RecordCursorEndContinuation.END;
                                                     }
-                                                }))), repartitioningLogMessages.logMessages), state.context.getExecutor());
+                                                });// we did something, repeat
+                                            } else {
+                                                GroupingKeyExpression expression = (GroupingKeyExpression)rootExpression;
+                                                final int groupingCount = expression.getGroupingCount();
+                                                final ScanProperties scanProperties = ScanProperties.FORWARD_SCAN.with(
+                                                        props -> props.clearState().setReturnedRowLimit(1));
+                                                final Range range = lucenePartitioner.state.indexSubspace.range();
+                                                final KeyRange keyRange = new KeyRange(range.begin, range.end);
+                                                final Subspace subspace = lucenePartitioner.state.indexSubspace;
+                                                try (RecordCursor<Tuple> cursor = new ChainedCursor<>(
+                                                        lucenePartitioner.state.context,
+                                                        lastKey -> {
+                                                            KeyValueCursor.Builder cursorBuilder =
+                                                                    KeyValueCursor.Builder.withSubspace(subspace)
+                                                                            .setContext(lucenePartitioner.state.context)
+                                                                            .setContinuation(null)
+                                                                            .setScanProperties(scanProperties);
+
+                                                            if (lastKey.isPresent()) {
+                                                                final byte[] lowKey = subspace.pack(Tuple.fromItems(lastKey.get().getItems().subList(0, groupingCount)));
+                                                                cursorBuilder
+                                                                        .setLow(lowKey, EndpointType.RANGE_EXCLUSIVE)
+                                                                        .setHigh(keyRange.getHighKey(), keyRange.getHighEndpoint());
+                                                            } else {
+                                                                cursorBuilder.setContext(lucenePartitioner.state.context)
+                                                                        .setRange(keyRange);
+                                                            }
+
+                                                            return cursorBuilder.build().onNext().thenApply(next -> {
+                                                                if (next.hasNext()) {
+                                                                    KeyValue kv = next.get();
+                                                                    if (kv != null) {
+                                                                        return Optional.of(subspace.unpack(kv.getKey()));
+                                                                    }
+                                                                }
+                                                                return Optional.empty();
+                                                            });
+                                                        },
+                                                        Tuple::pack,
+                                                        Tuple::fromBytes,
+                                                        start.toBytes(),
+                                                        ScanProperties.FORWARD_SCAN)) {
+                                                    AtomicReference<RecordCursorContinuation> continuation1 = new AtomicReference<>(start);
+                                                    result = AsyncUtil.whileTrue(() -> cursor.onNext().thenCompose(cursorResult -> {
+                                                        if (cursorResult.hasNext()) {
+                                                            final Tuple groupingKey = Tuple.fromItems(cursorResult.get().getItems().subList(0, groupingCount));
+                                                            return lucenePartitioner.processPartitionRebalancing(groupingKey, repartitionDocumentCount, repartitioningLogMessages)
+                                                                    .thenCompose(movedCount -> {
+                                                                        if (movedCount > 0) {
+                                                                            // we did something, stop so we can create a new transaction
+                                                                            return AsyncUtil.READY_FALSE;
+                                                                        } else {
+                                                                            // we didn't do anything, we can proceed to the next group
+                                                                            continuation1.set(cursorResult.getContinuation());
+                                                                            return AsyncUtil.READY_TRUE;
+                                                                        }
+                                                                    });
+                                                        } else {
+                                                            continuation1.set(cursorResult.getContinuation());
+                                                            return AsyncUtil.READY_FALSE;
+                                                        }
+                                                    }), lucenePartitioner.state.context.getExecutor()).thenApply(ignored -> continuation1.get());// we did something, stop so we can create a new transaction
+                                                    // we didn't do anything, we can proceed to the next group
+                                                }
+                                            }
+
+                                            return result
+                                                    .thenApply(newContinuation -> {
+                                                        if (newContinuation.isEnd() || maxIterations.decrementAndGet() == 0) {
+                                                            mergeControl.setRepartitionCapped(!newContinuation.isEnd());
+                                                            return false;
+                                                        } else {
+                                                            continuation.set(newContinuation);
+                                                            return true;
+                                                        }
+                                                    });
+                                        })), repartitioningLogMessages.logMessages), state.context.getExecutor())
+                .whenComplete((result, error) -> {
+                    runner.close();
+                });
     }
 
     @Nonnull
