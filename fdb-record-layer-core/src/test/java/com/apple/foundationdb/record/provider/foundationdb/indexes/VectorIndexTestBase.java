@@ -213,7 +213,7 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
         final DistanceRankValueComparison distanceRankComparison =
                 new DistanceRankValueComparison(Comparisons.Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL,
                         new LiteralValue<>(Type.Vector.of(false, 16, 128),
-                                randomVectorData(random, 128)),
+                                Vector.HalfVector.fromBytes(randomVectorData(random, 128), 16)),
                         new LiteralValue<>(10));
 
         final VectorIndexScanComparisons vectorIndexScanComparisons =
@@ -251,7 +251,7 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
         final DistanceRankValueComparison distanceRankComparison =
                 new DistanceRankValueComparison(Comparisons.Type.DISTANCE_RANK_LESS_THAN_OR_EQUAL,
                         new LiteralValue<>(Type.Vector.of(false, 16, 128),
-                                randomVectorData(random, 128)),
+                                Vector.HalfVector.fromBytes(randomVectorData(random, 128), 16)),
                         new LiteralValue<>(10));
 
         final VectorIndexScanComparisons vectorIndexScanComparisons =
