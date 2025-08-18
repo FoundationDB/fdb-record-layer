@@ -1,0 +1,14 @@
+# Configuration for project foundationdb-fdb-record-layer, connector github-fdb-record-layer
+
+# Learn more about the Teamscale IDE Configuration File Format at
+# <https://docs.teamscale.com/reference/teamscale-toml/>.
+
+version = "1.0"
+
+root = true
+
+[server]
+url = "https://fdb.teamscale.io/"
+
+[project]
+id = "foundationdb-fdb-record-layer"
