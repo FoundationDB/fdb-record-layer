@@ -334,14 +334,16 @@ public abstract class QueryConfig {
                                                 actualCountersAndTimers,
                                                 metricsDescriptor.findFieldByName("insert_reused_count"),
                                                 lineNumber);
-                        executionContext.putMetrics(blockName, currentQuery, lineNumber, actualInfo, setups);
                         if (isDifferent) {
+                            executionContext.putMetrics(blockName, currentQuery, lineNumber, actualInfo, setups);
                             if (executionContext.shouldCorrectMetrics()) {
                                 executionContext.markDirty();
                                 logger.debug("⭐️ Successfully updated planner metrics at line {}", getLineNumber());
                             } else {
                                 reportTestFailure("‼️ Planner metrics have changed for line " + getLineNumber());
                             }
+                        } else {
+                            executionContext.putMetrics(blockName, currentQuery, lineNumber, expectedPlannerMetricsInfo, setups);
                         }
                     }
                 }
