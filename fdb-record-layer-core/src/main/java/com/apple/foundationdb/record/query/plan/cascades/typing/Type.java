@@ -162,6 +162,10 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         return getTypeCode().equals(TypeCode.RECORD);
     }
 
+    default boolean isVector() {
+        return getTypeCode().equals(TypeCode.VECTOR);
+    }
+
     /**
      * Checks whether a {@link Type} is {@link Relation}.
      *

@@ -59,6 +59,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
 import com.apple.foundationdb.record.provider.foundationdb.MultidimensionalIndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.UnsupportedRemoteFetchIndexException;
+import com.apple.foundationdb.record.provider.foundationdb.VectorIndexScanComparisons;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -576,12 +577,24 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
 
     @Override
     public boolean hasScanComparisons() {
-        return scanParameters instanceof IndexScanComparisons;
+        return (scanParameters instanceof IndexScanComparisons) || (scanParameters instanceof VectorIndexScanComparisons);
     }
 
     @Nonnull
     @Override
     public ScanComparisons getScanComparisons() {
+        if (scanParameters instanceof VectorIndexScanComparisons) {
+            final var vectorIndexComparisons = (VectorIndexScanComparisons)scanParameters;
+            final var builder = new ScanComparisons.Builder();
+            builder.addAll(vectorIndexComparisons.getPrefixScanComparisons());
+            if (vectorIndexComparisons.getDistanceRankValueComparison().getType().isEquality()) {
+                builder.addEqualityComparison(vectorIndexComparisons.getDistanceRankValueComparison());
+            } else {
+                builder.addInequalityComparison(vectorIndexComparisons.getDistanceRankValueComparison());
+            }
+            builder.addAll(vectorIndexComparisons.getSuffixScanComparisons());
+            return builder.build();
+        }
         if (scanParameters instanceof IndexScanComparisons) {
             return ((IndexScanComparisons)scanParameters).getComparisons();
         } else {

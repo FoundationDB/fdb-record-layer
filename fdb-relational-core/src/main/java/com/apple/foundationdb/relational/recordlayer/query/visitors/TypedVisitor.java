@@ -776,7 +776,7 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    Expression visitNonAggregateFunctionCall(final RelationalParser.NonAggregateFunctionCallContext ctx);
+    Expression visitNonAggregateFunctionCall(@Nonnull RelationalParser.NonAggregateFunctionCallContext ctx);
 
     @Nonnull
     @Override
@@ -868,11 +868,11 @@ public interface TypedVisitor extends RelationalParserVisitor<Object> {
 
     @Nonnull
     @Override
-    Object visitWindowSpec(final RelationalParser.WindowSpecContext ctx);
+    Object visitWindowSpec(@Nonnull RelationalParser.WindowSpecContext ctx);
 
     @Nonnull
     @Override
-    Expressions visitPartitionClause(RelationalParser.PartitionClauseContext ctx);
+    Expressions visitPartitionClause(@Nonnull RelationalParser.PartitionClauseContext ctx);
 
     @Nonnull
     @Override

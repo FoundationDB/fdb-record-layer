@@ -264,7 +264,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
-    public Expression visitNonAggregateFunctionCall(final RelationalParser.NonAggregateFunctionCallContext ctx) {
+    public Expression visitNonAggregateFunctionCall(@Nonnull final RelationalParser.NonAggregateFunctionCallContext ctx) {
         return visitNonAggregateWindowedFunction(ctx.nonAggregateWindowedFunction());
     }
 
@@ -284,8 +284,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final var orderByArray = AbstractArrayConstructorValue.LightArrayConstructorValue.of(orderByValues, Type.any());
 
         final var arguments = Expressions.of(ImmutableList.of(Expression.ofUnnamed(partitionArray), Expression.ofUnnamed(orderByArray)));
-        final var result = getDelegate().getSemanticAnalyzer().resolveScalarFunction("rank", arguments, false);
-        return result;
+        return getDelegate().getSemanticAnalyzer().resolveScalarFunction("rank", arguments, false);
     }
 
     @Nonnull
@@ -380,7 +379,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
-    public Expressions visitPartitionClause(final RelationalParser.PartitionClauseContext ctx) {
+    public Expressions visitPartitionClause(@Nonnull final RelationalParser.PartitionClauseContext ctx) {
         return Expressions.of(ctx.expression().stream().map(expContext ->
                 Assert.castUnchecked(visit(expContext), Expression.class)).collect(ImmutableList.toImmutableList()));
     }

@@ -1239,7 +1239,7 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public Expression visitNonAggregateFunctionCall(final RelationalParser.NonAggregateFunctionCallContext ctx) {
+    public Expression visitNonAggregateFunctionCall(@Nonnull final RelationalParser.NonAggregateFunctionCallContext ctx) {
         return getDelegate().visitNonAggregateFunctionCall(ctx);
     }
 
@@ -1377,13 +1377,13 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public Object visitWindowSpec(final RelationalParser.WindowSpecContext ctx) {
+    public Object visitWindowSpec(@Nonnull final RelationalParser.WindowSpecContext ctx) {
         return getDelegate().visitWindowSpec(ctx);
     }
 
     @Nonnull
     @Override
-    public Expressions visitPartitionClause(final RelationalParser.PartitionClauseContext ctx) {
+    public Expressions visitPartitionClause(@Nonnull final RelationalParser.PartitionClauseContext ctx) {
         return getDelegate().visitPartitionClause(ctx);
     }
 

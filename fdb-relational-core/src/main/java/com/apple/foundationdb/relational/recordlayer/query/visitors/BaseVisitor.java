@@ -1399,7 +1399,7 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     @Override
-    public Expression visitNonAggregateFunctionCall(final RelationalParser.NonAggregateFunctionCallContext ctx) {
+    public Expression visitNonAggregateFunctionCall(@Nonnull RelationalParser.NonAggregateFunctionCallContext ctx) {
         return expressionVisitor.visitNonAggregateFunctionCall(ctx) ;
     }
 
@@ -1537,13 +1537,13 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     @Override
-    public Object visitWindowSpec(final RelationalParser.WindowSpecContext ctx) {
+    public Object visitWindowSpec(@Nonnull final RelationalParser.WindowSpecContext ctx) {
         return visitChildren(ctx);
     }
 
     @Nonnull
     @Override
-    public Expressions visitPartitionClause(final RelationalParser.PartitionClauseContext ctx) {
+    public Expressions visitPartitionClause(@Nonnull final RelationalParser.PartitionClauseContext ctx) {
         return expressionVisitor.visitPartitionClause(ctx);
     }
 

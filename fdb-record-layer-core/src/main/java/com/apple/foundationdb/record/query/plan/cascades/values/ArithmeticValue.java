@@ -546,21 +546,6 @@ public class ArithmeticValue extends AbstractValue {
         BITMAP_BIT_POSITION_II(LogicalOperator.BITMAP_BIT_POSITION, TypeCode.INT, TypeCode.INT, TypeCode.INT, (l, r) -> Math.subtractExact((int)l, Math.multiplyExact(Math.floorDiv((int)l, (int)r), (int)r))),
 
         EUCLIDEAN_DISTANCE_VV(LogicalOperator.EUCLIDEAN_DISTANCE, TypeCode.VECTOR, TypeCode.VECTOR, TypeCode.DOUBLE, ((l, r) -> new Metric.EuclideanMetric().distance(((Vector<?>)l).toDoubleVector().getData(), ((Vector<?>)r).toDoubleVector().getData()))),
-//        EUCLIDEAN_DISTANCE_VA(LogicalOperator.EUCLIDEAN_DISTANCE, TypeCode.VECTOR, TypeCode.ARRAY, TypeCode.DOUBLE, ((l, r) -> {
-//            final List<?> rhs = (List<?>)r;
-//            final Vector<?> lhs = (Vector<?>)l;
-//            Verify.verify(rhs.size() == lhs.size());
-//            if (rhs.isEmpty()) {
-//                return 0.0d;
-//            }
-//            final var doubleArray = new Double[rhs.size()];
-//            for (int i = 0; i < rhs.size(); i++) {
-//                final var item = rhs.get(i);
-//                Verify.verify(item instanceof Number);
-//                doubleArray[i] = ((Number)item).doubleValue();
-//            }
-//            return new Metric.CosineMetric().distance(((Vector<?>)l).toDoubleVector().getData(), doubleArray);
-//        })),
         COSINE_DISTANCE_VV(LogicalOperator.COSINE_DISTANCE, TypeCode.VECTOR, TypeCode.VECTOR, TypeCode.DOUBLE, ((l, r) -> new Metric.CosineMetric().distance(((Vector<?>)l).toDoubleVector().getData(), ((Vector<?>)r).toDoubleVector().getData())));
 
         @Nonnull

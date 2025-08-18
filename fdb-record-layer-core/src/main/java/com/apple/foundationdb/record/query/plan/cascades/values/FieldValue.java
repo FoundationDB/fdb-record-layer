@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.async.hnsw.Vector;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
@@ -188,6 +189,10 @@ public class FieldValue extends AbstractValue implements ValueWithChild {
         } else if (type.isUuid()) {
             Verify.verify(fieldValue instanceof UUID);
             return fieldValue;
+        } else if (type.isVector()) {
+            Verify.verify(fieldValue instanceof ByteString);
+            final var byteString = (ByteString) fieldValue;
+            return Vector.fromBytes(byteString.toByteArray(), ((Type.Vector)type).getPrecision());
         } else {
             // This also may need to turn ByteString's into byte[] for Type.TypeCode.BYTES
             return fieldValue;

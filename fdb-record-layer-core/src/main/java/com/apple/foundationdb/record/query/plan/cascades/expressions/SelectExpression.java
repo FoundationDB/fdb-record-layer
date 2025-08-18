@@ -630,7 +630,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 .map(Object::toString)
                 .collect(Collectors.joining(" AND "));
 
-        final var abbreviatedPredicateString = predicateString;
+        final var abbreviatedPredicateString = predicateString.length() > 30 ? String.format("%02x", predicateString.hashCode()) : predicateString;
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNode(this,
                         "SELECT " + resultValue,

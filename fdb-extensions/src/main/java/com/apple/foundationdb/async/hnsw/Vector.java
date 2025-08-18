@@ -213,4 +213,12 @@ public abstract class Vector<R extends Number> {
                                                          @Nonnull final Vector<R> vector2) {
         return metric.comparativeDistance(vector1.toDoubleVector().getData(), vector2.toDoubleVector().getData());
     }
+
+    public static Vector<?> fromBytes(@Nonnull final byte[] bytes, int precision) {
+        if (precision == 16) {
+            return HalfVector.halfVectorFromBytes(bytes);
+        }
+        // TODO
+        throw new UnsupportedOperationException("not implemented yet");
+    }
 }

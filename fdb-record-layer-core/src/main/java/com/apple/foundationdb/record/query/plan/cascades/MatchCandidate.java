@@ -361,6 +361,17 @@ public interface MatchCandidate {
                         isReverse
                 ).ifPresent(resultBuilder::add);
                 break;
+            case IndexTypes.VECTOR:
+                expandVectorIndexMatchCandidate(
+                        index,
+                        availableRecordTypeNames,
+                        availableRecordTypes,
+                        queriedRecordTypeNames,
+                        queriedRecordTypes,
+                        isReverse,
+                        commonPrimaryKeyForIndex
+                ).ifPresent(resultBuilder::add);
+                break;
             default:
                 break;
         }
@@ -382,6 +393,24 @@ public interface MatchCandidate {
                 isReverse,
                 commonPrimaryKeyForIndex,
                 new ValueIndexExpansionVisitor(index, queriedRecordTypes)
+        );
+    }
+
+    private static Optional<MatchCandidate> expandVectorIndexMatchCandidate(@Nonnull final Index index,
+                                                                            @Nonnull final Set<String> availableRecordTypeNames,
+                                                                            @Nonnull final Collection<RecordType> availableRecordTypes,
+                                                                            @Nonnull final Set<String> queriedRecordTypeNames,
+                                                                            @Nonnull final Collection<RecordType> queriedRecordTypes,
+                                                                            final boolean isReverse,
+                                                                            @Nullable final KeyExpression commonPrimaryKeyForIndex) {
+        return expandIndexMatchCandidate(index,
+                availableRecordTypeNames,
+                availableRecordTypes,
+                queriedRecordTypeNames,
+                queriedRecordTypes,
+                isReverse,
+                commonPrimaryKeyForIndex,
+                new VectorIndexExpansionVisitor(index, queriedRecordTypes)
         );
     }
 

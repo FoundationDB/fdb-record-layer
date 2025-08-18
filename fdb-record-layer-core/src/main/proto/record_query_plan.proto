@@ -262,6 +262,7 @@ message PValue {
     PRangeValue range_value = 48;
     PFirstOrDefaultStreamingValue first_or_default_streaming_value = 49;
     PEvaluatesToValue evaluates_to_value = 50;
+    PEuclideanDistanceRank euclidean_distance_rank = 51;
   }
 }
 
@@ -641,6 +642,10 @@ message PQueriedValue {
 }
 
 message PRankValue {
+  optional PWindowedValue super = 1;
+}
+
+message PEuclideanDistanceRank {
   optional PWindowedValue super = 1;
 }
 
