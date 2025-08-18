@@ -581,7 +581,7 @@ public class MessageHelpers {
                 return true;
             }
             if (!(other instanceof TransformationTrieNode)) {
-                return false;
+                return true;
             }
             final TransformationTrieNode otherTransformationTrieNode = (TransformationTrieNode)other;
 
