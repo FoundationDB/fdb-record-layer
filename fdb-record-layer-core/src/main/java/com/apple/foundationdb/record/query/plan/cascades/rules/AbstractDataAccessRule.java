@@ -45,12 +45,14 @@ import com.apple.foundationdb.record.query.plan.cascades.ReferencedFieldsConstra
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.ValueIndexScanMatchCandidate;
+import com.apple.foundationdb.record.query.plan.cascades.VectorIndexScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.WithPrimaryKeyMatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalIntersectionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.Cardinality;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
@@ -489,6 +491,16 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
             final var outerAccess = singleMatchedAccesses.get(i);
             final var isContained =
                     findContainingAccess(singleMatchedAccesses, outerAccess);
+
+            final var partialMatch = outerAccess.getPartialMatch();
+            final var probeBoundPlaceholders = partialMatch.getBoundPlaceholders().stream().map(Placeholder::getParameterAlias).collect(ImmutableSet.toImmutableSet());
+            if (partialMatch.getMatchCandidate() instanceof VectorIndexScanMatchCandidate) {
+                final var vectorMatchCandidate = (VectorIndexScanMatchCandidate)partialMatch.getMatchCandidate();
+                final var predicatePlaceHolder = vectorMatchCandidate.getDistancePredicatePlaceholder();
+                if (!probeBoundPlaceholders.contains(predicatePlaceHolder.getParameterAlias())) {
+                    continue;
+                }
+            }
 
             if (!isContained) {
                 maximumCoverageMatchesBuilder.add(

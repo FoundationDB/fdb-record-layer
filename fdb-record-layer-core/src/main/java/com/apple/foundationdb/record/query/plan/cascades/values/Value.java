@@ -732,6 +732,12 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, UsesValueEqui
     }
 
     @Nonnull
+    default Optional<QueryPredicate> absorbUpperPredicate(@Nonnull final Comparisons.Type comparisonType,
+                                                          @Nonnull final Value comparand) {
+        return Optional.empty();
+    }
+
+    @Nonnull
     PValue toValueProto(@Nonnull PlanSerializationContext serializationContext);
 
     @Nonnull

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.async.hnsw.Vector;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -52,6 +53,7 @@ import com.apple.foundationdb.relational.recordlayer.query.StringTrieNode;
 import com.apple.foundationdb.relational.recordlayer.query.TautologicalValue;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
+import com.christianheina.langx.half4j.Half;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
@@ -262,6 +264,31 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
+    public Expression visitNonAggregateFunctionCall(@Nonnull final RelationalParser.NonAggregateFunctionCallContext ctx) {
+        return visitNonAggregateWindowedFunction(ctx.nonAggregateWindowedFunction());
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitNonAggregateWindowedFunction(@Nonnull final RelationalParser.NonAggregateWindowedFunctionContext ctx) {
+        Assert.notNullUnchecked(ctx.RANK(), ErrorCode.UNSUPPORTED_QUERY, "only RANK window function is currently supported");
+        final var partitionAndOrderByValues = visitOverClause(ctx.overClause());
+
+        final var partitionExpressions = partitionAndOrderByValues.getLeft();
+        final var partitionValues = Streams.stream(partitionExpressions.underlying()).collect(ImmutableList.toImmutableList());
+        final var partitionArray = AbstractArrayConstructorValue.LightArrayConstructorValue.of(partitionValues, Type.any());
+
+        final var orderByExpressions = partitionAndOrderByValues.getRight();
+        final var orderByValues = orderByExpressions.stream().map(r -> r.getExpression().getUnderlying())
+                .collect(ImmutableList.toImmutableList());
+        final var orderByArray = AbstractArrayConstructorValue.LightArrayConstructorValue.of(orderByValues, Type.any());
+
+        final var arguments = Expressions.of(ImmutableList.of(Expression.ofUnnamed(partitionArray), Expression.ofUnnamed(orderByArray)));
+        return getDelegate().getSemanticAnalyzer().resolveScalarFunction("rank", arguments, false);
+    }
+
+    @Nonnull
+    @Override
     public Expression visitAggregateWindowedFunction(@Nonnull RelationalParser.AggregateWindowedFunctionContext functionContext) {
         Assert.thatUnchecked(functionContext.aggregator == null || functionContext.aggregator.getText().equals(functionContext.ALL().getText()),
                 ErrorCode.UNSUPPORTED_QUERY, () -> String.format(Locale.ROOT, "Unsupported aggregator %s", functionContext.aggregator.getText()));
@@ -339,6 +366,22 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Expression visitFunctionArg(@Nonnull RelationalParser.FunctionArgContext functionArgContext) {
         return Assert.castUnchecked(functionArgContext.expression().accept(this), Expression.class);
+    }
+
+    @Nonnull
+    @Override
+    public NonnullPair<Expressions, List<OrderByExpression>> visitOverClause(@Nonnull RelationalParser.OverClauseContext ctx) {
+        Assert.isNullUnchecked(ctx.windowName(), ErrorCode.UNSUPPORTED_QUERY, "named window functions not supported");
+        final var partitions = visitPartitionClause(ctx.windowSpec().partitionClause());
+        final var orderByClause = visitOrderByClause(ctx.windowSpec().orderByClause());
+        return NonnullPair.of(partitions, orderByClause);
+    }
+
+    @Nonnull
+    @Override
+    public Expressions visitPartitionClause(@Nonnull final RelationalParser.PartitionClauseContext ctx) {
+        return Expressions.of(ctx.expression().stream().map(expContext ->
+                Assert.castUnchecked(visit(expContext), Expression.class)).collect(ImmutableList.toImmutableList()));
     }
 
     @Nonnull
@@ -649,6 +692,21 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public Expression visitNullLiteral(@Nonnull RelationalParser.NullLiteralContext ctx) {
         return Expression.ofUnnamed(new NullValue(Type.nullType())); // do not strip nulls.
+    }
+
+    @Override
+    public Expression visitVectorConstant(final RelationalParser.VectorConstantContext ctx) {
+        final var items = ctx.REAL_LITERAL().stream().map(l -> ParseHelpers.parseDecimal(l.getText())).collect(ImmutableList.toImmutableList());
+        // todo: we should allow the user to mix and match literals and use max_type to calculate the array element type
+        // but ok for now.
+        Assert.thatUnchecked(items.stream().map(Object::getClass).distinct().count() == 1, ErrorCode.SYNTAX_ERROR,
+                "vector elements must be of the same type");
+        final var firstItem = items.get(0);
+        if (firstItem instanceof Double) {
+            return Expression.ofUnnamed(LiteralValue.ofScalar(new Vector.DoubleVector(items.stream().map(i -> (Double)i).toArray(Double[]::new))));
+        }
+        Assert.thatUnchecked(firstItem instanceof Half, ErrorCode.SYNTAX_ERROR, "vector element type " + firstItem.getClass().getSimpleName() + " not supported");
+        return Expression.ofUnnamed(LiteralValue.ofScalar(new Vector.HalfVector(items.stream().map(i -> (Half)i).toArray(Half[]::new))));
     }
 
     @Nonnull

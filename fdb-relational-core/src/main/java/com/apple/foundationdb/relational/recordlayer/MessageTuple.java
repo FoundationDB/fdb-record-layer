@@ -21,6 +21,8 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.async.hnsw.Vector;
+import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
@@ -50,13 +52,19 @@ public class MessageTuple extends AbstractRow {
             throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
         }
         Descriptors.FieldDescriptor fieldDescriptor = message.getDescriptorForType().getFields().get(position);
+        final var recordTypeOptions = fieldDescriptor.getOptions().getExtension(RecordMetaDataOptionsProto.field);
+        final var fieldValue = message.getField(message.getDescriptorForType().getFields().get(position));
+        if (recordTypeOptions.hasVectorOptions()) {
+            final var precision = recordTypeOptions.getVectorOptions().getPrecision();
+            final var byteStringFieldValue = (ByteString)fieldValue;
+            return Vector.fromBytes(byteStringFieldValue.toByteArray(), precision);
+        }
         if (fieldDescriptor.isRepeated()) {
-            final var list = (List<?>) message.getField(message.getDescriptorForType().getFields().get(position));
+            final var list = (List<?>) fieldValue;
             return list.stream().map(MessageTuple::sanitizeField).collect(Collectors.toList());
         }
         if (message.hasField(fieldDescriptor)) {
-            final var field = message.getField(message.getDescriptorForType().getFields().get(position));
-            return sanitizeField(field);
+            return sanitizeField(fieldValue);
         } else {
             return null;
         }

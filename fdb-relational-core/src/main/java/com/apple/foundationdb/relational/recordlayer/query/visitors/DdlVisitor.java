@@ -589,11 +589,4 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     public Boolean visitNullColumnConstraint(@Nonnull RelationalParser.NullColumnConstraintContext ctx) {
         return ctx.nullNotnull().NOT() == null;
     }
-
-    @Nonnull
-    @Override
-    public Expressions visitPartitionClause(final RelationalParser.PartitionClauseContext ctx) {
-        return Expressions.of(ctx.expression().stream().map(expContext ->
-                Assert.castUnchecked(visit(expContext), Expression.class)).collect(ImmutableList.toImmutableList()));
-    }
 }

@@ -20,12 +20,16 @@
 
 package com.apple.foundationdb.relational.recordlayer.query;
 
+import com.apple.foundationdb.async.hnsw.Vector;
 import com.apple.foundationdb.relational.api.StructResultSetMetaData;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
+import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.utils.Ddl;
 import org.assertj.core.api.Assertions;
+import org.assertj.core.data.Offset;
 import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -40,6 +44,9 @@ public class VectorTypeTest {
     @Order(0)
     public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
+    public VectorTypeTest() {
+        Utils.enableCascadesDebugger();
+    }
 
     @Nonnull
     public static Stream<Arguments> vectorArguments() {
@@ -63,6 +70,31 @@ public class VectorTypeTest {
                 final var relationalMetadata = (StructResultSetMetaData)metadata;
                 final var type = relationalMetadata.getRelationalDataType().getFields().get(1).getType();
                 Assertions.assertThat(type).isEqualTo(expectedType);
+            }
+        }
+    }
+
+    @Test
+    void selectFromHnsw() throws Exception {
+        final String schemaTemplate =  "create table photos(zone string, recordId string, name string," +
+                "embedding vector(3), primary key (zone, recordId), organized by hnsw(embedding partition by zone, name) " +
+                "with (hnsw_m = 10, hnsw_ef_construction = 5))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into photos values ('1', '100', 'DarthVader', vector(1.2h, -0.3H, 3.14H))");
+                statement.execute("SELECT * FROM photos WHERE zone = '1' and name = 'DarthVader' and RANK() OVER (PARTITION BY zone, " +
+                        "name ORDER BY euclidean_distance(embedding, vector(1.2H, -0.5H, 3.14H)) DESC) < 10");
+                final var resultSet = statement.getResultSet();
+                resultSet.next();
+                Assertions.assertThat(resultSet.getString(1)).isEqualTo("1");
+                Assertions.assertThat(resultSet.getString(2)).isEqualTo("100");
+                Assertions.assertThat(resultSet.getString(3)).isEqualTo("DarthVader");
+                Assertions.assertThat(resultSet.getObject(4)).isInstanceOf(Vector.HalfVector.class);
+                final var halfVector = (Vector.HalfVector)resultSet.getObject(4);
+                Assertions.assertThat(halfVector.getData().length).isEqualTo(3);
+                Assertions.assertThat(halfVector.getData()[0].floatValue()).isCloseTo(1.2f, Offset.offset(0.01f));
+                Assertions.assertThat(halfVector.getData()[1].floatValue()).isCloseTo(-0.3f, Offset.offset(0.01f));
+                Assertions.assertThat(halfVector.getData()[2].floatValue()).isCloseTo(3.14f, Offset.offset(0.01f));
             }
         }
     }
