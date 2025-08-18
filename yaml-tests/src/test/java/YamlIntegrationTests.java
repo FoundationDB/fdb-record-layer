@@ -38,7 +38,7 @@ public class YamlIntegrationTests {
     public void showcasingTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("showcasing-tests.yamsql");
     }
-
+    
     @TestTemplate
     public void groupByTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("groupby-tests.yamsql");

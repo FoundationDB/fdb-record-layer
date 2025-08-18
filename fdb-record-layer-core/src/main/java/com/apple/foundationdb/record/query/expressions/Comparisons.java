@@ -1938,8 +1938,7 @@ public class Comparisons {
 
         @Nullable
         public Vector<? extends Number> getVector(@Nullable final FDBRecordStoreBase<?> store, final @Nullable EvaluationContext context) {
-            final Object comparand = getComparand(store, context);
-            return comparand == null ? null : Vector.HalfVector.halfVectorFromBytes((byte[])comparand);
+            return (Vector<? extends Number>)getComparand(store, context);
         }
 
         public int getLimit(@Nullable final FDBRecordStoreBase<?> store, final @Nullable EvaluationContext context) {
