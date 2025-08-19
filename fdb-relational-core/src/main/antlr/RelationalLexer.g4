@@ -513,6 +513,7 @@ HNSW_M:                              'HNSW_M';
 HNSW_MMAX:                           'HNSW_MMAX';
 HNSW_MMAX0:                          'HNSW_MMAX0';
 HNSW_EF_CONSTRUCTION:                'HNSW_EF_CONSTRUCTION';
+HNSW_EF_SEARCH:                      'HNSW_EF_SEARCH';
 IDENTIFIED:                          'IDENTIFIED';
 IGNORE_SERVER_IDS:                   'IGNORE_SERVER_IDS';
 IMPORT:                              'IMPORT';

@@ -136,4 +136,37 @@ public class VectorTypeTest {
             }
         }
     }
+
+    @Test
+    void insertPreparedVectorWithIndexHint() throws Exception {
+        final String schemaTemplate =  "create table photos(zone string, recordId string, name string," +
+                "embedding vector(3), primary key (zone, recordId), organized by hnsw(embedding partition by zone, name) " +
+                "with (hnsw_m = 10, hnsw_ef_construction = 5))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).schemaTemplateOptions((new SchemaTemplateRule.SchemaTemplateOptions(true, true))).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().prepareStatement("insert into photos values (?, ?, ?, ?)")) {
+                statement.setString(1, "1");
+                statement.setString(2, "100");
+                statement.setString(3, "DarthVader");
+
+                final Half[] componentData = new Half[] {HNSWHelpers.halfValueOf(1.2f), HNSWHelpers.halfValueOf(-0.3f), HNSWHelpers.halfValueOf(3.14f)};
+                statement.setObject(4, new Vector.HalfVector(componentData));
+                statement.executeUpdate();
+            }
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("SELECT * FROM photos WHERE zone = '1' and name = 'DarthVader' and RANK() OVER (PARTITION BY zone, " +
+                        "name ORDER BY euclidean_distance(embedding, vector(1.2H, -0.5H, 3.14H)) DESC) < 10 options (HNsw_ef_search = 50)");
+                final var resultSet = statement.getResultSet();
+                resultSet.next();
+                Assertions.assertThat(resultSet.getString(1)).isEqualTo("1");
+                Assertions.assertThat(resultSet.getString(2)).isEqualTo("100");
+                Assertions.assertThat(resultSet.getString(3)).isEqualTo("DarthVader");
+                Assertions.assertThat(resultSet.getObject(4)).isInstanceOf(Vector.HalfVector.class);
+                final var halfVector = (Vector.HalfVector)resultSet.getObject(4);
+                Assertions.assertThat(halfVector.getData().length).isEqualTo(3);
+                Assertions.assertThat(halfVector.getData()[0].floatValue()).isCloseTo(1.2f, Offset.offset(0.01f));
+                Assertions.assertThat(halfVector.getData()[1].floatValue()).isCloseTo(-0.3f, Offset.offset(0.01f));
+                Assertions.assertThat(halfVector.getData()[2].floatValue()).isCloseTo(3.14f, Offset.offset(0.01f));
+            }
+        }
+    }
 }

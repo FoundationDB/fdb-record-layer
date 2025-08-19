@@ -544,6 +544,7 @@ queryOption
     | LOG QUERY
     | DRY RUN
     | CONTINUATION CONTAINS COMPILED STATEMENT
+    | key=HNSW_EF_SEARCH '=' value=DECIMAL_LITERAL
     ;
 
 // Transaction's Statements
