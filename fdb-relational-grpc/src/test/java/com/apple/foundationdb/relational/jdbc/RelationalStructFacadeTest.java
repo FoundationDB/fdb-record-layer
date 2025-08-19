@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.sql.SQLException;
+import java.util.UUID;
 
 public class RelationalStructFacadeTest {
     @Test
@@ -75,14 +76,26 @@ public class RelationalStructFacadeTest {
     }
 
     @Test
+    public void testSimpleUuid() throws SQLException {
+        String key = "only-field";
+        final var uuid = UUID.randomUUID();
+        var relationalStruct = RelationalStructFacade.newBuilder().addUuid(key, uuid).build();
+        Assertions.assertEquals(relationalStruct.getUUID(key), uuid);
+    }
+
+    @Test
     public void testMultipleFields() throws SQLException {
+        final var UuidValue = UUID.randomUUID();
         var relationalStruct = RelationalStructFacade.newBuilder()
                 .addLong("field1", 1L)
                 .addString("field2", "hello")
+                .addUuid("field3", UuidValue)
                 .build();
         Assertions.assertEquals(relationalStruct.getLong("field1"), 1L);
         Assertions.assertEquals(relationalStruct.getString("field2"), "hello");
+        Assertions.assertEquals(relationalStruct.getUUID("field3"), UuidValue);
         Assertions.assertEquals(relationalStruct.getLong(1), 1L);
         Assertions.assertEquals(relationalStruct.getString(2), "hello");
+        Assertions.assertEquals(relationalStruct.getUUID(3), UuidValue);
     }
 }

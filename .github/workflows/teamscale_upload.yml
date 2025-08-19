@@ -1,0 +1,55 @@
+name: Upload Coverage to Teamscale
+
+permissions:
+  actions: read
+
+on:
+  workflow_run:
+    workflows: [Pull Request]
+    types:
+      - completed
+
+jobs:
+  upload_coverage:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: 'Download artifact'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            let allArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               run_id: context.payload.workflow_run.id,
+            });
+            let matchArtifact = allArtifacts.data.artifacts.filter((artifact) => {
+              return artifact.name == "coverage-report"
+            })[0];
+            let download = await github.rest.actions.downloadArtifact({
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               artifact_id: matchArtifact.id,
+               archive_format: 'zip',
+            });
+            const fs = require('fs');
+            const path = require('path');
+            const temp = '${{ runner.temp }}/artifacts';
+            if (!fs.existsSync(temp)){
+              fs.mkdirSync(temp);
+            }
+            fs.writeFileSync(path.join(temp, 'coverage-report.zip'), Buffer.from(download.data));
+
+      - name: 'Unzip artifact'
+        run: unzip "${{ runner.temp }}/artifacts/coverage-report.zip" -d "${{ runner.temp }}/artifacts"
+      - name: 'Upload coverage'
+        uses: 'cqse/teamscale-upload-action@8d10b6693b9242420ef2062dbefc36af6e88d587'
+        with:
+          server: 'https://fdb.teamscale.io'
+          project: 'foundationdb-fdb-record-layer'
+          user: 'fdb-record-layer-build'
+          partition: 'CI Tests'
+          accesskey: ${{ secrets.TEAMSCALE_ACCESS_KEY }}
+          format: 'JACOCO'
+          revision: ${{ github.event.workflow_run.head_sha }}
+          files: "${{ runner.temp}}/artifacts/codeCoverageReport.xml"

@@ -128,16 +128,15 @@ class TypeTest {
                                             .setStartDate(random.nextLong())
                                             .setSchoolName("randomString" + random.nextInt()).build()
                                     ).build()
+                    ),
+                    Arguments.of(
+                          "TestRecordsUuidProto.UuidRecord", TestRecordsUuidProto.UuidRecord.newBuilder()
+                                  .setPkey(TupleFieldsProto.UUID.newBuilder()
+                                          .setMostSignificantBits(98452560)
+                                          .setLeastSignificantBits(30900234)
+                                          .build())
+                                  .build()
                     )
-            // This does not work currently owing to https://github.com/FoundationDB/fdb-record-layer/issues/3295
-            //      Arguments.of(
-            //              "TestRecordsUuidProto.UuidRecord", TestRecordsUuidProto.UuidRecord.newBuilder()
-            //                      .setPkey(TupleFieldsProto.UUID.newBuilder()
-            //                              .setMostSignificantBits(98452560)
-            //                              .setLeastSignificantBits(30900234)
-            //                              .build())
-            //                      .build()
-            //          )
             );
         }
     }
@@ -307,29 +306,5 @@ class TypeTest {
                 PlanHashable.CURRENT_FOR_CONTINUATION);
         Type.AnyRecord r1 = new Type.AnyRecord(false);
         Assertions.assertEquals(r1, Type.AnyRecord.fromProto(serializationContext, r1.toProto(serializationContext)));
-    }
-
-    @Test
-    void testUUIDInterpretedAsRecordType() {
-        final TestRecordsUuidProto.UuidRecord uuidRecord = TestRecordsUuidProto.UuidRecord.newBuilder()
-                .setName("testUuidRecord")
-                .setPkey(TupleFieldsProto.UUID.newBuilder()
-                        .setMostSignificantBits(1)
-                        .setLeastSignificantBits(2))
-                .build();
-        final Type.Record recordType = Type.Record.fromDescriptor(uuidRecord.getDescriptorForType());
-        final Map<String, Type.Record.Field> fieldsMaps = recordType.getFieldNameFieldMap();
-        checkIsUuidRecordType(fieldsMaps, "pkey");
-        checkIsUuidRecordType(fieldsMaps, "secondary");
-        checkIsUuidRecordType(fieldsMaps, "unique");
-    }
-
-    private static void checkIsUuidRecordType(@Nonnull Map<String, Type.Record.Field> fieldsMap, @Nonnull String fieldName) {
-        Assertions.assertTrue(fieldsMap.containsKey(fieldName));
-        Assertions.assertInstanceOf(Type.Record.class, fieldsMap.get(fieldName).getFieldType());
-        final Type.Record uuidRecord = (Type.Record) fieldsMap.get(fieldName).getFieldType();
-        Assertions.assertEquals(2, uuidRecord.getFields().size());
-        Assertions.assertEquals(Type.TypeCode.LONG, uuidRecord.getFields().get(0).getFieldType().getTypeCode());
-        Assertions.assertEquals(Type.TypeCode.LONG, uuidRecord.getFields().get(1).getFieldType().getTypeCode());
     }
 }
