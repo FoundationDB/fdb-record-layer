@@ -76,6 +76,7 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
         this.safeBuild = safeBuild;
     }
 
+    @SuppressWarnings("removal")
     <M extends Message> void singleRebuild(
             @Nonnull OnlineIndexerTestRecordHandler<M> recordHandler,
             @Nonnull List<M> records,
@@ -178,6 +179,7 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
         if (!safeBuild) {
             indexingPolicy.setIfDisabled(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                     .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR);
+            builder.setUseSynchronizedSession(false);
         }
         if (sourceIndex != null) {
             indexingPolicy.setSourceIndex(sourceIndex.getName())
@@ -235,6 +237,7 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
                     });
                 }
             }
+
             if (recordsWhileBuilding != null && !recordsWhileBuilding.isEmpty()) {
                 int i = 0;
                 while (i < recordsWhileBuilding.size()) {
