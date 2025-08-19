@@ -164,7 +164,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
 
     @Test
     public void testListAll() throws IOException {
-        assertEquals(directory.listAll().length, x0);
+        assertEquals(directory.listAll().length, 0);
         directory.writeFDBLuceneFileReference("test1", new FDBLuceneFileReference(1, 1, 1, 1));
         directory.writeFDBLuceneFileReference("test2", new FDBLuceneFileReference(2, 1, 1, 1));
         directory.writeFDBLuceneFileReference("test3", new FDBLuceneFileReference(3, 1, 1, 1));

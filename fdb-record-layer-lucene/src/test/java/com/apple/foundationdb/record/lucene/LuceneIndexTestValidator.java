@@ -151,7 +151,7 @@ public class LuceneIndexTestValidator {
      * This helps detect block leaks where file references are deleted but their data blocks remain.
      */
     private void validatePartitionedDanglingBlocks(final Index index, Tuple groupingKey) {
-        List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getLucenePartitionInfos(index, groupingKey);
+        List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(index, groupingKey);
         try (FDBRecordContext context = contextProvider.get()) {
             final FDBRecordStore recordStore = schemaSetup.apply(context);
             final FDBDirectoryManager directoryManager = getDirectoryManager(recordStore, index);
@@ -161,7 +161,7 @@ public class LuceneIndexTestValidator {
                 if (LOGGER.isTraceEnabled()) {
                     LOGGER.trace("Checking blocks for Group: " + groupingKey + " PartitionInfo: " + partitionInfo.getId());
                 }
-                validateGanglingBlocks(directory, context);
+                validateDanglingBlocks(directory, context);
             }
         }
     }
@@ -178,11 +178,11 @@ public class LuceneIndexTestValidator {
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace("Checking blocks for Group: " + groupingKey + " , unpartitioned");
             }
-            validateGanglingBlocks(directory, context);
+            validateDanglingBlocks(directory, context);
         }
     }
 
-    private static void validateGanglingBlocks(final FDBDirectory directory, final FDBRecordContext context) {
+    private static void validateDanglingBlocks(final FDBDirectory directory, final FDBRecordContext context) {
         Subspace dataSubspace = directory.getSubspace().subspace(Tuple.from(directory.DATA_SUBSPACE));
         final Map<String, FDBLuceneFileReference> allFiles = directory.getFileReferenceCacheAsync().join();
         // Get all valid file IDs from the file references
@@ -218,7 +218,8 @@ public class LuceneIndexTestValidator {
     }
 
     private void validatePartitionedGroup(final Index index, final String universalSearch, final boolean allowDuplicatePrimaryKeys, final Tuple groupingKey, final int partitionLowWatermark, final int partitionHighWatermark, final List<Tuple> records, final Map<Tuple, Map<Tuple, Tuple>> missingDocuments) throws IOException {
-        List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getLucenePartitionInfos(index, groupingKey);
+        List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(index, groupingKey);
+        partitionInfos.sort(Comparator.comparing(info -> Tuple.fromBytes(info.getFrom().toByteArray())));
         final String allCounts = partitionInfos.stream()
                 .map(info -> Tuple.fromBytes(info.getFrom().toByteArray()).toString() + info.getCount())
                 .collect(Collectors.joining(",", "[", "]"));
@@ -267,13 +268,6 @@ public class LuceneIndexTestValidator {
                 expectedPrimaryKeys.forEach(primaryKey -> missingDocuments.get(groupingKey).remove(primaryKey));
             }
         }
-    }
-
-    @Nonnull
-    private List<LucenePartitionInfoProto.LucenePartitionInfo> getLucenePartitionInfos(final Index index, final Tuple groupingKey) {
-        List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(index, groupingKey);
-        partitionInfos.sort(Comparator.comparing(info -> Tuple.fromBytes(info.getFrom().toByteArray())));
-        return partitionInfos;
     }
 
     private static int getPartitionLowWatermark(final Index index) {
