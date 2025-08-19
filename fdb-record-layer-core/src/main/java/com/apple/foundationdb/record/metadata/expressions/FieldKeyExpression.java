@@ -54,7 +54,7 @@ import java.util.List;
  * <code>Key.Evaluated</code> containing the empty list.
  */
 @API(API.Status.UNSTABLE)
-public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithoutChildren {
+public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithoutChildren, GroupableKeyExpression {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Field-Key-Expression");
 
     @Nonnull
@@ -290,16 +290,14 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         return new NestingKeyExpression(this, child);
     }
 
-    /**
-     * Get this field as a group without any grouping keys.
-     * @return this field without any grouping keys
-     */
     @Nonnull
+    @Override
     public GroupingKeyExpression ungrouped() {
         return new GroupingKeyExpression(this, 1);
     }
 
     @Nonnull
+    @Override
     public GroupingKeyExpression groupBy(@Nonnull KeyExpression groupByFirst, @Nonnull KeyExpression... groupByRest) {
         return GroupingKeyExpression.of(this, groupByFirst, groupByRest);
     }
