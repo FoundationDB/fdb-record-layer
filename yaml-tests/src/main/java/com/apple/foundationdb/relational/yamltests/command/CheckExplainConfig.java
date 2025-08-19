@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.yamltests.command;
 
 import com.apple.foundationdb.record.query.plan.cascades.debug.BrowserHelper;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.generated.stats.PlannerMetricsProto;
 import com.github.difflib.text.DiffRow;
@@ -33,6 +34,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.List;
@@ -86,14 +88,26 @@ class CheckExplainConfig extends QueryConfig {
                 .build();
         final var expectedPlannerMetricsInfo = metricsMap.get(identifier);
 
+        checkExplain(queryDescription, success, actualDot, actualPlan,
+                expectedPlannerMetricsInfo == null ? null : expectedPlannerMetricsInfo.getDot());
+
+        final RelationalStruct actualPlannerMetrics = resultSet.getStruct(6);
+        checkMetrics(currentQuery, setups, actualDot, actualPlan, expectedPlannerMetricsInfo, actualPlannerMetrics);
+    }
+
+    private void checkExplain(final @Nonnull String queryDescription,
+                              final boolean success,
+                              final String actualDot,
+                              final String actualPlan,
+                              final @Nullable String expectedDot) {
         if (success) {
             logger.debug("✅️ plan match!");
         } else {
             if (executionContext.shouldShowPlanOnDiff() &&
-                    actualDot != null && expectedPlannerMetricsInfo != null) {
+                    actualDot != null && expectedDot != null) {
                 BrowserHelper.browse("/showPlanDiff.html",
                         ImmutableMap.of("$SQL", queryDescription,
-                                "$DOT_EXPECTED", expectedPlannerMetricsInfo.getDot(),
+                                "$DOT_EXPECTED", expectedDot,
                                 "$DOT_ACTUAL", actualDot));
             }
 
@@ -128,8 +142,14 @@ class CheckExplainConfig extends QueryConfig {
                 reportTestFailure(diffMessage);
             }
         }
+    }
 
-        final var actualPlannerMetrics = resultSet.getStruct(6);
+    private void checkMetrics(final @Nonnull String currentQuery,
+                              final @Nonnull List<String> setups,
+                              final String actualDot,
+                              final String actualPlan,
+                              final PlannerMetricsProto.Info expectedPlannerMetricsInfo,
+                              final RelationalStruct actualPlannerMetrics) throws SQLException {
         if (isExact && actualPlannerMetrics != null) {
             Objects.requireNonNull(actualDot);
             final var taskCount = actualPlannerMetrics.getLong(1);
@@ -197,7 +217,6 @@ class CheckExplainConfig extends QueryConfig {
             }
         }
     }
-
 
     private static boolean isMetricDifferent(@Nonnull final PlannerMetricsProto.CountersAndTimers expected,
                                              @Nonnull final PlannerMetricsProto.CountersAndTimers actual,
