@@ -306,6 +306,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             }
             if (ctx.HNSW_EF_SEARCH() != null) {
                 queryOptions.withOption(Options.Name.EF_SEARCH, ParseHelpers.parseDecimal(ctx.value.getText()));
+                queryCachingFlags.add(NormalizationResult.QueryCachingFlags.WITH_NO_CACHE_OPTION);
             }
             return null;
         } catch (SQLException e) {

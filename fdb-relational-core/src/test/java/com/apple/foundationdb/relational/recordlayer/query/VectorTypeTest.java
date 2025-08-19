@@ -154,7 +154,23 @@ public class VectorTypeTest {
             }
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
                 statement.execute("SELECT * FROM photos WHERE zone = '1' and name = 'DarthVader' and RANK() OVER (PARTITION BY zone, " +
-                        "name ORDER BY euclidean_distance(embedding, vector(1.2H, -0.5H, 3.14H)) DESC) < 10 options (HNsw_ef_search = 50)");
+                        "name ORDER BY euclidean_distance(embedding, vector(1.2H, -0.5H, 3.14H)) DESC) < 10 options (HNsw_ef_search = 94)");
+                final var resultSet = statement.getResultSet();
+                resultSet.next();
+                Assertions.assertThat(resultSet.getString(1)).isEqualTo("1");
+                Assertions.assertThat(resultSet.getString(2)).isEqualTo("100");
+                Assertions.assertThat(resultSet.getString(3)).isEqualTo("DarthVader");
+                Assertions.assertThat(resultSet.getObject(4)).isInstanceOf(Vector.HalfVector.class);
+                final var halfVector = (Vector.HalfVector)resultSet.getObject(4);
+                Assertions.assertThat(halfVector.getData().length).isEqualTo(3);
+                Assertions.assertThat(halfVector.getData()[0].floatValue()).isCloseTo(1.2f, Offset.offset(0.01f));
+                Assertions.assertThat(halfVector.getData()[1].floatValue()).isCloseTo(-0.3f, Offset.offset(0.01f));
+                Assertions.assertThat(halfVector.getData()[2].floatValue()).isCloseTo(3.14f, Offset.offset(0.01f));
+            }
+
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("SELECT * FROM photos WHERE zone = '1' and name = 'DarthVader' and RANK() OVER (PARTITION BY zone, " +
+                        "name ORDER BY euclidean_distance(embedding, vector(1.2H, -0.5H, 3.14H)) DESC) < 10 options (HNsw_ef_search = 56)");
                 final var resultSet = statement.getResultSet();
                 resultSet.next();
                 Assertions.assertThat(resultSet.getString(1)).isEqualTo("1");
