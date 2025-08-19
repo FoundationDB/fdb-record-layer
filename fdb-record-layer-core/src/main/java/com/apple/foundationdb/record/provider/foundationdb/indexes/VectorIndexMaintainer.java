@@ -176,7 +176,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
                                                                                @Nonnull final HNSW hnsw,
                                                                                @Nonnull final ReadTransaction transaction,
                                                                                @Nonnull final VectorIndexScanBounds vectorIndexScanBounds) {
-        return hnsw.kNearestNeighborsSearch(transaction, vectorIndexScanBounds.getAdjustedLimit(), 100,
+        return hnsw.kNearestNeighborsSearch(transaction, vectorIndexScanBounds.getAdjustedLimit(), config.getEfSearch(),
                         Objects.requireNonNull(vectorIndexScanBounds.getQueryVector()).toHalfVector())
                 .thenApply(nearestNeighbors -> {
                     final ImmutableList.Builder<IndexEntry> nearestNeighborEntriesBuilder = ImmutableList.builder();
