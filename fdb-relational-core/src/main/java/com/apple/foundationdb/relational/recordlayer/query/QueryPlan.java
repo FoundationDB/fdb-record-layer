@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
@@ -79,6 +80,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
@@ -369,10 +371,15 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             validatePlanAgainstEnvironment(parsedContinuation, fdbRecordStore, executionContext, OptionsUtils.getValidPlanHashModes(options));
 
             final RecordCursor<QueryResult> cursor;
-            final var executeProperties = connection.getExecuteProperties().toBuilder()
+            final var executePropertiesBuilder = connection.getExecuteProperties().toBuilder()
                     .setReturnedRowLimit(options.getOption(Options.Name.MAX_ROWS))
-                    .setDryRun(options.getOption(Options.Name.DRY_RUN))
-                    .build();
+                    .setDryRun(options.getOption(Options.Name.DRY_RUN));
+
+            final int efSearch = options.getOption(Options.Name.EF_SEARCH);
+            if (!options.getOption(Options.Name.EF_SEARCH).equals(Options.defaultOptions().get(Options.Name.EF_SEARCH))) {
+                executePropertiesBuilder.setOverriddenIndexOptions(ImmutableMap.of(IndexOptions.HNSW_EF_SEARCH, String.valueOf(efSearch)));
+            }
+            final var executeProperties = executePropertiesBuilder.build();
             cursor = executionContext.metricCollector.clock(
                     RelationalMetric.RelationalEvent.EXECUTE_RECORD_QUERY_PLAN, () -> recordQueryPlan.executePlan(fdbRecordStore, evaluationContext,
                             parsedContinuation.getExecutionState(),

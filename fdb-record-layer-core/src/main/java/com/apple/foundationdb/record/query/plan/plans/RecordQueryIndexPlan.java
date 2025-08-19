@@ -302,7 +302,9 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
     public <M extends Message> RecordCursor<IndexEntry> executeEntries(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
                                                                        @Nullable byte[] continuation, @Nonnull ExecuteProperties executeProperties) {
         final RecordMetaData metaData = store.getRecordMetaData();
-        final Index index = metaData.getIndex(indexName);
+        final Index index = executeProperties.getOverriddenIndexOptionsMaybe()
+                .map(overriddenOptions -> new Index(metaData.getIndex(indexName), overriddenOptions))
+                .orElse(metaData.getIndex(indexName));
         final IndexScanBounds scanBounds = scanParameters.bind(store, index, context);
         if (!IndexScanType.BY_VALUE_OVER_SCAN.equals(getScanType())) {
             return store.scanIndex(index, scanBounds, continuation, executeProperties.asScanProperties(reverse));

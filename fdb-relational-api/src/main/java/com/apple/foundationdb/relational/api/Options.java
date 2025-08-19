@@ -221,7 +221,12 @@ public final class Options {
          * operations interacting with FDB.
          * Scope: Engine
          */
-        ASYNC_OPERATIONS_TIMEOUT_MILLIS
+        ASYNC_OPERATIONS_TIMEOUT_MILLIS,
+
+        /**
+         * Sets the EF_SEARCH parameter that controls the search space of queries leveraging the HNSW index.
+         */
+        EF_SEARCH
     }
 
     public enum IndexFetchMethod {
@@ -258,6 +263,7 @@ public final class Options {
         builder.put(Name.CASE_SENSITIVE_IDENTIFIERS, false);
         builder.put(Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
         builder.put(Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, 10_000L);
+        builder.put(Name.EF_SEARCH, 100);
         OPTIONS_DEFAULT_VALUES = builder.build();
     }
 
@@ -425,6 +431,7 @@ public final class Options {
         data.put(Name.VALID_PLAN_HASH_MODES, List.of(TypeContract.stringType()));
         data.put(Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, List.of(TypeContract.booleanType()));
         data.put(Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, List.of(TypeContract.longType(), RangeContract.of(0L, Long.MAX_VALUE)));
+        data.put(Name.EF_SEARCH, List.of(TypeContract.intType(), RangeContract.of(1, 100)));
 
         return Collections.unmodifiableMap(data);
     }
