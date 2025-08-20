@@ -62,7 +62,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 /**
  * A base class for testing building indexes with {@link OnlineIndexer#buildIndex()} (or similar APIs).
@@ -70,13 +69,6 @@ import static org.junit.jupiter.api.Assumptions.assumeFalse;
 abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(OnlineIndexerBuildIndexTest.class);
 
-    private final boolean safeBuild;
-
-    OnlineIndexerBuildIndexTest(boolean safeBuild) {
-        this.safeBuild = safeBuild;
-    }
-
-    @SuppressWarnings("removal")
     <M extends Message> void singleRebuild(
             @Nonnull OnlineIndexerTestRecordHandler<M> recordHandler,
             @Nonnull List<M> records,
@@ -132,13 +124,7 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
 
         final boolean isAlwaysReadable;
         try (FDBRecordContext context = openContext()) {
-            // If it is a safe build, it should work without setting the index state to write-only, which will be taken
-            // care of by OnlineIndexer.
-            if (!safeBuild) {
-                LOGGER.info(KeyValueLogMessage.of("marking write-only", TestLogMessageKeys.INDEX, index));
-                recordStore.clearAndMarkIndexWriteOnly(index).join();
-            }
-            isAlwaysReadable = safeBuild && recordStore.isIndexReadable(index);
+            isAlwaysReadable = recordStore.isIndexReadable(index);
             context.commit();
         }
 
@@ -176,11 +162,6 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
         }
         OnlineIndexer.IndexingPolicy.Builder indexingPolicy = OnlineIndexer.IndexingPolicy.newBuilder();
 
-        if (!safeBuild) {
-            indexingPolicy.setIfDisabled(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
-                    .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR);
-            builder.setUseSynchronizedSession(false);
-        }
         if (sourceIndex != null) {
             indexingPolicy.setSourceIndex(sourceIndex.getName())
                     .setForbidRecordScan(true);
@@ -198,30 +179,28 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
             if (agents == 1) {
                 buildFuture = indexBuilder.buildIndexAsync(false);
             } else {
+                // Multiple agents
                 if (overlap) {
                     CompletableFuture<?>[] futures = new CompletableFuture<?>[agents];
                     for (int i = 0; i < agents; i++) {
                         final int agent = i;
-                        futures[i] = safeBuild ?
-                                     indexBuilder.buildIndexAsync(false)
-                                               .exceptionally(exception -> {
-                                                   // (agents - 1) of the agents should stop with SynchronizedSessionLockedException
-                                                   // because the other one is already working on building the index.
-                                                   if (exception.getCause() instanceof SynchronizedSessionLockedException) {
-                                                       LOGGER.info(KeyValueLogMessage.of("Detected another worker processing this index",
-                                                               TestLogMessageKeys.INDEX, index,
-                                                               TestLogMessageKeys.AGENT, agent), exception);
-                                                       return null;
-                                                   } else {
-                                                       throw new CompletionException(exception);
-                                                   }
-                                               }) :
-                                     indexBuilder.buildIndexAsync(false);
+                        futures[i] = indexBuilder.buildIndexAsync(false)
+                                .exceptionally(exception -> {
+                                    // (agents - 1) of the agents should stop with SynchronizedSessionLockedException
+                                    // because the other one is already working on building the index.
+                                    if (exception.getCause() instanceof SynchronizedSessionLockedException) {
+                                        LOGGER.info(KeyValueLogMessage.of("Detected another worker processing this index",
+                                                TestLogMessageKeys.INDEX, index,
+                                                TestLogMessageKeys.AGENT, agent), exception);
+                                        return null;
+                                    } else {
+                                        throw new CompletionException(exception);
+                                    }
+                                });
                     }
                     buildFuture = CompletableFuture.allOf(futures);
                 } else {
-                    // Safe builds do not support building ranges yet.
-                    assumeFalse(safeBuild);
+                    // Mutual indexing is now replacing the assignment of different ranges to multiple agents
                     final List<Tuple> boundaries = getBoundariesList(records, records.size() / agents);
                     IntStream range = IntStream.rangeClosed(0, agents);
                     buildFuture = AsyncUtil.DONE;
