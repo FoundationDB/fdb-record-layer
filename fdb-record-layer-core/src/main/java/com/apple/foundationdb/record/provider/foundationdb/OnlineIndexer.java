@@ -436,11 +436,11 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     /**
+     * <em>Deprecated</em>. The functionality of this function can be done with {@link #blockIndexBuilds}
      * Stop any ongoing online index build (only if it uses {@link SynchronizedSession}s) by forcefully releasing
      * the lock.
      * @return a future that will be ready when the lock is released
      * @see SynchronizedSession#endAnySession
-     * <em>Deprecated</em>. The functionality of this function can be done with {@link #blockIndexBuilds}
      */
     @API(API.Status.DEPRECATED)
     public CompletableFuture<Void> stopOngoingOnlineIndexBuildsAsync() {
@@ -450,8 +450,8 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     /**
-     * Synchronous/blocking version of {@link #stopOngoingOnlineIndexBuildsAsync()}.
      * <em>Deprecated</em>. The functionality of this function can be done with {@link #blockIndexBuilds}
+     * Synchronous/blocking version of {@link #stopOngoingOnlineIndexBuildsAsync()}.
      */
     @API(API.Status.DEPRECATED)
     public void stopOngoingOnlineIndexBuilds() {
@@ -459,11 +459,11 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     /**
+     * <em>Deprecated</em>. The functionality of this function can be done with {@link #blockIndexBuilds}
      * Stop any ongoing online index build (only if it uses {@link SynchronizedSession}s) by forcefully releasing
      * the lock.
      * @param recordStore record store whose index builds need to be stopped
      * @param index the index whose builds need to be stopped
-     * <em>Deprecated</em>. The functionality of this function can be done with {@link #blockIndexBuilds}
      */
     @API(API.Status.DEPRECATED)
     public static void stopOngoingOnlineIndexBuilds(@Nonnull FDBRecordStore recordStore, @Nonnull Index index) {
