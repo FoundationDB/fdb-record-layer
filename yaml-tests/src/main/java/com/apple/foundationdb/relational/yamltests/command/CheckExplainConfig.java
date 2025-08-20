@@ -22,6 +22,8 @@ package com.apple.foundationdb.relational.yamltests.command;
 
 import com.apple.foundationdb.record.query.plan.cascades.debug.BrowserHelper;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStruct;
+import com.apple.foundationdb.relational.yamltests.MaintainYamlTestConfig;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.generated.stats.PlannerMetricsProto;
 import com.github.difflib.text.DiffRow;
@@ -33,6 +35,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.List;
@@ -47,7 +50,7 @@ import static com.apple.foundationdb.relational.yamltests.command.QueryCommand.r
  + * the query under test matches the explain results. In addition, this gathers the planner metrics from the results of
  + * the explains and compares them to the ones committed. It doesn't compare raw timing, because that would, naturally
  + * change between runs, but those are stored to provide context. In the event that
- + * {@link com.apple.foundationdb.relational.yamltests.MaintainYamlTestConfig} is used to correct the explain and/or
+ + * {@link MaintainYamlTestConfig} is used to correct the explain and/or
  + * metrics, this will record the actual values via the {@link YamlExecutionContext}, which will save them when the
  + * test completes.
  + */
@@ -80,7 +83,6 @@ class CheckExplainConfig extends QueryConfig {
         final var resultSet = (RelationalResultSet) actual;
         resultSet.next();
         final var actualPlan = resultSet.getString(1);
-        var success = isExact ? getVal().equals(actualPlan) : actualPlan.contains((String) getVal());
         final var actualDot = resultSet.getString(3);
         final var metricsMap = executionContext.getMetricsMap();
         final var identifier = PlannerMetricsProto.Identifier.newBuilder()
@@ -90,14 +92,30 @@ class CheckExplainConfig extends QueryConfig {
                 .build();
         final var expectedPlannerMetricsInfo = metricsMap.get(identifier);
 
+        final String expectedDot = expectedPlannerMetricsInfo == null ? null : expectedPlannerMetricsInfo.getDot();
+
+        checkExplain(queryDescription, actualPlan, actualDot, expectedDot);
+
+        final var actualPlannerMetrics = resultSet.getStruct(6);
+        if (isExact && actualPlannerMetrics != null) {
+            Objects.requireNonNull(actualDot);
+            checkMetrics(currentQuery, setups, actualPlannerMetrics, expectedPlannerMetricsInfo, actualPlan, actualDot);
+        }
+    }
+
+    private void checkExplain(final @Nonnull String queryDescription,
+                              final @Nonnull String actualPlan,
+                              final @Nullable String actualDot,
+                              final @Nullable String expectedDot) {
+        var success = isExact ? getVal().equals(actualPlan) : actualPlan.contains((String) getVal());
         if (success) {
             logger.debug("✅️ plan match!");
         } else {
             if (executionContext.shouldShowPlanOnDiff() &&
-                    actualDot != null && expectedPlannerMetricsInfo != null) {
+                    actualDot != null && expectedDot != null) {
                 BrowserHelper.browse("/showPlanDiff.html",
                         ImmutableMap.of("$SQL", queryDescription,
-                                "$DOT_EXPECTED", expectedPlannerMetricsInfo.getDot(),
+                                "$DOT_EXPECTED", expectedDot,
                                 "$DOT_ACTUAL", actualDot));
             }
 
@@ -132,69 +150,72 @@ class CheckExplainConfig extends QueryConfig {
                 reportTestFailure(diffMessage);
             }
         }
+    }
 
-        final var actualPlannerMetrics = resultSet.getStruct(6);
-        if (isExact && actualPlannerMetrics != null) {
-            Objects.requireNonNull(actualDot);
-            final var taskCount = actualPlannerMetrics.getLong(1);
-            Verify.verify(taskCount > 0);
-            final var taskTotalTimeInNs = actualPlannerMetrics.getLong(2);
-            Verify.verify(taskTotalTimeInNs > 0);
+    private void checkMetrics(final @Nonnull String currentQuery,
+                              final @Nonnull List<String> setups,
+                              final @Nonnull RelationalStruct actualPlannerMetrics,
+                              final @Nullable PlannerMetricsProto.Info expectedPlannerMetricsInfo,
+                              final @Nonnull String actualPlan,
+                              final @Nonnull String actualDot) throws SQLException {
+        final var taskCount = actualPlannerMetrics.getLong(1);
+        Verify.verify(taskCount > 0);
+        final var taskTotalTimeInNs = actualPlannerMetrics.getLong(2);
+        Verify.verify(taskTotalTimeInNs > 0);
 
-            if (expectedPlannerMetricsInfo == null && !executionContext.shouldCorrectMetrics()) {
-                reportTestFailure("‼️ No planner metrics for line " + getLineNumber());
-            }
-            final var actualInfo = PlannerMetricsProto.Info.newBuilder()
-                    .setExplain(actualPlan)
-                    .setDot(actualDot)
-                    .setCountersAndTimers(PlannerMetricsProto.CountersAndTimers.newBuilder()
-                                    .setTaskCount(taskCount)
-                                    .setTaskTotalTimeNs(taskTotalTimeInNs)
-                                    .setTransformCount(actualPlannerMetrics.getLong(3))
-                                    .setTransformTimeNs(actualPlannerMetrics.getLong(4))
-                                    .setTransformYieldCount(actualPlannerMetrics.getLong(5))
-                                    .setInsertTimeNs(actualPlannerMetrics.getLong(6))
-                                    .setInsertNewCount(actualPlannerMetrics.getLong(7))
-                                    .setInsertReusedCount(actualPlannerMetrics.getLong(8)))
-                    .build();
-            if (expectedPlannerMetricsInfo == null) {
-                executionContext.putMetrics(blockName, currentQuery, lineNumber, actualInfo, setups);
-                executionContext.markDirty();
-                logger.debug("⭐️ Successfully inserted new planner metrics at line {}", getLineNumber());
-            } else {
-                final var expectedCountersAndTimers = expectedPlannerMetricsInfo.getCountersAndTimers();
-                final var actualCountersAndTimers = actualInfo.getCountersAndTimers();
-                final var metricsDescriptor = expectedCountersAndTimers.getDescriptorForType();
+        if (expectedPlannerMetricsInfo == null && !executionContext.shouldCorrectMetrics()) {
+            reportTestFailure("‼️ No planner metrics for line " + getLineNumber());
+        }
+        final var actualInfo = PlannerMetricsProto.Info.newBuilder()
+                .setExplain(actualPlan)
+                .setDot(actualDot)
+                .setCountersAndTimers(PlannerMetricsProto.CountersAndTimers.newBuilder()
+                                .setTaskCount(taskCount)
+                                .setTaskTotalTimeNs(taskTotalTimeInNs)
+                                .setTransformCount(actualPlannerMetrics.getLong(3))
+                                .setTransformTimeNs(actualPlannerMetrics.getLong(4))
+                                .setTransformYieldCount(actualPlannerMetrics.getLong(5))
+                                .setInsertTimeNs(actualPlannerMetrics.getLong(6))
+                                .setInsertNewCount(actualPlannerMetrics.getLong(7))
+                                .setInsertReusedCount(actualPlannerMetrics.getLong(8)))
+                .build();
+        if (expectedPlannerMetricsInfo == null) {
+            executionContext.putMetrics(blockName, currentQuery, lineNumber, actualInfo, setups);
+            executionContext.markDirty();
+            logger.debug("⭐️ Successfully inserted new planner metrics at line {}", getLineNumber());
+        } else {
+            final var expectedCountersAndTimers = expectedPlannerMetricsInfo.getCountersAndTimers();
+            final var actualCountersAndTimers = actualInfo.getCountersAndTimers();
+            final var metricsDescriptor = expectedCountersAndTimers.getDescriptorForType();
 
-                boolean isDifferent =
-                        isMetricDifferent(expectedCountersAndTimers,
-                                actualCountersAndTimers,
-                                metricsDescriptor.findFieldByName("task_count"),
-                                lineNumber) |
-                                isMetricDifferent(expectedCountersAndTimers,
-                                        actualCountersAndTimers,
-                                        metricsDescriptor.findFieldByName("transform_count"),
-                                        lineNumber) |
-                                isMetricDifferent(expectedCountersAndTimers,
-                                        actualCountersAndTimers,
-                                        metricsDescriptor.findFieldByName("transform_yield_count"),
-                                        lineNumber) |
-                                isMetricDifferent(expectedCountersAndTimers,
-                                        actualCountersAndTimers,
-                                        metricsDescriptor.findFieldByName("insert_new_count"),
-                                        lineNumber) |
-                                isMetricDifferent(expectedCountersAndTimers,
-                                        actualCountersAndTimers,
-                                        metricsDescriptor.findFieldByName("insert_reused_count"),
-                                        lineNumber);
-                executionContext.putMetrics(blockName, currentQuery, lineNumber, actualInfo, setups);
-                if (isDifferent) {
-                    if (executionContext.shouldCorrectMetrics()) {
-                        executionContext.markDirty();
-                        logger.debug("⭐️ Successfully updated planner metrics at line {}", getLineNumber());
-                    } else {
-                        reportTestFailure("‼️ Planner metrics have changed for line " + getLineNumber());
-                    }
+            boolean isDifferent =
+                    isMetricDifferent(expectedCountersAndTimers,
+                            actualCountersAndTimers,
+                            metricsDescriptor.findFieldByName("task_count"),
+                            lineNumber) |
+                            isMetricDifferent(expectedCountersAndTimers,
+                                    actualCountersAndTimers,
+                                    metricsDescriptor.findFieldByName("transform_count"),
+                                    lineNumber) |
+                            isMetricDifferent(expectedCountersAndTimers,
+                                    actualCountersAndTimers,
+                                    metricsDescriptor.findFieldByName("transform_yield_count"),
+                                    lineNumber) |
+                            isMetricDifferent(expectedCountersAndTimers,
+                                    actualCountersAndTimers,
+                                    metricsDescriptor.findFieldByName("insert_new_count"),
+                                    lineNumber) |
+                            isMetricDifferent(expectedCountersAndTimers,
+                                    actualCountersAndTimers,
+                                    metricsDescriptor.findFieldByName("insert_reused_count"),
+                                    lineNumber);
+            executionContext.putMetrics(blockName, currentQuery, lineNumber, actualInfo, setups);
+            if (isDifferent) {
+                if (executionContext.shouldCorrectMetrics()) {
+                    executionContext.markDirty();
+                    logger.debug("⭐️ Successfully updated planner metrics at line {}", getLineNumber());
+                } else {
+                    reportTestFailure("‼️ Planner metrics have changed for line " + getLineNumber());
                 }
             }
         }
