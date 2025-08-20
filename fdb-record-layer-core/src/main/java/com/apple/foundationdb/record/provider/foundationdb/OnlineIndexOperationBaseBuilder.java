@@ -716,7 +716,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @see SynchronizedSessionRunner
      * @param useSynchronizedSession use synchronize session if true, otherwise false
      * @return this builder
-     * @deprecated This will soon be determined by the indexing session type
+     * Deprecated This will soon be determined by the indexing session type
      */
     @API(API.Status.DEPRECATED)
     public B setUseSynchronizedSession(boolean useSynchronizedSession) {
