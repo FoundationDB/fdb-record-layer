@@ -188,29 +188,8 @@ class CheckExplainConfig extends QueryConfig {
             final var actualCountersAndTimers = actualInfo.getCountersAndTimers();
             final var metricsDescriptor = expectedCountersAndTimers.getDescriptorForType();
 
-            boolean isDifferent =
-                    isMetricDifferent(expectedCountersAndTimers,
-                            actualCountersAndTimers,
-                            metricsDescriptor.findFieldByName("task_count"),
-                            lineNumber) |
-                            isMetricDifferent(expectedCountersAndTimers,
-                                    actualCountersAndTimers,
-                                    metricsDescriptor.findFieldByName("transform_count"),
-                                    lineNumber) |
-                            isMetricDifferent(expectedCountersAndTimers,
-                                    actualCountersAndTimers,
-                                    metricsDescriptor.findFieldByName("transform_yield_count"),
-                                    lineNumber) |
-                            isMetricDifferent(expectedCountersAndTimers,
-                                    actualCountersAndTimers,
-                                    metricsDescriptor.findFieldByName("insert_new_count"),
-                                    lineNumber) |
-                            isMetricDifferent(expectedCountersAndTimers,
-                                    actualCountersAndTimers,
-                                    metricsDescriptor.findFieldByName("insert_reused_count"),
-                                    lineNumber);
             executionContext.putMetrics(blockName, currentQuery, lineNumber, actualInfo, setups);
-            if (isDifferent) {
+            if (areMetricsDifferent(expectedCountersAndTimers, actualCountersAndTimers, metricsDescriptor)) {
                 if (executionContext.shouldCorrectMetrics()) {
                     executionContext.markDirty();
                     logger.debug("⭐️ Successfully updated planner metrics at line {}", getLineNumber());
@@ -219,6 +198,31 @@ class CheckExplainConfig extends QueryConfig {
                 }
             }
         }
+    }
+
+    private boolean areMetricsDifferent(final PlannerMetricsProto.CountersAndTimers expectedCountersAndTimers,
+                                        final PlannerMetricsProto.CountersAndTimers actualCountersAndTimers,
+                                        final Descriptors.Descriptor metricsDescriptor) {
+        return isMetricDifferent(expectedCountersAndTimers,
+                actualCountersAndTimers,
+                metricsDescriptor.findFieldByName("task_count"),
+                lineNumber) |
+                isMetricDifferent(expectedCountersAndTimers,
+                        actualCountersAndTimers,
+                        metricsDescriptor.findFieldByName("transform_count"),
+                        lineNumber) |
+                isMetricDifferent(expectedCountersAndTimers,
+                        actualCountersAndTimers,
+                        metricsDescriptor.findFieldByName("transform_yield_count"),
+                        lineNumber) |
+                isMetricDifferent(expectedCountersAndTimers,
+                        actualCountersAndTimers,
+                        metricsDescriptor.findFieldByName("insert_new_count"),
+                        lineNumber) |
+                isMetricDifferent(expectedCountersAndTimers,
+                        actualCountersAndTimers,
+                        metricsDescriptor.findFieldByName("insert_reused_count"),
+                        lineNumber);
     }
 
     private static boolean isMetricDifferent(@Nonnull final PlannerMetricsProto.CountersAndTimers expected,
