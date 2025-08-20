@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.yamltests.command;
 
-import com.apple.foundationdb.record.query.plan.cascades.debug.BrowserHelper;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.recordlayer.ErrorCapturingResultSet;
 import com.apple.foundationdb.relational.util.Assert;
@@ -33,10 +32,6 @@ import com.apple.foundationdb.relational.yamltests.generated.stats.PlannerMetric
 import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
-import com.github.difflib.text.DiffRow;
-import com.github.difflib.text.DiffRowGenerator;
-import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeSet;
@@ -51,10 +46,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
 import java.util.Set;
 
 import static com.apple.foundationdb.relational.yamltests.command.QueryCommand.reportTestFailure;
@@ -98,7 +91,7 @@ public abstract class QueryConfig {
     private final YamlExecutionContext executionContext;
     @Nullable private final String configName;
 
-    private QueryConfig(@Nullable String configName, @Nullable Object value, int lineNumber, @Nonnull YamlExecutionContext executionContext) {
+    protected QueryConfig(@Nullable String configName, @Nullable Object value, int lineNumber, @Nonnull YamlExecutionContext executionContext) {
         this.configName = configName;
         this.value = value;
         this.lineNumber = lineNumber;
@@ -213,154 +206,7 @@ public abstract class QueryConfig {
     private static QueryConfig getCheckExplainConfig(boolean isExact, @Nonnull String blockName,
                                                      @Nonnull String configName, @Nullable Object value,
                                                      int lineNumber, @Nonnull YamlExecutionContext executionContext) {
-        return new QueryConfig(configName, value, lineNumber, executionContext) {
-            @Override
-            String decorateQuery(@Nonnull String query) {
-                return "EXPLAIN " + query;
-            }
-
-            @SuppressWarnings({"PMD.CloseResource", "PMD.EmptyWhileStmt"}) // lifetime of autocloseable resource persists beyond method
-            @Override
-            void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
-                                     @Nonnull String queryDescription, @Nonnull List<String> setups) throws SQLException {
-                logger.debug("⛳️ Matching plan for query '{}'", queryDescription);
-                final var resultSet = (RelationalResultSet) actual;
-                resultSet.next();
-                final var actualPlan = resultSet.getString(1);
-                var success = isExact ? getVal().equals(actualPlan) : actualPlan.contains((String) getVal());
-                final var actualDot = resultSet.getString(3);
-                final var metricsMap = executionContext.getMetricsMap();
-                final var identifier = PlannerMetricsProto.Identifier.newBuilder()
-                        .setBlockName(blockName)
-                        .setQuery(currentQuery)
-                        .addAllSetups(setups)
-                        .build();
-                final var expectedPlannerMetricsInfo = metricsMap.get(identifier);
-
-                if (success) {
-                    logger.debug("✅️ plan match!");
-                } else {
-                    if (executionContext.shouldShowPlanOnDiff() &&
-                            actualDot != null && expectedPlannerMetricsInfo != null) {
-                        BrowserHelper.browse("/showPlanDiff.html",
-                                ImmutableMap.of("$SQL", queryDescription,
-                                        "$DOT_EXPECTED", expectedPlannerMetricsInfo.getDot(),
-                                        "$DOT_ACTUAL", actualDot));
-                    }
-
-                    final var expectedPlan = getValueString();
-                    final var diffGenerator = DiffRowGenerator.create()
-                            .showInlineDiffs(true)
-                            .inlineDiffByWord(true)
-                            .newTag(f -> f ? CommandUtil.Color.RED.toString() : CommandUtil.Color.RESET.toString())
-                            .oldTag(f -> f ? CommandUtil.Color.GREEN.toString() : CommandUtil.Color.RESET.toString())
-                            .build();
-                    final List<DiffRow> diffRows = diffGenerator.generateDiffRows(
-                            Collections.singletonList(expectedPlan),
-                            Collections.singletonList(actualPlan));
-                    final var planDiffs = new StringBuilder();
-                    for (final var diffRow : diffRows) {
-                        planDiffs.append(diffRow.getOldLine()).append('\n').append(diffRow.getNewLine()).append('\n');
-                    }
-                    if (isExact && executionContext.shouldCorrectExplains()) {
-                        if (!executionContext.correctExplain(getLineNumber() - 1, actualPlan)) {
-                            reportTestFailure("‼️ Cannot correct explain plan at line " + getLineNumber());
-                        } else {
-                            logger.debug("⭐️ Successfully replaced plan at line {}", getLineNumber());
-                        }
-                    } else {
-                        final var diffMessage = String.format(Locale.ROOT, "‼️ plan mismatch at line %d:%n" +
-                                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n%s" +
-                                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                                "↪ expected plan %s:%n%s%n" +
-                                "⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤⏤%n" +
-                                "↩ actual plan:%n%s",
-                                getLineNumber(), planDiffs, (!isExact ? "fragment" : ""), getValueString(), actualPlan);
-                        reportTestFailure(diffMessage);
-                    }
-                }
-
-                final var actualPlannerMetrics = resultSet.getStruct(6);
-                if (isExact && actualPlannerMetrics != null) {
-                    Objects.requireNonNull(actualDot);
-                    final var taskCount = actualPlannerMetrics.getLong(1);
-                    Verify.verify(taskCount > 0);
-                    final var taskTotalTimeInNs = actualPlannerMetrics.getLong(2);
-                    Verify.verify(taskTotalTimeInNs > 0);
-
-                    if (expectedPlannerMetricsInfo == null && !executionContext.shouldCorrectMetrics()) {
-                        reportTestFailure("‼️ No planner metrics for line " + getLineNumber());
-                    }
-                    final var actualInfo = PlannerMetricsProto.Info.newBuilder()
-                            .setExplain(actualPlan)
-                            .setDot(actualDot)
-                            .setCountersAndTimers(PlannerMetricsProto.CountersAndTimers.newBuilder()
-                                            .setTaskCount(taskCount)
-                                            .setTaskTotalTimeNs(taskTotalTimeInNs)
-                                            .setTransformCount(actualPlannerMetrics.getLong(3))
-                                            .setTransformTimeNs(actualPlannerMetrics.getLong(4))
-                                            .setTransformYieldCount(actualPlannerMetrics.getLong(5))
-                                            .setInsertTimeNs(actualPlannerMetrics.getLong(6))
-                                            .setInsertNewCount(actualPlannerMetrics.getLong(7))
-                                            .setInsertReusedCount(actualPlannerMetrics.getLong(8)))
-                            .build();
-                    if (expectedPlannerMetricsInfo == null) {
-                        executionContext.putMetrics(blockName, currentQuery, lineNumber, actualInfo, setups);
-                        executionContext.markDirty();
-                        logger.debug("⭐️ Successfully inserted new planner metrics at line {}", getLineNumber());
-                    } else {
-                        final var expectedCountersAndTimers = expectedPlannerMetricsInfo.getCountersAndTimers();
-                        final var actualCountersAndTimers = actualInfo.getCountersAndTimers();
-                        final var metricsDescriptor = expectedCountersAndTimers.getDescriptorForType();
-
-                        boolean isDifferent =
-                                isMetricDifferent(expectedCountersAndTimers,
-                                        actualCountersAndTimers,
-                                        metricsDescriptor.findFieldByName("task_count"),
-                                        lineNumber) |
-                                        isMetricDifferent(expectedCountersAndTimers,
-                                                actualCountersAndTimers,
-                                                metricsDescriptor.findFieldByName("transform_count"),
-                                                lineNumber) |
-                                        isMetricDifferent(expectedCountersAndTimers,
-                                                actualCountersAndTimers,
-                                                metricsDescriptor.findFieldByName("transform_yield_count"),
-                                                lineNumber) |
-                                        isMetricDifferent(expectedCountersAndTimers,
-                                                actualCountersAndTimers,
-                                                metricsDescriptor.findFieldByName("insert_new_count"),
-                                                lineNumber) |
-                                        isMetricDifferent(expectedCountersAndTimers,
-                                                actualCountersAndTimers,
-                                                metricsDescriptor.findFieldByName("insert_reused_count"),
-                                                lineNumber);
-                        executionContext.putMetrics(blockName, currentQuery, lineNumber, actualInfo, setups);
-                        if (isDifferent) {
-                            if (executionContext.shouldCorrectMetrics()) {
-                                executionContext.markDirty();
-                                logger.debug("⭐️ Successfully updated planner metrics at line {}", getLineNumber());
-                            } else {
-                                reportTestFailure("‼️ Planner metrics have changed for line " + getLineNumber());
-                            }
-                        }
-                    }
-                }
-            }
-        };
-    }
-
-    private static boolean isMetricDifferent(@Nonnull final PlannerMetricsProto.CountersAndTimers expected,
-                                             @Nonnull final PlannerMetricsProto.CountersAndTimers actual,
-                                             @Nonnull final Descriptors.FieldDescriptor fieldDescriptor,
-                                             int lineNumber) {
-        final long expectedMetric = (long)expected.getField(fieldDescriptor);
-        final long actualMetric = (long)actual.getField(fieldDescriptor);
-        if (expectedMetric != actualMetric) {
-            logger.warn("‼️ metric {} differs; lineNumber = {}; expected = {}; actual = {}",
-                    fieldDescriptor.getName(), lineNumber, expectedMetric, actualMetric);
-            return true;
-        }
-        return false;
+        return new CheckExplainConfig(configName, value, lineNumber, executionContext, isExact, blockName);
     }
 
     private static QueryConfig getCheckErrorConfig(@Nullable Object value, int lineNumber, @Nonnull YamlExecutionContext executionContext) {
