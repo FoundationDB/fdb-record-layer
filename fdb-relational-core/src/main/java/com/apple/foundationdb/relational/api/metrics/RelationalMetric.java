@@ -48,7 +48,7 @@ public class RelationalMetric {
         /**
          * Time taken to generate an executable physical plan from serialized plan in continuation.
          * */
-        GENERATE_CONTINUED_PLAN("generate logical plan for a query"),
+        GENERATE_CONTINUED_PLAN("generate plan from continuation"),
         /**
          * Time taken to do a successful/unsuccessful cache lookup.
          * */

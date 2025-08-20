@@ -149,12 +149,16 @@ public class RecordLayerMetricCollectorTest {
         Assertions.assertDoesNotThrow(() -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS),
                 "PLAN_CACHE_TERTIARY_MISS event should be registered with the metricCollector");
         // false events
+        Assertions.assertThrows(UncheckedRelationalException.class, () -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.GENERATE_CONTINUED_PLAN),
+                "GENERATE_CONTINUED_PLAN event should not be registered with the metricCollector");
         Assertions.assertThrows(UncheckedRelationalException.class, () -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT),
                 "PLAN_CACHE_TERTIARY_HIT event should not be registered with the metricCollector");
     }
 
     private static void testCacheHitSpecificMetrics(@Nonnull MetricCollector collector) {
         // false events
+        Assertions.assertThrows(UncheckedRelationalException.class, () -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.GENERATE_CONTINUED_PLAN),
+                "GENERATE_CONTINUED_PLAN event should not be registered with the metricCollector");
         Assertions.assertThrows(UncheckedRelationalException.class, () -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.GENERATE_LOGICAL_PLAN),
                 "GENERATE_LOGICAL_PLAN event should not be registered with the metricCollector");
         Assertions.assertThrows(UncheckedRelationalException.class, () -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.OPTIMIZE_PLAN),
