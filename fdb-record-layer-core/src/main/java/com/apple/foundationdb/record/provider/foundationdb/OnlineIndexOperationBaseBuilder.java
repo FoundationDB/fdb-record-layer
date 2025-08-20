@@ -719,8 +719,6 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @deprecated This will soon be determined by the indexing session type
      */
     @API(API.Status.DEPRECATED)
-    @SuppressWarnings("PMD.AvoidUsingHardCodedIP") // version is not IP
-    @Deprecated(since = "4.4.3.0", forRemoval = true)
     public B setUseSynchronizedSession(boolean useSynchronizedSession) {
         configBuilder.setUseSynchronizedSession(useSynchronizedSession);
         return self();

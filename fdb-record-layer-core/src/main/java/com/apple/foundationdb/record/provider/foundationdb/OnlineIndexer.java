@@ -319,6 +319,7 @@ public class OnlineIndexer implements AutoCloseable {
      * that contains no keys which have yet been processed by the {@link OnlineIndexer}
      * during an index build.
      */
+    // TODO: remove unused exception
     @SuppressWarnings("serial")
     public static class RecordBuiltRangeException extends RecordCoreException {
         public RecordBuiltRangeException(@Nullable Tuple start, @Nullable Tuple end) {
@@ -441,8 +442,6 @@ public class OnlineIndexer implements AutoCloseable {
      * @deprecated The functionality of this function can be done with {@link #blockIndexBuilds}
      */
     @API(API.Status.DEPRECATED)
-    @SuppressWarnings("PMD.AvoidUsingHardCodedIP") // version is not IP
-    @Deprecated(since = "4.4.3.0", forRemoval = true)
     public CompletableFuture<Void> stopOngoingOnlineIndexBuildsAsync() {
         return runner.runAsync(context -> openRecordStore(context).thenAccept(recordStore ->
                 stopOngoingOnlineIndexBuilds(recordStore, index)),
@@ -454,8 +453,6 @@ public class OnlineIndexer implements AutoCloseable {
      * @deprecated The functionality of this function can be done with {@link #blockIndexBuilds}
      */
     @API(API.Status.DEPRECATED)
-    @SuppressWarnings("PMD.AvoidUsingHardCodedIP") // version is not IP
-    @Deprecated(since = "4.4.3.0", forRemoval = true)
     public void stopOngoingOnlineIndexBuilds() {
         runner.asyncToSync(FDBStoreTimer.Waits.WAIT_STOP_ONLINE_INDEX_BUILD, stopOngoingOnlineIndexBuildsAsync());
     }
@@ -468,8 +465,6 @@ public class OnlineIndexer implements AutoCloseable {
      * @deprecated The functionality of this function can be done with {@link #blockIndexBuilds}
      */
     @API(API.Status.DEPRECATED)
-    @SuppressWarnings("PMD.AvoidUsingHardCodedIP") // version is not IP
-    @Deprecated(since = "4.4.3.0", forRemoval = true)
     public static void stopOngoingOnlineIndexBuilds(@Nonnull FDBRecordStore recordStore, @Nonnull Index index) {
         SynchronizedSession.endAnySession(recordStore.ensureContextActive(), IndexingSubspaces.indexBuildLockSubspace(recordStore, index));
     }
@@ -480,8 +475,6 @@ public class OnlineIndexer implements AutoCloseable {
      * @deprecated The functionality of this function will be replaced by shared heartbeats
      */
     @API(API.Status.DEPRECATED)
-    @SuppressWarnings("PMD.AvoidUsingHardCodedIP") // version is not IP
-    @Deprecated(since = "4.4.3.0", forRemoval = true)
     public boolean checkAnyOngoingOnlineIndexBuilds() {
         return runner.asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_ONGOING_ONLINE_INDEX_BUILD, checkAnyOngoingOnlineIndexBuildsAsync());
     }
@@ -493,8 +486,6 @@ public class OnlineIndexer implements AutoCloseable {
      * @deprecated The functionality of this function will be replaced by shared heartbeats
      */
     @API(API.Status.DEPRECATED)
-    @SuppressWarnings("PMD.AvoidUsingHardCodedIP") // version is not IP
-    @Deprecated(since = "4.4.3.0", forRemoval = true)
     public CompletableFuture<Boolean> checkAnyOngoingOnlineIndexBuildsAsync() {
         return runner.runAsync(context -> openRecordStore(context).thenCompose(recordStore ->
                 checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index)),
@@ -509,8 +500,6 @@ public class OnlineIndexer implements AutoCloseable {
      * @deprecated The functionality of this function will be replaced by shared heartbeats
      */
     @API(API.Status.DEPRECATED)
-    @SuppressWarnings("PMD.AvoidUsingHardCodedIP") // version is not IP
-    @Deprecated(since = "4.4.3.0", forRemoval = true)
     public static CompletableFuture<Boolean> checkAnyOngoingOnlineIndexBuildsAsync(@Nonnull FDBRecordStore recordStore, @Nonnull Index index) {
         return SynchronizedSession.checkActiveSessionExists(recordStore.ensureContextActive(), IndexingSubspaces.indexBuildLockSubspace(recordStore, index));
     }
@@ -524,11 +513,6 @@ public class OnlineIndexer implements AutoCloseable {
      * multiple transactions honoring the rate-limiting parameters set in the constructor of this class. It also retries
      * any retriable errors that it encounters while it runs the build. At the end, it marks the index readable in the
      * store.
-     * </p>
-     * <p>
-     * One may consider to set the index state precondition to {@link IndexStatePrecondition#ERROR_IF_DISABLED_CONTINUE_IF_WRITE_ONLY}
-     * and {@link OnlineIndexer.Builder#setUseSynchronizedSession(boolean)} to {@code false}, which makes the indexer
-     * follow the same behavior as before version 2.8.90.0. But it is not recommended.
      * </p>
      * @return a future that will be ready when the build has completed
      * @throws com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException the build is stopped
@@ -1468,7 +1452,6 @@ public class OnlineIndexer implements AutoCloseable {
              * by other threads/processes/systems with the exact same parameters, are attempting to concurrently build this
              * index. To allow that, the indexer will:
              * <ol>
-             *   <li> Avoid the indexing lock - i.e. assume that {@link OnlineIndexer.Builder#setUseSynchronizedSession(boolean)} was called with false</li>
              *   <li> Divide the records space to fragments, then iterate the fragments in a way that minimize the interference, while
              *      indexing each fragment independently.</li>
              *   <li> Handle indexing conflicts, when occurred.</li>
