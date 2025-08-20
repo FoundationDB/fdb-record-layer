@@ -34,8 +34,6 @@ import com.google.common.collect.Comparators;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import java.util.List;
@@ -55,8 +53,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for building indexes from other indexes with {@link OnlineIndexer}.
  */
 class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
-    private static final Logger LOGGER = LoggerFactory.getLogger(OnlineIndexerIndexFromIndexTest.class);
-
 
     private void populateData(final long numRecords, final long numOtherRecords) {
         openSimpleMetaData();
@@ -366,6 +362,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
             try (FDBRecordContext context = openContext()) {
                 e = assertThrows(IndexingBase.ValidationException.class, () -> indexBuilder.rebuildIndex(recordStore));
                 assertTrue(e.getMessage().contains("source index is not a VALUE index"));
+                context.commit();
             }
         }
 
@@ -404,6 +401,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
             try (FDBRecordContext context = openContext()) {
                 e = assertThrows(IndexingBase.ValidationException.class, () -> indexBuilder.rebuildIndex(recordStore));
                 assertTrue(e.getMessage().contains("source index creates duplicates"));
+                context.commit();
             }
         }
 

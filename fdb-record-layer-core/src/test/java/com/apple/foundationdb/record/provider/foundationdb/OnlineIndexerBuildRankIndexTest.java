@@ -185,7 +185,7 @@ class OnlineIndexerBuildRankIndexTest extends OnlineIndexerBuildIndexTest {
     }
 
     @Test
-    public void emptyRangeRank() {
+    void emptyRangeRank() {
         rankRebuild(Collections.emptyList());
     }
 

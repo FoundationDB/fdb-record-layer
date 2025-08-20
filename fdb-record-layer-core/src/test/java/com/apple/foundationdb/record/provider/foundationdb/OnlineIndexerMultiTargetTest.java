@@ -35,8 +35,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -52,6 +50,7 @@ import java.util.stream.LongStream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -60,7 +59,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @Tag(Tags.Slow)
 class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
-    private static final Logger LOGGER = LoggerFactory.getLogger(OnlineIndexerMultiTargetTest.class);
 
     private void populateOtherData(final long numRecords) {
         List<TestRecords1Proto.MyOtherRecord> records = LongStream.range(0, numRecords).mapToObj(val ->
@@ -329,7 +327,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
 
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
             assertTrue(e.getMessage().contains("This index was partly built by another method"));
-            assertTrue(e instanceof IndexingBase.PartlyBuiltException);
+            assertInstanceOf(IndexingBase.PartlyBuiltException.class, e);
             final IndexBuildProto.IndexBuildIndexingStamp savedStamp = ((IndexingBase.PartlyBuiltException)e).getSavedStamp();
             assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS, savedStamp.getMethod());
         }
@@ -371,7 +369,7 @@ class OnlineIndexerMultiTargetTest extends OnlineIndexerTest {
 
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
             assertTrue(e.getMessage().contains("This index was partly built by another method"));
-            assertTrue(e instanceof IndexingBase.PartlyBuiltException);
+            assertInstanceOf(IndexingBase.PartlyBuiltException.class, e);
             final IndexBuildProto.IndexBuildIndexingStamp savedStamp = ((IndexingBase.PartlyBuiltException)e).getSavedStamp();
             assertEquals(IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS, savedStamp.getMethod());
             assertTrue(savedStamp.getTargetIndexList().containsAll(Arrays.asList("indexA", "indexB", "indexC", "indexD")));
