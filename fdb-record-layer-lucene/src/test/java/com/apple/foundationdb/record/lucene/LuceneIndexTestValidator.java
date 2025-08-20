@@ -136,72 +136,12 @@ public class LuceneIndexTestValidator {
                     .collect(Collectors.toList());
             if (partitionHighWatermark > 0) {
                 validatePartitionedGroup(index, universalSearch, allowDuplicatePrimaryKeys, groupingKey, partitionLowWatermark, partitionHighWatermark, records, missingDocuments);
-                validatePartitionedDanglingBlocks(index, groupingKey);
             } else {
                 validateUnpartitionedGroup(index, universalSearch, allowDuplicatePrimaryKeys, groupingKey, partitionLowWatermark, partitionHighWatermark, records, missingDocuments);
-                validateUnpartitionedDanglingBlocks(index, groupingKey);
             }
         }
         missingDocuments.entrySet().removeIf(entry -> entry.getValue().isEmpty());
         assertEquals(Map.of(), missingDocuments, "We should have found all documents in the index");
-    }
-
-    /**
-     * Validates that all data blocks in the directory's data subspace belong to valid files.
-     * This helps detect block leaks where file references are deleted but their data blocks remain.
-     */
-    private void validatePartitionedDanglingBlocks(final Index index, Tuple groupingKey) {
-        List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(index, groupingKey);
-        try (FDBRecordContext context = contextProvider.get()) {
-            final FDBRecordStore recordStore = schemaSetup.apply(context);
-            final FDBDirectoryManager directoryManager = getDirectoryManager(recordStore, index);
-            for (int i = 0; i < partitionInfos.size(); i++) {
-                final LucenePartitionInfoProto.LucenePartitionInfo partitionInfo = partitionInfos.get(i);
-                final FDBDirectory directory = directoryManager.getDirectory(groupingKey, partitionInfo.getId());
-                if (LOGGER.isTraceEnabled()) {
-                    LOGGER.trace("Checking blocks for Group: " + groupingKey + " PartitionInfo: " + partitionInfo.getId());
-                }
-                validateDanglingBlocks(directory, context);
-            }
-        }
-    }
-
-    /**
-     * Validates that all data blocks in the directory's data subspace belong to valid files.
-     * This helps detect block leaks where file references are deleted but their data blocks remain.
-     */
-    private void validateUnpartitionedDanglingBlocks(final Index index, Tuple groupingKey) {
-        try (FDBRecordContext context = contextProvider.get()) {
-            final FDBRecordStore recordStore = schemaSetup.apply(context);
-            final FDBDirectoryManager directoryManager = getDirectoryManager(recordStore, index);
-            final FDBDirectory directory = directoryManager.getDirectory(groupingKey, null);
-            if (LOGGER.isTraceEnabled()) {
-                LOGGER.trace("Checking blocks for Group: " + groupingKey + " , unpartitioned");
-            }
-            validateDanglingBlocks(directory, context);
-        }
-    }
-
-    private static void validateDanglingBlocks(final FDBDirectory directory, final FDBRecordContext context) {
-        Subspace dataSubspace = directory.getSubspace().subspace(Tuple.from(directory.DATA_SUBSPACE));
-        final Map<String, FDBLuceneFileReference> allFiles = directory.getFileReferenceCacheAsync().join();
-        // Get all valid file IDs from the file references
-        final Set<Long> validFileIds = allFiles.values().stream()
-                .map(FDBLuceneFileReference::getId)
-                .collect(Collectors.toSet());
-        if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Found {} valid file IDs: {}", validFileIds.size(), validFileIds);
-        }
-        final List<KeyValue> subspaceKeys = context.ensureActive().getRange(dataSubspace.range()).asList().join();
-        final Set<Tuple> danglingBlocks = new HashSet<>();
-        for (KeyValue kv : subspaceKeys) {
-            Tuple fileAndBlock = dataSubspace.unpack(kv.getKey());
-            if (!validFileIds.contains(fileAndBlock.getLong(0))) {
-                danglingBlocks.add(fileAndBlock);
-            }
-        }
-        assertTrue(danglingBlocks.isEmpty(), "Found orphaned data blocks for file IDs: " +
-                danglingBlocks.stream().map(Tuple::toString).collect(Collectors.joining(", ")));
     }
 
     private void validateUnpartitionedGroup(final Index index, final String universalSearch, final boolean allowDuplicatePrimaryKeys, final Tuple groupingKey, final int partitionLowWatermark, final int partitionHighWatermark, final List<Tuple> records, final Map<Tuple, Map<Tuple, Tuple>> missingDocuments) throws IOException {
@@ -214,6 +154,10 @@ public class LuceneIndexTestValidator {
             validatePrimaryKeySegmentIndex(recordStore, index, groupingKey, null,
                     Set.copyOf(records), allowDuplicatePrimaryKeys);
             Set.copyOf(records).forEach(primaryKey -> missingDocuments.get(groupingKey).remove(primaryKey));
+            // check for dangling blocks
+            final FDBDirectoryManager directoryManager = getDirectoryManager(recordStore, index);
+            final FDBDirectory directory = directoryManager.getDirectory(groupingKey, null);
+            validateDanglingBlocks(directory, context);
         }
     }
 
@@ -229,6 +173,7 @@ public class LuceneIndexTestValidator {
 
         try (FDBRecordContext context = contextProvider.get()) {
             final FDBRecordStore recordStore = schemaSetup.apply(context);
+            final FDBDirectoryManager directoryManager = getDirectoryManager(recordStore, index);
             for (int i = 0; i < partitionInfos.size(); i++) {
                 final LucenePartitionInfoProto.LucenePartitionInfo partitionInfo = partitionInfos.get(i);
                 if (LOGGER.isTraceEnabled()) {
@@ -266,8 +211,37 @@ public class LuceneIndexTestValidator {
                 validatePrimaryKeySegmentIndex(recordStore, index, groupingKey, partitionInfo.getId(),
                         expectedPrimaryKeys, allowDuplicatePrimaryKeys);
                 expectedPrimaryKeys.forEach(primaryKey -> missingDocuments.get(groupingKey).remove(primaryKey));
+                // check for dangling blocks
+                final FDBDirectory directory = directoryManager.getDirectory(groupingKey, partitionInfo.getId());
+                if (LOGGER.isTraceEnabled()) {
+                    LOGGER.trace("Checking blocks for Group: " + groupingKey + " PartitionInfo: " + partitionInfo.getId());
+                }
+                validateDanglingBlocks(directory, context);
+
             }
         }
+    }
+
+    private static void validateDanglingBlocks(final FDBDirectory directory, final FDBRecordContext context) {
+        Subspace dataSubspace = directory.getSubspace().subspace(Tuple.from(directory.DATA_SUBSPACE));
+        final Map<String, FDBLuceneFileReference> allFiles = directory.getFileReferenceCacheAsync().join();
+        // Get all valid file IDs from the file references
+        final Set<Long> validFileIds = allFiles.values().stream()
+                .map(FDBLuceneFileReference::getId)
+                .collect(Collectors.toSet());
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("Found {} valid file IDs: {}", validFileIds.size(), validFileIds);
+        }
+        final List<KeyValue> subspaceKeys = context.ensureActive().getRange(dataSubspace.range()).asList().join();
+        final Set<Tuple> danglingBlocks = new HashSet<>();
+        for (KeyValue kv : subspaceKeys) {
+            Tuple fileAndBlock = dataSubspace.unpack(kv.getKey());
+            if (!validFileIds.contains(fileAndBlock.getLong(0))) {
+                danglingBlocks.add(fileAndBlock);
+            }
+        }
+        assertTrue(danglingBlocks.isEmpty(), "Found orphaned data blocks for file IDs: " +
+                danglingBlocks.stream().map(Tuple::toString).collect(Collectors.joining(", ")));
     }
 
     private static int getPartitionLowWatermark(final Index index) {

@@ -734,16 +734,16 @@ public class FDBDirectory extends Directory  {
     @VisibleForTesting
     protected boolean deleteFileInternal(@Nonnull Map<String, FDBLuceneFileReference> cache, @Nonnull String name) throws IOException {
         // TODO make this transactional or ensure that it is deleted in the right order
-        FDBLuceneFileReference value = cache.remove(name);
-        if (value == null) {
+        FDBLuceneFileReference fileReference = cache.remove(name);
+        if (fileReference == null) {
             return false;
         }
-        final long id = value.getFieldInfosId();
+        final long id = fileReference.getFieldInfosId();
         if (fieldInfosStorage.delete(id)) {
             agilityContext.clear(fieldInfosSubspace.pack(id));
         }
         // Clear all data blocks for the file
-        agilityContext.clear(dataSubspace.subspace(Tuple.from(value.getId())).range());
+        agilityContext.clear(dataSubspace.subspace(Tuple.from(fileReference.getId())).range());
 
         // Delete K/V data: If the deferredDelete flag is on then delete all content from K/V subspace for the segment
         // (this is to support CFS deletion, that will be disjoint from the actual file deletion).
