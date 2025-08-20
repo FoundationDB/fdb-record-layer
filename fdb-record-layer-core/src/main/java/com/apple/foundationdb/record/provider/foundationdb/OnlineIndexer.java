@@ -318,8 +318,9 @@ public class OnlineIndexer implements AutoCloseable {
      * that explicitly state that they are building an unbuilt range, i.e., a range of keys
      * that contains no keys which have yet been processed by the {@link OnlineIndexer}
      * during an index build.
+     * <em>Deprecated</em> and unused.
      */
-    // TODO: remove unused exception
+    @API(API.Status.DEPRECATED)
     @SuppressWarnings("serial")
     public static class RecordBuiltRangeException extends RecordCoreException {
         public RecordBuiltRangeException(@Nullable Tuple start, @Nullable Tuple end) {
@@ -439,7 +440,7 @@ public class OnlineIndexer implements AutoCloseable {
      * the lock.
      * @return a future that will be ready when the lock is released
      * @see SynchronizedSession#endAnySession
-     * Deprecated. The functionality of this function can be done with {@link #blockIndexBuilds}
+     * <em>Deprecated</em>. The functionality of this function can be done with {@link #blockIndexBuilds}
      */
     @API(API.Status.DEPRECATED)
     public CompletableFuture<Void> stopOngoingOnlineIndexBuildsAsync() {
@@ -450,7 +451,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Synchronous/blocking version of {@link #stopOngoingOnlineIndexBuildsAsync()}.
-     * Deprecated. The functionality of this function can be done with {@link #blockIndexBuilds}
+     * <em>Deprecated</em>. The functionality of this function can be done with {@link #blockIndexBuilds}
      */
     @API(API.Status.DEPRECATED)
     public void stopOngoingOnlineIndexBuilds() {
@@ -462,7 +463,7 @@ public class OnlineIndexer implements AutoCloseable {
      * the lock.
      * @param recordStore record store whose index builds need to be stopped
      * @param index the index whose builds need to be stopped
-     * Deprecated. The functionality of this function can be done with {@link #blockIndexBuilds}
+     * <em>Deprecated</em>. The functionality of this function can be done with {@link #blockIndexBuilds}
      */
     @API(API.Status.DEPRECATED)
     public static void stopOngoingOnlineIndexBuilds(@Nonnull FDBRecordStore recordStore, @Nonnull Index index) {
@@ -472,9 +473,7 @@ public class OnlineIndexer implements AutoCloseable {
     /**
      * Synchronous/blocking version of {@link #checkAnyOngoingOnlineIndexBuildsAsync()}.
      * @return <code>true</code> if the index is being built and <code>false</code> otherwise
-     * Deprecated. The functionality of this function will be replaced by shared heartbeats
      */
-    @API(API.Status.DEPRECATED)
     public boolean checkAnyOngoingOnlineIndexBuilds() {
         return runner.asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_ONGOING_ONLINE_INDEX_BUILD, checkAnyOngoingOnlineIndexBuildsAsync());
     }
@@ -483,9 +482,7 @@ public class OnlineIndexer implements AutoCloseable {
      * Check if the index is being built by any of the {@link OnlineIndexer}s (only if they use {@link SynchronizedSession}s),
      * including <i>this</i> {@link OnlineIndexer}.
      * @return a future that will complete to <code>true</code> if the index is being built and <code>false</code> otherwise
-     * Deprecated. The functionality of this function will be replaced by shared heartbeats
      */
-    @API(API.Status.DEPRECATED)
     public CompletableFuture<Boolean> checkAnyOngoingOnlineIndexBuildsAsync() {
         return runner.runAsync(context -> openRecordStore(context).thenCompose(recordStore ->
                 checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index)),
@@ -497,9 +494,7 @@ public class OnlineIndexer implements AutoCloseable {
      * @param recordStore record store whose index builds need to be checked
      * @param index the index to check for ongoing index builds
      * @return a future that will complete to <code>true</code> if the index is being built and <code>false</code> otherwise
-     * Deprecated. The functionality of this function will be replaced by shared heartbeats
      */
-    @API(API.Status.DEPRECATED)
     public static CompletableFuture<Boolean> checkAnyOngoingOnlineIndexBuildsAsync(@Nonnull FDBRecordStore recordStore, @Nonnull Index index) {
         return SynchronizedSession.checkActiveSessionExists(recordStore.ensureContextActive(), IndexingSubspaces.indexBuildLockSubspace(recordStore, index));
     }
