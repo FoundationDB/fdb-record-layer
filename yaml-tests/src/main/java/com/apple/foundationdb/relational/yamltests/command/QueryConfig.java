@@ -28,7 +28,7 @@ import com.apple.foundationdb.relational.yamltests.Matchers;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
 import com.apple.foundationdb.relational.yamltests.block.PreambleBlock;
-import com.apple.foundationdb.relational.yamltests.generated.stats.PlannerMetricsProto;
+import com.apple.foundationdb.relational.yamltests.command.queryconfigs.CheckExplainConfig;
 import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 import com.apple.foundationdb.relational.yamltests.server.SupportedVersionCheck;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
@@ -36,7 +36,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeSet;
 import com.google.common.collect.TreeRangeSet;
-import com.google.protobuf.Descriptors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
@@ -98,12 +97,12 @@ public abstract class QueryConfig {
         this.executionContext = executionContext;
     }
 
-    int getLineNumber() {
+    protected int getLineNumber() {
         return lineNumber;
     }
 
     @Nullable
-    Object getVal() {
+    protected Object getVal() {
         return value;
     }
 
@@ -112,7 +111,7 @@ public abstract class QueryConfig {
         return configName;
     }
 
-    String getValueString() {
+    protected String getValueString() {
         if (value instanceof byte[]) {
             return ByteArrayUtil2.loggable((byte[]) value);
         } else if (value != null) {
@@ -122,7 +121,7 @@ public abstract class QueryConfig {
         }
     }
 
-    String decorateQuery(@Nonnull String query) {
+    protected String decorateQuery(@Nonnull String query) {
         return query;
     }
 
@@ -155,8 +154,8 @@ public abstract class QueryConfig {
         }
     }
 
-    abstract void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
-                                      @Nonnull String queryDescription, @Nonnull List<String> setups) throws SQLException;
+    protected abstract void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
+                                                @Nonnull String queryDescription, @Nonnull List<String> setups) throws SQLException;
 
     void checkErrorInternal(@Nonnull SQLException e, @Nonnull String queryDescription) throws SQLException {
         final var diffMessage = String.format(Locale.ROOT, "‼️ statement failed with the following error at line %s:%n" +
@@ -174,8 +173,8 @@ public abstract class QueryConfig {
         return new QueryConfig(configName, value, lineNumber, executionContext) {
 
             @Override
-            void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
-                                     @Nonnull String queryDescription, @Nonnull List<String> setups) throws SQLException {
+            protected void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
+                                               @Nonnull String queryDescription, @Nonnull List<String> setups) throws SQLException {
                 logger.debug("⛳️ Matching results of query '{}'", queryDescription);
                 try (RelationalResultSet resultSet = (RelationalResultSet)actual) {
                     final var matchResult = Matchers.matchResultSet(getVal(), resultSet, isExpectedOrdered);
@@ -213,8 +212,8 @@ public abstract class QueryConfig {
         return new QueryConfig(QUERY_CONFIG_ERROR, value, lineNumber, executionContext) {
 
             @Override
-            void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
-                                     @Nonnull String queryDescription, @Nonnull List<String> setups) throws SQLException {
+            protected void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
+                                               @Nonnull String queryDescription, @Nonnull List<String> setups) throws SQLException {
                 Matchers.ResultSetPrettyPrinter resultSetPrettyPrinter = new Matchers.ResultSetPrettyPrinter();
                 if (actual instanceof ErrorCapturingResultSet) {
                     Matchers.printRemaining((ErrorCapturingResultSet) actual, resultSetPrettyPrinter);
@@ -256,8 +255,8 @@ public abstract class QueryConfig {
         return new QueryConfig(QUERY_CONFIG_COUNT, value, lineNumber, executionContext) {
 
             @Override
-            void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
-                                     @Nonnull String queryDescription, @Nonnull List<String> setups) {
+            protected void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
+                                               @Nonnull String queryDescription, @Nonnull List<String> setups) {
                 logger.debug("⛳️ Matching count of update query '{}'", queryDescription);
                 if (!Matchers.matches(getVal(), actual)) {
                     reportTestFailure(String.format(Locale.ROOT, "‼️ Expected count value %d, but got %d at line %d",
@@ -273,14 +272,14 @@ public abstract class QueryConfig {
         return new QueryConfig(QUERY_CONFIG_PLAN_HASH, value, lineNumber, executionContext) {
 
             @Override
-            String decorateQuery(@Nonnull String query) {
+            protected String decorateQuery(@Nonnull String query) {
                 return "EXPLAIN " + query;
             }
 
             @SuppressWarnings("PMD.CloseResource") // lifetime of autocloseable persists beyond method
             @Override
-            void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
-                                     @Nonnull String queryDescription, @Nonnull List<String> setups) throws SQLException {
+            protected void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
+                                               @Nonnull String queryDescription, @Nonnull List<String> setups) throws SQLException {
                 logger.debug("⛳️ Matching plan hash of query '{}'", queryDescription);
                 final var resultSet = (RelationalResultSet) actual;
                 resultSet.next();
@@ -297,8 +296,8 @@ public abstract class QueryConfig {
         return new QueryConfig(QUERY_CONFIG_NO_CHECKS, null, lineNumber, executionContext) {
             @SuppressWarnings("PMD.CloseResource") // lifetime of autocloseable persists beyond method
             @Override
-            void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
-                                     @Nonnull String queryDescription, @Nonnull List<String> setups) throws SQLException {
+            protected void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
+                                               @Nonnull String queryDescription, @Nonnull List<String> setups) throws SQLException {
                 if (actual instanceof RelationalResultSet) {
                     final var resultSet = (RelationalResultSet) actual;
                     // slurp
@@ -315,8 +314,8 @@ public abstract class QueryConfig {
     private static QueryConfig getMaxRowConfig(@Nonnull Object value, int lineNumber, @Nonnull YamlExecutionContext executionContext) {
         return new QueryConfig(QUERY_CONFIG_MAX_ROWS, value, lineNumber, executionContext) {
             @Override
-            void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
-                                     @Nonnull String queryDescription, @Nonnull List<String> setups) throws SQLException {
+            protected void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
+                                               @Nonnull String queryDescription, @Nonnull List<String> setups) throws SQLException {
                 Assert.failUnchecked("No results to check on a maxRow config");
             }
         };
@@ -325,8 +324,8 @@ public abstract class QueryConfig {
     private static QueryConfig getSetupConfig(final Object value, final int lineNumber, final YamlExecutionContext executionContext) {
         return new QueryConfig(QUERY_CONFIG_SETUP, value, lineNumber, executionContext) {
             @Override
-            void checkResultInternal(@Nonnull final String currentQuery, @Nonnull final Object actual,
-                                     @Nonnull final String queryDescription, @Nonnull List<String> setups) throws SQLException {
+            protected void checkResultInternal(@Nonnull final String currentQuery, @Nonnull final Object actual,
+                                               @Nonnull final String queryDescription, @Nonnull List<String> setups) throws SQLException {
                 Assert.failUnchecked("No results to check on a setup config");
             }
         };
@@ -336,8 +335,8 @@ public abstract class QueryConfig {
         return new QueryConfig(QUERY_CONFIG_DEBUGGER, DebuggerImplementation.valueOf(((String)value).toUpperCase(Locale.ROOT)),
                 lineNumber, executionContext) {
             @Override
-            void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
-                                     @Nonnull String queryDescription, @Nonnull List<String> setups) throws SQLException {
+            protected void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
+                                               @Nonnull String queryDescription, @Nonnull List<String> setups) throws SQLException {
                 Assert.failUnchecked("No results to check on a debugger config");
             }
         };
@@ -351,8 +350,8 @@ public abstract class QueryConfig {
         }
         return new QueryConfig(QUERY_CONFIG_SUPPORTED_VERSION, rawVersion, lineNumber, executionContext) {
             @Override
-            void checkResultInternal(@Nonnull final String currentQuery, @Nonnull final Object actual,
-                                     @Nonnull final String queryDescription, @Nonnull final List<String> setups) throws SQLException {
+            protected void checkResultInternal(@Nonnull final String currentQuery, @Nonnull final Object actual,
+                                               @Nonnull final String queryDescription, @Nonnull final List<String> setups) throws SQLException {
                 // Nothing to do, this query is supported
                 // SupportedVersion configs are not executed
                 Assertions.fail("Supported version configs are not meant to be executed.");
@@ -372,8 +371,8 @@ public abstract class QueryConfig {
         return new QueryConfig(QUERY_CONFIG_NO_OP, null, lineNumber, executionContext) {
             @SuppressWarnings("PMD.CloseResource") // lifetime of autocloseable persists beyond method
             @Override
-            void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
-                                     @Nonnull String queryDescription, @Nonnull List<String> setups) throws SQLException {
+            protected void checkResultInternal(@Nonnull String currentQuery, @Nonnull Object actual,
+                                               @Nonnull String queryDescription, @Nonnull List<String> setups) throws SQLException {
                 // This should not be executed
                 Assertions.fail("NoOp Config should not be executed");
             }
@@ -503,8 +502,8 @@ public abstract class QueryConfig {
         }
 
         @Override
-        void checkResultInternal(@Nonnull final String currentQuery, @Nonnull final Object actual,
-                                 @Nonnull final String queryDescription, @Nonnull final List<String> setups) throws SQLException {
+        protected void checkResultInternal(@Nonnull final String currentQuery, @Nonnull final Object actual,
+                                           @Nonnull final String queryDescription, @Nonnull final List<String> setups) throws SQLException {
             Assertions.fail("Skipped config should not be executed: Line: " + getLineNumber() + " " + message);
         }
 
@@ -530,8 +529,8 @@ public abstract class QueryConfig {
         }
 
         @Override
-        void checkResultInternal(@Nonnull final String currentQuery, @Nonnull final Object actual,
-                                 @Nonnull final String queryDescription, @Nonnull final List<String> setups) throws SQLException {
+        protected void checkResultInternal(@Nonnull final String currentQuery, @Nonnull final Object actual,
+                                           @Nonnull final String queryDescription, @Nonnull final List<String> setups) throws SQLException {
             Assertions.fail("Check version config should not be executed: Line: " + getLineNumber());
         }
 
