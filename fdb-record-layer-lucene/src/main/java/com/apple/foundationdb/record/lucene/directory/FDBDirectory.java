@@ -594,6 +594,17 @@ public class FDBDirectory extends Directory  {
         return getFileReferenceCacheAsync().thenApply(references -> List.copyOf(references.keySet()));
     }
 
+    /**
+     * Return a {@link CompletableFuture} to a map of file names to file references.
+     * This is a copy of the file reference map that exists in the cache (and the subspace).
+     *
+     * @return a future to a map of file names to
+     * {@link com.apple.foundationdb.record.lucene.LuceneFileSystemProto.LuceneFileReference}s
+     */
+    public CompletableFuture<Map<String, FDBLuceneFileReference>> getAllAsync() {
+        return getFileReferenceCacheAsync().thenApply(Map::copyOf);
+    }
+
     @VisibleForTesting
     public CompletableFuture<List<KeyValue>> scanStoredFields(String segmentName) {
         return agilityContext.apply(aContext -> aContext.ensureActive()
