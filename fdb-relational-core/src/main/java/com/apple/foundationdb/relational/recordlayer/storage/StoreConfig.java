@@ -21,12 +21,12 @@
 package com.apple.foundationdb.relational.recordlayer.storage;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.TransformedRecordSerializer;
+import com.apple.foundationdb.record.provider.common.TransformedRecordSerializerJCE;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
@@ -39,10 +39,15 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordMetaDataStore;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
-
 import com.google.protobuf.Message;
 
+import javax.crypto.SecretKey;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.net.URI;
+import java.security.GeneralSecurityException;
+import java.security.KeyStore;
 import java.util.zip.Deflater;
 
 @API(API.Status.EXPERIMENTAL)
@@ -117,9 +122,45 @@ public final class StoreConfig {
         URI dbUri = databasePath.toUri();
         RecordMetaDataProvider metaDataProvider = metaDataStore.loadMetaData(transaction, dbUri, schemaName);
 
-        RecordSerializer<Message> serializer = DEFAULT_RELATIONAL_SERIALIZER;
-        // TODO: Get from options.
+        RecordSerializer<Message> serializer = serializerFromOptions(options);
 
         return new StoreConfig(recordLayerConfig, schemaName, schemaPath, metaDataProvider, serializer);
+    }
+
+    static RecordSerializer<Message> serializerFromOptions(Options options) throws RelationalException {
+        final boolean encrypted = options.getOption(Options.Name.ENCRYPT_WHEN_SERIALIZING);
+        if (!encrypted) {
+            return DEFAULT_RELATIONAL_SERIALIZER;
+        }
+        final SecretKey key;
+        try {
+            final String keyStoreFile = options.getOption(Options.Name.ENCRYPTION_KEY_STORE);
+            if (keyStoreFile == null) {
+                throw new RelationalException("Key store not specified", ErrorCode.UNSUPPORTED_OPERATION);
+            }
+            final String keyEntryAlias = options.getOption(Options.Name.ENCRYPTION_KEY_ENTRY);
+            if (keyEntryAlias == null) {
+                throw new RelationalException("Key entry not specified", ErrorCode.UNSUPPORTED_OPERATION);
+            }
+            final String keyPassword = options.getOption(Options.Name.ENCRYPTION_KEY_PASSWORD);
+            KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+            try (FileInputStream fis = new FileInputStream(keyStoreFile)) {
+                keystore.load(fis, keyPassword.toCharArray());
+            }
+            KeyStore.ProtectionParameter protParam = new KeyStore.PasswordProtection(keyPassword.toCharArray());
+            KeyStore.SecretKeyEntry entry = (KeyStore.SecretKeyEntry)keystore.getEntry(keyEntryAlias, protParam);
+            key = entry.getSecretKey();
+        } catch (FileNotFoundException ex) {
+            throw new RelationalException("Key store not found", ErrorCode.UNSUPPORTED_OPERATION, ex);
+        } catch (GeneralSecurityException | IOException ex) {
+            throw new RelationalException("Key loading failed", ErrorCode.UNSUPPORTED_OPERATION, ex);
+        }
+        return TransformedRecordSerializerJCE.newDefaultBuilder()
+                .setEncryptWhenSerializing(true)
+                .setEncryptionKey(key)
+                .setCompressWhenSerializing(true)
+                .setCompressionLevel(Deflater.DEFAULT_COMPRESSION)
+                .setWriteValidationRatio(0.0)
+                .build();
     }
 }

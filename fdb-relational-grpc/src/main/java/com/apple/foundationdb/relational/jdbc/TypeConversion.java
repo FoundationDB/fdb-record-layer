@@ -675,6 +675,18 @@ public class TypeConversion {
                 case ASYNC_OPERATIONS_TIMEOUT_MILLIS:
                     builder.setAsyncOperationsTimeoutMillis((Long)entry.getValue());
                     break;
+                case ENCRYPT_WHEN_SERIALIZING:
+                    builder.setEncryptWhenSerializing((Boolean)entry.getValue());
+                    break;
+                case ENCRYPTION_KEY_STORE:
+                    builder.setEncryptionKeyStore((String)entry.getValue());
+                    break;
+                case ENCRYPTION_KEY_ENTRY:
+                    builder.setEncryptionKeyEntry((String)entry.getValue());
+                    break;
+                case ENCRYPTION_KEY_PASSWORD:
+                    builder.setEncryptionKeyPassword((String)entry.getValue());
+                    break;
                 default:
                     throw new SQLException("Cannot encode option in protobuf");
             }
@@ -776,6 +788,18 @@ public class TypeConversion {
         }
         if (protoOptions.hasAsyncOperationsTimeoutMillis()) {
             builder.withOption(Options.Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, protoOptions.getAsyncOperationsTimeoutMillis());
+        }
+        if (protoOptions.hasEncryptWhenSerializing()) {
+            builder.withOption(Options.Name.ENCRYPT_WHEN_SERIALIZING, protoOptions.getEncryptWhenSerializing());
+        }
+        if (protoOptions.hasEncryptionKeyStore()) {
+            builder.withOption(Options.Name.ENCRYPTION_KEY_STORE, protoOptions.getEncryptionKeyStore());
+        }
+        if (protoOptions.hasEncryptionKeyEntry()) {
+            builder.withOption(Options.Name.ENCRYPTION_KEY_ENTRY, protoOptions.getEncryptionKeyEntry());
+        }
+        if (protoOptions.hasEncryptionKeyPassword()) {
+            builder.withOption(Options.Name.ENCRYPTION_KEY_PASSWORD, protoOptions.getEncryptionKeyPassword());
         }
         return builder.build();
     }

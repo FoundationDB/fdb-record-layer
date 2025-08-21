@@ -315,4 +315,9 @@ public class YamlIntegrationTests {
     public void compositeAggregates(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("composite-aggregates.yamsql");
     }
+
+    @TestTemplate
+    public void encryptedTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("encrypted.yamsql");
+    }
 }

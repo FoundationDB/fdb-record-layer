@@ -59,11 +59,15 @@ public class OptionsTestHelper {
         builder = builder.withOption(Options.Name.VALID_PLAN_HASH_MODES, "m1,m2");
         builder = builder.withOption(Options.Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, false);
         builder = builder.withOption(Options.Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, 5000L);
+        builder = builder.withOption(Options.Name.ENCRYPT_WHEN_SERIALIZING, true);
+        builder = builder.withOption(Options.Name.ENCRYPTION_KEY_STORE, "secrets.ks");
+        builder = builder.withOption(Options.Name.ENCRYPTION_KEY_ENTRY, "mykey");
+        builder = builder.withOption(Options.Name.ENCRYPTION_KEY_PASSWORD, "mypass");
         Options options = builder.build();
         for (Options.Name name : Options.Name.values()) {
             if (name != Options.Name.CONTINUATION) {    // See above on why CONTINUATION was skipped.
                 Object value = options.getOption(name);
-                Assertions.assertThat(value).as(name.name()).isNotEqualTo(Options.defaultOptions().get(name));
+                Assertions.assertThat(value).as(() -> "non default for " + name.name()).isNotEqualTo(Options.defaultOptions().get(name));
             }
         }
         return options;

@@ -147,6 +147,10 @@ message Options {
   optional string valid_plan_hash_modes = 24;
   optional bool continuations_contain_compiled_statements = 25;
   optional int64 async_operations_timeout_millis = 26;
+  optional bool encrypt_when_serializing = 27;
+  optional string encryption_key_store = 28;
+  optional string encryption_key_entry = 29;
+  optional string encryption_key_password = 30;
 }
 
 // Request that is part of a transactional (stateful) exchange
