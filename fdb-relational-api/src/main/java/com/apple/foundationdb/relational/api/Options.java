@@ -224,7 +224,27 @@ public final class Options {
          * operations interacting with FDB.
          * Scope: Engine
          */
-        ASYNC_OPERATIONS_TIMEOUT_MILLIS
+        ASYNC_OPERATIONS_TIMEOUT_MILLIS,
+
+        /**
+         * A boolean indicating whether to encrypt records when saving and decrypt when loading.
+         */
+        ENCRYPT_WHEN_SERIALIZING,
+
+        /**
+         * The key store file containing the encryption key to use.
+         */
+        ENCRYPTION_KEY_STORE,
+
+        /**
+         * The key store entry containing the encryption key to use.
+         */
+        ENCRYPTION_KEY_ENTRY,
+
+        /**
+         * The integrity key of the key store and the encryption key of the key entry.
+         */
+        ENCRYPTION_KEY_PASSWORD,
     }
 
     public enum IndexFetchMethod {
@@ -263,6 +283,8 @@ public final class Options {
         builder.put(Name.CASE_SENSITIVE_IDENTIFIERS, false);
         builder.put(Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
         builder.put(Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, 10_000L);
+        builder.put(Name.ENCRYPT_WHEN_SERIALIZING, false);
+        builder.put(Name.ENCRYPTION_KEY_PASSWORD, "");
         OPTIONS_DEFAULT_VALUES = builder.build();
     }
 
@@ -501,6 +523,10 @@ public final class Options {
         data.put(Name.VALID_PLAN_HASH_MODES, List.of(TypeContract.stringType()));
         data.put(Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, List.of(TypeContract.booleanType()));
         data.put(Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, List.of(TypeContract.longType(), RangeContract.of(0L, Long.MAX_VALUE)));
+        data.put(Name.ENCRYPT_WHEN_SERIALIZING, List.of(TypeContract.booleanType()));
+        data.put(Name.ENCRYPTION_KEY_STORE, List.of(TypeContract.stringType()));
+        data.put(Name.ENCRYPTION_KEY_ENTRY, List.of(TypeContract.stringType()));
+        data.put(Name.ENCRYPTION_KEY_PASSWORD, List.of(TypeContract.stringType()));
 
         return Collections.unmodifiableMap(data);
     }
