@@ -174,8 +174,8 @@ public class LuceneIndexTestValidator {
         try (FDBRecordContext context = contextProvider.get()) {
             final FDBRecordStore recordStore = schemaSetup.apply(context);
             final FDBDirectoryManager directoryManager = getDirectoryManager(recordStore, index);
-            for (int i = 0; i < partitionInfos.size(); i++) {
-                final LucenePartitionInfoProto.LucenePartitionInfo partitionInfo = partitionInfos.get(i);
+            for (int partitionIndex = 0; partitionIndex < partitionInfos.size(); partitionIndex++) {
+                final LucenePartitionInfoProto.LucenePartitionInfo partitionInfo = partitionInfos.get(partitionIndex);
                 if (LOGGER.isTraceEnabled()) {
                     LOGGER.trace("Group: " + groupingKey + " PartitionInfo[" + partitionInfo.getId() +
                             "]: count:" + partitionInfo.getCount() + " " +
@@ -183,17 +183,7 @@ public class LuceneIndexTestValidator {
                             Tuple.fromBytes(partitionInfo.getTo().toByteArray()));
                 }
 
-                assertTrue(isParititionCountWithinBounds(partitionInfos, i, partitionLowWatermark, partitionHighWatermark),
-                        "Group: " + groupingKey + " - " + allCounts + "\nlowWatermark: " + partitionLowWatermark + ", highWatermark: " + partitionHighWatermark +
-                                "\nCurrent count: " + partitionInfo.getCount());
-                assertTrue(usedPartitionIds.add(partitionInfo.getId()), () -> "Duplicate id: " + partitionInfo);
-                final Tuple fromTuple = Tuple.fromBytes(partitionInfo.getFrom().toByteArray());
-                if (i > 0) {
-                    assertThat(fromTuple, greaterThan(lastToTuple));
-                }
-                lastToTuple = Tuple.fromBytes(partitionInfo.getTo().toByteArray());
-                assertThat(fromTuple, lessThanOrEqualTo(lastToTuple));
-
+                lastToTuple = validatePartition(groupingKey, partitionLowWatermark, partitionHighWatermark, partitionInfos, partitionIndex, allCounts, partitionInfo, usedPartitionIds, lastToTuple);
                 LOGGER.debug(KeyValueLogMessage.of("Visited partition",
                         "group", groupingKey,
                         "documentsSoFar", visitedCount,
@@ -222,8 +212,26 @@ public class LuceneIndexTestValidator {
         }
     }
 
+    @Nonnull
+    private Tuple validatePartition(final Tuple groupingKey, final int partitionLowWatermark, final int partitionHighWatermark,
+                                    final List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos, final int partitionIndex,
+                                    final String allCounts, final LucenePartitionInfoProto.LucenePartitionInfo partitionInfo, final Set<Integer> usedPartitionIds,
+                                    Tuple lastToTuple) {
+        assertTrue(isParititionCountWithinBounds(partitionInfos, partitionIndex, partitionLowWatermark, partitionHighWatermark),
+                "Group: " + groupingKey + " - " + allCounts + "\nlowWatermark: " + partitionLowWatermark + ", highWatermark: " + partitionHighWatermark +
+                        "\nCurrent count: " + partitionInfo.getCount());
+        assertTrue(usedPartitionIds.add(partitionInfo.getId()), () -> "Duplicate id: " + partitionInfo);
+        final Tuple fromTuple = Tuple.fromBytes(partitionInfo.getFrom().toByteArray());
+        if (partitionIndex > 0) {
+            assertThat(fromTuple, greaterThan(lastToTuple));
+        }
+        lastToTuple = Tuple.fromBytes(partitionInfo.getTo().toByteArray());
+        assertThat(fromTuple, lessThanOrEqualTo(lastToTuple));
+        return lastToTuple;
+    }
+
     private static void validateDanglingBlocks(final FDBDirectory directory, final FDBRecordContext context) {
-        Subspace dataSubspace = directory.getSubspace().subspace(Tuple.from(directory.DATA_SUBSPACE));
+        Subspace dataSubspace = directory.getSubspace().subspace(Tuple.from(FDBDirectory.DATA_SUBSPACE));
         final Map<String, FDBLuceneFileReference> allFiles = directory.getFileReferenceCacheAsync().join();
         // Get all valid file IDs from the file references
         final Set<Long> validFileIds = allFiles.values().stream()
