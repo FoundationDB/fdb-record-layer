@@ -111,7 +111,7 @@ public class PlanningRuleSet extends CascadesRuleSet {
             new PartitionSelectRule(),
             new PartitionBinarySelectRule()
             );
-    private static final Set<CascadesRule<? extends RelationalExpression>> MATCHING_RULES = ImmutableSet.of(
+    private static final Set<AbstractCascadesRule<? extends RelationalExpression>> MATCHING_RULES = ImmutableSet.of(
             new MatchLeafRule(),
             new MatchIntermediateRule()
     );
@@ -178,10 +178,10 @@ public class PlanningRuleSet extends CascadesRuleSet {
                     .addAll(MATCHING_RULES)
                     .addAll(EXPLORATION_RULES)
                     .build();
-    private static final Set<CascadesRule<? extends PartialMatch>> PARTIAL_MATCH_RULES = ImmutableSet.of(
+    private static final Set<AbstractCascadesRule<? extends PartialMatch>> PARTIAL_MATCH_RULES = ImmutableSet.of(
             new AdjustMatchRule()
     );
-    private static final Set<CascadesRule<? extends MatchPartition>> MATCH_PARTITION_RULES = ImmutableSet.of(
+    private static final Set<AbstractCascadesRule<? extends MatchPartition>> MATCH_PARTITION_RULES = ImmutableSet.of(
             new DataAccessRule(),
             new SelectDataAccessRule(),
             new PredicateToLogicalUnionRule()
@@ -207,14 +207,14 @@ public class PlanningRuleSet extends CascadesRuleSet {
 
     @Nonnull
     @Override
-    public Stream<CascadesRule<? extends PartialMatch>> getPartialMatchRules(@Nonnull final Predicate<CascadesRule<? extends PartialMatch>> rulePredicate) {
+    public Stream<AbstractCascadesRule<? extends PartialMatch>> getPartialMatchRules(@Nonnull final Predicate<AbstractCascadesRule<? extends PartialMatch>> rulePredicate) {
         return PARTIAL_MATCH_RULES.stream()
                 .filter(rulePredicate);
     }
 
     @Nonnull
     @Override
-    public Stream<CascadesRule<? extends MatchPartition>> getMatchPartitionRules(@Nonnull final Predicate<CascadesRule<? extends MatchPartition>> rulePredicate) {
+    public Stream<AbstractCascadesRule<? extends MatchPartition>> getMatchPartitionRules(@Nonnull final Predicate<AbstractCascadesRule<? extends MatchPartition>> rulePredicate) {
         return MATCH_PARTITION_RULES.stream()
                 .filter(rulePredicate);
     }

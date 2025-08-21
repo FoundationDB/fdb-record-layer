@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
@@ -35,7 +36,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * A rule that implements a table function expression into a {@link RecordQueryTableFunctionPlan}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ImplementTableFunctionRule extends ImplementationCascadesRule<TableFunctionExpression> {
+public class ImplementTableFunctionRule extends AbstractCascadesRule<TableFunctionExpression> implements ImplementationCascadesRule<TableFunctionExpression> {
     private static final BindingMatcher<TableFunctionExpression> root =
             tableFunctionExpression();
 
