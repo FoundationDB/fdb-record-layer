@@ -29,10 +29,12 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Metadata information about a lucene index, in response to {@link LuceneGetMetadataInfo}.
  */
+@API(API.Status.EXPERIMENTAL)
 public class LuceneMetadataInfo extends IndexOperationResult {
     private List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfo;
     private Map<Integer, LuceneInfo> luceneInfo;
@@ -70,16 +72,19 @@ public class LuceneMetadataInfo extends IndexOperationResult {
         @Nullable
         private final Collection<LuceneFileInfo> detailedFileInfos;
 
+        @Deprecated(forRemoval = true)
         public LuceneInfo(final int documentCount, final Collection<String> files, final int fieldInfoCount) {
-            this(documentCount, files, fieldInfoCount, null);
+            this.documentCount = documentCount;
+            this.files = files;
+            this.fieldInfoCount = fieldInfoCount;
+            this.detailedFileInfos = null;
         }
 
         public LuceneInfo(final int documentCount,
-                          final Collection<String> files,
                           final int fieldInfoCount,
-                          @Nullable final Collection<LuceneFileInfo> detailedFileInfos) {
+                          @Nonnull final Collection<LuceneFileInfo> detailedFileInfos) {
             this.documentCount = documentCount;
-            this.files = files;
+            this.files = detailedFileInfos.stream().map(LuceneFileInfo::getName).collect(Collectors.toList());
             this.fieldInfoCount = fieldInfoCount;
             this.detailedFileInfos = detailedFileInfos;
         }

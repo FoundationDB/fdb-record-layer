@@ -710,7 +710,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                         .thenCombine(fieldInfosFuture, (fileList, fieldInfosCount) ->
                                 new LuceneMetadataInfo.LuceneInfo(
                                         indexReader.numDocs(),
-                                        fileList.keySet(),
                                         fieldInfosCount,
                                         toLuceneFileInfo(fileList)));
             }
