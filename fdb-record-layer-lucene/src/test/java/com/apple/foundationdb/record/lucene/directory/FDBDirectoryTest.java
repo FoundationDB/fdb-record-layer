@@ -255,7 +255,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
     }
 
     @Test
-    public void testDataBlocksProperlyCleared() throws Exception {
+    void testDataBlocksProperlyCleared() throws Exception {
         // Create a file with data blocks
         long fileId = 1L;
         FDBLuceneFileReference reference = new FDBLuceneFileReference(fileId, 100, 100, 1024);
@@ -287,7 +287,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
     }
 
     @Test
-    public void testNoBlockLeaksWithMultipleFiles() throws Exception {
+    void testNoBlockLeaksWithMultipleFiles() throws Exception {
         // Create multiple files with data blocks
         long fileId1 = 100L;
         long fileId2 = 200L;
