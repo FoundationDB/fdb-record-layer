@@ -20,7 +20,7 @@
 
 ---
 options:
-  supported_version: !current_version
+  supported_version: 4.5.6.0
 ---
 schema_template:
     create table t1(id integer, col1 integer, col2 integer, primary key(id))
