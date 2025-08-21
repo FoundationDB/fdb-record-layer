@@ -709,6 +709,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     }
 
     /**
+     * <em>Deprecated</em>. This will soon be determined by the indexing session type
      * Set the use of a synchronized session during the index operation. Synchronized sessions help performing
      * the multiple transactions operations in a resource efficient way.
      * Normally this should be {@code true}.
@@ -716,7 +717,6 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @see SynchronizedSessionRunner
      * @param useSynchronizedSession use synchronize session if true, otherwise false
      * @return this builder
-     * Deprecated This will soon be determined by the indexing session type
      */
     @API(API.Status.DEPRECATED)
     public B setUseSynchronizedSession(boolean useSynchronizedSession) {
