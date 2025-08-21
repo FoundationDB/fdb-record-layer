@@ -22,7 +22,7 @@
 
 # Main dependency versions
 
-antlr = "4.9.3"
+antlr = "4.13.2"
 # AutoService kept on 1.0-rc6 to avoid annotation being retained in CLASS. See: https://github.com/FoundationDB/fdb-record-layer/issues/1281
 autoService = "1.0-rc6"
 # AutoService for development which enables incremental builds, cannot be enabled for production builds due to downstream dependencies

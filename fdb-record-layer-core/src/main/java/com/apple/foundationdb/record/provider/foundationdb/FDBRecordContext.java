@@ -171,7 +171,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @Nullable
     private List<Range> notCommittedConflictingKeys = null;
     @Nonnull
-    private final LockRegistry lockRegistry = new LockRegistry(this.getTimer());
+    private final LockRegistry lockRegistry;
     @Nonnull
     private final TempTable.Factory tempTableFactory = TempTable.Factory.instance();
 
@@ -181,6 +181,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
                                @Nonnull FDBRecordContextConfig config,
                                @Nullable FDBStoreTimer delayedTimer) {
         super(fdb, transaction, config.getTimer(), delayedTimer);
+        lockRegistry = new LockRegistry(timer);
         this.transactionCreateTime = System.currentTimeMillis();
         this.localVersion = new AtomicInteger(0);
         this.localVersionCache = new ConcurrentSkipListMap<>(ByteArrayUtil::compareUnsigned);
@@ -532,7 +533,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
 
     @Override
     @Nonnull
-    public Transaction ensureActive() {
+    public final Transaction ensureActive() {
         if (transaction == null) {
             throw new RecordCoreStorageException("Transaction is no longer active.");
         }

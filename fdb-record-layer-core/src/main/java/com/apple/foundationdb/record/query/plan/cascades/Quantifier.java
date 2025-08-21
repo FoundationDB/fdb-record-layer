@@ -619,6 +619,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
                 .build(reference);
     }
 
+    @SuppressWarnings("this-escape")
     protected Quantifier(@Nonnull final CorrelationIdentifier alias) {
         this.alias = alias;
         this.correlatedToSupplier = Suppliers.memoize(() -> getRangesOver().getCorrelatedTo());

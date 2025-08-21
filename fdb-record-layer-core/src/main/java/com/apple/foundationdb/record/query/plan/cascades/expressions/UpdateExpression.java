@@ -187,7 +187,7 @@ public class UpdateExpression implements RelationalExpressionWithChildren, Plann
         return hashCodeWithoutChildrenSupplier.get();
     }
 
-    public int computeHashCodeWithoutChildren() {
+    public final int computeHashCodeWithoutChildren() {
         return Objects.hash(targetRecordType, targetType, transformMap);
     }
 
