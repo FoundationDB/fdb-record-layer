@@ -164,9 +164,6 @@ public class LuceneIndexTestValidator {
     private void validatePartitionedGroup(final Index index, final String universalSearch, final boolean allowDuplicatePrimaryKeys, final Tuple groupingKey, final int partitionLowWatermark, final int partitionHighWatermark, final List<Tuple> records, final Map<Tuple, Map<Tuple, Tuple>> missingDocuments) throws IOException {
         List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos = getPartitionMeta(index, groupingKey);
         partitionInfos.sort(Comparator.comparing(info -> Tuple.fromBytes(info.getFrom().toByteArray())));
-        final String allCounts = partitionInfos.stream()
-                .map(info -> Tuple.fromBytes(info.getFrom().toByteArray()).toString() + info.getCount())
-                .collect(Collectors.joining(",", "[", "]"));
         Set<Integer> usedPartitionIds = new HashSet<>();
         Tuple lastToTuple = null;
         int visitedCount = 0;
@@ -183,7 +180,7 @@ public class LuceneIndexTestValidator {
                             Tuple.fromBytes(partitionInfo.getTo().toByteArray()));
                 }
 
-                lastToTuple = validatePartition(groupingKey, partitionLowWatermark, partitionHighWatermark, partitionInfos, partitionIndex, allCounts, partitionInfo, usedPartitionIds, lastToTuple);
+                lastToTuple = validatePartition(groupingKey, partitionLowWatermark, partitionHighWatermark, partitionInfos, partitionIndex, usedPartitionIds, lastToTuple);
                 LOGGER.debug(KeyValueLogMessage.of("Visited partition",
                         "group", groupingKey,
                         "documentsSoFar", visitedCount,
@@ -207,7 +204,6 @@ public class LuceneIndexTestValidator {
                     LOGGER.trace("Checking blocks for Group: " + groupingKey + " PartitionInfo: " + partitionInfo.getId());
                 }
                 validateDanglingBlocks(directory, context);
-
             }
         }
     }
@@ -215,19 +211,29 @@ public class LuceneIndexTestValidator {
     @Nonnull
     private Tuple validatePartition(final Tuple groupingKey, final int partitionLowWatermark, final int partitionHighWatermark,
                                     final List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos, final int partitionIndex,
-                                    final String allCounts, final LucenePartitionInfoProto.LucenePartitionInfo partitionInfo, final Set<Integer> usedPartitionIds,
-                                    Tuple lastToTuple) {
+                                    final Set<Integer> usedPartitionIds, Tuple previousToTuple) {
+        final LucenePartitionInfoProto.LucenePartitionInfo partitionInfo = partitionInfos.get(partitionIndex);
         assertTrue(isParititionCountWithinBounds(partitionInfos, partitionIndex, partitionLowWatermark, partitionHighWatermark),
-                "Group: " + groupingKey + " - " + allCounts + "\nlowWatermark: " + partitionLowWatermark + ", highWatermark: " + partitionHighWatermark +
-                        "\nCurrent count: " + partitionInfo.getCount());
+                () -> partitionMessage(groupingKey, partitionLowWatermark, partitionHighWatermark, partitionInfos, partitionIndex));
         assertTrue(usedPartitionIds.add(partitionInfo.getId()), () -> "Duplicate id: " + partitionInfo);
         final Tuple fromTuple = Tuple.fromBytes(partitionInfo.getFrom().toByteArray());
         if (partitionIndex > 0) {
-            assertThat(fromTuple, greaterThan(lastToTuple));
+            assertThat(fromTuple, greaterThan(previousToTuple));
         }
-        lastToTuple = Tuple.fromBytes(partitionInfo.getTo().toByteArray());
+        Tuple lastToTuple = Tuple.fromBytes(partitionInfo.getTo().toByteArray());
         assertThat(fromTuple, lessThanOrEqualTo(lastToTuple));
         return lastToTuple;
+    }
+
+    @Nonnull
+    private static String partitionMessage(final Tuple groupingKey, final int partitionLowWatermark, final int partitionHighWatermark,
+                                           final List<LucenePartitionInfoProto.LucenePartitionInfo> partitionInfos, final int partitionIndex) {
+        final String allCounts = partitionInfos.stream()
+                .map(info -> Tuple.fromBytes(info.getFrom().toByteArray()).toString() + info.getCount())
+                .collect(Collectors.joining(",", "[", "]"));
+        return "Group: " + groupingKey + " - " + allCounts +
+                "\nlowWatermark: " + partitionLowWatermark + ", highWatermark: " + partitionHighWatermark +
+                "\nCurrent count: " + partitionInfos.get(partitionIndex).getCount();
     }
 
     private static void validateDanglingBlocks(final FDBDirectory directory, final FDBRecordContext context) {
