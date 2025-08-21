@@ -221,7 +221,23 @@ public final class Options {
          * operations interacting with FDB.
          * Scope: Engine
          */
-        ASYNC_OPERATIONS_TIMEOUT_MILLIS
+        ASYNC_OPERATIONS_TIMEOUT_MILLIS,
+
+        /**
+         * A boolean indicating whether to encrypt records when saving and decrypt when loading.
+         */
+        ENCRYPT_WHEN_SERIALIZING,
+
+        /**
+         * An AES encryption key in Base64.
+         */
+        ENCRYPTION_KEY,
+
+        /**
+         * A text password to be used to generate an encryption key.
+         * Since a fixed salt is used, this is <em>not secure at all</em>.
+         */
+        ENCRYPTION_PASSWORD,
     }
 
     public enum IndexFetchMethod {
@@ -258,6 +274,7 @@ public final class Options {
         builder.put(Name.CASE_SENSITIVE_IDENTIFIERS, false);
         builder.put(Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, true);
         builder.put(Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, 10_000L);
+        builder.put(Name.ENCRYPT_WHEN_SERIALIZING, false);
         OPTIONS_DEFAULT_VALUES = builder.build();
     }
 
@@ -429,6 +446,9 @@ public final class Options {
         data.put(Name.VALID_PLAN_HASH_MODES, List.of(TypeContract.stringType()));
         data.put(Name.CONTINUATIONS_CONTAIN_COMPILED_STATEMENTS, List.of(TypeContract.booleanType()));
         data.put(Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, List.of(TypeContract.longType(), RangeContract.of(0L, Long.MAX_VALUE)));
+        data.put(Name.ENCRYPT_WHEN_SERIALIZING, List.of(TypeContract.booleanType()));
+        data.put(Name.ENCRYPTION_KEY, List.of(TypeContract.stringType()));
+        data.put(Name.ENCRYPTION_PASSWORD, List.of(TypeContract.stringType()));
 
         return Collections.unmodifiableMap(data);
     }
