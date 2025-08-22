@@ -265,7 +265,6 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
                 }
             }
             final Range byteRange = TupleRange.toRange(lowBytes, highBytes, lowEndpoint, highEndpoint);
-            System.out.println("Range: " + byteRange);
             lowBytes = byteRange.begin;
             highBytes = byteRange.end;
 
