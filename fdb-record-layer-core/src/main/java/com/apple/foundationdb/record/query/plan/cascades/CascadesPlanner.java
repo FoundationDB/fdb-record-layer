@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerRule.PreOrderRul
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.Location;
 import com.apple.foundationdb.record.query.plan.cascades.debug.RestartException;
+import com.apple.foundationdb.record.query.plan.cascades.debug.StatsDebugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -331,7 +332,7 @@ public class CascadesPlanner implements QueryPlanner {
                 .put(QueryPlanInfoKeys.MAX_TASK_QUEUE_SIZE, maxQueueSize)
                 .put(QueryPlanInfoKeys.CONSTRAINTS, constraints)
                 .put(QueryPlanInfoKeys.STATS_MAPS,
-                        Debugger.getDebuggerMaybe().flatMap(Debugger::getStatsMaps)
+                        StatsDebugger.getDebuggerMaybe().flatMap(StatsDebugger::getStatsMaps)
                                 .orElse(null))
                 .build();
         return new QueryPlanResult(plan, info);
@@ -375,8 +376,8 @@ public class CascadesPlanner implements QueryPlanner {
                     QueryPlanInfo.newBuilder()
                             .put(QueryPlanInfoKeys.CONSTRAINTS, constraints)
                             .put(QueryPlanInfoKeys.STATS_MAPS,
-                                    Debugger.getDebuggerMaybe()
-                                            .flatMap(Debugger::getStatsMaps).orElse(null))
+                                    StatsDebugger.getDebuggerMaybe().flatMap(StatsDebugger::getStatsMaps)
+                                            .orElse(null))
                             .build());
         } finally {
             Debugger.withDebugger(Debugger::onDone);
@@ -425,7 +426,7 @@ public class CascadesPlanner implements QueryPlanner {
                 }
                 taskCount++;
 
-                Debugger.withDebugger(debugger -> debugger.onEvent(
+                StatsDebugger.withDebugger(debugger -> debugger.onEvent(
                         new Debugger.ExecutingTaskEvent(currentRoot, taskStack, Location.BEGIN,
                                 Objects.requireNonNull(taskStack.peek()))));
                 Task nextTask = taskStack.pop();
@@ -434,7 +435,7 @@ public class CascadesPlanner implements QueryPlanner {
                         logger.trace(KeyValueLogMessage.of("executing task", "nextTask", nextTask.toString()));
                     }
 
-                    Debugger.withDebugger(debugger -> debugger.onEvent(nextTask.toTaskEvent(Location.BEGIN)));
+                    StatsDebugger.withDebugger(debugger -> debugger.onEvent(nextTask.toTaskEvent(Location.BEGIN)));
                     try {
                         nextTask.execute();
                         Debugger.sanityCheck(() -> {
@@ -454,7 +455,7 @@ public class CascadesPlanner implements QueryPlanner {
                         });
 
                     } finally {
-                        Debugger.withDebugger(debugger -> debugger.onEvent(nextTask.toTaskEvent(Location.END)));
+                        StatsDebugger.withDebugger(debugger -> debugger.onEvent(nextTask.toTaskEvent(Location.END)));
                     }
 
                     if (logger.isTraceEnabled()) {
@@ -469,7 +470,7 @@ public class CascadesPlanner implements QueryPlanner {
                                 .addLogInfo(LogMessageKeys.TASK_QUEUE_SIZE, taskStack.size());
                     }
                 } finally {
-                    Debugger.withDebugger(debugger -> debugger.onEvent(
+                    StatsDebugger.withDebugger(debugger -> debugger.onEvent(
                             new Debugger.ExecutingTaskEvent(currentRoot, taskStack, Location.END, nextTask)));
                 }
             } catch (final RestartException restartException) {
@@ -1006,14 +1007,14 @@ public class CascadesPlanner implements QueryPlanner {
                         }
                         // we notify the debugger (if installed) that the transform task is succeeding and
                         // about begin and end of the rule call event
-                        Debugger.withDebugger(debugger -> debugger.onEvent(toTaskEvent(Location.MATCH_PRE)));
-                        Debugger.withDebugger(debugger ->
+                        StatsDebugger.withDebugger(debugger -> debugger.onEvent(toTaskEvent(Location.MATCH_PRE)));
+                        StatsDebugger.withDebugger(debugger ->
                                 debugger.onEvent(new Debugger.TransformRuleCallEvent(plannerPhase, currentRoot,
                                         taskStack, Location.BEGIN, group, getBindable(), rule, ruleCall)));
                         try {
                             executeRuleCall(ruleCall);
                         } finally {
-                            Debugger.withDebugger(debugger ->
+                            StatsDebugger.withDebugger(debugger ->
                                     debugger.onEvent(new Debugger.TransformRuleCallEvent(plannerPhase, currentRoot,
                                             taskStack, Location.END, group, getBindable(), rule, ruleCall)));
                         }
@@ -1033,21 +1034,21 @@ public class CascadesPlanner implements QueryPlanner {
             // Handle produced artifacts (through yield...() calls)
             //
             for (final PartialMatch newPartialMatch : ruleCall.getNewPartialMatches()) {
-                Debugger.withDebugger(debugger ->
+                StatsDebugger.withDebugger(debugger ->
                         debugger.onEvent(new Debugger.TransformRuleCallEvent(plannerPhase, currentRoot, taskStack,
                                 Location.YIELD, group, getBindable(), rule, ruleCall)));
                 taskStack.push(new AdjustMatch(getPlannerPhase(), getGroup(), getExpression(), newPartialMatch));
             }
 
             for (final RelationalExpression newExpression : ruleCall.getNewFinalExpressions()) {
-                Debugger.withDebugger(debugger ->
+                StatsDebugger.withDebugger(debugger ->
                         debugger.onEvent(new Debugger.TransformRuleCallEvent(plannerPhase, currentRoot, taskStack,
                                 Location.YIELD, group, getBindable(), rule, ruleCall)));
                 exploreExpressionAndOptimizeInputs(plannerPhase, getGroup(), newExpression, true);
             }
 
             for (final RelationalExpression newExpression : ruleCall.getNewExploratoryExpressions()) {
-                Debugger.withDebugger(debugger ->
+                StatsDebugger.withDebugger(debugger ->
                         debugger.onEvent(new Debugger.TransformRuleCallEvent(plannerPhase, currentRoot, taskStack,
                                 Location.YIELD, group, getBindable(), rule, ruleCall)));
                 exploreExpression(plannerPhase, group, newExpression, true);
