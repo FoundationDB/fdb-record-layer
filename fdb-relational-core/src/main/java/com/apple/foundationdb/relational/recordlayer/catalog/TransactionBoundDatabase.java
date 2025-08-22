@@ -65,8 +65,6 @@ import java.net.URI;
 public class TransactionBoundDatabase extends AbstractDatabase {
     BackingStore store;
     URI uri;
-    @Nonnull
-    final Options options;
 
     private static final MetadataOperationsFactory onlyTemporaryFunctionOperationsFactory = new AbstractMetadataOperationsFactory() {
         @Nonnull
@@ -85,9 +83,8 @@ public class TransactionBoundDatabase extends AbstractDatabase {
     };
 
     public TransactionBoundDatabase(URI uri, @Nonnull Options options, @Nullable RelationalPlanCache planCache) {
-        super(onlyTemporaryFunctionOperationsFactory, NoOpQueryFactory.INSTANCE, planCache);
+        super(onlyTemporaryFunctionOperationsFactory, NoOpQueryFactory.INSTANCE, planCache, options);
         this.uri = uri;
-        this.options = options;
     }
 
     @Override

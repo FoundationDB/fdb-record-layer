@@ -291,6 +291,10 @@ public final class Options {
         }
     }
 
+    public Options withOption(@Nonnull Name name, Object value) throws SQLException {
+        return builder().fromOptions(this).withOption(name, value).build();
+    }
+
     public Options withChild(@Nonnull Options childOptions) throws SQLException {
         return Options.combine(this, childOptions);
     }
