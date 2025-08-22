@@ -131,7 +131,7 @@ public class BackingLocatableResolverStoreTest {
                                                          @Nonnull StorageCluster cluster,
                                                          @Nonnull LocatableResolver resolver,
                                                          @Nonnull StoreCatalog catalog) {
-            super(NoOpMetadataOperationsFactory.INSTANCE, NoOpQueryFactory.INSTANCE, null);
+            super(NoOpMetadataOperationsFactory.INSTANCE, NoOpQueryFactory.INSTANCE, null, Options.NONE);
             this.dbPath = dbPath;
             this.transactionManager = cluster.getTransactionManager();
             this.resolver = resolver;

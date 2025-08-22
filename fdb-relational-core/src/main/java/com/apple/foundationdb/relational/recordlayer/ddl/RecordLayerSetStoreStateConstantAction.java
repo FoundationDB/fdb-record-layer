@@ -36,6 +36,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerConfig;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.recordlayer.catalog.CatalogMetaDataProvider;
+import com.apple.foundationdb.relational.recordlayer.storage.StoreConfig;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import java.net.URI;
@@ -69,7 +70,7 @@ public class RecordLayerSetStoreStateConstantAction implements ConstantAction {
             FDBRecordStore recordStore =
                     FDBRecordStore.newBuilder()
                             .setKeySpacePath(databasePath)
-                            .setSerializer(rlConfig.getSerializer())
+                            .setSerializer(StoreConfig.DEFAULT_RELATIONAL_SERIALIZER)
                             .setMetaDataProvider(new CatalogMetaDataProvider(catalog, dbUri, schemaName, txn))
                             .setContext(txn.unwrap(FDBRecordContext.class))
                             .open();
