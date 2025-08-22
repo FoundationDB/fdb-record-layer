@@ -95,14 +95,14 @@ public class ImplementRecursiveUnionRule extends ImplementationCascadesRule<Recu
         final var tempTableInsertValueReference = recursiveUnionExpression.getTempTableInsertAlias();
         final var recursiveUnionPlan = new RecordQueryRecursiveUnionPlan(initialPhysicalQun, recursivePhysicalQun, tempTableScanValueReference, tempTableInsertValueReference);
 
-        if (canPerformDfs(recursiveQun.getRangesOver(), tempTableScanValueReference)) {
-            final var rootPhysicalReference = call.memoizeFinalExpressions(initialQun.getRangesOver().getFinalExpressions().stream().flatMap(e -> Iterables.getOnlyElement(e.getQuantifiers()).getRangesOver().getFinalExpressions().stream()).collect(ImmutableSet.toImmutableSet()));
-            final var rootPhysicalQun = Quantifier.physical(rootPhysicalReference);
-            final var childPhysicalQun = (Quantifier.Physical)Iterables.getOnlyElement(Iterables.getOnlyElement(recursiveQun.getRangesOver().getFinalExpressions()).getQuantifiers());
-            call.yieldPlan(new RecordQueryRecursiveDfsPlan(rootPhysicalQun, childPhysicalQun, tempTableScanValueReference));
-        } else {
+//        if (canPerformDfs(recursiveQun.getRangesOver(), tempTableScanValueReference)) {
+//            final var rootPhysicalReference = call.memoizeFinalExpressions(initialQun.getRangesOver().getFinalExpressions().stream().flatMap(e -> Iterables.getOnlyElement(e.getQuantifiers()).getRangesOver().getFinalExpressions().stream()).collect(ImmutableSet.toImmutableSet()));
+//            final var rootPhysicalQun = Quantifier.physical(rootPhysicalReference);
+//            final var childPhysicalQun = (Quantifier.Physical)Iterables.getOnlyElement(Iterables.getOnlyElement(recursiveQun.getRangesOver().getFinalExpressions()).getQuantifiers());
+//            call.yieldPlan(new RecordQueryRecursiveDfsPlan(rootPhysicalQun, childPhysicalQun, tempTableScanValueReference));
+//        } else {
             call.yieldPlan(recursiveUnionPlan);
-        }
+//        }
     }
 
     private boolean canPerformDfs(@Nonnull final Reference recursiveQun, @Nonnull final CorrelationIdentifier tempTableScanValueReference) {
