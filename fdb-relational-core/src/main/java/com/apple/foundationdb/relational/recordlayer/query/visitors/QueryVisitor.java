@@ -536,6 +536,11 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
     @Override
     public QueryPlan.LogicalQueryPlan visitFullDescribeStatement(@Nonnull RelationalParser.FullDescribeStatementContext ctx) {
         getDelegate().getPlanGenerationContext().setForExplain(ctx.EXPLAIN() != null);
+        if (!ctx.describeObjectClause().getTokens(RelationalLexer.VERBOSE).isEmpty()) {
+            getDelegate().getPlanGenerationContext().setIsVerboseExplainLevel(true);
+        } else {
+            getDelegate().getPlanGenerationContext().setIsVerboseExplainLevel(false);
+        }
         final var logicalOperator = Assert.castUnchecked(ctx.describeObjectClause().accept(this), LogicalOperator.class);
         return QueryPlan.LogicalQueryPlan.of(logicalOperator.getQuantifier().getRangesOver().get(), getDelegate().getPlanGenerationContext(), "TODO");
     }
