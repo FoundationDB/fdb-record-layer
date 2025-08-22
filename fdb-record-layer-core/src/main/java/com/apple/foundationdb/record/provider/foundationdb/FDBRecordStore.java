@@ -4965,6 +4965,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     private void clearReadableIndexBuildData(Index index) {
+        // Clear index maintenance data that is unneeded once the index becomes readable
         IndexingRangeSet.forIndexBuild(this, index).clear();
         IndexingHeartbeat.clearAllHeartbeats(this, index);
     }

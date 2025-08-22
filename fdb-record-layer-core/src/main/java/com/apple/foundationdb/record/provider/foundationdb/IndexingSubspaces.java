@@ -92,7 +92,7 @@ public final class IndexingSubspaces {
      * @return subspace
      */
     @Nonnull
-    public static Subspace indexheartbeatSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+    public static Subspace indexHeartbeatSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
         return indexBuildSubspace(store, index, INDEX_BUILD_HEARTBEAT_PREFIX);
     }
 
@@ -104,8 +104,8 @@ public final class IndexingSubspaces {
      * @return subspace
      */
     @Nonnull
-    public static Subspace indexheartbeatSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull UUID indexerId) {
-        return indexheartbeatSubspace(store, index).subspace(Tuple.from(indexerId));
+    public static Subspace indexHeartbeatSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, @Nonnull UUID indexerId) {
+        return indexHeartbeatSubspace(store, index).subspace(Tuple.from(indexerId));
     }
 
     /**
@@ -210,6 +210,6 @@ public final class IndexingSubspaces {
         context.clear(Range.startsWith(indexBuildScannedRecordsSubspace(store, index).pack()));
         context.clear(Range.startsWith(indexBuildTypeSubspace(store, index).pack()));
         // The heartbeats, unlike the sync lock, may be erased here. If needed, an appropriate heartbeat will be set after this clear & within the same transaction.
-        context.clear(Range.startsWith(indexheartbeatSubspace(store, index).pack()));
+        context.clear(Range.startsWith(indexHeartbeatSubspace(store, index).pack()));
     }
 }

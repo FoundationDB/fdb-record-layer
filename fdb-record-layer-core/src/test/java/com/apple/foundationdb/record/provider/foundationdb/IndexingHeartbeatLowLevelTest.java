@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
+import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
 import com.google.protobuf.Descriptors;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -52,7 +53,6 @@ import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class IndexingHeartbeatLowLevelTest {
     @RegisterExtension
@@ -115,8 +115,57 @@ public class IndexingHeartbeatLowLevelTest {
         } ;
     }
 
-    void testHeartbeatLowLevel(List<Index> indexes) {
-        Assertions.assertThat(indexes).hasSizeGreaterThanOrEqualTo(2);
+    @Test
+    void testHeartbeatQuery() {
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
+
+        final int count = 23;
+        IndexingHeartbeat[] heartbeats = new IndexingHeartbeat[count];
+        for (int i = 0; i < count; i++) {
+            heartbeats[i] = new IndexingHeartbeat(UUID.randomUUID(), "heartbeat" + i, 100 + i, false);
+        }
+
+        // populate heartbeats
+        openSimpleMetaData(hook);
+        try (FDBRecordContext context = openContext()) {
+            for (var heartbeat : heartbeats) {
+                heartbeat.updateHeartbeat(recordStore, indexes.get(0));
+                heartbeat.updateHeartbeat(recordStore, indexes.get(1));
+            }
+            context.commit();
+        }
+
+        // Verify query operation
+        for (Index index: indexes) {
+            try (FDBRecordContext context = openContext()) {
+                // Query, unlimited
+                Map<UUID, IndexBuildProto.IndexBuildHeartbeat> queried =
+                        IndexingHeartbeat.getIndexingHeartbeats(recordStore, index, 0).join();
+                Assertions.assertThat(queried).hasSize(count);
+                Assertions.assertThat(queried.keySet())
+                        .containsExactlyInAnyOrderElementsOf(Arrays.stream(heartbeats).map(heartbeat -> heartbeat.indexerId).collect(Collectors.toList()));
+                Assertions.assertThat(queried.values().stream().map(IndexBuildProto.IndexBuildHeartbeat::getInfo))
+                        .containsExactlyInAnyOrderElementsOf(Arrays.stream(heartbeats).map(heartbeat -> heartbeat.info).collect(Collectors.toList()));
+                Assertions.assertThat(queried.values().stream().map(IndexBuildProto.IndexBuildHeartbeat::getGenesisTimeMilliseconds))
+                        .containsExactlyInAnyOrderElementsOf(Arrays.stream(heartbeats).map(heartbeat -> heartbeat.genesisTimeMilliseconds).collect(Collectors.toList()));
+
+                // Query, partial
+                queried =
+                        IndexingHeartbeat.getIndexingHeartbeats(recordStore, index, 5).join();
+                Assertions.assertThat(queried).hasSize(5);
+                context.commit();
+            }
+        }
+    }
+
+    @Test
+    void testHeartbeatLowLevelClearing() {
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
+        indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(indexes);
 
         final int count = 10;
@@ -135,21 +184,12 @@ public class IndexingHeartbeatLowLevelTest {
             context.commit();
         }
 
-        // Verify query/clear operation
-        openSimpleMetaData(hook);
+        // Verify clear operation
         Index index = indexes.get(0);
         try (FDBRecordContext context = openContext()) {
-            // Query, unlimited
             Map<UUID, IndexBuildProto.IndexBuildHeartbeat> queried =
                     IndexingHeartbeat.getIndexingHeartbeats(recordStore, index, 0).join();
             Assertions.assertThat(queried).hasSize(count);
-            Assertions.assertThat(queried.keySet())
-                    .containsExactlyInAnyOrderElementsOf(Arrays.stream(heartbeats).map(heartbeat -> heartbeat.indexerId).collect(Collectors.toList()));
-
-            // Query, partial
-            queried =
-                    IndexingHeartbeat.getIndexingHeartbeats(recordStore, index, 5).join();
-            Assertions.assertThat(queried).hasSize(5);
 
             // clear, partial
             int countDeleted =
@@ -162,14 +202,11 @@ public class IndexingHeartbeatLowLevelTest {
         }
 
         // Verify that the previous clear does not affect other index
-        openSimpleMetaData(hook);
         index = indexes.get(1);
         try (FDBRecordContext context = openContext()) {
             Map<UUID, IndexBuildProto.IndexBuildHeartbeat> queried =
                     IndexingHeartbeat.getIndexingHeartbeats(recordStore, index, 100).join();
             Assertions.assertThat(queried).hasSize(count);
-            Assertions.assertThat(queried.keySet())
-                    .containsExactlyInAnyOrderElementsOf(Arrays.stream(heartbeats).map(ht -> ht.indexerId).collect(Collectors.toList()));
 
             // clear all
             int countDeleted =
@@ -185,31 +222,7 @@ public class IndexingHeartbeatLowLevelTest {
     }
 
     @Test
-    void testHeartbeatLowLevelValueIndexes() {
-        List<Index> indexes = new ArrayList<>();
-        indexes.add(new Index("indexA", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
-        indexes.add(new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE));
-        testHeartbeatLowLevel(indexes);
-    }
-
-    @Test
-    void testHeartbeatLowLevelSumCountIndexes() {
-        List<Index> indexes = new ArrayList<>();
-        indexes.add(new Index("indexE", field("num_value_3_indexed").ungrouped(), IndexTypes.SUM));
-        indexes.add(new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT));
-        testHeartbeatLowLevel(indexes);
-    }
-
-    @Test
-    void testHeartbeatLowLevelVersionIndexes() {
-        List<Index> indexes = new ArrayList<>();
-        indexes.add(new Index("versionIndex1", concat(field("num_value_2"), VersionKeyExpression.VERSION), IndexTypes.VERSION));
-        indexes.add(new Index("versionIndex2", concat(field("num_value_2"), VersionKeyExpression.VERSION), IndexTypes.VERSION));
-        testHeartbeatLowLevel(indexes);
-    }
-
-    @Test
-    void testCheckAndUpdateByRecords() {
+    void testCheckAndUpdateNonMutual() {
         Index index = new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(List.of(index));
         IndexingHeartbeat heartbeat1 = new IndexingHeartbeat(UUID.randomUUID(), "Test", TimeUnit.SECONDS.toMillis(30), false);
@@ -222,7 +235,6 @@ public class IndexingHeartbeatLowLevelTest {
         }
 
         // Successfully update heartbeat
-        openSimpleMetaData(hook);
         try (FDBRecordContext context = openContext()) {
             final Map<UUID, IndexBuildProto.IndexBuildHeartbeat> existingHeartbeats = IndexingHeartbeat.getIndexingHeartbeats(recordStore, index, 0).join();
             Assertions.assertThat(existingHeartbeats).hasSize(1);
@@ -232,18 +244,17 @@ public class IndexingHeartbeatLowLevelTest {
 
         IndexingHeartbeat heartbeat2 = new IndexingHeartbeat(UUID.randomUUID(), "Test", TimeUnit.SECONDS.toMillis(30), false);
         Assertions.assertThat(heartbeat1.indexerId).isNotEqualTo(heartbeat2.indexerId);
-        // Fail to create another 'BY_RECORD` heartbeat
-        openSimpleMetaData(hook);
+        // Fail to create another non-mutual heartbeat
         try (FDBRecordContext context = openContext()) {
             final Map<UUID, IndexBuildProto.IndexBuildHeartbeat> existingHeartbeats = IndexingHeartbeat.getIndexingHeartbeats(recordStore, index, 0).join();
             Assertions.assertThat(existingHeartbeats).hasSize(1);
-            final CompletionException ex = assertThrows(CompletionException.class, () -> heartbeat2.checkAndUpdateHeartbeat(recordStore, index).join());
-            Assertions.assertThat(ex.getMessage()).contains("SynchronizedSessionLockedException");
+            Assertions.assertThatThrownBy(() -> heartbeat2.checkAndUpdateHeartbeat(recordStore, index).join())
+                    .isInstanceOf(CompletionException.class)
+                    .hasCauseInstanceOf(SynchronizedSessionLockedException.class);
             context.commit();
         }
 
         // Successfully clear heartbeat1
-        openSimpleMetaData(hook);
         try (FDBRecordContext context = openContext()) {
             final Map<UUID, IndexBuildProto.IndexBuildHeartbeat> existingHeartbeats = IndexingHeartbeat.getIndexingHeartbeats(recordStore, index, 0).join();
             Assertions.assertThat(existingHeartbeats).hasSize(1);
@@ -252,14 +263,12 @@ public class IndexingHeartbeatLowLevelTest {
         }
 
         // Successfully update heartbeat2
-        openSimpleMetaData(hook);
         try (FDBRecordContext context = openContext()) {
             heartbeat2.checkAndUpdateHeartbeat(recordStore, index).join();
             context.commit();
         }
 
         // Successfully clear heartbeat2
-        openSimpleMetaData(hook);
         try (FDBRecordContext context = openContext()) {
             heartbeat2.clearHeartbeat(recordStore, index);
             final Map<UUID, IndexBuildProto.IndexBuildHeartbeat> existingHeartbeats = IndexingHeartbeat.getIndexingHeartbeats(recordStore, index, 0).join();
@@ -282,26 +291,28 @@ public class IndexingHeartbeatLowLevelTest {
         // Successfully check//update all heartbeats
         openSimpleMetaData(hook);
         try (FDBRecordContext context = openContext()) {
-            for (IndexingHeartbeat heartbeat: heartbeats) {
-                heartbeat.checkAndUpdateHeartbeat(recordStore, index).join();
+            for (int i = 0; i < 3; i++) {
+                for (IndexingHeartbeat heartbeat: heartbeats) {
+                    heartbeat.checkAndUpdateHeartbeat(recordStore, index).join();
+                }
             }
             context.commit();
         }
 
         // Check count, clear all
-        openSimpleMetaData(hook);
         try (FDBRecordContext context = openContext()) {
             final Map<UUID, IndexBuildProto.IndexBuildHeartbeat> existingHeartbeats = IndexingHeartbeat.getIndexingHeartbeats(recordStore, index, 0).join();
             Assertions.assertThat(existingHeartbeats).hasSize(count);
 
-            for (IndexingHeartbeat heartbeat: heartbeats) {
-                heartbeat.clearHeartbeat(recordStore, index);
+            for (int i = 0; i < 3; i++) {
+                for (IndexingHeartbeat heartbeat: heartbeats) {
+                    heartbeat.clearHeartbeat(recordStore, index);
+                }
             }
             context.commit();
         }
 
         // verify cleared
-        openSimpleMetaData(hook);
         try (FDBRecordContext context = openContext()) {
             final Map<UUID, IndexBuildProto.IndexBuildHeartbeat> existingHeartbeats = IndexingHeartbeat.getIndexingHeartbeats(recordStore, index, 0).join();
             Assertions.assertThat(existingHeartbeats).isEmpty();
@@ -310,7 +321,7 @@ public class IndexingHeartbeatLowLevelTest {
     }
 
     @Test
-    void testExpiredHeartbeat() throws InterruptedException {
+    void testSetHeartbeatAfterOtherHeartbeatExpiration() throws InterruptedException {
         Index index = new Index("versionIndex1", concat(field("num_value_2"), VersionKeyExpression.VERSION), IndexTypes.VERSION);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(List.of(index));
         IndexingHeartbeat heartbeat1 = new IndexingHeartbeat(UUID.randomUUID(), "Test", TimeUnit.SECONDS.toMillis(10), false);
@@ -328,7 +339,6 @@ public class IndexingHeartbeatLowLevelTest {
         Assertions.assertThat(heartbeat1.indexerId).isNotEqualTo(heartbeat2.indexerId);
 
         // heartbeat2 successfully takes over
-        openSimpleMetaData(hook);
         try (FDBRecordContext context = openContext()) {
             final Map<UUID, IndexBuildProto.IndexBuildHeartbeat> existingHeartbeats = IndexingHeartbeat.getIndexingHeartbeats(recordStore, index, 0).join();
             Assertions.assertThat(existingHeartbeats).hasSize(1);
@@ -338,7 +348,7 @@ public class IndexingHeartbeatLowLevelTest {
     }
 
     @Test
-    void testHeartbeatExpiration() throws InterruptedException {
+    void testFailSetHeartbeatBeforeOtherHeartbeatExpiration() throws InterruptedException {
         Index index = new Index("indexD", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(List.of(index));
 
@@ -353,8 +363,7 @@ public class IndexingHeartbeatLowLevelTest {
         }
 
         Thread.sleep(100);
-        // Expect heartbeatA to expire after 5 milliseconds, and successfully set heartbeatB
-        openSimpleMetaData(hook);
+        // heartbeatB would have respected heartbeatB's lock for 5 milliseconds only. Now successfully set itself.
         try (FDBRecordContext context = openContext()) {
             heartbeatB.checkAndUpdateHeartbeat(recordStore, index).join();
             context.commit();
@@ -362,11 +371,103 @@ public class IndexingHeartbeatLowLevelTest {
 
         // Expect heartbeatA to fail check/update
         // Note: if become flakey, increase the least time of heartbeatA
-        openSimpleMetaData(hook);
         try (FDBRecordContext context = openContext()) {
-            final CompletionException ex = assertThrows(CompletionException.class, () -> heartbeatA.checkAndUpdateHeartbeat(recordStore, index).join());
-            Assertions.assertThat(ex.getMessage()).contains("SynchronizedSessionLockedException");
+            Assertions.assertThatThrownBy(() -> heartbeatA.checkAndUpdateHeartbeat(recordStore, index).join())
+                    .isInstanceOf(CompletionException.class)
+                    .hasCauseInstanceOf(SynchronizedSessionLockedException.class);
             context.commit();
         }
     }
+
+    @Test
+    void testHeartbeatClearOldHeartbeats() throws InterruptedException {
+        Index index = new Index("versionIndex1", concat(field("num_value_2"), VersionKeyExpression.VERSION), IndexTypes.VERSION);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(List.of(index));
+        IndexingHeartbeat heartbeat1 = new IndexingHeartbeat(UUID.randomUUID(), "Test", TimeUnit.SECONDS.toMillis(10), true);
+        IndexingHeartbeat heartbeat2 = new IndexingHeartbeat(UUID.randomUUID(), "Test", TimeUnit.SECONDS.toMillis(10), true);
+
+        // Successfully create heartbeat1
+        openSimpleMetaData(hook);
+        try (FDBRecordContext context = openContext()) {
+            heartbeat1.checkAndUpdateHeartbeat(recordStore, index).join();
+            heartbeat2.checkAndUpdateHeartbeat(recordStore, index).join();
+            context.commit();
+        }
+
+        // Delay 20, clear anything older than 5 milliseconds
+        Thread.sleep(20);
+        try (FDBRecordContext context = openContext()) {
+            final Map<UUID, IndexBuildProto.IndexBuildHeartbeat> existingHeartbeats = IndexingHeartbeat.getIndexingHeartbeats(recordStore, index, 0).join();
+            Assertions.assertThat(existingHeartbeats).hasSize(2);
+            final Integer numDeleted = IndexingHeartbeat.clearIndexingHeartbeats(recordStore, index, 5, 0).join();
+            Assertions.assertThat(numDeleted).isEqualTo(2);
+            context.commit();
+        }
+    }
+
+    @Test
+    void testMixedMutualNonMutualHeartbeats() {
+        // This scenario should never happen because of the indexing typestamp protection. Testing it anyway...
+        Index index = new Index("versionIndex1", concat(field("num_value_2"), VersionKeyExpression.VERSION), IndexTypes.VERSION);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(List.of(index));
+        IndexingHeartbeat heartbeatMutual = new IndexingHeartbeat(UUID.randomUUID(), "Test", TimeUnit.SECONDS.toMillis(10), true);
+        IndexingHeartbeat heartbeatExclusive = new IndexingHeartbeat(UUID.randomUUID(), "Test", TimeUnit.SECONDS.toMillis(10), false);
+
+        // lock exclusive, then successfully lock mutual.
+        openSimpleMetaData(hook);
+        try (FDBRecordContext context = openContext()) {
+            heartbeatExclusive.checkAndUpdateHeartbeat(recordStore, index).join();
+            context.commit();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            heartbeatMutual.checkAndUpdateHeartbeat(recordStore, index).join();
+            // and clear
+            heartbeatExclusive.clearHeartbeat(recordStore, index);
+            heartbeatMutual.clearHeartbeat(recordStore, index);
+            context.commit();
+        }
+
+        // lock mutual, then fail to lock exclusive
+        try (FDBRecordContext context = openContext()) {
+            final Map<UUID, IndexBuildProto.IndexBuildHeartbeat> heartbeats = IndexingHeartbeat.getIndexingHeartbeats(recordStore, index, 0).join();
+            Assertions.assertThat(heartbeats).isEmpty();
+            heartbeatMutual.checkAndUpdateHeartbeat(recordStore, index).join();
+            context.commit();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            Assertions.assertThatThrownBy(() -> heartbeatExclusive.checkAndUpdateHeartbeat(recordStore, index).join())
+                    .isInstanceOf(CompletionException.class)
+                    .hasCauseInstanceOf(SynchronizedSessionLockedException.class);
+            // and clear
+            heartbeatMutual.clearHeartbeat(recordStore, index);
+            context.commit();
+        }
+
+    }
+
+    @Test
+    void testUnparseableHeartbeat() {
+        Index index = new Index("versionIndex1", concat(field("num_value_2"), VersionKeyExpression.VERSION), IndexTypes.VERSION);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = allIndexesHook(List.of(index));
+
+        // lock exclusive, then successfully lock mutual.
+        openSimpleMetaData(hook);
+        try (FDBRecordContext context = openContext()) {
+            byte[] key = IndexingSubspaces.indexHeartbeatSubspace(recordStore, index, UUID.randomUUID()).pack();
+            byte[] value = "meaningless byte value".getBytes();
+            recordStore.ensureContextActive().set(key, value);
+            context.commit();
+        }
+
+        IndexingHeartbeat heartbeat = new IndexingHeartbeat(UUID.randomUUID(), "Test", TimeUnit.SECONDS.toMillis(30), false);
+        try (FDBRecordContext context = openContext()) {
+            final Map<UUID, IndexBuildProto.IndexBuildHeartbeat> existingHeartbeats = IndexingHeartbeat.getIndexingHeartbeats(recordStore, index, 0).join();
+            Assertions.assertThat(existingHeartbeats).hasSize(1);
+            heartbeat.checkAndUpdateHeartbeat(recordStore, index);
+            context.commit();
+        }
+    }
+
 }

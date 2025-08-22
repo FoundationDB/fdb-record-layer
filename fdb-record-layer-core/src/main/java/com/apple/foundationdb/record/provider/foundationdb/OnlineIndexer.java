@@ -480,24 +480,39 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     /**
-     * Check if the index is being built by any of the {@link OnlineIndexer}s (only if they use {@link SynchronizedSession}s),
-     * including <i>this</i> {@link OnlineIndexer}.
+     * Check if the main index is being built. Note that with shared heartbeats, this function will now return true for any active session - mutual or exclusive.
      * @return a future that will complete to <code>true</code> if the index is being built and <code>false</code> otherwise
      */
     public CompletableFuture<Boolean> checkAnyOngoingOnlineIndexBuildsAsync() {
         return runner.runAsync(context -> openRecordStore(context).thenCompose(recordStore ->
-                checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index)),
+                checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index, common.config.getLeaseLengthMillis())),
                 common.indexLogMessageKeyValues("OnlineIndexer::checkAnyOngoingOnlineIndexBuilds"));
     }
 
     /**
-     * Check if the index is being built by any of {@link OnlineIndexer}s (only if they use {@link SynchronizedSession}s).
+     * Check if the main index is being built. Note that with shared heartbeats, this function will now return true for any active session - mutual or exclusive.
+     * Where "active session" is determined by an indexing heartbeat that is less than {@link OnlineIndexOperationConfig#DEFAULT_LEASE_LENGTH_MILLIS} old.
      * @param recordStore record store whose index builds need to be checked
      * @param index the index to check for ongoing index builds
      * @return a future that will complete to <code>true</code> if the index is being built and <code>false</code> otherwise
      */
     public static CompletableFuture<Boolean> checkAnyOngoingOnlineIndexBuildsAsync(@Nonnull FDBRecordStore recordStore, @Nonnull Index index) {
-        return SynchronizedSession.checkActiveSessionExists(recordStore.ensureContextActive(), IndexingSubspaces.indexBuildLockSubspace(recordStore, index));
+        return checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index, OnlineIndexOperationConfig.DEFAULT_LEASE_LENGTH_MILLIS);
+    }
+
+    /**
+     * Check if the main index is being built. Note that with shared heartbeats, this function will now return true for any active session - mutual or exclusive.
+     * @param recordStore record store whose index builds need to be checked
+     * @param index the index to check for ongoing index builds
+     * @param leasingMilliseconds max heartbeat age to be considered an "active session"
+     * @return a future that will complete to <code>true</code> if the index is being built and <code>false</code> otherwise
+     */
+    public static CompletableFuture<Boolean> checkAnyOngoingOnlineIndexBuildsAsync(@Nonnull FDBRecordStore recordStore, @Nonnull Index index, long leasingMilliseconds) {
+        return IndexingHeartbeat.getIndexingHeartbeats(recordStore, index, 0)
+                .thenApply(list -> {
+                    long activeTime = System.currentTimeMillis() + leasingMilliseconds;
+                    return list.values().stream().anyMatch(item -> item.getHeartbeatTimeMilliseconds() < activeTime);
+                });
     }
 
     /**
@@ -599,7 +614,14 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     /**
-     * Get the current indexing heartbeats for a given index (single target or primary index).
+     * Get the current indexing heartbeats map for a given index (single target or primary index).
+     * Each indexing session, while active, updates a heartbeat at every transaction during the indexing's iteration. These
+     * heartbeats can be used to query active indexing sessions.
+     * Indexing sessions will attempt to clear their own heartbeat before returning (successfully or exceptionally). However,
+     * the heartbeat clearing may fail in the DB access level.
+     * When an index becomes readable any existing heartbeat will be deleted.
+     * Note that heartbeats that cannot be decrypted will show in the returned map as having creation time of 0 and its info will
+     * be set to {@link IndexingHeartbeat#INVALID_HEARTBEAT_INFO}.
      * @param maxCount safety valve to limit number items to read. Typically set to zero to keep unlimited.
      * @return map of session ids to {@link IndexBuildProto.IndexBuildHeartbeat}
      */
@@ -611,14 +633,16 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Clear old indexing heartbeats for a given index (single target or primary index).
-     * @param minAgenMilliseconds minimum heartbeat age (in milliseconds) to clear.
+     * Typically, heartbeats are deleted either at the end of an indexing sessions or when the index becomes readable. This
+     * cleanup function can be used if, for any reason, the heartbeats could not be deleted from the database at the end of a session.
+     * @param minAgeMilliseconds minimum heartbeat age (time elapsed since heartbeat creation, in milliseconds) to clear.
      * @param maxIteration safety valve to limit number of items to check. Typically set to zero to keep unlimited
      * @return number of cleared heartbeats
      */
     @API(API.Status.EXPERIMENTAL)
-    public int clearIndexingHeartbeats(long minAgenMilliseconds, int maxIteration) {
+    public int clearIndexingHeartbeats(long minAgeMilliseconds, int maxIteration) {
         return asyncToSync(FDBStoreTimer.Waits.WAIT_INDEX_CLEAR_HEARTBEATS,
-                getIndexer().clearIndexingHeartbeats(minAgenMilliseconds, maxIteration));
+                getIndexer().clearIndexingHeartbeats(minAgeMilliseconds, maxIteration));
     }
 
     /**
@@ -1251,7 +1275,7 @@ public class OnlineIndexer implements AutoCloseable {
             private DesiredAction ifReadable = DesiredAction.CONTINUE;
             private boolean doAllowUniquePendingState = false;
             private Set<TakeoverTypes> allowedTakeoverSet = null;
-            private long checkIndexingStampFrequency = 10_000;
+            private long checkIndexingStampFrequency = 5_000;
             private boolean useMutualIndexing = false;
             private List<Tuple> useMutualIndexingBoundaries = null;
             private boolean allowUnblock = false;
@@ -1463,7 +1487,7 @@ public class OnlineIndexer implements AutoCloseable {
              * by other threads/processes/systems with the exact same parameters, are attempting to concurrently build this
              * index. To allow that, the indexer will:
              * <ol>
-             *   <li> Divide the records space to fragments, then iterate the fragments in a way that minimize the interference, while
+             *   <li> Divide the records space to fragments, then iterate the fragments in a way that minimizes the interference, while
              *      indexing each fragment independently.</li>
              *   <li> Handle indexing conflicts, when occurred.</li>
              *  </ol>

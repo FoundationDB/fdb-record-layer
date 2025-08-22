@@ -32,12 +32,15 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.util.pair.Pair;
+import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableMap;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -48,6 +51,9 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
@@ -888,9 +894,11 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         }
     }
 
-    @Test
+    @ParameterizedTest
+    @BooleanSource
     @SuppressWarnings("removal")
-    void testDeprecatedSetUseSynchronizedSession() {
+    void testDeprecatedSetUseSynchronizedSession(boolean useSynchronizedSession) throws InterruptedException {
+        // regardless of useSynchronizedSession's value, the build should be exclusive
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 20).mapToObj(val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2((int)val + 1).build()
         ).collect(Collectors.toList());
@@ -903,16 +911,72 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             context.commit();
         }
 
+        // phase 1: successfully build
         openSimpleMetaData(hook);
         disableAll(List.of(index));
-
-        openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = newIndexerBuilder(index)
-                .setUseSynchronizedSession(true)
+                .setUseSynchronizedSession(useSynchronizedSession)
                 .build()) {
             indexBuilder.buildIndex();
         }
+        assertReadable(index);
 
+        // Now disable and ensure exclusive build
+        disableAll(List.of(index));
+        Semaphore pauseMutualBuildSemaphore = new Semaphore(1);
+        Semaphore startBuildingSemaphore =  new Semaphore(1);
+        pauseMutualBuildSemaphore.acquire();
+        startBuildingSemaphore.acquire();
+        AtomicBoolean passed = new AtomicBoolean(false);
+        Thread t1 = new Thread(() -> {
+            // build index and pause halfway, allowing an active session test
+            try (OnlineIndexer indexBuilder = newIndexerBuilder(index)
+                    .setLeaseLengthMillis(TimeUnit.SECONDS.toMillis(20))
+                    .setLimit(4)
+                    .setConfigLoader(old -> {
+                        if (passed.get()) {
+                            try {
+                                startBuildingSemaphore.release();
+                                pauseMutualBuildSemaphore.acquire(); // pause to try building indexes
+                            } catch (InterruptedException e) {
+                                throw new RuntimeException(e);
+                            } finally {
+                                pauseMutualBuildSemaphore.release();
+                            }
+                        } else {
+                            passed.set(true);
+                        }
+                        return old;
+                    })
+                    .build()) {
+                indexBuilder.buildIndex();
+            }
+        });
+        t1.start();
+        startBuildingSemaphore.acquire();
+        startBuildingSemaphore.release();
+
+        // Fail to start another indexer
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(index)
+                .build()) {
+            assertTrue(indexBuilder.checkAnyOngoingOnlineIndexBuildsAsync().join());
+            assertThrows(SynchronizedSessionLockedException.class, indexBuilder::buildIndex);
+        }
+
+        // Successfully convert to a mutual indexer
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(index)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setMutualIndexing()
+                        .allowTakeoverContinue()
+                        .build())
+                .build()) {
+            assertTrue(indexBuilder.checkAnyOngoingOnlineIndexBuildsAsync().join());
+            indexBuilder.buildIndex();
+        }
+        // let the other thread finish indexing
+        pauseMutualBuildSemaphore.release();
+        t1.join();
+        // happy indexes assertion
         assertReadable(index);
     }
 }

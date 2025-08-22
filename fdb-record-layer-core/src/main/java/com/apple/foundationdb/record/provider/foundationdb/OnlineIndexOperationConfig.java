@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
 
 import javax.annotation.Nonnull;
 
@@ -53,7 +52,7 @@ public class OnlineIndexOperationConfig {
      */
     public static final int DEFAULT_PROGRESS_LOG_INTERVAL = -1;
     /**
-     * Default synchronized session lease time in milliseconds. This allows a lock expiration, if the online operation stops unexpectedly.
+     * Default indexing heartbeat age, in milliseconds, to define an "active" session.
      */
     public static final long DEFAULT_LEASE_LENGTH_MILLIS = 10_000;
 
@@ -188,15 +187,14 @@ public class OnlineIndexOperationConfig {
 
 
     /**
-     * Not used anymore.
-     * @return always false;
-     * @deprecated see {@link Builder#setUseSynchronizedSession(boolean)}
+     * <em>Deprecated</em>. Synchronized sessions are now automatically determined by the indexing method.
+     * Mutual indexing and index scrubbing (if applicable) do not expect to run exclusively, other indexing methods will
+     * throw an exception if they another active indexing session is detected.
+     * @return always true;
      */
     @API(API.Status.DEPRECATED)
-    @SuppressWarnings("PMD.AvoidUsingHardCodedIP") // version is not IP
-    @Deprecated(since = "4.4.3.0", forRemoval = true)
     public boolean shouldUseSynchronizedSession() {
-        return false;
+        return true;
     }
 
     public long getLeaseLengthMillis() {
@@ -490,28 +488,23 @@ public class OnlineIndexOperationConfig {
         }
 
         /**
-         * Set the use of a synchronized session during the index operation. Synchronized sessions help performing
-         * the multiple transactions operation in a resource efficient way.
-         * Normally this should be {@code true}.
-         *
-         * @see SynchronizedSessionRunner
-         * @param useSynchronizedSession use synchronize session if true, otherwise false
+         * <em>Deprecated</em>. Synchronized sessions are now automatically determined by the indexing method.
+         * Mutual indexing and index scrubbing (if applicable) do not expect to run exclusively, other indexing methods will
+         * throw an exception if they another active indexing session is detected.
+         * @param useSynchronizedSession ignored.
          * @return this builder
-         *
-         * @deprecated Synchronized sessions are now determined by the indexing method.
          */
         @API(API.Status.DEPRECATED)
-        @SuppressWarnings("PMD.AvoidUsingHardCodedIP") // version is not IP
-        @Deprecated(since = "4.4.3.0", forRemoval = true)
         public Builder setUseSynchronizedSession(boolean useSynchronizedSession) {
             // no-op
             return this;
         }
 
         /**
-         * If the indexing session is not expected to be mutual, abort indexing if another session is active. This function
-         * defines the maximum age of another session's heartbeat to be considered an "active session".
+         * Defines the maximum age of another session's heartbeat to be considered an active session.
          * The default value is {@link #DEFAULT_LEASE_LENGTH_MILLIS}.
+         * Mutual indexing and index scrubbing (if applicable) do not expect to run exclusively, other indexing methods will
+         * throw an exception if they another active indexing session is detected.
          * @param leaseLengthMillis length between last access and lease's end time in milliseconds
          * @return this builder
          */
