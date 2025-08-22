@@ -30,6 +30,7 @@ import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public interface EmbeddedRelationalArray extends RelationalArray {
 
@@ -92,6 +93,11 @@ public interface EmbeddedRelationalArray extends RelationalArray {
         @Override
         public Builder addBytes(@Nonnull byte[] value) throws SQLException {
             return addField(value, DataType.Primitives.BYTES.type());
+        }
+
+        @Override
+        public Builder addUuid(@Nonnull UUID uuid) throws SQLException {
+            return addField(uuid, DataType.Primitives.UUID.type());
         }
 
         @Override

@@ -37,6 +37,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.sql.SQLException;
+import java.sql.Struct;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -104,6 +106,44 @@ public class TableWithEnumTest {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
                     .hasColumns(Map.of("ID", 1L, "SUIT", "HEARTS", "RANK", 4L))
+                    .hasNoNextRow();
+        }
+    }
+
+    @Test
+    void canInsertStructWithEnumViaQueryPreparedStatement() throws SQLException {
+        final var preparedStmt = connection.prepareStatement("INSERT INTO CARD_NESTED VALUES (?id, ?info)");
+        preparedStmt.setLong("id", 1);
+        preparedStmt.setObject("info", connection.createStruct("info_struct", new Object[]{"DIAMONDS", 5}));
+        final var count = preparedStmt.executeUpdate();
+        assertThat(count).isEqualTo(1);
+
+        try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM CARD_NESTED WHERE ID = 1")) {
+            ResultSetAssert.assertThat(resultSet)
+                    .hasNextRow()
+                    .hasColumns(Map.of("ID", 1L, "INFO", Map.of("SUIT", "DIAMONDS", "RANK", 5L)))
+                    .hasNoNextRow();
+        }
+    }
+
+    @Test
+    void canInsertStructArrayWithEnumViaQueryPreparedStatement() throws SQLException {
+        final var preparedStmt = connection.prepareStatement("INSERT INTO CARD_ARRAY VALUES (?id, ?collection)");
+        preparedStmt.setLong("id", 1);
+        var structsToInsert = new ArrayList<Struct>();
+        var expectedCollection = new ArrayList<Map<String, Object>>();
+        for (int i = 1; i <= 13; i++) {
+            structsToInsert.add(connection.createStruct("anon_" + i, new Object[]{"CLUBS", i}));
+            expectedCollection.add(Map.of("SUIT", "CLUBS", "RANK", (long) i));
+        }
+        preparedStmt.setObject("collection", connection.createArrayOf("STRUCT", structsToInsert.toArray()));
+        final var count = preparedStmt.executeUpdate();
+        assertThat(count).isEqualTo(1);
+
+        try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM CARD_ARRAY WHERE ID = 1")) {
+            ResultSetAssert.assertThat(resultSet)
+                    .hasNextRow()
+                    .hasColumns(Map.of("ID", 1L, "COLLECTION", expectedCollection))
                     .hasNoNextRow();
         }
     }

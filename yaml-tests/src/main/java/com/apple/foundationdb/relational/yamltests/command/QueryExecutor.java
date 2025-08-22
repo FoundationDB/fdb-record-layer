@@ -169,7 +169,7 @@ public class QueryExecutor {
                 continuationAfter = executeWithSetup(connection, singleConnection -> {
                     try (var s = singleConnection.createStatement()) {
                         final var queryResult = executeStatementAndCheckCacheIfNeeded(s, false, singleConnection, currentQuery, checkCache, maxRows);
-                        config.checkResult(currentQuery, queryResult, this.toString(), singleConnection);
+                        config.checkResult(currentQuery, queryResult, this.toString(), singleConnection, setup);
                         if (queryResult instanceof RelationalResultSet) {
                             return ((RelationalResultSet) queryResult).getContinuation();
                         }
@@ -182,7 +182,7 @@ public class QueryExecutor {
                     try (var s = singleConnection.prepareStatement(currentQuery)) {
                         setParametersInPreparedStatement(s);
                         final var queryResult = executeStatementAndCheckCacheIfNeeded(s, true, singleConnection, currentQuery, checkCache, maxRows);
-                        config.checkResult(currentQuery, queryResult, this.toString(), singleConnection);
+                        config.checkResult(currentQuery, queryResult, this.toString(), singleConnection, setup);
                         if (queryResult instanceof RelationalResultSet) {
                             return ((RelationalResultSet)queryResult).getContinuation();
                         }
@@ -224,7 +224,7 @@ public class QueryExecutor {
                 // We bypass checking for cache since the "EXECUTE CONTINUATION ..." statement does not need to be checked
                 // for caching.
                 final var queryResult = executeStatement(s, true, currentQuery);
-                config.checkResult(executeContinuationQuery, queryResult, this.toString(), connection);
+                config.checkResult(executeContinuationQuery, queryResult, this.toString(), connection, setup);
                 if (queryResult instanceof RelationalResultSet) {
                     continuationAfter = ((RelationalResultSet) queryResult).getContinuation();
                 }
