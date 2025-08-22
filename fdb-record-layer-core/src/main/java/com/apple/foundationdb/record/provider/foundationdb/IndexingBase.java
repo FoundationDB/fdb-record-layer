@@ -102,6 +102,7 @@ public abstract class IndexingBase {
     private final long startingTimeMillis;
     private long lastTypeStampCheckMillis;
     private Map<String, IndexingMerger> indexingMergerMap = null;
+    @Nullable
     private IndexingHeartbeat heartbeat = null; // this will stay null for index scrubbing
 
     IndexingBase(@Nonnull IndexingCommon common,
@@ -157,15 +158,13 @@ public abstract class IndexingBase {
         long startNanos = System.nanoTime();
         FDBDatabaseRunner runner = getRunner();
         final FDBStoreTimer timer = runner.getTimer();
-        if ( timer != null) {
+        if (timer != null) {
             lastProgressSnapshot = StoreTimerSnapshot.from(timer);
         }
-        AtomicReference<Throwable> indexingException = new AtomicReference<>(null);
-        return handleStateAndDoBuildIndexAsync(markReadable, message)
-                .handle((ret, ex) -> {
-                    if (ex != null) {
-                        indexingException.set(ex);
-                    }
+        return MoreAsyncUtil.composeWhenComplete(
+                handleStateAndDoBuildIndexAsync(markReadable, message),
+                (result, ex) -> {
+                    // proper log
                     message.addKeysAndValues(indexingLogMessageKeyValues()) // add these here to pick up state accumulated during build
                             .addKeysAndValues(common.indexLogMessageKeyValues())
                             .addKeyAndValue(LogMessageKeys.TOTAL_MICROS, TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - startNanos));
@@ -177,20 +176,13 @@ public abstract class IndexingBase {
                         message.addKeyAndValue(LogMessageKeys.RESULT, "success");
                         LOGGER.info(message.toString());
                     }
-                    return ret;
-                })
-                // Here: if the heartbeat was *not* cleared while marking the index readable, it would be cleared in
-                // these dedicated transaction. Heartbeat clearing is not a blocker but a "best effort" operation.
-                .thenCompose(ignore -> clearHeartbeats())
-                .handle((ignore, exIgnore) -> {
-                    Throwable ex = indexingException.get();
-                    if (ex instanceof RuntimeException) {
-                        throw (RuntimeException) ex;
-                    } else if (ex != null) {
-                        throw new RuntimeException(ex);
-                    }
-                    return null;
-                });
+                    // Here: if the heartbeat was *not* cleared while marking the index readable, it would be cleared in
+                    // these dedicated transaction. Heartbeat clearing is not a blocker but a "best effort" operation.
+                    return clearHeartbeats()
+                            .handle((ignoreRet, ignoreEx) -> null);
+                },
+                getRunner().getDatabase()::mapAsyncToSyncException
+        );
     }
 
     abstract List<Object> indexingLogMessageKeyValues();
@@ -271,7 +263,8 @@ public abstract class IndexingBase {
                 doIndex ?
                 buildIndexInternalAsync().thenApply(ignore -> markReadable) :
                 AsyncUtil.READY_FALSE
-        ).thenCompose(this::markIndexReadable).thenApply(ignore -> null);
+        ).thenCompose(this::markIndexReadable
+        ).thenApply(ignore -> null);
     }
 
     private CompletableFuture<Void> markIndexesWriteOnly(boolean continueBuild, FDBRecordStore store) {
@@ -317,7 +310,7 @@ public abstract class IndexingBase {
         // Mark each index readable in its own (retriable, parallel) transaction. If one target fails to become
         // readable, it should not affect the others.
         return forEachTargetIndex(index ->
-                markIndexReadableSingleTarget(index, anythingChanged, runtimeExceptionAtomicReference)
+                markIndexReadableForIndex(index, anythingChanged, runtimeExceptionAtomicReference)
         ).thenApply(ignore -> {
             RuntimeException ex = runtimeExceptionAtomicReference.get();
             if (ex != null) {
@@ -328,13 +321,13 @@ public abstract class IndexingBase {
         });
     }
 
-    private CompletableFuture<Boolean> markIndexReadableSingleTarget(Index index, AtomicBoolean anythingChanged,
-                                                                     AtomicReference<RuntimeException> runtimeExceptionAtomicReference) {
+    private CompletableFuture<Boolean> markIndexReadableForIndex(Index index, AtomicBoolean anythingChanged,
+                                                                 AtomicReference<RuntimeException> runtimeExceptionAtomicReference) {
         // An extension function to reduce markIndexReadable's complexity
         return getRunner().runAsync(context ->
                 common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync()
                         .thenCompose(store -> {
-                            clearHeartbeatSingleTarget(store, index);
+                            clearHeartbeatForIndex(store, index);
                             return policy.shouldAllowUniquePendingState(store) ?
                                    store.markIndexReadableOrUniquePending(index) :
                                    store.markIndexReadable(index);
@@ -376,7 +369,7 @@ public abstract class IndexingBase {
         if (forceStampOverwrite && !continuedBuild) {
             // Fresh session + overwrite = no questions asked
             store.saveIndexingTypeStamp(index, newStamp);
-            return AsyncUtil.DONE ;
+            return AsyncUtil.DONE;
         }
         return store.loadIndexingTypeStampAsync(index)
                 .thenCompose(savedStamp -> {
@@ -858,30 +851,27 @@ public abstract class IndexingBase {
 
     private CompletableFuture<Void> clearHeartbeats() {
         if (heartbeat == null) {
+            // Here: either silent heartbeats or heartbeats had been cleared during markReadable phase
             return AsyncUtil.DONE;
         }
-        return forEachTargetIndex(this::clearHeartbeatSingleTarget)
-                .thenAccept(ignore -> heartbeat = null);
+        // Here: for each index we clear (only) the heartbeat generated by this indexer. This is a quick operation that can be done in a single transaction.
+        return getRunner().runAsync(context ->
+                common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync()
+                        .thenApply(store -> {
+                            clearHeartbeats(store);
+                            return null;
+                        }));
     }
 
     private void clearHeartbeats(FDBRecordStore store) {
         if (heartbeat != null) {
             for (Index index : common.getTargetIndexes()) {
-                clearHeartbeatSingleTarget(store, index);
+                heartbeat.clearHeartbeat(store, index);
             }
         }
     }
 
-    private CompletableFuture<Void> clearHeartbeatSingleTarget(Index index) {
-        return getRunner().runAsync(context ->
-                common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync()
-                        .thenApply(store -> {
-                            clearHeartbeatSingleTarget(store, index);
-                            return null;
-                        }));
-    }
-
-    private void clearHeartbeatSingleTarget(FDBRecordStore store, Index index) {
+    private void clearHeartbeatForIndex(FDBRecordStore store, Index index) {
         if (heartbeat != null) {
             heartbeat.clearHeartbeat(store, index);
         }
@@ -1115,9 +1105,9 @@ public abstract class IndexingBase {
                         .thenCompose(store -> IndexingHeartbeat.getIndexingHeartbeats(store, common.getPrimaryIndex(), maxCount)));
     }
 
-    public CompletableFuture<Integer> clearIndexingHeartbeats(long minAgenMilliseconds, int maxIteration) {
+    public CompletableFuture<Integer> clearIndexingHeartbeats(long minAgeMilliseconds, int maxIteration) {
         return getRunner().runAsync(context -> openRecordStore(context)
-                .thenCompose(store -> IndexingHeartbeat.clearIndexingHeartbeats(store, common.getPrimaryIndex(), minAgenMilliseconds, maxIteration)));
+                .thenCompose(store -> IndexingHeartbeat.clearIndexingHeartbeats(store, common.getPrimaryIndex(), minAgeMilliseconds, maxIteration)));
     }
 
     /**
