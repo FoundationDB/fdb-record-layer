@@ -126,7 +126,7 @@ public class RecordLayerDatabase extends AbstractDatabase {
     }
 
     BackingRecordStore loadStore(@Nonnull Transaction txn, @Nonnull String schemaName, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
-        StoreConfig storeConfig = StoreConfig.create(recordLayerConfig, schemaName, databasePath, metaDataStore, txn);
+        StoreConfig storeConfig = StoreConfig.create(recordLayerConfig, schemaName, databasePath, metaDataStore, txn, options);
         return BackingRecordStore.load(txn, storeConfig, existenceCheck);
     }
 
