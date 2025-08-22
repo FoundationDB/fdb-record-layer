@@ -307,8 +307,8 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
-    public Expression visitMacroFunctionCall(@Nonnull RelationalParser.MacroFunctionCallContext ctx) {
-        final var functionName = ctx.macroFunctionName().getText();
+    public Expression visitUserDefinedScalarFunctionCall(@Nonnull RelationalParser.UserDefinedScalarFunctionCallContext ctx) {
+        final var functionName = ctx.userDefinedScalarFunctionName().getText();
         Expressions arguments = visitFunctionArgs(ctx.functionArgs());
         return getDelegate().resolveFunction(functionName, arguments.asList().toArray(new Expression[0]));
     }

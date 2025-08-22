@@ -443,6 +443,11 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     }
 
     @Override
+    public Identifier visitUserDefinedScalarFunctionStatementBody(@Nonnull RelationalParser.UserDefinedScalarFunctionStatementBodyContext ctx) {
+        return identifierVisitor.visitFullId(ctx.fullId());
+    }
+
+    @Override
     public Object visitExpressionBody(final RelationalParser.ExpressionBodyContext ctx) {
         return visitChildren(ctx);
     }
@@ -1032,12 +1037,6 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     @Override
-    public Identifier visitFullIdRoutineBody(@Nonnull RelationalParser.FullIdRoutineBodyContext ctx) {
-        return identifierVisitor.visitFullId(ctx.fullId());
-    }
-
-    @Nonnull
-    @Override
     public Identifier visitTableName(@Nonnull RelationalParser.TableNameContext ctx) {
         return identifierVisitor.visitTableName(ctx);
     }
@@ -1386,14 +1385,14 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
 
     @Nonnull
     @Override
-    public Expression visitMacroFunctionCall(@Nonnull RelationalParser.MacroFunctionCallContext ctx) {
-        return expressionVisitor.visitMacroFunctionCall(ctx);
+    public Expression visitUserDefinedScalarFunctionCall(@Nonnull RelationalParser.UserDefinedScalarFunctionCallContext ctx) {
+        return expressionVisitor.visitUserDefinedScalarFunctionCall(ctx);
     }
 
 
     @Nonnull
     @Override
-    public Object visitMacroFunctionName(@Nonnull RelationalParser.MacroFunctionNameContext ctx) {
+    public Object visitUserDefinedScalarFunctionName(@Nonnull RelationalParser.UserDefinedScalarFunctionNameContext ctx) {
         return visitChildren(ctx);
     }
 

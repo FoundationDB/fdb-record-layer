@@ -22,7 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.MacroFunction;
+import com.apple.foundationdb.record.query.plan.cascades.UserDefinedScalarFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
@@ -262,13 +262,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         // TODO: this is currently relying on the lexical order of the function to resolve function dependencies which
         //       is limited.
         sqlInvokedFunctionClauses.build().forEach(functionClause -> {
-            if (functionClause.routineBody() != null) {
-                metadataBuilder.addInvokedRoutine(getInvokedRoutineMetadata(functionClause, functionClause.functionSpecification(),
-                        functionClause.routineBody(), metadataBuilder.build()));
-            } else {
-                metadataBuilder.addInvokedRoutine(getMacroFunctionMetadata(functionClause, functionClause.functionSpecification(),
-                        functionClause.macroFunctionBody(), metadataBuilder.build()));
-            }
+            metadataBuilder.addInvokedRoutine(getInvokedRoutineMetadata(functionClause, functionClause.functionSpecification(),
+                    functionClause.routineBody(), metadataBuilder.build()));
         });
         for (final var index : indexes) {
             final var table = metadataBuilder.extractTable(index.getTableName());
@@ -349,44 +344,15 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         }
 
         // 3. visit the SQL string to generate (compile) the corresponding SQL plan.
-        final var compiledSqlFunction = visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary);
+        final var userDefinedFunction = visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary);
 
         // 4. Return it.
         return RecordLayerInvokedRoutine.newBuilder()
                 .setName(functionName)
                 .setDescription(functionDefinition)
-                .withUserDefinedRoutine(ignored -> compiledSqlFunction, true)
+                .withUserDefinedRoutine(ignored -> userDefinedFunction, userDefinedFunction instanceof CompiledSqlFunction)
                 .setNormalizedDescription(getDelegate().getPlanGenerationContext().getCanonicalQueryString())
                 .setTemporary(isTemporary)
-                .build();
-    }
-
-    @Nonnull
-    private RecordLayerInvokedRoutine getMacroFunctionMetadata(@Nonnull final ParserRuleContext functionCtx,
-                                                                @Nonnull final RelationalParser.FunctionSpecificationContext functionSpecCtx,
-                                                                @Nonnull final RelationalParser.MacroFunctionBodyContext bodyCtx,
-                                                                @Nonnull final RecordLayerSchemaTemplate ddlCatalog) {
-        // parse the index SQL query using the newly constructed metadata.
-        getDelegate().replaceSchemaTemplate(ddlCatalog);
-
-        // 1. get the function name.
-        final var functionName = visitFullId(functionSpecCtx.schemaQualifiedRoutineName).toString();
-
-        // 2. get the function SQL definition string.
-        final var queryString = getDelegate().getPlanGenerationContext().getQuery();
-        final var start = functionCtx.start.getStartIndex();
-        final var stop = functionCtx.stop.getStopIndex() + 1; // inclusive.
-        final var functionDefinition = "CREATE " + queryString.substring(start, stop);
-
-        // 3. visit the SQL string to generate (compile) the corresponding SQL plan.
-        final var macroFunction = visitMacroFunction(functionSpecCtx, bodyCtx);
-
-        // 4. Return it.
-        return RecordLayerInvokedRoutine.newBuilder()
-                .setName(functionName)
-                .setDescription(functionDefinition)
-                .withUserDefinedRoutine(ignored -> macroFunction, false)
-                .setNormalizedDescription(getDelegate().getPlanGenerationContext().getCanonicalQueryString())
                 .build();
     }
 
@@ -408,51 +374,15 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Override
     public CompiledSqlFunction visitTempSqlInvokedFunction(@Nonnull RelationalParser.TempSqlInvokedFunctionContext ctx) {
-        return visitSqlInvokedFunction(ctx.functionSpecification(), ctx.routineBody(), true);
-    }
-
-    @Nonnull
-    private MacroFunction visitMacroFunction(@Nonnull final RelationalParser.FunctionSpecificationContext functionSpecCtx,
-                                                        @Nonnull final RelationalParser.MacroFunctionBodyContext bodyCtx) {
-        // get the function name.
-        final var functionName = visitFullId(functionSpecCtx.schemaQualifiedRoutineName).toString();
-
-        // run implementation-specific validations.
-        final var props = functionSpecCtx.routineCharacteristics();
-        // SQL-invoked routine 11.60, syntax rules, section 6.f.ii
-        boolean isNullReturnOnNull = props.nullCallClause() != null && props.nullCallClause().RETURNS() != null;
-        // ... currently we support only CALLED ON NULL INPUT (which is implicitly set if not defined).
-        Assert.thatUnchecked(!isNullReturnOnNull, "only CALLED ON NULL INPUT clause is supported");
-        boolean isScalar = functionSpecCtx.returnsClause() != null &&
-                functionSpecCtx.returnsClause().returnsType().returnsTableType() == null;
-        Assert.thatUnchecked(isScalar, "Macro functions must be scalar");
-        final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
-
-        // argumentValue
-        // Expressions
-        List<Identifier> paramNameIdList = new ArrayList<>();
-        List<QuantifiedObjectValue> paramValueList = new ArrayList<>();
-        for (RelationalParser.SqlParameterDeclarationContext sqlParameterDeclarationContext: functionSpecCtx.sqlParameterDeclarationList().sqlParameterDeclarations().sqlParameterDeclaration()) {
-            paramNameIdList.add(visitUid(sqlParameterDeclarationContext.sqlParameterName));
-            DataType paramType = visitFunctionColumnType(sqlParameterDeclarationContext.parameterType);
-            paramValueList.add(QuantifiedObjectValue.of(CorrelationIdentifier.uniqueID(), DataTypeUtils.toRecordLayerType(paramType)));
-        }
-
-        final var functionBody = visitFullId((RelationalParser.FullIdContext)bodyCtx.getChild(1));
-        Optional<Value> fieldValue = semanticAnalyzer.lookupNestedField(functionBody, paramNameIdList.get(0), paramValueList.get(0));
-        return new MacroFunction(functionName, paramValueList, fieldValue.get());
+        return (CompiledSqlFunction)visitSqlInvokedFunction(ctx.functionSpecification(), ctx.routineBody(), true);
     }
 
     @Override
     public UserDefinedFunction visitSqlInvokedFunction(@Nonnull RelationalParser.SqlInvokedFunctionContext ctx) {
-        if (ctx.routineBody() != null) {
-            return visitSqlInvokedFunction(ctx.functionSpecification(), ctx.routineBody(), false);
-        } else {
-            return visitMacroFunction(ctx.functionSpecification(), ctx.macroFunctionBody());
-        }
+        return visitSqlInvokedFunction(ctx.functionSpecification(), ctx.routineBody(), false);
     }
 
-    private CompiledSqlFunction visitSqlInvokedFunction(@Nonnull final RelationalParser.FunctionSpecificationContext functionSpecCtx,
+    private UserDefinedFunction visitSqlInvokedFunction(@Nonnull final RelationalParser.FunctionSpecificationContext functionSpecCtx,
                                                         @Nonnull final RelationalParser.RoutineBodyContext bodyCtx,
                                                         boolean isTemporary) {
         // get the function name.
@@ -470,40 +400,57 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         boolean isSqlParameterStyle = props.parameterStyle() == null || props.parameterStyle().SQL() != null;
         boolean isScalar = functionSpecCtx.returnsClause() != null &&
                 functionSpecCtx.returnsClause().returnsType().returnsTableType() == null;
-        Assert.thatUnchecked(!isScalar, "only table functions are supported");
+        if (isScalar) {
+            // user defined scalar function
+            final var semanticAnalyzer = getDelegate().getSemanticAnalyzer();
+            // get parameter names and corresponding QuantifiedObjectValue
+            List<Identifier> paramNameIdList = new ArrayList<>();
+            List<QuantifiedObjectValue> paramValueList = new ArrayList<>();
+            for (RelationalParser.SqlParameterDeclarationContext sqlParameterDeclarationContext: functionSpecCtx.sqlParameterDeclarationList().sqlParameterDeclarations().sqlParameterDeclaration()) {
+                paramNameIdList.add(visitUid(sqlParameterDeclarationContext.sqlParameterName));
+                DataType paramType = visitFunctionColumnType(sqlParameterDeclarationContext.parameterType);
+                paramValueList.add(QuantifiedObjectValue.of(CorrelationIdentifier.uniqueID(), DataTypeUtils.toRecordLayerType(paramType)));
+            }
 
-        Assert.thatUnchecked(isSqlParameterStyle, ErrorCode.UNSUPPORTED_OPERATION, "only sql-style parameters are supported");
-        // todo: rework Java UDFs to go through this code path as well.
-        Assert.thatUnchecked(language == InvokedRoutine.Language.SQL, ErrorCode.UNSUPPORTED_OPERATION,
-                "only sql-language functions are supported");
-        // create SQL function logical plan by visiting the function body.
-        final var parameters = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
-                visitSqlParameterDeclarationList(functionSpecCtx.sqlParameterDeclarationList()).asNamedArguments());
-        final var sqlFunctionBuilder = CompiledSqlFunction.newBuilder()
-                .setName(functionName)
-                .addAllParameters(parameters)
-                .seal();
-        final var parametersCorrelation = sqlFunctionBuilder.getParametersCorrelation();
-        final LogicalOperator body;
-
-        // the nested fragment below serves two purposes:
-        // 1. avoid creating a top-level LSE unnecessarily.
-        // 2. add a fake quantifier with the function parameters (if any) to resolve their references in the function body
-        //    during its plan generation.
-        final var fragment = getDelegate().pushPlanFragment();
-
-        parametersCorrelation.ifPresent(quantifier -> fragment.addOperator(LogicalOperator.newUnnamedOperator(
-                Expressions.fromQuantifier(quantifier), quantifier)));
-        if (isTemporary) {
-            body = Assert.castUnchecked(visit(bodyCtx), LogicalOperator.class);
+            final var functionBody = visitFullId((RelationalParser.FullIdContext)bodyCtx.getChild(1));
+            Optional<Value> fieldValue = semanticAnalyzer.lookupNestedField(functionBody, paramNameIdList.get(0), paramValueList.get(0));
+            Assert.thatUnchecked(fieldValue.isPresent(), "cannot resolve user defined scalar function value");
+            return new UserDefinedScalarFunction(functionName, paramValueList, fieldValue.get());
         } else {
-            body = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
-                    Assert.castUnchecked(visit(bodyCtx), LogicalOperator.class));
+            // table functions
+            Assert.thatUnchecked(isSqlParameterStyle, ErrorCode.UNSUPPORTED_OPERATION, "only sql-style parameters are supported");
+            // todo: rework Java UDFs to go through this code path as well.
+            Assert.thatUnchecked(language == InvokedRoutine.Language.SQL, ErrorCode.UNSUPPORTED_OPERATION,
+                    "only sql-language functions are supported");
+            // create SQL function logical plan by visiting the function body.
+            final var parameters = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
+                    visitSqlParameterDeclarationList(functionSpecCtx.sqlParameterDeclarationList()).asNamedArguments());
+            final var sqlFunctionBuilder = CompiledSqlFunction.newBuilder()
+                    .setName(functionName)
+                    .addAllParameters(parameters)
+                    .seal();
+            final var parametersCorrelation = sqlFunctionBuilder.getParametersCorrelation();
+            final LogicalOperator body;
+
+            // the nested fragment below serves two purposes:
+            // 1. avoid creating a top-level LSE unnecessarily.
+            // 2. add a fake quantifier with the function parameters (if any) to resolve their references in the function body
+            //    during its plan generation.
+            final var fragment = getDelegate().pushPlanFragment();
+
+            parametersCorrelation.ifPresent(quantifier -> fragment.addOperator(LogicalOperator.newUnnamedOperator(
+                    Expressions.fromQuantifier(quantifier), quantifier)));
+            if (isTemporary) {
+                body = Assert.castUnchecked(visit(bodyCtx), LogicalOperator.class);
+            } else {
+                body = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
+                        Assert.castUnchecked(visit(bodyCtx), LogicalOperator.class));
+            }
+            getDelegate().popPlanFragment();
+            sqlFunctionBuilder.setBody(body.getQuantifier().getRangesOver().get())
+                    .setLiterals(getDelegate().getPlanGenerationContext().getLiterals());
+            return sqlFunctionBuilder.build();
         }
-        getDelegate().popPlanFragment();
-        sqlFunctionBuilder.setBody(body.getQuantifier().getRangesOver().get())
-                .setLiterals(getDelegate().getPlanGenerationContext().getLiterals());
-        return sqlFunctionBuilder.build();
     }
 
     @Override

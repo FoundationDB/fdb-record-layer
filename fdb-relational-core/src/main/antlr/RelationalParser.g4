@@ -182,7 +182,7 @@ tempSqlInvokedFunction
     ;
 
 sqlInvokedFunction
-    : functionSpecification (routineBody | macroFunctionBody)
+    : functionSpecification routineBody
     ;
 
 functionSpecification
@@ -261,12 +261,9 @@ dispatchClause
 
 routineBody
     : AS queryTerm         #statementBody
+    | AS fullId            #userDefinedScalarFunctionStatementBody
     | sqlReturnStatement   #expressionBody
     // | externalBodyReferences TODO
-    ;
-
-macroFunctionBody
-    : AS fullId            #fullIdRoutineBody
     ;
 
 sqlReturnStatement
@@ -927,7 +924,7 @@ functionCall
     : aggregateWindowedFunction                                     #aggregateFunctionCall // done (supported)
     | specificFunction                                              #specificFunctionCall //
     | scalarFunctionName '(' functionArgs? ')'                      #scalarFunctionCall // done (unsupported)
-    | macroFunctionName '(' functionArgs? ')'                       #macroFunctionCall
+    | userDefinedScalarFunctionName '(' functionArgs? ')'           #userDefinedScalarFunctionCall
     ;
 
 specificFunction
@@ -1116,7 +1113,7 @@ scalarFunctionName
     | JAVA_CALL
     ;
 
-macroFunctionName
+userDefinedScalarFunctionName
     : ID
     | DOUBLE_QUOTE_ID
     ;

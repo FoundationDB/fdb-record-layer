@@ -180,7 +180,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         public RecordLayerInvokedRoutine build() {
             Assert.notNullUnchecked(name);
             // Assert.notNullUnchecked(description);
-            Assert.thatUnchecked(userDefinedFunctionSupplier != null);
+            Assert.notNullUnchecked(userDefinedFunctionSupplier);
             return new RecordLayerInvokedRoutine(description, normalizedDescription, name, isTemporary, isCompiledSql, userDefinedFunctionSupplier);
         }
     }

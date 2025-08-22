@@ -871,7 +871,7 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public Identifier visitFullIdRoutineBody(@Nonnull RelationalParser.FullIdRoutineBodyContext ctx) {
+    public Identifier visitUserDefinedScalarFunctionStatementBody(@Nonnull RelationalParser.UserDefinedScalarFunctionStatementBodyContext ctx) {
         return getDelegate().visitFullId(ctx.fullId());
     }
 
@@ -1207,14 +1207,14 @@ public class DelegatingVisitor<D extends TypedVisitor> implements TypedVisitor {
 
     @Nonnull
     @Override
-    public Object visitMacroFunctionName(@Nonnull RelationalParser.MacroFunctionNameContext ctx) {
-        return getDelegate().visitMacroFunctionName(ctx);
+    public Object visitUserDefinedScalarFunctionName(@Nonnull RelationalParser.UserDefinedScalarFunctionNameContext ctx) {
+        return getDelegate().visitUserDefinedScalarFunctionName(ctx);
     }
 
     @Nonnull
     @Override
-    public Object visitMacroFunctionCall(@Nonnull RelationalParser.MacroFunctionCallContext ctx) {
-        return getDelegate().visitMacroFunctionCall(ctx);
+    public Object visitUserDefinedScalarFunctionCall(@Nonnull RelationalParser.UserDefinedScalarFunctionCallContext ctx) {
+        return getDelegate().visitUserDefinedScalarFunctionCall(ctx);
     }
 
     @Nonnull

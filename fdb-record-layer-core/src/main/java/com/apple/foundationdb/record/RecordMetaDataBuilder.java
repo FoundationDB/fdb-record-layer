@@ -228,9 +228,12 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
                 typeBuilder.setRecordTypeKey(LiteralKeyExpression.fromProtoValue(typeProto.getExplicitKey()));
             }
         }
-        PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
-                PlanHashable.CURRENT_FOR_CONTINUATION);
+        PlanSerializationContext serializationContext = null;
         for (RecordMetaDataProto.PUserDefinedFunction function: metaDataProto.getUserDefinedFunctionsList()) {
+            if (serializationContext == null) {
+                serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
+                        PlanHashable.CURRENT_FOR_CONTINUATION);
+            }
             final UserDefinedFunction func = (UserDefinedFunction)PlanSerialization.dispatchFromProtoContainer(
                     serializationContext, function);
             userDefinedFunctionMap.put(func.getFunctionName(), func);
