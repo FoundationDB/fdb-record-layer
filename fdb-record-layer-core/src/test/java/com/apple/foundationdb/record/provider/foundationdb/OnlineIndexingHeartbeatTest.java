@@ -238,6 +238,7 @@ class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
                     startSemaphore.acquire();
                     Thread.sleep(100);
                 } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                     throw new RuntimeException(e);
                 }
                 try (OnlineIndexer indexer = newIndexerBuilder(indexes).build()) {
