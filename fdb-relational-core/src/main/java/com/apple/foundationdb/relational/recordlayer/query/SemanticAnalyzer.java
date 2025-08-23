@@ -448,17 +448,29 @@ public class SemanticAnalyzer {
         return matchedAttributes.isEmpty() ? Optional.empty() : Optional.of(matchedAttributes.get(0));
     }
 
-    @Nonnull
     public Optional<Expression> lookupNestedField(@Nonnull Identifier requestedIdentifier,
                                                   @Nonnull Expression existingExpression,
                                                   @Nonnull LogicalOperator logicalOperator,
                                                   boolean matchQualifiedOnly) {
+        final var effectiveExistingExpr = matchQualifiedOnly && logicalOperator.getName().isPresent() ?
+                                          existingExpression.withQualifier(Optional.of(logicalOperator.getName().get())) :
+                                          existingExpression.clearQualifier();
+        return lookupNestedField(requestedIdentifier, existingExpression, effectiveExistingExpr, false);
+    }
+
+    @Nonnull
+    public Optional<Expression> lookupNestedField(@Nonnull Identifier requestedIdentifier,
+                                                  @Nonnull Expression existingExpression,
+                                                  @Nonnull Expression effectiveExistingExpr,
+                                                  boolean allowLookupRoot) {
+        // if allow look up root and the requestedIdentifier is effectiveExistingExpr, return effectiveExistingExpr
+        if (allowLookupRoot && requestedIdentifier.fullyQualifiedName().size() == effectiveExistingExpr.getName().get().fullyQualifiedName().size()) {
+            // Assert.thatUnchecked(existingValue.getResultType().equals(DataTypeUtils.toRecordLayerType(targetDataType)), ErrorCode.DATATYPE_MISMATCH, "Result data types don't match!");
+            return Optional.of(effectiveExistingExpr);
+        }
         if (existingExpression.getName().isEmpty() || requestedIdentifier.fullyQualifiedName().size() <= 1) {
             return Optional.empty();
         }
-        final var effectiveExistingExpr = matchQualifiedOnly && logicalOperator.getName().isPresent() ?
-                existingExpression.withQualifier(Optional.of(logicalOperator.getName().get())) :
-                existingExpression.clearQualifier();
         var effectiveExprName = effectiveExistingExpr.getName().orElseThrow();
         if (!requestedIdentifier.prefixedWith(effectiveExprName)) {
             /*
@@ -501,45 +513,6 @@ public class SemanticAnalyzer {
         final var attributeExpression = FieldValue.ofFieldsAndFuseIfPossible(existingExpression.getUnderlying(), fieldPath);
         final var nestedAttribute = new Expression(Optional.of(requestedIdentifier), type, attributeExpression);
         return Optional.of(nestedAttribute);
-    }
-
-    @Nonnull
-    public Optional<Value> lookupNestedField(@Nonnull Identifier requestedIdentifier,
-                                             @Nonnull Identifier paramId,
-                                             @Nonnull QuantifiedObjectValue existingValue) {
-        Assert.thatUnchecked(requestedIdentifier.prefixedWith(paramId), "Invalid function definition");
-
-        // x -> x
-        if (requestedIdentifier.fullyQualifiedName().size() == paramId.fullyQualifiedName().size()) {
-            // Assert.thatUnchecked(existingValue.getResultType().equals(DataTypeUtils.toRecordLayerType(targetDataType)), ErrorCode.DATATYPE_MISMATCH, "Result data types don't match!");
-            return Optional.of(existingValue);
-        }
-        // find nested field path
-        final var remainingPath = requestedIdentifier.removePrefix(paramId);
-        final ImmutableList.Builder<FieldValue.Accessor> accessors = ImmutableList.builder();
-        DataType existingDataType = DataTypeUtils.toRelationalType(existingValue.getResultType());
-        for (String s : remainingPath) {
-            if (existingDataType.getCode() != DataType.Code.STRUCT) {
-                return Optional.empty();
-            }
-            final var fields = ((DataType.StructType) existingDataType).getFields();
-            var found = false;
-            for (int j = 0; j < fields.size(); j++) {
-                if (fields.get(j).getName().equals(s)) {
-                    accessors.add(new FieldValue.Accessor(fields.get(j).getName(), j));
-                    existingDataType = fields.get(j).getType();
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                return Optional.empty();
-            }
-        }
-        final var fieldPath = FieldValue.resolveFieldPath(existingValue.getResultType(), accessors.build());
-        final var fieldValue = FieldValue.ofFieldsAndFuseIfPossible(existingValue, fieldPath);
-        // Assert.thatUnchecked(fieldValue.getResultType().equals(DataTypeUtils.toRecordLayerType(targetDataType)), ErrorCode.DATATYPE_MISMATCH, "Result data types don't match!");
-        return Optional.of(fieldValue);
     }
 
     @Nonnull
