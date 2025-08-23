@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer.metadata.serde;
 
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.relational.api.ddl.NoOpQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.generated.RelationalParser;
@@ -30,7 +29,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.query.MutablePlanGenerationContext;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.QueryParser;
-import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
+import com.apple.foundationdb.relational.recordlayer.query.functions.UserDefinedFunction;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor;
 
 import javax.annotation.Nonnull;
@@ -39,11 +38,11 @@ import java.net.URI;
 public interface RoutineParser {
 
     @Nonnull
-    UserDefinedFunction parse(@Nonnull String routineString, boolean isCaseSensitive);
+    com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction parse(@Nonnull String routineString, boolean isCaseSensitive);
 
     @Nonnull
-    UserDefinedFunction parseTemporaryFunction(@Nonnull String functionName, @Nonnull String routineString,
-                                               @Nonnull PreparedParams preparedParams, boolean isCaseSensitive);
+    com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction parseTemporaryFunction(@Nonnull String functionName, @Nonnull String routineString,
+                                                                                                 @Nonnull PreparedParams preparedParams, boolean isCaseSensitive);
 
     class DefaultSqlFunctionParser implements RoutineParser {
 
@@ -56,7 +55,7 @@ public interface RoutineParser {
 
         @Nonnull
         @Override
-        public CompiledSqlFunction parse(@Nonnull final String routineString, boolean isCaseSensitive) {
+        public UserDefinedFunction parse(@Nonnull final String routineString, boolean isCaseSensitive) {
             final RelationalParser.SqlInvokedFunctionContext parsed;
             try {
                 parsed = QueryParser.parseFunction(routineString);
@@ -67,12 +66,12 @@ public interface RoutineParser {
                     PlanHashable.PlanHashMode.VC0, routineString, routineString, 0);
             final var visitor = new BaseVisitor(planGenerationContext, metaData, new NoOpQueryFactory(),
                     NoOpMetadataOperationsFactory.INSTANCE, URI.create(""), isCaseSensitive);
-            return (CompiledSqlFunction)visitor.visitSqlInvokedFunction(parsed);
+            return (UserDefinedFunction)visitor.visitSqlInvokedFunction(parsed);
         }
 
         @Nonnull
         @Override
-        public CompiledSqlFunction parseTemporaryFunction(@Nonnull final String functionName,
+        public UserDefinedFunction parseTemporaryFunction(@Nonnull final String functionName,
                                                           @Nonnull final String routineString,
                                                           @Nonnull final PreparedParams preparedParams,
                                                           boolean isCaseSensitive) {

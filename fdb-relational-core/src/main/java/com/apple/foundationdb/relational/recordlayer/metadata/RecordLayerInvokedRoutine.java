@@ -41,23 +41,26 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
     private final String name;
 
     private final boolean isTemporary;
-    private final boolean isCompiledSql;
+
     @Nonnull
-    private final Function<Boolean, UserDefinedFunction> userDefinedRoutine;
+    private final Function<Boolean, UserDefinedFunction> userDefinedFunctionSupplier;
+
+    @Nonnull
+    private final UserDefinedFunction serializableFunction;
 
     public RecordLayerInvokedRoutine(@Nonnull final String description,
                                      @Nonnull final String normalizedDescription,
                                      @Nonnull final String name,
                                      boolean isTemporary,
-                                     boolean isCompiledSql,
-                                     @Nonnull final Function<Boolean, UserDefinedFunction> userDefinedRoutine) {
+                                     @Nonnull final Function<Boolean, UserDefinedFunction> userDefinedFunctionSupplier,
+                                     @Nonnull final UserDefinedFunction serializableFunction) {
         this.description = description;
         this.normalizedDescription = normalizedDescription;
         this.name = name;
         this.isTemporary = isTemporary;
-        this.isCompiledSql = isCompiledSql;
         // TODO this used to be memoized
-        this.userDefinedRoutine = userDefinedRoutine;
+        this.userDefinedFunctionSupplier = userDefinedFunctionSupplier;
+        this.serializableFunction = serializableFunction;
     }
 
     @Nonnull
@@ -74,7 +77,7 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
 
     @Nonnull
     public Function<Boolean, UserDefinedFunction> getUserDefinedFunctionSupplier() {
-        return userDefinedRoutine;
+        return userDefinedFunctionSupplier;
     }
 
     @Nonnull
@@ -90,11 +93,12 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
 
     @Nonnull
     public UserDefinedFunction asSerializableFunction() {
-        if (isCompiledSql) {
-            return new RawSqlFunction(getName(), getDescription());
-        } else {
-            return userDefinedRoutine.apply(false);
-        }
+        return serializableFunction;
+    }
+
+    @Nonnull
+    public RawSqlFunction asRawFunction() {
+        return new RawSqlFunction(getName(), getDescription());
     }
 
     @Override
@@ -131,7 +135,8 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
                 .setDescription(getDescription())
                 .setNormalizedDescription(getNormalizedDescription())
                 .setTemporary(isTemporary())
-                .withUserDefinedRoutine(getUserDefinedFunctionSupplier(), isCompiledSql);
+                .withUserDefinedRoutine(getUserDefinedFunctionSupplier())
+                .withSerializableFunction(asSerializableFunction());
     }
 
     public static final class Builder {
@@ -139,8 +144,8 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         private String normalizedDescription;
         private String name;
         private Function<Boolean, UserDefinedFunction> userDefinedFunctionSupplier;
+        private UserDefinedFunction serializableFunction;
         private boolean isTemporary;
-        private boolean isCompiledSql;
 
         private Builder() {
         }
@@ -164,9 +169,14 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         }
 
         @Nonnull
-        public Builder withUserDefinedRoutine(@Nonnull final Function<Boolean, UserDefinedFunction> userDefinedFunctionSupplier, final boolean isCompiledSql) {
+        public Builder withUserDefinedRoutine(@Nonnull final Function<Boolean, UserDefinedFunction> userDefinedFunctionSupplier) {
             this.userDefinedFunctionSupplier = userDefinedFunctionSupplier;
-            this.isCompiledSql = isCompiledSql;
+            return this;
+        }
+
+        @Nonnull
+        public Builder withSerializableFunction(@Nonnull final UserDefinedFunction serializableFunction) {
+            this.serializableFunction = serializableFunction;
             return this;
         }
 
@@ -179,9 +189,11 @@ public class RecordLayerInvokedRoutine implements InvokedRoutine {
         @Nonnull
         public RecordLayerInvokedRoutine build() {
             Assert.notNullUnchecked(name);
-            // Assert.notNullUnchecked(description);
+            Assert.notNullUnchecked(description);
             Assert.notNullUnchecked(userDefinedFunctionSupplier);
-            return new RecordLayerInvokedRoutine(description, normalizedDescription, name, isTemporary, isCompiledSql, userDefinedFunctionSupplier);
+            Assert.notNullUnchecked(serializableFunction);
+            return new RecordLayerInvokedRoutine(description, normalizedDescription, name, isTemporary,
+                    userDefinedFunctionSupplier, serializableFunction);
         }
     }
 }

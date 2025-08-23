@@ -22,8 +22,8 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedScalarFunction;
-import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
@@ -50,7 +50,7 @@ import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryParser;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
-import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
+import com.apple.foundationdb.relational.recordlayer.query.functions.UserDefinedFunction;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -346,14 +346,18 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         // 3. visit the SQL string to generate (compile) the corresponding SQL plan.
         final var userDefinedFunction = visitSqlInvokedFunction(functionSpecCtx, bodyCtx, isTemporary);
 
-        // 4. Return it.
-        return RecordLayerInvokedRoutine.newBuilder()
+        RecordLayerInvokedRoutine.Builder builder = RecordLayerInvokedRoutine.newBuilder()
                 .setName(functionName)
                 .setDescription(functionDefinition)
-                .withUserDefinedRoutine(ignored -> userDefinedFunction, userDefinedFunction instanceof CompiledSqlFunction)
+                .withUserDefinedRoutine(ignored -> userDefinedFunction)
                 .setNormalizedDescription(getDelegate().getPlanGenerationContext().getCanonicalQueryString())
-                .setTemporary(isTemporary)
-                .build();
+                .setTemporary(isTemporary);
+        // 4. Return it.
+        if (userDefinedFunction instanceof UserDefinedScalarFunction) {
+            return builder.withSerializableFunction(userDefinedFunction).build();
+        } else {
+            return builder.withSerializableFunction(new RawSqlFunction(functionName, functionDefinition)).build();
+        }
     }
 
     @Override
@@ -373,18 +377,18 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Override
-    public CompiledSqlFunction visitTempSqlInvokedFunction(@Nonnull RelationalParser.TempSqlInvokedFunctionContext ctx) {
-        return (CompiledSqlFunction)visitSqlInvokedFunction(ctx.functionSpecification(), ctx.routineBody(), true);
+    public UserDefinedFunction visitTempSqlInvokedFunction(@Nonnull RelationalParser.TempSqlInvokedFunctionContext ctx) {
+        return (UserDefinedFunction)visitSqlInvokedFunction(ctx.functionSpecification(), ctx.routineBody(), true);
     }
 
     @Override
-    public UserDefinedFunction visitSqlInvokedFunction(@Nonnull RelationalParser.SqlInvokedFunctionContext ctx) {
+    public com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction visitSqlInvokedFunction(@Nonnull RelationalParser.SqlInvokedFunctionContext ctx) {
         return visitSqlInvokedFunction(ctx.functionSpecification(), ctx.routineBody(), false);
     }
 
-    private UserDefinedFunction visitSqlInvokedFunction(@Nonnull final RelationalParser.FunctionSpecificationContext functionSpecCtx,
-                                                        @Nonnull final RelationalParser.RoutineBodyContext bodyCtx,
-                                                        boolean isTemporary) {
+    private com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction visitSqlInvokedFunction(@Nonnull final RelationalParser.FunctionSpecificationContext functionSpecCtx,
+                                                                                                          @Nonnull final RelationalParser.RoutineBodyContext bodyCtx,
+                                                                                                          boolean isTemporary) {
         // get the function name.
         final var functionName = visitFullId(functionSpecCtx.schemaQualifiedRoutineName).toString();
 
@@ -425,7 +429,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             // create SQL function logical plan by visiting the function body.
             final var parameters = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
                     visitSqlParameterDeclarationList(functionSpecCtx.sqlParameterDeclarationList()).asNamedArguments());
-            final var sqlFunctionBuilder = CompiledSqlFunction.newBuilder()
+            final var sqlFunctionBuilder = UserDefinedFunction.newBuilder()
                     .setName(functionName)
                     .addAllParameters(parameters)
                     .seal();

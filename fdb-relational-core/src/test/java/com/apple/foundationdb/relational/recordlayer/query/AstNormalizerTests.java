@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
@@ -38,7 +39,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvoked
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
-import com.apple.foundationdb.relational.recordlayer.query.functions.CompiledSqlFunction;
+import com.apple.foundationdb.relational.recordlayer.query.functions.UserDefinedFunction;
 import com.apple.foundationdb.relational.recordlayer.util.Hex;
 import com.apple.foundationdb.relational.util.Assert;
 
@@ -407,7 +408,7 @@ public class AstNormalizerTests {
                         .setDescription(functionDdl)
                         .setNormalizedDescription(canonicalFunctionDdl)
                         // invoking the compiled routine should only happen during plan generation.
-                        .withUserDefinedRoutine(ignored -> new CompiledSqlFunction("", ImmutableList.of(), ImmutableList.of(),
+                        .withUserDefinedRoutine(ignored -> new UserDefinedFunction("", ImmutableList.of(), ImmutableList.of(),
                                 ImmutableList.of(), Optional.empty(), null, Literals.empty()) {
                             @Nonnull
                             @Override
@@ -426,7 +427,8 @@ public class AstNormalizerTests {
                             public RelationalExpression encapsulate(@Nonnull final Map<String, ? extends Typed> namedArguments) {
                                 throw new NotImplementedException("unexpected call");
                             }
-                        }, true)
+                        })
+                        .withSerializableFunction(new RawSqlFunction(name, functionDdl))
                         .build())
                 .build();
     }

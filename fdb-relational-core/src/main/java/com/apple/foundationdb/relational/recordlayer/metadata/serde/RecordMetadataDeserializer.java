@@ -109,7 +109,8 @@ public class RecordMetadataDeserializer {
                     schemaTemplateBuilder.addInvokedRoutine(generateInvokedRoutineBuilder(metadataProvider, function.getKey(),
                             Assert.castUnchecked(function.getValue(), RawSqlFunction.class).getDefinition()).build());
                 } else if (function.getValue() instanceof UserDefinedScalarFunction) {
-                    schemaTemplateBuilder.addInvokedRoutine(generateInvokedRoutineBuilder(function.getKey(), (UserDefinedScalarFunction)function.getValue()).build());
+                    schemaTemplateBuilder.addInvokedRoutine(generateInvokedRoutineBuilder(function.getKey(), function.getValue().toString(),
+                            Assert.castUnchecked(function.getValue(), UserDefinedScalarFunction.class)).build());
                 }
             }
         }
@@ -168,15 +169,19 @@ public class RecordMetadataDeserializer {
                 .setName(name)
                 .setDescription(body)
                 .setTemporary(false)
-                .withUserDefinedRoutine(ignored -> getSqlFunctionCompiler(name, metadata, body).apply(ignored), true);
+                .withUserDefinedRoutine(ignored -> getSqlFunctionCompiler(name, metadata, body).apply(ignored))
+                .withSerializableFunction(new RawSqlFunction(name, body));
     }
 
     @Nonnull
     private RecordLayerInvokedRoutine.Builder generateInvokedRoutineBuilder(@Nonnull final String name,
-                                                                            @Nonnull final UserDefinedScalarFunction macroFunction) {
+                                                                            @Nonnull final String body,
+                                                                            @Nonnull final UserDefinedScalarFunction userDefinedScalarFunction) {
         return RecordLayerInvokedRoutine.newBuilder()
                 .setName(name)
-                .withUserDefinedRoutine(ignored -> macroFunction, false);
+                .setDescription(body)
+                .withUserDefinedRoutine(ignored -> userDefinedScalarFunction)
+                .withSerializableFunction(userDefinedScalarFunction);
     }
 
     @Nonnull
