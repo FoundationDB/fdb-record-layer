@@ -43,7 +43,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.InOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NotValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
@@ -465,7 +464,6 @@ public class SemanticAnalyzer {
                                                   boolean allowLookupRoot) {
         // if allow look up root and the requestedIdentifier is effectiveExistingExpr, return effectiveExistingExpr
         if (allowLookupRoot && requestedIdentifier.fullyQualifiedName().size() == effectiveExistingExpr.getName().get().fullyQualifiedName().size()) {
-            // Assert.thatUnchecked(existingValue.getResultType().equals(DataTypeUtils.toRecordLayerType(targetDataType)), ErrorCode.DATATYPE_MISMATCH, "Result data types don't match!");
             return Optional.of(effectiveExistingExpr);
         }
         if (existingExpression.getName().isEmpty() || requestedIdentifier.fullyQualifiedName().size() <= 1) {

@@ -22,14 +22,12 @@ package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.RawSqlFunction;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedScalarFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -419,9 +417,6 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
             final var functionBody = visitFullId((RelationalParser.FullIdContext)bodyCtx.getChild(1));
             Optional<Expression> result = semanticAnalyzer.lookupNestedField(functionBody, Expression.of(paramValueList.get(0), paramNameIdList.get(0)), Expression.of(paramValueList.get(0), paramNameIdList.get(0)), true);
-            if (result.isEmpty()) {
-                System.out.println("functionName:" + functionName);
-            }
             Assert.thatUnchecked(result.isPresent(), "cannot resolve user defined scalar function value");
             return new UserDefinedScalarFunction(functionName, paramValueList, result.get().getUnderlying());
         } else {
