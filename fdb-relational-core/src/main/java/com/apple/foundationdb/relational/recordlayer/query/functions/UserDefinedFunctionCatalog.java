@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
@@ -53,12 +54,12 @@ final class UserDefinedFunctionCatalog {
     }
 
     public boolean containsFunction(@Nonnull final String name) {
-        return functionsMap.containsKey(name);
+        return isCaseSensitive ? functionsMap.containsKey(name) : functionsMap.containsKey(name.toUpperCase(Locale.ROOT));
     }
 
     @Nonnull
     public Optional<? extends CatalogedFunction> lookup(@Nonnull final String functionName, Expressions arguments) {
-        final var functionSupplier = functionsMap.get(functionName);
+        final var functionSupplier = isCaseSensitive ? functionsMap.get(functionName) : functionsMap.get(functionName.toUpperCase(Locale.ROOT));
         if (functionSupplier == null) {
             return Optional.empty();
         }
