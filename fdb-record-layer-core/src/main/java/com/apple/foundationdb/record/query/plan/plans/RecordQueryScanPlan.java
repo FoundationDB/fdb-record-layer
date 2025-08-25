@@ -153,7 +153,7 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
                                boolean reverse,
                                boolean strictlySorted,
                                @Nonnull final Optional<? extends WithPrimaryKeyMatchCandidate> matchCandidateOptional) {
-        this(recordTypes, flowedType, commonPrimaryKey, comparisons, reverse, strictlySorted, matchCandidateOptional, KeyValueCursorBase.SerializationMode.TO_NEW);
+        this(recordTypes, flowedType, commonPrimaryKey, comparisons, reverse, strictlySorted, matchCandidateOptional, KeyValueCursorBase.SerializationMode.TO_OLD);
     }
 
 
