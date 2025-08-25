@@ -94,7 +94,7 @@ public class MockedFDBDirectory extends FDBDirectory {
 
     @Nonnull
     @Override
-    protected CompletableFuture<Map<String, FDBLuceneFileReference>> getFileReferenceCacheAsync() {
+    public CompletableFuture<Map<String, FDBLuceneFileReference>> getFileReferenceCacheAsync() {
         return super.getFileReferenceCacheAsync()
                 .thenApply(cache -> {
                     injectedFailures.checkFailureForCoreException(LUCENE_GET_FILE_REFERENCE_CACHE_ASYNC);

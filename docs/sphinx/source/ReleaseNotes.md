@@ -7,6 +7,77 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.5
 
+### 4.5.6.0
+
+<h4> New Features </h4>
+
+* Add a metric to measure generate continued plan - [PR #3553](https://github.com/FoundationDB/fdb-record-layer/pull/3553)
+* Support isDistinctFrom and isNotDistinctFrom operators - [PR #3357](https://github.com/FoundationDB/fdb-record-layer/pull/3357)
+<h4> Bug Fixes </h4>
+
+* Fix insertion of Struct with Enum - [PR #3542](https://github.com/FoundationDB/fdb-record-layer/pull/3542)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Setup teamscale toml file to support IDE plugin - [PR #3545](https://github.com/FoundationDB/fdb-record-layer/pull/3545)
+* Add lucene coverage to overall report - [PR #3538](https://github.com/FoundationDB/fdb-record-layer/pull/3538)
+* Handle metrics for the same query but with different setups - [PR #3531](https://github.com/FoundationDB/fdb-record-layer/pull/3531)
+
+</details>
+
+
+**[Full Changelog (4.5.5.0...4.5.6.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.5.5.0...4.5.6.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.4.10.0`, ❌`4.4.11.0`, ✅`4.4.12.0`, ✅`4.4.14.0`, ✅`4.4.15.0`, ✅`4.5.1.0`, ✅`4.5.2.0`, ✅`4.5.3.0`, ✅`4.5.4.0`, ✅`4.5.5.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/17127809299)
+
+
+
+### 4.5.5.0
+
+<h4> New Features </h4>
+
+* Bring back full support for UUID - [PR #3510](https://github.com/FoundationDB/fdb-record-layer/pull/3510)
+<h4> Bug Fixes </h4>
+
+* Unpivoting repeated fields with SQL functions - [PR #3537](https://github.com/FoundationDB/fdb-record-layer/pull/3537)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Add more prefix-based tests to like.yamsql - [PR #3536](https://github.com/FoundationDB/fdb-record-layer/pull/3536)
+* Fully qualify teamscale action - [PR #3534](https://github.com/FoundationDB/fdb-record-layer/pull/3534)
+* Upload coverage data to teamscale - [PR #3519](https://github.com/FoundationDB/fdb-record-layer/pull/3519)
+
+</details>
+
+
+**[Full Changelog (4.5.4.0...4.5.5.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.5.4.0...4.5.5.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.4.9.0`, ❌`4.4.10.0`, ❌`4.4.11.0`, ✅`4.4.12.0`, ✅`4.4.14.0`, ✅`4.4.15.0`, ✅`4.5.1.0`, ✅`4.5.2.0`, ✅`4.5.3.0`, ✅`4.5.4.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/16915773485)
+
+
+
 ### 4.5.4.0
 
 <h4> New Features </h4>

@@ -21,15 +21,17 @@
 package com.apple.foundationdb.relational.utils;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.relational.api.RelationalResultSet;
-
+import com.apple.foundationdb.relational.api.RelationalStruct;
 import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.Assertions;
+import org.assertj.core.api.SoftAssertions;
 
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
+import java.util.Map;
 
 /**
  * assertj assertion for handling java.sql.Array objects.
@@ -55,11 +57,16 @@ public class ArrayAssert extends AbstractAssert<ArrayAssert, Array> {
 
     @Override
     public ArrayAssert isEqualTo(Object expected) {
-        Assertions.assertThat(expected).isInstanceOf(Array.class);
-        return isEqualTo((Array) expected);
+        if (expected instanceof Array) {
+            return isEqualTo((Array) expected);
+        } else if (expected instanceof List) {
+            return isEqualTo((List<?>) expected);
+        }
+        Assertions.fail("Expected value should be an Array or List.");
+        return this;
     }
 
-    public ArrayAssert isEqualTo(Array expected) {
+    private ArrayAssert isEqualTo(Array expected) {
         if (expected == null) {
             Assertions.assertThat(actual).isNull();
             return this;
@@ -74,6 +81,35 @@ public class ArrayAssert extends AbstractAssert<ArrayAssert, Array> {
             RelationalResultSet expectedArrRs = (RelationalResultSet) ers;
 
             ResultSetAssert.assertThat(actualArrRs).isExactlyInAnyOrder(expectedArrRs);
+        } catch (SQLException se) {
+            throw new RuntimeException(se);
+        }
+        return this;
+    }
+
+    @SuppressWarnings("unchecked")
+    private ArrayAssert isEqualTo(List<?> expected) {
+        if (expected == null) {
+            Assertions.assertThat(actual).isNull();
+            return this;
+        }
+        try {
+            ResultSet rs = actual.getResultSet();
+            Assertions.assertThat(rs).isInstanceOf(RelationalResultSet.class);
+            var actualValues = (Object[]) actual.getArray();
+            Assertions.assertThat(actualValues.length).isEqualTo(expected.size());
+
+            SoftAssertions assertions = new SoftAssertions();
+            for (int i = 0; i < actualValues.length; i++) {
+                final var actualValue = actualValues[i];
+                final var expectedValue = expected.get(i);
+                if (actualValue instanceof RelationalStruct) {
+                    assertions.proxy(RelationalStructAssert.class, RelationalStruct.class, (RelationalStruct) actualValue).containsColumnsByName((Map<String, Object>) expectedValue);
+                } else {
+                    assertions.assertThat(expected.get(i)).isEqualTo(actualValue);
+                }
+            }
+            assertions.assertAll();
         } catch (SQLException se) {
             throw new RuntimeException(se);
         }

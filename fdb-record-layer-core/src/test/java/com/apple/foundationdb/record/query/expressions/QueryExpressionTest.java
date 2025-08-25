@@ -412,7 +412,7 @@ public class QueryExpressionTest {
             final Bindings bindings = Bindings.newBuilder()
                     .set("fooParam", val2)
                     .build();
-            if (val1 != null && val2 != null && (type == Comparisons.Type.IN  && !(val2 instanceof List) || type.name().startsWith("TEXT_"))) {
+            if (val1 != null && val2 != null && (type == Comparisons.Type.IN  && !(val2 instanceof List)) || type.name().startsWith("TEXT_")) {
                 assertThrows(name, RecordCoreException.class,
                         () -> evaluate(qc, bindings, rec));
             } else {

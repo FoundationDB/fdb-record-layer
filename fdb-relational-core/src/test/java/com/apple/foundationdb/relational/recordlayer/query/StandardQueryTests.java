@@ -62,6 +62,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -1449,6 +1450,76 @@ public class StandardQueryTests {
                             .isRowExactly(2L, 20L, 1L, 10L)
                             .hasNextRow()
                             .isRowExactly(2L, 20L, 2L, 20L)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void testInsertUuidTest() throws Exception {
+        final String schemaTemplate = "CREATE TABLE T1(pk bigint, a UUID, PRIMARY KEY(pk))";
+        final var actualUuidValue = UUID.fromString("14b387cd-79ad-4860-9588-9c4e81588af0");
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var insert = ddl.setSchemaAndGetConnection().prepareStatement("insert into t1 values (1, '14b387cd-79ad-4860-9588-9c4e81588af0')")) {
+                final var numActualInserted = insert.executeUpdate();
+                Assertions.assertEquals(1, numActualInserted);
+            }
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                Assertions.assertTrue(statement.execute("select * from t1"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow()
+                            .isRowExactly(1L, UUID.fromString("14b387cd-79ad-4860-9588-9c4e81588af0"))
+                            .hasNoNextRow();
+                }
+            }
+        }
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var insert = ddl.setSchemaAndGetConnection().prepareStatement("insert into t1 values (?pk, ?a)")) {
+                insert.setLong("pk", 1L);
+                insert.setUUID("a", actualUuidValue);
+                final var numActualInserted = insert.executeUpdate();
+                Assertions.assertEquals(1, numActualInserted);
+            }
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                Assertions.assertTrue(statement.execute("select * from t1"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow()
+                            .isRowExactly(1L, actualUuidValue)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void testInsertStructWithUuidTest() throws Exception {
+        final String schemaTemplate = "CREATE TYPE AS STRUCT S1(a bigint, b uuid) " +
+                "CREATE TABLE T1(pk bigint, a UUID, b s1, PRIMARY KEY(pk))";
+        final var actualUuidValue1 = UUID.randomUUID();
+        final var actualUuidValue2 = UUID.randomUUID();
+        final var structWithUuid = EmbeddedRelationalStruct.newBuilder()
+                .addLong("A", 2L)
+                .addUuid("B", actualUuidValue2)
+                .build();
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var insert = ddl.setSchemaAndGetConnection().prepareStatement("insert into t1 values (?pk, ?a, ?b)")) {
+                insert.setLong("pk", 1L);
+                insert.setUUID("a", actualUuidValue1);
+                insert.setObject("b", structWithUuid);
+                final var numActualInserted = insert.executeUpdate();
+                Assertions.assertEquals(1, numActualInserted);
+            }
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                Assertions.assertTrue(statement.execute("select * from t1"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow()
+                            .hasColumn("PK", 1L)
+                            .hasColumn("A", actualUuidValue1)
+                            .hasColumn("B", structWithUuid)
                             .hasNoNextRow();
                 }
             }

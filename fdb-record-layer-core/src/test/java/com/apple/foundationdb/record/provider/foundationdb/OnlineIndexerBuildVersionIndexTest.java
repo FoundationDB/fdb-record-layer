@@ -63,11 +63,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Test building version indexes.
  */
 @SuppressWarnings("try")
-public abstract class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBuildIndexTest {
-
-    private OnlineIndexerBuildVersionIndexTest(boolean safeBuild) {
-        super(safeBuild);
-    }
+class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBuildIndexTest {
 
     private void versionRebuild(@Nonnull List<TestRecords1Proto.MySimpleRecord> records, @Nullable List<TestRecords1Proto.MySimpleRecord> recordsWhileBuilding,
                                 int agents, boolean overlap) {
@@ -414,23 +410,5 @@ public abstract class OnlineIndexerBuildVersionIndexTest extends OnlineIndexerBu
             context.commit();
         }
         versionRebuild(records, recordsWhileBuilding, 1, false);
-    }
-
-    /**
-     * Build indexes with the unchecked index build interfaces.
-     */
-    public static class Unsafe extends OnlineIndexerBuildVersionIndexTest {
-        Unsafe() {
-            super(false);
-        }
-    }
-
-    /**
-     * Build indexes with the safe index build interfaces.
-     */
-    public static class Safe extends OnlineIndexerBuildVersionIndexTest {
-        Safe() {
-            super(true);
-        }
     }
 }
