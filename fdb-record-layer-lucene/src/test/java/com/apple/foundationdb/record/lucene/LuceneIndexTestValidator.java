@@ -64,6 +64,7 @@ import java.util.stream.Collectors;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -188,13 +189,13 @@ public class LuceneIndexTestValidator {
                         "partitionInfo.count", partitionInfo.getCount()));
                 // if partitionInfo.getCount() is wrong, this can be very confusing, so a different assertion might be
                 // worthwhile
+                assertThat(records, hasSize(greaterThanOrEqualTo(visitedCount + partitionInfo.getCount())));
                 final Set<Tuple> expectedPrimaryKeys = Set.copyOf(records.subList(visitedCount,
                         visitedCount + partitionInfo.getCount()));
                 validateDocsInPartition(recordStore, index, partitionInfo.getId(), groupingKey,
                         expectedPrimaryKeys,
                         universalSearch);
                 visitedCount += partitionInfo.getCount();
-                assertThat(records.size(), greaterThanOrEqualTo(visitedCount));
                 validatePrimaryKeySegmentIndex(recordStore, index, groupingKey, partitionInfo.getId(),
                         expectedPrimaryKeys, allowDuplicatePrimaryKeys);
                 expectedPrimaryKeys.forEach(primaryKey -> missingDocuments.get(groupingKey).remove(primaryKey));
