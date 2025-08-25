@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
+import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordScanLimiter;
 import com.apple.foundationdb.record.RecordScanLimiterFactory;
@@ -40,6 +41,9 @@ import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.InvalidProtocolBufferException;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -507,4 +511,17 @@ public class KeyValueCursorTest {
         });
     }
 
+    @Test
+    void emptyByteStringSerDesTest() throws InvalidProtocolBufferException {
+        // not setting continuation -> continuation.hasContinuation() = false
+        byte[] continuation = RecordCursorProto.KeyValueCursorContinuation.newBuilder().build().toByteArray();
+        RecordCursorProto.KeyValueCursorContinuation continuationProto = RecordCursorProto.KeyValueCursorContinuation.parseFrom(continuation);
+        Assertions.assertFalse(continuationProto.hasContinuation());
+
+        // setting continuation = ByteString.EMPTY -> continuation.hasContinuation() = true
+        byte[] continuation2 = RecordCursorProto.KeyValueCursorContinuation.newBuilder().setContinuation(ByteString.EMPTY).build().toByteArray();
+        RecordCursorProto.KeyValueCursorContinuation continuationProto2 = RecordCursorProto.KeyValueCursorContinuation.parseFrom(continuation2);
+        Assertions.assertTrue(continuationProto2.hasContinuation());
+        Assertions.assertEquals(ByteString.EMPTY, continuationProto2.getContinuation());
+    }
 }

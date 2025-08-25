@@ -214,7 +214,7 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             }
             try {
                 RecordCursorProto.KeyValueCursorContinuation continuationProto = RecordCursorProto.KeyValueCursorContinuation.parseFrom(rawBytes);
-                if (continuationProto.hasPrefixLength()) {
+                if (continuationProto.hasContinuation()) {
                     return continuationProto.getContinuation().toByteArray();
                 } else {
                     // parseFrom can parse an old serialization result as the new proto, wrong deserialization
@@ -229,12 +229,12 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         private RecordCursorProto.KeyValueCursorContinuation toProto() {
             RecordCursorProto.KeyValueCursorContinuation.Builder builder = RecordCursorProto.KeyValueCursorContinuation.newBuilder();
             if (lastKey == null) {
-                // proto.hasContinuation() = false when lastKey = null
-                return builder.setPrefixLength(prefixLength).build();
+                // proto.hasContinuation() = false
+                return builder.build();
             } else {
                 ByteString base = ZeroCopyByteString.wrap(Objects.requireNonNull(lastKey));
-                // proto.hasContinuation() = ByteString.EMPTY when prefixLength = lastKey.length
-                return builder.setContinuation(base.substring(prefixLength, lastKey.length)).setPrefixLength(prefixLength).build();
+                // proto.hasContinuation() = true even when prefixLength = lastKey.length, proto.getContinuation() = ByteString.EMPTY
+                return builder.setContinuation(base.substring(prefixLength, lastKey.length)).build();
             }
         }
     }
