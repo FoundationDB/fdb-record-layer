@@ -29,7 +29,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.query.MutablePlanGenerationContext;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.QueryParser;
-import com.apple.foundationdb.relational.recordlayer.query.functions.UserDefinedFunction;
+import com.apple.foundationdb.relational.recordlayer.query.functions.CompilableSqlFunction;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor;
 
 import javax.annotation.Nonnull;
@@ -55,7 +55,7 @@ public interface RoutineParser {
 
         @Nonnull
         @Override
-        public UserDefinedFunction parse(@Nonnull final String routineString, boolean isCaseSensitive) {
+        public CompilableSqlFunction parse(@Nonnull final String routineString, boolean isCaseSensitive) {
             final RelationalParser.SqlInvokedFunctionContext parsed;
             try {
                 parsed = QueryParser.parseFunction(routineString);
@@ -66,15 +66,15 @@ public interface RoutineParser {
                     PlanHashable.PlanHashMode.VC0, routineString, routineString, 0);
             final var visitor = new BaseVisitor(planGenerationContext, metaData, new NoOpQueryFactory(),
                     NoOpMetadataOperationsFactory.INSTANCE, URI.create(""), isCaseSensitive);
-            return (UserDefinedFunction)visitor.visitSqlInvokedFunction(parsed);
+            return (CompilableSqlFunction)visitor.visitSqlInvokedFunction(parsed);
         }
 
         @Nonnull
         @Override
-        public UserDefinedFunction parseTemporaryFunction(@Nonnull final String functionName,
-                                                          @Nonnull final String routineString,
-                                                          @Nonnull final PreparedParams preparedParams,
-                                                          boolean isCaseSensitive) {
+        public CompilableSqlFunction parseTemporaryFunction(@Nonnull final String functionName,
+                                                            @Nonnull final String routineString,
+                                                            @Nonnull final PreparedParams preparedParams,
+                                                            boolean isCaseSensitive) {
             final RelationalParser.TempSqlInvokedFunctionContext parsed;
             try {
                 parsed = QueryParser.parseTemporaryFunction(routineString);

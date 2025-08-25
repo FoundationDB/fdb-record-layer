@@ -45,7 +45,7 @@ import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
-import com.apple.foundationdb.relational.recordlayer.query.functions.UserDefinedFunction;
+import com.apple.foundationdb.relational.recordlayer.query.functions.CompilableSqlFunction;
 import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalog;
 import com.apple.foundationdb.relational.util.Assert;
 import org.antlr.v4.runtime.tree.AbstractParseTreeVisitor;
@@ -427,7 +427,7 @@ public class BaseVisitor extends AbstractParseTreeVisitor<Object> implements Typ
     }
 
     @Override
-    public UserDefinedFunction visitTempSqlInvokedFunction(final RelationalParser.TempSqlInvokedFunctionContext ctx) {
+    public CompilableSqlFunction visitTempSqlInvokedFunction(final RelationalParser.TempSqlInvokedFunctionContext ctx) {
         return ddlVisitor.visitTempSqlInvokedFunction(ctx);
     }
 

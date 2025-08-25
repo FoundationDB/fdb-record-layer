@@ -60,7 +60,7 @@ import java.util.Optional;
  * function plan as a leg of a binary join, where
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-public class UserDefinedFunction extends com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction implements WithPlanGenerationSideEffects {
+public class CompilableSqlFunction extends com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction implements WithPlanGenerationSideEffects {
 
     @Nonnull
     private final RelationalExpression body;
@@ -71,12 +71,12 @@ public class UserDefinedFunction extends com.apple.foundationdb.record.query.pla
     @Nonnull
     private final Literals literals;
 
-    protected UserDefinedFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
-                                  @Nonnull final List<Type> parameterTypes,
-                                  @Nonnull final List<Optional<? extends Typed>> parameterDefaults,
-                                  @Nonnull final Optional<CorrelationIdentifier> parametersCorrelation,
-                                  @Nonnull final RelationalExpression body,
-                                  @Nonnull final Literals literals) {
+    protected CompilableSqlFunction(@Nonnull final String functionName, @Nonnull final List<String> parameterNames,
+                                    @Nonnull final List<Type> parameterTypes,
+                                    @Nonnull final List<Optional<? extends Typed>> parameterDefaults,
+                                    @Nonnull final Optional<CorrelationIdentifier> parametersCorrelation,
+                                    @Nonnull final RelationalExpression body,
+                                    @Nonnull final Literals literals) {
         super(functionName, parameterNames, parameterTypes, parameterDefaults);
         this.parametersCorrelation = parametersCorrelation;
         this.body = body;
@@ -244,11 +244,11 @@ public class UserDefinedFunction extends com.apple.foundationdb.record.query.pla
             }
 
             @Nonnull
-            public UserDefinedFunction build() {
+            public CompilableSqlFunction build() {
                 final List<Optional<? extends Typed>> defaultsValuesList = Streams.stream(parameters.underlying())
                         .map(v -> v instanceof ThrowsValue ? Optional.<Value>empty() : Optional.of(v))
                         .collect(ImmutableList.toImmutableList());
-                return new UserDefinedFunction(outerBuilder.name, parameters.argumentNames(), parameters.underlyingTypes(),
+                return new CompilableSqlFunction(outerBuilder.name, parameters.argumentNames(), parameters.underlyingTypes(),
                         defaultsValuesList, getParametersCorrelation().map(Quantifier::getAlias), body, literals);
             }
         }

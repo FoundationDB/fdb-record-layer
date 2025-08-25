@@ -41,7 +41,7 @@ import com.apple.foundationdb.relational.recordlayer.query.Literals;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
-import com.apple.foundationdb.relational.recordlayer.query.functions.UserDefinedFunction;
+import com.apple.foundationdb.relational.recordlayer.query.functions.CompilableSqlFunction;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Function;
 import com.google.common.base.Supplier;
@@ -552,7 +552,7 @@ public class SchemaTemplateSerDeTests {
         return deserializerWithPeekingCompilationSupplier;
     }
 
-    private static final class CompiledFunctionStub extends UserDefinedFunction {
+    private static final class CompiledFunctionStub extends CompilableSqlFunction {
         @SuppressWarnings("DataFlowIssue") // only for test.
         CompiledFunctionStub() {
             super("something", ImmutableList.of(), ImmutableList.of(), ImmutableList.of(),

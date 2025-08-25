@@ -49,7 +49,7 @@ import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.ProceduralPlan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryParser;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
-import com.apple.foundationdb.relational.recordlayer.query.functions.UserDefinedFunction;
+import com.apple.foundationdb.relational.recordlayer.query.functions.CompilableSqlFunction;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -376,8 +376,8 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Override
-    public UserDefinedFunction visitTempSqlInvokedFunction(@Nonnull RelationalParser.TempSqlInvokedFunctionContext ctx) {
-        return (UserDefinedFunction)visitSqlInvokedFunction(ctx.functionSpecification(), ctx.routineBody(), true);
+    public CompilableSqlFunction visitTempSqlInvokedFunction(@Nonnull RelationalParser.TempSqlInvokedFunctionContext ctx) {
+        return (CompilableSqlFunction)visitSqlInvokedFunction(ctx.functionSpecification(), ctx.routineBody(), true);
     }
 
     @Override
@@ -428,7 +428,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             // create SQL function logical plan by visiting the function body.
             final var parameters = getDelegate().getPlanGenerationContext().withDisabledLiteralProcessing(() ->
                     visitSqlParameterDeclarationList(functionSpecCtx.sqlParameterDeclarationList()).asNamedArguments());
-            final var sqlFunctionBuilder = UserDefinedFunction.newBuilder()
+            final var sqlFunctionBuilder = CompilableSqlFunction.newBuilder()
                     .setName(functionName)
                     .addAllParameters(parameters)
                     .seal();

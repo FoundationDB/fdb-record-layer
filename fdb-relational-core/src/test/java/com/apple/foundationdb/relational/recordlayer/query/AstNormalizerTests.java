@@ -39,7 +39,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvoked
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
-import com.apple.foundationdb.relational.recordlayer.query.functions.UserDefinedFunction;
+import com.apple.foundationdb.relational.recordlayer.query.functions.CompilableSqlFunction;
 import com.apple.foundationdb.relational.recordlayer.util.Hex;
 import com.apple.foundationdb.relational.util.Assert;
 
@@ -408,8 +408,8 @@ public class AstNormalizerTests {
                         .setDescription(functionDdl)
                         .setNormalizedDescription(canonicalFunctionDdl)
                         // invoking the compiled routine should only happen during plan generation.
-                        .withUserDefinedRoutine(ignored -> new UserDefinedFunction("", ImmutableList.of(), ImmutableList.of(),
-                                ImmutableList.of(), Optional.empty(), null, Literals.empty()) {
+                        .withUserDefinedRoutine(ignored -> new CompilableSqlFunction("", List.of(), List.of(),
+                                List.of(), Optional.empty(), null, Literals.empty()) {
                             @Nonnull
                             @Override
                             public RecordMetaDataProto.PUserDefinedFunction toProto(@Nonnull final PlanSerializationContext serializationContext) {
