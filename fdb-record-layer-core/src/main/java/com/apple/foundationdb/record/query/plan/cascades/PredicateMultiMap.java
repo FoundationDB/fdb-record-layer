@@ -204,7 +204,7 @@ public class PredicateMultiMap {
             };
         }
 
-        private static boolean predicateContainsUnmatchedValues(final @Nonnull QueryPredicate pulledUpPredicate) {
+        private static boolean predicateContainsUnmatchedValues(@Nonnull final QueryPredicate pulledUpPredicate) {
             if (pulledUpPredicate instanceof PredicateWithValue) {
                 final var value = Objects.requireNonNull(((PredicateWithValue)pulledUpPredicate).getValue());
                 if (value.preOrderStream()

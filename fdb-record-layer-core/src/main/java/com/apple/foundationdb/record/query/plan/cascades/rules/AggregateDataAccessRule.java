@@ -357,6 +357,7 @@ public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalEx
         return RecordConstructorValue.ofColumns(columnBuilder.build());
     }
 
+    @Nonnull
     private static TranslationMap computeTranslationMap(@Nonnull final CorrelationIdentifier intersectionAlias,
                                                         @Nonnull final List<? extends Quantifier> quantifiers,
                                                         @Nonnull final List<CorrelationIdentifier> candidateTopAliases,

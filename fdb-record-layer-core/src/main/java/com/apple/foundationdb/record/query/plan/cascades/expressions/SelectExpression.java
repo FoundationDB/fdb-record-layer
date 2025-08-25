@@ -598,8 +598,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
 
     @Nonnull
     @Override
-    public Optional<MatchInfo> adjustMatch(@Nonnull final PartialMatch partialMatch,
-                                           @Nonnull final Quantifier candidateQuantifier) {
+    public Optional<MatchInfo> adjustMatch(@Nonnull final PartialMatch partialMatch) {
         final var childMatchInfo = partialMatch.getMatchInfo();
 
         for (final var predicate : getPredicates()) {
@@ -623,7 +622,7 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
                 .map(adjustedMaxMatchMap ->
                         childMatchInfo.adjustedBuilder()
                                 .setMaxMatchMap(adjustedMaxMatchMap)
-                                .setGroupByMappings(childMatchInfo.adjustGroupByMappings(candidateQuantifier))
+                                .setGroupByMappings(childMatchInfo.adjustGroupByMappings(Iterables.getOnlyElement(getQuantifiers())))
                                 .build());
     }
 

@@ -158,7 +158,7 @@ public class RecordQueryMultiIntersectionOnValuesPlan extends RecordQueryInterse
                                 .map(childPlan -> (Function<byte[], RecordCursor<QueryResult>>)
                                         ((byte[] childContinuation) -> childPlan
                                                 .executePlan(store, context, childContinuation, childExecuteProperties)))
-                                .collect(Collectors.toList()),
+                                .collect(ImmutableList.toImmutableList()),
                         continuation,
                         store.getTimer())
                 .map(multiResult -> {

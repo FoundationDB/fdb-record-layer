@@ -113,6 +113,6 @@ public class AdjustMatchRule extends CascadesRule<PartialMatch> {
             return Optional.empty();
         }
 
-        return candidateExpression.adjustMatch(partialMatch, candidateQuantifier);
+        return candidateExpression.adjustMatch(partialMatch);
     }
 }
