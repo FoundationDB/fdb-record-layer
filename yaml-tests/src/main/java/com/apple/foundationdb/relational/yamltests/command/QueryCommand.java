@@ -252,7 +252,7 @@ public final class QueryCommand extends Command {
         return queryInterpreter.getExecutor(random, runAsPreparedStatement);
     }
 
-    static void reportTestFailure(@Nonnull String message) {
+    public static void reportTestFailure(@Nonnull String message) {
         reportTestFailure(message, null);
     }
 
