@@ -46,4 +46,11 @@ message IndexBuildIndexingStamp {
   optional string blockID = 7; // optional, a short string that describes the reason for the block.
  }
 
+ message IndexBuildHeartbeat {
+  // An heartbeat is set OnlineIndexer at every transaction during the indexing iteration.
+    required string info = 1; // general information about the indexing session. This can be useful when querying the heartbeats.
+    required int64 genesisTimeMilliseconds = 2; // indexer's creation time (since epoch)
+    required int64 heartbeatTimeMilliseconds = 3; // last heartbeats' time (since epoch). This is the only heartbeat value that changes during online indexing.
+ }
+
 
