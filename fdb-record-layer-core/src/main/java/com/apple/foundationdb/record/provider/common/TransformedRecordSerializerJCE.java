@@ -31,7 +31,6 @@ import javax.crypto.spec.IvParameterSpec;
 import java.security.GeneralSecurityException;
 import java.security.Key;
 import java.security.SecureRandom;
-import java.util.Random;
 
 /**
  * An extension of {@link TransformedRecordSerializer} to use JCE to encrypt and decrypt records.
@@ -40,14 +39,14 @@ import java.util.Random;
 @API(API.Status.UNSTABLE)
 public class TransformedRecordSerializerJCE<M extends Message> extends TransformedRecordSerializer<M> {
     @Nullable
-    protected final TransformedRecordSerializerKeyManager keyManager;
+    protected final SerializationKeyManager keyManager;
 
     protected TransformedRecordSerializerJCE(@Nonnull RecordSerializer<M> inner,
                                              boolean compressWhenSerializing,
                                              int compressionLevel,
                                              boolean encryptWhenSerializing,
                                              double writeValidationRatio,
-                                             @Nullable TransformedRecordSerializerKeyManager keyManager) {
+                                             @Nullable SerializationKeyManager keyManager) {
         super(inner, compressWhenSerializing, compressionLevel, encryptWhenSerializing, writeValidationRatio);
         this.keyManager = keyManager;
     }
@@ -157,7 +156,7 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
      */
     public static class Builder<M extends Message> extends TransformedRecordSerializer.Builder<M> {
         @Nullable
-        protected TransformedRecordSerializerKeyManager keyManager;
+        protected SerializationKeyManager keyManager;
         @Nullable
         protected String cipherName;
         @Nullable
@@ -280,7 +279,7 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
          * @param keyManager key manager to use for encrypting and decrypting
          * @return this <code>Builder</code>
          */
-        public Builder<M> setKeyManager(@Nonnull TransformedRecordSerializerKeyManager keyManager) {
+        public Builder<M> setKeyManager(@Nonnull SerializationKeyManager keyManager) {
             this.keyManager = keyManager;
             return this;
         }
@@ -331,50 +330,4 @@ public class TransformedRecordSerializerJCE<M extends Message> extends Transform
 
     }
 
-    static class FixedZeroKeyManager implements TransformedRecordSerializerKeyManager {
-        private final Key encryptionKey;
-        private final String cipherName;
-        private final SecureRandom secureRandom;
-
-        public FixedZeroKeyManager(@Nonnull Key encryptionKey, @Nullable String cipherName, @Nullable SecureRandom secureRandom) {
-            if (cipherName == null) {
-                cipherName = CipherPool.DEFAULT_CIPHER;
-            }
-            if (secureRandom == null) {
-                secureRandom = new SecureRandom();
-            }
-            this.encryptionKey = encryptionKey;
-            this.cipherName = cipherName;
-            this.secureRandom = secureRandom;
-        }
-
-        @Override
-        public int getSerializationKey() {
-            return 0;
-        }
-
-        @Override
-        public Key getKey(int keyNumber) {
-            if (keyNumber != 0) {
-                throw new RecordSerializationException("only provide key number 0");
-            }
-            return encryptionKey;
-        }
-
-        @Override
-        public String getCipher(int keyNumber) {
-            if (keyNumber != 0) {
-                throw new RecordSerializationException("only provide key number 0");
-            }
-            return cipherName;
-        }
-
-        @Override
-        public Random getRandom(int keyNumber) {
-            if (keyNumber != 0) {
-                throw new RecordSerializationException("only provide key number 0");
-            }
-            return secureRandom;
-        }
-    }
 }

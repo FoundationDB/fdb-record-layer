@@ -26,12 +26,12 @@ import java.security.Key;
 import java.util.Random;
 
 /**
- * An interface between {@link TransformedRecordSerializerJCE} and a source of keys with associated cipher algorithms.
- * Each key is identified by a unique <em>key number</em>, which is persisted in serialized records so that the key
- * can be recovered at deserialization time.
+ * An interface between encrypting serialization, such as {@link TransformedRecordSerializerJCE}, and a source of keys
+ * with associated cipher algorithms. Each key is identified by a unique <em>key number</em>, which is persisted in
+ * the serialization so that the key can be recovered at deserialization time.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface TransformedRecordSerializerKeyManager {
+public interface SerializationKeyManager {
     /**
      * Get the key number to be used for <em>serializing</em> a record.
      * Typically, this would be the <em>latest</em> key.
