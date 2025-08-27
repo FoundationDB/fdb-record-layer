@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
@@ -575,6 +576,359 @@ public class KeySpacePathDataExportTest {
             
             // Verify the reason for stopping
             assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, result.getNoNextReason());
+        }
+    }
+
+    @Test
+    public void testExportAllDataWithContinuation() {
+        KeySpace root = new KeySpace(
+                new KeySpaceDirectory("continuation", KeyType.STRING, "continuation-test")
+                        .addSubdirectory(new KeySpaceDirectory("item", KeyType.LONG)));
+
+        final FDBDatabase database = dbExtension.getDatabase();
+        
+        // Store test data
+        try (FDBRecordContext context = database.openContext()) {
+            Transaction tr = context.ensureActive();
+            KeySpacePath basePath = root.path("continuation");
+            
+            for (int i = 0; i < 20; i++) {
+                Tuple key = basePath.add("item", (long) i).toTuple(context);
+                tr.set(key.pack(), Tuple.from("continuation_item_" + i).pack());
+            }
+            context.commit();
+        }
+        
+        // Export with continuation support
+        try (FDBRecordContext context = database.openContext()) {
+            KeySpacePath continuationPath = root.path("continuation");
+            
+            // First export with limit to get continuation
+            ScanProperties limitedScan = ScanProperties.FORWARD_SCAN.with(props ->
+                props.setReturnedRowLimit(5));
+            
+            RecordCursor<KeyValue> cursor = continuationPath.exportAllData(context, null, limitedScan);
+            List<KeyValue> firstBatch = cursor.asList().join();
+            
+            assertEquals(5, firstBatch.size());
+            
+            // Verify first batch contains items 0-4
+            for (int i = 0; i < 5; i++) {
+                String value = Tuple.fromBytes(firstBatch.get(i).getValue()).getString(0);
+                assertEquals("continuation_item_" + i, value);
+            }
+            
+            // Get continuation from the cursor result
+            RecordCursorResult<KeyValue> lastResult = cursor.getNext();
+            assertFalse(lastResult.hasNext());
+            assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, lastResult.getNoNextReason());
+            
+            byte[] continuation = lastResult.getContinuation().toBytes();
+            assertNotNull(continuation);
+            
+            // Use continuation to get next batch
+            RecordCursor<KeyValue> continuedCursor = continuationPath.exportAllData(context, continuation, limitedScan);
+            List<KeyValue> secondBatch = continuedCursor.asList().join();
+            
+            assertEquals(5, secondBatch.size());
+            
+            // Verify second batch contains items 5-9
+            for (int i = 0; i < 5; i++) {
+                String value = Tuple.fromBytes(secondBatch.get(i).getValue()).getString(0);
+                assertEquals("continuation_item_" + (i + 5), value);
+            }
+        }
+    }
+
+    @Test
+    public void testExportAllDataContinuationChaining() {
+        KeySpace root = new KeySpace(
+                new KeySpaceDirectory("chain", KeyType.STRING, "chain-test")
+                        .addSubdirectory(new KeySpaceDirectory("batch", KeyType.LONG)));
+
+        final FDBDatabase database = dbExtension.getDatabase();
+        
+        // Store test data
+        try (FDBRecordContext context = database.openContext()) {
+            Transaction tr = context.ensureActive();
+            KeySpacePath basePath = root.path("chain");
+            
+            for (int i = 0; i < 30; i++) {
+                Tuple key = basePath.add("batch", (long) i).toTuple(context);
+                tr.set(key.pack(), Tuple.from("batch_item_" + i).pack());
+            }
+            context.commit();
+        }
+        
+        // Chain multiple continuations
+        try (FDBRecordContext context = database.openContext()) {
+            KeySpacePath chainPath = root.path("chain");
+            ScanProperties batchScan = ScanProperties.FORWARD_SCAN.with(props ->
+                props.setReturnedRowLimit(7));
+            
+            List<KeyValue> allCollected = new ArrayList<>();
+            byte[] continuation = null;
+            int batchCount = 0;
+            
+            do {
+                RecordCursor<KeyValue> cursor = chainPath.exportAllData(context, continuation, batchScan);
+                List<KeyValue> batch = cursor.asList().join();
+                
+                if (batch.isEmpty()) {
+                    break;
+                }
+                
+                allCollected.addAll(batch);
+                batchCount++;
+                
+                // Get continuation for next batch
+                RecordCursorResult<KeyValue> lastResult = cursor.getNext();
+                if (lastResult.hasNext() || lastResult.getNoNextReason() == RecordCursor.NoNextReason.RETURN_LIMIT_REACHED) {
+                    continuation = lastResult.getContinuation().toBytes();
+                } else {
+                    continuation = null;
+                }
+                
+                // Safety check to avoid infinite loop
+                assertTrue(batchCount <= 10, "Too many batches, possible infinite loop");
+                
+            } while (continuation != null);
+            
+            // Should have collected all 30 items across multiple batches
+            assertEquals(30, allCollected.size());
+            assertEquals(5, batchCount); // 30 items / 7 per batch = 5 batches (last partial)
+            
+            // Verify all items are present and in order
+            for (int i = 0; i < 30; i++) {
+                String value = Tuple.fromBytes(allCollected.get(i).getValue()).getString(0);
+                assertEquals("batch_item_" + i, value);
+            }
+        }
+    }
+
+    @Test
+    public void testExportAllDataContinuationWithDifferentScanProperties() {
+        KeySpace root = new KeySpace(
+                new KeySpaceDirectory("scan", KeyType.STRING, "scan-props-test")
+                        .addSubdirectory(new KeySpaceDirectory("record", KeyType.LONG)));
+
+        final FDBDatabase database = dbExtension.getDatabase();
+        
+        // Store test data
+        try (FDBRecordContext context = database.openContext()) {
+            Transaction tr = context.ensureActive();
+            KeySpacePath basePath = root.path("scan");
+            
+            for (int i = 0; i < 15; i++) {
+                Tuple key = basePath.add("record", (long) i).toTuple(context);
+                tr.set(key.pack(), Tuple.from("scan_record_" + i).pack());
+            }
+            context.commit();
+        }
+        
+        // Test continuation with reverse scan
+        try (FDBRecordContext context = database.openContext()) {
+            KeySpacePath scanPath = root.path("scan");
+            ScanProperties reverseScan = new ScanProperties(ExecuteProperties.newBuilder()
+                    .setReturnedRowLimit(5)
+                    .build(), true); // limit 5, reverse
+            
+            // First batch in reverse order
+            RecordCursor<KeyValue> cursor = scanPath.exportAllData(context, null, reverseScan);
+            List<KeyValue> firstBatch = cursor.asList().join();
+            
+            assertEquals(5, firstBatch.size());
+            
+            // Verify reverse order (should be items 14, 13, 12, 11, 10)
+            for (int i = 0; i < 5; i++) {
+                String value = Tuple.fromBytes(firstBatch.get(i).getValue()).getString(0);
+                assertEquals("scan_record_" + (14 - i), value);
+            }
+            
+            // Get continuation and continue reverse scan
+            RecordCursorResult<KeyValue> lastResult = cursor.getNext();
+            byte[] continuation = lastResult.getContinuation().toBytes();
+            
+            RecordCursor<KeyValue> continuedCursor = scanPath.exportAllData(context, continuation, reverseScan);
+            List<KeyValue> secondBatch = continuedCursor.asList().join();
+            
+            assertEquals(5, secondBatch.size());
+            
+            // Verify second batch in reverse order (should be items 9, 8, 7, 6, 5)
+            for (int i = 0; i < 5; i++) {
+                String value = Tuple.fromBytes(secondBatch.get(i).getValue()).getString(0);
+                assertEquals("scan_record_" + (9 - i), value);
+            }
+        }
+    }
+
+    @Test
+    public void testExportAllDataContinuationWithNestedPaths() {
+        KeySpace root = new KeySpace(
+                new KeySpaceDirectory("nested", KeyType.STRING, "nested-continuation")
+                        .addSubdirectory(new KeySpaceDirectory("category", KeyType.STRING))
+                        .addSubdirectory(new KeySpaceDirectory("item", KeyType.LONG))
+                        .addSubdirectory(new KeySpaceDirectory("data", KeyType.NULL)));
+
+        final FDBDatabase database = dbExtension.getDatabase();
+        
+        // Store nested test data
+        try (FDBRecordContext context = database.openContext()) {
+            Transaction tr = context.ensureActive();
+            
+            String[] categories = {"A", "B", "C"};
+            for (String category : categories) {
+                for (int item = 0; item < 5; item++) {
+                    KeySpacePath dataPath = root.path("nested")
+                            .add("category", category)
+                            .add("item", (long) item)
+                            .add("data");
+                    
+                    Tuple key = dataPath.toTuple(context);
+                    tr.set(key.pack(), Tuple.from(category + "_item_" + item).pack());
+                }
+            }
+            context.commit();
+        }
+        
+        // Export with continuation from nested path
+        try (FDBRecordContext context = database.openContext()) {
+            KeySpacePath nestedPath = root.path("nested").add("category", "B");
+            ScanProperties limitedScan = ScanProperties.FORWARD_SCAN.with(props ->
+                props.setReturnedRowLimit(3));
+            
+            // First batch from category B
+            RecordCursor<KeyValue> cursor = nestedPath.exportAllData(context, null, limitedScan);
+            List<KeyValue> firstBatch = cursor.asList().join();
+            
+            assertEquals(3, firstBatch.size());
+            
+            // Verify all are from category B
+            for (KeyValue kv : firstBatch) {
+                String value = Tuple.fromBytes(kv.getValue()).getString(0);
+                assertTrue(value.startsWith("B_item_"));
+            }
+            
+            // Get continuation and get remaining items from category B
+            RecordCursorResult<KeyValue> lastResult = cursor.getNext();
+            byte[] continuation = lastResult.getContinuation().toBytes();
+            
+            RecordCursor<KeyValue> continuedCursor = nestedPath.exportAllData(context, continuation, limitedScan);
+            List<KeyValue> secondBatch = continuedCursor.asList().join();
+            
+            assertEquals(2, secondBatch.size()); // Only 2 remaining items in category B
+            
+            // Verify remaining items are from category B
+            for (KeyValue kv : secondBatch) {
+                String value = Tuple.fromBytes(kv.getValue()).getString(0);
+                assertTrue(value.startsWith("B_item_"));
+            }
+        }
+    }
+
+    @Test
+    public void testExportAllDataEmptyContinuation() {
+        KeySpace root = new KeySpace(
+                new KeySpaceDirectory("empty_cont", KeyType.STRING, "empty-continuation")
+                        .addSubdirectory(new KeySpaceDirectory("item", KeyType.LONG)));
+
+        final FDBDatabase database = dbExtension.getDatabase();
+        
+        // Store minimal test data
+        try (FDBRecordContext context = database.openContext()) {
+            Transaction tr = context.ensureActive();
+            KeySpacePath basePath = root.path("empty_cont");
+            
+            for (int i = 0; i < 3; i++) {
+                Tuple key = basePath.add("item", (long) i).toTuple(context);
+                tr.set(key.pack(), Tuple.from("empty_cont_item_" + i).pack());
+            }
+            context.commit();
+        }
+        
+        // Test behavior when using continuation on empty results
+        try (FDBRecordContext context = database.openContext()) {
+            KeySpacePath emptyContPath = root.path("empty_cont");
+            ScanProperties largeLimitScan = ScanProperties.FORWARD_SCAN.with(props ->
+                props.setReturnedRowLimit(10)); // Larger than available data
+            
+            // First export gets all data (no continuation needed)
+            RecordCursor<KeyValue> cursor = emptyContPath.exportAllData(context, null, largeLimitScan);
+            List<KeyValue> allData = cursor.asList().join();
+            
+            assertEquals(3, allData.size());
+            
+            // Get final result
+            RecordCursorResult<KeyValue> finalResult = cursor.getNext();
+            assertFalse(finalResult.hasNext());
+            assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, finalResult.getNoNextReason());
+            
+            // Try to use continuation (should return empty)
+            byte[] continuation = finalResult.getContinuation().toBytes();
+            RecordCursor<KeyValue> continuedCursor = emptyContPath.exportAllData(context, continuation, largeLimitScan);
+            List<KeyValue> continuedData = continuedCursor.asList().join();
+            
+            assertEquals(0, continuedData.size()); // Should be empty
+        }
+    }
+
+    @Test
+    public void testExportAllDataContinuationConsistency() {
+        KeySpace root = new KeySpace(
+                new KeySpaceDirectory("consistency", KeyType.STRING, "consistency-test")
+                        .addSubdirectory(new KeySpaceDirectory("sequence", KeyType.LONG)));
+
+        final FDBDatabase database = dbExtension.getDatabase();
+        
+        // Store test data
+        try (FDBRecordContext context = database.openContext()) {
+            Transaction tr = context.ensureActive();
+            KeySpacePath basePath = root.path("consistency");
+            
+            for (int i = 0; i < 12; i++) {
+                Tuple key = basePath.add("sequence", (long) i).toTuple(context);
+                tr.set(key.pack(), Tuple.from("consistency_seq_" + i).pack());
+            }
+            context.commit();
+        }
+        
+        // Test that continuation produces consistent, non-overlapping results
+        try (FDBRecordContext context = database.openContext()) {
+            KeySpacePath consistencyPath = root.path("consistency");
+            ScanProperties batchScan = ScanProperties.FORWARD_SCAN.with(props ->
+                props.setReturnedRowLimit(4));
+            
+            // Collect all data using continuations
+            List<String> collectedValues = new ArrayList<>();
+            byte[] continuation = null;
+            
+            for (int batch = 0; batch < 3; batch++) { // Expect 3 batches of 4 items each
+                RecordCursor<KeyValue> cursor = consistencyPath.exportAllData(context, continuation, batchScan);
+                List<KeyValue> batchData = cursor.asList().join();
+                
+                assertEquals(4, batchData.size(), "Batch " + batch + " should have 4 items");
+                
+                for (KeyValue kv : batchData) {
+                    String value = Tuple.fromBytes(kv.getValue()).getString(0);
+                    assertFalse(collectedValues.contains(value), "Duplicate value detected: " + value);
+                    collectedValues.add(value);
+                }
+                
+                // Get continuation for next batch
+                RecordCursorResult<KeyValue> lastResult = cursor.getNext();
+                if (batch < 2) { // Not the last batch
+                    assertEquals(RecordCursor.NoNextReason.RETURN_LIMIT_REACHED, lastResult.getNoNextReason());
+                    continuation = lastResult.getContinuation().toBytes();
+                } else { // Last batch
+                    assertEquals(RecordCursor.NoNextReason.SOURCE_EXHAUSTED, lastResult.getNoNextReason());
+                }
+            }
+            
+            // Verify we got all 12 items in correct order
+            assertEquals(12, collectedValues.size());
+            for (int i = 0; i < 12; i++) {
+                assertEquals("consistency_seq_" + i, collectedValues.get(i));
+            }
         }
     }
 }

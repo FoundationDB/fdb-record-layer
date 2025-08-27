@@ -339,9 +339,10 @@ class KeySpacePathImpl implements KeySpacePath {
 
     @Nonnull
     @Override
-    public RecordCursor<com.apple.foundationdb.KeyValue> exportAllData(@Nonnull FDBRecordContext context, 
+    public RecordCursor<com.apple.foundationdb.KeyValue> exportAllData(@Nonnull FDBRecordContext context,
+                                                                       @Nullable byte[] continuation,
                                                                        @Nonnull ScanProperties scanProperties) {
-        // TODO: Implement the actual data export functionality
+        // TODO: Implement the actual data export functionality with continuation support
         // This is a stub method that will be implemented later
         throw new UnsupportedOperationException("exportAllData is not yet implemented");
     }
