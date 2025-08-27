@@ -52,13 +52,10 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.security.InvalidKeyException;
 import java.security.Key;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 import java.util.stream.Stream;
 import java.util.zip.Deflater;
@@ -493,7 +490,7 @@ public class TransformedRecordSerializerTest {
 
     @Test
     public void encryptRollingKeys() throws Exception {
-        RollingKeyManager keyManager = new RollingKeyManager();
+        RollingTestKeyManager keyManager = new RollingTestKeyManager();
         TransformedRecordSerializer<Message> serializer = TransformedRecordSerializerJCE.newDefaultBuilder()
                 .setEncryptWhenSerializing(true)
                 .setKeyManager(keyManager)
@@ -532,7 +529,7 @@ public class TransformedRecordSerializerTest {
         SecureRandom random = new SecureRandom();
         TransformedRecordSerializer<Message> serializer = TransformedRecordSerializerJCE.newDefaultBuilder()
                 .setEncryptWhenSerializing(true)
-                .setKeyManager(new TransformedRecordSerializerKeyManager() {
+                .setKeyManager(new SerializationKeyManager() {
                     @Override
                     public int getSerializationKey() {
                         return 2;
@@ -713,7 +710,7 @@ public class TransformedRecordSerializerTest {
                 .setEncryptionKey(keyGen.generateKey())
                 .setWriteValidationRatio(1.0)
                 .build();
-        TransformedRecordSerializerKeyManager keyManager = serializer.keyManager;
+        SerializationKeyManager keyManager = serializer.keyManager;
         assertEquals(0, keyManager.getSerializationKey());
 
         RecordSerializationException e = assertThrows(RecordSerializationException.class,
@@ -737,7 +734,7 @@ public class TransformedRecordSerializerTest {
         RecordCoreArgumentException e = assertThrows(RecordCoreArgumentException.class, builder::build);
         assertThat(e.getMessage(), containsString("cannot encrypt when serializing if encryption key is not set"));
 
-        RollingKeyManager keyManager = new RollingKeyManager();
+        RollingTestKeyManager keyManager = new RollingTestKeyManager();
         builder.setKeyManager(keyManager);
 
         builder.setCipherName(CipherPool.DEFAULT_CIPHER);
@@ -803,50 +800,6 @@ public class TransformedRecordSerializerTest {
         @Override
         public RecordSerializer<Message> widen() {
             throw new UnsupportedOperationException("cannot widen this serializer");
-        }
-    }
-
-    private static class RollingKeyManager implements TransformedRecordSerializerKeyManager {
-        private final KeyGenerator keyGenerator;
-        private final Map<Integer, SecretKey> keys;
-        private final Random random;
-
-        public RollingKeyManager() throws NoSuchAlgorithmException {
-            keyGenerator = KeyGenerator.getInstance("AES");
-            keyGenerator.init(128);
-            keys = new HashMap<>();
-            random = new SecureRandom();
-        }
-
-        @Override
-        public int getSerializationKey() {
-            int newKey = random.nextInt();
-            if (!keys.containsKey(newKey)) {
-                keys.put(newKey, keyGenerator.generateKey());
-            }
-            return newKey;
-        }
-
-        @Override
-        public Key getKey(final int keyNumber) {
-            if (!keys.containsKey(keyNumber)) {
-                throw new RecordCoreArgumentException("invalid key number");
-            }
-            return keys.get(keyNumber);
-        }
-
-        @Override
-        public String getCipher(final int keyNumber) {
-            return CipherPool.DEFAULT_CIPHER;
-        }
-
-        @Override
-        public Random getRandom(final int keyNumber) {
-            return random;
-        }
-
-        public int numberOfKeys() {
-            return keys.size();
         }
     }
 
