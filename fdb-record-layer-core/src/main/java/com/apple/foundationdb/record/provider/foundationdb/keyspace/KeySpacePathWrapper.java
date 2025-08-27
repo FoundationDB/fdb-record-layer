@@ -226,4 +226,11 @@ public class KeySpacePathWrapper implements KeySpacePath {
     public String toString(@Nonnull Tuple t) {
         return inner.toString(t);
     }
+
+    @Nonnull
+    @Override
+    public RecordCursor<com.apple.foundationdb.KeyValue> exportAllData(@Nonnull FDBRecordContext context, 
+                                                                       @Nonnull ScanProperties scanProperties) {
+        return inner.exportAllData(context, scanProperties);
+    }
 }
