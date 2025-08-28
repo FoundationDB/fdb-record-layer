@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.query.plan.cascades.MatchPartition;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerPhase;
-import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PAbstractEventWithState;
 import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PAdjustMatchEvent;
@@ -50,7 +49,6 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.eventprotos.PTran
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -61,7 +59,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.IntUnaryOperator;
 
 /**
  * <p>
@@ -69,13 +66,15 @@ import java.util.function.IntUnaryOperator;
  * As the planner is currently single-threaded as per planning of a query, we keep an instance of an implementor of
  * this class in the thread-local. (per-thread singleton).
  * The main mean of communication with the debugger is the set of statics defined within this interface.
+ * There are two interfaces that extend this interface which provides different debugging functionalities,
+ * see {@link StatsDebugger} and {@link SymbolDebugger} for more details.
  * </p>
- * <b>Debugging functionality should only be enabled in test cases, never in deployments</b>.
  * <p>
  * In order to enable debugging capabilities, clients should use {@link #setDebugger} which sets a debugger to be used
  * for the current thread. Once set, the planner starts interacting with the debugger in order to communicate important
  * state changes, like <em>begin of planning</em>, <em>end of planner</em>, etc.
  * </p>
+ * <b>Certain debugger implementations should only be enabled in test cases, never in deployments</b>.
  * <p>
  * Clients using the debugger should never hold on/manage/use an instance of a debugger directly. Instead, clients
  * should use {@link #withDebugger} and {@link #mapDebugger} to invoke methods on the currently installed debugger.
@@ -162,11 +161,7 @@ public interface Debugger {
      */
     @Nonnull
     static <T> Optional<T> mapDebugger(@Nonnull final Function<Debugger, T> function) {
-        final Debugger debugger = getDebugger();
-        if (debugger != null) {
-            return Optional.ofNullable(function.apply(debugger));
-        }
-        return Optional.empty();
+        return getDebuggerMaybe().map(function);
     }
 
     static void install() {
@@ -181,55 +176,12 @@ public interface Debugger {
         withDebugger(debugger -> debugger.onShow(ref));
     }
 
-    static Optional<Integer> getIndexOptional(Class<?> clazz) {
-        return mapDebugger(debugger -> debugger.onGetIndex(clazz));
-    }
-
-    @Nonnull
-    @CanIgnoreReturnValue
-    static Optional<Integer> updateIndex(Class<?> clazz, IntUnaryOperator updateFn) {
-        return mapDebugger(debugger -> debugger.onUpdateIndex(clazz, updateFn));
-    }
-
-    static void registerExpression(RelationalExpression expression) {
-        withDebugger(debugger -> debugger.onRegisterExpression(expression));
-    }
-
-    static void registerReference(Reference reference) {
-        withDebugger(debugger -> debugger.onRegisterReference(reference));
-    }
-
-    static void registerQuantifier(Quantifier quantifier) {
-        withDebugger(debugger -> debugger.onRegisterQuantifier(quantifier));
-    }
-
-    static Optional<Integer> getOrRegisterSingleton(Object singleton) {
-        return mapDebugger(debugger -> debugger.onGetOrRegisterSingleton(singleton));
-    }
-
-    @Nullable
-    String nameForObject(@Nonnull Object object);
-
     @Nullable
     PlanContext getPlanContext();
 
     boolean isSane();
 
-    void onEvent(Event event);
-
     void onDone();
-
-    int onGetIndex(@Nonnull Class<?> clazz);
-
-    int onUpdateIndex(@Nonnull Class<?> clazz, @Nonnull IntUnaryOperator updateFn);
-
-    void onRegisterExpression(@Nonnull RelationalExpression expression);
-
-    void onRegisterReference(@Nonnull Reference reference);
-
-    void onRegisterQuantifier(@Nonnull Quantifier quantifier);
-
-    int onGetOrRegisterSingleton(@Nonnull Object singleton);
 
     void onInstall();
 
@@ -238,12 +190,6 @@ public interface Debugger {
     void onShow(@Nonnull Reference ref);
 
     void onQuery(String queryAsString, PlanContext planContext);
-
-    @SuppressWarnings("unused") // only used by debugger
-    String showStats();
-
-    @Nonnull
-    Optional<StatsMaps> getStatsMaps();
 
     /**
      * Shorthands to identify a kind of event.
@@ -325,7 +271,7 @@ public interface Debugger {
         @Nonnull
         static PRegisteredRelationalExpression toExpressionProto(@Nonnull final RelationalExpression expression) {
             return PRegisteredRelationalExpression.newBuilder()
-                    .setName(Debugger.mapDebugger(debugger -> debugger.nameForObject(expression)).orElseThrow())
+                    .setName(SymbolDebugger.mapDebugger(debugger -> debugger.nameForObject(expression)).orElseThrow())
                     .setSemanticHashCode(expression.semanticHashCode())
                     .build();
         }
@@ -333,7 +279,7 @@ public interface Debugger {
         @Nonnull
         static PRegisteredReference toReferenceProto(@Nonnull final Reference reference) {
             final var builder = PRegisteredReference.newBuilder()
-                    .setName(Debugger.mapDebugger(debugger -> debugger.nameForObject(reference)).orElseThrow());
+                    .setName(SymbolDebugger.mapDebugger(debugger -> debugger.nameForObject(reference)).orElseThrow());
             for (final var member : reference.getAllMemberExpressions()) {
                 builder.addExpressions(toExpressionProto(member));
             }
@@ -1024,13 +970,13 @@ public interface Debugger {
                                     @Nullable final RelationalExpression expression,
                                     @Nonnull final Collection<Reference> reusedExpressionReferences) {
             if (expression != null) {
-                Debugger.registerExpression(expression);
+                SymbolDebugger.registerExpression(expression);
             }
             this.expression = expression;
             this.location = location;
             this.reusedExpressionReferences = ImmutableList.copyOf(reusedExpressionReferences);
             // Call debugger hook to potentially register this new reference.
-            this.reusedExpressionReferences.forEach(Debugger::registerReference);
+            this.reusedExpressionReferences.forEach(SymbolDebugger::registerReference);
         }
 
         @Override

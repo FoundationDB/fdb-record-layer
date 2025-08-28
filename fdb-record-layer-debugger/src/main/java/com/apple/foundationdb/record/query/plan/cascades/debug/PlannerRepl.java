@@ -69,7 +69,7 @@ import java.util.function.Predicate;
 /**
  * Implementation of a debugger as a repl.
  */
-public class PlannerRepl implements Debugger {
+public class PlannerRepl implements StatsDebugger, SymbolDebugger {
     private static final Logger logger = LoggerFactory.getLogger(PlannerRepl.class);
 
     private static final String banner =
@@ -92,7 +92,8 @@ public class PlannerRepl implements Debugger {
         processorsMap = loadProcessors();
     }
 
-    private final Deque<State> stateStack;
+    private final Deque<EventState> eventStateStack;
+    private final Deque<SymbolTables> symbolTablesStack;
 
     private final BiMap<Integer, BreakPoint> breakPoints;
     private int currentBreakPointIndex;
@@ -117,7 +118,8 @@ public class PlannerRepl implements Debugger {
     }
 
     public PlannerRepl(@Nonnull final Terminal terminal, boolean exitOnQuit) {
-        this.stateStack = new ArrayDeque<>();
+        this.eventStateStack = new ArrayDeque<>();
+        this.symbolTablesStack = new ArrayDeque<>();
         this.breakPoints = HashBiMap.create();
         this.currentBreakPointIndex = 0;
         this.currentInternalBreakPointIndex = -1;
@@ -133,9 +135,14 @@ public class PlannerRepl implements Debugger {
     }
 
     @Nonnull
-    State getCurrentState() {
-        return Objects.requireNonNull(stateStack.peek());
+    SymbolTables getCurrentSymbolState() {
+        return Objects.requireNonNull(symbolTablesStack.peek());
     }
+
+    EventState getCurrentState() {
+        return Objects.requireNonNull(eventStateStack.peek());
+    }
+
 
     @Nullable
     @Override
@@ -151,27 +158,27 @@ public class PlannerRepl implements Debugger {
 
     @Override
     public int onGetIndex(@Nonnull final Class<?> clazz) {
-        return getCurrentState().getIndex(clazz);
+        return getCurrentSymbolState().getIndex(clazz);
     }
 
     @Override
     public int onUpdateIndex(@Nonnull final Class<?> clazz, @Nonnull final IntUnaryOperator updateFn) {
-        return getCurrentState().updateIndex(clazz, updateFn);
+        return getCurrentSymbolState().updateIndex(clazz, updateFn);
     }
 
     @Override
     public void onRegisterExpression(@Nonnull final RelationalExpression expression) {
-        getCurrentState().registerExpression(expression);
+        getCurrentSymbolState().registerExpression(expression);
     }
 
     @Override
     public void onRegisterReference(@Nonnull final Reference reference) {
-        getCurrentState().registerReference(reference);
+        getCurrentSymbolState().registerReference(reference);
     }
 
     @Override
     public void onRegisterQuantifier(@Nonnull final Quantifier quantifier) {
-        getCurrentState().registerQuantifier(quantifier);
+        getCurrentSymbolState().registerQuantifier(quantifier);
     }
 
     @Override
@@ -203,7 +210,9 @@ public class PlannerRepl implements Debugger {
 
     @Override
     public void onQuery(@Nonnull final String queryAsString, @Nonnull final PlanContext planContext) {
-        this.stateStack.push(State.copyOf(getCurrentState()));
+        this.eventStateStack.push(EventState.copyOf(getCurrentState()));
+        this.symbolTablesStack.push(SymbolTables.copyOf(getCurrentSymbolState()));
+
         this.queryAsString = queryAsString;
         this.planContext = planContext;
 
@@ -214,8 +223,11 @@ public class PlannerRepl implements Debugger {
     }
 
     void restartState() {
-        stateStack.pop();
-        stateStack.push(State.copyOf(getCurrentState()));
+        eventStateStack.pop();
+        eventStateStack.push(EventState.copyOf(getCurrentState()));
+
+        symbolTablesStack.pop();
+        symbolTablesStack.push(SymbolTables.copyOf(getCurrentSymbolState()));
     }
 
     void addBreakPoint(final BreakPoint breakPoint) {
@@ -255,9 +267,9 @@ public class PlannerRepl implements Debugger {
         Objects.requireNonNull(queryAsString);
         Objects.requireNonNull(planContext);
 
-        final State state = getCurrentState();
+        final EventState eventState = getCurrentState();
 
-        state.addCurrentEvent(event);
+        eventState.addCurrentEvent(event);
 
         final Set<BreakPoint> satisfiedBreakPoints = computeSatisfiedBreakPoints(event);
         satisfiedBreakPoints.forEach(breakPoint -> breakPoint.onBreak(this));
@@ -265,7 +277,7 @@ public class PlannerRepl implements Debugger {
         final boolean stop = !satisfiedBreakPoints.isEmpty();
         if (stop) {
             printKeyValue("paused in", Thread.currentThread().getName() + " at ");
-            printlnKeyValue("tick", String.valueOf(state.getCurrentTick()));
+            printlnKeyValue("tick", String.valueOf(eventState.getCurrentTick()));
             withProcessors(event, processor -> processor.onCallback(this, event));
             println();
 
@@ -332,7 +344,7 @@ public class PlannerRepl implements Debugger {
                                final Consumer<RelationalExpression> expressionConsumer,
                                final Consumer<Reference> referenceConsumer,
                                final Consumer<Quantifier> quantifierConsumer) {
-        final State state = getCurrentState();
+        final SymbolTables state = getCurrentSymbolState();
         final String upperCasePotentialIdentifier = potentialIdentifier.toUpperCase(Locale.ROOT);
         if (upperCasePotentialIdentifier.startsWith("EXP")) {
             @Nullable final RelationalExpression expression = lookupInCache(state.getExpressionCache(), upperCasePotentialIdentifier, "EXP");
@@ -399,7 +411,7 @@ public class PlannerRepl implements Debugger {
     @Nullable
     @Override
     public String nameForObject(@Nonnull final Object object) {
-        final State state = getCurrentState();
+        final SymbolTables state = getCurrentSymbolState();
         if (object instanceof RelationalExpression) {
             @Nullable final Integer id = state.getInvertedExpressionsCache().getIfPresent(object);
             return (id == null) ? null : "exp" + id;
@@ -453,28 +465,21 @@ public class PlannerRepl implements Debugger {
         reset();
     }
 
-    @Override
-    public String showStats() {
-        State currentState = stateStack.peek();
-        if (currentState != null) {
-            return currentState.showStats();
-        }
-        return "no stats";
-    }
-
     @Nonnull
     @Override
     public Optional<StatsMaps> getStatsMaps() {
-        State currentState = stateStack.peek();
-        if (currentState != null) {
-            return Optional.of(currentState.getStatsMaps());
+        EventState currentEventState = eventStateStack.peek();
+        if (currentEventState != null) {
+            return Optional.of(currentEventState.getStatsMaps());
         }
         return Optional.empty();
     }
 
     private void reset() {
-        this.stateStack.clear();
-        this.stateStack.push(State.initial(true, true, null));
+        this.eventStateStack.clear();
+        this.eventStateStack.push(EventState.initial(true, true, null));
+        this.symbolTablesStack.clear();
+        this.symbolTablesStack.push(new SymbolTables());
         this.breakPoints.clear();
         this.currentBreakPointIndex = 0;
         this.currentInternalBreakPointIndex = -1;

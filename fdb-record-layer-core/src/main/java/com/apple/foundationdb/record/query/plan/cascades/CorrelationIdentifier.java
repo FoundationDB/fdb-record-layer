@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.cascades.debug.SymbolDebugger;
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.collect.ImmutableSet;
 
@@ -88,10 +89,10 @@ public class CorrelationIdentifier {
     @Nonnull
     public static CorrelationIdentifier uniqueID(@Nonnull final Class<?> clazz, @Nonnull final String prefix) {
         final CorrelationIdentifier id =
-                Debugger.getIndexOptional(clazz)
+                SymbolDebugger.getIndexOptional(clazz)
                         .map(i -> CorrelationIdentifier.of(prefix + i))
                         .orElseGet(() -> new CorrelationIdentifier(ProtoUtils.uniqueName(prefix)));
-        Debugger.updateIndex(clazz, i -> i + 1);
+        SymbolDebugger.updateIndex(clazz, i -> i + 1);
         return id;
     }
 
@@ -106,7 +107,7 @@ public class CorrelationIdentifier {
      */
     @Nonnull
     public static CorrelationIdentifier uniqueSingletonID(@Nonnull final UUID singleton, @Nonnull final String prefix) {
-        return Debugger.getOrRegisterSingleton(singleton)
+        return SymbolDebugger.getOrRegisterSingleton(singleton)
                 .map(index -> new CorrelationIdentifier(prefix + index))
                 .orElseGet(() -> new CorrelationIdentifier(singleton.toString()));
     }

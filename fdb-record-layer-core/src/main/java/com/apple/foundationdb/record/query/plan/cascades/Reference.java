@@ -25,6 +25,8 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.HeuristicPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger.InsertIntoMemoEvent;
+import com.apple.foundationdb.record.query.plan.cascades.debug.StatsDebugger;
+import com.apple.foundationdb.record.query.plan.cascades.debug.SymbolDebugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithChildren;
@@ -179,7 +181,7 @@ public class Reference implements Correlated<Reference>, Typed {
         finalExpressions.forEach(finalExpression -> propertiesMap.add(finalExpression));
         this.allMembersView = exploratoryMembers.concatExpressions(finalMembers);
         // Call debugger hook for this new reference.
-        Debugger.registerReference(this);
+        SymbolDebugger.registerReference(this);
     }
 
     @Nonnull
@@ -325,10 +327,10 @@ public class Reference implements Correlated<Reference>, Typed {
     private boolean insert(@Nonnull final RelationalExpression newExpression,
                            final boolean isFinal,
                            @Nullable final Map<ExpressionProperty<?>, ?> precomputedPropertiesMap) {
-        Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.begin()));
+        StatsDebugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.begin()));
         try {
             final boolean containsInMemo = containsInMemo(newExpression, isFinal);
-            Debugger.withDebugger(debugger -> {
+            StatsDebugger.withDebugger(debugger -> {
                 if (containsInMemo) {
                     debugger.onEvent(InsertIntoMemoEvent.reusedExpWithReferences(newExpression, ImmutableList.of(this)));
                 } else {
@@ -341,7 +343,7 @@ public class Reference implements Correlated<Reference>, Typed {
             }
             return false;
         } finally {
-            Debugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.end()));
+            StatsDebugger.withDebugger(debugger -> debugger.onEvent(InsertIntoMemoEvent.end()));
         }
     }
 
@@ -359,7 +361,7 @@ public class Reference implements Correlated<Reference>, Typed {
                                  final boolean isFinal,
                                  @Nullable final Map<ExpressionProperty<?>, ?> precomputedPropertiesMap) {
         // Call debugger hook to potentially register this new expression.
-        Debugger.registerExpression(newExpression);
+        SymbolDebugger.registerExpression(newExpression);
 
         Debugger.sanityCheck(() -> Verify.verify(getTotalMembersSize() == 0 ||
                 getResultType().equals(newExpression.getResultType())));
@@ -627,7 +629,7 @@ public class Reference implements Correlated<Reference>, Typed {
 
     @Override
     public String toString() {
-        return Debugger.mapDebugger(debugger -> debugger.nameForObject(this) + "[" +
+        return SymbolDebugger.mapDebugger(debugger -> debugger.nameForObject(this) + "[" +
                         getAllMemberExpressions().stream()
                                 .map(debugger::nameForObject)
                                 .collect(Collectors.joining(",")) + "]")
@@ -856,8 +858,8 @@ public class Reference implements Correlated<Reference>, Typed {
                                @Nonnull final Collection<? extends RelationalExpression> exploratoryExpressions,
                                @Nonnull final Collection<? extends RelationalExpression> finalExpressions) {
         // Call debugger hook to potentially register this new expression.
-        exploratoryExpressions.forEach(Debugger::registerExpression);
-        finalExpressions.forEach(Debugger::registerExpression);
+        exploratoryExpressions.forEach(SymbolDebugger::registerExpression);
+        finalExpressions.forEach(SymbolDebugger::registerExpression);
 
         return new Reference(plannerStage, new LinkedIdentitySet<>(exploratoryExpressions),
                 new LinkedIdentitySet<>(finalExpressions));
