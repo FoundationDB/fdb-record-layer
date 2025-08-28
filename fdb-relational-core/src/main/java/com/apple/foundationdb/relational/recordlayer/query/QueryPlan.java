@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanHashable.PlanHashMode;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -281,8 +280,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         }
 
         @Nonnull
-        protected Optional<RecordQueryPlan> getPlanFromContinuation(@Nonnull ContinuationImpl parsedContinuation,
-                                                                    @Nonnull ExecutionContext executionContext) {
+        protected Optional<RecordQueryPlan> getSerializedPlanFromContinuation(@Nonnull ContinuationImpl parsedContinuation,
+                                                                              @Nonnull ExecutionContext executionContext) {
             final var compiledStatement = parsedContinuation.getCompiledStatement();
             if (compiledStatement == null || !compiledStatement.hasPlan() || !compiledStatement.hasPlanSerializationMode()) {
                 return Optional.empty();
@@ -340,7 +339,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
                             parsedContinuation.getVersion(),
                             parsedContinuation.getCompiledStatement() == null ? null : parsedContinuation.getCompiledStatement().getPlanSerializationMode(),
                             parsedContinuation.getPlanHash(),
-                            getPlanFromContinuation(parsedContinuation, executionContext).map(RecordQueryPlan::getComplexity).orElse(null)
+                            getSerializedPlanFromContinuation(parsedContinuation, executionContext).map(RecordQueryPlan::getComplexity).orElse(null)
                     ), RelationalStructMetaData.of(continuationStructType));
 
             final Struct plannerMetrics;
@@ -523,22 +522,10 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
         @Override
         @Nonnull
-        protected Optional<RecordQueryPlan> getPlanFromContinuation(@Nonnull ContinuationImpl parsedContinuation,
-                                                                    @Nonnull ExecutionContext executionContext) {
-            final var compiledStatement = parsedContinuation.getCompiledStatement();
-            if (compiledStatement == null || !compiledStatement.hasPlan() || !compiledStatement.hasPlanSerializationMode()) {
-                return Optional.empty();
-            }
-
-            final var currentPlan = this.getRecordQueryPlan();
-            final var continuationPlanHash = parsedContinuation.getPlanHash();
-            final var serializedPlanHashMode = PlanHashable.PlanHashMode.valueOf(compiledStatement.getPlanSerializationMode());
-            if (continuationPlanHash != null && continuationPlanHash.equals(currentPlan.planHash(serializedPlanHashMode))) {
-                return Optional.of(currentPlan);
-            }
-
-            // Fallback to deserializing the plan from the continuation
-            return super.getPlanFromContinuation(parsedContinuation, executionContext);
+        protected Optional<RecordQueryPlan> getSerializedPlanFromContinuation(@Nonnull ContinuationImpl parsedContinuation,
+                                                                              @Nonnull ExecutionContext executionContext) {
+            // No need to deserialize the plan from the continuation again
+            return Optional.of(getRecordQueryPlan());
         }
     }
 
