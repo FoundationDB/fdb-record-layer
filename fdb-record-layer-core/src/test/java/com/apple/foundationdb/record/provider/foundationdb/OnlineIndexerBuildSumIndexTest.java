@@ -61,7 +61,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * Test building sum indexes.
  */
-public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildIndexTest {
+class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildIndexTest {
     private static final Index REC_NO_INDEX = new Index("simple$rec_no", "rec_no");
     private static final Index NUM_VALUE_2_INDEX = new Index("simple$num_value_2", "num_value_2");
 
@@ -92,10 +92,6 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
                 return IndexMaintenanceFilter.IndexValues.NONE;
             }
         };
-    }
-
-    private OnlineIndexerBuildSumIndexTest(boolean safeBuild) {
-        super(safeBuild);
     }
 
     @SuppressWarnings("try")
@@ -467,23 +463,5 @@ public abstract class OnlineIndexerBuildSumIndexTest extends OnlineIndexerBuildI
                 .map(TestRecords1Proto.MySimpleRecord::getRecNo)
                 .collect(Collectors.toList());
         sumRebuildFiltered(records, recordsWhileBuilding, deleteWhileBuilding, sourceIndex, filterSource);
-    }
-
-    /**
-     * Build indexes with the unchecked index build interfaces.
-     */
-    public static class Unsafe extends OnlineIndexerBuildSumIndexTest {
-        Unsafe() {
-            super(false);
-        }
-    }
-
-    /**
-     * Build indexes with the safe index build interfaces.
-     */
-    public static class Safe extends OnlineIndexerBuildSumIndexTest {
-        Safe() {
-            super(true);
-        }
     }
 }

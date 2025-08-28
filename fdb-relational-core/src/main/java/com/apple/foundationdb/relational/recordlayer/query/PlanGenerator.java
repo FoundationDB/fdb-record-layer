@@ -208,7 +208,8 @@ public final class PlanGenerator {
                                          @Nonnull Set<PlanHashable.PlanHashMode> validPlanHashModes,
                                          @Nonnull PlanHashable.PlanHashMode currentPlanHashMode) throws RelationalException {
         if (ast.getQueryCachingFlags().contains(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_EXECUTE_CONTINUATION_STATEMENT)) {
-            return generatePhysicalPlanForExecuteContinuation(ast, validPlanHashModes, currentPlanHashMode);
+            return planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.GENERATE_CONTINUED_PLAN, () ->
+                    generatePhysicalPlanForExecuteContinuation(ast, validPlanHashModes, currentPlanHashMode));
         } else {
             return generatePhysicalPlanForCompilableStatement(ast, isCaseSensitive(), currentPlanHashMode);
         }

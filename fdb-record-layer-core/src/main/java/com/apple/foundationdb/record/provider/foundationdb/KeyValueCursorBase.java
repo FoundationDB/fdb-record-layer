@@ -246,6 +246,11 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             // left (inclusive) and another on the right (exclusive).
             prefixLength = calculatePrefixLength();
 
+            // When both endpoints are prefix strings, we should strip off the last byte \x00 from Tuple
+            if (lowEndpoint == EndpointType.PREFIX_STRING && highEndpoint == EndpointType.PREFIX_STRING) {
+                prefixLength--;
+            }
+
             reverse = scanProperties.isReverse();
             if (continuation != null) {
                 final byte[] continuationBytes = new byte[prefixLength + continuation.length];
