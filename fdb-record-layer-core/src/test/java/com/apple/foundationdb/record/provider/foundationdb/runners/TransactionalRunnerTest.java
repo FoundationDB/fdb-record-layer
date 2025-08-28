@@ -140,6 +140,11 @@ class TransactionalRunnerTest {
         }
     }
 
+    /**
+     * Validate the behavior when the future returned by {@link TransactionalRunner#runAsync(boolean, Function)}
+     * completes exceptionally. The work done by the transaction should not be committed, and the underlying
+     * exception should be forwarded up wrapped as a {@link CompletionException}.
+     */
     @Test
     void abortsAsyncInChainedFuture() {
         try (TransactionalRunner runner = defaultTransactionalRunner()) {
@@ -163,10 +168,15 @@ class TransactionalRunnerTest {
     /**
      * Check the behavior of an exception that is thrown directly in the callback of
      * the {@link TransactionalRunner#runAsync(boolean, Function)} call. Here, the exception
-     * is forwarded directly
+     * is forwarded directly rather than wrapped in a {@link CompletionException}. We may
+     * want to consider modifying this so that the semantics are the same as if the
+     * exception occurs in the callback (that is, always return a future). In that case,
+     * the assertions here should more closely mirror {@link #abortsAsyncInChainedFuture()}.
+     *
+     * @see #abortsAsyncInChainedFuture()
      */
     @Test
-    void abortAsyncDuringRunnable() {
+    void abortsAsyncDuringRunnable() {
         try (TransactionalRunner runner = defaultTransactionalRunner()) {
             final RuntimeException cause = new RuntimeException("ABORT");
             final RuntimeException exception = assertThrows(RuntimeException.class, () ->
@@ -184,6 +194,10 @@ class TransactionalRunnerTest {
         }
     }
 
+    /**
+     * Validate the behavior when an exception is thrown during {@link TransactionalRunner#run(boolean, Function)}.
+     * The exception should be forwarded, and the transaction should not be committed.
+     */
     @Test
     void abortsSynchronous() {
         try (TransactionalRunner runner = defaultTransactionalRunner()) {
