@@ -81,7 +81,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
-import com.google.protobuf.Option;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -282,7 +281,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
 
         @Nonnull
         protected Optional<RecordQueryPlan> getSerializedPlanFromContinuation(@Nonnull ContinuationImpl parsedContinuation,
-                                                                              @Nonnull ExecutionContext executionContext) {
+                                                                              @Nonnull ExecutionContext executionContext) throws RelationalException {
             final var compiledStatement = parsedContinuation.getCompiledStatement();
             if (compiledStatement == null || !compiledStatement.hasPlan() || !compiledStatement.hasPlanSerializationMode()) {
                 return Optional.empty();
@@ -304,7 +303,8 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         }
 
         @Nonnull
-        private RelationalResultSet executeExplain(@Nonnull ContinuationImpl parsedContinuation, ExecutionContext executionContext) {
+        private RelationalResultSet executeExplain(@Nonnull ContinuationImpl parsedContinuation,
+                                                   ExecutionContext executionContext) throws RelationalException {
             final var continuationStructType = DataType.StructType.from(
                     "PLAN_CONTINUATION", List.of(
                             DataType.StructType.Field.from("EXECUTION_STATE", DataType.Primitives.BYTES.type(), 0),
@@ -528,12 +528,11 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         @Override
         @Nonnull
         protected Optional<RecordQueryPlan> getSerializedPlanFromContinuation(@Nonnull ContinuationImpl parsedContinuation,
-                                                                              @Nonnull ExecutionContext executionContext) {
-            if (parsedContinuation.getPlanHash() == null ||
-                    !parsedContinuation.getPlanHash().equals(serializedPlanHashSupplier.get())) {
-                return Optional.empty();
-            }
-
+                                                                              @Nonnull ExecutionContext executionContext) throws RelationalException {
+            Assert.that(
+                    Objects.requireNonNull(parsedContinuation.getPlanHash()).equals(serializedPlanHashSupplier.get()),
+                    ErrorCode.INTERNAL_ERROR,
+                    "unexpected mismatch between deserialized plan hash and continuation plan hash");
             // No need to deserialize the plan from the continuation again
             return Optional.of(getRecordQueryPlan());
         }
