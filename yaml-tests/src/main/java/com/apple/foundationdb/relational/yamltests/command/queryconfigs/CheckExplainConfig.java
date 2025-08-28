@@ -189,14 +189,16 @@ public class CheckExplainConfig extends QueryConfig {
             final var actualCountersAndTimers = actualInfo.getCountersAndTimers();
             final var metricsDescriptor = expectedCountersAndTimers.getDescriptorForType();
 
-            executionContext.putMetrics(blockName, currentQuery, lineNumber, actualInfo, setups);
             if (areMetricsDifferent(expectedCountersAndTimers, actualCountersAndTimers, metricsDescriptor)) {
+                executionContext.putMetrics(blockName, currentQuery, lineNumber, actualInfo, setups);
                 if (executionContext.shouldCorrectMetrics()) {
                     executionContext.markDirty();
                     logger.debug(() -> "⭐️ Successfully updated planner metrics at line " + getLineNumber());
                 } else {
                     QueryCommand.reportTestFailure("‼️ Planner metrics have changed for line " + getLineNumber());
                 }
+            } else {
+                executionContext.putMetrics(blockName, currentQuery, lineNumber, expectedPlannerMetricsInfo, setups);
             }
         }
     }
