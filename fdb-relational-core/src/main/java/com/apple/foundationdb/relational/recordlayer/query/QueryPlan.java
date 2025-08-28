@@ -81,6 +81,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
+import com.google.protobuf.Option;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -469,6 +470,9 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         @Nonnull
         private final PlanHashMode serializedPlanHashMode;
 
+        @Nonnull
+        private final Supplier<Integer> serializedPlanHashSupplier;
+
         public ContinuedPhysicalQueryPlan(@Nonnull final RecordQueryPlan recordQueryPlan,
                                           @Nonnull final TypeRepository typeRepository,
                                           @Nonnull final QueryPlanConstraint continuationConstraint,
@@ -479,6 +483,7 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
             super(recordQueryPlan, null, typeRepository, QueryPlanConstraint.noConstraint(),
                     continuationConstraint, queryExecutionParameters, query, currentPlanHashMode);
             this.serializedPlanHashMode = serializedPlanHashMode;
+            this.serializedPlanHashSupplier = Suppliers.memoize(() -> recordQueryPlan.planHash(serializedPlanHashMode));
         }
 
         @Nonnull
@@ -524,6 +529,11 @@ public abstract class QueryPlan extends Plan<RelationalResultSet> implements Typ
         @Nonnull
         protected Optional<RecordQueryPlan> getSerializedPlanFromContinuation(@Nonnull ContinuationImpl parsedContinuation,
                                                                               @Nonnull ExecutionContext executionContext) {
+            if (parsedContinuation.getPlanHash() == null ||
+                    !parsedContinuation.getPlanHash().equals(serializedPlanHashSupplier.get())) {
+                return Optional.empty();
+            }
+
             // No need to deserialize the plan from the continuation again
             return Optional.of(getRecordQueryPlan());
         }
