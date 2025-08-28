@@ -188,23 +188,6 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
             return byteString.isEmpty() ? new byte[0] : byteString.toByteArray();
         }
 
-        @Nullable
-        public byte[] getInnerContinuationInBytes() {
-            if (lastKey == null) {
-                return null;
-            }
-            return Arrays.copyOfRange(lastKey, prefixLength, lastKey.length);
-        }
-
-        @Nonnull
-        public ByteString getInnerContinuationInByteString() {
-            if (lastKey == null) {
-                return ByteString.EMPTY;
-            }
-            ByteString base = ZeroCopyByteString.wrap(lastKey);
-            return base.substring(prefixLength, lastKey.length);
-        }
-
         public static byte[] fromRawBytes(@Nullable byte[] rawBytes, SerializationMode serializationMode) {
             if (rawBytes == null) {
                 return null;
@@ -230,11 +213,11 @@ public abstract class KeyValueCursorBase<K extends KeyValue> extends AsyncIterat
         private RecordCursorProto.KeyValueCursorContinuation toProto() {
             RecordCursorProto.KeyValueCursorContinuation.Builder builder = RecordCursorProto.KeyValueCursorContinuation.newBuilder();
             if (lastKey == null) {
-                // proto.hasContinuation() = false
+                // when lastKey is null, proto.hasContinuation() = false
                 return builder.setPrefixLength(prefixLength).build();
             } else {
                 ByteString base = ZeroCopyByteString.wrap(Objects.requireNonNull(lastKey));
-                // proto.hasContinuation() = true even when prefixLength = lastKey.length, proto.getContinuation() = ByteString.EMPTY
+                // even when prefixLength = lastKey.length, proto.getContinuation() = ByteString.EMPTY, proto.hasContinuation() = true
                 return builder.setContinuation(base.substring(prefixLength, lastKey.length)).setPrefixLength(prefixLength).build();
             }
         }

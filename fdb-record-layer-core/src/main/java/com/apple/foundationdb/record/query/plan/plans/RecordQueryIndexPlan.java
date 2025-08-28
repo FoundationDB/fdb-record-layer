@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorEndContinuation;
+import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.ScanProperties;
@@ -203,7 +204,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                 recordQueryIndexPlanProto.getStrictlySorted(),
                 Optional.empty(),
                 Type.fromTypeProto(serializationContext, Objects.requireNonNull(recordQueryIndexPlanProto.getResultType())),
-                QueryPlanConstraint.fromProto(serializationContext, Objects.requireNonNull(recordQueryIndexPlanProto.getConstraint())));
+                QueryPlanConstraint.fromProto(serializationContext, Objects.requireNonNull(recordQueryIndexPlanProto.getConstraint())),
+                recordQueryIndexPlanProto.getKeyvalueCursorSerializedToNew() ? KeyValueCursorBase.SerializationMode.TO_NEW : KeyValueCursorBase.SerializationMode.TO_OLD);
     }
 
     @VisibleForTesting
@@ -745,6 +747,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
         builder.setStrictlySorted(strictlySorted);
         builder.setResultType(resultType.toTypeProto(serializationContext));
         builder.setConstraint(constraint.toProto(serializationContext));
+        builder.setKeyvalueCursorSerializedToNew(serializationMode == KeyValueCursorBase.SerializationMode.TO_NEW);
         return builder.build();
     }
 
@@ -791,15 +794,11 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
             if (continuation.isEnd()) {
                 return continuation;
             }
-            byte[] continuationBytes;
-            if (!(continuation instanceof KeyValueCursorBase.Continuation)) {
-                throw new RecordCoreException("can only wrap KeyValueCursorBase.Continuation class");
-            }
-            continuationBytes = ((KeyValueCursorBase.Continuation) continuation).getInnerContinuationInBytes();
+            byte[] continuationBytes = KeyValueCursorBase.Continuation.fromRawBytes(continuation.toBytes(), serializationMode);
             if (continuationBytes != null && ByteArrayUtil.startsWith(continuationBytes, prefixBytes)) {
                 // Strip away the prefix. Note that ByteStrings re-use the underlying ByteArray, so this can
                 // save a copy.
-                return new IndexScanContinuationConvertor.PrefixRemovingContinuation(continuation, prefixBytes.length);
+                return new IndexScanContinuationConvertor.PrefixRemovingContinuation(continuation, prefixBytes.length, serializationMode);
             } else {
                 // This key does not begin with the prefix. Return an END continuation to indicate that the
                 // scan is over.
@@ -814,10 +813,12 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
             @SuppressWarnings("squid:S3077") // array immutable once initialized, so AtomicByteArray not necessary
             @Nullable
             private volatile byte[] bytes;
+            private final KeyValueCursorBase.SerializationMode serializationMode;
 
-            private PrefixRemovingContinuation(RecordCursorContinuation baseContinuation, int prefixLength) {
+            private PrefixRemovingContinuation(RecordCursorContinuation baseContinuation, int prefixLength, KeyValueCursorBase.SerializationMode serializationMode) {
                 this.baseContinuation = baseContinuation;
                 this.prefixLength = prefixLength;
+                this.serializationMode = serializationMode;
             }
 
             @Nullable
@@ -826,7 +827,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
                 if (bytes == null) {
                     synchronized (this) {
                         if (bytes == null) {
-                            byte[] baseContinuationBytes = baseContinuation instanceof KeyValueCursorBase.Continuation ? ((KeyValueCursorBase.Continuation) baseContinuation).getInnerContinuationInBytes() : baseContinuation.toBytes();
+                            byte[] baseContinuationBytes = KeyValueCursorBase.Continuation.fromRawBytes(baseContinuation.toBytes(), serializationMode);
                             if (baseContinuationBytes == null) {
                                 return null;
                             }
@@ -840,7 +841,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren,
             @Nonnull
             @Override
             public ByteString toByteString() {
-                return (baseContinuation instanceof KeyValueCursorBase.Continuation) ? ((KeyValueCursorBase.Continuation) baseContinuation).getInnerContinuationInByteString().substring(prefixLength) : baseContinuation.toByteString().substring(prefixLength);
+                byte[] result = KeyValueCursorBase.Continuation.fromRawBytes(baseContinuation.toBytes(), serializationMode);
+                return result == null ? ByteString.EMPTY : ByteString.copyFrom(result);
             }
 
             @Override
