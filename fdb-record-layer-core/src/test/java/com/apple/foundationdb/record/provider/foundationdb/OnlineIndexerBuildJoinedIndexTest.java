@@ -74,10 +74,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Tests for building indexes on {@link com.apple.foundationdb.record.metadata.JoinedRecordType}s.
  */
 @SuppressWarnings("try")
-abstract class OnlineIndexerBuildJoinedIndexTest extends OnlineIndexerBuildIndexTest {
-    OnlineIndexerBuildJoinedIndexTest(boolean safeBuild) {
-        super(safeBuild);
-    }
+class OnlineIndexerBuildJoinedIndexTest extends OnlineIndexerBuildIndexTest {
 
     static class OnlineIndexerJoinedRecordHandler implements OnlineIndexerTestRecordHandler<Message> {
         private static final OnlineIndexerJoinedRecordHandler INSTANCE = new OnlineIndexerJoinedRecordHandler();
@@ -522,17 +519,5 @@ abstract class OnlineIndexerBuildJoinedIndexTest extends OnlineIndexerBuildIndex
             addRandomUpdate(r, rec, recordsWhileBuilding, deleteWhileBuilding);
         }
         singleCountIndexRebuild(records, recordsWhileBuilding, deleteWhileBuilding);
-    }
-
-    static class Unsafe extends OnlineIndexerBuildJoinedIndexTest {
-        Unsafe() {
-            super(false);
-        }
-    }
-
-    static class Safe extends OnlineIndexerBuildJoinedIndexTest {
-        Safe() {
-            super(true);
-        }
     }
 }

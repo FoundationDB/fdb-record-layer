@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer.metric;
 
+import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
@@ -28,7 +29,6 @@ import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnectio
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.utils.Ddl;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -36,6 +36,8 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
+import java.sql.SQLException;
+import java.util.function.Consumer;
 
 public class RecordLayerMetricCollectorTest {
 
@@ -47,7 +49,65 @@ public class RecordLayerMetricCollectorTest {
     public final EmbeddedRelationalExtension relationalExtension = new EmbeddedRelationalExtension();
 
     @Test
-    void planCacheMetricsTest() throws Exception {
+    void testPlanCacheMetrics() throws Exception {
+        setupAndExecuteWithConnection((connection) -> {
+            executeSimpleSelectAndReturnContinuation(connection, false, false);
+            executeSimpleSelectAndReturnContinuation(connection, false, true);
+        });
+    }
+
+    @Test
+    void testContinuedPlanMetrics() throws Exception {
+        setupAndExecuteWithConnection((connection) -> {
+            Continuation continuation = executeSimpleSelectAndReturnContinuation(connection, true, false);
+            try (var statement = connection.prepareStatement("EXECUTE CONTINUATION ?continuation")) {
+                statement.setBytes("continuation", continuation.serialize());
+                Assertions.assertTrue(statement.execute(), "Did not return a result set from a select statement!");
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    final var resultSetAssert = ResultSetAssert.assertThat(resultSet);
+                    for (int i = 0; i < 5; i++) {
+                        resultSetAssert.hasNextRow();
+                    }
+                    resultSetAssert.hasNoNextRow();
+                    var collector = connection.getMetricCollector();
+                    testGeneralMetrics(collector);
+                    testExecuteContinuationSpecificMetrics(collector);
+                }
+            } catch (SQLException sql) {
+                Assertions.fail(sql);
+            }
+        });
+    }
+
+    private Continuation executeSimpleSelectAndReturnContinuation(EmbeddedRelationalConnection connection, boolean limitMaxRows, boolean hitCache) {
+        Continuation continuation = null;
+        try (var statement = connection.createStatement()) {
+            if (limitMaxRows) {
+                statement.setMaxRows(5);
+            }
+            Assertions.assertTrue(statement.execute("SELECT * FROM simple_table"), "Did not return a result set from a select statement!");
+            try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                final var resultSetAssert = ResultSetAssert.assertThat(resultSet);
+                for (int i = 0; i < (limitMaxRows ? 5 : 10); i++) {
+                    resultSetAssert.hasNextRow();
+                }
+                resultSetAssert.hasNoNextRow();
+                continuation = resultSet.getContinuation();
+                var collector = connection.getMetricCollector();
+                testGeneralMetrics(collector);
+                if (!hitCache) {
+                    testCacheMissSpecificMetrics(collector);
+                } else {
+                    testCacheHitSpecificMetrics(collector);
+                }
+            }
+        } catch (SQLException sql) {
+            Assertions.fail(sql);
+        }
+        return continuation;
+    }
+
+    private void setupAndExecuteWithConnection(Consumer<EmbeddedRelationalConnection> execute) throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/METRIC_COLLECTOR_TESTS")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             final var connection = ddl.setSchemaAndGetConnection().unwrap(EmbeddedRelationalConnection.class);
             try (var statement = connection.createStatement()) {
@@ -55,30 +115,7 @@ public class RecordLayerMetricCollectorTest {
                     statement.execute("INSERT INTO simple_table(a) VALUES (" + i + ")");
                 }
             }
-            try (var statement = connection.createStatement()) {
-                Assertions.assertTrue(statement.execute("SELECT * FROM simple_table"), "Did not return a result set from a select statement!");
-                try (final RelationalResultSet resultSet = statement.getResultSet()) {
-                    final var resultSetAssert = ResultSetAssert.assertThat(resultSet);
-                    for (int i = 0; i < 10; i++) {
-                        resultSetAssert.hasNextRow();
-                    }
-                    var collector = connection.getMetricCollector();
-                    testGeneralMetrics(collector);
-                    testCacheMissSpecificMetrics(collector);
-                }
-            }
-            try (var statement = connection.createStatement()) {
-                Assertions.assertTrue(statement.execute("SELECT * FROM simple_table"), "Did not return a result set from a select statement!");
-                try (final RelationalResultSet resultSet = statement.getResultSet()) {
-                    final var resultSetAssert = ResultSetAssert.assertThat(resultSet);
-                    for (int i = 0; i < 10; i++) {
-                        resultSetAssert.hasNextRow();
-                    }
-                    var collector = connection.getMetricCollector();
-                    testGeneralMetrics(collector);
-                    testCacheHitSpecificMetrics(collector);
-                }
-            }
+            execute.accept(connection);
         }
     }
 
@@ -87,8 +124,6 @@ public class RecordLayerMetricCollectorTest {
                 "LEX_PARSE event should be registered with the metricCollector");
         Assertions.assertDoesNotThrow(() -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.NORMALIZE_QUERY),
                 "NORMALIZE_QUERY event should be registered with the metricCollector");
-        Assertions.assertDoesNotThrow(() -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.CACHE_LOOKUP),
-                "CACHE_LOOKUP event should be registered with the metricCollector");
         Assertions.assertDoesNotThrow(() -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.EXECUTE_RECORD_QUERY_PLAN),
                 "EXECUTE_RECORD_QUERY_PLAN event should be registered with the metricCollector");
         Assertions.assertDoesNotThrow(() -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.CREATE_RESULT_SET_ITERATOR),
@@ -102,22 +137,28 @@ public class RecordLayerMetricCollectorTest {
     }
 
     private static void testCacheMissSpecificMetrics(@Nonnull MetricCollector collector) {
+        // true event
+        Assertions.assertDoesNotThrow(() -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.CACHE_LOOKUP),
+                "CACHE_LOOKUP event should be registered with the metricCollector");
         Assertions.assertDoesNotThrow(() -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.GENERATE_LOGICAL_PLAN),
                 "GENERATE_LOGICAL_PLAN event should be registered with the metricCollector");
         Assertions.assertDoesNotThrow(() -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.OPTIMIZE_PLAN),
                 "OPTIMIZE_PLAN event should be registered with the metricCollector");
-        //Assertions.assertDoesNotThrow(() -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_MISS),
-        //        "PLAN_CACHE_PRIMARY_MISS event should be registered with the metricCollector");
         Assertions.assertDoesNotThrow(() -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_MISS),
                 "PLAN_CACHE_SECONDARY_MISS event should be registered with the metricCollector");
         Assertions.assertDoesNotThrow(() -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS),
                 "PLAN_CACHE_TERTIARY_MISS event should be registered with the metricCollector");
+        // false events
+        Assertions.assertThrows(UncheckedRelationalException.class, () -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.GENERATE_CONTINUED_PLAN),
+                "GENERATE_CONTINUED_PLAN event should not be registered with the metricCollector");
         Assertions.assertThrows(UncheckedRelationalException.class, () -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT),
                 "PLAN_CACHE_TERTIARY_HIT event should not be registered with the metricCollector");
     }
 
     private static void testCacheHitSpecificMetrics(@Nonnull MetricCollector collector) {
         // false events
+        Assertions.assertThrows(UncheckedRelationalException.class, () -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.GENERATE_CONTINUED_PLAN),
+                "GENERATE_CONTINUED_PLAN event should not be registered with the metricCollector");
         Assertions.assertThrows(UncheckedRelationalException.class, () -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.GENERATE_LOGICAL_PLAN),
                 "GENERATE_LOGICAL_PLAN event should not be registered with the metricCollector");
         Assertions.assertThrows(UncheckedRelationalException.class, () -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.OPTIMIZE_PLAN),
@@ -129,7 +170,30 @@ public class RecordLayerMetricCollectorTest {
         Assertions.assertThrows(UncheckedRelationalException.class, () -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS),
                 "PLAN_CACHE_TERTIARY_MISS event should not be registered with the metricCollector");
         // true event
+        Assertions.assertDoesNotThrow(() -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.CACHE_LOOKUP),
+                "CACHE_LOOKUP event should be registered with the metricCollector");
         Assertions.assertDoesNotThrow(() -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT),
                 "PLAN_CACHE_TERTIARY_HIT event should be registered with the metricCollector");
+    }
+
+    private static void testExecuteContinuationSpecificMetrics(@Nonnull MetricCollector collector) {
+        // false events
+        Assertions.assertThrows(UncheckedRelationalException.class, () -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.GENERATE_LOGICAL_PLAN),
+                "GENERATE_LOGICAL_PLAN event should not be registered with the metricCollector");
+        Assertions.assertThrows(UncheckedRelationalException.class, () -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.OPTIMIZE_PLAN),
+                "OPTIMIZE_PLAN event should not be registered with the metricCollector");
+        Assertions.assertThrows(UncheckedRelationalException.class, () -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_PRIMARY_MISS),
+                "PLAN_CACHE_PRIMARY_MISS event should not be registered with the metricCollector");
+        Assertions.assertThrows(UncheckedRelationalException.class, () -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_SECONDARY_MISS),
+                "PLAN_CACHE_SECONDARY_MISS event should not be registered with the metricCollector");
+        Assertions.assertThrows(UncheckedRelationalException.class, () -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS),
+                "PLAN_CACHE_TERTIARY_MISS event should not be registered with the metricCollector");
+        Assertions.assertThrows(UncheckedRelationalException.class, () -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.CACHE_LOOKUP),
+                "CACHE_LOOKUP event event should not be registered with the metricCollector");
+        Assertions.assertThrows(UncheckedRelationalException.class, () -> collector.getCountsForCounter(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT),
+                "PLAN_CACHE_TERTIARY_HIT event should not be registered with the metricCollector");
+        // true event
+        Assertions.assertDoesNotThrow(() -> collector.getAverageTimeMicrosForEvent(RelationalMetric.RelationalEvent.GENERATE_CONTINUED_PLAN),
+                "GENERATE_CONTINUED_PLAN event should be registered with the metricCollector");
     }
 }
