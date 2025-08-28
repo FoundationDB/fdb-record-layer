@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
+import com.apple.foundationdb.record.provider.common.SerializationKeyManager;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyKey;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 
@@ -45,6 +46,8 @@ public final class LuceneRecordContextProperties {
      * Call {@link RecordLayerPropertyKey#buildValue(Supplier)} with a supplier if you want to override this property with a value other than default.
      */
     public static final RecordLayerPropertyKey<Boolean> LUCENE_INDEX_ENCRYPTION_ENABLED = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.encryptionEnabled", false);
+
+    public static final RecordLayerPropertyKey<SerializationKeyManager> LUCENE_INDEX_KEY_MANAGER = new RecordLayerPropertyKey<>("com.apple.foundationdb.record.lucene.keyManager", null, SerializationKeyManager.class);
 
     /**
      * An {@link ExecutorService} to use for parallel execution in {@link LuceneRecordCursor}.
