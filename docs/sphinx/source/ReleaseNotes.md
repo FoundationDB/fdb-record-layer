@@ -7,6 +7,42 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.5
 
+### 4.5.7.0
+
+<h4> Breaking Changes </h4>
+
+* Deprecate synchronized indexing controls - [PR #3552](https://github.com/FoundationDB/fdb-record-layer/pull/3552)
+<h4> Bug Fixes </h4>
+
+* FDBRecordStore.scanTypedRecords would skip double records on a store using `splitLongRecords` - [PR #3525](https://github.com/FoundationDB/fdb-record-layer/pull/3525)
+* Fix the continuation returned when scanning by EndpointType.PREFIX_STRING - [PR #3523](https://github.com/FoundationDB/fdb-record-layer/pull/3523)
+* Fix for Lucene block leaks on file deletion - [PR #3551](https://github.com/FoundationDB/fdb-record-layer/pull/3551)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Use thenAccept instead of thenApply - [PR #3535](https://github.com/FoundationDB/fdb-record-layer/pull/3535)
+* Extract explain query config into a separate file - [PR #3556](https://github.com/FoundationDB/fdb-record-layer/pull/3556)
+
+</details>
+
+
+**[Full Changelog (4.5.6.0...4.5.7.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.5.6.0...4.5.7.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.4.11.0`, ✅`4.4.12.0`, ✅`4.4.14.0`, ✅`4.4.15.0`, ✅`4.5.1.0`, ✅`4.5.2.0`, ✅`4.5.3.0`, ✅`4.5.4.0`, ✅`4.5.5.0`, ✅`4.5.6.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/17271178483)
+
+
+
 ### 4.5.6.0
 
 <h4> New Features </h4>
