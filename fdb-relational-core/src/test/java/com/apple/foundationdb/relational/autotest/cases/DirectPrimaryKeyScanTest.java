@@ -43,7 +43,6 @@ import com.apple.foundationdb.relational.autotest.datagen.UniformDataSource;
 import com.apple.foundationdb.relational.memory.InMemoryCatalog;
 import com.apple.foundationdb.relational.memory.InMemoryRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
-
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.net.URI;
@@ -53,6 +52,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 @AutomatedTest
@@ -111,7 +111,7 @@ public class DirectPrimaryKeyScanTest {
                 cfg.getInt("maxStructs"),
                 cfg.getInt("maxColumns"));
 
-        String baseTemplateName = this.getClass().getSimpleName();
+        String baseTemplateName = this.getClass().getSimpleName() + "_" + String.valueOf(UUID.randomUUID()).replace("-", "_");
 
         int numSchemasToGen = cfg.getInt("numSchemas");
         List<SchemaDescription> schemas = new ArrayList<>();
