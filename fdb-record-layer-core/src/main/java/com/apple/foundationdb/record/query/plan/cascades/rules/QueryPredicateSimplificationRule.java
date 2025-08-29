@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
@@ -88,7 +89,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *  }</pre>
  */
 @SuppressWarnings({"PMD.TooManyStaticImports", "PMD.CompareObjectsWithEquals"})
-public class QueryPredicateSimplificationRule extends ExplorationCascadesRule<SelectExpression> {
+public class QueryPredicateSimplificationRule extends AbstractCascadesRule<SelectExpression> implements ExplorationCascadesRule<SelectExpression> {
     @Nonnull
     private static final CollectionMatcher<QueryPredicate> predicateMatcher = atLeastOne(anyPredicate());
     @Nonnull

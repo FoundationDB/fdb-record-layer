@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -75,7 +76,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  *
  * where pred' is rebased along the translation from qun to newQun.
  */
-public class PushDistinctBelowFilterRule extends ImplementationCascadesRule<RecordQueryUnorderedPrimaryKeyDistinctPlan> {
+public class PushDistinctBelowFilterRule extends AbstractCascadesRule<RecordQueryUnorderedPrimaryKeyDistinctPlan> implements ImplementationCascadesRule<RecordQueryUnorderedPrimaryKeyDistinctPlan> {
     @Nonnull
     private static final BindingMatcher<? extends Reference> innerRefMatcher = anyRefOverOnlyPlans();
     @Nonnull

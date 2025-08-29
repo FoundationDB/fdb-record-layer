@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
@@ -58,7 +58,7 @@ import java.util.Optional;
  * provided properties guaranteed by the candidate side.
  */
 @API(API.Status.EXPERIMENTAL)
-public class AdjustMatchRule extends CascadesRule<PartialMatch> {
+public class AdjustMatchRule extends AbstractCascadesRule<PartialMatch> {
     private static final BindingMatcher<PartialMatch> rootMatcher = PartialMatchMatchers.incompleteMatch();
 
     public AdjustMatchRule() {

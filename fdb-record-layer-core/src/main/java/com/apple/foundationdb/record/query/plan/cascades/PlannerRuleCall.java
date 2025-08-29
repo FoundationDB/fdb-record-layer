@@ -31,7 +31,7 @@ import javax.annotation.Nonnull;
  * A <code>PlannerRuleCall</code> is a context object that supports a single application of a rule to a particular
  * expression. It stores and provides convenient access to various context related to the transformation, such as any
  * bindings, access to the {@link PlanContext}, etc. A <code>PlannerRuleCall</code> is passed to every rule's
- * {@link CascadesRule#onMatch(CascadesRuleCall)} method.
+ * {@link AbstractCascadesRule#onMatch(PlannerRuleCall)} method.
  */
 @API(API.Status.EXPERIMENTAL)
 public interface PlannerRuleCall {

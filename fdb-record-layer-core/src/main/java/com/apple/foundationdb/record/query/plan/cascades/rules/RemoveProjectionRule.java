@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -41,7 +42,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * if all fields needed by the projection are already available prior to the fetch.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RemoveProjectionRule extends ImplementationCascadesRule<LogicalProjectionExpression> {
+public class RemoveProjectionRule extends AbstractCascadesRule<LogicalProjectionExpression> implements ImplementationCascadesRule<LogicalProjectionExpression> {
     @Nonnull
     private static final BindingMatcher<RecordQueryPlan> innerPlanMatcher = anyPlan();
     @Nonnull

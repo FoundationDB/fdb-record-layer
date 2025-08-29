@@ -50,7 +50,7 @@ import java.util.function.Function;
 /**
  * A rule call implementation for the {@link CascadesPlanner}. The life cycle of a rule call object starts with the
  * planner's decision to call a rule and ends after yielded objects have been processed. The planner instantiates a new
- * instance of this class and passes it to {@link CascadesRule#onMatch(CascadesRuleCall)} when the rule is executed.
+ * instance of this class and passes it to {@link AbstractCascadesRule#onMatch(PlannerRuleCall)} when the rule is executed.
  * During the execution of a rule, the rule implementation can invoke various yielding methods (most prominently
  * {@link #yieldExploratoryExpression(RelationalExpression)}, {@link #yieldFinalExpression(RelationalExpression)},
  * and {@link #yieldPartialMatch}) which modify the query graph if needed, and (if necessary) queue up those newly
