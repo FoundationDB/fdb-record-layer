@@ -83,6 +83,7 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
                 // single segment, but when the index is not grouped we have 5 transactions, which results in 5
                 // segments
                 assertThat(luceneInfo.getFiles(), Matchers.hasSize(segmentCountToFileCount(isGrouped ? 1 : 5)));
+                assertThat(luceneInfo.getDetailedFileInfos(), Matchers.hasSize(segmentCountToFileCount(isGrouped ? 1 : 5)));
                 assertEquals(1, luceneInfo.getFieldInfoCount());
             }
         }
@@ -124,6 +125,7 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
                     final LuceneMetadataInfo.LuceneInfo luceneInfo = result.getLuceneInfo().get(partitionId);
                     assertEquals(10, luceneInfo.getDocumentCount());
                     assertThat(luceneInfo.getFiles(), Matchers.hasSize(segmentCountToFileCount(1)));
+                    assertThat(luceneInfo.getDetailedFileInfos(), Matchers.hasSize(segmentCountToFileCount(1)));
                     assertEquals(1, luceneInfo.getFieldInfoCount());
 
                     final LuceneMetadataInfo resultForPartition = getLuceneMetadataInfo(
@@ -182,9 +184,11 @@ public class LuceneIndexGetMetadataInfoTest extends FDBRecordStoreTestBase {
                 assertEquals(9, luceneInfo.getDocumentCount());
                 // one extra file for the `.liv`
                 assertThat(luceneInfo.getFiles(), Matchers.hasSize(segmentCountToFileCount(1) + 1));
+                assertThat(luceneInfo.getDetailedFileInfos(), Matchers.hasSize(segmentCountToFileCount(1) + 1));
             } else {
                 assertEquals(10, luceneInfo.getDocumentCount());
                 assertThat(luceneInfo.getFiles(), Matchers.hasSize(segmentCountToFileCount(1)));
+                assertThat(luceneInfo.getDetailedFileInfos(), Matchers.hasSize(segmentCountToFileCount(1)));
             }
             assertEquals(1, luceneInfo.getFieldInfoCount());
         }
