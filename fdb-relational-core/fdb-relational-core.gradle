@@ -63,24 +63,15 @@ dependencies {
     testFixturesImplementation(project(coreProject))
 }
 
-
 // The engine is defined in relational-core. If we move it somewhere such that other subprojects can use it, this
 // task should be moved to testing.gradle
-tasks.register('autoTest', Test) {
-    description = 'Runs the Automated end-to-end tests.'
-    group = 'verification'
-    classpath = sourceSets.test.runtimeClasspath
-
-    useJUnitPlatform {
-        includeEngines 'auto-test'
-        excludeEngines 'junit-jupiter'
-    }
-
-    reports {
-        junitXml.outputLocation = layout.buildDirectory.dir("autotest-test-results")
+tasks.withType(Test).configureEach { theTask ->
+    if (project.hasProperty('tests.nightly')) {
+        theTask.testFramework.options.includeEngines.add('auto-test')
+    } else {
+        theTask.testFramework.options.excludeEngines.add('auto-test')
     }
 }
-
 
 publishing {
     publications {

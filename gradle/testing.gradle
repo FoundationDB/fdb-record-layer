@@ -31,7 +31,6 @@ test {
     useJUnitPlatform {
         excludeTags 'WipesFDB'
         excludeTags 'AutomatedTest'
-        excludeEngines 'auto-test'
     }
 }
 
@@ -282,7 +281,7 @@ tasks.withType(Test) { theTask ->
 }
 
 tasks.withType(Test).configureEach { task ->
-    if (task.name != 'performanceTest' && task.name != 'autoTest') {
+    if (task.name != 'performanceTest') {
         // Configure whether or not tests will validate that asyncToSync isn't being called in async
         // context.  See BlockingInAsyncDetection class for details on values.
         // disable BLOCKING_DETECTION to better simulate performance
