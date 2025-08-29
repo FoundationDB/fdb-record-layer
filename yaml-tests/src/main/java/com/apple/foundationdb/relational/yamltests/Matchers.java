@@ -613,6 +613,17 @@ public class Matchers {
                     }
                 }
             }
+            if (actualArrayContent.next()) {
+                return ResultSetMatchResult.fail(String.format(
+                        Locale.ROOT,
+                        "cell mismatch at row: %d cellRef: %s%n expected 🟢contains less items than 🟡.%n🟢 %s%n🟡 %s",
+                        rowNumber,
+                        cellRef,
+                        expected,
+                        actual
+                ));
+            }
+
             return ResultSetMatchResult.success();
         }
 

@@ -1,0 +1,198 @@
+/*
+ * ConstantArrayDistinctValue.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.record.query.plan.cascades.values;
+
+import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanDeserializer;
+import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.planprotos.PConstantArrayDistinctValue;
+import com.apple.foundationdb.record.planprotos.PValue;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
+import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
+import com.google.auto.service.AutoService;
+import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
+import com.google.protobuf.Message;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Supplier;
+
+
+/**
+ * A value that returns the array of the {@link Value} that is passed in with all duplicate elements removed.
+ * This value only supports underlying constant values that result in an array type, see {@link Value#isConstant()}.
+ */
+@API(API.Status.EXPERIMENTAL)
+public class ConstantArrayDistinctValue extends AbstractValue implements ValueWithChild {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Constant-Array-Distinct-Value");
+
+    @Nonnull
+    private final Value childValue;
+    @Nonnull
+    private final Type resultType;
+
+    public ConstantArrayDistinctValue(@Nonnull final Value childValue) {
+        Verify.verify(childValue.isConstant());
+        final var innerResultType = Objects.requireNonNull(childValue.getResultType());
+        Verify.verify(innerResultType.isArray());
+        this.childValue = childValue;
+        this.resultType = innerResultType;
+    }
+
+    @Nonnull
+    @Override
+    public List<? extends Value> computeChildren() {
+        return ImmutableList.of(childValue);
+    }
+
+    @Nonnull
+    @Override
+    public Value getChild() {
+        return childValue;
+    }
+
+    @Nonnull
+    @Override
+    public ValueWithChild withNewChild(@Nonnull final Value rebasedChild) {
+        return new ConstantArrayDistinctValue(rebasedChild);
+    }
+
+
+    @Nonnull
+    @Override
+    public Type getResultType() {
+        return resultType;
+    }
+
+    @Override
+    public <M extends Message> Object eval(@Nullable final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context) {
+        final var childResult = childValue.eval(store, context);
+        if (childResult == null) {
+            return null;
+        }
+        return ((List<?>)childResult).stream().distinct().collect(ImmutableList.toImmutableList());
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
+        return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH);
+    }
+
+    @Override
+    public int planHash(@Nonnull final PlanHashMode mode) {
+        return PlanHashable.objectsPlanHash(mode, BASE_HASH, childValue);
+    }
+
+    @Nonnull
+    @Override
+    public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
+        return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("constantArrayDistinct",
+                Value.explainFunctionArguments(explainSuppliers)));
+    }
+
+    @Override
+    public int hashCode() {
+        return semanticHashCode();
+    }
+
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @SpotBugsSuppressWarnings("EQ_UNUSUAL")
+    @Override
+    public boolean equals(final Object other) {
+        return semanticEquals(other, AliasMap.emptyMap());
+    }
+
+    @Nonnull
+    private static Value encapsulateInternal(@Nonnull final List<? extends Typed> typedArgs) {
+        Verify.verify(typedArgs.size() == 1);
+        final var arg0 = typedArgs.get(0);
+        SemanticException.check(
+                arg0 instanceof Value && arg0.getResultType().isArray() && ((Value)arg0).isConstant(),
+                SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES
+        );
+        return new ConstantArrayDistinctValue((Value)arg0);
+    }
+
+    @Nonnull
+    @Override
+    public PConstantArrayDistinctValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PConstantArrayDistinctValue.newBuilder()
+                .setChildValue(childValue.toValueProto(serializationContext))
+                .build();
+    }
+
+    @Nonnull
+    @Override
+    public PValue toValueProto(@Nonnull PlanSerializationContext serializationContext) {
+        return PValue.newBuilder().setConstantArrayDistinctValue(toProto(serializationContext)).build();
+    }
+
+    @Nonnull
+    public static ConstantArrayDistinctValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                       @Nonnull final PConstantArrayDistinctValue constantArrayDistinctValueProto) {
+        return new ConstantArrayDistinctValue(
+                Value.fromValueProto(serializationContext, Objects.requireNonNull(constantArrayDistinctValueProto.getChildValue()))
+        );
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class Deserializer implements PlanDeserializer<PConstantArrayDistinctValue, ConstantArrayDistinctValue> {
+        @Nonnull
+        @Override
+        public Class<PConstantArrayDistinctValue> getProtoMessageClass() {
+            return PConstantArrayDistinctValue.class;
+        }
+
+        @Nonnull
+        @Override
+        public ConstantArrayDistinctValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                    @Nonnull final PConstantArrayDistinctValue constantArrayDistinctValueProto) {
+            return ConstantArrayDistinctValue.fromProto(serializationContext, constantArrayDistinctValueProto);
+        }
+    }
+
+    /**
+     * The {@code constant_array_distinct} function.
+     */
+    @AutoService(BuiltInFunction.class)
+    public static class ConstantArrayDistinctFn extends BuiltInFunction<Value> {
+        public ConstantArrayDistinctFn() {
+            super("constant_array_distinct",
+                    ImmutableList.of(), new Type.Array(), (builtInFunction, typedArgs) -> encapsulateInternal(typedArgs));
+        }
+    }
+}
