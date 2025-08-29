@@ -650,7 +650,8 @@ helpStatement
 // details
 
 describeObjectClause
-    : (
+    : (VERBOSE)?
+      (
         query | deleteStatement | insertStatement
         | updateStatement | executeContinuationStatement
       )                                                             #describeStatements

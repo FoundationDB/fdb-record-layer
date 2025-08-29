@@ -97,8 +97,8 @@ tasks.withType(rootProject.SpotBugsTask) { task ->
     if (project.hasProperty('spotbugsEnableHtmlReport')) {
         // SpotBugs task can only have one report type enabled at a time
         reports {
-            xml.enabled false
-            html.enabled true
+            xml.enabled = false
+            html.enabled = true
         }
     } else {
         task.finalizedBy printInstructionsOnRunningWithHtmlOutput
