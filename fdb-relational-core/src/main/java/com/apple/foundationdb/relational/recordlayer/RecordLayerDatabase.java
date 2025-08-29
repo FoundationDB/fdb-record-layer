@@ -53,8 +53,6 @@ public class RecordLayerDatabase extends AbstractDatabase {
     private final RecordLayerConfig recordLayerConfig;
 
     private final RelationalKeyspaceProvider.RelationalDatabasePath databasePath;
-    @Nonnull
-    private final Options options;
 
     @Nullable
     private final String defaultSchema;
@@ -83,14 +81,13 @@ public class RecordLayerDatabase extends AbstractDatabase {
                                @Nullable RelationalPlanCache planCache,
                                @Nullable String defaultSchema,
                                @Nonnull Options options) {
-        super(metadataOperationsFactory, ddlQueryFactory, planCache);
+        super(metadataOperationsFactory, ddlQueryFactory, planCache, options);
         this.fdbDb = fdbDb;
         this.metaDataStore = new CachedMetaDataStore(metaDataStore);
         this.storeCatalog = storeCatalog;
         this.recordLayerConfig = config;
         this.databasePath = databasePath;
         this.defaultSchema = defaultSchema;
-        this.options = options;
     }
 
     @Override
@@ -129,7 +126,7 @@ public class RecordLayerDatabase extends AbstractDatabase {
     }
 
     BackingRecordStore loadStore(@Nonnull Transaction txn, @Nonnull String schemaName, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) throws RelationalException {
-        StoreConfig storeConfig = StoreConfig.create(recordLayerConfig, schemaName, databasePath, metaDataStore, txn);
+        StoreConfig storeConfig = StoreConfig.create(recordLayerConfig, schemaName, databasePath, metaDataStore, txn, options);
         return BackingRecordStore.load(txn, storeConfig, existenceCheck);
     }
 

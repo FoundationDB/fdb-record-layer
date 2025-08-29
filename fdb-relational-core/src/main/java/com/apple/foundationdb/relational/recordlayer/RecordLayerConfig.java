@@ -24,15 +24,14 @@ import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
-import com.apple.foundationdb.record.provider.common.TransformedRecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 
 import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
+import com.apple.foundationdb.relational.recordlayer.storage.StoreConfig;
 import com.google.protobuf.Message;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.zip.Deflater;
 
 /**
  * Holder object for RecordLayer-specific stuff that isn't directly tied to an actual FDB StorageCluster.
@@ -40,30 +39,17 @@ import java.util.zip.Deflater;
 @API(API.Status.EXPERIMENTAL)
 public final class RecordLayerConfig {
     private final FDBRecordStoreBase.UserVersionChecker userVersionChecker;
-    private final RecordSerializer<Message> serializer;
     private final FormatVersion formatVersion;
     private final Map<String, IndexState> indexStateMap;
 
-    private static final RecordSerializer<Message> DEFAULT_RELATIONAL_SERIALIZER = TransformedRecordSerializer.newDefaultBuilder()
-            .setEncryptWhenSerializing(false)
-            .setCompressWhenSerializing(true)
-            .setCompressionLevel(Deflater.DEFAULT_COMPRESSION)
-            .setWriteValidationRatio(0.0)
-            .build();
-
     private RecordLayerConfig(RecordLayerConfigBuilder builder) {
         this.userVersionChecker = builder.userVersionChecker;
-        this.serializer = builder.serializer;
         this.formatVersion = builder.formatVersion;
         this.indexStateMap = builder.indexStateMap;
     }
 
     public FDBRecordStoreBase.UserVersionChecker getUserVersionChecker() {
         return userVersionChecker;
-    }
-
-    public RecordSerializer<Message> getSerializer() {
-        return serializer;
     }
 
     public FormatVersion getFormatVersion() {
@@ -86,7 +72,7 @@ public final class RecordLayerConfig {
 
         public RecordLayerConfigBuilder() {
             this.userVersionChecker = (oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldUserVersion);
-            this.serializer = DEFAULT_RELATIONAL_SERIALIZER;
+            this.serializer = StoreConfig.DEFAULT_RELATIONAL_SERIALIZER;
             this.formatVersion = FormatVersion.getDefaultFormatVersion();
             this.indexStateMap = Map.of();
         }
