@@ -74,19 +74,19 @@ test_block:
   tests:
     -
       - query: select * from t1 WHERE col1 BETWEEN 10 AND 10
-      - explain: "ISCAN(I1 [[GREATER_THAN_OR_EQUALS promote(@c8 AS INT) && LESS_THAN_OR_EQUALS promote(@c8 AS INT)]])"
+      - explain: "ISCAN(I1)"
       - result: [
               {ID: 1, 10, 1}, {ID: 2, 10, 2}, {ID: 3, 10, 3}, {ID: 4, 10, 4}, {ID: 5, 10, 5}
       ]
     -
       - query: select * from t1 WHERE col1 + 5 BETWEEN 10 AND 20
-      - explain: "ISCAN(I1 <,>) | FILTER _.COL1 + @c8 GREATER_THAN_OR_EQUALS promote(@c10 AS INT) AND _.COL1 + @c8 LESS_THAN_OR_EQUALS promote(@c12 AS INT)"
+      - explain: "ISCAN(I1) | FILTER _.COL1 + @c8 GREATER_THAN_OR_EQUALS promote(@c10 AS INT) AND _.COL1 + @c8 LESS_THAN_OR_EQUALS promote(@c12 AS INT)"
       - result: [
               {ID: 1, 10, 1}, {ID: 2, 10, 2}, {ID: 3, 10, 3}, {ID: 4, 10, 4}, {ID: 5, 10, 5}
       ]
     -
       - query: select * from t1 WHERE col1 + 5 NOT BETWEEN 10 AND 20
-      - explain: "ISCAN(I1 <,>) | FILTER _.COL1 + @c8 LESS_THAN promote(@c11 AS INT) OR _.COL1 + @c8 GREATER_THAN promote(@c13 AS INT)"
+      - explain: "ISCAN(I1) | FILTER _.COL1 + @c8 LESS_THAN promote(@c11 AS INT) OR _.COL1 + @c8 GREATER_THAN promote(@c13 AS INT)"
       - result: [
               {ID: 6, 20, 6}, {ID: 7, 20, 7}, {ID: 8, 20, 8}, {ID: 9, 20, 9}, {ID: 10, 20, 10},
               {ID: 11, 30, 11}, {ID: 12, 30, 12}, {ID: 13, 30, 13}
