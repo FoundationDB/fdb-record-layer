@@ -109,7 +109,7 @@ public class ExplainTests {
                     final var assertResult = ResultSetAssert.assertThat(resultSet);
                     assertResult.hasNextRow()
                             .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX)")
-                            .hasColumn("PLAN_HASH", -1635569052L)
+                            .hasColumn("PLAN_HASH", -1635569052)
                             .hasColumn("PLAN_CONTINUATION", null);
                     assertResult.hasNoNextRow();
                 }
@@ -135,7 +135,7 @@ public class ExplainTests {
                         final var assertResult = ResultSetAssert.assertThat(resultSet);
 
                         assertResult.hasNextRow()
-                                .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>)")
+                                .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX)")
                                 .hasColumn("PLAN_HASH", -1635569052);
                         final var continuationInfo = resultSet.getStruct(5);
                         org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
@@ -169,7 +169,7 @@ public class ExplainTests {
                         final var assertResult = ResultSetAssert.assertThat(resultSet);
                         assertResult.hasNextRow()
                                 .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX)")
-                                .hasColumn("PLAN_HASH", -1635569052L);
+                                .hasColumn("PLAN_HASH", -1635569052);
                         final var continuationInfo = resultSet.getStruct(5);
                         org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
                         final var assertStruct = RelationalStructAssert.assertThat(continuationInfo);
@@ -235,7 +235,7 @@ public class ExplainTests {
                         final var assertResult = ResultSetAssert.assertThat(resultSet);
                         assertResult.hasNextRow()
                                 .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX)")
-                                .hasColumn("PLAN_HASH", -1635569052L);
+                                .hasColumn("PLAN_HASH", -1635569052);
                         final var continuationInfo = resultSet.getStruct(5);
                         org.junit.jupiter.api.Assertions.assertNotNull(continuationInfo);
                         final var assertStruct = RelationalStructAssert.assertThat(continuationInfo);
@@ -261,7 +261,7 @@ public class ExplainTests {
                     final var assertResult = ResultSetAssert.assertThat(resultSet);
                     assertResult.hasNextRow()
                             .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX <,>) | FILTER count_star(*) GREATER_THAN promote(@c12 AS LONG) AND count_star(*) LESS_THAN promote(@c19 AS LONG)")
-                            .hasColumn("PLAN_HASH", -1697137247L)
+                            .hasColumn("PLAN_HASH", -1697137247)
                             .hasColumn("PLAN_CONTINUATION", null);
                     assertResult.hasNoNextRow();
                 }
@@ -279,7 +279,7 @@ public class ExplainTests {
                     final var assertResult = ResultSetAssert.assertThat(resultSet);
                     assertResult.hasNextRow()
                             .hasColumn("PLAN", "ISCAN(RECORD_NAME_IDX) | FILTER count_star(*) GREATER_THAN promote(@c11 AS LONG) AND count_star(*) LESS_THAN promote(@c18 AS LONG)")
-                            .hasColumn("PLAN_HASH", -1697137247L)
+                            .hasColumn("PLAN_HASH", -1697137247)
                             .hasColumn("PLAN_CONTINUATION", null);
                     assertResult.hasNoNextRow();
                 }
