@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.record.test.TestKeySpace;
@@ -35,6 +36,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -85,6 +87,7 @@ class TransactionalRunnerTest {
     final TestKeySpacePathManagerExtension pathManager = new TestKeySpacePathManagerExtension(dbExtension);
 
     private FDBDatabase database;
+    private FDBStoreTimer timer;
     private byte[] key;
     private byte[] value;
 
@@ -95,6 +98,14 @@ class TransactionalRunnerTest {
         final KeySpacePath path = pathManager.createPath(TestKeySpace.RAW_DATA);
         key = database.run(path::toSubspace).pack(Tuple.from("key"));
         value = randomBytes(200, random);
+        timer = new FDBStoreTimer();
+    }
+
+    @AfterEach
+    public void tearDown() {
+        assertEquals(timer.getCount(FDBStoreTimer.Counts.CLOSE_CONTEXT), timer.getCount(FDBStoreTimer.Counts.OPEN_CONTEXT),
+                "an equal number of contexts should have been opened and closed");
+        timer = null;
     }
 
     @Test
@@ -105,6 +116,9 @@ class TransactionalRunnerTest {
                 return CompletableFuture.completedFuture("boo");
             }).join();
             assertEquals("boo", result);
+
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.OPEN_CONTEXT));
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.CLOSE_CONTEXT));
 
             assertValue(runner, key, value);
         }
@@ -119,12 +133,20 @@ class TransactionalRunnerTest {
             });
             assertEquals("boo", result);
 
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.OPEN_CONTEXT));
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.CLOSE_CONTEXT));
+
             assertValue(runner, key, value);
         }
     }
 
+    /**
+     * Validate the behavior when the future returned by {@link TransactionalRunner#runAsync(boolean, Function)}
+     * completes exceptionally. The work done by the transaction should not be committed, and the underlying
+     * exception should be forwarded up wrapped as a {@link CompletionException}.
+     */
     @Test
-    void aborts() {
+    void abortsAsyncInChainedFuture() {
         try (TransactionalRunner runner = defaultTransactionalRunner()) {
             final Exception cause = new Exception("ABORT");
             final CompletionException exception = assertThrows(CompletionException.class,
@@ -136,10 +158,46 @@ class TransactionalRunnerTest {
                     }).join());
             assertEquals(cause, exception.getCause());
 
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.OPEN_CONTEXT));
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.CLOSE_CONTEXT));
+
             assertValue(runner, key, null);
         }
     }
 
+    /**
+     * Check the behavior of an exception that is thrown directly in the callback of
+     * the {@link TransactionalRunner#runAsync(boolean, Function)} call. Here, the exception
+     * is forwarded directly rather than wrapped in a {@link CompletionException}. We may
+     * want to consider modifying this so that the semantics are the same as if the
+     * exception occurs in the callback (that is, always return a future). In that case,
+     * the assertions here should more closely mirror {@link #abortsAsyncInChainedFuture()}.
+     *
+     * @see #abortsAsyncInChainedFuture()
+     */
+    @Test
+    void abortsAsyncDuringRunnable() {
+        try (TransactionalRunner runner = defaultTransactionalRunner()) {
+            final RuntimeException cause = new RuntimeException("ABORT");
+            final RuntimeException exception = assertThrows(RuntimeException.class, () ->
+                    runner.runAsync(false, context -> {
+                        context.ensureActive().set(key, value);
+                        throw cause;
+                    }).join());
+
+            assertEquals(cause, exception);
+
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.OPEN_CONTEXT));
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.CLOSE_CONTEXT));
+
+            assertValue(runner, key, null);
+        }
+    }
+
+    /**
+     * Validate the behavior when an exception is thrown during {@link TransactionalRunner#run(boolean, Function)}.
+     * The exception should be forwarded, and the transaction should not be committed.
+     */
     @Test
     void abortsSynchronous() {
         try (TransactionalRunner runner = defaultTransactionalRunner()) {
@@ -150,6 +208,9 @@ class TransactionalRunnerTest {
                         throw cause;
                     }));
             assertEquals(cause, exception);
+
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.OPEN_CONTEXT));
+            assertEquals(1L, timer.getCount(FDBStoreTimer.Counts.CLOSE_CONTEXT));
 
             assertValue(runner, key, null);
         }
@@ -528,7 +589,10 @@ class TransactionalRunnerTest {
 
     @Nonnull
     private TransactionalRunner defaultTransactionalRunner() {
-        return new TransactionalRunner(database, FDBRecordContextConfig.newBuilder().build());
+        final FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
+                .setTimer(timer)
+                .build();
+        return new TransactionalRunner(database, config);
     }
 
     private <T> void assertConflicts(CompletableFuture<T> future) {
