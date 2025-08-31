@@ -89,3 +89,5 @@ fdb-relational-core/src/main/antlr/*.tokens
 
 # output during release build process
 /mixed-mode-results.md
+
+.DS_Store
