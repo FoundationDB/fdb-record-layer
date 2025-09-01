@@ -7,6 +7,44 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.5
 
+### 4.5.9.0
+
+<h4> Bug Fixes </h4>
+
+* Ensure that `TransactionalRunner::runAsync` closes a context that it creates even if future creation fails - [PR #3562](https://github.com/FoundationDB/fdb-record-layer/pull/3562)
+
+
+**[Full Changelog (4.5.8.0...4.5.9.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.5.8.0...4.5.9.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.4.12.0`, ✅`4.4.14.0`, ✅`4.4.15.0`, ✅`4.5.1.0`, ✅`4.5.2.0`, ✅`4.5.3.0`, ✅`4.5.4.0`, ✅`4.5.5.0`, ✅`4.5.6.0`, ✅`4.5.7.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/17328456324)
+
+
+
+### 4.5.8.0
+
+<h4> New Features </h4>
+
+* Add serialized plan complexity and hash to the continuation info in EXPLAIN - [PR #3541](https://github.com/FoundationDB/fdb-record-layer/pull/3541)
+
+
+**[Full Changelog (4.5.7.0...4.5.8.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.5.7.0...4.5.8.0)**
+
+#### Mixed Mode Test Results
+
+Mixed mode testing run against the following previous versions:
+
+✅`4.4.12.0`, ✅`4.4.14.0`, ✅`4.4.15.0`, ✅`4.5.1.0`, ✅`4.5.2.0`, ✅`4.5.3.0`, ✅`4.5.4.0`, ✅`4.5.5.0`, ✅`4.5.6.0`, ✅`4.5.7.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/17326611191)
+
+
+
 ### 4.5.7.0
 
 <h4> Breaking Changes </h4>
