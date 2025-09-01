@@ -1,5 +1,5 @@
 /*
- * ConstantArrayDistinctValue.java
+ * ArrayDistinctValue.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -27,7 +27,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
-import com.apple.foundationdb.record.planprotos.PConstantArrayDistinctValue;
+import com.apple.foundationdb.record.planprotos.PArrayDistinctValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -54,16 +54,15 @@ import java.util.function.Supplier;
  * This value only supports underlying constant values that result in an array type, see {@link Value#isConstant()}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ConstantArrayDistinctValue extends AbstractValue implements ValueWithChild {
-    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Constant-Array-Distinct-Value");
+public class ArrayDistinctValue extends AbstractValue implements ValueWithChild {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Array-Distinct-Value");
 
     @Nonnull
     private final Value childValue;
     @Nonnull
     private final Type resultType;
 
-    public ConstantArrayDistinctValue(@Nonnull final Value childValue) {
-        Verify.verify(childValue.isConstant());
+    public ArrayDistinctValue(@Nonnull final Value childValue) {
         final var innerResultType = Objects.requireNonNull(childValue.getResultType());
         Verify.verify(innerResultType.isArray());
         this.childValue = childValue;
@@ -85,7 +84,7 @@ public class ConstantArrayDistinctValue extends AbstractValue implements ValueWi
     @Nonnull
     @Override
     public ValueWithChild withNewChild(@Nonnull final Value rebasedChild) {
-        return new ConstantArrayDistinctValue(rebasedChild);
+        return new ArrayDistinctValue(rebasedChild);
     }
 
 
@@ -117,7 +116,7 @@ public class ConstantArrayDistinctValue extends AbstractValue implements ValueWi
     @Nonnull
     @Override
     public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
-        return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("constantArrayDistinct",
+        return ExplainTokensWithPrecedence.of(new ExplainTokens().addFunctionCall("arrayDistinct",
                 Value.explainFunctionArguments(explainSuppliers)));
     }
 
@@ -138,16 +137,16 @@ public class ConstantArrayDistinctValue extends AbstractValue implements ValueWi
         Verify.verify(typedArgs.size() == 1);
         final var arg0 = typedArgs.get(0);
         SemanticException.check(
-                arg0 instanceof Value && arg0.getResultType().isArray() && ((Value)arg0).isConstant(),
+                arg0 instanceof Value && arg0.getResultType().isArray(),
                 SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES
         );
-        return new ConstantArrayDistinctValue((Value)arg0);
+        return new ArrayDistinctValue((Value)arg0);
     }
 
     @Nonnull
     @Override
-    public PConstantArrayDistinctValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PConstantArrayDistinctValue.newBuilder()
+    public PArrayDistinctValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PArrayDistinctValue.newBuilder()
                 .setChildValue(childValue.toValueProto(serializationContext))
                 .build();
     }
@@ -155,14 +154,14 @@ public class ConstantArrayDistinctValue extends AbstractValue implements ValueWi
     @Nonnull
     @Override
     public PValue toValueProto(@Nonnull PlanSerializationContext serializationContext) {
-        return PValue.newBuilder().setConstantArrayDistinctValue(toProto(serializationContext)).build();
+        return PValue.newBuilder().setArrayDistinctValue(toProto(serializationContext)).build();
     }
 
     @Nonnull
-    public static ConstantArrayDistinctValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                       @Nonnull final PConstantArrayDistinctValue constantArrayDistinctValueProto) {
-        return new ConstantArrayDistinctValue(
-                Value.fromValueProto(serializationContext, Objects.requireNonNull(constantArrayDistinctValueProto.getChildValue()))
+    public static ArrayDistinctValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                               @Nonnull final PArrayDistinctValue arrayDistinctValueProto) {
+        return new ArrayDistinctValue(
+                Value.fromValueProto(serializationContext, Objects.requireNonNull(arrayDistinctValueProto.getChildValue()))
         );
     }
 
@@ -170,28 +169,28 @@ public class ConstantArrayDistinctValue extends AbstractValue implements ValueWi
      * Deserializer.
      */
     @AutoService(PlanDeserializer.class)
-    public static class Deserializer implements PlanDeserializer<PConstantArrayDistinctValue, ConstantArrayDistinctValue> {
+    public static class Deserializer implements PlanDeserializer<PArrayDistinctValue, ArrayDistinctValue> {
         @Nonnull
         @Override
-        public Class<PConstantArrayDistinctValue> getProtoMessageClass() {
-            return PConstantArrayDistinctValue.class;
+        public Class<PArrayDistinctValue> getProtoMessageClass() {
+            return PArrayDistinctValue.class;
         }
 
         @Nonnull
         @Override
-        public ConstantArrayDistinctValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
-                                                    @Nonnull final PConstantArrayDistinctValue constantArrayDistinctValueProto) {
-            return ConstantArrayDistinctValue.fromProto(serializationContext, constantArrayDistinctValueProto);
+        public ArrayDistinctValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                            @Nonnull final PArrayDistinctValue arrayDistinctValueProto) {
+            return ArrayDistinctValue.fromProto(serializationContext, arrayDistinctValueProto);
         }
     }
 
     /**
-     * The {@code constant_array_distinct} function.
+     * The {@code array_distinct} function.
      */
     @AutoService(BuiltInFunction.class)
-    public static class ConstantArrayDistinctFn extends BuiltInFunction<Value> {
-        public ConstantArrayDistinctFn() {
-            super("constant_array_distinct",
+    public static class ArrayDistinctFn extends BuiltInFunction<Value> {
+        public ArrayDistinctFn() {
+            super("array_distinct",
                     ImmutableList.of(), new Type.Array(), (builtInFunction, typedArgs) -> encapsulateInternal(typedArgs));
         }
     }

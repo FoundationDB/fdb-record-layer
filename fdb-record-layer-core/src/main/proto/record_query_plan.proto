@@ -254,7 +254,7 @@ message PValue {
     PRangeValue range_value = 48;
     PFirstOrDefaultStreamingValue first_or_default_streaming_value = 49;
     PEvaluatesToValue evaluates_to_value = 50;
-    PConstantArrayDistinctValue constant_array_distinct_value = 51;
+    PArrayDistinctValue array_distinct_value = 51;
   }
 }
 
@@ -1260,7 +1260,7 @@ message PRangeValue {
   optional PValue step_child = 3;
 }
 
-message PConstantArrayDistinctValue {
+message PArrayDistinctValue {
   optional PValue child_value = 1;
 }
 

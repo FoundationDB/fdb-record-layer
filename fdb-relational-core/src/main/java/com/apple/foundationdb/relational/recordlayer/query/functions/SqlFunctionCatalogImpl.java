@@ -149,7 +149,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
                 .put("__pattern_for_like", argumentsCount -> BuiltInFunctionCatalog.resolve("patternForLike", argumentsCount))
                 .put("__internal_array", argumentsCount -> BuiltInFunctionCatalog.resolve("array", argumentsCount))
                 .put("__pick_value", argumentsCount -> BuiltInFunctionCatalog.resolve("pick", argumentsCount))
-                .put("constant_array_distinct", argumentsCount -> BuiltInFunctionCatalog.resolve("constant_array_distinct", argumentsCount))
+                .put("array_distinct", argumentsCount -> BuiltInFunctionCatalog.resolve("array_distinct", argumentsCount))
                 .build();
     }
 
