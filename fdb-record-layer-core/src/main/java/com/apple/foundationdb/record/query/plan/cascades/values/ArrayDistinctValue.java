@@ -47,8 +47,7 @@ import java.util.function.Supplier;
 
 
 /**
- * A value that returns the array of the {@link Value} that is passed in with all duplicate elements removed.
- * This value only supports underlying constant values that result in an array type, see {@link Value#isConstant()}.
+ * A value that returns a copy of its child array {@link Value} with all duplicate elements removed.
  */
 @API(API.Status.EXPERIMENTAL)
 public class ArrayDistinctValue extends AbstractValue implements ValueWithChild {
