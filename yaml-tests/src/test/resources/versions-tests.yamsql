@@ -54,7 +54,7 @@ test_block:
     -
       # Do not include __ROW_VERSION (as a pseudo-column) in *
       - query: select t1.* from t1 where col1 = 10;
-      - explain: "ISCAN(I1 [EQUALS promote(@c10 AS LONG)]) ∩ SCAN(<,>) COMPARE BY (recordType(_), _.ID)"
+      - explain: "ISCAN(I1 [EQUALS promote(@c10 AS LONG)])"
       - result: [{ID: 1, COL1: 10, COL2: 1}, {ID: 2, COL1: 10,  COL2: 2}, {ID: 3, COL1: 10, COL2: 3}, {ID: 4, COL1: 10, COL2: 4}, {ID: 5, COL1: 10, COL2: 5}]
     -
       # Get version column from sub-select

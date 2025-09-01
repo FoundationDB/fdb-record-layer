@@ -4,8 +4,8 @@ unnamed-4:
         AS STRING) | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP
         (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
     task_count: 347
-    task_total_time_ms: 3
-    transform_count: 84
+    task_total_time_ms: 2
+    transform_count: 88
     transform_time_ms: 1
     transform_yield_count: 21
     insert_time_ms: 0
@@ -18,7 +18,7 @@ unnamed-10:
         (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
     task_count: 359
     task_total_time_ms: 3
-    transform_count: 91
+    transform_count: 97
     transform_time_ms: 2
     transform_yield_count: 27
     insert_time_ms: 0
@@ -31,11 +31,11 @@ unnamed-20:
         EQUALS promote(@c11 AS STRING) | FETCH | MAP (_ AS _0) | AGG (count_star(*)
         AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)'
-    task_count: 573
-    task_total_time_ms: 5
-    transform_count: 136
-    transform_time_ms: 2
-    transform_yield_count: 41
+    task_count: 579
+    task_total_time_ms: 6
+    transform_count: 146
+    transform_time_ms: 3
+    transform_yield_count: 44
     insert_time_ms: 0
-    insert_new_count: 63
+    insert_new_count: 65
     insert_reused_count: 3

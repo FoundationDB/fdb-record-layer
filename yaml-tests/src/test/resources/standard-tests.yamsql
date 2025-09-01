@@ -81,7 +81,7 @@ test_block:
                  {ID: 13, NEWCOL: !null x} ]
     -
       - query: select * from T1 where COL1 = 20
-      - explain: "ISCAN(I1 [EQUALS promote(@c8 AS LONG)]) ∩ SCAN(<,>) COMPARE BY (recordType(_), _.ID)"
+      - explain: "ISCAN(I1 [EQUALS promote(@c8 AS LONG)])"
       - result: [
                {ID:  6, COL1: 20, COL2:  6},
                {ID:  7, COL1: 20, COL2:  7},
@@ -167,7 +167,7 @@ test_block:
         ]
     -
       - query: select * from T1 where COL1 = 20 OR COL1 = 20
-      - explain: "ISCAN(I1 [EQUALS promote(@c8 AS LONG)]) ∩ SCAN(<,>) COMPARE BY (recordType(_), _.ID)"
+      - explain: "ISCAN(I1 [EQUALS promote(@c8 AS LONG)])"
       - result: [
                {ID:  6, COL1: 20, COL2:  6},
                {ID:  7, COL1: 20, COL2:  7},
@@ -193,7 +193,7 @@ test_block:
         ]
     -
       - query: select * from T1 where COL1 = 20 AND COL1 = 20
-      - explain: "ISCAN(I1 [EQUALS promote(@c8 AS LONG)]) ∩ SCAN(<,>) COMPARE BY (recordType(_), _.ID)"
+      - explain: "ISCAN(I1 [EQUALS promote(@c8 AS LONG)])"
       - result: [
                {ID:  6, COL1: 20, COL2:  6},
                {ID:  7, COL1: 20, COL2:  7},
@@ -206,7 +206,7 @@ test_block:
         ]
     -
       - query: select * from T1 where (COL1 = 20 OR COL1 = 10) AND (COL1 = 20 OR COL1 = 10)
-      - explain: "ISCAN(I1 [EQUALS promote(@c9 AS LONG)]) ∩ SCAN(<,>) COMPARE BY (recordType(_), _.ID) ∪ ISCAN(I1 [EQUALS promote(@c13 AS LONG)]) ∩ SCAN(<,>) COMPARE BY (recordType(_), _.ID) COMPARE BY (recordType(_), _.ID, _.COL1)"
+      - explain: "COVERING(I1 [EQUALS promote(@c9 AS LONG)] -> [COL1: KEY[0], ID: KEY[2]]) ⊎ COVERING(I1 [EQUALS promote(@c13 AS LONG)] -> [COL1: KEY[0], ID: KEY[2]]) | DISTINCT BY PK | FETCH"
       - initialVersionLessThan: 4.3.6.0
       # Prior to 4.3.6.0, there was an error that would result in this query failing due to an illegal argument exception
       # The error is currently not propagated as a SQLException, so we can't even assert on the error code

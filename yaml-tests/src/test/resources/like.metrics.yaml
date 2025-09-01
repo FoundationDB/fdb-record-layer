@@ -3,75 +3,75 @@ unnamed-3:
     explain: 'COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8
         ESCAPE ''null'' | FETCH'
     task_count: 338
-    task_total_time_ms: 23
-    transform_count: 75
-    transform_time_ms: 8
+    task_total_time_ms: 10
+    transform_count: 79
+    transform_time_ms: 3
     transform_yield_count: 29
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 38
     insert_reused_count: 5
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'a%'
     explain: 'COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8
         ESCAPE ''null'' | FETCH'
     task_count: 338
-    task_total_time_ms: 81
-    transform_count: 75
-    transform_time_ms: 36
+    task_total_time_ms: 9
+    transform_count: 79
+    transform_time_ms: 3
     transform_yield_count: 29
-    insert_time_ms: 3
+    insert_time_ms: 0
     insert_new_count: 38
     insert_reused_count: 5
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'ap%'
     explain: 'COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8
         ESCAPE ''null'' | FETCH'
     task_count: 338
-    task_total_time_ms: 27
-    transform_count: 75
-    transform_time_ms: 9
+    task_total_time_ms: 9
+    transform_count: 79
+    transform_time_ms: 3
     transform_yield_count: 29
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 38
     insert_reused_count: 5
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'a%l%'
     explain: 'COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8
         ESCAPE ''null'' | FETCH'
     task_count: 338
-    task_total_time_ms: 27
-    transform_count: 75
-    transform_time_ms: 9
+    task_total_time_ms: 10
+    transform_count: 79
+    transform_time_ms: 3
     transform_yield_count: 29
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 38
     insert_reused_count: 5
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'ca%'
     explain: 'COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8
         ESCAPE ''null'' | FETCH'
     task_count: 338
-    task_total_time_ms: 31
-    transform_count: 75
-    transform_time_ms: 11
+    task_total_time_ms: 10
+    transform_count: 79
+    transform_time_ms: 3
     transform_yield_count: 29
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 38
     insert_reused_count: 5
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'ca_al'
     explain: 'COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8
         ESCAPE ''null'' | FETCH'
     task_count: 338
-    task_total_time_ms: 81
-    transform_count: 75
-    transform_time_ms: 36
+    task_total_time_ms: 10
+    transform_count: 79
+    transform_time_ms: 3
     transform_yield_count: 29
-    insert_time_ms: 2
+    insert_time_ms: 0
     insert_new_count: 38
     insert_reused_count: 5
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'ca%al'
     explain: 'COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8
         ESCAPE ''null'' | FETCH'
     task_count: 338
-    task_total_time_ms: 15
-    transform_count: 75
-    transform_time_ms: 6
+    task_total_time_ms: 10
+    transform_count: 79
+    transform_time_ms: 3
     transform_yield_count: 29
     insert_time_ms: 0
     insert_new_count: 38
@@ -80,21 +80,21 @@ unnamed-3:
     explain: 'COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8
         ESCAPE ''null'' | FETCH'
     task_count: 338
-    task_total_time_ms: 81
-    transform_count: 75
-    transform_time_ms: 46
+    task_total_time_ms: 10
+    transform_count: 79
+    transform_time_ms: 3
     transform_yield_count: 29
-    insert_time_ms: 2
+    insert_time_ms: 0
     insert_new_count: 38
     insert_reused_count: 5
 -   query: EXPLAIN select * from C WHERE C2 LIKE 'ca%al%'
     explain: 'COVERING(C2 <,> -> [C1: KEY[2], C2: KEY[0]]) | FILTER _.C2 LIKE @c8
         ESCAPE ''null'' | FETCH'
     task_count: 338
-    task_total_time_ms: 27
-    transform_count: 75
-    transform_time_ms: 9
+    task_total_time_ms: 15
+    transform_count: 79
+    transform_time_ms: 4
     transform_yield_count: 29
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 38
     insert_reused_count: 5

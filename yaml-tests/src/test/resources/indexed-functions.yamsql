@@ -88,7 +88,7 @@ test_block:
         ]
     -
       - query: select * from t where d & 1 = 0;
-      - explain: "ISCAN(DMASK1 [EQUALS promote(@c10 AS LONG)]) ∩ SCAN(<,>) COMPARE BY (recordType(_), _.A)"
+      - explain: "ISCAN(DMASK1 [EQUALS promote(@c10 AS LONG)])"
       - unorderedResult: [
           {A: 2, B: 2, C:  8, D: 2, E: 'beta'},
           {A: 4, B: 4, C:  4, D: 0, E: 'beta'},
@@ -107,7 +107,7 @@ test_block:
         ]
     -
       - query: select * from t where d & 2 = 0;
-      - explain: "ISCAN(DMASK2 [EQUALS promote(@c10 AS LONG)]) ∩ SCAN(<,>) COMPARE BY (recordType(_), _.A)"
+      - explain: "ISCAN(DMASK2 [EQUALS promote(@c10 AS LONG)])"
       - unorderedResult: [
           {A: 3, B: 3, C:  6, D: 1, E: 'alpha'},
           {A: 4, B: 4, C:  4, D: 0, E: 'beta'},

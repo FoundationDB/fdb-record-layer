@@ -257,6 +257,7 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    @MaintainYamlTestConfig(YamlTestConfigFilters.CORRECT_EXPLAIN_AND_METRICS)
     public void bitmap(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("bitmap-aggregate-index.yamsql");
     }

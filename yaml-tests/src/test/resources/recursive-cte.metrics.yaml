@@ -7,11 +7,11 @@ recursive-cte-tests:
         TEMP SCAN base() | FILTER _.ID EQUALS q2.PARENT AS q3 RETURN (q2.ID AS ID,
         q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)
     task_count: 1334
-    task_total_time_ms: 15
-    transform_count: 313
-    transform_time_ms: 6
+    task_total_time_ms: 212
+    transform_count: 320
+    transform_time_ms: 126
     transform_yield_count: 98
-    insert_time_ms: 0
+    insert_time_ms: 11
     insert_new_count: 185
     insert_reused_count: 9
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where id = 250
@@ -22,11 +22,11 @@ recursive-cte-tests:
         TEMP SCAN base() | FILTER _.PARENT EQUALS q2.ID AS q3 RETURN (q2.ID AS ID,
         q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)
     task_count: 1334
-    task_total_time_ms: 13
-    transform_count: 313
-    transform_time_ms: 4
+    task_total_time_ms: 48
+    transform_count: 320
+    transform_time_ms: 19
     transform_yield_count: 98
-    insert_time_ms: 0
+    insert_time_ms: 4
     insert_new_count: 185
     insert_reused_count: 9
 -   query: EXPLAIN with recursive allDescendants as ( with recursive ancestorsOf250
@@ -43,11 +43,11 @@ recursive-cte-tests:
         q6.PARENT AS q7 RETURN (q6.ID AS ID, q6.PARENT AS PARENT) } | INSERT INTO
         TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT)
     task_count: 2122
-    task_total_time_ms: 19
-    transform_count: 513
-    transform_time_ms: 6
+    task_total_time_ms: 55
+    transform_count: 523
+    transform_time_ms: 24
     transform_yield_count: 150
-    insert_time_ms: 1
+    insert_time_ms: 4
     insert_new_count: 300
     insert_reused_count: 15
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where parent =
@@ -58,11 +58,11 @@ recursive-cte-tests:
         TEMP SCAN base() | FILTER _.ID EQUALS q2.PARENT AS q3 RETURN (q2.ID AS ID,
         q2.PARENT AS PARENT) } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID)
     task_count: 1334
-    task_total_time_ms: 15
-    transform_count: 313
-    transform_time_ms: 6
+    task_total_time_ms: 212
+    transform_count: 320
+    transform_time_ms: 126
     transform_yield_count: 98
-    insert_time_ms: 0
+    insert_time_ms: 11
     insert_new_count: 185
     insert_reused_count: 9
 -   query: EXPLAIN with recursive allDescendants as ( with recursive ancestorsOf250
@@ -79,10 +79,10 @@ recursive-cte-tests:
         q6.PARENT AS q7 RETURN (q6.ID AS ID, q6.PARENT AS PARENT) } | INSERT INTO
         TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT)
     task_count: 2122
-    task_total_time_ms: 19
-    transform_count: 513
-    transform_time_ms: 6
+    task_total_time_ms: 55
+    transform_count: 523
+    transform_time_ms: 24
     transform_yield_count: 150
-    insert_time_ms: 1
+    insert_time_ms: 4
     insert_new_count: 300
     insert_reused_count: 15
