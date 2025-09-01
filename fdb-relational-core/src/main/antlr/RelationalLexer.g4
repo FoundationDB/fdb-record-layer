@@ -373,7 +373,6 @@ VARIANCE:                            'VARIANCE';
 CURRENT_DATE:                        'CURRENT_DATE';
 CURRENT_TIME:                        'CURRENT_TIME';
 CURRENT_TIMESTAMP:                   'CURRENT_TIMESTAMP';
-ARRAY_DISTINCT:                      'ARRAY_DISTINCT';
 LOCALTIME:                           'LOCALTIME';
 CURDATE:                             'CURDATE';
 CURTIME:                             'CURTIME';

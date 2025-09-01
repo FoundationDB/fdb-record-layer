@@ -133,17 +133,6 @@ public class ArrayDistinctValue extends AbstractValue implements ValueWithChild 
     }
 
     @Nonnull
-    private static Value encapsulateInternal(@Nonnull final List<? extends Typed> typedArgs) {
-        Verify.verify(typedArgs.size() == 1);
-        final var arg0 = typedArgs.get(0);
-        SemanticException.check(
-                arg0 instanceof Value && arg0.getResultType().isArray(),
-                SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES
-        );
-        return new ArrayDistinctValue((Value)arg0);
-    }
-
-    @Nonnull
     @Override
     public PArrayDistinctValue toProto(@Nonnull final PlanSerializationContext serializationContext) {
         return PArrayDistinctValue.newBuilder()
@@ -181,17 +170,6 @@ public class ArrayDistinctValue extends AbstractValue implements ValueWithChild 
         public ArrayDistinctValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                             @Nonnull final PArrayDistinctValue arrayDistinctValueProto) {
             return ArrayDistinctValue.fromProto(serializationContext, arrayDistinctValueProto);
-        }
-    }
-
-    /**
-     * The {@code array_distinct} function.
-     */
-    @AutoService(BuiltInFunction.class)
-    public static class ArrayDistinctFn extends BuiltInFunction<Value> {
-        public ArrayDistinctFn() {
-            super("array_distinct",
-                    ImmutableList.of(), new Type.Array(), (builtInFunction, typedArgs) -> encapsulateInternal(typedArgs));
         }
     }
 }

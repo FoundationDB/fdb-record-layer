@@ -118,18 +118,6 @@ class ArrayDistinctValueTest {
         Assertions.assertEquals(expectedArray, actualArray);
     }
 
-
-    @ParameterizedTest(name = "builtInFunctionReturnsArrayWithoutDuplicates[input={0}, expected={1}])")
-    @MethodSource("arraySources")
-    void builtInFunctionReturnsArrayWithoutDuplicates(Value inputArray, List<?> expectedArray, EvaluationContext evaluationContext) {
-        final var fn = new ArrayDistinctValue.ArrayDistinctFn();
-
-        final var retValue = fn.encapsulate(List.of(inputArray));
-
-        Assertions.assertInstanceOf(ArrayDistinctValue.class, retValue);
-        Assertions.assertEquals(expectedArray, ((Value)retValue).evalWithoutStore(evaluationContext));
-    }
-
     @Test
     void withNewChildReplacesUnderlyingArray() {
         final var expectedArray = ImmutableList.of(1, 2, 3);
