@@ -753,7 +753,7 @@ public interface Compensation {
                     //    matter which side we take as both create the same compensating filter. If at any point in the
                     //    future one data access has a better reapplication we need to generate plan variants with
                     //    either compensation and let the planner figure out which one wins. We just pick one side here.
-                    // 2. Either one or both compensation functions are impossible, but thee intersection is possible.
+                    // 2. Either one or both compensation functions are impossible, but the intersection is possible.
                     //    We take the compensation function from this side and amend it with the compensation function
                     //    from the other side.
                     final var newPredicateCompensationFunction = entry.getValue().amend(unmatchedAggregateMap, newMatchedAggregatesMap);

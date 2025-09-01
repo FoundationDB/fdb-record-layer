@@ -71,7 +71,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class AggregateDataAccessRule extends AbstractDataAccessRule<RelationalExpression> {
+public class AggregateDataAccessRule extends AbstractDataAccessRule {
     private static final BindingMatcher<PartialMatch> completeMatchMatcher =
             completeMatch().and(matchingAggregateIndexMatchCandidate());
     private static final BindingMatcher<RelationalExpression> expressionMatcher = anyExpression();

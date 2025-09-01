@@ -106,19 +106,18 @@ import static com.apple.foundationdb.record.query.plan.cascades.properties.Cardi
  *
  * The logic that this rules delegates to and actually creates the expressions can be found in
  * {@link MatchCandidate#toEquivalentPlan(PartialMatch, PlanContext, Memoizer, boolean)}.
- * @param <R> subtype of {@link RelationalExpression}
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings({"java:S3776", "java:S4738", "OptionalUsedAsFieldOrParameterType"})
-public abstract class AbstractDataAccessRule<R extends RelationalExpression> extends CascadesRule<MatchPartition> {
+public abstract class AbstractDataAccessRule extends CascadesRule<MatchPartition> {
     private static final Logger logger = LoggerFactory.getLogger(AbstractDataAccessRule.class);
 
     private final BindingMatcher<PartialMatch> completeMatchMatcher;
-    private final BindingMatcher<R> expressionMatcher;
+    private final BindingMatcher<? extends RelationalExpression> expressionMatcher;
 
     protected AbstractDataAccessRule(@Nonnull final BindingMatcher<MatchPartition> rootMatcher,
                                      @Nonnull final BindingMatcher<PartialMatch> completeMatchMatcher,
-                                     @Nonnull final BindingMatcher<R> expressionMatcher) {
+                                     @Nonnull final BindingMatcher<? extends RelationalExpression> expressionMatcher) {
         super(rootMatcher, ImmutableSet.of(ReferencedFieldsConstraint.REFERENCED_FIELDS, RequestedOrderingConstraint.REQUESTED_ORDERING));
         this.completeMatchMatcher = completeMatchMatcher;
         this.expressionMatcher = expressionMatcher;
@@ -130,7 +129,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     }
 
     @Nonnull
-    protected BindingMatcher<R> getExpressionMatcher() {
+    protected BindingMatcher<? extends RelationalExpression> getExpressionMatcher() {
         return expressionMatcher;
     }
 
@@ -213,9 +212,8 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                 final var matchPartition = matchPartitionEntry.getValue();
 
                 //
-                // The current match partition covers all matches that match the aliases in matchedAliases
-                // as well as all predicates in matchedPredicates. In other words we now have to compensate
-                // for all the remaining quantifiers and all remaining predicates.
+                // The current match partition covers all matches that match a certain set of aliases and predicates.
+                // We now have to compensate for all the those quantifiers and predicates.
                 //
                 final var dataAccessExpressions =
                         dataAccessForMatchPartition(call,
@@ -912,6 +910,8 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      * before using the resulting {@link Compensation} to compute the compensating expression for the entire
      * intersection.
      * @param memoizer the memoizer
+     * @param intersectionInfoMap the intersection info map being maintained by the caller (that enumerates the possible
+     *        intersections)
      * @param matchToPlanMap a map from match to single data access expression
      * @param partition a partition (i.e. a list of {@link SingleMatchedAccess}es that the caller would like to compute
      *        and intersected data access for
@@ -976,6 +976,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
     @Nonnull
     private static Optional<Set<CorrelationIdentifier>> unmatchedIdsMaybe(@Nonnull final Map<BitSet, IntersectionInfo> intersectionInfoMap,
                                                                           @Nonnull final List<Vectored<SingleMatchedAccess>> partition) {
+        Verify.verify(!partition.isEmpty());
         final var iterator = partition.iterator();
 
         var unmatchedIdsOptional =

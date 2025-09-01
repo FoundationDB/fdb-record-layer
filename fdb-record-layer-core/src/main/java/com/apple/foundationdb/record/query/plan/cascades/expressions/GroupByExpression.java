@@ -578,12 +578,11 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
             // by the prefix of the candidate side. Iterate up to the smaller query side's grouping values to
             // find out.
             //
-            for (int i = 0; i < translatedGroupingValues.size(); i++) {
-                if (unmatchedCandidateValues.contains(candidateGroupingValues.get(i))) {
+            for (final var translatedGroupingValue : translatedGroupingValuesSet) {
+                if (unmatchedCandidateValues.contains(translatedGroupingValue)) {
                     return SubsumedGroupingsResult.noSubsumption();
                 }
             }
-
             return SubsumedGroupingsResult.of(booleanWithConstraint, matchedGroupingsMap, translatedGroupingValues);
         }
 

@@ -50,7 +50,7 @@ import java.util.Optional;
  *     <li>referencing the {@link MatchCandidate}'s traversal w.r.t. the (partially) matched query.</li>
  *     <li>does not have a corresponding match on the query side.</li>
  * </ul>
- * For more information, see {@link RelationalExpression#adjustMatch(PartialMatch, Quantifier)}.
+ * For more information, see {@link RelationalExpression#adjustMatch(PartialMatch)}.
  * Currently the only such expression that can be absorbed is
  * {@link com.apple.foundationdb.record.query.plan.cascades.expressions.MatchableSortExpression}.
  * TODO Maybe that expression should just be a generic property-defining expression or properties should be kept on quantifiers.

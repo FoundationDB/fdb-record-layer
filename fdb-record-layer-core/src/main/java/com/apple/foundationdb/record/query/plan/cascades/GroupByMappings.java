@@ -25,13 +25,32 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 
 import javax.annotation.Nonnull;
+import java.util.Set;
+import java.util.function.Function;
 
+/**
+ * Class to keep track of matched groupings, matched aggregates, as well as unmatched aggregates (so far).
+ */
 public class GroupByMappings {
+    /**
+     * A {@link BiMap} from original query grouping {@link Value} to translated query grouping {@link Value} which is
+     * specific to a {@link MatchCandidate}.
+     */
     @Nonnull
     private final BiMap<Value, Value> matchedGroupingsMap;
+
+    /**
+     * A {@link BiMap} from original query aggregate {@link Value} to translated query aggregate {@link Value} which is
+     * specific to a {@link MatchCandidate}.
+     */
     @Nonnull
     private final BiMap<Value, Value> matchedAggregatesMap;
 
+    /**
+     * A {@link BiMap} from a unique id to an original query aggregate that is not yet matched. The unique id used here
+     * is the same id that is used to handle unmatched aggregate functions in
+     * {@link com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap#compute(Value, Value, Set, ValueEquivalence, Function)}.
+     */
     @Nonnull
     private final BiMap<CorrelationIdentifier, Value> unmatchedAggregatesMap;
 
