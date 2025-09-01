@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords6Proto;
@@ -29,6 +30,8 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.record.query.plan.explain.DefaultExplainFormatter;
+import com.apple.foundationdb.record.query.plan.explain.DefaultExplainSymbolMap;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
@@ -174,5 +177,25 @@ class ArrayDistinctValueTest {
 
         Assertions.assertInstanceOf(ArrayDistinctValue.class, deserializedValue);
         Assertions.assertEquals(deserializedValue, val1);
+    }
+
+    @Test
+    void testExplain() {
+        final ArrayDistinctValue value = new ArrayDistinctValue(LiteralValue.ofList(ImmutableList.of(4, 5, 6)));
+
+        Assertions.assertEquals(
+                "arrayDistinct([4, 5, 6])",
+                value.explain().getExplainTokens().render(new DefaultExplainFormatter(DefaultExplainSymbolMap::new)).toString());
+    }
+
+    @Test
+    void testPlanHash() {
+        final ArrayDistinctValue val1 = new ArrayDistinctValue(LiteralValue.ofList(ImmutableList.of(4, 5, 6)));
+        final ArrayDistinctValue val2 = new ArrayDistinctValue(LiteralValue.ofList(ImmutableList.of(1, 2, 3)));
+        final ArrayDistinctValue val3 = new ArrayDistinctValue(LiteralValue.ofList(ImmutableList.of(4, 5, 6)));
+
+        Assertions.assertEquals(1978183775, val1.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        Assertions.assertEquals(1978180796, val2.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        Assertions.assertEquals(1978183775, val3.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
     }
 }
