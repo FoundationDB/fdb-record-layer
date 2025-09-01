@@ -50,7 +50,7 @@ class ArrayDistinctValueTest {
         });
     }
 
-    static Stream<Arguments> arraySources() {
+    static Stream<Arguments> literalArraySources() {
         return Stream.of(
                 arguments(
                         LiteralValue.ofList(ImmutableList.of(1, 2, 1, 2, 1, 2, 3)),
@@ -66,7 +66,12 @@ class ArrayDistinctValueTest {
                         LiteralValue.ofList(ImmutableList.of("val2", "val1", "val3", "val1", "val2")),
                         ImmutableList.of("val2", "val1", "val3"),
                         EvaluationContext.EMPTY
-                ),
+                )
+        );
+    }
+
+    static Stream<Arguments> fieldArraySources() {
+        return Stream.of(
                 arguments(
                         FieldValue.ofFieldName(
                                 QuantifiedObjectValue.of(
@@ -110,7 +115,7 @@ class ArrayDistinctValueTest {
     }
 
     @ParameterizedTest(name = "returnsArrayWithoutDuplicates[input={0}, expected={1}])")
-    @MethodSource("arraySources")
+    @MethodSource({"literalArraySources", "fieldArraySources"})
     void returnsArrayWithoutDuplicates(Value inputArray, List<?> expectedArray, EvaluationContext evaluationContext) {
         final var constantArrayDistinctValue = new ArrayDistinctValue(inputArray);
         final var actualArray = constantArrayDistinctValue.evalWithoutStore(evaluationContext);
