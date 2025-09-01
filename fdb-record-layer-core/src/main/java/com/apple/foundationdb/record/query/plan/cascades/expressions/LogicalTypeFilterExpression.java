@@ -30,10 +30,7 @@ import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentityMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
-import com.apple.foundationdb.record.query.plan.cascades.GroupByMappings;
-import com.apple.foundationdb.record.query.plan.cascades.MatchInfo.RegularMatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
-import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.ResultCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
@@ -176,14 +173,12 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
         return exactlySubsumedBy(candidateExpression, bindingAliasMap, partialMatchMap, translationMapOptional.get());
     }
 
-    @SuppressWarnings("ConstantValue")
     @Nonnull
     @Override
     public Compensation compensate(@Nonnull final PartialMatch partialMatch,
                                    @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
                                    @Nullable final PullUp pullUp,
                                    @Nonnull final CorrelationIdentifier candidateAlias) {
-        final var matchInfo = partialMatch.getMatchInfo();
         final var regularMatchInfo = partialMatch.getRegularMatchInfo();
         final var nestedPullUpPair =
                 partialMatch.nestPullUp(pullUp, candidateAlias);
@@ -204,49 +199,26 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
             return Compensation.impossibleCompensation();
         }
 
-        boolean isCompensationImpossible = false;
-        final ResultCompensationFunction resultCompensationFunction;
-        final GroupByMappings groupByMappings;
-        if (rootOfMatchPullUp == null) {
-            resultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
-            groupByMappings = GroupByMappings.empty();
-        } else {
-            final var maxMatchMap = matchInfo.getMaxMatchMap();
-            final var pulledUpTranslatedResultValueOptional =
-                    rootOfMatchPullUp.pullUpValueMaybe(maxMatchMap.getQueryValue());
-            if (pulledUpTranslatedResultValueOptional.isEmpty()) {
-                return Compensation.impossibleCompensation();
-            }
-
-            final var pulledUpTranslatedResultValue = pulledUpTranslatedResultValueOptional.get();
-
-            if (QuantifiedObjectValue.isSimpleQuantifiedObjectValueOver(pulledUpTranslatedResultValue,
-                    rootOfMatchPullUp.getCandidateAlias())) {
-                resultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
-            } else {
-                resultCompensationFunction =
-                        ResultCompensationFunction.ofValue(pulledUpTranslatedResultValue);
-            }
-            isCompensationImpossible |= resultCompensationFunction.isImpossible();
-
-            groupByMappings =
-                    RegularMatchInfo.pullUpAggregateCandidateMappings(partialMatch, rootOfMatchPullUp);
+        final var compensatedResultOptional =
+                Compensation.computeResultCompensation(partialMatch, rootOfMatchPullUp);
+        if (compensatedResultOptional.isEmpty()) {
+            return Compensation.impossibleCompensation();
+        }
+        final var compensatedResult = compensatedResultOptional.get();
+        if (!compensatedResult.getResultCompensationFunction().isNeeded()) {
+            return Compensation.noCompensation();
         }
 
         final var unmatchedQuantifiers = partialMatch.getUnmatchedQuantifiers();
         Verify.verify(unmatchedQuantifiers.isEmpty());
 
-        if (!resultCompensationFunction.isNeeded()) {
-            return Compensation.noCompensation();
-        }
-
-        return childCompensation.derived(isCompensationImpossible,
+        return childCompensation.derived(compensatedResult.isCompensationImpossible(),
                 new LinkedIdentityMap<>(),
                 getMatchedQuantifiers(partialMatch),
                 unmatchedQuantifiers,
                 partialMatch.getCompensatedAliases(),
-                resultCompensationFunction,
-                groupByMappings);
+                compensatedResult.getResultCompensationFunction(),
+                compensatedResult.getGroupByMappings());
     }
 
     @Nonnull

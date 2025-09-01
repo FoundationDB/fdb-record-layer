@@ -26,7 +26,9 @@ import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.Resul
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -37,8 +39,10 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -427,6 +431,86 @@ public interface Compensation {
 
         return new ForMatch(isImpossible, this, predicateCompensationMap, matchedQuantifiers,
                 unmatchedQuantifiers, compensatedAliases, resultCompensationFunction, groupByMappings);
+    }
+
+    /**
+     * Compute the necessary compensation for the result of the top operation's {@link PartialMatch}.
+     * @param partialMatch the partial match
+     * @param rootOfMatchPullUp pull up to get expressions to top level
+     * @return a {@link CompensatedResult}
+     */
+    @Nonnull
+    static Optional<CompensatedResult> computeResultCompensation(@Nonnull final PartialMatch partialMatch,
+                                                                 @Nullable final PullUp rootOfMatchPullUp) {
+        final var matchInfo = partialMatch.getMatchInfo();
+        boolean isCompensationImpossible = false;
+        final PredicateMultiMap.ResultCompensationFunction resultCompensationFunction;
+        final GroupByMappings groupByMappings;
+
+        if (rootOfMatchPullUp == null) {
+            // It is possible for the pull up to be null. If that is the case, we do not need compensation.
+            resultCompensationFunction = PredicateMultiMap.ResultCompensationFunction.noCompensationNeeded();
+            groupByMappings = GroupByMappings.empty();
+        } else {
+            //
+            // Pull up the result of the query as translated to the candidate side. If that can be done,
+            // we then attempt to avoid straightforward identity compensations. If that's not possible, we'll
+            // create a result compensation.
+            //
+            final var maxMatchMap = matchInfo.getMaxMatchMap();
+            final var pulledUpTranslatedResultValueOptional =
+                    rootOfMatchPullUp.pullUpValueMaybe(maxMatchMap.getQueryValue());
+            if (pulledUpTranslatedResultValueOptional.isEmpty()) {
+                return Optional.empty();
+            }
+
+            final var pulledUpTranslatedResultValue = pulledUpTranslatedResultValueOptional.get();
+
+            if (QuantifiedObjectValue.isSimpleQuantifiedObjectValueOver(pulledUpTranslatedResultValue,
+                    rootOfMatchPullUp.getCandidateAlias())) {
+                resultCompensationFunction = PredicateMultiMap.ResultCompensationFunction.noCompensationNeeded();
+            } else {
+                resultCompensationFunction =
+                        PredicateMultiMap.ResultCompensationFunction.ofValue(pulledUpTranslatedResultValue);
+            }
+            isCompensationImpossible = resultCompensationFunction.isImpossible();
+
+            // Fix up the group my mappings as well.
+            groupByMappings =
+                    MatchInfo.RegularMatchInfo.pullUpAggregateCandidateMappings(partialMatch, rootOfMatchPullUp);
+        }
+        return Optional.of(new CompensatedResult(isCompensationImpossible, resultCompensationFunction,
+                groupByMappings));
+    }
+
+    class CompensatedResult {
+        private final boolean isCompensationImpossible;
+        @Nonnull
+        private final PredicateMultiMap.ResultCompensationFunction resultCompensationFunction;
+        @Nonnull
+        private final GroupByMappings groupByMappings;
+
+        public CompensatedResult(final boolean isCompensationImpossible,
+                                 @Nonnull final PredicateMultiMap.ResultCompensationFunction resultCompensationFunction,
+                                 @Nonnull final GroupByMappings groupByMappings) {
+            this.isCompensationImpossible = isCompensationImpossible;
+            this.resultCompensationFunction = resultCompensationFunction;
+            this.groupByMappings = groupByMappings;
+        }
+
+        public boolean isCompensationImpossible() {
+            return isCompensationImpossible;
+        }
+
+        @Nonnull
+        public PredicateMultiMap.ResultCompensationFunction getResultCompensationFunction() {
+            return resultCompensationFunction;
+        }
+
+        @Nonnull
+        public GroupByMappings getGroupByMappings() {
+            return groupByMappings;
+        }
     }
 
     /**

@@ -6,7 +6,7 @@ field-index-tests-proto:
         AS _0)
     task_count: 429
     task_total_time_ms: 7
-    transform_count: 102
+    transform_count: 107
     transform_time_ms: 1
     transform_yield_count: 26
     insert_time_ms: 0
@@ -16,8 +16,8 @@ field-index-tests-proto:
     explain: SCAN(<,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL1) AS _0) | ON EMPTY NULL
         | MAP (_._0._0 AS _0)
     task_count: 231
-    task_total_time_ms: 6
-    transform_count: 53
+    task_total_time_ms: 10
+    transform_count: 57
     transform_time_ms: 1
     transform_yield_count: 17
     insert_time_ms: 0
@@ -28,7 +28,7 @@ field-index-tests-proto:
         | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)
     task_count: 231
     task_total_time_ms: 1
-    transform_count: 53
+    transform_count: 57
     transform_time_ms: 0
     transform_yield_count: 17
     insert_time_ms: 0
