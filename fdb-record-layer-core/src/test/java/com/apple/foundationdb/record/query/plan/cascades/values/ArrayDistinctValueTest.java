@@ -22,14 +22,17 @@ package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords6Proto;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -70,8 +73,22 @@ class ArrayDistinctValueTest {
         );
     }
 
-    static Stream<Arguments> fieldArraySources() {
+    static Stream<Arguments> boundArraySources() {
         return Stream.of(
+                arguments(
+                        ConstantObjectValue.of(
+                                Quantifier.constant(),
+                                "c0",
+                                new Type.Array(Type.primitiveType(Type.TypeCode.INT))
+                        ),
+                        List.of(1, 2, 3),
+                        EvaluationContext.newBuilder()
+                                .setConstant(
+                                        Quantifier.constant(),
+                                        ImmutableMap.of("c0", ImmutableList.of(1, 2, 2, 3, 3, 3))
+                                )
+                                .build(TypeRepository.empty())
+                ),
                 arguments(
                         FieldValue.ofFieldName(
                                 QuantifiedObjectValue.of(
@@ -115,7 +132,7 @@ class ArrayDistinctValueTest {
     }
 
     @ParameterizedTest(name = "returnsArrayWithoutDuplicates[input={0}, expected={1}])")
-    @MethodSource({"literalArraySources", "fieldArraySources"})
+    @MethodSource({"literalArraySources", "boundArraySources"})
     void returnsArrayWithoutDuplicates(Value inputArray, List<?> expectedArray, EvaluationContext evaluationContext) {
         final var constantArrayDistinctValue = new ArrayDistinctValue(inputArray);
         final var actualArray = constantArrayDistinctValue.evalWithoutStore(evaluationContext);
@@ -144,5 +161,18 @@ class ArrayDistinctValueTest {
         Assertions.assertEquals(val1, val2);
         Assertions.assertNotEquals(val1, val3);
         Assertions.assertNotEquals(val2, val3);
+    }
+
+    @ParameterizedTest(name = "testSerialization[childValue={0}])")
+    @MethodSource("boundArraySources")  // Don't include literalArraySources as these can't be serialized
+    void testSerialization(Value childValue) {
+        final var val1 = new ArrayDistinctValue(childValue);
+        final var context = PlanSerializationContext.newForCurrentMode();
+
+        final var serializedValue = val1.toValueProto(context);
+        final var deserializedValue = Value.fromValueProto(context, serializedValue);
+
+        Assertions.assertInstanceOf(ArrayDistinctValue.class, deserializedValue);
+        Assertions.assertEquals(deserializedValue, val1);
     }
 }
