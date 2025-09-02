@@ -79,6 +79,7 @@ public class ArrayDistinctValue extends AbstractValue implements ValueWithChild 
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public ValueWithChild withNewChild(@Nonnull final Value rebasedChild) {
         if (getChild() == rebasedChild) {
             return this;
