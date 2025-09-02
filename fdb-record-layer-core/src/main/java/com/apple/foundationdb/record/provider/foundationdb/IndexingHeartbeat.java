@@ -93,33 +93,34 @@ public class IndexingHeartbeat {
                                 return false;
                             }
                             final KeyValue kv = iterator.next();
-                            try {
-                                final UUID otherIndexerId = heartbeatKeyToIndexerId(store, index, kv.getKey());
-                                if (!otherIndexerId.equals(this.indexerId)) {
-                                    final IndexBuildProto.IndexBuildHeartbeat otherHeartbeat = IndexBuildProto.IndexBuildHeartbeat.parseFrom(kv.getValue());
-                                    final long age = now - otherHeartbeat.getHeartbeatTimeMilliseconds();
-                                    if (age > 0 && age < leaseLength) {
-                                        // For practical reasons, this exception is backward compatible to the Synchronized Lock one
-                                        throw new SynchronizedSessionLockedException("Failed to initialize the session because of an existing session in progress")
-                                                .addLogInfo(LogMessageKeys.INDEXER_ID, indexerId)
-                                                .addLogInfo(LogMessageKeys.EXISTING_INDEXER_ID, otherIndexerId)
-                                                .addLogInfo(LogMessageKeys.AGE_MILLISECONDS, age)
-                                                .addLogInfo(LogMessageKeys.TIME_LIMIT_MILLIS, leaseLength);
-                                    }
-                                }
-                            } catch (InvalidProtocolBufferException e) {
-                                if (logger.isWarnEnabled()) {
-                                    logger.warn(KeyValueLogMessage.of("Bad indexing heartbeat item",
-                                            LogMessageKeys.KEY, kv.getKey(),
-                                            LogMessageKeys.VALUE, kv.getValue()));
-                                }
-                            }
+                            checkSingleHeartbeat(store, index, kv, now);
                             return true;
                         }))
-                .thenApply(ignore -> {
-                    updateHeartbeat(store, index);
-                    return null;
-                });
+                .thenAccept(ignore -> updateHeartbeat(store, index));
+    }
+
+    private void checkSingleHeartbeat(final @Nonnull FDBRecordStore store, final @Nonnull Index index, final KeyValue kv, final long now) {
+        try {
+            final UUID otherIndexerId = heartbeatKeyToIndexerId(store, index, kv.getKey());
+            if (!otherIndexerId.equals(this.indexerId)) {
+                final IndexBuildProto.IndexBuildHeartbeat otherHeartbeat = IndexBuildProto.IndexBuildHeartbeat.parseFrom(kv.getValue());
+                final long age = now - otherHeartbeat.getHeartbeatTimeMilliseconds();
+                if (age > 0 && age < leaseLength) {
+                    // For practical reasons, this exception is backward compatible to the Synchronized Lock one
+                    throw new SynchronizedSessionLockedException("Failed to initialize the session because of an existing session in progress")
+                            .addLogInfo(LogMessageKeys.INDEXER_ID, indexerId)
+                            .addLogInfo(LogMessageKeys.EXISTING_INDEXER_ID, otherIndexerId)
+                            .addLogInfo(LogMessageKeys.AGE_MILLISECONDS, age)
+                            .addLogInfo(LogMessageKeys.TIME_LIMIT_MILLIS, leaseLength);
+                }
+            }
+        } catch (InvalidProtocolBufferException e) {
+            if (logger.isWarnEnabled()) {
+                logger.warn(KeyValueLogMessage.of("Bad indexing heartbeat item",
+                        LogMessageKeys.KEY, kv.getKey(),
+                        LogMessageKeys.VALUE, kv.getValue()));
+            }
+        }
     }
 
     public void clearHeartbeat(@Nonnull FDBRecordStore store, @Nonnull Index index) {
