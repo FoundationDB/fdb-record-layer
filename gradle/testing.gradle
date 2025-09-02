@@ -31,7 +31,6 @@ test {
     useJUnitPlatform {
         excludeTags 'WipesFDB'
         excludeTags 'AutomatedTest'
-        excludeEngines 'auto-test'
     }
 }
 
