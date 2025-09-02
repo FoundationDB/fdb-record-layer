@@ -80,9 +80,11 @@ public class ArrayDistinctValue extends AbstractValue implements ValueWithChild 
     @Nonnull
     @Override
     public ValueWithChild withNewChild(@Nonnull final Value rebasedChild) {
+        if (getChild() == rebasedChild) {
+            return this;
+        }
         return new ArrayDistinctValue(rebasedChild);
     }
-
 
     @Nonnull
     @Override
