@@ -102,7 +102,7 @@ public class MemoExpressionTest {
 
     @Nonnull
     private static Memoizer createMemoizer(@Nonnull Reference root) {
-        CascadesRule<?> rule = new FinalizeExpressionsRule(); // doesn't matter for memoization
+        AbstractCascadesRule<?> rule = new FinalizeExpressionsRule(); // doesn't matter for memoization
         return new CascadesRuleCall(PlannerPhase.REWRITING, new FakePlanContext(), rule, root, Traversal.withRoot(root), new ArrayDeque<>(), PlannerBindings.empty(), EvaluationContext.empty());
     }
 

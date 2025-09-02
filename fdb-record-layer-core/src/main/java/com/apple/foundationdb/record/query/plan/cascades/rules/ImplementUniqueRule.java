@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
+import com.apple.foundationdb.record.query.plan.cascades.AbstractCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
@@ -47,7 +48,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * This rule implements {@link LogicalUniqueExpression} by absorbing it if the inner reference is already distinct.
  */
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class ImplementUniqueRule extends ImplementationCascadesRule<LogicalUniqueExpression> {
+public class ImplementUniqueRule extends AbstractCascadesRule<LogicalUniqueExpression> implements ImplementationCascadesRule<LogicalUniqueExpression> {
 
     @Nonnull
     private static final CollectionMatcher<PlanPartition> anyPlanPartitionMatcher = all(anyPlanPartition());
