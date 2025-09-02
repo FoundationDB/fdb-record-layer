@@ -44,6 +44,8 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
 
     private final boolean isForExplain;
 
+    private final boolean isVerboseExplainLevel;
+
     private final int parameterHash;
 
     @Nonnull
@@ -53,10 +55,12 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
                                             @Nullable byte[] continuation,
                                             int parameterHash,
                                             boolean isForExplain,
+                                            boolean isVerboseExplainLevel,
                                             @Nonnull final PlanHashable.PlanHashMode planHashMode) {
         this.literals = literals;
         this.continuation = continuation;
         this.isForExplain = isForExplain;
+        this.isVerboseExplainLevel = isVerboseExplainLevel;
         this.parameterHash = parameterHash;
         this.planHashMode = planHashMode;
     }
@@ -90,6 +94,11 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
         return isForExplain;
     }
 
+    @Override
+    public boolean isVerboseExplainLevel() {
+        return isVerboseExplainLevel;
+    }
+
     @Nonnull
     @Override
     public PlanHashable.PlanHashMode getPlanHashMode() {
@@ -107,6 +116,8 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
 
         private boolean isForExplain;
 
+        private boolean isVerboseExplainLevel;
+
         @Nullable
         private byte[] continuation;
 
@@ -120,6 +131,7 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
             this.isForExplain = false;
             this.continuation = null;
             this.planHashMode = null;
+            this.isVerboseExplainLevel = false;
         }
 
         @Nonnull
@@ -147,6 +159,12 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
         }
 
         @Nonnull
+        public Builder setIsVerboseExplainLevel(boolean isVerboseExplainLevel) {
+            this.isVerboseExplainLevel = isVerboseExplainLevel;
+            return this;
+        }
+
+        @Nonnull
         public Builder setPlanHashMode(@Nonnull PlanHashable.PlanHashMode planHashMode) {
             this.planHashMode = planHashMode;
             return this;
@@ -155,7 +173,7 @@ public final class NormalizedQueryExecutionContext implements QueryExecutionCont
         @Nonnull
         public NormalizedQueryExecutionContext build() {
             return new NormalizedQueryExecutionContext(literalsBuilder.build(), continuation,
-                    parameterHash, isForExplain,
+                    parameterHash, isForExplain, isVerboseExplainLevel,
                     Objects.requireNonNull(planHashMode));
         }
     }

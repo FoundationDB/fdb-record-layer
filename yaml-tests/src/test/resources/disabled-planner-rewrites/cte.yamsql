@@ -114,7 +114,7 @@ test_block:
       - error: "42703"
     -
       - query: select col1 from t1 where col2 < 3
-      - explain: "COVERING(I1 [[LESS_THAN promote(@c8 AS LONG)]] -> [COL1: KEY[1], COL2: KEY[0], ID: KEY[3]]) | MAP (_.COL1 AS COL1)"
+      - explain: "COVERING(I1) | MAP (_.COL1 AS COL1)"
     -
       # TODO (CTEs and subqueries are not fully optimized)
       - query: select x from (select col1 as x, col2 as y from t1) as sub where y < 3

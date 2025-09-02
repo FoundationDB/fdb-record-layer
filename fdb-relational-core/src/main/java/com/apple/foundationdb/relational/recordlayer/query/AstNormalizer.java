@@ -245,6 +245,12 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     }
 
     @Override
+    public Void visitDescribeStatements(@Nonnull RelationalParser.DescribeStatementsContext ctx) {
+        queryHasherContextBuilder.setIsVerboseExplainLevel(ctx.VERBOSE() != null);
+        return visitChildren(ctx);
+    }
+
+    @Override
     public Void visitLimitClause(@Nonnull RelationalParser.LimitClauseContext ctx) {
         if (ctx.offset != null) {
             // Owing to TODO

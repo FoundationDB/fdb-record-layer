@@ -51,7 +51,7 @@ test_block:
     -
       - query: select count(*) from (select * from (select * from T1) as x where ID is not null) as y;
       - supported_version: 4.1.9.0
-      - explain: "COVERING(I1 <,> -> [COL1: KEY[0], ID: KEY[2]]) | FILTER _.ID NOT_NULL | FETCH | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
+      - explain: "COVERING(I1) | FILTER _.ID NOT_NULL | FETCH | MAP (_ AS _0) | AGG (count_star(*) AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG)) AS _0)"
       - result: [{13}]
     -
       # Copy of above query that simulates force continuations mode, which does not work prior to 4.1.9.0

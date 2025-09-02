@@ -39,28 +39,28 @@ test_block:
   tests:
     -
       - query: select id from t3 where tombstone = true or tombstone is not null
-      - explainContains: "COVERING(I4 <,>"
+      - explainContains: "COVERING(I4) "
     -
       - query: select id from t3 where tombstone = true or tombstone is not null
-      - explainContains: "COVERING(I4 <,>"
+      - explainContains: "COVERING(I4) "
     -
       - query: select id from t3 where tombstone = true or tombstone is not null
-      - explainContains: "COVERING(I4 <,>"
+      - explainContains: "COVERING(I4) "
     -
       - query: select tombstone from t2 where tombstone is null
       - explainContains: "SCAN("
     -
       - query: select tombstone from t2 where tombstone is not null
-      - explainContains: "COVERING(I3 ([null],>"
+      - explainContains: "COVERING(I3) "
     -
       - query: select id from t5 where col1 < 40 or col1 > 90
-      - explainContains: "COVERING(I6 <,>"
+      - explainContains: "COVERING(I6) "
     -
       - query: select id from t5 where col1 < 40 or col1 > 90
-      - explainContains: "COVERING(I6 <,>"
+      - explainContains: "COVERING(I6) "
     -
       - query: select id from t5 where col1 < 40 or col1 > 90
-      - explainContains: "COVERING(I6 <,>"
+      - explainContains: "COVERING(I6) "
 ---
 # Following tests are executed in order as the index used depends on which query warms up the cache. In this particular
 # scenario, the first query puts the plan in cache, which cannot be used by second query that would use the one with
@@ -75,21 +75,21 @@ test_block:
   tests:
     -
       - query: select id from t1 where col1 < 100
-      - explainContains: "COVERING(I1 "
+      - explainContains: "COVERING(I1) "
       - result: []
     -
       - query: select id from t1 where col1 < 453
-      - explainContains: "COVERING(I2 "
+      - explainContains: "COVERING(I2) "
       - result: []
     -
       - query: select col1 from t1 where col1 > 55 and col1 < 100
-      - explainContains: "COVERING(I1 [[GREATER_THAN promote(@c8 AS INT) && LESS_THAN promote(@c12 AS INT)]]"
+      - explainContains: "COVERING(I1) | MAP (_.COL1 AS COL1)"
     -
       - query: select col1 from t1 where col1 > 55 and col1 < 199
-      - explainContains: "COVERING(I1 [[GREATER_THAN promote(@c8 AS INT) && LESS_THAN promote(@c12 AS INT)]]"
+      - explainContains: "COVERING(I1) | MAP (_.COL1 AS COL1)"
     -
       - query: select col1 from t1 where col1 > 50 and col1 < 350
-      - explainContains: "COVERING(I2 [[GREATER_THAN promote(@c8 AS INT) && LESS_THAN promote(@c12 AS INT)]]"
+      - explainContains: "COVERING(I2) | MAP (_.COL1 AS COL1"
 ---
 setup:
   steps:
@@ -110,15 +110,15 @@ test_block:
   tests:
     -
       - query: select id from t1 where col1 < 200
-      - explainContains: "COVERING(I1 "
+      - explainContains: "COVERING(I1) | MAP (_.ID AS ID)"
       - result: [{ID: 1}]
     -
       - query: select id from t1 where col1 < 201
-      - explainContains: "COVERING(I2 "
+      - explainContains: "COVERING(I2) | MAP (_.ID AS ID)"
       - result: [{ID: 1}, {ID: 2}]
     -
       - query: select id from t1 where col1 < 250
-      - explainContains: "COVERING(I2 "
+      - explainContains: "COVERING(I2) | MAP (_.ID AS ID)"
       - result: [{ID: 1}, {ID: 2}, {ID: 3}]
     -
       - query: select id from t1 where col1 < 500

@@ -242,7 +242,7 @@ test_block:
   tests:
     -
       - query: select b, c from tc order by b
-      - explain: "COVERING(TC1 <,> -> [A: KEY[2], B: KEY[0], C: VALUE[0]]) | MAP (_.B AS B, _.C AS C)"
+      - explain: "COVERING(TC1) | MAP (_.B AS B, _.C AS C)"
       - result: [{!uuid '0920df1c-be81-4ec1-8a06-2180226f051d', 6},
                  {!uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b', 3},
                  {!uuid '64120112-4e39-40c3-94b9-2cc88a52e8df', 5},
@@ -251,7 +251,7 @@ test_block:
                  {!uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682', 4}]
     -
       - query: select * from tc order by b
-      - explain: "ISCAN(TC1 <,>)"
+      - explain: "ISCAN(TC1)"
       - result: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d', 6},
                  {4, !uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b', 3},
                  {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df', 5},
@@ -260,18 +260,18 @@ test_block:
                  {3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682', 4}]
     -
       - query: select * from tc where b > 'a8708750-d70f-4800-8c3b-13700d5b369f' order by b
-      - explain: "ISCAN(TC1 [[GREATER_THAN promote(@c8 AS UUID)]])"
+      - explain: "ISCAN(TC1)"
       - result: [{3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682', 4}]
     -
       - query: select * from tc where b < 'a8708750-d70f-4800-8c3b-13700d5b369f' order by b desc
-      - explain: "ISCAN(TC1 [[LESS_THAN promote(@c8 AS UUID)]] REVERSE)"
+      - explain: "ISCAN(TC1)"
       - result: [{6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6', 1},
                  {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df', 5},
                  {4, !uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b', 3},
                  {1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d', 6}]
     -
       - query: select * from tc where b < 'a8708750-d70f-4800-8c3b-13700d5b369f' and c > 4 order by b desc
-      - explain: "COVERING(TC1 [[LESS_THAN promote(@c8 AS UUID)]] REVERSE -> [A: KEY[2], B: KEY[0], C: VALUE[0]]) | FILTER _.C GREATER_THAN promote(@c12 AS LONG) | FETCH"
+      - explain: "COVERING(TC1) | FILTER _.C GREATER_THAN promote(@c12 AS LONG) | FETCH"
       - result: [{2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df', 5},
                  {1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d', 6}]
 ...
