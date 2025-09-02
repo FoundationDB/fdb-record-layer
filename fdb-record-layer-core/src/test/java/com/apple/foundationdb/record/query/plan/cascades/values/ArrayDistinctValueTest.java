@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.query.plan.explain.DefaultExplainFormatter;
 import com.apple.foundationdb.record.query.plan.explain.DefaultExplainSymbolMap;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.common.base.VerifyException;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Assertions;
@@ -44,7 +43,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -52,78 +50,24 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 class ArrayDistinctValueTest {
 
-    @Test
-    void rejectsNonArrayValues() {
-        Assertions.assertThrowsExactly(VerifyException.class, () -> {
-            new ArrayDistinctValue(LiteralValue.ofScalar(42));
-        });
+    private static TestRecords1Proto.MySimpleRecord simpleRecord(int recNo) {
+        return TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(recNo).build();
     }
 
-    @ParameterizedTest(name = "returnsArrayWithoutDuplicates[input={0}, expected={1}])")
-    @MethodSource({"literalArraySources", "boundArraySources"})
-    void returnsArrayWithoutDuplicates(Value inputArray, List<?> expectedArray, EvaluationContext evaluationContext) {
-        final var constantArrayDistinctValue = new ArrayDistinctValue(inputArray);
-        final var actualArray = constantArrayDistinctValue.evalWithoutStore(evaluationContext);
-
-        Assertions.assertEquals(expectedArray, actualArray);
+    private static TestRecords1Proto.MySimpleRecord simpleRecord(List<Integer> repeater) {
+        return TestRecords1Proto.MySimpleRecord.newBuilder().addAllRepeater(repeater).build();
     }
 
-    @Test
-    void withNewChildReplacesUnderlyingArray() {
-        final var expectedArray = ImmutableList.of(1, 2, 3);
-        final ArrayDistinctValue value = new ArrayDistinctValue(LiteralValue.ofList(ImmutableList.of(4, 5, 6)));
-
-        final var newValue = value.withNewChild(LiteralValue.ofList(expectedArray));
-
-        Assertions.assertEquals(expectedArray, newValue.evalWithoutStore(EvaluationContext.EMPTY));
+    private static TestRecords6Proto.MyRepeatedRecord repeatedRecord(List<String> s1) {
+        return TestRecords6Proto.MyRepeatedRecord.newBuilder().setRecNo(1L).addAllS1(s1).build();
     }
 
-    @Test
-    void equalsComparesUnderlyingValues() {
-        final var val1 = new ArrayDistinctValue(LiteralValue.ofList(ImmutableList.of(5, 6, 7)));
-        final var val2 = new ArrayDistinctValue(LiteralValue.ofList(ImmutableList.of(5, 6, 7)));
-        final var val3 = new ArrayDistinctValue(
-                ConstantObjectValue.of(Quantifier.constant(), "c0", new Type.Array())
-        );
-
-        Assertions.assertEquals(val1, val2);
-        Assertions.assertNotEquals(val1, val3);
-        Assertions.assertNotEquals(val2, val3);
+    private static TestRecords4Proto.RestaurantReview restaurantReview(int reviewer, int rating) {
+        return TestRecords4Proto.RestaurantReview.newBuilder().setReviewer(reviewer).setRating(rating).build();
     }
 
-    @ParameterizedTest(name = "testSerialization[childValue={0}])")
-    @MethodSource("boundArraySources")  // Don't include literalArraySources as these can't be serialized
-    void testSerialization(Value childValue) {
-        final var val1 = new ArrayDistinctValue(childValue);
-        final var context = PlanSerializationContext.newForCurrentMode();
-
-        final var serializedValue = val1.toValueProto(context);
-        final var deserializedValue = Value.fromValueProto(context, serializedValue);
-
-        Assertions.assertInstanceOf(ArrayDistinctValue.class, deserializedValue);
-        Assertions.assertEquals(deserializedValue, val1);
-        Assertions.assertEquals(((ArrayDistinctValue)deserializedValue).getChild(), childValue);
-    }
-
-    @Test
-    void testExplain() {
-        final var inputArray = ImmutableList.of(4, 5, 5, 6, 4);
-        final ArrayDistinctValue value = new ArrayDistinctValue(LiteralValue.ofList(inputArray));
-
-        Assertions.assertEquals(
-                "arrayDistinct(" + inputArray + ")",
-                value.explain().getExplainTokens().render(new DefaultExplainFormatter(DefaultExplainSymbolMap::new)).toString());
-    }
-
-    @Test
-    void testPlanHash() {
-        final ArrayDistinctValue val1 = new ArrayDistinctValue(LiteralValue.ofList(ImmutableList.of(4, 5, 6)));
-        final ArrayDistinctValue val2 = new ArrayDistinctValue(LiteralValue.ofList(ImmutableList.of(1, 2, 3)));
-        final ArrayDistinctValue val3 = new ArrayDistinctValue(LiteralValue.ofList(ImmutableList.of(4, 5, 6)));
-
-        Assertions.assertEquals(1978183775, val1.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
-        Assertions.assertEquals(1978180796, val2.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
-        Assertions.assertEquals(1978183775, val3.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+    private static TestRecords4Proto.RestaurantRecord restaurantRecord(List<TestRecords4Proto.RestaurantReview> reviews) {
+        return TestRecords4Proto.RestaurantRecord.newBuilder().setRestNo(1).addAllReviews(reviews).build();
     }
 
     private static Stream<Arguments> literalArraySources() {
@@ -228,23 +172,77 @@ class ArrayDistinctValueTest {
         );
     }
 
-    private static TestRecords1Proto.MySimpleRecord simpleRecord(int recNo) {
-        return TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(recNo).build();
+    @Test
+    void rejectsNonArrayValues() {
+        Assertions.assertThrowsExactly(VerifyException.class, () -> {
+            new ArrayDistinctValue(LiteralValue.ofScalar(42));
+        });
     }
 
-    private static TestRecords1Proto.MySimpleRecord simpleRecord(List<Integer> repeater) {
-        return TestRecords1Proto.MySimpleRecord.newBuilder().addAllRepeater(repeater).build();
+    @ParameterizedTest(name = "returnsArrayWithoutDuplicates[input={0}, expected={1}])")
+    @MethodSource({"literalArraySources", "boundArraySources"})
+    void returnsArrayWithoutDuplicates(Value inputArray, List<?> expectedArray, EvaluationContext evaluationContext) {
+        final var constantArrayDistinctValue = new ArrayDistinctValue(inputArray);
+        final var actualArray = constantArrayDistinctValue.evalWithoutStore(evaluationContext);
+
+        Assertions.assertEquals(expectedArray, actualArray);
     }
 
-    private static TestRecords6Proto.MyRepeatedRecord repeatedRecord(List<String> s1) {
-        return TestRecords6Proto.MyRepeatedRecord.newBuilder().setRecNo(1L).addAllS1(s1).build();
+    @Test
+    void withNewChildReplacesUnderlyingArray() {
+        final var expectedArray = ImmutableList.of(1, 2, 3);
+        final ArrayDistinctValue value = new ArrayDistinctValue(LiteralValue.ofList(ImmutableList.of(4, 5, 6)));
+
+        final var newValue = value.withNewChild(LiteralValue.ofList(expectedArray));
+
+        Assertions.assertEquals(expectedArray, newValue.evalWithoutStore(EvaluationContext.EMPTY));
     }
 
-    private static TestRecords4Proto.RestaurantReview restaurantReview(int reviewer, int rating) {
-        return TestRecords4Proto.RestaurantReview.newBuilder().setReviewer(reviewer).setRating(rating).build();
+    @Test
+    void equalsComparesUnderlyingValues() {
+        final var val1 = new ArrayDistinctValue(LiteralValue.ofList(ImmutableList.of(5, 6, 7)));
+        final var val2 = new ArrayDistinctValue(LiteralValue.ofList(ImmutableList.of(5, 6, 7)));
+        final var val3 = new ArrayDistinctValue(
+                ConstantObjectValue.of(Quantifier.constant(), "c0", new Type.Array())
+        );
+
+        Assertions.assertEquals(val1, val2);
+        Assertions.assertNotEquals(val1, val3);
+        Assertions.assertNotEquals(val2, val3);
     }
 
-    private static TestRecords4Proto.RestaurantRecord restaurantRecord(List<TestRecords4Proto.RestaurantReview> reviews) {
-        return TestRecords4Proto.RestaurantRecord.newBuilder().setRestNo(1).addAllReviews(reviews).build();
+    @ParameterizedTest(name = "testSerialization[childValue={0}])")
+    @MethodSource("boundArraySources")  // Don't include literalArraySources as these can't be serialized
+    void testSerialization(Value childValue) {
+        final var val1 = new ArrayDistinctValue(childValue);
+        final var context = PlanSerializationContext.newForCurrentMode();
+
+        final var serializedValue = val1.toValueProto(context);
+        final var deserializedValue = Value.fromValueProto(context, serializedValue);
+
+        Assertions.assertInstanceOf(ArrayDistinctValue.class, deserializedValue);
+        Assertions.assertEquals(deserializedValue, val1);
+        Assertions.assertEquals(((ArrayDistinctValue)deserializedValue).getChild(), childValue);
+    }
+
+    @Test
+    void testExplain() {
+        final var inputArray = ImmutableList.of(4, 5, 5, 6, 4);
+        final ArrayDistinctValue value = new ArrayDistinctValue(LiteralValue.ofList(inputArray));
+
+        Assertions.assertEquals(
+                "arrayDistinct(" + inputArray + ")",
+                value.explain().getExplainTokens().render(new DefaultExplainFormatter(DefaultExplainSymbolMap::new)).toString());
+    }
+
+    @Test
+    void testPlanHash() {
+        final ArrayDistinctValue val1 = new ArrayDistinctValue(LiteralValue.ofList(ImmutableList.of(4, 5, 6)));
+        final ArrayDistinctValue val2 = new ArrayDistinctValue(LiteralValue.ofList(ImmutableList.of(1, 2, 3)));
+        final ArrayDistinctValue val3 = new ArrayDistinctValue(LiteralValue.ofList(ImmutableList.of(4, 5, 6)));
+
+        Assertions.assertEquals(1978183775, val1.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        Assertions.assertEquals(1978180796, val2.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        Assertions.assertEquals(1978183775, val3.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
     }
 }
