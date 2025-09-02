@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecords6Proto;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -34,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.explain.DefaultExplainFormatter;
 import com.apple.foundationdb.record.query.plan.explain.DefaultExplainSymbolMap;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Assertions;
@@ -42,6 +44,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -54,84 +57,6 @@ class ArrayDistinctValueTest {
         Assertions.assertThrowsExactly(VerifyException.class, () -> {
             new ArrayDistinctValue(LiteralValue.ofScalar(42));
         });
-    }
-
-    static Stream<Arguments> literalArraySources() {
-        return Stream.of(
-                arguments(
-                        LiteralValue.ofList(ImmutableList.of(1, 2, 1, 2, 1, 2, 3)),
-                        ImmutableList.of(1, 2, 3),
-                        EvaluationContext.EMPTY
-                ),
-                arguments(
-                        LiteralValue.ofList(ImmutableList.of(1, 2, 3, 4, 5)),
-                        ImmutableList.of(1, 2, 3, 4, 5),
-                        EvaluationContext.EMPTY
-                ),
-                arguments(
-                        LiteralValue.ofList(ImmutableList.of("val2", "val1", "val3", "val1", "val2")),
-                        ImmutableList.of("val2", "val1", "val3"),
-                        EvaluationContext.EMPTY
-                )
-        );
-    }
-
-    static Stream<Arguments> boundArraySources() {
-        return Stream.of(
-                arguments(
-                        ConstantObjectValue.of(
-                                Quantifier.constant(),
-                                "c0",
-                                new Type.Array(Type.primitiveType(Type.TypeCode.INT))
-                        ),
-                        List.of(1, 2, 3),
-                        EvaluationContext.newBuilder()
-                                .setConstant(
-                                        Quantifier.constant(),
-                                        ImmutableMap.of("c0", ImmutableList.of(1, 2, 2, 3, 3, 3))
-                                )
-                                .build(TypeRepository.empty())
-                ),
-                arguments(
-                        FieldValue.ofFieldName(
-                                QuantifiedObjectValue.of(
-                                        CorrelationIdentifier.of("id1"),
-                                        Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor())
-                                ),
-                                "repeater"
-                        ),
-                        ImmutableList.of(1, 2, 5, 4, 3),
-                        EvaluationContext.forBinding(
-                                Bindings.Internal.CORRELATION.bindingName("id1"),
-                                QueryResult.ofComputed(
-                                        TestRecords1Proto.MySimpleRecord
-                                                .newBuilder()
-                                                .addAllRepeater(List.of(1, 2, 2, 5, 4, 3, 3))
-                                                .build()
-                                )
-                        )
-                ),
-                arguments(
-                        FieldValue.ofFieldName(
-                                QuantifiedObjectValue.of(
-                                        CorrelationIdentifier.of("id2"),
-                                        Type.Record.fromDescriptor(TestRecords6Proto.MyRepeatedRecord.getDescriptor())
-                                ),
-                                "s1"
-                        ),
-                        ImmutableList.of("val2", "val1", "val3"),
-                        EvaluationContext.forBinding(
-                                Bindings.Internal.CORRELATION.bindingName("id2"),
-                                QueryResult.ofComputed(
-                                        TestRecords6Proto.MyRepeatedRecord
-                                                .newBuilder()
-                                                .setRecNo(1L)
-                                                .addAllS1(List.of("val2", "val1", "val3", "val1", "val2"))
-                                                .build()
-                                )
-                        )
-                )
-        );
     }
 
     @ParameterizedTest(name = "returnsArrayWithoutDuplicates[input={0}, expected={1}])")
@@ -177,14 +102,16 @@ class ArrayDistinctValueTest {
 
         Assertions.assertInstanceOf(ArrayDistinctValue.class, deserializedValue);
         Assertions.assertEquals(deserializedValue, val1);
+        Assertions.assertEquals(((ArrayDistinctValue)deserializedValue).getChild(), childValue);
     }
 
     @Test
     void testExplain() {
-        final ArrayDistinctValue value = new ArrayDistinctValue(LiteralValue.ofList(ImmutableList.of(4, 5, 6)));
+        final var inputArray = ImmutableList.of(4, 5, 5, 6, 4);
+        final ArrayDistinctValue value = new ArrayDistinctValue(LiteralValue.ofList(inputArray));
 
         Assertions.assertEquals(
-                "arrayDistinct([4, 5, 6])",
+                "arrayDistinct(" + inputArray + ")",
                 value.explain().getExplainTokens().render(new DefaultExplainFormatter(DefaultExplainSymbolMap::new)).toString());
     }
 
@@ -197,5 +124,127 @@ class ArrayDistinctValueTest {
         Assertions.assertEquals(1978183775, val1.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         Assertions.assertEquals(1978180796, val2.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
         Assertions.assertEquals(1978183775, val3.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+    }
+
+    private static Stream<Arguments> literalArraySources() {
+        return Stream.of(
+                arguments(
+                        LiteralValue.ofList(ImmutableList.of(1, 2, 1, 2, 1, 2, 3)),
+                        ImmutableList.of(1, 2, 3),
+                        EvaluationContext.EMPTY
+                ),
+                arguments(
+                        LiteralValue.ofList(ImmutableList.of(1, 2, 3, 4, 5)),
+                        ImmutableList.of(1, 2, 3, 4, 5),
+                        EvaluationContext.EMPTY
+                ),
+                arguments(
+                        LiteralValue.ofList(ImmutableList.of("val2", "val1", "val3", "val1", "val2")),
+                        ImmutableList.of("val2", "val1", "val3"),
+                        EvaluationContext.EMPTY
+                ),
+                arguments(
+                        LiteralValue.ofList(ImmutableList.of(
+                                simpleRecord(1), simpleRecord(2), simpleRecord(2), simpleRecord(4),
+                                simpleRecord(3), simpleRecord(2), simpleRecord(3),
+                                repeatedRecord(ImmutableList.of("1"))
+                        )),
+                        ImmutableList.of(
+                                simpleRecord(1), simpleRecord(2), simpleRecord(4), simpleRecord(3),
+                                repeatedRecord(ImmutableList.of("1"))
+                        ),
+                        EvaluationContext.EMPTY
+                )
+        );
+    }
+
+    private static Stream<Arguments> boundArraySources() {
+        return Stream.of(
+                arguments(
+                        ConstantObjectValue.of(
+                                Quantifier.constant(),
+                                "c0",
+                                new Type.Array(Type.primitiveType(Type.TypeCode.INT))
+                        ),
+                        List.of(1, 2, 3),
+                        EvaluationContext.newBuilder()
+                                .setConstant(
+                                        Quantifier.constant(),
+                                        ImmutableMap.of("c0", ImmutableList.of(1, 2, 2, 3, 3, 3))
+                                )
+                                .build(TypeRepository.empty())
+                ),
+                arguments(
+                        FieldValue.ofFieldName(
+                                QuantifiedObjectValue.of(
+                                        CorrelationIdentifier.of("id1"),
+                                        Type.Record.fromDescriptor(TestRecords1Proto.MySimpleRecord.getDescriptor())
+                                ),
+                                "repeater"
+                        ),
+                        ImmutableList.of(1, 2, 5, 4, 3),
+                        EvaluationContext.forBinding(
+                                Bindings.Internal.CORRELATION.bindingName("id1"),
+                                QueryResult.ofComputed(simpleRecord(List.of(1, 2, 2, 5, 4, 3, 3)))
+                        )
+                ),
+                arguments(
+                        FieldValue.ofFieldName(
+                                QuantifiedObjectValue.of(
+                                        CorrelationIdentifier.of("id2"),
+                                        Type.Record.fromDescriptor(TestRecords6Proto.MyRepeatedRecord.getDescriptor())
+                                ),
+                                "s1"
+                        ),
+                        ImmutableList.of("val2", "val1", "val3"),
+                        EvaluationContext.forBinding(
+                                Bindings.Internal.CORRELATION.bindingName("id2"),
+                                QueryResult.ofComputed(repeatedRecord(List.of("val2", "val1", "val3", "val1", "val2")))
+                        )
+                ),
+                arguments(
+                        FieldValue.ofFieldName(
+                                QuantifiedObjectValue.of(
+                                        CorrelationIdentifier.of("id3"),
+                                        Type.Record.fromDescriptor(TestRecords4Proto.RestaurantRecord.getDescriptor())
+                                ),
+                                "reviews"
+                        ),
+                        ImmutableList.of(
+                                restaurantReview(1, 5), restaurantReview(3, 5),
+                                restaurantReview(2, 5), restaurantReview(2, 4)
+                        ),
+                        EvaluationContext.forBinding(
+                                Bindings.Internal.CORRELATION.bindingName("id3"),
+                                QueryResult.ofComputed(restaurantRecord(
+                                        ImmutableList.of(
+                                                restaurantReview(1, 5), restaurantReview(3, 5),
+                                                restaurantReview(3, 5), restaurantReview(1, 5),
+                                                restaurantReview(2, 5), restaurantReview(2, 4)
+                                        )
+                                ))
+                        )
+                )
+        );
+    }
+
+    private static TestRecords1Proto.MySimpleRecord simpleRecord(int recNo) {
+        return TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(recNo).build();
+    }
+
+    private static TestRecords1Proto.MySimpleRecord simpleRecord(List<Integer> repeater) {
+        return TestRecords1Proto.MySimpleRecord.newBuilder().addAllRepeater(repeater).build();
+    }
+
+    private static TestRecords6Proto.MyRepeatedRecord repeatedRecord(List<String> s1) {
+        return TestRecords6Proto.MyRepeatedRecord.newBuilder().setRecNo(1L).addAllS1(s1).build();
+    }
+
+    private static TestRecords4Proto.RestaurantReview restaurantReview(int reviewer, int rating) {
+        return TestRecords4Proto.RestaurantReview.newBuilder().setReviewer(reviewer).setRating(rating).build();
+    }
+
+    private static TestRecords4Proto.RestaurantRecord restaurantRecord(List<TestRecords4Proto.RestaurantReview> reviews) {
+        return TestRecords4Proto.RestaurantRecord.newBuilder().setRestNo(1).addAllReviews(reviews).build();
     }
 }
