@@ -1187,21 +1187,7 @@ class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                     .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                             .setSourceIndex("src_index")
                             .forbidRecordScan())
-                    .setConfigLoader(old -> {
-                        if (passed.get()) {
-                            try {
-                                startBuildingSemaphore.release();
-                                pauseMutualBuildSemaphore.acquire(); // pause to try building indexes
-                            } catch (InterruptedException e) {
-                                throw new RuntimeException(e);
-                            } finally {
-                                pauseMutualBuildSemaphore.release();
-                            }
-                        } else {
-                            passed.set(true);
-                        }
-                        return old;
-                    })
+                    .setConfigLoader(old -> pauseAfterOnePass(old, passed, startBuildingSemaphore, pauseMutualBuildSemaphore))
                     .build()) {
                 indexBuilder.buildIndex();
             }

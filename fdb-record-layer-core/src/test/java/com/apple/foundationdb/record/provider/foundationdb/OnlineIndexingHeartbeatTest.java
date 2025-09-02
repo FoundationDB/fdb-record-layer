@@ -28,7 +28,7 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
-import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
@@ -46,6 +46,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -80,35 +81,35 @@ class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
         try (OnlineIndexer indexer = newIndexerBuilder(indexes.get(0)).build()) {
             // Query, unlimited
             Map<UUID, IndexBuildProto.IndexBuildHeartbeat> queried = indexer.getIndexingHeartbeats(0);
-            Assertions.assertThat(queried).hasSize(count);
-            Assertions.assertThat(queried.keySet())
+            assertThat(queried).hasSize(count);
+            assertThat(queried.keySet())
                     .containsExactlyInAnyOrderElementsOf(Arrays.stream(heartbeats).map(heartbeat -> heartbeat.indexerId).collect(Collectors.toList()));
 
             // Query, partial
             queried = indexer.getIndexingHeartbeats(5);
-            Assertions.assertThat(queried).hasSize(5);
+            assertThat(queried).hasSize(5);
 
             // clear, partial
             int countDeleted = indexer.clearIndexingHeartbeats(0, 7);
-            Assertions.assertThat(countDeleted).isEqualTo(7);
+            assertThat(countDeleted).isEqualTo(7);
             queried = indexer.getIndexingHeartbeats(5);
-            Assertions.assertThat(queried).hasSize(3);
+            assertThat(queried).hasSize(3);
         }
 
         // Verify that the previous clear does not affect other index
         try (OnlineIndexer indexer = newIndexerBuilder(indexes.get(1)).build()) {
             Map<UUID, IndexBuildProto.IndexBuildHeartbeat> queried = indexer.getIndexingHeartbeats(100);
-            Assertions.assertThat(queried).hasSize(count);
-            Assertions.assertThat(queried.keySet())
+            assertThat(queried).hasSize(count);
+            assertThat(queried.keySet())
                     .containsExactlyInAnyOrderElementsOf(Arrays.stream(heartbeats).map(ht -> ht.indexerId).collect(Collectors.toList()));
 
             // clear all
             int countDeleted = indexer.clearIndexingHeartbeats(0, 0);
-            Assertions.assertThat(countDeleted).isEqualTo(count);
+            assertThat(countDeleted).isEqualTo(count);
 
             // verify empty
             queried = indexer.getIndexingHeartbeats(0);
-            Assertions.assertThat(queried).isEmpty();
+            assertThat(queried).isEmpty();
         }
     }
 
@@ -145,7 +146,7 @@ class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
 
         for (Index index : indexes) {
             try (OnlineIndexer indexer = newIndexerBuilder(index).build()) {
-                Assertions.assertThat(indexer.getIndexingHeartbeats(0)).isEmpty();
+                assertThat(indexer.getIndexingHeartbeats(0)).isEmpty();
             }
         }
     }
@@ -207,7 +208,7 @@ class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
 
         for (Index index : indexes) {
             try (OnlineIndexer indexer = newIndexerBuilder(index).build()) {
-                Assertions.assertThat(indexer.getIndexingHeartbeats(0)).isEmpty();
+                assertThat(indexer.getIndexingHeartbeats(0)).isEmpty();
             }
         }
     }
@@ -234,13 +235,10 @@ class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
         AtomicReference<Map<UUID, IndexBuildProto.IndexBuildHeartbeat>> heartbeats = new AtomicReference<>();
         IntStream.rangeClosed(1, 4).parallel().forEach(i -> {
             if (i == 4) {
-                try {
+                Assertions.assertDoesNotThrow(() -> {
                     startSemaphore.acquire();
                     Thread.sleep(100);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw new RuntimeException(e);
-                }
+                });
                 try (OnlineIndexer indexer = newIndexerBuilder(indexes).build()) {
                     heartbeats.set(indexer.getIndexingHeartbeats(0));
                 }
@@ -256,13 +254,8 @@ class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
                                 if (count.incrementAndGet() == 2) {
                                     startSemaphore.release();
                                 }
-                                try {
-                                    pauseSemaphore.acquire();
-                                } catch (InterruptedException e) {
-                                    throw new RuntimeException(e);
-                                } finally {
-                                    pauseSemaphore.release();
-                                }
+                                Assertions.assertDoesNotThrow(() -> pauseSemaphore.acquire());
+                                pauseSemaphore.release();
                             }
                             return old;
                         })
@@ -272,14 +265,13 @@ class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
             }
         });
         // While building, heartbeats count should have been 3
-        Assertions.assertThat(heartbeats.get()).hasSize(3);
+        assertThat(heartbeats.get()).hasSize(3);
 
         // After building, heartbeats count should be 0
         try (OnlineIndexer indexer = newIndexerBuilder(indexes).build()) {
             heartbeats.set(indexer.getIndexingHeartbeats(0));
         }
     }
-
 
     @Test
     void testHeartbeatsRenewal() throws InterruptedException {
@@ -305,11 +297,7 @@ class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
                     .setLimit(10)
                     .setConfigLoader(old -> {
                         colectorGo.release();
-                        try {
-                            indexerGo.acquire();
-                        } catch (InterruptedException e) {
-                            throw new RuntimeException(e);
-                        }
+                        Assertions.assertDoesNotThrow(() -> indexerGo.acquire());
                         return old;
                     })
                     .build()) {
@@ -321,11 +309,7 @@ class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
 
         Thread collectorThread = new Thread(() -> {
             while (!indexerDone.get()) {
-                try {
-                    colectorGo.acquire();
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
+                Assertions.assertDoesNotThrow(() -> colectorGo.acquire());
                 try (FDBRecordContext context = openContext()) {
                     final Map<UUID, IndexBuildProto.IndexBuildHeartbeat> heartbeats = IndexingHeartbeat.getIndexingHeartbeats(recordStore, indexes.get(0), 0).join();
                     heartbeatsQueries.add(heartbeats);
@@ -339,17 +323,17 @@ class OnlineIndexingHeartbeatTest extends OnlineIndexerTest {
         collectorThread.join();
         indexerThread.join();
 
-        Assertions.assertThat(heartbeatsQueries).hasSizeGreaterThan(5);
-        Assertions.assertThat(heartbeatsQueries.get(0)).hasSize(1);
+        assertThat(heartbeatsQueries).hasSizeGreaterThan(5);
+        assertThat(heartbeatsQueries.get(0)).hasSize(1);
         final Map.Entry<UUID, IndexBuildProto.IndexBuildHeartbeat> first = heartbeatsQueries.get(0).entrySet().iterator().next();
         Map.Entry<UUID, IndexBuildProto.IndexBuildHeartbeat> previous = first;
         for (int i = 1; i < heartbeatsQueries.size() - 1; i++) {
-            Assertions.assertThat(heartbeatsQueries.get(i)).hasSize(1);
+            assertThat(heartbeatsQueries.get(i)).hasSize(1);
             final Map.Entry<UUID, IndexBuildProto.IndexBuildHeartbeat> item = heartbeatsQueries.get(i).entrySet().iterator().next();
-            Assertions.assertThat(item.getKey()).isEqualTo(first.getKey());
-            Assertions.assertThat(item.getValue().getGenesisTimeMilliseconds()).isEqualTo(first.getValue().getGenesisTimeMilliseconds());
-            Assertions.assertThat(item.getValue().getInfo()).isEqualTo(first.getValue().getInfo());
-            Assertions.assertThat(item.getValue().getHeartbeatTimeMilliseconds())
+            assertThat(item.getKey()).isEqualTo(first.getKey());
+            assertThat(item.getValue().getGenesisTimeMilliseconds()).isEqualTo(first.getValue().getGenesisTimeMilliseconds());
+            assertThat(item.getValue().getInfo()).isEqualTo(first.getValue().getInfo());
+            assertThat(item.getValue().getHeartbeatTimeMilliseconds())
                     .isGreaterThan(previous.getValue().getHeartbeatTimeMilliseconds());
             previous = item;
         }

@@ -899,23 +899,16 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
     @SuppressWarnings("removal")
     void testDeprecatedSetUseSynchronizedSession(boolean useSynchronizedSession) throws InterruptedException {
         // regardless of useSynchronizedSession's value, the build should be exclusive
-        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 20).mapToObj(val ->
-                TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2((int)val + 1).build()
-        ).collect(Collectors.toList());
         Index index = new Index("simple$value_2", field("num_value_2").ungrouped(), IndexTypes.SUM);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
-
-        openSimpleMetaData();
-        try (FDBRecordContext context = openContext()) {
-            records.forEach(recordStore::saveRecord);
-            context.commit();
-        }
+        populateData(20);
 
         // phase 1: successfully build
         openSimpleMetaData(hook);
         disableAll(List.of(index));
         try (OnlineIndexer indexBuilder = newIndexerBuilder(index)
                 .setUseSynchronizedSession(useSynchronizedSession)
+                .setUseSynchronizedSession(false)
                 .build()) {
             indexBuilder.buildIndex();
         }
@@ -933,21 +926,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             try (OnlineIndexer indexBuilder = newIndexerBuilder(index)
                     .setLeaseLengthMillis(TimeUnit.SECONDS.toMillis(20))
                     .setLimit(4)
-                    .setConfigLoader(old -> {
-                        if (passed.get()) {
-                            try {
-                                startBuildingSemaphore.release();
-                                pauseMutualBuildSemaphore.acquire(); // pause to try building indexes
-                            } catch (InterruptedException e) {
-                                throw new RuntimeException(e);
-                            } finally {
-                                pauseMutualBuildSemaphore.release();
-                            }
-                        } else {
-                            passed.set(true);
-                        }
-                        return old;
-                    })
+                    .setConfigLoader(old -> pauseAfterOnePass(old, passed, startBuildingSemaphore, pauseMutualBuildSemaphore))
                     .build()) {
                 indexBuilder.buildIndex();
             }
@@ -957,10 +936,13 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         startBuildingSemaphore.release();
 
         // Fail to start another indexer
-        try (OnlineIndexer indexBuilder = newIndexerBuilder(index)
-                .build()) {
-            assertTrue(indexBuilder.checkAnyOngoingOnlineIndexBuildsAsync().join());
-            assertThrows(SynchronizedSessionLockedException.class, indexBuilder::buildIndex);
+        try (FDBRecordContext context = openContext()) {
+            try (OnlineIndexer indexBuilder = newIndexerBuilder(index)
+                    .build()) {
+                assertTrue(OnlineIndexer.checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index).join());
+                assertThrows(SynchronizedSessionLockedException.class, indexBuilder::buildIndex);
+            }
+            context.commit();
         }
 
         // Successfully convert to a mutual indexer

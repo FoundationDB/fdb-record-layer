@@ -100,7 +100,6 @@ public abstract class IndexingBase {
     private StoreTimerSnapshot lastProgressSnapshot = null;
     private boolean forceStampOverwrite = false;
     private final long startingTimeMillis;
-    private long lastTypeStampCheckMillis;
     private Map<String, IndexingMerger> indexingMergerMap = null;
     @Nullable
     private IndexingHeartbeat heartbeat = null; // this will stay null for index scrubbing
@@ -119,7 +118,6 @@ public abstract class IndexingBase {
         this.isScrubber = isScrubber;
         this.throttle = new IndexingThrottle(common, isScrubber);
         this.startingTimeMillis = System.currentTimeMillis();
-        this.lastTypeStampCheckMillis = startingTimeMillis;
     }
 
     // helper functions
@@ -176,8 +174,9 @@ public abstract class IndexingBase {
                         message.addKeyAndValue(LogMessageKeys.RESULT, "success");
                         LOGGER.info(message.toString());
                     }
-                    // Here: if the heartbeat was *not* cleared while marking the index readable, it would be cleared in
-                    // these dedicated transaction. Heartbeat clearing is not a blocker but a "best effort" operation.
+                    // Here: if the heartbeats were not fully cleared while marking the index as readable, they will be cleared in
+                    // this dedicated transaction. Clearing the heartbeats at the end of the indexing session is a "best effort"
+                    // operation, hence exceptions are ignored.
                     return clearHeartbeats()
                             .handle((ignoreRet, ignoreEx) -> null);
                 },
@@ -825,18 +824,17 @@ public abstract class IndexingBase {
     }
 
     private CompletableFuture<Void> validateTypeStamp(@Nonnull FDBRecordStore store) {
-        if (shouldValidate()) {
-            // check other heartbeats (if exclusive) & typestamp
-            final IndexBuildProto.IndexBuildIndexingStamp expectedTypeStamp = getIndexingTypeStamp(store);
-            return forEachTargetIndex(index -> CompletableFuture.allOf(
-                    updateHeartbeat(true, store, index),
-                    store.loadIndexingTypeStampAsync(index)
-                            .thenAccept(typeStamp -> validateTypeStamp(typeStamp, expectedTypeStamp, index))
-                    ));
-        } else {
-            // update only
-            return forEachTargetIndex(index -> updateHeartbeat(false, store, index));
+        // check other heartbeats (if exclusive) & typestamp
+        if (isScrubber) {
+            // Scrubber's type-stamp is never commited. It is protected by expecting a READABLE index state.
+            return AsyncUtil.DONE;
         }
+        final IndexBuildProto.IndexBuildIndexingStamp expectedTypeStamp = getIndexingTypeStamp(store);
+        return forEachTargetIndex(index -> CompletableFuture.allOf(
+                updateHeartbeat(true, store, index),
+                store.loadIndexingTypeStampAsync(index)
+                        .thenAccept(typeStamp -> validateTypeStamp(typeStamp, expectedTypeStamp, index))
+        ));
     }
 
     private CompletableFuture<Void> updateHeartbeat(boolean validate, FDBRecordStore store, Index index) {
@@ -875,22 +873,6 @@ public abstract class IndexingBase {
         if (heartbeat != null) {
             heartbeat.clearHeartbeat(store, index);
         }
-    }
-
-
-    private boolean shouldValidate() {
-        final long minimalInterval = policy.getCheckIndexingMethodFrequencyMilliseconds();
-        if (minimalInterval < 0 || isScrubber) {
-            return false;
-        }
-        if (minimalInterval > 0) {
-            final long now = System.currentTimeMillis();
-            if (now < lastTypeStampCheckMillis + minimalInterval) {
-                return false;
-            }
-            lastTypeStampCheckMillis = now;
-        }
-        return true;
     }
 
     private void validateTypeStamp(final IndexBuildProto.IndexBuildIndexingStamp typeStamp,
@@ -1028,7 +1010,6 @@ public abstract class IndexingBase {
         }))
                 .thenCompose(vignore -> setIndexingTypeOrThrow(store, false))
                 .thenCompose(vignore -> rebuildIndexInternalAsync(store))
-                // If any of the indexes' heartbeats, for any reason, was not cleared during "mark readable", clear it here
                 .whenComplete((ignore, ignoreEx) ->  clearHeartbeats(store));
     }
 
