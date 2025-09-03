@@ -38,14 +38,11 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Random;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -53,14 +50,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for the new KeySpacePath data export feature that fetches all data stored under a KeySpacePath
- * and returns it in a RecordCursor&lt;KeyValue&gt;.
+ * and returns it in a {@code RecordCursor<KeyValue>}.
  */
 @Tag(Tags.RequiresFDB)
 public class KeySpacePathDataExportTest {
     @RegisterExtension
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
-
-    private final Random random = new Random();
 
     @Test
     public void testExportAllDataFromSimplePath() {
@@ -173,8 +168,8 @@ public class KeySpacePathDataExportTest {
                 Tuple serviceKey = servicePath.toTuple(context);
                 
                 for (int i = 0; i < 2; i++) {
-                    tr.set(serviceKey.add("config" + i).pack(), 
-                          Tuple.from(service + "_config_" + i).pack());
+                    tr.set(serviceKey.add("config" + i).pack(),
+                            Tuple.from(service + "_config_" + i).pack());
                 }
             }
             context.commit();
@@ -298,8 +293,8 @@ public class KeySpacePathDataExportTest {
             
             // Add multiple records under the constant path
             for (int i = 0; i < 4; i++) {
-                tr.set(baseKey.add("record" + i).pack(), 
-                      Tuple.from("constant_path_data_" + i).pack());
+                tr.set(baseKey.add("record" + i).pack(),
+                        Tuple.from("constant_path_data_" + i).pack());
             }
             context.commit();
         }
@@ -366,7 +361,7 @@ public class KeySpacePathDataExportTest {
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath limitedPath = root.path("limited");
             ScanProperties scanProps = ScanProperties.FORWARD_SCAN.with(props ->
-                props.setReturnedRowLimit(5));
+                    props.setReturnedRowLimit(5));
             
             RecordCursor<KeyValue> cursor = limitedPath.exportAllData(context, scanProps);
             
@@ -451,10 +446,10 @@ public class KeySpacePathDataExportTest {
                                 .add("data");
                         
                         Tuple key = memberPath.toTuple(context);
-                        tr.set(key.add("profile").pack(), 
-                              Tuple.from(dept + "_team" + team + "_member" + member).pack());
-                        tr.set(key.add("settings").pack(), 
-                              Tuple.from("settings_" + member).pack());
+                        tr.set(key.add("profile").pack(),
+                                Tuple.from(dept + "_team" + team + "_member" + member).pack());
+                        tr.set(key.add("settings").pack(),
+                                Tuple.from("settings_" + member).pack());
                     }
                 }
             }
@@ -605,7 +600,7 @@ public class KeySpacePathDataExportTest {
             
             // First export with limit to get continuation
             ScanProperties limitedScan = ScanProperties.FORWARD_SCAN.with(props ->
-                props.setReturnedRowLimit(5));
+                    props.setReturnedRowLimit(5));
             
             RecordCursor<KeyValue> cursor = continuationPath.exportAllData(context, null, limitedScan);
             List<KeyValue> firstBatch = cursor.asList().join();
@@ -664,7 +659,7 @@ public class KeySpacePathDataExportTest {
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath chainPath = root.path("chain");
             ScanProperties batchScan = ScanProperties.FORWARD_SCAN.with(props ->
-                props.setReturnedRowLimit(7));
+                    props.setReturnedRowLimit(7));
             
             List<KeyValue> allCollected = new ArrayList<>();
             byte[] continuation = null;
@@ -795,7 +790,7 @@ public class KeySpacePathDataExportTest {
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath nestedPath = root.path("nested").add("category", "B");
             ScanProperties limitedScan = ScanProperties.FORWARD_SCAN.with(props ->
-                props.setReturnedRowLimit(3));
+                    props.setReturnedRowLimit(3));
             
             // First batch from category B
             RecordCursor<KeyValue> cursor = nestedPath.exportAllData(context, null, limitedScan);
@@ -850,7 +845,7 @@ public class KeySpacePathDataExportTest {
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath emptyContPath = root.path("empty_cont");
             ScanProperties largeLimitScan = ScanProperties.FORWARD_SCAN.with(props ->
-                props.setReturnedRowLimit(10)); // Larger than available data
+                    props.setReturnedRowLimit(10)); // Larger than available data
             
             // First export gets all data (no continuation needed)
             RecordCursor<KeyValue> cursor = emptyContPath.exportAllData(context, null, largeLimitScan);
@@ -896,7 +891,7 @@ public class KeySpacePathDataExportTest {
         try (FDBRecordContext context = database.openContext()) {
             KeySpacePath consistencyPath = root.path("consistency");
             ScanProperties batchScan = ScanProperties.FORWARD_SCAN.with(props ->
-                props.setReturnedRowLimit(4));
+                    props.setReturnedRowLimit(4));
             
             // Collect all data using continuations
             List<String> collectedValues = new ArrayList<>();
