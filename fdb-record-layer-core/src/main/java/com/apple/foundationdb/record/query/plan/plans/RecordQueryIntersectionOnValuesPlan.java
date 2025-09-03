@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -28,7 +29,7 @@ import com.apple.foundationdb.record.planprotos.PRecordQueryIntersectionOnValues
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
+import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
@@ -91,7 +92,9 @@ public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersection
     public List<? extends Value> getRequiredValues(@Nonnull final CorrelationIdentifier newBaseAlias, @Nonnull final Type inputType) {
         final var ruleSet = DefaultValueSimplificationRuleSet.instance();
         return getComparisonKeyValues().stream()
-                .map(comparisonKeyValue -> comparisonKeyValue.rebase(AliasMap.ofAliases(Quantifier.current(), newBaseAlias)).simplify(ruleSet, AliasMap.emptyMap(), getCorrelatedTo()))
+                .map(comparisonKeyValue ->
+                        comparisonKeyValue.rebase(AliasMap.ofAliases(Quantifier.current(), newBaseAlias))
+                                .simplify(ruleSet, EvaluationContext.empty(), AliasMap.emptyMap(), getCorrelatedTo()))
                 .collect(ImmutableList.toImmutableList());
     }
 
@@ -124,10 +127,9 @@ public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersection
     public RecordQueryIntersectionOnValuesPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                                      final boolean shouldSimplifyValues,
                                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new RecordQueryIntersectionOnValuesPlan(Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers),
-                comparisonKeyOrderingParts,
-                getComparisonKeyValues(),
-                isReverse());
+        return new RecordQueryIntersectionOnValuesPlan(
+                Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers), comparisonKeyOrderingParts,
+                getComparisonKeyValues(), isReverse());
     }
 
     @Nonnull
@@ -143,11 +145,11 @@ public class RecordQueryIntersectionOnValuesPlan extends RecordQueryIntersection
     }
 
     @Override
-    public RecordQueryIntersectionOnValuesPlan strictlySorted(@Nonnull final Memoizer memoizer) {
+    public RecordQueryIntersectionOnValuesPlan strictlySorted(@Nonnull final FinalMemoizer memoizer) {
         final var quantifiers =
                 Quantifiers.fromPlans(getChildren()
                         .stream()
-                        .map(p -> memoizer.memoizePlans((RecordQueryPlan)p.strictlySorted(memoizer))).collect(Collectors.toList()));
+                        .map(p -> memoizer.memoizePlan(p.strictlySorted(memoizer))).collect(Collectors.toList()));
         return new RecordQueryIntersectionOnValuesPlan(quantifiers, comparisonKeyOrderingParts, getComparisonKeyValues(), reverse);
     }
 

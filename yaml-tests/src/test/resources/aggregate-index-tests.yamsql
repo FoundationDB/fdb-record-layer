@@ -39,6 +39,11 @@ schema_template:
     create table t4(id bigint, col1 string, col2 bigint, primary key(id))
     create index mv14 as select min_ever(col1) from t4 group by col2
     create index mv15 as select max_ever(col1) from t4 group by col2
+    create table t5(id bigint, a bigint, b string, c bigint, d bigint, e string, x bigint, primary key(id))
+    create index mv16 as select a, b, max(x), c, d, e from t5 group by a, b, c, d, e order by a, b, max(x), c, d, e
+    create index mv17 as select a, b, min(x), c, d, e from t5 group by a, b, c, d, e order by a, b, min(x), c, d, e
+    create index mv18 as select a, b, c, max(x), d, e from t5 group by a, b, c, d, e order by a, b, c, max(x), d, e
+    create index mv19 as select a, b, c, min(x), d, e from t5 group by a, b, c, d, e order by a, b, c, min(x), d, e
 ---
 setup:
   steps:
@@ -84,6 +89,25 @@ setup:
                (4, 'value4', 10),
                (5, 'valueA', 20),
                (6, 'valueZ', 20)
+    - query: INSERT INTO T5
+        VALUES ( 1, 0, 'foo', 0, 1, 'e1', 1),
+               ( 2, 0, 'foo', 0, 1, 'e1', 10),
+               ( 3, 0, 'foo', 0, 1, 'e1', 2),
+               ( 4, 0, 'foo', 0, 1, 'e1', 9),
+               ( 5, 0, 'foo', 0, 1, 'e2', 1),
+               ( 6, 0, 'foo', 0, 1, 'e2', 10),
+               ( 7, 0, 'foo', 0, 2, 'e1', 2),
+               ( 8, 0, 'foo', 0, 2, 'e1', 9),
+               ( 9, 0, 'foo', 0, 2, 'e2', 3),
+               (10, 0, 'foo', 0, 2, 'e2', 8),
+               (11, 0, 'foo', 3, 1, 'e1', 3),
+               (12, 0, 'foo', 3, 1, 'e1', 8),
+               (13, 0, 'foo', 3, 2, 'e2', 2),
+               (14, 0, 'foo', 3, 2, 'e2', 9),
+               (15, 0, 'bar', 0, 1, 'e1', 0),
+               (16, 0, 'bar', 0, 1, 'e1', 11),
+               (17, 0, 'bar', 0, 1, 'e2', 0),
+               (18, 0, 'bar', 0, 1, 'e2', 11)
 ---
 test_block:
   name: agg-index-tests
@@ -132,20 +156,8 @@ test_block:
        # At some point, should be able to roll up values from the aggregate index. However, even
        # controlling for that, it can still use the index
        - query: select max(col2) from T1 use index (mv8);
-       - supported_version: 4.1.9.0
        - explain: "ISCAN(MV8 <,>) | MAP (_ AS _0) | AGG (max_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
        - result: [{!l 13}]
-    -
-       - query: select max(col2) from T1 use index (mv8);
-       - maxRows: 1
-       # Cannot use FORCE_CONTINUATIONS with older versions due to: https://github.com/FoundationDB/fdb-record-layer/issues/3096
-       # (Extra values being produced after exhausting source of an aggregate cursor)
-       # Can remove once we do not care about backwards compatibility before 4.1.9.0
-       - initialVersionLessThan: 4.1.9.0
-       # Different (incorrect) behavior for different past versions
-       - initialVersionAtLeast: 4.1.9.0
-       - result: [{!l 13}]
-       - result: []
     -
        # Min/max indexes need keep what amounts to a standard value index on their keys (in order to properly look up
        # the min/max). That index should be usable for normal queries just like a value index. Note that the scan is
@@ -159,43 +171,14 @@ test_block:
        - result: [{!l 5}, {!l 4}, {!l 3}, {!l 2}, {!l 1}]
     -
       - query: select min(col3) from T2 group by col1, col2;
-      - supported_version: 4.1.9.0
       - explain: "ISCAN(MV2 <,>) | MAP (_ AS _0) | AGG (min_l(_._0.COL3) AS _0) GROUP BY (_._0.COL1 AS _0, _._0.COL2 AS _1) | MAP (_._1._0 AS _0)"
       - result: [{!l 1}, {!l 2}, {!l 3}]
-    -
-      - query: select min(col3) from T2 group by col1, col2;
-       # Cannot use FORCE_CONTINUATIONS with older versions due to: https://github.com/FoundationDB/fdb-record-layer/issues/3096
-       # (Extra values being produced after exhausting source of an aggregate cursor)
-       # Can remove once we do not care about backwards compatibility before 4.1.9.0
-      - maxRows: 1
-      - initialVersionLessThan: 4.1.9.0
-       # Different (incorrect) behavior for different past versions
-      - initialVersionAtLeast: 4.1.9.0
-      - result: [{!l 1}]
-      - result: [{!l 2}]
-      - result: [{!l 3}]
-      - result: []
     -
       # this should use the aggregate index in the future, for now, it is using streaming aggregate
       # over base table scan.
       - query: select max(col2) from t2;
-      - supported_version: 4.1.9.0
       - explain: "ISCAN(MV3 <,>) | MAP (_ AS _0) | AGG (max_l(_._0.COL2) AS _0) | ON EMPTY NULL | MAP (_._0._0 AS _0)"
       - result: [{!l 2}]
-    -
-      - query: select max(col2) from t2;
-       # Cannot use FORCE_CONTINUATIONS with older versions due to: https://github.com/FoundationDB/fdb-record-layer/issues/3096
-       # (Extra values being produced after exhausting source of an aggregate cursor)
-       # Can remove once we do not care about backwards compatibility before 4.1.9.0
-      - supported_version: 4.1.9.0
-      - maxRows: 1
-      - initialVersionLessThan: 4.1.9.0
-      - result: [{!l 2}]
-      - result: [{!null _}]
-      - result: [{!l 2}] # ad infinitum
-      - initialVersionAtLeast: 4.1.9.0
-      - result: [{!l 2}]
-      - result: []
     -
       - query: select col1, sum(col2) from T1 USE INDEX (vi1) group by col1;
       - explain: "ISCAN(VI1 <,>) | MAP (_ AS _0) | AGG (sum_l(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0) | MAP (_._0._0 AS COL1, _._1._0 AS _1)"
@@ -231,11 +214,11 @@ test_block:
       - result: [{COL3: 100, !l 1}, {COL3: 1, !l 1}]
     -
       - query: select t.* from (select col3, max(col2) as m from t2 where col1 = 1 group by col1, col3) as t where m < 2 order by m desc;
-      - explain: "AISCAN(MV9 [EQUALS promote(@c21 AS LONG)] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS M) | FILTER _.M LESS_THAN promote(@c33 AS LONG)"
+      - explain: "AISCAN(MV9 [EQUALS promote(@c21 AS LONG), [LESS_THAN promote(@c33 AS LONG)]] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS M)"
       - result: [{COL3: 100, !l 1}, {COL3: 1, !l 1}]
     -
       - query: select col3, m from (select col3, max(col2) as m from t2 where col1 = 1 group by col1, col3) as t order by m desc;
-      - explain: "AISCAN(MV9 [EQUALS promote(@c21 AS LONG)] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS M) | MAP (_.COL3 AS COL3, _.M AS M)"
+      - explain: "AISCAN(MV9 [EQUALS promote(@c21 AS LONG)] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._1 AS COL3, _._2 AS M)"
       - result: [{COL3: 200, M: 2}, {COL3: 2, M: 2}, {COL3: 100, M: 1}, {COL3: 1, M: 1}]
     -
       # Permuted max index can be used as a value index on the underlying columns
@@ -249,27 +232,11 @@ test_block:
     -
       # Permuted max index can also be used to evaluate other aggregate functions via aggregation and roll-up
       - query: select col3, sum(col2) as s from t2 use index (mv9) where col1 = 1 group by col1, col3 order by col3 asc;
-      - supported_version: 4.1.9.0
       - explain: "ISCAN(MV9 [EQUALS promote(@c20 AS LONG)]) | MAP (_ AS _0) | AGG (sum_l(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP (_._0._1 AS COL3, _._1._0 AS S)"
       - result: [{COL3: 1, S: 1}, {COL3: 2, S: 2}, {COL3: 100, S: 1}, {COL3: 200, S: 2}]
     -
-      - query: select col3, sum(col2) as s from t2 use index (mv9) where col1 = 1 group by col1, col3 order by col3 asc;
-      # Cannot use FORCE_CONTINUATIONS with older versions due to: https://github.com/FoundationDB/fdb-record-layer/issues/3096
-      # (Extra values being produced after exhausting source of an aggregate cursor)
-      # Can remove once we do not care about backwards compatibility before 4.1.9.0
-      - maxRows: 0
-      - result: [{COL3: 1, S: 1}, {COL3: 2, S: 2}, {COL3: 100, S: 1}, {COL3: 200, S: 2}]
-    -
       - query: select col3, sum(col2) as s from t2 use index (mv9) where col1 = 1 group by col1, col3 order by col3 desc;
-      - supported_version: 4.1.9.0
       - explain: "ISCAN(MV9 [EQUALS promote(@c20 AS LONG)] REVERSE) | MAP (_ AS _0) | AGG (sum_l(_._0.COL2) AS _0) GROUP BY (_._0.COL1 AS _0, _._0.COL3 AS _1) | MAP (_._0._1 AS COL3, _._1._0 AS S)"
-      - result: [{COL3: 200, S: 2}, {COL3: 100, S: 1}, {COL3: 2, S: 2}, {COL3: 1, S: 1}]
-    -
-      - query: select col3, sum(col2) as s from t2 use index (mv9) where col1 = 1 group by col1, col3 order by col3 desc;
-      # Cannot use FORCE_CONTINUATIONS with older versions due to: https://github.com/FoundationDB/fdb-record-layer/issues/3096
-      # (Extra values being produced after exhausting source of an aggregate cursor)
-      # Can remove once we do not care about backwards compatibility before 4.1.9.0
-      - maxRows: 0
       - result: [{COL3: 200, S: 2}, {COL3: 100, S: 1}, {COL3: 2, S: 2}, {COL3: 1, S: 1}]
 #    -
 #      # grouping by constant is not yet supported.
@@ -352,4 +319,246 @@ test_block:
       - result: [{x1: 200, x2: 23}]
       - result: [{x1: 900, x2: 33}]
       - result: []
+    -
+      - query: select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e order by b, max(x), c, d, e
+      - explain: "AISCAN(MV16 [EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4)"
+      - initialVersionLessThan: 4.3.5.0
+      - error: "0AF00"
+      - initialVersionAtLeast: 4.3.5.0
+      - result: [
+                   {b: "bar", c: 0, d: 1, e: "e1", _4: 11},
+                   {b: "bar", c: 0, d: 1, e: "e2", _4: 11},
+                   {b: "foo", c: 0, d: 2, e: "e2", _4:  8},
+                   {b: "foo", c: 3, d: 1, e: "e1", _4:  8},
+                   {b: "foo", c: 0, d: 2, e: "e1", _4:  9},
+                   {b: "foo", c: 3, d: 2, e: "e2", _4:  9},
+                   {b: "foo", c: 0, d: 1, e: "e1", _4: 10},
+                   {b: "foo", c: 0, d: 1, e: "e2", _4: 10},
+                ]
+    -
+      - query: select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e order by b, max(x)
+      - explain: "AISCAN(MV16 [EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4)"
+      - result: [
+                   {b: "bar", c: 0, d: 1, e: "e1", _4: 11},
+                   {b: "bar", c: 0, d: 1, e: "e2", _4: 11},
+                   {b: "foo", c: 0, d: 2, e: "e2", _4:  8},
+                   {b: "foo", c: 3, d: 1, e: "e1", _4:  8},
+                   {b: "foo", c: 0, d: 2, e: "e1", _4:  9},
+                   {b: "foo", c: 3, d: 2, e: "e2", _4:  9},
+                   {b: "foo", c: 0, d: 1, e: "e1", _4: 10},
+                   {b: "foo", c: 0, d: 1, e: "e2", _4: 10},
+                ]
+    -
+      - query: select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e order by b, min(x), c, d, e
+      - explain: "AISCAN(MV17 [EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4)"
+      - initialVersionLessThan: 4.3.5.0
+      - error: "0AF00"
+      - initialVersionAtLeast: 4.3.5.0
+      - result: [
+                   {b: "bar", c: 0, d: 1, e: "e1", _4:  0},
+                   {b: "bar", c: 0, d: 1, e: "e2", _4:  0},
+                   {b: "foo", c: 0, d: 1, e: "e1", _4:  1},
+                   {b: "foo", c: 0, d: 1, e: "e2", _4:  1},
+                   {b: "foo", c: 0, d: 2, e: "e1", _4:  2},
+                   {b: "foo", c: 3, d: 2, e: "e2", _4:  2},
+                   {b: "foo", c: 0, d: 2, e: "e2", _4:  3},
+                   {b: "foo", c: 3, d: 1, e: "e1", _4:  3},
+                ]
+    -
+      - query: select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e order by b, min(x)
+      - explain: "AISCAN(MV17 [EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4)"
+      - result: [
+                   {b: "bar", c: 0, d: 1, e: "e1", _4:  0},
+                   {b: "bar", c: 0, d: 1, e: "e2", _4:  0},
+                   {b: "foo", c: 0, d: 1, e: "e1", _4:  1},
+                   {b: "foo", c: 0, d: 1, e: "e2", _4:  1},
+                   {b: "foo", c: 0, d: 2, e: "e1", _4:  2},
+                   {b: "foo", c: 3, d: 2, e: "e2", _4:  2},
+                   {b: "foo", c: 0, d: 2, e: "e2", _4:  3},
+                   {b: "foo", c: 3, d: 1, e: "e1", _4:  3},
+                ]
+    -
+      - query: select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e order by b, c, max(x), d, e
+      - explain: "AISCAN(MV18 [EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4)"
+      - initialVersionLessThan: 4.3.5.0
+      - error: "0AF00"
+      - initialVersionAtLeast: 4.3.5.0
+      - result: [
+                   {b: "bar", c: 0, d: 1, e: "e1", _4: 11},
+                   {b: "bar", c: 0, d: 1, e: "e2", _4: 11},
+                   {b: "foo", c: 0, d: 2, e: "e2", _4:  8},
+                   {b: "foo", c: 0, d: 2, e: "e1", _4:  9},
+                   {b: "foo", c: 0, d: 1, e: "e1", _4: 10},
+                   {b: "foo", c: 0, d: 1, e: "e2", _4: 10},
+                   {b: "foo", c: 3, d: 1, e: "e1", _4:  8},
+                   {b: "foo", c: 3, d: 2, e: "e2", _4:  9},
+                ]
+    -
+      - query: select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e order by b, c, max(x)
+      - explain: "AISCAN(MV18 [EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4)"
+      - result: [
+                   {b: "bar", c: 0, d: 1, e: "e1", _4: 11},
+                   {b: "bar", c: 0, d: 1, e: "e2", _4: 11},
+                   {b: "foo", c: 0, d: 2, e: "e2", _4:  8},
+                   {b: "foo", c: 0, d: 2, e: "e1", _4:  9},
+                   {b: "foo", c: 0, d: 1, e: "e1", _4: 10},
+                   {b: "foo", c: 0, d: 1, e: "e2", _4: 10},
+                   {b: "foo", c: 3, d: 1, e: "e1", _4:  8},
+                   {b: "foo", c: 3, d: 2, e: "e2", _4:  9},
+                ]
+    -
+      - query: select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e order by b, c, min(x), d, e
+      - explain: "AISCAN(MV19 [EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4)"
+      - initialVersionLessThan: 4.3.5.0
+      - error: "0AF00"
+      - initialVersionAtLeast: 4.3.5.0
+      - result: [
+                   {b: "bar", c: 0, d: 1, e: "e1", _4:  0},
+                   {b: "bar", c: 0, d: 1, e: "e2", _4:  0},
+                   {b: "foo", c: 0, d: 1, e: "e1", _4:  1},
+                   {b: "foo", c: 0, d: 1, e: "e2", _4:  1},
+                   {b: "foo", c: 0, d: 2, e: "e1", _4:  2},
+                   {b: "foo", c: 0, d: 2, e: "e2", _4:  3},
+                   {b: "foo", c: 3, d: 2, e: "e2", _4:  2},
+                   {b: "foo", c: 3, d: 1, e: "e1", _4:  3},
+                ]
+    -
+      - query: select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e order by b, c, min(x)
+      - explain: "AISCAN(MV19 [EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4)"
+      - result: [
+                   {b: "bar", c: 0, d: 1, e: "e1", _4:  0},
+                   {b: "bar", c: 0, d: 1, e: "e2", _4:  0},
+                   {b: "foo", c: 0, d: 1, e: "e1", _4:  1},
+                   {b: "foo", c: 0, d: 1, e: "e2", _4:  1},
+                   {b: "foo", c: 0, d: 2, e: "e1", _4:  2},
+                   {b: "foo", c: 0, d: 2, e: "e2", _4:  3},
+                   {b: "foo", c: 3, d: 2, e: "e2", _4:  2},
+                   {b: "foo", c: 3, d: 1, e: "e1", _4:  3},
+                ]
+    -
+      - query: select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') order by max(x), c
+      - explain: "[IN @c34] INUNION q0 -> { AISCAN(MV16 [EQUALS promote(@c19 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)"
+      - result: [
+                   {b: "foo", c: 0, d: 2, e: "e2", _4:  8},
+                   {b: "foo", c: 3, d: 1, e: "e1", _4:  8},
+                   {b: "foo", c: 0, d: 2, e: "e1", _4:  9},
+                   {b: "foo", c: 3, d: 2, e: "e2", _4:  9},
+                   {b: "foo", c: 0, d: 1, e: "e1", _4: 10},
+                   {b: "foo", c: 0, d: 1, e: "e2", _4: 10},
+                   {b: "bar", c: 0, d: 1, e: "e1", _4: 11},
+                   {b: "bar", c: 0, d: 1, e: "e2", _4: 11},
+                ]
+    -
+      - query: select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') order by min(x), c
+      - explain: "[IN @c34] INUNION q0 -> { AISCAN(MV17 [EQUALS promote(@c19 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)"
+      - result: [
+                   {b: "bar", c: 0, d: 1, e: "e1", _4:  0},
+                   {b: "bar", c: 0, d: 1, e: "e2", _4:  0},
+                   {b: "foo", c: 0, d: 1, e: "e1", _4:  1},
+                   {b: "foo", c: 0, d: 1, e: "e2", _4:  1},
+                   {b: "foo", c: 0, d: 2, e: "e1", _4:  2},
+                   {b: "foo", c: 3, d: 2, e: "e2", _4:  2},
+                   {b: "foo", c: 0, d: 2, e: "e2", _4:  3},
+                   {b: "foo", c: 3, d: 1, e: "e1", _4:  3},
+                ]
+    -
+      - query: select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d = 1 order by max(x), c
+      - explain: "[IN @c34] INUNION q0 -> { AISCAN(MV16 [EQUALS promote(@c19 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS promote(@c42 AS LONG) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)"
+      - result: [
+                   {b: "foo", c: 3, d: 1, e: "e1", _4:  8},
+                   {b: "foo", c: 0, d: 1, e: "e1", _4: 10},
+                   {b: "foo", c: 0, d: 1, e: "e2", _4: 10},
+                   {b: "bar", c: 0, d: 1, e: "e1", _4: 11},
+                   {b: "bar", c: 0, d: 1, e: "e2", _4: 11},
+                ]
+    -
+      - query: select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d = 1 order by min(x), c
+      - explain: "[IN @c34] INUNION q0 -> { AISCAN(MV17 [EQUALS promote(@c19 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS promote(@c42 AS LONG) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.B, _.D, _.E)"
+      - result: [
+                   {b: "bar", c: 0, d: 1, e: "e1", _4:  0},
+                   {b: "bar", c: 0, d: 1, e: "e2", _4:  0},
+                   {b: "foo", c: 0, d: 1, e: "e1", _4:  1},
+                   {b: "foo", c: 0, d: 1, e: "e2", _4:  1},
+                   {b: "foo", c: 3, d: 1, e: "e1", _4:  3},
+                ]
+    -
+      - query: select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d IN (1, 2) order by max(x), c
+      - explain: "[IN @c34] INUNION q0 -> { [IN promote(@c42 AS ARRAY(LONG))] INUNION q1 -> { AISCAN(MV16 [EQUALS promote(@c19 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.D, _.E) } COMPARE BY (_._4, _.C, _.B, _.E)"
+      - result: [
+                   {b: "foo", c: 0, d: 2, e: "e2", _4:  8},
+                   {b: "foo", c: 3, d: 1, e: "e1", _4:  8},
+                   {b: "foo", c: 0, d: 2, e: "e1", _4:  9},
+                   {b: "foo", c: 3, d: 2, e: "e2", _4:  9},
+                   {b: "foo", c: 0, d: 1, e: "e1", _4: 10},
+                   {b: "foo", c: 0, d: 1, e: "e2", _4: 10},
+                   {b: "bar", c: 0, d: 1, e: "e1", _4: 11},
+                   {b: "bar", c: 0, d: 1, e: "e2", _4: 11},
+                ]
+    -
+      - query: select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d IN (1, 2) order by min(x), c
+      - explain: "[IN @c34] INUNION q0 -> { [IN promote(@c42 AS ARRAY(LONG))] INUNION q1 -> { AISCAN(MV17 [EQUALS promote(@c19 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.D, _.E) } COMPARE BY (_._4, _.C, _.B, _.E)"
+      - result: [
+                   {b: "bar", c: 0, d: 1, e: "e1", _4:  0},
+                   {b: "bar", c: 0, d: 1, e: "e2", _4:  0},
+                   {b: "foo", c: 0, d: 1, e: "e1", _4:  1},
+                   {b: "foo", c: 0, d: 1, e: "e2", _4:  1},
+                   {b: "foo", c: 0, d: 2, e: "e1", _4:  2},
+                   {b: "foo", c: 3, d: 2, e: "e2", _4:  2},
+                   {b: "foo", c: 0, d: 2, e: "e2", _4:  3},
+                   {b: "foo", c: 3, d: 1, e: "e1", _4:  3},
+                ]
+    -
+      - query: select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d IN (1, 2) order by max(x), c, e
+      - explain: "[IN @c34] INUNION q0 -> { [IN promote(@c42 AS ARRAY(LONG))] INUNION q1 -> { AISCAN(MV16 [EQUALS promote(@c19 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.E, _.D) } COMPARE BY (_._4, _.C, _.E, _.B)"
+      - initialVersionLessThan: 4.3.5.0
+      - error: "0AF00"
+      - initialVersionAtLeast: 4.3.5.0
+      - result: [
+                   {b: "foo", c: 0, d: 2, e: "e2", _4:  8},
+                   {b: "foo", c: 3, d: 1, e: "e1", _4:  8},
+                   {b: "foo", c: 0, d: 2, e: "e1", _4:  9},
+                   {b: "foo", c: 3, d: 2, e: "e2", _4:  9},
+                   {b: "foo", c: 0, d: 1, e: "e1", _4: 10},
+                   {b: "foo", c: 0, d: 1, e: "e2", _4: 10},
+                   {b: "bar", c: 0, d: 1, e: "e1", _4: 11},
+                   {b: "bar", c: 0, d: 1, e: "e2", _4: 11},
+                ]
+    -
+      - query: select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c, d, e having b IN ('foo', 'bar') and d IN (1, 2) order by min(x), c, e
+      - explain: "[IN @c34] INUNION q0 -> { [IN promote(@c42 AS ARRAY(LONG))] INUNION q1 -> { AISCAN(MV17 [EQUALS promote(@c19 AS LONG), EQUALS q0] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[3], _3: KEY:[4], _4: KEY:[5], _5: KEY:[2]]) | FILTER _._3 EQUALS q1 | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.E, _.D) } COMPARE BY (_._4, _.C, _.E, _.B)"
+      - initialVersionLessThan: 4.3.5.0
+      - error: "0AF00"
+      - initialVersionAtLeast: 4.3.5.0
+      - result: [
+                   {b: "bar", c: 0, d: 1, e: "e1", _4:  0},
+                   {b: "bar", c: 0, d: 1, e: "e2", _4:  0},
+                   {b: "foo", c: 0, d: 1, e: "e1", _4:  1},
+                   {b: "foo", c: 0, d: 1, e: "e2", _4:  1},
+                   {b: "foo", c: 0, d: 2, e: "e1", _4:  2},
+                   {b: "foo", c: 3, d: 2, e: "e2", _4:  2},
+                   {b: "foo", c: 0, d: 2, e: "e2", _4:  3},
+                   {b: "foo", c: 3, d: 1, e: "e1", _4:  3},
+                ]
+    -
+      - query: select b, c, d, e, max(x) from t5 where a = 0 and c = 0 group by a, b, c, d, e having b IN ('foo', 'bar') order by max(x), d
+      - explain: "[IN @c38] INUNION q0 -> { AISCAN(MV18 [EQUALS promote(@c19 AS LONG), EQUALS q0, EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.D, _.B, _.C, _.E)"
+      - result: [
+                   {b: "foo", c: 0, d: 2, e: "e2", _4:  8},
+                   {b: "foo", c: 0, d: 2, e: "e1", _4:  9},
+                   {b: "foo", c: 0, d: 1, e: "e1", _4: 10},
+                   {b: "foo", c: 0, d: 1, e: "e2", _4: 10},
+                   {b: "bar", c: 0, d: 1, e: "e1", _4: 11},
+                   {b: "bar", c: 0, d: 1, e: "e2", _4: 11},
+                ]
+    -
+      - query: select b, c, d, e, min(x) from t5 where a = 0 and c = 0 group by a, b, c, d, e having b IN ('foo', 'bar') order by min(x), d
+      - explain: "[IN @c38] INUNION q0 -> { AISCAN(MV19 [EQUALS promote(@c19 AS LONG), EQUALS q0, EQUALS promote(@c19 AS LONG)] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1], _2: KEY:[2], _3: KEY:[4], _4: KEY:[5], _5: KEY:[3]]) | MAP (_._1 AS B, _._2 AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.D, _.B, _.C, _.E)"
+      - result: [
+                   {b: "bar", c: 0, d: 1, e: "e1", _4:  0},
+                   {b: "bar", c: 0, d: 1, e: "e2", _4:  0},
+                   {b: "foo", c: 0, d: 1, e: "e1", _4:  1},
+                   {b: "foo", c: 0, d: 1, e: "e2", _4:  1},
+                   {b: "foo", c: 0, d: 2, e: "e1", _4:  2},
+                   {b: "foo", c: 0, d: 2, e: "e2", _4:  3},
+                ]
 ...

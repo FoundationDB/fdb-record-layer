@@ -54,6 +54,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWit
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
@@ -173,11 +174,12 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
     public SelectExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                   final boolean shouldSimplifyValues,
                                                   @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        List<QueryPredicate> translatedPredicates =
+        final var translatedPredicates =
                 predicates.stream()
                         .map(p -> p.translateCorrelations(translationMap, shouldSimplifyValues))
                         .collect(Collectors.toList());
-        final Value translatedResultValue = resultValue.translateCorrelations(translationMap, shouldSimplifyValues);
+        final Value translatedResultValue =
+                resultValue.translateCorrelations(translationMap, shouldSimplifyValues);
         return new SelectExpression(translatedResultValue, translatedQuantifiers, translatedPredicates);
     }
 
@@ -624,21 +626,31 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
     @Nonnull
     @Override
     public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+        final var predicateString = "WHERE " + getPredicates().stream()
+                .map(Object::toString)
+                .collect(Collectors.joining(" AND "));
+
+        final var abbreviatedPredicateString = predicateString.length() > 30 ? String.format("%02x", predicateString.hashCode()) : predicateString;
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNode(this,
                         "SELECT " + resultValue,
                         getPredicates().isEmpty()
                         ? ImmutableList.of()
-                        : ImmutableList.of("WHERE " + getPredicates().stream()
-                                .map(Object::toString)
-                                .collect(Collectors.joining(" AND "))),
+                        : ImmutableList.of(abbreviatedPredicateString),
                         ImmutableMap.of()),
                 childGraphs);
     }
 
     @Override
     public String toString() {
-        return "SELECT " + resultValue + " WHERE " + AndPredicate.and(getPredicates());
+        final var selectFrom =
+                "SELECT " + resultValue + " FROM " + Quantifiers.aliases(getQuantifiers())
+                        .stream()
+                        .map(CorrelationIdentifier::toString).collect(Collectors.joining(", "));
+        if (!getPredicates().isEmpty()) {
+            return selectFrom + " WHERE " + AndPredicate.and(getPredicates());
+        }
+        return selectFrom;
     }
 
     /**
@@ -871,9 +883,13 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
 
             final var pulledUpResultValue = pulledUpResultValueOptional.get();
 
-            resultCompensationFunction =
-                    ResultCompensationFunction.of(baseAlias -> pulledUpResultValue.translateCorrelations(
-                            TranslationMap.ofAliases(rootPullUp.getNestingAlias(), baseAlias), false));
+            if (QuantifiedObjectValue.isSimpleQuantifiedObjectValueOver(pulledUpResultValue,
+                    rootPullUp.getNestingAlias())) {
+                resultCompensationFunction = ResultCompensationFunction.noCompensationNeeded();
+            } else {
+                resultCompensationFunction =
+                        ResultCompensationFunction.ofTranslation(pulledUpResultValue, rootPullUp.getNestingAlias());
+            }
         }
 
         final var isCompensationNeeded =
@@ -888,12 +904,13 @@ public class SelectExpression implements RelationalExpressionWithChildren.Childr
         //
         // We now know we need compensation, and if we have more than one quantifier, we would have to translate
         // the references of the values from the query graph to values operating on the MQT in order to do that
-        // compensation. We cannot do that (yet). If we, however, do not have to worry about compensation we just
-        // this select entirely with the scan and there are no additional references to be considered.
+        // compensation. We cannot do that (yet). If we, however, do not have to worry about compensation we just do
+        // this select entirely with the scan.
         //
         final var partialMatchMap = regularMatchInfo.getPartialMatchMap();
         if (quantifiers.stream()
-                    .filter(quantifier -> quantifier instanceof Quantifier.ForEach && partialMatchMap.containsKeyUnwrapped(quantifier))
+                    .filter(quantifier -> quantifier instanceof Quantifier.ForEach &&
+                            partialMatchMap.containsKeyUnwrapped(quantifier))
                     .count() > 1) {
             return Compensation.impossibleCompensation();
         }

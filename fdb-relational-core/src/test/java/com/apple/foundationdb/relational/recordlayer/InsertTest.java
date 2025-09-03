@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.EmbeddedRelationalArray;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
-import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalArrayMetaData;
@@ -30,23 +29,21 @@ import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
-import com.apple.foundationdb.relational.api.RelationalStructMetaData;
+import com.apple.foundationdb.relational.api.RowArray;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.DataType;
+import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
-import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.sql.Types;
+import java.util.List;
 import java.util.Map;
 
 public class InsertTest {
@@ -56,7 +53,7 @@ public class InsertTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, InsertTest.class, TestSchemas.restaurant());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(InsertTest.class, TestSchemas.restaurant());
 
     @Test
     void canInsertWithMultipleRecordTypes() throws SQLException {
@@ -221,12 +218,12 @@ public class InsertTest {
     }
 
     @Test
-    void canInsertNullableArray() throws SQLException, RelationalException {
-        final var itemMetadata = new RelationalStructMetaData(
-                FieldDescription.primitive("NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                FieldDescription.primitive("PRICE", Types.FLOAT, DatabaseMetaData.columnNullable)
-        );
-        final var itemsMetadata = RelationalArrayMetaData.ofStruct(itemMetadata, DatabaseMetaData.columnNoNulls);
+    void canInsertNullableArray() throws SQLException {
+        final var itemsArrayType = DataType.ArrayType.from(DataType.StructType.from("ITEM", List.of(
+                DataType.StructType.Field.from("NAME", DataType.Primitives.NULLABLE_STRING.type(), 0),
+                DataType.StructType.Field.from("PRICE", DataType.Primitives.NULLABLE_FLOAT.type(), 1)
+
+        ), false), false);
         try (RelationalConnection conn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
             conn.setSchema("TEST_SCHEMA");
             try (RelationalStatement s = conn.createStatement()) {
@@ -235,7 +232,7 @@ public class InsertTest {
                 var restMenu = EmbeddedRelationalStruct.newBuilder()
                         .addLong("ID", 1L)
                         .addLong("REST_NO", 23L)
-                        .addObject("CUISINE", "japanese", Types.OTHER)
+                        .addObject("CUISINE", "japanese")
                         .addArray("ITEMS", EmbeddedRelationalArray.newBuilder()
                                 .addStruct(EmbeddedRelationalStruct.newBuilder()
                                         .addString("NAME", "katsu curry")
@@ -264,7 +261,7 @@ public class InsertTest {
                 restMenu = EmbeddedRelationalStruct.newBuilder()
                         .addLong("ID", 2L)
                         .addLong("REST_NO", 23L)
-                        .addObject("CUISINE", "japanese", Types.OTHER)
+                        .addObject("CUISINE", "japanese")
                         .build();
                 s.executeInsert("RESTAURANT_MENU", restMenu, Options.NONE);
 
@@ -275,7 +272,7 @@ public class InsertTest {
                             .hasColumn("ID", restMenu.getLong(1))
                             .hasColumn("REST_NO", restMenu.getLong(2))
                             .hasColumn("CUISINE", restMenu.getString(3))
-                            .hasColumn("ITEMS", EmbeddedRelationalArray.newBuilder(itemsMetadata).build())
+                            .hasColumn("ITEMS", new RowArray(List.of(), RelationalArrayMetaData.of(itemsArrayType)))
                             .hasColumn("REVIEWS", null)
                             .hasNoNextRow();
                 }

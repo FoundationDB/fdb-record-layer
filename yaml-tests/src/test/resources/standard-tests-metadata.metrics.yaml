@@ -4,11 +4,11 @@ standard-tests-metadata:
     explain: SCAN([EQUALS promote(@c23 AS LONG)]) | MAP (_ AS _0) | AGG (count_star(*)
         AS _0) | ON EMPTY NULL | MAP (coalesce_long(_._0._0, promote(0l AS LONG))
         AS _0)
-    task_count: 395
-    task_total_time_ms: 99
-    transform_count: 142
-    transform_time_ms: 65
-    transform_yield_count: 22
-    insert_time_ms: 6
-    insert_new_count: 31
+    task_count: 375
+    task_total_time_ms: 14
+    transform_count: 86
+    transform_time_ms: 2
+    transform_yield_count: 25
+    insert_time_ms: 0
+    insert_new_count: 38
     insert_reused_count: 1

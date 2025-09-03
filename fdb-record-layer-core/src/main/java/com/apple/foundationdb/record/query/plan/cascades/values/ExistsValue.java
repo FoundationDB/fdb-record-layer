@@ -50,6 +50,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 
 /**
@@ -69,7 +70,7 @@ public class ExistsValue extends AbstractValue implements BooleanValue, Quantifi
     @SuppressWarnings({"java:S2637", "ConstantConditions"}) // TODO the alternative component should not be null
     @SpotBugsSuppressWarnings("NP_NONNULL_PARAM_VIOLATION")
     public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository,
-                                                     @Nonnull final CorrelationIdentifier innermostAlias) {
+                                                     @Nonnull final Set<CorrelationIdentifier> localAliases) {
         return Optional.of(new ExistsPredicate(alias));
     }
 
@@ -149,6 +150,7 @@ public class ExistsValue extends AbstractValue implements BooleanValue, Quantifi
                     ImmutableList.of(new Type.Relation()), (builtInFunction, arguments) -> encapsulateInternal(arguments));
         }
 
+        // TODO this is sus
         private static Value encapsulateInternal(@Nonnull final List<? extends Typed> arguments) {
             // the call is already validated against the resolved function
             Verify.verify(arguments.size() == 1);
@@ -156,7 +158,7 @@ public class ExistsValue extends AbstractValue implements BooleanValue, Quantifi
             Verify.verify(in instanceof RelationalExpression);
 
             // create an existential quantifier
-            final Quantifier.Existential existsQuantifier = Quantifier.existential(Reference.of((RelationalExpression)in));
+            final Quantifier.Existential existsQuantifier = Quantifier.existential(Reference.initialOf((RelationalExpression)in));
 
             return new ExistsValue(existsQuantifier.getAlias());
         }

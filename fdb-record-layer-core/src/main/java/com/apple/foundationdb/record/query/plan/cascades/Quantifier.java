@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type.Record.Fiel
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.RegularTranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap.TranslationFunction;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -192,6 +193,15 @@ public abstract class Quantifier implements Correlated<Quantifier> {
             return isNullOnEmpty;
         }
 
+        @Nonnull
+        @Override
+        public Type getFlowedObjectType() {
+            // If null on empty, then we may return null, so we need to update
+            // the nullability of our returned type to reflect that
+            Type baseType = super.getFlowedObjectType();
+            return baseType.overrideIfNullable(isNullOnEmpty);
+        }
+
         @Override
         @Nonnull
         public Builder<? extends Quantifier, ? extends Builder<?, ?>> toBuilder() {
@@ -205,11 +215,20 @@ public abstract class Quantifier implements Correlated<Quantifier> {
             return "ƒ";
         }
 
+        @Nonnull
+        @Override
+        public ForEach overNewReference(@Nonnull final Reference reference) {
+            return overNewReference(reference, getAlias());
+        }
+
         @Override
         @Nonnull
-        public ForEach overNewReference(@Nonnull final Reference reference) {
+        public ForEach overNewReference(@Nonnull final Reference reference,
+                                        @Nonnull final CorrelationIdentifier newAlias) {
+
             return Quantifier.forEachBuilder()
                     .from(this)
+                    .withAlias(newAlias)
                     .build(reference);
         }
 
@@ -221,12 +240,12 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @Override
         @Nonnull
-        public Optional<TranslationMap> pullUpMaxMatchMapMaybe(@Nonnull final MaxMatchMap maxMatchMap,
-                                                               @Nonnull final CorrelationIdentifier candidateAlias) {
+        public Optional<RegularTranslationMap> pullUpMaxMatchMapMaybe(@Nonnull final MaxMatchMap maxMatchMap,
+                                                                      @Nonnull final CorrelationIdentifier candidateAlias) {
             final var translatedQueryValueOptional = maxMatchMap.translateQueryValueMaybe(candidateAlias);
             return translatedQueryValueOptional
                     .map(translatedQueryValue ->
-                            TranslationMap.builder()
+                            TranslationMap.regularBuilder()
                                     .when(getAlias()).then(TranslationFunction.adjustValueType(translatedQueryValue))
                                     .build());
         }
@@ -371,11 +390,19 @@ public abstract class Quantifier implements Correlated<Quantifier> {
             return "∃";
         }
 
+        @Nonnull
+        @Override
+        public Existential overNewReference(@Nonnull final Reference reference) {
+            return overNewReference(reference, getAlias());
+        }
+
         @Override
         @Nonnull
-        public Existential overNewReference(@Nonnull final Reference reference) {
+        public Existential overNewReference(@Nonnull final Reference reference,
+                                            @Nonnull final CorrelationIdentifier newAlias) {
             return Quantifier.existentialBuilder()
                     .from(this)
+                    .withAlias(newAlias)
                     .build(reference);
         }
 
@@ -387,7 +414,8 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @Nonnull
         @Override
-        public Optional<TranslationMap> pullUpMaxMatchMapMaybe(@Nonnull final MaxMatchMap maxMatchMap, @Nonnull final CorrelationIdentifier candidateAlias) {
+        public Optional<RegularTranslationMap> pullUpMaxMatchMapMaybe(@Nonnull final MaxMatchMap maxMatchMap,
+                                                                      @Nonnull final CorrelationIdentifier candidateAlias) {
             return Optional.of(TranslationMap.ofAliases(getAlias(), candidateAlias));
         }
     }
@@ -515,11 +543,19 @@ public abstract class Quantifier implements Correlated<Quantifier> {
             return getRangesOverPlan().structuralHashCode();
         }
 
+        @Nonnull
+        @Override
+        public Physical overNewReference(@Nonnull final Reference reference) {
+            return overNewReference(reference, getAlias());
+        }
+
         @Override
         @Nonnull
-        public Physical overNewReference(@Nonnull final Reference reference) {
+        public Physical overNewReference(@Nonnull final Reference reference,
+                                         @Nonnull final CorrelationIdentifier newAlias) {
             return Quantifier.physicalBuilder()
                     .from(this)
+                    .withAlias(newAlias)
                     .build(reference);
         }
 
@@ -531,7 +567,8 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
         @Nonnull
         @Override
-        public Optional<TranslationMap> pullUpMaxMatchMapMaybe(@Nonnull final MaxMatchMap maxMatchMap, @Nonnull final CorrelationIdentifier candidateAlias) {
+        public Optional<RegularTranslationMap> pullUpMaxMatchMapMaybe(@Nonnull final MaxMatchMap maxMatchMap,
+                                                                      @Nonnull final CorrelationIdentifier candidateAlias) {
             throw new UnsupportedOperationException("this method should not be called");
         }
 
@@ -540,10 +577,10 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         public PPhysicalQuantifier toProto(@Nonnull final PlanSerializationContext serializationContext) {
             final PPhysicalQuantifier.Builder builder = PPhysicalQuantifier.newBuilder()
                     .setAlias(getAlias().getId());
-            final LinkedIdentitySet<RelationalExpression> members = getRangesOver().getMembers();
-            for (final RelationalExpression member : members) {
-                Verify.verify(member instanceof RecordQueryPlan);
-                builder.addPlanReferences(serializationContext.toPlanReferenceProto((RecordQueryPlan)member));
+            final var finalExpressions = getRangesOver().getFinalExpressions();
+            for (final RelationalExpression finalExpression : finalExpressions) {
+                Verify.verify(finalExpression instanceof RecordQueryPlan);
+                builder.addPlanReferences(serializationContext.toPlanReferenceProto((RecordQueryPlan)finalExpression));
             }
             return builder.build();
         }
@@ -551,11 +588,11 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         @Nonnull
         public static Physical fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                          @Nonnull final PPhysicalQuantifier physicalQuantifierProto) {
-            final ImmutableList.Builder<RelationalExpression> membersBuilder = ImmutableList.builder();
+            final ImmutableList.Builder<RecordQueryPlan> membersBuilder = ImmutableList.builder();
             for (int i = 0; i < physicalQuantifierProto.getPlanReferencesCount(); i ++) {
                 membersBuilder.add(serializationContext.fromPlanReferenceProto(physicalQuantifierProto.getPlanReferences(i)));
             }
-            final Reference reference = Reference.from(membersBuilder.build());
+            final Reference reference = Reference.ofFinalExpressions(PlannerStage.PLANNED, membersBuilder.build());
             return physicalBuilder().withAlias(CorrelationIdentifier.of(Objects.requireNonNull(physicalQuantifierProto.getAlias())))
                     .build(reference);
         }
@@ -615,14 +652,14 @@ public abstract class Quantifier implements Correlated<Quantifier> {
 
     /**
      * Allow the computation of {@link ExpressionProperty}s across the quantifiers in the data flow graph.
-     * @param visitor the planner property that is being computed
-     * @param <U> the type of the property being computed
+     * @param visitor the visitor that is being accepted
+     * @param <U> the type the visitor computes
      * @return the property
      */
     @Nullable
-    public <U> U acceptPropertyVisitor(@Nonnull ExpressionProperty<U> visitor) {
+    public <U> U acceptVisitor(@Nonnull SimpleExpressionVisitor<U> visitor) {
         if (visitor.shouldVisit(this)) {
-            return visitor.evaluateAtQuantifier(this, getRangesOver().acceptPropertyVisitor(visitor));
+            return visitor.evaluateAtQuantifier(this, getRangesOver().acceptVisitor(visitor));
         }
         return null;
     }
@@ -766,28 +803,21 @@ public abstract class Quantifier implements Correlated<Quantifier> {
      * matches between the {@code queryResultValue} and the {@code candidateResultValue}.
      */
     @Nonnull
-    public abstract Optional<TranslationMap> pullUpMaxMatchMapMaybe(@Nonnull MaxMatchMap maxMatchMap,
-                                                                    @Nonnull CorrelationIdentifier candidateAlias);
+    public abstract Optional<RegularTranslationMap> pullUpMaxMatchMapMaybe(@Nonnull MaxMatchMap maxMatchMap,
+                                                                           @Nonnull CorrelationIdentifier candidateAlias);
 
     @Nonnull
-    public abstract Quantifier overNewReference(@Nonnull Reference reference);
+    public Quantifier overNewReference(@Nonnull final Reference reference) {
+        return overNewReference(reference, getAlias());
+    }
+
+    @Nonnull
+    public abstract Quantifier overNewReference(@Nonnull Reference reference, @Nonnull CorrelationIdentifier newAlias);
 
     @Override
     @Nonnull
     public Quantifier rebase(@Nonnull final AliasMap translationMap) {
-        return translateCorrelations(TranslationMap.rebaseWithAliasMap(translationMap), false);
-    }
-
-    @Nonnull
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public Quantifier translateCorrelations(@Nonnull final TranslationMap translationMap,
-                                            final boolean shouldSimplifyValues) {
-        final Reference rangesOver = getRangesOver();
-        final Reference translatedReference =
-                getRangesOver().translateCorrelations(translationMap, shouldSimplifyValues);
-        return rangesOver == translatedReference
-               ? this
-               : overNewReference(translatedReference);
+        throw new UnsupportedOperationException("rebase not supported on quantifier");
     }
 
     @Nonnull

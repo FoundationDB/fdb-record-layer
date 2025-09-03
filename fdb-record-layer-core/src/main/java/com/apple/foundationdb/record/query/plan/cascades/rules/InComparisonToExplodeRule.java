@@ -23,10 +23,10 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ExplorationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
@@ -91,7 +92,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * </pre>
  *
  * <em>not</em> is one of the cases that can cause this.
- *
+ * <br>
  * In general for any possible record {@code  r} the following should hold:
  *
  * <pre>
@@ -118,7 +119,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class InComparisonToExplodeRule extends CascadesRule<SelectExpression> {
+public class InComparisonToExplodeRule extends ExplorationCascadesRule<SelectExpression> {
     private static final BindingMatcher<ValuePredicate> inPredicateMatcher =
             valuePredicate(ValueMatchers.anyValue(), anyComparisonOfType(Comparisons.Type.IN));
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifier();
@@ -131,7 +132,7 @@ public class InComparisonToExplodeRule extends CascadesRule<SelectExpression> {
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(@Nonnull final ExplorationCascadesRuleCall call) {
         final var bindings = call.getBindings();
 
         final var selectExpression = bindings.get(root);
@@ -163,9 +164,9 @@ public class InComparisonToExplodeRule extends CascadesRule<SelectExpression> {
                     Type arrayElementType = ((Type.Array) comparisonValue.getComparandValue().getResultType()).getElementType();
                     Verify.verify(arrayElementType != null);
                     explodeExpression = new ExplodeExpression(comparisonValue.getComparandValue());
-                    newQuantifier = Quantifier.forEach(call.memoizeExpression(explodeExpression));
+                    newQuantifier = Quantifier.forEach(call.memoizeExploratoryExpression(explodeExpression));
                     if (arrayElementType.isRecord()) {
-                        transformedPredicates.addAll(createSimpleEqualities(value, newQuantifier));
+                        transformedPredicates.addAll(createSimpleEqualitiesForRecordTypeValue(value, newQuantifier));
                     } else {
                         transformedPredicates.add(new ValuePredicate(value,
                                 new Comparisons.ValueComparison(Comparisons.Type.EQUALS, QuantifiedObjectValue.of(newQuantifier.getAlias(), elementType))));
@@ -173,13 +174,13 @@ public class InComparisonToExplodeRule extends CascadesRule<SelectExpression> {
                 } else if (comparison instanceof Comparisons.ListComparison) {
                     final var listComparison = (Comparisons.ListComparison)comparison;
                     explodeExpression = new ExplodeExpression(LiteralValue.ofList((List<?>)listComparison.getComparand(null, null)));
-                    newQuantifier = Quantifier.forEach(call.memoizeExpression(explodeExpression));
+                    newQuantifier = Quantifier.forEach(call.memoizeExploratoryExpression(explodeExpression));
                     transformedPredicates.add(new ValuePredicate(value,
                             new Comparisons.ValueComparison(Comparisons.Type.EQUALS, QuantifiedObjectValue.of(newQuantifier.getAlias(), elementType))));
 
                 } else if (comparison instanceof Comparisons.ParameterComparison) {
                     explodeExpression = new ExplodeExpression(QuantifiedObjectValue.of(CorrelationIdentifier.of(((Comparisons.ParameterComparison)comparison).getParameter()), new Type.Array(elementType)));
-                    newQuantifier = Quantifier.forEach(call.memoizeExpression(explodeExpression));
+                    newQuantifier = Quantifier.forEach(call.memoizeExploratoryExpression(explodeExpression));
                     transformedPredicates.add(new ValuePredicate(value,
                             new Comparisons.ValueComparison(Comparisons.Type.EQUALS, QuantifiedObjectValue.of(newQuantifier.getAlias(), elementType))));
                 } else {
@@ -193,7 +194,7 @@ public class InComparisonToExplodeRule extends CascadesRule<SelectExpression> {
 
         transformedQuantifiers.addAll(bindings.getAll(innerQuantifierMatcher));
 
-        call.yieldExpression(new SelectExpression(selectExpression.getResultValue(),
+        call.yieldExploratoryExpression(new SelectExpression(selectExpression.getResultValue(),
                 transformedQuantifiers.build(),
                 transformedPredicates.build()));
     }
@@ -202,14 +203,17 @@ public class InComparisonToExplodeRule extends CascadesRule<SelectExpression> {
      * This method creates an equality predicate for all constituent parts of a tuple.
      */
     @Nonnull
-    private static List<QueryPredicate> createSimpleEqualities(@Nonnull final Value value,
-                                                               @Nonnull final Quantifier.ForEach newQuantifier) {
-        List<Value> valueChildren = ImmutableList.copyOf(value.getChildren());
+    private static List<QueryPredicate> createSimpleEqualitiesForRecordTypeValue(@Nonnull final Value value,
+                                                                                 @Nonnull final Quantifier.ForEach newQuantifier) {
+        Verify.verify(value.getResultType().isRecord(), "value should be of type record and not %s", value.getResultType());
+        final List<Value> fieldValues = Values.deconstructRecord(value);
+
         List<Column<? extends FieldValue>> comparandValueChildren = newQuantifier.getFlowedColumns();
-        Verify.verify(valueChildren.size() == comparandValueChildren.size());
+        Verify.verify(fieldValues.size() == comparandValueChildren.size(), "record type value and comparand should have matching number of fields");
         final var resultsBuilder = ImmutableList.<QueryPredicate>builder();
-        for (int i = 0; i < valueChildren.size(); i++) {
-            BooleanValue currentVal = (BooleanValue) new RelOpValue.EqualsFn().encapsulate(List.of(valueChildren.get(i), comparandValueChildren.get(i).getValue()));
+        for (int i = 0; i < fieldValues.size(); i++) {
+            final Value fieldValue = fieldValues.get(i);
+            BooleanValue currentVal = (BooleanValue) new RelOpValue.EqualsFn().encapsulate(List.of(fieldValue, comparandValueChildren.get(i).getValue()));
             Optional<QueryPredicate> currentQueryPredicate = currentVal.toQueryPredicate(null, Quantifier.current());
             Verify.verify(currentQueryPredicate.isPresent());
             resultsBuilder.add(currentQueryPredicate.get());

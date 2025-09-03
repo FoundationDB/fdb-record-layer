@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.HeuristicPlanner;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
@@ -35,17 +36,18 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.UnionCursor;
-import com.apple.foundationdb.record.query.plan.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.ProvidedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -421,6 +423,7 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
      * @param internal indicator if bindings are modelled using correlation or old-style in-bindings
      * @return a new plan that will return the union of all results from both child plans
      */
+    @HeuristicPlanner
     @Nonnull
     public static RecordQueryInUnionOnKeyExpressionPlan from(@Nonnull RecordQueryPlan inner,
                                                              @Nonnull final List<? extends InSource> inSources,
@@ -428,7 +431,7 @@ public abstract class RecordQueryInUnionPlan implements RecordQueryPlanWithChild
                                                              final boolean isReverse,
                                                              final int maxNumberOfValuesAllowed,
                                                              @Nonnull final Bindings.Internal internal) {
-        return new RecordQueryInUnionOnKeyExpressionPlan(Quantifier.physical(Reference.of(inner)),
+        return new RecordQueryInUnionOnKeyExpressionPlan(Quantifier.physical(Reference.plannedOf(Debugger.verifyHeuristicPlanner(inner))),
                 inSources,
                 comparisonKey,
                 isReverse,

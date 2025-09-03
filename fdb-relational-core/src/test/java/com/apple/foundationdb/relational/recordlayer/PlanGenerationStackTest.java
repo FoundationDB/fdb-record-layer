@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ public class PlanGenerationStackTest {
 
     @RegisterExtension
     @Order(2)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, PlanGenerationStackTest.class, TestSchemas.restaurant());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(PlanGenerationStackTest.class, TestSchemas.restaurant());
 
     @RegisterExtension
     @Order(3)
@@ -180,15 +180,15 @@ public class PlanGenerationStackTest {
         final PlanContext planContext = PlanContext.Builder
                 .create()
                 .fromDatabase(database)
-                .fromRecordStore(store)
+                .fromRecordStore(store, connection.getOptions())
                 .withSchemaTemplate(embeddedConnection.getSchemaTemplate())
                 .withMetricsCollector(embeddedConnection.getMetricCollector())
                 .build();
         if (error == null) {
-            PlanGenerator planGenerator = PlanGenerator.of(Optional.empty(), planContext, store.getRecordMetaData(), store.getRecordStoreState(), Options.NONE);
+            PlanGenerator planGenerator = PlanGenerator.create(Optional.empty(), planContext, store.getRecordMetaData(), store.getRecordStoreState(), Options.NONE);
             final Plan<?> generatedPlan1 = planGenerator.getPlan(query);
             final var queryHash1 = ((QueryPlan.PhysicalQueryPlan) generatedPlan1).getRecordQueryPlan().semanticHashCode();
-            planGenerator = PlanGenerator.of(Optional.empty(), planContext, store.getRecordMetaData(), store.getRecordStoreState(), Options.NONE);
+            planGenerator = PlanGenerator.create(Optional.empty(), planContext, store.getRecordMetaData(), store.getRecordStoreState(), Options.NONE);
             final Plan<?> generatedPlan2 = planGenerator.getPlan(query);
             final var queryHash2 = ((QueryPlan.PhysicalQueryPlan) generatedPlan2).getRecordQueryPlan().semanticHashCode();
             embeddedConnection.rollback();
@@ -196,7 +196,7 @@ public class PlanGenerationStackTest {
             Assertions.assertEquals(queryHash1, queryHash2);
         } else {
             try {
-                PlanGenerator planGenerator = PlanGenerator.of(Optional.empty(), planContext, store.getRecordMetaData(), store.getRecordStoreState(), Options.NONE);
+                PlanGenerator planGenerator = PlanGenerator.create(Optional.empty(), planContext, store.getRecordMetaData(), store.getRecordStoreState(), Options.NONE);
                 planGenerator.getPlan(query);
                 Assertions.fail("expected an exception to be thrown");
             } catch (RelationalException e) {

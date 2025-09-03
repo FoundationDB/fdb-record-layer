@@ -47,6 +47,7 @@ public enum LogMessageKeys {
     OLD,
     NEW,
     MESSAGE,
+    NAME,
     CODE,
     DESCRIPTION,
     UNKNOWN_FIELDS,
@@ -66,6 +67,8 @@ public enum LogMessageKeys {
     FOUND_INDEX,
     KNOWN_LAST_KEY,
     SPLIT_NEXT_INDEX("next_index"),
+    SPLIT_EXPECTED,
+    SPLIT_FOUND,
     SPLIT_REVERSE("reverse"),
     READ_LAST_KEY_MICROS,
     // protobuf parsing
@@ -136,6 +139,7 @@ public enum LogMessageKeys {
     END_TUPLE,
     REAL_END,
     RECORDS_SCANNED,
+    RECORDS_DELETED,
     ORIGINAL_RANGE,
     SPLIT_RANGES,
     REASON,
@@ -241,6 +245,8 @@ public enum LogMessageKeys {
     RANGE_BYTES,
     RANGE_START,
     RANGE_END,
+    RANGE_ID,
+    RANGE_RESET,
     // meta-data evolution
     FIELD_NAME,
     OLD_FIELD_NAME,
@@ -307,6 +313,8 @@ public enum LogMessageKeys {
     FAILED_TRANSACTIONS_COUNT_IN_RUNNER,
     TOTAL_RECORDS_SCANNED,
     TOTAL_RECORDS_SCANNED_DURING_FAILURES,
+    SCRUB_TYPE,
+    RETRY_COUNT,
 
     // time limits milliseconds
     TIME_LIMIT_MILLIS("time_limit_milliseconds"),
@@ -333,7 +341,12 @@ public enum LogMessageKeys {
 
     // Record context properties
     PROPERTY_NAME,
-    PROPERTY_TYPE;
+    PROPERTY_TYPE,
+
+    // Store Lock State
+    STORE_LOCK_STATE_REASON,
+    STORE_LOCK_STATE_TIMESTAMP_MILLIS,
+    ;
 
     private final String logKey;
 

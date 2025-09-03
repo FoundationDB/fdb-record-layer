@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
@@ -69,10 +70,12 @@ public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupB
         final var lowerRef = bindings.get(lowerRefMatcher);
 
         final var requestedOrderings =
-                call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING)
+                call.getPlannerConstraintMaybe(RequestedOrderingConstraint.REQUESTED_ORDERING)
                         .orElse(ImmutableSet.of());
 
-        final var refinedRequestedOrderings = collectCompatibleOrderings(groupByExpression, innerQuantifier, requestedOrderings);
+        final var refinedRequestedOrderings =
+                collectCompatibleOrderings(call.getEvaluationContext(), groupByExpression, innerQuantifier,
+                        requestedOrderings);
 
         if (!refinedRequestedOrderings.isEmpty()) {
             call.pushConstraint(lowerRef,
@@ -82,7 +85,8 @@ public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupB
     }
 
     @Nonnull
-    private Set<RequestedOrdering> collectCompatibleOrderings(@Nonnull final GroupByExpression groupByExpression,
+    private Set<RequestedOrdering> collectCompatibleOrderings(@Nonnull final EvaluationContext evaluationContext,
+                                                              @Nonnull final GroupByExpression groupByExpression,
                                                               @Nonnull final Quantifier innerQuantifier,
                                                               @Nonnull final Set<RequestedOrdering> requestedOrderings) {
         final var correlatedTo = groupByExpression.getCorrelatedTo();
@@ -102,7 +106,8 @@ public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupB
                 // Push the requested ordering through the result value. We need to do that in any case.
                 //
                 final var pushedRequestedOrdering =
-                        requestedOrdering.pushDown(resultValue, innerQuantifier.getAlias(), AliasMap.emptyMap(), correlatedTo);
+                        requestedOrdering.pushDown(resultValue, innerQuantifier.getAlias(), evaluationContext,
+                                AliasMap.emptyMap(), correlatedTo);
 
                 if (groupingValue == null || groupingValue.isConstant()) {
                     //
@@ -137,7 +142,7 @@ public class PushRequestedOrderingThroughGroupByRule extends CascadesRule<GroupB
                             currentGroupingValue.getResultType(), () -> currentGroupingValue);
                     final var primitivesSimplifiedValues = Values.simplify(primitivesValues,
                             DefaultValueSimplificationRuleSet.instance(),
-                            AliasMap.emptyMap(), correlatedTo);
+                            evaluationContext, AliasMap.emptyMap(), correlatedTo);
                     final var requiredOrderingValues =
                             new LinkedHashSet<>(primitivesSimplifiedValues);
 

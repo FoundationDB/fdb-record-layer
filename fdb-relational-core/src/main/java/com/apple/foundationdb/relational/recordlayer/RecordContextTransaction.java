@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,11 +30,13 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import javax.annotation.Nonnull;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * This transaction object must be destroyed when it's creating connection is destroyed. Note that this is
@@ -79,6 +81,23 @@ public class RecordContextTransaction implements Transaction {
         } catch (RecordCoreException e) {
             throw ExceptionUtil.toRelationalException(e);
         }
+    }
+
+    @Nonnull
+    @Override
+    public Optional<SchemaTemplate> getBoundSchemaTemplateMaybe() {
+        return Optional.ofNullable(context.getInSession(SchemaTemplate.class.toString(), SchemaTemplate.class));
+    }
+
+    @Override
+    public void setBoundSchemaTemplate(@Nonnull final SchemaTemplate schemaTemplate) {
+        unsetBoundSchemaTemplate();
+        context.putInSessionIfAbsent(SchemaTemplate.class.toString(), schemaTemplate);
+    }
+
+    @Override
+    public void unsetBoundSchemaTemplate() {
+        context.removeFromSession(SchemaTemplate.class.toString(), SchemaTemplate.class);
     }
 
     @Override

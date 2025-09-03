@@ -37,19 +37,20 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
+import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
-import com.apple.foundationdb.record.query.plan.explain.ExplainPlanVisitor;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -96,6 +97,10 @@ public class RecordQueryTableFunctionPlan implements RecordQueryPlanWithNoChildr
     public RecordQueryTableFunctionPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                               final boolean shouldSimplifyValues,
                                                               @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        Verify.verify(translatedQuantifiers.isEmpty());
+        if (translationMap.definesOnlyIdentities()) {
+            return this;
+        }
         final Value translatedValue = value.translateCorrelations(translationMap, shouldSimplifyValues);
         if (translatedValue != value) {
             return new RecordQueryTableFunctionPlan((StreamingValue)translatedValue);
@@ -109,7 +114,7 @@ public class RecordQueryTableFunctionPlan implements RecordQueryPlanWithNoChildr
     }
 
     @Override
-    public RecordQueryTableFunctionPlan strictlySorted(@Nonnull final Memoizer memoizer) {
+    public RecordQueryTableFunctionPlan strictlySorted(@Nonnull final FinalMemoizer memoizer) {
         return this;
     }
 

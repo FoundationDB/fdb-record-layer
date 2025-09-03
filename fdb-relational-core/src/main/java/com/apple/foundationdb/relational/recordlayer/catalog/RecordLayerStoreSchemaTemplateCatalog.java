@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,18 +34,17 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.RecordAlreadyExistsException;
-import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.relational.api.ProtobufDataBuilder;
-import com.apple.foundationdb.relational.api.Row;
-import com.apple.foundationdb.relational.api.SqlTypeSupport;
-import com.apple.foundationdb.relational.api.StructMetaData;
-import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
+import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
@@ -54,12 +53,13 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.recordlayer.catalog.systables.SchemaTemplateSystemTable;
 import com.apple.foundationdb.relational.recordlayer.catalog.systables.SystemTableRegistry;
+import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -75,19 +75,27 @@ import java.util.Objects;
  * Pass in context to work against, the CATALOG schema and schemaPath.
  */
 class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
+
+    @Nonnull
     private final RecordLayerSchema catalogSchema;
+
+    @Nonnull
     private final RelationalKeyspaceProvider.RelationalSchemaPath catalogSchemaPath;
+
+    @Nonnull
     private final RecordMetaDataProvider catalogRecordMetaDataProvider;
 
     /**
-     * Create RecordLayer-backed SchemaTemplateCatalog.
-     * @param catalogSchema The catalog context to use as operating context.
-     * @param catalogSchemaPath The path to the schema context to use as operating context.
-     * @throws RelationalException Thrown by unwrap on schema template if type doesn't match (should never happen).
+     * Creates a RecordLayer-backed SchemaTemplateCatalog instance.
+     *
+     * @param catalogSchema the catalog context used as the operating environment
+     * @param catalogSchemaPath the file system path to the schema context for operations
+     * @throws RelationalException if schema template unwrapping fails due to type mismatch
+     *                             (this should not occur under normal conditions)
      */
     @SpotBugsSuppressWarnings(value = "CT_CONSTRUCTOR_THROW", justification = "Hard to remove exception with current inheritance")
-    RecordLayerStoreSchemaTemplateCatalog(RecordLayerSchema catalogSchema,
-                RelationalKeyspaceProvider.RelationalSchemaPath catalogSchemaPath) throws RelationalException {
+    RecordLayerStoreSchemaTemplateCatalog(@Nonnull final RecordLayerSchema catalogSchema,
+                                          @Nonnull final RelationalKeyspaceProvider.RelationalSchemaPath catalogSchemaPath) throws RelationalException {
         this.catalogSchema = catalogSchema;
         this.catalogSchemaPath = catalogSchemaPath;
         this.catalogRecordMetaDataProvider = RecordMetaData.build(this.catalogSchema.getSchemaTemplate()
@@ -158,29 +166,25 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
 
     @Nonnull
     @Override
-    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName)
+    public SchemaTemplate loadSchemaTemplate(@Nonnull final Transaction txn, @Nonnull final String templateName)
             throws RelationalException {
-        Tuple key = getSchemaTemplatePrimaryKey(templateName);
-        var recordStore = RecordLayerStoreUtils.openRecordStore(txn, this.catalogSchemaPath,
-                this.catalogRecordMetaDataProvider);
-        try (RecordCursor<FDBStoredRecord<Message>> cursor =
-                recordStore.scanRecords(new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE,
-                                EndpointType.RANGE_INCLUSIVE),
-                        ContinuationImpl.BEGIN.getExecutionState(), ScanProperties.REVERSE_SCAN);) {
-            RecordCursorResult<FDBStoredRecord<Message>> cursorResult = cursor.getNext();
-            if (cursorResult == null || cursorResult.getContinuation().isEnd() || cursorResult.get() == null) {
-                throw new RelationalException("SchemaTemplate=" + templateName + " is not in catalog",
-                        ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
-            }
-            return toSchemaTemplate(cursorResult.get().getRecord());
-        } catch (RecordCoreStorageException | RelationalException | InvalidProtocolBufferException e) {
+        final var key = getSchemaTemplatePrimaryKey(templateName);
+        final var recordStore = RecordLayerStoreUtils.openRecordStore(txn, catalogSchemaPath, catalogRecordMetaDataProvider);
+        final var tupleRange = new TupleRange(key, key, EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE);
+        try (var cursor = recordStore.scanRecords(tupleRange, ContinuationImpl.BEGIN.getExecutionState(), ScanProperties.REVERSE_SCAN)) {
+            final var cursorResult = cursor.getNext();
+            final var schemaExists = !cursorResult.getContinuation().isEnd() && cursorResult.get() != null;
+            Assert.thatUnchecked(schemaExists, ErrorCode.UNKNOWN_SCHEMA_TEMPLATE,
+                    "SchemaTemplate '" + templateName + "' is not in catalog");
+            return toSchemaTemplate(Assert.notNullUnchecked(cursorResult.get()).getRecord());
+        } catch (RecordCoreStorageException | InvalidProtocolBufferException e) {
             throw new UncheckedRelationalException(ExceptionUtil.toRelationalException(e));
         }
     }
 
     @Nonnull
     @Override
-    public SchemaTemplate loadSchemaTemplate(@Nonnull Transaction txn, @Nonnull String templateName, int version)
+    public SchemaTemplate loadSchemaTemplate(@Nonnull final Transaction txn, @Nonnull final String templateName, int version)
             throws RelationalException {
         try {
             // TODO: I seem to be doing way more work than I should have to. Someone please set me right. Stack 05/2023.
@@ -201,12 +205,14 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
      * Instantiate an instance of {@link SchemaTemplate} using content of the passed {@link Message}.
      */
     @Nonnull
-    private static SchemaTemplate toSchemaTemplate(@Nonnull Message m) throws InvalidProtocolBufferException {
-        Descriptors.Descriptor d = m.getDescriptorForType();
-        ByteString bs = (ByteString) m.getField(d.findFieldByName(SchemaTemplateSystemTable.METADATA));
-        RecordMetaData metaData = RecordMetaData.build(RecordMetaDataProto.MetaData.parseFrom(bs.toByteArray()));
-        String name = m.getField(d.findFieldByName(SchemaTemplateSystemTable.TEMPLATE_NAME)).toString();
-        int templateVersion = (int) m.getField(d.findFieldByName(SchemaTemplateSystemTable.TEMPLATE_VERSION));
+    private static SchemaTemplate toSchemaTemplate(@Nonnull final Message message) throws InvalidProtocolBufferException {
+        // we should probably memoize a Message -> RecordLayerSchemaTemplate relation to avoid repetitive
+        // deserialization of the same message over and over again.
+        final Descriptors.Descriptor descriptor = message.getDescriptorForType();
+        final ByteString bs = Assert.castUnchecked(message.getField(descriptor.findFieldByName(SchemaTemplateSystemTable.METADATA)), ByteString.class);
+        final RecordMetaData metaData = RecordMetaData.build(RecordMetaDataProto.MetaData.parseFrom(bs.toByteArray()));
+        final String name = message.getField(descriptor.findFieldByName(SchemaTemplateSystemTable.TEMPLATE_NAME)).toString();
+        int templateVersion = (int) message.getField(descriptor.findFieldByName(SchemaTemplateSystemTable.TEMPLATE_VERSION));
         return RecordLayerSchemaTemplate.fromRecordMetadata(metaData, name, templateVersion);
     }
 
@@ -245,7 +251,7 @@ class RecordLayerStoreSchemaTemplateCatalog implements SchemaTemplateCatalog {
                             ContinuationImpl.BEGIN.getExecutionState(), ScanProperties.FORWARD_SCAN);
             Descriptors.Descriptor d = recordStore.getRecordMetaData().getRecordMetaData()
                     .getRecordType(SchemaTemplateSystemTable.TABLE_NAME).getDescriptor();
-            StructMetaData structMetaData = SqlTypeSupport.recordToMetaData(ProtobufDdlUtil.recordFromDescriptor(d));
+            final var structMetaData = RelationalStructMetaData.of((DataType.StructType) DataTypeUtils.toRelationalType(ProtobufDdlUtil.recordFromDescriptor(d)));
             return new RecordLayerResultSet(structMetaData,
                     RecordLayerIterator.create(cursor, this::transformSchemaTemplates),
                     null /* caller is responsible for managing tx state */);

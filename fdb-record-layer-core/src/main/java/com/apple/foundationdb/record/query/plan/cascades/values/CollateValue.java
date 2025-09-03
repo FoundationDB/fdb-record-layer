@@ -37,7 +37,7 @@ import com.apple.foundationdb.record.provider.common.text.TextCollatorRegistry;
 import com.apple.foundationdb.record.provider.common.text.TextCollatorRegistryJRE;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
@@ -56,7 +56,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Supplier;
 
 /**
@@ -175,7 +174,7 @@ public class CollateValue extends AbstractValue {
 
     @Nonnull
     @Override
-    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
         return super.equalsWithoutChildren(other).filter(ignored -> {
             CollateValue otherCollate = (CollateValue)other;
             return collatorRegistry.equals(otherCollate.collatorRegistry);
@@ -326,28 +325,6 @@ public class CollateValue extends AbstractValue {
             super(functionName,
                     ImmutableList.of(Type.primitiveType(Type.TypeCode.STRING)), Type.any(),
                     (builtInFunction, arguments) -> CollateValue.encapsulate(collatorRegistry, arguments));
-        }
-
-        @Nonnull
-        @Override
-        public Optional<BuiltInFunction<Value>> validateCall(@Nonnull final List<Type> argumentTypes) {
-            // We claimed to be string + variadic any.
-            return super.validateCall(argumentTypes).filter(ignoreThis -> {
-                final int nargs = argumentTypes.size();
-                if (nargs < 2) {
-                    return true;
-                }
-                if (nargs > 3) {
-                    return false;
-                }
-                if (argumentTypes.get(1).getTypeCode() != TypeCode.STRING) {
-                    return false;
-                }
-                if (nargs < 3) {
-                    return true;
-                }
-                return argumentTypes.get(2).getTypeCode() == TypeCode.INT;
-            });
         }
     }
 

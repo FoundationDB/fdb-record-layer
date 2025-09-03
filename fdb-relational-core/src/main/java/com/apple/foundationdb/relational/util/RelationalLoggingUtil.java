@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.query.OptionsUtils;
 import com.apple.foundationdb.relational.recordlayer.query.Plan;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 
@@ -41,7 +42,7 @@ public class RelationalLoggingUtil {
         message.addKeyAndValue("totalPlanTimeMicros", totalTime);
         if (plan != null) {
             if (plan instanceof QueryPlan.PhysicalQueryPlan) {
-                final var planHash = ((QueryPlan.PhysicalQueryPlan) plan).planHash(QueryPlan.PhysicalQueryPlan.getCurrentPlanHashMode(options));
+                final var planHash = ((QueryPlan.PhysicalQueryPlan) plan).planHash(OptionsUtils.getCurrentPlanHashMode(options));
                 message.addKeyAndValue("planHash", planHash);
             }
             message.addKeyAndValue("plan", plan.explain());

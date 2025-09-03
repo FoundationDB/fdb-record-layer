@@ -33,12 +33,12 @@ import com.apple.foundationdb.record.planprotos.PRecordQueryUpdatePlan;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
-import com.apple.foundationdb.record.query.plan.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.MessageHelpers;
@@ -112,18 +112,24 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
     public RecordQueryUpdatePlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                        final boolean shouldSimplifyValues,
                                                        @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        final var tranlatedComputationValue =
+                getComputationValue().translateCorrelations(translationMap, shouldSimplifyValues);
         return new RecordQueryUpdatePlan(
                 Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 getTargetRecordType(),
                 getTargetType(),
-                translateTransformationsTrie(translationMap),
+                translateTransformationsTrie(translationMap, shouldSimplifyValues),
                 getCoercionTrie(),
-                getComputationValue().translateCorrelations(translationMap, shouldSimplifyValues));
+                tranlatedComputationValue);
     }
 
     @Nullable
-    private MessageHelpers.TransformationTrieNode translateTransformationsTrie(final @Nonnull TranslationMap translationMap) {
+    private MessageHelpers.TransformationTrieNode translateTransformationsTrie(@Nonnull final TranslationMap translationMap,
+                                                                               final boolean shouldSimplifyValues) {
         final var transformationsTrie = getTransformationsTrie();
+        if (translationMap.definesOnlyIdentities()) {
+            return transformationsTrie;
+        }
         if (transformationsTrie == null) {
             return null;
         }
@@ -132,7 +138,7 @@ public class RecordQueryUpdatePlan extends RecordQueryAbstractDataModificationPl
             final var value = current.getValue();
             if (value != null) {
                 Verify.verify(Iterables.isEmpty(childrenTries));
-                return new MessageHelpers.TransformationTrieNode(value.translateCorrelations(translationMap), null);
+                return new MessageHelpers.TransformationTrieNode(value.translateCorrelations(translationMap, shouldSimplifyValues), null);
             } else {
                 final var oldChildrenMap = Verify.verifyNotNull(current.getChildrenMap());
                 final var childrenTriesIterator = childrenTries.iterator();

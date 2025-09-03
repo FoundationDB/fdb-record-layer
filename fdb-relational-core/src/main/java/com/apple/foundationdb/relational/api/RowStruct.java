@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
+import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 import com.apple.foundationdb.relational.recordlayer.MessageTuple;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
@@ -188,6 +189,7 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
                 return getArray(oneBasedPosition);
             case Types.BINARY:
                 return getBytes(oneBasedPosition);
+            case Types.OTHER:
             default:
                 return getObjectInternal(getZeroBasedPosition(oneBasedPosition));
         }
@@ -240,8 +242,6 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
             for (final var t : coll) {
                 if (t instanceof Message) {
                     elements.add(new ImmutableRowStruct(new MessageTuple((Message) t), arrayMetaData.getElementStructMetaData()));
-                } else if (t instanceof ByteString) {
-                    elements.add(((ByteString) t).toByteArray());
                 } else {
                     elements.add(t);
                 }
@@ -255,15 +255,14 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
                 throw new SQLException("Array", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
             }
             Descriptors.FieldDescriptor fieldDescriptor = message.getDescriptorForType().findFieldByName(NullableArrayUtils.getRepeatedFieldName());
+            final var fieldValues = (Collection<?>) message.getField(fieldDescriptor);
             final var elements = new ArrayList<>();
-            final var coll = (Collection<?>) message.getField(fieldDescriptor);
-            for (final var t : coll) {
-                if (t instanceof Message) {
-                    elements.add(new ImmutableRowStruct(new MessageTuple((Message) t), arrayMetaData.getElementStructMetaData()));
-                } else if (t instanceof ByteString) {
-                    elements.add(((ByteString) t).toByteArray());
-                } else {
-                    elements.add(t);
+            for (var fieldValue : fieldValues) {
+                final var sanitizedFieldValue = MessageTuple.sanitizeField(fieldValue);
+                if (sanitizedFieldValue instanceof Message) {
+                    elements.add(new ImmutableRowStruct(new MessageTuple((Message) sanitizedFieldValue), arrayMetaData.getElementStructMetaData()));
+                }  else {
+                    elements.add(sanitizedFieldValue);
                 }
             }
             return new RowArray(elements, arrayMetaData);
@@ -292,6 +291,11 @@ public abstract class RowStruct implements RelationalStruct, EmbeddedRelationalS
             return new ImmutableRowStruct((Row) obj, metaData.getStructMetaData(oneBasedColumn));
         } else if (obj instanceof Message) {
             return new ImmutableRowStruct(new MessageTuple((Message) obj), metaData.getStructMetaData(oneBasedColumn));
+        } else if (obj instanceof UUID) {
+            // We now have logic to understand UUID and convert it to primitive type, however, we still might have
+            // plans that would treat UUID as a 'struct'. In this case, we re-convert UUID back to struct.
+            final var uuid = (UUID) obj;
+            return new ImmutableRowStruct(new ArrayRow(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits()), metaData.getStructMetaData(oneBasedColumn));
         } else {
             throw new SQLException("Struct", ErrorCode.CANNOT_CONVERT_TYPE.getErrorCode());
         }

@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -226,7 +226,9 @@ public class ResultSetAssert extends AbstractAssert<ResultSetAssert, RelationalR
     public ResultSetAssert isRowExactly(Object... colValues) {
         try {
             final RelationalResultSetMetaData metaData = actual.getMetaData();
-            Assertions.assertThat(metaData.getColumnCount()).isEqualTo(colValues.length);
+            Assertions.assertThat(metaData.getColumnCount())
+                    .withFailMessage("mismatch in result set column count: expected %s columns, got %s instead!",
+                    metaData.getColumnCount(), colValues.length).isEqualTo(colValues.length);
             for (int i = 0; i < colValues.length; i++) {
                 Object o = actual.getObject(i + 1);
                 Object expected = colValues[i];
@@ -235,7 +237,7 @@ public class ResultSetAssert extends AbstractAssert<ResultSetAssert, RelationalR
                     RelationalStructAssert.assertThat((RelationalStruct) o).isEqualTo((RelationalStruct) expected);
                 } else if (expected instanceof Array) {
                     Assertions.assertThat(o).isInstanceOf(Array.class);
-                    ArrayAssert.assertThat((Array) o).isEqualTo((Array) expected);
+                    ArrayAssert.assertThat((Array) o).isEqualTo(expected);
                 } else if (expected instanceof Descriptors.EnumValueDescriptor) {
                     Assertions.assertThat(o).isInstanceOf(Descriptors.EnumValueDescriptor.class);
                     Assertions.assertThat(((Descriptors.EnumValueDescriptor) expected).getName()).isEqualTo(((Descriptors.EnumValueDescriptor) o).getName());

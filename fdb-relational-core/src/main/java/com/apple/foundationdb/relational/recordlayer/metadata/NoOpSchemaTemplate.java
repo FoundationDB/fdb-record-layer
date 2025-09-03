@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
@@ -32,6 +33,7 @@ import com.google.common.collect.Multimap;
 
 import javax.annotation.Nonnull;
 import java.util.BitSet;
+import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
 
@@ -104,6 +106,30 @@ public class NoOpSchemaTemplate implements SchemaTemplate {
     @Override
     public BitSet getIndexEntriesAsBitset(@Nonnull final Optional<Set<String>> readableIndexNames) throws RelationalException {
         throw new RelationalException("NoOpSchemaTemplate doesn't have indexes!", ErrorCode.INVALID_PARAMETER);
+    }
+
+    @Nonnull
+    @Override
+    public Set<InvokedRoutine> getInvokedRoutines() throws RelationalException {
+        throw new RelationalException("NoOpSchemaTemplate doesn't have invoked routines!", ErrorCode.INVALID_PARAMETER);
+    }
+
+    @Nonnull
+    @Override
+    public Optional<InvokedRoutine> findInvokedRoutineByName(@Nonnull final String routineName) throws RelationalException {
+        throw new RelationalException("NoOpSchemaTemplate doesn't have invoked routines!", ErrorCode.INVALID_PARAMETER);
+    }
+
+    @Nonnull
+    @Override
+    public Collection<InvokedRoutine> getTemporaryInvokedRoutines() throws RelationalException {
+        throw new RelationalException("NoOpSchemaTemplate doesn't have temporary invoked routines!", ErrorCode.INVALID_PARAMETER);
+    }
+
+    @Nonnull
+    @Override
+    public String getTransactionBoundMetadataAsString() throws RelationalException {
+        throw new RelationalException("NoOpSchemaTemplate doesn't have temporary invoked routines!", ErrorCode.INVALID_PARAMETER);
     }
 
     @Nonnull

@@ -27,11 +27,16 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorProto;
+import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.cursors.aggregate.AggregateCursor;
 import com.apple.foundationdb.record.cursors.aggregate.StreamGrouping;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.planprotos.PRecordQueryStreamingAggregationPlan;
+import com.apple.foundationdb.record.planprotos.PRecordQueryStreamingAggregationPlan2;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -44,14 +49,15 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
-import com.apple.foundationdb.record.query.plan.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -96,13 +102,8 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
     private final CorrelationIdentifier aggregateAlias;
     @Nonnull
     private final Value completeResultValue;
-    //
-    // This flag is needed to distinguish if we need to create a default value on-empty or not (i.e.
-    // RecordQueryDefaultOnEmptyPlan will do that going forward). We will always plan with that flag set to false going
-    // forward, but we accept and honor this field coming from proto if we are continuing OR if it not there we imply
-    // true.
-    // https://github.com/FoundationDB/fdb-record-layer/issues/3107
-    private final boolean isCreateDefaultOnEmpty;
+    @Nonnull
+    private final SerializationMode serializationMode;
 
     /**
      * Construct a new plan.
@@ -120,14 +121,14 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                                                 @Nonnull final CorrelationIdentifier groupingKeyAlias,
                                                 @Nonnull final CorrelationIdentifier aggregateAlias,
                                                 @Nonnull final Value completeResultValue,
-                                                final boolean isCreateDefaultOnEmpty) {
+                                                @Nonnull final SerializationMode serializationMode) {
         this.inner = inner;
         this.groupingKeyValue = groupingKeyValue;
         this.aggregateValue = aggregateValue;
         this.groupingKeyAlias = groupingKeyAlias;
         this.aggregateAlias = aggregateAlias;
         this.completeResultValue = completeResultValue;
-        this.isCreateDefaultOnEmpty = isCreateDefaultOnEmpty;
+        this.serializationMode = serializationMode;
     }
 
     @Nonnull
@@ -137,8 +138,15 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                                                                      @Nonnull EvaluationContext context,
                                                                      @Nullable byte[] continuation,
                                                                      @Nonnull ExecuteProperties executeProperties) {
-        final var innerCursor = getInnerPlan().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit());
-
+        RecordCursorContinuation recordCursorContinuation = RecordCursorStartContinuation.START;
+        byte[] innerContinuation = null;
+        RecordCursorProto.PartialAggregationResult partialAggregationResult = null;
+        if (continuation != null) {
+            recordCursorContinuation = AggregateCursor.AggregateCursorContinuation.fromRawBytes(continuation, serializationMode);
+            innerContinuation = ((AggregateCursor.AggregateCursorContinuation)recordCursorContinuation).getInnerContinuation();
+            partialAggregationResult = ((AggregateCursor.AggregateCursorContinuation)recordCursorContinuation).getPartialAggregationResult();
+        }
+        final var innerCursor = getInnerPlan().executePlan(store, context, innerContinuation, executeProperties.clearSkipAndLimit());
         final var streamGrouping =
                 new StreamGrouping<>(groupingKeyValue,
                         aggregateValue,
@@ -147,8 +155,11 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                         aggregateAlias,
                         (FDBRecordStoreBase<Message>)store,
                         context,
-                        inner.getAlias());
-        return new AggregateCursor<>(innerCursor, streamGrouping, isCreateDefaultOnEmpty)
+                        inner.getAlias(),
+                        partialAggregationResult
+                        );
+
+        return new AggregateCursor<>(innerCursor, streamGrouping, recordCursorContinuation, serializationMode)
                 .skipThenLimit(executeProperties.getSkip(),
                         executeProperties.getReturnedRowLimit());
     }
@@ -197,9 +208,13 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
     public RecordQueryStreamingAggregationPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                                      final boolean shouldSimplifyValues,
                                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        Verify.verify(translatedQuantifiers.size() == 1);
         final var translatedGroupingKeyValue =
-                groupingKeyValue == null ? null : groupingKeyValue.translateCorrelations(translationMap, shouldSimplifyValues);
-        final var translatedAggregateValue = (AggregateValue)aggregateValue.translateCorrelations(translationMap, shouldSimplifyValues);
+                groupingKeyValue == null
+                ? null
+                : groupingKeyValue.translateCorrelations(translationMap, shouldSimplifyValues);
+        final var translatedAggregateValue =
+                (AggregateValue)aggregateValue.translateCorrelations(translationMap, shouldSimplifyValues);
 
         return new RecordQueryStreamingAggregationPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
                 translatedGroupingKeyValue,
@@ -207,7 +222,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                 groupingKeyAlias,
                 aggregateAlias,
                 completeResultValue,
-                isCreateDefaultOnEmpty);
+                serializationMode);
     }
 
     @Nonnull
@@ -219,7 +234,7 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
                 groupingKeyAlias,
                 aggregateAlias,
                 completeResultValue,
-                isCreateDefaultOnEmpty);
+                serializationMode);
     }
 
     @Nonnull
@@ -231,7 +246,14 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
     public boolean equals(final Object other) {
-        return structuralEquals(other);
+        if (other == null) {
+            return false;
+        }
+        if (getClass() != other.getClass()) {
+            return false;
+        }
+        final var otherStreamingAggregationPlan = (RecordQueryStreamingAggregationPlan)other;
+        return structuralEquals(other) && (serializationMode == otherStreamingAggregationPlan.getSerializationMode());
     }
 
     @Override
@@ -246,6 +268,10 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         }
 
         final var otherStreamingAggregationPlan = (RecordQueryStreamingAggregationPlan)otherExpression;
+
+        if (serializationMode != (otherStreamingAggregationPlan.getSerializationMode())) {
+            return false;
+        }
 
         if ((groupingKeyValue == null && otherStreamingAggregationPlan.getGroupingValue() != null) ||
                 (groupingKeyValue != null && otherStreamingAggregationPlan.getGroupingValue() == null)) {
@@ -282,6 +308,11 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
     @Override
     public int planHash(@Nonnull final PlanHashMode mode) {
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, getInnerPlan(), groupingKeyValue, aggregateValue, completeResultValue);
+    }
+
+    @Nonnull
+    public SerializationMode getSerializationMode() {
+        return serializationMode;
     }
 
     @Nonnull
@@ -361,27 +392,41 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
 
     @Nonnull
     @Override
-    public PRecordQueryStreamingAggregationPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        final var builder = PRecordQueryStreamingAggregationPlan.newBuilder()
-                .setInner(inner.toProto(serializationContext))
-                .setAggregateValue(aggregateValue.toValueProto(serializationContext));
-        if (groupingKeyValue != null) {
-            builder.setGroupingKeyValue(groupingKeyValue.toValueProto(serializationContext));
+    public Message toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        if (serializationMode == SerializationMode.TO_OLD) {
+            return toProtoOld(serializationContext);
+        } else {
+            return toProtoNew(serializationContext);
         }
-        builder.setGroupingKeyAlias(groupingKeyAlias.getId())
-                .setAggregateAlias(aggregateAlias.getId())
-                .setCompleteResultValue(completeResultValue.toValueProto(serializationContext))
-                .setIsCreateDefaultOnEmpty(isCreateDefaultOnEmpty);
-        return builder.build();
     }
 
     @Nonnull
     @Override
     public PRecordQueryPlan toRecordQueryPlanProto(@Nonnull final PlanSerializationContext serializationContext) {
-        return PRecordQueryPlan.newBuilder().setStreamingAggregationPlan(toProto(serializationContext)).build();
+        if (serializationMode == SerializationMode.TO_OLD) {
+            return PRecordQueryPlan.newBuilder().setStreamingAggregationPlan(toProtoOld(serializationContext)).build();
+        } else {
+            return PRecordQueryPlan.newBuilder().setStreamingAggregationPlan2(toProtoNew(serializationContext)).build();
+        }
     }
 
     @SuppressWarnings("SimplifiableConditionalExpression")
+    @Nonnull
+    public static RecordQueryStreamingAggregationPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                                @Nonnull final PRecordQueryStreamingAggregationPlan2 recordQueryStreamingAggregationPlanProto) {
+        // Note: it is important for proper deserialization (at least of things that interact with the serializationContext's cache of
+        // referenced values and plans) that we deserialize the values in the same order as they are serialized, or we may
+        // not
+        final Quantifier.Physical inner = Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryStreamingAggregationPlanProto.getInner()));
+        final AggregateValue aggregateValue =  (AggregateValue) Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryStreamingAggregationPlanProto.getAggregateValue()));
+        @Nullable final Value groupingKeyValue = PlanSerialization.getFieldOrNull(recordQueryStreamingAggregationPlanProto, PRecordQueryStreamingAggregationPlan2::hasGroupingKeyValue,
+                m -> Value.fromValueProto(serializationContext, m.getGroupingKeyValue()));
+        final CorrelationIdentifier groupingKeyAlias = CorrelationIdentifier.of(Objects.requireNonNull(recordQueryStreamingAggregationPlanProto.getGroupingKeyAlias()));
+        final CorrelationIdentifier aggregateAlias = CorrelationIdentifier.of(Objects.requireNonNull(recordQueryStreamingAggregationPlanProto.getAggregateAlias()));
+        final Value completeResultValue = Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryStreamingAggregationPlanProto.getCompleteResultValue()));
+        return new RecordQueryStreamingAggregationPlan(inner, groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias, completeResultValue, SerializationMode.TO_NEW);
+    }
+
     @Nonnull
     public static RecordQueryStreamingAggregationPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                                 @Nonnull final PRecordQueryStreamingAggregationPlan recordQueryStreamingAggregationPlanProto) {
@@ -396,21 +441,26 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         final CorrelationIdentifier aggregateAlias = CorrelationIdentifier.of(Objects.requireNonNull(recordQueryStreamingAggregationPlanProto.getAggregateAlias()));
         final Value completeResultValue = Value.fromValueProto(serializationContext, Objects.requireNonNull(recordQueryStreamingAggregationPlanProto.getCompleteResultValue()));
         final boolean isCreateDefaultOnEmpty = recordQueryStreamingAggregationPlanProto.hasIsCreateDefaultOnEmpty() ? recordQueryStreamingAggregationPlanProto.getIsCreateDefaultOnEmpty() : true;
-        return new RecordQueryStreamingAggregationPlan(inner, groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias, completeResultValue, isCreateDefaultOnEmpty);
+        if (isCreateDefaultOnEmpty) {
+            throw new RecordCoreArgumentException("cannot create streaming aggregate plan with default value on empty");
+        }
+        return new RecordQueryStreamingAggregationPlan(inner, groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias, completeResultValue, SerializationMode.TO_OLD);
     }
 
     @Nonnull
     public static RecordQueryStreamingAggregationPlan ofNested(@Nonnull final Quantifier.Physical inner,
                                                                @Nullable final Value groupingKeyValue,
-                                                               @Nonnull final AggregateValue aggregateValue) {
-        return of(inner, groupingKeyValue, aggregateValue, GroupByExpression::nestedResults);
+                                                               @Nonnull final AggregateValue aggregateValue,
+                                                               @Nonnull final SerializationMode serializationMode) {
+        return of(inner, groupingKeyValue, aggregateValue, GroupByExpression::nestedResults, serializationMode);
     }
 
     @Nonnull
     public static RecordQueryStreamingAggregationPlan ofFlattened(@Nonnull final Quantifier.Physical inner,
                                                                   @Nullable final Value groupingKeyValue,
-                                                                  @Nonnull final AggregateValue aggregateValue) {
-        return of(inner, groupingKeyValue, aggregateValue, GroupByExpression::flattenedResults);
+                                                                  @Nonnull final AggregateValue aggregateValue,
+                                                                  @Nonnull final SerializationMode serializationMode) {
+        return of(inner, groupingKeyValue, aggregateValue, GroupByExpression::flattenedResults, serializationMode);
     }
 
     @Nonnull
@@ -428,14 +478,86 @@ public class RecordQueryStreamingAggregationPlan implements RecordQueryPlanWithC
         final var referencedAggregateValue = ObjectValue.of(aggregateAlias, aggregateValue.getResultType());
 
         return new RecordQueryStreamingAggregationPlan(inner, groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias,
-                resultValueFunction.apply(referencedGroupingKeyValue, referencedAggregateValue), false);
+                resultValueFunction.apply(referencedGroupingKeyValue, referencedAggregateValue), SerializationMode.TO_NEW);
+    }
+
+    @Nonnull
+    public static RecordQueryStreamingAggregationPlan of(@Nonnull final Quantifier.Physical inner,
+                                                         @Nullable final Value groupingKeyValue,
+                                                         @Nonnull final AggregateValue aggregateValue,
+                                                         @Nonnull final BiFunction<Value, Value, Value> resultValueFunction,
+                                                         @Nonnull final SerializationMode serializationMode) {
+        final var groupingKeyAlias = CorrelationIdentifier.uniqueID();
+        final var aggregateAlias = CorrelationIdentifier.uniqueID();
+
+        final var referencedGroupingKeyValue =
+                groupingKeyValue == null
+                ? null
+                : ObjectValue.of(groupingKeyAlias, groupingKeyValue.getResultType());
+        final var referencedAggregateValue = ObjectValue.of(aggregateAlias, aggregateValue.getResultType());
+
+        return new RecordQueryStreamingAggregationPlan(inner, groupingKeyValue, aggregateValue, groupingKeyAlias, aggregateAlias,
+                resultValueFunction.apply(referencedGroupingKeyValue, referencedAggregateValue), serializationMode);
+    }
+
+    public enum SerializationMode {
+        TO_OLD,
+        TO_NEW
+    }
+
+    @Nonnull
+    private PRecordQueryStreamingAggregationPlan toProtoOld(@Nonnull final PlanSerializationContext serializationContext) {
+        final var builder = PRecordQueryStreamingAggregationPlan.newBuilder()
+                .setInner(inner.toProto(serializationContext))
+                .setAggregateValue(aggregateValue.toValueProto(serializationContext));
+        if (groupingKeyValue != null) {
+            builder.setGroupingKeyValue(groupingKeyValue.toValueProto(serializationContext));
+        }
+        builder.setGroupingKeyAlias(groupingKeyAlias.getId())
+                .setAggregateAlias(aggregateAlias.getId())
+                .setCompleteResultValue(completeResultValue.toValueProto(serializationContext))
+                .setIsCreateDefaultOnEmpty(false);
+        return builder.build();
+    }
+
+    @Nonnull
+    private PRecordQueryStreamingAggregationPlan2 toProtoNew(@Nonnull final PlanSerializationContext serializationContext) {
+        final var builder = PRecordQueryStreamingAggregationPlan2.newBuilder()
+                .setInner(inner.toProto(serializationContext))
+                .setAggregateValue(aggregateValue.toValueProto(serializationContext));
+        if (groupingKeyValue != null) {
+            builder.setGroupingKeyValue(groupingKeyValue.toValueProto(serializationContext));
+        }
+        builder.setGroupingKeyAlias(groupingKeyAlias.getId())
+                .setAggregateAlias(aggregateAlias.getId())
+                .setCompleteResultValue(completeResultValue.toValueProto(serializationContext));
+        return builder.build();
     }
 
     /**
      * Deserializer.
      */
     @AutoService(PlanDeserializer.class)
-    public static class Deserializer implements PlanDeserializer<PRecordQueryStreamingAggregationPlan, RecordQueryStreamingAggregationPlan> {
+    public static class Deserializer implements PlanDeserializer<PRecordQueryStreamingAggregationPlan2, RecordQueryStreamingAggregationPlan> {
+        @Nonnull
+        @Override
+        public Class<PRecordQueryStreamingAggregationPlan2> getProtoMessageClass() {
+            return PRecordQueryStreamingAggregationPlan2.class;
+        }
+
+        @Nonnull
+        @Override
+        public RecordQueryStreamingAggregationPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                                             @Nonnull final PRecordQueryStreamingAggregationPlan2 recordQueryStreamingAggregationPlanProto) {
+            return RecordQueryStreamingAggregationPlan.fromProto(serializationContext, recordQueryStreamingAggregationPlanProto);
+        }
+    }
+
+    /**
+     * Deserializer.
+     */
+    @AutoService(PlanDeserializer.class)
+    public static class OldDeserializer implements PlanDeserializer<PRecordQueryStreamingAggregationPlan, RecordQueryStreamingAggregationPlan> {
         @Nonnull
         @Override
         public Class<PRecordQueryStreamingAggregationPlan> getProtoMessageClass() {

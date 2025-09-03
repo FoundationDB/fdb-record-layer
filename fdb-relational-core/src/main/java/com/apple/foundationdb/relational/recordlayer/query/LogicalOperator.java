@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -183,6 +183,8 @@ public class LogicalOperator {
             return cteMaybe.get().withNewSharedReferenceAndAlias(alias);
         } else if (semanticAnalyzer.tableExists(identifier)) {
             return logicalOperatorCatalog.lookupTableAccess(identifier, alias, requestedIndexes, semanticAnalyzer);
+        } else if (semanticAnalyzer.functionExists(identifier)) {
+            return semanticAnalyzer.resolveTableFunction(identifier, Expressions.empty(), false);
         } else {
             final var correlatedField = semanticAnalyzer.resolveCorrelatedIdentifier(identifier, currentPlanFragment.getLogicalOperatorsIncludingOuter());
             Assert.thatUnchecked(requestedIndexes.isEmpty(), ErrorCode.UNSUPPORTED_QUERY, () -> String.format(Locale.ROOT, "Can not hint indexes with correlated field access %s", identifier));
@@ -230,19 +232,19 @@ public class LogicalOperator {
                                                       @Nonnull SemanticAnalyzer semanticAnalyzer) {
         final var tableNames = semanticAnalyzer.getAllTableNames();
         semanticAnalyzer.validateIndexes(tableId, indexAccessHints);
-        final var scanExpression = Quantifier.forEach(Reference.of(
+        final var scanExpression = Quantifier.forEach(Reference.initialOf(
                 new FullUnorderedScanExpression(tableNames,
                         new Type.AnyRecord(false),
                         new AccessHints(indexAccessHints.toArray(new AccessHint[0])))));
         final var table = semanticAnalyzer.getTable(tableId);
         final var type = Assert.castUnchecked(table, RecordLayerTable.class).getType();
         final var typeFilterExpression = new LogicalTypeFilterExpression(ImmutableSet.of(tableId.getName()), scanExpression, type);
-        final var resultingQuantifier = Quantifier.forEach(Reference.of(typeFilterExpression));
+        final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(typeFilterExpression));
         final ImmutableList.Builder<Expression> attributesBuilder = ImmutableList.builder();
         int colCount = 0;
         for (final var column : table.getColumns()) {
             final var attributeName = Identifier.of(column.getName());
-            final var attributeType = column.getDatatype();
+            final var attributeType = column.getDataType();
             final var fieldType = type.getField(colCount);
             final var attributeExpression = FieldValue.ofFields(resultingQuantifier.getFlowedObjectValue(),
                     FieldValue.FieldPath.ofSingle(FieldValue.ResolvedAccessor.of(fieldType, colCount)));
@@ -260,7 +262,7 @@ public class LogicalOperator {
                 ErrorCode.INVALID_COLUMN_REFERENCE,
                 () -> String.format(Locale.ROOT, "join correlation can occur only on column of repeated type, not %s type", expression.getDataType()));
         final var explode = new ExplodeExpression(expression.getUnderlying());
-        final var resultingQuantifier = Quantifier.forEach(Reference.of(explode));
+        final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(explode));
 
         Expressions outputAttributes;
         if (resultingQuantifier.getFlowedObjectType().isPrimitive()) {
@@ -333,11 +335,11 @@ public class LogicalOperator {
         final var quantifiedObjectValues = quantifiers.stream().map(QuantifiedObjectValue::of).collect(ImmutableList.toImmutableList());
         final var selectBuilder = GraphExpansion.builder().addAllQuantifiers(quantifiers).addAllResultValues(quantifiedObjectValues);
         where.ifPresent(predicate -> {
-            final var innermostAlias = getInnermostAlias(logicalOperators);
-            selectBuilder.addPredicate(Expression.Utils.toUnderlyingPredicate(predicate, innermostAlias, isForDdl));
+            final var localAliases = quantifiers.stream().map(Quantifier::getAlias).collect(ImmutableSet.toImmutableSet());
+            selectBuilder.addPredicate(Expression.Utils.toUnderlyingPredicate(predicate, localAliases, isForDdl));
         });
         final var selectExpression = selectBuilder.build().buildSelect();
-        final var resultingQuantifier = Quantifier.forEach(Reference.of(selectExpression));
+        final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(selectExpression));
         final var expressions = logicalOperators.getExpressions();
         final var output = expressions.pullUp(selectExpression.getResultValue(), resultingQuantifier.getAlias(), outerCorrelations);
         return LogicalOperator.newOperatorWithPreservedExpressionNames(output, resultingQuantifier);
@@ -350,7 +352,7 @@ public class LogicalOperator {
                                                   @Nonnull Expressions outputExpressions,
                                                   @Nonnull Optional<Expression> havingPredicate,
                                                   @Nonnull Set<CorrelationIdentifier> outerCorrelations,
-                                                  @Nonnull QueryExecutionContext.Literals literals) {
+                                                  @Nonnull Literals literals) {
         final var aliasMap = AliasMap.identitiesFor(logicalOperators.getCorrelations());
         final var aggregates = Expressions.of(havingPredicate.map(outputExpressions::concat).orElse(outputExpressions)
                 .collectAggregateValues().stream().map(Expression::fromUnderlying).collect(ImmutableSet.toImmutableSet()));
@@ -369,7 +371,7 @@ public class LogicalOperator {
         final var groupByExpression = new GroupByExpression(groupingValue.getColumns().isEmpty() ? null : groupingValue, aggregateValue,
                 GroupByExpression::nestedResults, Iterables.getOnlyElement(logicalOperators).quantifier);
 
-        final var groupByReference = Reference.of(groupByExpression);
+        final var groupByReference = Reference.initialOf(groupByExpression);
         final var resultingQuantifier = groupByExpression.getGroupingValue() == null
                                         ? Quantifier.forEachWithNullOnEmpty(groupByReference)
                                         : Quantifier.forEach(groupByReference);
@@ -388,11 +390,11 @@ public class LogicalOperator {
                                                        @Nonnull Optional<Identifier> alias,
                                                        @Nonnull Set<CorrelationIdentifier> outerCorrelations,
                                                        boolean isForDdl) {
-        final var selectBuilder = GraphExpansion.builder();
-        logicalOperators.forEach(logicalOperator -> selectBuilder.addQuantifier(logicalOperator.getQuantifier()));
+        final var quantifiers = logicalOperators.getQuantifiers();
+        final var selectBuilder = GraphExpansion.builder().addAllQuantifiers(quantifiers);
         where.ifPresent(predicate -> {
-            final var innermostAlias = getInnermostAlias(logicalOperators);
-            selectBuilder.addPredicate(Expression.Utils.toUnderlyingPredicate(predicate, innermostAlias, isForDdl));
+            final var localAliases = quantifiers.stream().map(Quantifier::getAlias).collect(ImmutableSet.toImmutableSet());
+            selectBuilder.addPredicate(Expression.Utils.toUnderlyingPredicate(predicate, localAliases, isForDdl));
         });
         final var expandedOutput = output.expanded();
         SelectExpression selectExpression;
@@ -405,7 +407,7 @@ public class LogicalOperator {
             selectExpression = selectBuilder.build().buildSelect();
         }
 
-        final var resultingQuantifier = Quantifier.forEach(Reference.of(selectExpression));
+        final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(selectExpression));
         var resultingExpressions = expandedOutput.rewireQov(resultingQuantifier.getFlowedObjectValue());
         resultingExpressions = alias.map(resultingExpressions::withQualifier).orElseGet(resultingExpressions::clearQualifier);
         return LogicalOperator.newOperator(alias, resultingExpressions, resultingQuantifier);
@@ -462,7 +464,7 @@ public class LogicalOperator {
                     logicalOperator.quantifier);
         }
 
-        final var resultingQuantifier = Quantifier.forEach(Reference.of(sortExpression));
+        final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(sortExpression));
         // the resulting sort expression has exactly the same output as the underlying expression.
         var resultingExpressions = Expressions.of(logicalOperator.output).rewireQov(resultingQuantifier.getFlowedObjectValue());
         resultingExpressions = alias.map(resultingExpressions::withQualifier).orElseGet(resultingExpressions::clearQualifier);
@@ -476,7 +478,7 @@ public class LogicalOperator {
                         Quantifier.ForEach.class),
                 target.getName(),
                 targetType);
-        final var resultingQuantifier = Quantifier.forEach(Reference.of(insertExpression));
+        final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(insertExpression));
         final var output = Expressions.fromQuantifier(resultingQuantifier);
         final var insertOperator = LogicalOperator.newUnnamedOperator(output, resultingQuantifier);
         return generateSort(insertOperator, List.of(), Set.of(), Optional.empty());
@@ -503,7 +505,7 @@ public class LogicalOperator {
         final var maybeType = SemanticAnalyzer.validateUnionTypes(LogicalOperators.of(unionLegs));
         if (maybeType.isEmpty()) {
             // proceed to create a vanilla union all.
-            final var union = Quantifier.forEach(Reference.of(new LogicalUnionExpression(quantifiers)));
+            final var union = Quantifier.forEach(Reference.initialOf(new LogicalUnionExpression(quantifiers)));
             final var output = unionLegs.first().getOutput().rewireQov(union.getFlowedObjectValue());
             return LogicalOperator.newUnnamedOperator(output, union);
         }
@@ -533,7 +535,7 @@ public class LogicalOperator {
             promotedUnionLegsBuilder.add(promotedUnionLeg);
         }
         final var promotedUnionLegs = LogicalOperators.of(promotedUnionLegsBuilder.build());
-        final var union = Quantifier.forEach(Reference.of(new LogicalUnionExpression(promotedUnionLegs.getQuantifiers())));
+        final var union = Quantifier.forEach(Reference.initialOf(new LogicalUnionExpression(promotedUnionLegs.getQuantifiers())));
         final var output = promotedUnionLegs.first().getOutput().rewireQov(union.getFlowedObjectValue());
         return LogicalOperator.newUnnamedOperator(output, union);
     }
@@ -564,7 +566,7 @@ public class LogicalOperator {
                                                         @Nonnull final Type type) {
         final var tempTableAlias = CorrelationIdentifier.of(tempTableId.getName());
         final var tempTableScan = TempTableScanExpression.ofCorrelated(tempTableAlias, type);
-        final var quantifier = Quantifier.forEach(Reference.of(tempTableScan));
+        final var quantifier = Quantifier.forEach(Reference.initialOf(tempTableScan));
         final var expressions = Expressions.fromQuantifier(quantifier);
         return LogicalOperator.newNamedOperator(operatorId, expressions, quantifier);
     }
@@ -576,7 +578,7 @@ public class LogicalOperator {
         final var tempTableAlias = CorrelationIdentifier.of(identifier.getName());
         final var tempTableInsert = TempTableInsertExpression.ofCorrelated(input.getQuantifier().narrow(Quantifier.ForEach.class),
                 tempTableAlias, type);
-        final var quantifier = Quantifier.forEach(Reference.of(tempTableInsert));
+        final var quantifier = Quantifier.forEach(Reference.initialOf(tempTableInsert));
         final var expressions = Expressions.fromQuantifier(quantifier);
         return LogicalOperator.newUnnamedOperator(expressions, quantifier);
     }

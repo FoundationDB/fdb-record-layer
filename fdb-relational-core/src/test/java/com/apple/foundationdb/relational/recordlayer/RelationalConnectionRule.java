@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
+import com.apple.foundationdb.relational.util.Assert;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -168,7 +169,13 @@ public class RelationalConnectionRule implements BeforeEachCallback, AfterEachCa
         return connection.getPath();
     }
 
-    public RelationalConnection getUnderlying() {
-        return connection;
+    /**
+     * Returns the underlying {@link EmbeddedRelationalConnection}, which is currently the only connection
+     * type we run our JUnit tests against.
+     * @return The underlying {@link EmbeddedRelationalConnection} connection.
+     */
+    @Nonnull
+    public EmbeddedRelationalConnection getUnderlyingEmbeddedConnection() {
+        return Assert.castUnchecked(connection, EmbeddedRelationalConnection.class);
     }
 }

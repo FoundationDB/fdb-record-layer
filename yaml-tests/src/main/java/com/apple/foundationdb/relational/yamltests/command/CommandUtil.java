@@ -27,6 +27,10 @@ import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.yamltests.generated.schemainstance.SchemaInstanceOuterClass;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.util.JsonFormat;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -39,10 +43,15 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Util class for yaml-tests commands.
@@ -93,13 +102,39 @@ public class CommandUtil {
 
     private static RecordMetaData loadRecordMetaDataFromJson(String jsonFileName) {
         RecordMetaDataProto.MetaData.Builder builder = RecordMetaDataProto.MetaData.newBuilder();
+        List<String> deps = new ArrayList<>();
         try {
-            String json = Files.readString(Paths.get(jsonFileName), StandardCharsets.UTF_8);
-            JsonFormat.parser().ignoringUnknownFields().merge(json, builder);
+            String jsonStr = Files.readString(Paths.get(jsonFileName), StandardCharsets.UTF_8);
+            JsonFormat.parser().ignoringUnknownFields().merge(jsonStr, builder);
+            JsonObject obj = JsonParser.parseString(jsonStr).getAsJsonObject();
+            JsonArray dependencyArray = obj.getAsJsonObject("records").getAsJsonArray("dependency");
+            for (JsonElement element : dependencyArray) {
+                String curDep = element.getAsString();
+                if (!"record_metadata.proto".equals(curDep) && !"record_metadata_options.proto".equals(curDep)) {
+                    deps.add(curDep);
+                }
+            }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        return RecordMetaData.build(builder.build());
+
+        List<Descriptors.FileDescriptor> fileDescriptors = new ArrayList<>();
+        for (String dep: deps) {
+            try {
+                String fullClassName = getFullClassName(dep);
+                Class<?> act = Class.forName(fullClassName);
+                Method method = act.getMethod("getDescriptor");
+                fileDescriptors.add((Descriptors.FileDescriptor) method.invoke(null));
+            } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException |
+                     IOException | ClassNotFoundException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        return RecordMetaData.newBuilder()
+                .addDependencies(fileDescriptors.toArray(new Descriptors.FileDescriptor[0]))
+                .setRecords(builder.build())
+                .getRecordMetaData();
     }
 
     private static Pair<String, String> parseLoadTemplateString(String loadCommandString) {
@@ -113,6 +148,48 @@ public class CommandUtil {
         }
         String second = lcsTokenizer.nextToken();
         return new ImmutablePair<>(first, second);
+    }
+
+    private static String getFullClassName(String protoFileName) throws IOException {
+        String fullProtoFileName = "src/test/proto/" + protoFileName;
+        final Path path = Paths.get(fullProtoFileName);
+        String content = Files.readString(path);
+
+        // Match 'package my.package.name;'
+        Pattern packagePattern = Pattern.compile("package\\s+([\\w\\.]+);");
+        Matcher packageMatcher = packagePattern.matcher(content);
+
+        String protoPackage;
+        if (packageMatcher.find()) {
+            protoPackage = packageMatcher.group(1);
+        } else {
+            throw new IllegalArgumentException("unable to find package name in proto file:" + fullProtoFileName);
+        }
+
+        // Match 'option java_package = "com.example";'
+        Pattern javaPackagePattern = Pattern.compile("option\\s+java_package\\s*=\\s*\"([^\"]+)\";");
+        Matcher javaPackageMatcher = javaPackagePattern.matcher(content);
+
+        String javaPackage = null;
+        if (javaPackageMatcher.find()) {
+            javaPackage = javaPackageMatcher.group(1);
+        }
+
+        // Final package name: java_package if exists, otherwise proto package
+        String effectivePackage = javaPackage != null ? javaPackage : protoPackage;
+
+        // Match java_outer_classname
+        Pattern outerClassPattern = Pattern.compile("option\\s+java_outer_classname\\s*=\\s*\"([^\"]+)\";");
+        Matcher outerClassMatcher = outerClassPattern.matcher(content);
+
+        String outerClassName;
+        if (outerClassMatcher.find()) {
+            outerClassName = outerClassMatcher.group(1);
+        } else {
+            // fallback: default outer class if not explicitly defined
+            outerClassName = protoFileName.replace(".proto", "").replaceAll("[^A-Za-z0-9]", "");
+        }
+        return effectivePackage + "." + outerClassName;
     }
 
     /**

@@ -25,9 +25,11 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
+import java.net.ServerSocket;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -44,11 +46,10 @@ public class ExternalServer {
     public static final String EXTERNAL_SERVER_PROPERTY_NAME = "yaml_testing_external_server";
     private static final boolean SAVE_SERVER_OUTPUT = false;
 
-    @Nullable
+    @Nonnull
     private final File serverJar;
-    private final int grpcPort;
-    private final int httpPort;
-    private SemanticVersion version;
+    private int grpcPort;
+    private final SemanticVersion version;
     private Process serverProcess;
     @Nullable
     private final String clusterFile;
@@ -58,21 +59,13 @@ public class ExternalServer {
      *
      * @param serverJar the path to the jar to run
      */
-    public ExternalServer(@Nullable File serverJar, final int grpcPort, final int httpPort) {
-        this(serverJar, grpcPort, httpPort, null);
-    }
-
-    /**
-     * Create a new instance that will run a specific jar.
-     *
-     * @param serverJar the path to the jar to run
-     */
-    public ExternalServer(@Nullable File serverJar, final int grpcPort, final int httpPort,
-                          @Nullable final String clusterFile) {
-        this.serverJar = serverJar;
-        this.grpcPort = grpcPort;
-        this.httpPort = httpPort;
+    public ExternalServer(@Nonnull final File serverJar,
+                          @Nullable final String clusterFile) throws IOException {
         this.clusterFile = clusterFile;
+
+        this.serverJar = serverJar;
+        Assertions.assertTrue(this.serverJar.exists(), "Jar could not be found " + serverJar.getAbsolutePath());
+        this.version = getVersion(this.serverJar);
     }
 
     static {
@@ -113,20 +106,12 @@ public class ExternalServer {
     }
 
     public void start() throws Exception {
-        File jar;
-        if (serverJar == null) {
-            final List<File> externalServers = getAvailableServers();
-            Assertions.assertEquals(1, externalServers.size());
-            jar = externalServers.get(0);
-        } else {
-            jar = serverJar;
-        }
-        Assertions.assertTrue(jar.exists(), "Jar could not be found " + jar.getAbsolutePath());
-        this.version = getVersion(jar);
+        grpcPort = getAvailablePort(-1);
+        final int httpPort = getAvailablePort(grpcPort);
         ProcessBuilder processBuilder = new ProcessBuilder("java",
                 // TODO add support for debugging by adding, but need to take care with ports
                 // "-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=n",
-                "-jar", jar.getAbsolutePath(),
+                "-jar", serverJar.getAbsolutePath(),
                 "--grpcPort", Integer.toString(grpcPort), "--httpPort", Integer.toString(httpPort));
         ProcessBuilder.Redirect out = SAVE_SERVER_OUTPUT ?
                                       ProcessBuilder.Redirect.to(File.createTempFile("JdbcServerOut-" + grpcPort, ".log")) :
@@ -144,7 +129,7 @@ public class ExternalServer {
             Assertions.fail("Failed to start the external server");
         }
 
-        logger.info("Started {} Version: {}", jar, version);
+        logger.info("Started {} Version: {}", serverJar, version);
     }
 
     /**
@@ -199,6 +184,32 @@ public class ExternalServer {
         }
 
         return serverProcess.isAlive();
+    }
+
+    /**
+     * Get a port that is currently available for the server.
+     * @param unavailablePort Get a port that you know will be unavailable. This is mostly useful because the server
+     * needs two ports, one for GRPC, and one for HTTP, so the GRPC port can be noted as unavailable when asking for
+     * the http port and both can be provided to the server. If nothing is unavailable, use a negative number.
+     * @return a port that is not currently in use on the system.
+     */
+    private int getAvailablePort(final int unavailablePort) {
+        // running locally on my laptop, testing if a port is available takes 0 milliseconds, so no need to optimize
+        for (int i = 1111; i < 9999; i++) {
+            if (i != unavailablePort && isAvailable(i)) {
+                return i;
+            }
+        }
+        return Assertions.fail("Could not find available port between 1111 and 9999");
+    }
+
+    public static boolean isAvailable(int port) {
+        try (ServerSocket tcpSocket = new ServerSocket(port)) {
+            tcpSocket.setReuseAddress(true);
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     public void stop() {

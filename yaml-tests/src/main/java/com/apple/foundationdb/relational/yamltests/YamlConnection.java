@@ -20,11 +20,14 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
+import com.apple.foundationdb.relational.yamltests.command.SQLFunction;
 import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
 
 import javax.annotation.Nonnull;
@@ -42,6 +45,8 @@ public interface YamlConnection extends AutoCloseable {
      */
     @Override
     void close() throws SQLException;
+
+    void setConnectionOptions(@Nonnull Options connectionOptions) throws SQLException;
 
     /**
      * Creates a statement (see {@link RelationalConnection#createStatement()}).
@@ -101,4 +106,6 @@ public interface YamlConnection extends AutoCloseable {
      */
     @Nonnull
     SemanticVersion getInitialVersion();
+
+    <T> T executeTransactionally(SQLFunction<YamlConnection, T> transactionalWork) throws SQLException, RelationalException;
 }

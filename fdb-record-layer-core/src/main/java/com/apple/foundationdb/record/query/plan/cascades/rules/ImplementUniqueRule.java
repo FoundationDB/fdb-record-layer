@@ -20,10 +20,10 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUniqueExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
@@ -36,27 +36,27 @@ import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.anyPlanPartition;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.filterPlanPartitions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.rollUpPartitions;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.anyPlanPartition;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.planPartitions;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.rollUp;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.where;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalUniqueExpression;
 
 /**
  * This rule implements {@link LogicalUniqueExpression} by absorbing it if the inner reference is already distinct.
  */
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class ImplementUniqueRule extends CascadesRule<LogicalUniqueExpression> {
+public class ImplementUniqueRule extends ImplementationCascadesRule<LogicalUniqueExpression> {
 
     @Nonnull
     private static final CollectionMatcher<PlanPartition> anyPlanPartitionMatcher = all(anyPlanPartition());
 
     @Nonnull
     private static final BindingMatcher<Reference> innerReferenceMatcher = planPartitions(
-            where(planPartition -> planPartition.getAttributesMap().containsKey(DistinctRecordsProperty.DISTINCT_RECORDS)
-                                   && planPartition.getAttributeValue(PrimaryKeyProperty.PRIMARY_KEY).isPresent(),
-                    rollUp(anyPlanPartitionMatcher)));
+            filterPlanPartitions(planPartition -> planPartition.getPartitionPropertiesMap().containsKey(DistinctRecordsProperty.distinctRecords())
+                                   && planPartition.getPartitionPropertyValue(PrimaryKeyProperty.primaryKey()).isPresent(),
+                    rollUpPartitions(anyPlanPartitionMatcher)));
 
     @Nonnull
     private static final BindingMatcher<LogicalUniqueExpression> root = logicalUniqueExpression(only(forEachQuantifierOverRef(innerReferenceMatcher)));
@@ -66,8 +66,8 @@ public class ImplementUniqueRule extends CascadesRule<LogicalUniqueExpression> {
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
         final var innerPlanPartitions = call.get(anyPlanPartitionMatcher);
-        innerPlanPartitions.forEach(partition -> call.yieldExpression(partition.getPlans()));
+        innerPlanPartitions.forEach(partition -> call.yieldPlans(partition.getPlans()));
     }
 }

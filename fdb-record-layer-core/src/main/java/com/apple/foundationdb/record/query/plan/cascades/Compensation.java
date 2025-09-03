@@ -126,6 +126,11 @@ public interface Compensation {
         }
 
         @Override
+        public boolean isFinalNeeded() {
+            return false;
+        }
+
+        @Override
         public boolean isNeededForFiltering() {
             return false;
         }
@@ -811,7 +816,7 @@ public interface Compensation {
             // At this point we definitely need a new SELECT expression.
             //
             final var newBaseQuantifier =
-                    Quantifier.forEach(memoizer.memoizeReference(Reference.of(relationalExpression)),
+                    Quantifier.forEach(memoizer.memoizeUnknownExpression(relationalExpression),
                             matchedForEachAlias);
 
             //
@@ -871,7 +876,7 @@ public interface Compensation {
             // At this point we definitely need a new SELECT expression.
             //
             final var newBaseQuantifier =
-                    Quantifier.forEach(memoizer.memoizeReference(Reference.of(relationalExpression)),
+                    Quantifier.forEach(memoizer.memoizeUnknownExpression(relationalExpression),
                             matchedForEachAlias);
 
             return GraphExpansion.builder()

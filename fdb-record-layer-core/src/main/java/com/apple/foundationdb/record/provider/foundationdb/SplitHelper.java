@@ -33,6 +33,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.FDBRecordStoreProperties;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -548,6 +549,25 @@ public class SplitHelper {
     }
 
     /**
+     * A utility to ensure the given key has a valid suffix.
+     * Suffix has to be a Long, and within the range of supported suffixes.
+     * @param keyTuple the key tuple to validate
+     */
+    public static void validatePrimaryKeySuffixNumber(final Tuple keyTuple) {
+        long nextIndex;
+        try {
+            nextIndex = keyTuple.getLong(keyTuple.size() - 1);
+        } catch (Exception e) {
+            throw new RecordCoreStorageException("Invalid record split number: not a number", e);
+        }
+        // Some validation of the index to match known split enumerators
+        if ((nextIndex != RECORD_VERSION) && (nextIndex != UNSPLIT_RECORD) && !(nextIndex >= START_SPLIT_RECORD)) {
+            throw new RecordCoreStorageException("Invalid record split number: ")
+                    .addLogInfo(LogMessageKeys.SPLIT_NEXT_INDEX,  nextIndex);
+        }
+    }
+
+    /**
      * Accumulator for key-value sizes while loading / saving split records.
      */
     public static class SizeInfo implements FDBStoredSizes {
@@ -770,8 +790,7 @@ public class SplitHelper {
                 sizeInfo.add(kv);
             } else {
                 if (lastIndex >= SplitHelper.START_SPLIT_RECORD) {
-                    throw new RecordCoreException("Split record segments out of order: expected " +
-                                                  lastIndex + 1 + ", found " + index)
+                    throw new FoundSplitOutOfOrderException(lastIndex + 1, index)
                             .addLogInfo(LogMessageKeys.KEY_TUPLE, key)
                             .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(keySplitSubspace.pack()));
                 } else {
@@ -1163,6 +1182,18 @@ public class SplitHelper {
             super("Found split record without start");
             addLogInfo(LogMessageKeys.SPLIT_NEXT_INDEX, nextIndex);
             addLogInfo(LogMessageKeys.SPLIT_REVERSE, reverse);
+        }
+    }
+
+    /**
+     * Exception thrown when splits are out of order.
+     */
+    @SuppressWarnings("serial")
+    public static class FoundSplitOutOfOrderException extends RecordCoreStorageException {
+        public FoundSplitOutOfOrderException(long expected, long found) {
+            super("Split record segments out of order");
+            addLogInfo(LogMessageKeys.SPLIT_EXPECTED, expected);
+            addLogInfo(LogMessageKeys.SPLIT_FOUND, found);
         }
     }
 }

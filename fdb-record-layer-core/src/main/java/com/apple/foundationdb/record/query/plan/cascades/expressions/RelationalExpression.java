@@ -46,8 +46,9 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.SimpleExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
-import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphProperty;
+import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraphVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.BoundMatch;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.MatchFunction;
 import com.apple.foundationdb.record.query.plan.cascades.matching.graph.MatchPredicate;
@@ -127,15 +128,15 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
         final Reference baseRef;
         Quantifier.ForEach quantifier;
         if (queriedRecordTypes.isEmpty()) {
-            baseRef = Reference.of(new FullUnorderedScanExpression(allRecordTypes,
+            baseRef = Reference.initialOf(new FullUnorderedScanExpression(allRecordTypes,
                     new Type.AnyRecord(false),
                     new AccessHints()));
             quantifier = Quantifier.forEach(baseRef);
         } else {
-            final var fuseRef = Reference.of(new FullUnorderedScanExpression(allRecordTypes,
+            final var fuseRef = Reference.initialOf(new FullUnorderedScanExpression(allRecordTypes,
                     new Type.AnyRecord(false),
                     new AccessHints()));
-            baseRef = Reference.of(
+            baseRef = Reference.initialOf(
                     new LogicalTypeFilterExpression(
                             new HashSet<>(queriedRecordTypes),
                             Quantifier.forEach(fuseRef),
@@ -155,22 +156,22 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
                     GraphExpansion.builder().addQuantifier(quantifier).build()
                             .buildSimpleSelectOverQuantifier(quantifier);
         }
-        quantifier = Quantifier.forEach(Reference.of(selectExpression));
+        quantifier = Quantifier.forEach(Reference.initialOf(selectExpression));
 
         if (query.removesDuplicates()) {
-            quantifier = Quantifier.forEach(Reference.of(new LogicalDistinctExpression(quantifier)));
+            quantifier = Quantifier.forEach(Reference.initialOf(new LogicalDistinctExpression(quantifier)));
         }
 
         if (query.getSort() != null) {
             final var sortValues =
                     ScalarTranslationVisitor.translateKeyExpression(query.getSort(), quantifier.getFlowedObjectType());
-            quantifier = Quantifier.forEach(Reference.of(
+            quantifier = Quantifier.forEach(Reference.initialOf(
                     new LogicalSortExpression(
                             LogicalSortExpression.buildRequestedOrdering(sortValues,
                                     query.isSortReverse(), quantifier),
                             quantifier)));
         } else {
-            quantifier = Quantifier.forEach(Reference.of(LogicalSortExpression.unsorted(quantifier)));
+            quantifier = Quantifier.forEach(Reference.initialOf(LogicalSortExpression.unsorted(quantifier)));
         }
 
         if (query.getRequiredResults() != null) {
@@ -181,7 +182,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
                                     .flatMap(keyExpression -> keyExpression.normalizeKeyForPositions().stream())
                                     .collect(ImmutableList.toImmutableList()),
                             quantifier);
-            quantifier = Quantifier.forEach(Reference.of(new LogicalProjectionExpression(projectedValues, quantifier)));
+            quantifier = Quantifier.forEach(Reference.initialOf(new LogicalProjectionExpression(projectedValues, quantifier)));
         }
 
         return quantifier.getRangesOver().get();
@@ -335,7 +336,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      *
      * @param otherExpression other expression
      * @param aliasMap alias map with external bindings
-     * @param matchPredicate a predicate uses for matching a pair of {@link Quantifier}s
+     * @param matchPredicate a predicate used for matching a pair of {@link Quantifier}s
      * @param combinePredicate a predicate to accept or reject a match
      * @return an {@link Iterable} of {@link AliasMap}s where each alias map is a match.
      */
@@ -727,7 +728,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
                                                                          @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
         final var candidateAliasesToQuantifierMap =
                 Quantifiers.aliasToQuantifierMap(candidateExpression.getQuantifiers());
-        var translationMapBuilder = TranslationMap.builder();
+        var translationMapBuilder = TranslationMap.regularBuilder();
         for (final var entry : partialMatchMap.entrySet()) {
             final var quantifier = entry.getKey().get();
             final var partialMatch = entry.getValue().get();
@@ -794,14 +795,12 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     @Nonnull
     @Override
     default RelationalExpression rebase(@Nonnull AliasMap aliasMap) {
-        if (getCorrelatedTo().stream().anyMatch(aliasMap::containsSource)) {
-            final var translationMap = TranslationMap.rebaseWithAliasMap(aliasMap);
-            final var newQuantifiers =
-                    Quantifiers.translateCorrelations(getQuantifiers(), translationMap, false);
-            return translateCorrelations(translationMap, false, newQuantifiers);
-        } else {
-            return this;
-        }
+        throw new UnsupportedOperationException("rebase unsupported on relational expression");
+    }
+
+    @Nonnull
+    default RelationalExpression withQuantifiers(@Nonnull final List<? extends Quantifier> newQuantifiers) {
+        return translateCorrelations(TranslationMap.empty(), false, newQuantifiers);
     }
 
     @Nonnull
@@ -829,16 +828,16 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     }
 
     /**
-     * Apply the given property visitor to this planner expression and its children. Returns {@code null} if
-     * {@link ExpressionProperty#shouldVisit(RelationalExpression)} called on this expression returns {@code false}.
-     * @param visitor a {@link ExpressionProperty} visitor to evaluate
+     * Apply the given visitor to this planner expression and its children. Returns {@code null} if
+     * {@link SimpleExpressionVisitor#shouldVisit(RelationalExpression)} called on this expression returns {@code false}.
+     * @param simpleExpressionVisitor a {@link ExpressionProperty} visitor to evaluate
      * @param <U> the type of the evaluated property
      * @return the result of evaluating the property on the subtree rooted at this expression
      */
     @Nullable
-    default <U> U acceptPropertyVisitor(@Nonnull ExpressionProperty<U> visitor) {
-        if (visitor.shouldVisit(this)) {
-            return visitor.visit(this);
+    default <U> U acceptVisitor(@Nonnull SimpleExpressionVisitor<U> simpleExpressionVisitor) {
+        if (simpleExpressionVisitor.shouldVisit(this)) {
+            return simpleExpressionVisitor.visit(this);
         }
         return null;
     }
@@ -852,6 +851,11 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
      */
     @Nonnull
     default String show(final boolean renderSingleGroups) {
-        return PlannerGraphProperty.show(renderSingleGroups, this);
+        return PlannerGraphVisitor.show(renderSingleGroups, this);
+    }
+
+    @Nonnull
+    default String showExploratory() {
+        return PlannerGraphVisitor.show(PlannerGraphVisitor.REMOVE_FINAL_EXPRESSIONS | PlannerGraphVisitor.RENDER_SINGLE_GROUPS, this);
     }
 }

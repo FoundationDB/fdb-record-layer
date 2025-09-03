@@ -1,36 +1,47 @@
 cte-tests:
+-   query: EXPLAIN with c1 as (select col1, col2 from t1) select col1, col2 from c1
+    explain: 'COVERING(I1 <,> -> [COL1: KEY[1], COL2: KEY[0], ID: KEY[3]]) | MAP (_.COL1
+        AS COL1, _.COL2 AS COL2)'
+    task_count: 267
+    task_total_time_ms: 3
+    transform_count: 59
+    transform_time_ms: 1
+    transform_yield_count: 27
+    insert_time_ms: 0
+    insert_new_count: 29
+    insert_reused_count: 4
 -   query: EXPLAIN select col1 from t1 where col2 < 3
     explain: 'COVERING(I1 [[LESS_THAN promote(@c8 AS LONG)]] -> [COL1: KEY[1], COL2:
         KEY[0], ID: KEY[3]]) | MAP (_.COL1 AS COL1)'
-    task_count: 440
-    task_total_time_ms: 4
-    transform_count: 123
+    task_count: 439
+    task_total_time_ms: 3
+    transform_count: 103
     transform_time_ms: 1
-    transform_yield_count: 33
+    transform_yield_count: 34
     insert_time_ms: 0
-    insert_new_count: 46
-    insert_reused_count: 3
+    insert_new_count: 45
+    insert_reused_count: 4
 -   query: EXPLAIN select x from (select col1 as x, col2 as y from t1) as sub where
         y < 3
-    explain: SCAN(<,>) | MAP (_.COL1 AS X, _.COL2 AS Y) | FILTER _.Y LESS_THAN promote(@c21
-        AS LONG) | MAP (_.X AS X)
-    task_count: 295
-    task_total_time_ms: 3
-    transform_count: 90
+    explain: 'COVERING(I1 [[LESS_THAN promote(@c21 AS LONG)]] -> [COL1: KEY[1], COL2:
+        KEY[0], ID: KEY[3]]) | MAP (_.COL1 AS X)'
+    task_count: 498
+    task_total_time_ms: 4
+    transform_count: 116
     transform_time_ms: 1
-    transform_yield_count: 25
+    transform_yield_count: 39
     insert_time_ms: 0
-    insert_new_count: 32
-    insert_reused_count: 3
+    insert_new_count: 56
+    insert_reused_count: 5
 -   query: EXPLAIN with c1(x, y) as (select col1, col2 from t1) select x from c1 where
         y < 3
-    explain: SCAN(<,>) | MAP (_.COL1 AS COL1, _.COL2 AS COL2) | FILTER _.COL2 LESS_THAN
-        promote(@c24 AS LONG) | MAP (_.COL1 AS X)
-    task_count: 295
-    task_total_time_ms: 3
-    transform_count: 90
+    explain: 'COVERING(I1 [[LESS_THAN promote(@c24 AS LONG)]] -> [COL1: KEY[1], COL2:
+        KEY[0], ID: KEY[3]]) | MAP (_.COL1 AS X)'
+    task_count: 498
+    task_total_time_ms: 4
+    transform_count: 116
     transform_time_ms: 1
-    transform_yield_count: 25
+    transform_yield_count: 39
     insert_time_ms: 0
-    insert_new_count: 32
-    insert_reused_count: 3
+    insert_new_count: 56
+    insert_reused_count: 5

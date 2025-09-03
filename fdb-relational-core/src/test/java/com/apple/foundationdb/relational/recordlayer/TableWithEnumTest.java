@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,15 +31,16 @@ import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.sql.SQLException;
-import java.sql.Types;
+import java.sql.Struct;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
@@ -53,7 +54,7 @@ public class TableWithEnumTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, TableWithEnumTest.class, TestSchemas.playingCard());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(TableWithEnumTest.class, TestSchemas.playingCard());
 
     @RegisterExtension
     @Order(2)
@@ -67,7 +68,7 @@ public class TableWithEnumTest {
 
     @Test
     void canInsertViaDirectAccess() throws Exception {
-        final var inserted = insertCard(42, "HEARTS", 8);
+        insertCard(42, "HEARTS", 8);
 
         KeySet keys = new KeySet()
                 .setKeyColumn("ID", 42);
@@ -75,7 +76,7 @@ public class TableWithEnumTest {
         try (RelationalResultSet resultSet = statement.executeGet("CARD", keys, Options.NONE)) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
-                    .isRowExactly(inserted)
+                    .hasColumns(Map.of("ID", 42L, "SUIT", "HEARTS", "RANK", 8L))
                     .hasNoNextRow();
         }
     }
@@ -83,12 +84,11 @@ public class TableWithEnumTest {
     @Test
     void canInsertViaQuerySimpleStatement() throws SQLException {
         statement.execute("INSERT INTO CARD (id, suit, rank) VALUES (1, 'HEARTS', 4)");
-        final var expectedStruct = getStructToInsert(1, "HEARTS", 4);
 
         try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM CARD WHERE ID = 1")) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
-                    .isRowExactly(expectedStruct)
+                    .hasColumns(Map.of("ID", 1L, "SUIT", "HEARTS", "RANK", 4L))
                     .hasNoNextRow();
         }
     }
@@ -102,11 +102,48 @@ public class TableWithEnumTest {
         final var count = preparedStmt.executeUpdate();
         assertThat(count).isEqualTo(1);
 
-        final var expectedStruct = getStructToInsert(1, "HEARTS", 4);
         try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM CARD WHERE ID = 1")) {
             ResultSetAssert.assertThat(resultSet)
                     .hasNextRow()
-                    .isRowExactly(expectedStruct)
+                    .hasColumns(Map.of("ID", 1L, "SUIT", "HEARTS", "RANK", 4L))
+                    .hasNoNextRow();
+        }
+    }
+
+    @Test
+    void canInsertStructWithEnumViaQueryPreparedStatement() throws SQLException {
+        final var preparedStmt = connection.prepareStatement("INSERT INTO CARD_NESTED VALUES (?id, ?info)");
+        preparedStmt.setLong("id", 1);
+        preparedStmt.setObject("info", connection.createStruct("info_struct", new Object[]{"DIAMONDS", 5}));
+        final var count = preparedStmt.executeUpdate();
+        assertThat(count).isEqualTo(1);
+
+        try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM CARD_NESTED WHERE ID = 1")) {
+            ResultSetAssert.assertThat(resultSet)
+                    .hasNextRow()
+                    .hasColumns(Map.of("ID", 1L, "INFO", Map.of("SUIT", "DIAMONDS", "RANK", 5L)))
+                    .hasNoNextRow();
+        }
+    }
+
+    @Test
+    void canInsertStructArrayWithEnumViaQueryPreparedStatement() throws SQLException {
+        final var preparedStmt = connection.prepareStatement("INSERT INTO CARD_ARRAY VALUES (?id, ?collection)");
+        preparedStmt.setLong("id", 1);
+        var structsToInsert = new ArrayList<Struct>();
+        var expectedCollection = new ArrayList<Map<String, Object>>();
+        for (int i = 1; i <= 13; i++) {
+            structsToInsert.add(connection.createStruct("anon_" + i, new Object[]{"CLUBS", i}));
+            expectedCollection.add(Map.of("SUIT", "CLUBS", "RANK", (long) i));
+        }
+        preparedStmt.setObject("collection", connection.createArrayOf("STRUCT", structsToInsert.toArray()));
+        final var count = preparedStmt.executeUpdate();
+        assertThat(count).isEqualTo(1);
+
+        try (RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM CARD_ARRAY WHERE ID = 1")) {
+            ResultSetAssert.assertThat(resultSet)
+                    .hasNextRow()
+                    .hasColumns(Map.of("ID", 1L, "COLLECTION", expectedCollection))
                     .hasNoNextRow();
         }
     }
@@ -228,7 +265,7 @@ public class TableWithEnumTest {
     private RelationalStruct getStructToInsert(long id, Object suit, int rank) throws SQLException {
         return EmbeddedRelationalStruct.newBuilder()
                 .addLong("ID", id)
-                .addObject("SUIT", suit, Types.OTHER)
+                .addObject("SUIT", suit)
                 .addLong("RANK", rank)
                 .build();
 

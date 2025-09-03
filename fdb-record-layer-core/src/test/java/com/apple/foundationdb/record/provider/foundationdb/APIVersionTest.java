@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.test.ParameterizedTestUtils;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -34,13 +35,13 @@ class APIVersionTest {
 
     @SuppressWarnings("unused") // used as argument source for parameterized test
     static Stream<Arguments> isAtLeast() {
-        return Arrays.stream(APIVersion.values())
-                .flatMap(version1 -> Arrays.stream(APIVersion.values())
-                        .map(version2 -> Arguments.of(version1, version2))
-                );
+        return ParameterizedTestUtils.cartesianProduct(
+                Arrays.stream(APIVersion.values()),
+                Arrays.stream(APIVersion.values())
+        );
     }
 
-    @ParameterizedTest(name = "isAtLeast[{arguments}]")
+    @ParameterizedTest
     @MethodSource
     void isAtLeast(@Nonnull APIVersion version1, @Nonnull APIVersion version2) {
         assertEquals(version1.getVersionNumber() >= version2.getVersionNumber(), version1.isAtLeast(version2));

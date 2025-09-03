@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -167,15 +168,30 @@ public class Expression {
     }
 
     @Nonnull
+    public NamedArgumentExpression toNamedArgument(@Nonnull final Identifier name) {
+        return new NamedArgumentExpression(name, dataType, getUnderlying());
+    }
+
+    @Nonnull
+    public NamedArgumentExpression toNamedArgument() {
+        return toNamedArgument(Assert.optionalUnchecked(getName()));
+    }
+
+    public boolean isNamedArgument() {
+        return false;
+    }
+
+    @Nonnull
     public Expression pullUp(@Nonnull Value value, @Nonnull CorrelationIdentifier correlationIdentifier,
                              @Nonnull Set<CorrelationIdentifier> constantAliases) {
         final var aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
-        final var simplifiedValue = value.simplify(aliasMap, constantAliases);
+        final var simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
         final var underlying = getUnderlying();
         final var pulledUpUnderlying = Assert.notNullUnchecked(underlying.replace(
                 subExpression -> {
-                    final var pulledUpExpressionMap = simplifiedValue.pullUp(List.of(subExpression),
-                            aliasMap, constantAliases, correlationIdentifier);
+                    final var pulledUpExpressionMap =
+                            simplifiedValue.pullUp(List.of(subExpression), EvaluationContext.empty(), aliasMap,
+                                    constantAliases, correlationIdentifier);
                     if (pulledUpExpressionMap.containsKey(subExpression)) {
                         return pulledUpExpressionMap.get(subExpression);
                     }
@@ -189,10 +205,11 @@ public class Expression {
                                     @Nonnull final Set<CorrelationIdentifier> constantAliases) {
         final var value = expression.getUnderlying();
         final var aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
-        final var simplifiedValue = value.simplify(aliasMap, constantAliases);
+        final var simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
         final var thisValue = getUnderlying();
         final var quantifier = CorrelationIdentifier.uniqueID();
-        final var result = simplifiedValue.pullUp(ImmutableList.of(thisValue), aliasMap, constantAliases, quantifier);
+        final var result = simplifiedValue.pullUp(ImmutableList.of(thisValue),
+                EvaluationContext.empty(), aliasMap, constantAliases, quantifier);
         return result.containsKey(thisValue);
     }
 
@@ -205,7 +222,7 @@ public class Expression {
      * instead of any {@link ConstantObjectValue}s.
      */
     @Nonnull
-    public Expressions dereferenced(@Nonnull QueryExecutionContext.Literals literals) {
+    public Expressions dereferenced(@Nonnull Literals literals) {
         return Expressions.ofSingle(withUnderlying(Assert.notNullUnchecked(underlying.get().replace(value -> {
             if (value instanceof ConstantObjectValue) {
                 final ConstantObjectValue constantObjectValue = (ConstantObjectValue) value;
@@ -262,17 +279,17 @@ public class Expression {
         }
 
         @Nonnull
-        public static Iterable<Value> filterUnderlyingAggregates(@Nonnull Expression expression) {
+        public static Iterable<Value> filterUnderlyingAggregates(@Nonnull final Expression expression) {
             return filterUnderlying(expression, true);
         }
 
         @Nonnull
-        public static Iterable<Value> filterUnderlyingNonAggregates(@Nonnull Expression expression) {
+        public static Iterable<Value> filterUnderlyingNonAggregates(@Nonnull final Expression expression) {
             return filterUnderlying(expression, false);
         }
 
         @Nonnull
-        private static Iterable<Value> filterUnderlying(@Nonnull Expression expression, boolean onlyAggregates) {
+        private static Iterable<Value> filterUnderlying(@Nonnull final Expression expression, boolean onlyAggregates) {
             return Streams.stream(expression.getUnderlying().preOrderIterator(value ->
                     value instanceof ArithmeticValue ||
                             value instanceof AndOrValue ||
@@ -284,19 +301,45 @@ public class Expression {
         }
 
         @Nonnull
-        public static QueryPredicate toUnderlyingPredicate(@Nonnull Expression expression,
-                                                           @Nonnull CorrelationIdentifier innermostAlias,
+        public static QueryPredicate toUnderlyingPredicate(@Nonnull final Expression expression,
+                                                           @Nonnull final Set<CorrelationIdentifier> localAliases,
                                                            boolean forDdl) {
             final var value = Assert.castUnchecked(expression.getUnderlying(), BooleanValue.class);
             if (forDdl) {
-                final var result = value.toQueryPredicate(ParseHelpers.EMPTY_TYPE_REPOSITORY, innermostAlias);
+                final var result = value.toQueryPredicate(ParseHelpers.EMPTY_TYPE_REPOSITORY, localAliases);
                 Assert.thatUnchecked(result.isPresent());
                 return result.get();
             } else {
-                final var result = value.toQueryPredicate(null, innermostAlias);
+                final var result = value.toQueryPredicate(null, localAliases);
                 Assert.thatUnchecked(result.isPresent());
                 return result.get();
             }
+        }
+    }
+
+    public static final class NamedArgumentExpression extends Expression {
+        private NamedArgumentExpression(@Nonnull final Identifier name, @Nonnull final DataType dataType,
+                                       @Nonnull final Value expression) {
+            super(Optional.of(name), dataType, expression);
+        }
+
+        @Nonnull
+        public Identifier getArgumentName() {
+            return Assert.optionalUnchecked(getName());
+        }
+
+        @Override
+        public boolean isNamedArgument() {
+            return true;
+        }
+
+        @Nonnull
+        @Override
+        public NamedArgumentExpression toNamedArgument(@Nonnull final Identifier name) {
+            if (name.equals(getArgumentName())) {
+                return this;
+            }
+            return new NamedArgumentExpression(name, getDataType(), getUnderlying());
         }
     }
 }

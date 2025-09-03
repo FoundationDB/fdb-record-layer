@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Index;
+import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.api.metadata.Visitor;
@@ -40,6 +41,7 @@ import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -50,6 +52,7 @@ import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -58,6 +61,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 @API(API.Status.EXPERIMENTAL)
 public final class RecordLayerSchemaTemplate implements SchemaTemplate {
@@ -67,6 +71,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     @Nonnull
     private final Set<RecordLayerTable> tables;
+
+    @Nonnull
+    private final Set<RecordLayerInvokedRoutine> invokedRoutines;
 
     private final int version;
 
@@ -83,35 +90,55 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     @Nonnull
     private final Supplier<Set<String>> indexesSupplier;
 
+    @Nonnull
+    private final Supplier<Collection<? extends InvokedRoutine>> temporaryInvokedRoutinesSupplier;
+
+    @Nonnull
+    private final Supplier<String> transactionBoundMetadataSupplier;
+
+    private final boolean intermingleTables;
+
     private RecordLayerSchemaTemplate(@Nonnull final String name,
                                       @Nonnull final Set<RecordLayerTable> tables,
+                                      @Nonnull final Set<RecordLayerInvokedRoutine> invokedRoutines,
                                       int version,
                                       boolean enableLongRows,
-                                      boolean storeRowVersions) {
+                                      boolean storeRowVersions,
+                                      boolean intermingleTables) {
         this.name = name;
-        this.tables = tables;
+        this.tables = ImmutableSet.copyOf(tables);
+        this.invokedRoutines = ImmutableSet.copyOf(invokedRoutines);
         this.version = version;
         this.enableLongRows = enableLongRows;
         this.storeRowVersions = storeRowVersions;
+        this.intermingleTables = intermingleTables;
         this.metaDataSupplier = Suppliers.memoize(this::buildRecordMetadata);
         this.tableIndexMappingSupplier = Suppliers.memoize(this::computeTableIndexMapping);
         this.indexesSupplier = Suppliers.memoize(this::computeIndexes);
+        this.temporaryInvokedRoutinesSupplier = Suppliers.memoize(this::computeTemporaryInvokedRoutines);
+        this.transactionBoundMetadataSupplier = Suppliers.memoize(this::computeTransactionBoundMetadata);
     }
 
     private RecordLayerSchemaTemplate(@Nonnull final String name,
                                       @Nonnull final Set<RecordLayerTable> tables,
+                                      @Nonnull final Set<RecordLayerInvokedRoutine> invokedRoutines,
                                       int version,
                                       boolean enableLongRows,
                                       boolean storeRowVersions,
+                                      boolean intermingleTables,
                                       @Nonnull final RecordMetaData cachedMetadata) {
         this.name = name;
         this.version = version;
-        this.tables = tables;
+        this.tables = ImmutableSet.copyOf(tables);
+        this.invokedRoutines = ImmutableSet.copyOf(invokedRoutines);
         this.enableLongRows = enableLongRows;
         this.storeRowVersions = storeRowVersions;
+        this.intermingleTables = intermingleTables;
         this.metaDataSupplier = Suppliers.memoize(() -> cachedMetadata);
         this.tableIndexMappingSupplier = Suppliers.memoize(this::computeTableIndexMapping);
         this.indexesSupplier = Suppliers.memoize(this::computeIndexes);
+        this.temporaryInvokedRoutinesSupplier = Suppliers.memoize(this::computeTemporaryInvokedRoutines);
+        this.transactionBoundMetadataSupplier = Suppliers.memoize(this::computeTransactionBoundMetadata);
     }
 
     @Nonnull
@@ -133,6 +160,11 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     @Override
     public boolean isStoreRowVersions() {
         return storeRowVersions;
+    }
+
+    @VisibleForTesting
+    public boolean isIntermingleTables() {
+        return intermingleTables;
     }
 
     @Nonnull
@@ -175,18 +207,19 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         return metaDataSupplier.get();
     }
 
+    /**
+     * Deserializes given a {@link RecordMetaData} into a corresponding {@link RecordLayerSchemaTemplate} instance.
+     * @param metaData The serialized metadata.
+     * @param templateName The name of the schema template.
+     * @param version The version of the metadata.
+     * @return A {@link RecordLayerSchemaTemplate} instance of the deserialized metadata.
+     */
     @Nonnull
-    public static RecordLayerSchemaTemplate fromRecordMetadata(@Nonnull RecordMetaData metaData,
-                                                               @Nonnull String templateName,
+    public static RecordLayerSchemaTemplate fromRecordMetadata(@Nonnull final RecordMetaData metaData,
+                                                               @Nonnull final String templateName,
                                                                int version) {
         final var deserializer = new RecordMetadataDeserializer(metaData);
-        final var builder = deserializer.getSchemaTemplate(templateName, version);
-        return builder.setCachedMetadata(metaData).build();
-    }
-
-    @Nonnull
-    public static RecordLayerSchemaTemplate fromRecordMetadataWithFakeTemplateNameAndVersion(@Nonnull RecordMetaData metaData) {
-        return fromRecordMetadata(metaData, "fakeTemplateName", 1);
+        return deserializer.getSchemaTemplate(templateName, version);
     }
 
     /**
@@ -280,6 +313,42 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
     @Nonnull
     @Override
+    public Set<RecordLayerInvokedRoutine> getInvokedRoutines() {
+        return invokedRoutines;
+    }
+
+    @Nonnull
+    @Override
+    public Optional<? extends InvokedRoutine> findInvokedRoutineByName(@Nonnull final String routineName) {
+        return invokedRoutines.stream().filter(routine -> routine.getName().equals(routineName)).findFirst();
+    }
+
+    @Nonnull
+    private Collection<? extends InvokedRoutine> computeTemporaryInvokedRoutines() {
+        return invokedRoutines.stream().filter(RecordLayerInvokedRoutine::isTemporary)
+                .sorted(Comparator.comparing(RecordLayerInvokedRoutine::getDescription)).collect(ImmutableList.toImmutableList());
+    }
+
+    @Nonnull
+    @Override
+    public Collection<? extends InvokedRoutine> getTemporaryInvokedRoutines() {
+        return temporaryInvokedRoutinesSupplier.get();
+    }
+
+    @Nonnull
+    private String computeTransactionBoundMetadata() {
+        return getTemporaryInvokedRoutines().stream().map(InvokedRoutine::getNormalizedDescription)
+                .collect(Collectors.joining("||"));
+    }
+
+    @Nonnull
+    @Override
+    public String getTransactionBoundMetadataAsString() {
+        return transactionBoundMetadataSupplier.get();
+    }
+
+    @Nonnull
+    @Override
     public <T extends SchemaTemplate> T unwrap(@Nonnull final Class<T> iface) throws RelationalException {
         return iface.cast(this);
     }
@@ -290,6 +359,9 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         visitor.visit(this);
         for (final var table : getTables()) {
             table.accept(visitor);
+        }
+        for (final var invokedRoutine : getInvokedRoutines()) {
+            invokedRoutine.accept(visitor);
         }
         visitor.finishVisit(this);
     }
@@ -308,15 +380,22 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
 
         private boolean storeRowVersions;
 
+        @Nonnull
         private final Map<String, RecordLayerTable> tables;
 
+        @Nonnull
         private final Map<String, DataType.Named> auxiliaryTypes; // for quick lookup
+
+        @Nonnull
+        private final Map<String, RecordLayerInvokedRoutine> invokedRoutines;
+
 
         private RecordMetaData cachedMetadata;
 
         private Builder() {
             tables = new LinkedHashMap<>();
             auxiliaryTypes = new LinkedHashMap<>();
+            invokedRoutines = new LinkedHashMap<>();
             // enable long rows is TRUE by default
             enableLongRows = true;
         }
@@ -373,6 +452,41 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             return this;
         }
 
+        @Nonnull
+        public Builder addInvokedRoutine(@Nonnull final RecordLayerInvokedRoutine invokedRoutine) {
+            Assert.thatUnchecked(!invokedRoutines.containsKey(invokedRoutine.getName()), ErrorCode.INVALID_SCHEMA_TEMPLATE,
+                    () -> "routine " + invokedRoutine.getName() + " is already defined");
+            Assert.thatUnchecked(!tables.containsKey(invokedRoutine.getName()), ErrorCode.INVALID_SCHEMA_TEMPLATE,
+                    () -> "routine " + invokedRoutine.getName() + " cannot be defined because a table with the same name exists");
+            invokedRoutines.put(invokedRoutine.getName(), invokedRoutine);
+            return this;
+        }
+
+        @Nonnull
+        public Builder replaceInvokedRoutine(@Nonnull final RecordLayerInvokedRoutine invokedRoutine) {
+            if (invokedRoutines.containsKey(invokedRoutine.getName())) {
+                Assert.thatUnchecked(invokedRoutines.get(invokedRoutine.getName()).isTemporary(), ErrorCode.INVALID_FUNCTION_DEFINITION,
+                        "attempt to replace non-temporary invoked routine!");
+            }
+            invokedRoutines.put(invokedRoutine.getName(), invokedRoutine);
+            return this;
+        }
+
+        public Builder removeInvokedRoutine(@Nonnull final String invokedRoutineName) {
+            if (!invokedRoutines.containsKey(invokedRoutineName)) {
+                Assert.thatUnchecked(invokedRoutines.get(invokedRoutineName).isTemporary(), ErrorCode.UNDEFINED_FUNCTION,
+                        "attempt to non-existent temporary invoked routine!");
+            }
+            invokedRoutines.remove(invokedRoutineName);
+            return this;
+        }
+
+        @Nonnull
+        public Builder addInvokedRoutines(@Nonnull final Collection<RecordLayerInvokedRoutine> invokedRoutines) {
+            invokedRoutines.forEach(this::addInvokedRoutine);
+            return this;
+        }
+
         /**
          * Adds an auxiliary type, an auxiliary type is a type that is merely created, so it can be referenced later on
          * in a table definition. Any {@link DataType.Named} data type can be added as an auxiliary type such as {@code enum}s
@@ -404,7 +518,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         }
 
         @Nonnull
-        Builder setCachedMetadata(@Nonnull final RecordMetaData metadata) {
+        public Builder setCachedMetadata(@Nonnull final RecordMetaData metadata) {
             this.cachedMetadata = metadata;
             return this;
         }
@@ -462,9 +576,11 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             }
 
             if (cachedMetadata != null) {
-                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), version, enableLongRows, storeRowVersions, cachedMetadata);
+                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()),
+                        new LinkedHashSet<>(invokedRoutines.values()), version, enableLongRows, storeRowVersions, intermingleTables, cachedMetadata);
             } else {
-                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()), version, enableLongRows, storeRowVersions);
+                return new RecordLayerSchemaTemplate(name, new LinkedHashSet<>(tables.values()),
+                        new LinkedHashSet<>(invokedRoutines.values()), version, enableLongRows, storeRowVersions, intermingleTables);
             }
         }
 
@@ -525,12 +641,12 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             tables.putAll(resolvedTables.build());
 
             final var resolvedAuxiliaryTypes = ImmutableMap.<String, DataType.Named>builder();
-            for (final var auxiliarytype : auxiliaryTypes.entrySet()) {
-                final var dataType = (DataType) auxiliarytype.getValue();
+            for (final var auxiliaryType : auxiliaryTypes.entrySet()) {
+                final var dataType = (DataType) auxiliaryType.getValue();
                 if (!dataType.isResolved()) {
-                    resolvedAuxiliaryTypes.put(auxiliarytype.getKey(), (DataType.Named) ((DataType) resolvedTypes.get(auxiliarytype.getKey())).withNullable(dataType.isNullable()));
+                    resolvedAuxiliaryTypes.put(auxiliaryType.getKey(), (DataType.Named) ((DataType) resolvedTypes.get(auxiliaryType.getKey())).withNullable(dataType.isNullable()));
                 } else {
-                    resolvedAuxiliaryTypes.put(auxiliarytype.getKey(), auxiliarytype.getValue());
+                    resolvedAuxiliaryTypes.put(auxiliaryType.getKey(), auxiliaryType.getValue());
                 }
             }
 
@@ -577,12 +693,13 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     }
 
     @Nonnull
-    @VisibleForTesting
     public Builder toBuilder() {
         return newBuilder()
                 .setName(name)
                 .setVersion(version)
                 .setEnableLongRows(enableLongRows)
-                .addTables(getTables());
+                .setIntermingleTables(intermingleTables)
+                .addTables(getTables())
+                .addInvokedRoutines(getInvokedRoutines());
     }
 }

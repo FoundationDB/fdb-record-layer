@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,9 +36,8 @@ import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
+import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.Supplier;
-
-import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -58,12 +57,13 @@ public class EmbeddedRelationalStatement extends AbstractEmbeddedStatement imple
     }
 
     @Override
-    PlanContext buildPlanContext(FDBRecordStoreBase<Message> store) throws RelationalException {
-        return PlanContext.Builder.create()
-                .fromRecordStore(store)
+    @Nonnull
+    PlanContext createPlanContext(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final Options options) throws RelationalException {
+        return PlanContext.builder()
+                .fromRecordStore(store, options)
                 .fromDatabase(conn.getRecordLayerDatabase())
-                .withMetricsCollector(conn.getMetricCollector())
-                .withSchemaTemplate(conn.getSchemaTemplate())
+                .withMetricsCollector(Assert.notNullUnchecked(conn.getMetricCollector()))
+                .withSchemaTemplate(conn.getTransaction().getBoundSchemaTemplateMaybe().orElse(conn.getSchemaTemplate()))
                 .build();
     }
 

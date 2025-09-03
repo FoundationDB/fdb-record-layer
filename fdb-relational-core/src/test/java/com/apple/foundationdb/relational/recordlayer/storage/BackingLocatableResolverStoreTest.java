@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,7 +67,6 @@ import javax.annotation.Nullable;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
-import java.sql.Types;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
@@ -661,7 +660,7 @@ public class BackingLocatableResolverStoreTest {
     private void insertResolverState(RelationalStatement statement, long version, String lock) throws SQLException {
         final var struct = EmbeddedRelationalStruct.newBuilder()
                 .addInt(LocatableResolverMetaDataProvider.VERSION_FIELD_NAME, (int) version)
-                .addObject(LocatableResolverMetaDataProvider.LOCK_FIELD_NAME, lock, Types.OTHER)
+                .addObject(LocatableResolverMetaDataProvider.LOCK_FIELD_NAME, lock)
                 .build();
         Options options = Options.builder()
                 .withOption(Options.Name.REPLACE_ON_DUPLICATE_PK, true)

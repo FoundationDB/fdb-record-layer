@@ -27,13 +27,14 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.TupleFieldsProto;
 import com.apple.foundationdb.record.planprotos.PRecordConstructorValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
@@ -57,6 +58,7 @@ import com.google.protobuf.ZeroCopyByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -284,14 +286,14 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
 
     @Nonnull
     @Override
-    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
         if (hashCodeWithoutChildren() != other.hashCodeWithoutChildren()) { // as the hashcode is memoized
-            return BooleanWithConstraint.falseValue();
+            return ConstrainedBoolean.falseValue();
         }
 
         final var superEqualsWithoutChildren = super.equalsWithoutChildren(other);
         if (superEqualsWithoutChildren.isFalse()) {
-            return BooleanWithConstraint.falseValue();
+            return ConstrainedBoolean.falseValue();
         }
 
         final var otherColumns = ((RecordConstructorValue)other).getColumns();
@@ -301,7 +303,7 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
             final var column = columns.get(i);
             final var otherColumn = otherColumns.get(i);
             if (!column.getField().equals(otherColumn.getField())) {
-                return BooleanWithConstraint.falseValue();
+                return ConstrainedBoolean.falseValue();
             }
         }
 
@@ -335,11 +337,11 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
 
     @Nonnull
     @Override
-    public Accumulator createAccumulator(final @Nonnull TypeRepository typeRepository) {
+    public Accumulator createAccumulatorWithInitialState(final @Nonnull TypeRepository typeRepository, final @Nullable List<RecordCursorProto.AccumulatorState> initialState) {
         return new Accumulator() {
 
             @Nonnull
-            private final List<Accumulator> childAccumulators = buildAccumulators();
+            private final List<Accumulator> childAccumulators = buildAccumulators(initialState);
 
             @Override
             public void accumulate(@Nullable final Object currentObject) {
@@ -377,13 +379,34 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
             }
 
             @Nonnull
-            private List<Accumulator> buildAccumulators() {
+            private List<Accumulator> buildAccumulators(@Nullable List<RecordCursorProto.AccumulatorState> initialState) {
+                List<Value> childrenAsList = new ArrayList<>();
+                getChildren().forEach(childrenAsList::add);
                 final ImmutableList.Builder<Accumulator> childAccumulatorsBuilder = ImmutableList.builder();
-                for (final var child : getChildren()) {
-                    Verify.verify(child instanceof AggregateValue);
-                    childAccumulatorsBuilder.add(((AggregateValue)child).createAccumulator(typeRepository));
+
+                if (initialState != null) {
+                    Verify.verify(initialState.size() == childrenAsList.size());
+                }
+
+                for (int i = 0; i < childrenAsList.size(); i++) {
+                    Verify.verify(childrenAsList.get(i) instanceof AggregateValue);
+                    if (initialState == null) {
+                        childAccumulatorsBuilder.add(((AggregateValue)childrenAsList.get(i)).createAccumulatorWithInitialState(typeRepository, null));
+                    } else {
+                        childAccumulatorsBuilder.add(((AggregateValue)childrenAsList.get(i)).createAccumulatorWithInitialState(typeRepository, List.of(initialState.get(i))));
+                    }
                 }
                 return childAccumulatorsBuilder.build();
+            }
+
+            @Nonnull
+            @Override
+            public List<RecordCursorProto.AccumulatorState> getAccumulatorStates() {
+                List<RecordCursorProto.AccumulatorState> accumulatorStates = new ArrayList<>();
+                for (Accumulator accumulator: childAccumulators) {
+                    accumulatorStates.addAll(accumulator.getAccumulatorStates());
+                }
+                return accumulatorStates;
             }
         };
     }

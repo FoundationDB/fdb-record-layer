@@ -1,5 +1,5 @@
 /*
- * YamlConnection.java
+ * SimpleYamlConnection.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,12 +20,17 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
+import com.apple.foundationdb.relational.yamltests.command.SQLFunction;
 import com.apple.foundationdb.relational.yamltests.server.SemanticVersion;
+import com.google.common.collect.Iterables;
+import org.junit.jupiter.api.Assumptions;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -41,15 +46,34 @@ public class SimpleYamlConnection implements YamlConnection {
     private final RelationalConnection underlying;
     @Nonnull
     private final List<SemanticVersion> versions;
+    @Nonnull
+    private final String connectionLabel;
 
     public SimpleYamlConnection(@Nonnull Connection connection, @Nonnull SemanticVersion version) throws SQLException {
+        this(connection, version, version.toString());
+    }
+
+    public SimpleYamlConnection(@Nonnull Connection connection, @Nonnull SemanticVersion version, @Nonnull String connectionLabel) throws SQLException {
         underlying = connection.unwrap(RelationalConnection.class);
         this.versions = List.of(version);
+        this.connectionLabel = connectionLabel;
+    }
+
+    @Nonnull
+    protected RelationalConnection getUnderlying() {
+        return underlying;
     }
 
     @Override
     public void close() throws SQLException {
         underlying.close();
+    }
+
+    @Override
+    public void setConnectionOptions(@Nonnull final Options connectionOptions) throws SQLException {
+        if (!Iterables.isEmpty(connectionOptions.entries())) {
+            Assumptions.abort("only embedded connections support the setting of connection options");
+        }
     }
 
     @Override
@@ -93,5 +117,28 @@ public class SimpleYamlConnection implements YamlConnection {
     @Override
     public SemanticVersion getInitialVersion() {
         return versions.get(0);
+    }
+
+    @Override
+    public <T> T executeTransactionally(final SQLFunction<YamlConnection, T> transactionalWork) throws SQLException, RelationalException {
+        underlying.setAutoCommit(false);
+        T result;
+        try {
+            result = transactionalWork.apply(this);
+        } catch (final SQLException | RelationalException e) {
+            underlying.rollback();
+            throw e;
+        } finally {
+            // enabling autoCommit will commit if there is outstanding work
+            // It would probably be good to commit earlier, but https://github.com/FoundationDB/fdb-record-layer/pull/3477
+            // causes the setAutoCommit to fail if you do that
+            underlying.setAutoCommit(true);
+        }
+        return result;
+    }
+
+    @Override
+    public String toString() {
+        return connectionLabel;
     }
 }

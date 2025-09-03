@@ -138,13 +138,12 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
     @SuppressWarnings("java:S3776")
     @Override
     public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository,
-                                                     @Nonnull final CorrelationIdentifier innermostAlias) {
+                                                     @Nonnull final Set<CorrelationIdentifier> localAliases) {
         final Iterator<? extends Value> it = children.iterator();
         int childrenCount = Iterables.size(children);
         if (childrenCount == 1) {
             Value child = children.iterator().next();
-            final Set<CorrelationIdentifier> childCorrelatedTo = child.getCorrelatedTo();
-            if (!childCorrelatedTo.contains(innermostAlias) && typeRepository != null) {
+            if (child.getCorrelatedTo().isEmpty() && typeRepository != null) {
                 // it seems this is a constant expression, try to evaluate it.
                 return tryBoxSelfAsConstantPredicate(typeRepository);
             }
@@ -162,7 +161,8 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
             if (leftChildCorrelatedTo.isEmpty() && rightChildCorrelatedTo.isEmpty() && typeRepository != null) {
                 return tryBoxSelfAsConstantPredicate(typeRepository);
             }
-            if (rightChildCorrelatedTo.contains(innermostAlias) && !leftChildCorrelatedTo.contains(innermostAlias)) {
+            if (localAliases.containsAll(rightChildCorrelatedTo) &&
+                    localAliases.stream().noneMatch(leftChildCorrelatedTo::contains)) {
                 // the operands are swapped inside this if branch
                 return promoteOperandsAndCreatePredicate(leftChildCorrelatedTo.isEmpty() ? typeRepository : null,
                         rightChild,
@@ -184,6 +184,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
                                                                               @Nonnull Value leftChild,
                                                                               @Nonnull Value rightChild,
                                                                               @Nonnull final Comparisons.Type comparisonType) {
+
         // maximumType may return null, but only for non-primitive types which is not possible here
         final var maxtype = Verify.verifyNotNull(Type.maximumType(leftChild.getResultType(), rightChild.getResultType()));
 
@@ -255,6 +256,8 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         switch (type) {
             case EQUALS:
             case NOT_EQUALS:
+            case NOT_DISTINCT_FROM:
+            case IS_DISTINCT_FROM:
                 return type;
             case LESS_THAN:
                 return Comparisons.Type.GREATER_THAN;
@@ -290,6 +293,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         } else {
             final Typed arg1 = arguments.get(1);
             final Type res1 = arg1.getResultType();
+
             SemanticException.check(res1.isPrimitive() || res1.isEnum() || res1.isUuid(), SemanticException.ErrorCode.COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE);
 
             final BinaryPhysicalOperator physicalOperator =
@@ -448,6 +452,36 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
         private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<? extends Typed> arguments) {
             return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.NOT_NULL, arguments);
+        }
+    }
+
+    /**
+     * The {@code isDistinctFrom} function.
+     */
+    @AutoService(BuiltInFunction.class)
+    public static class IsDistinctFromFn extends BuiltInFunction<Value> {
+        public IsDistinctFromFn() {
+            super("isDistinctFrom",
+                    List.of(new Type.Any(), new Type.Any()), IsDistinctFromFn::encapsulate);
+        }
+
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<? extends Typed> arguments) {
+            return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.IS_DISTINCT_FROM, arguments);
+        }
+    }
+
+    /**
+     * The {@code notDistinctFrom} function.
+     */
+    @AutoService(BuiltInFunction.class)
+    public static class NotDistinctFromFn extends BuiltInFunction<Value> {
+        public NotDistinctFromFn() {
+            super("notDistinctFrom",
+                    List.of(new Type.Any(), new Type.Any()), NotDistinctFromFn::encapsulate);
+        }
+
+        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<? extends Typed> arguments) {
+            return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.NOT_DISTINCT_FROM, arguments);
         }
     }
 
@@ -763,6 +797,251 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         GTE_SID(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.STRING, Type.TypeCode.UUID, (l, r) -> Comparisons.evalComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, PromoteValue.PhysicalOperator.stringToUuidValue((String) l), r)),
         GTE_UID(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.UUID, (l, r) -> null),
         GTE_IDU(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UUID, Type.TypeCode.UNKNOWN, (l, r) -> null),
+
+
+        EQ_BN(Comparisons.Type.EQUALS, Type.TypeCode.BOOLEAN, Type.TypeCode.NULL, (l, r) -> null),
+        EQ_IN(Comparisons.Type.EQUALS, Type.TypeCode.INT, Type.TypeCode.NULL, (l, r) -> null),
+        EQ_LN(Comparisons.Type.EQUALS, Type.TypeCode.LONG, Type.TypeCode.NULL, (l, r) -> null),
+        EQ_FN(Comparisons.Type.EQUALS, Type.TypeCode.FLOAT, Type.TypeCode.NULL, (l, r) -> null),
+        EQ_DN(Comparisons.Type.EQUALS, Type.TypeCode.DOUBLE, Type.TypeCode.NULL, (l, r) -> null),
+        EQ_SN(Comparisons.Type.EQUALS, Type.TypeCode.STRING, Type.TypeCode.NULL, (l, r) -> null),
+        EQ_NN(Comparisons.Type.EQUALS, Type.TypeCode.NULL, Type.TypeCode.NULL, (l, r) -> null),
+        EQ_NU(Comparisons.Type.EQUALS, Type.TypeCode.NULL, Type.TypeCode.UNKNOWN, (l, r) -> null),
+        EQ_UN(Comparisons.Type.EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.NULL, (l, r) -> null),
+        EQ_NB(Comparisons.Type.EQUALS, Type.TypeCode.NULL, Type.TypeCode.BOOLEAN, (l, r) -> null),
+        EQ_NI(Comparisons.Type.EQUALS, Type.TypeCode.NULL, Type.TypeCode.INT, (l, r) -> null),
+        EQ_NL(Comparisons.Type.EQUALS, Type.TypeCode.NULL, Type.TypeCode.LONG, (l, r) -> null),
+        EQ_NF(Comparisons.Type.EQUALS, Type.TypeCode.NULL, Type.TypeCode.FLOAT, (l, r) -> null),
+        EQ_ND(Comparisons.Type.EQUALS, Type.TypeCode.NULL, Type.TypeCode.DOUBLE, (l, r) -> null),
+        EQ_NS(Comparisons.Type.EQUALS, Type.TypeCode.NULL, Type.TypeCode.STRING, (l, r) -> null),
+        EQ_NV(Comparisons.Type.EQUALS, Type.TypeCode.NULL, Type.TypeCode.VERSION, (l, r) -> null),
+        EQ_VN(Comparisons.Type.EQUALS, Type.TypeCode.VERSION, Type.TypeCode.NULL, (l, r) -> null),
+        NEQ_BN(Comparisons.Type.NOT_EQUALS, Type.TypeCode.BOOLEAN, Type.TypeCode.NULL, (l, r) -> null),
+        NEQ_IN(Comparisons.Type.NOT_EQUALS, Type.TypeCode.INT, Type.TypeCode.NULL, (l, r) -> null),
+        NEQ_LN(Comparisons.Type.NOT_EQUALS, Type.TypeCode.LONG, Type.TypeCode.NULL, (l, r) -> null),
+        NEQ_FN(Comparisons.Type.NOT_EQUALS, Type.TypeCode.FLOAT, Type.TypeCode.NULL, (l, r) -> null),
+        NEQ_DN(Comparisons.Type.NOT_EQUALS, Type.TypeCode.DOUBLE, Type.TypeCode.NULL, (l, r) -> null),
+        NEQ_SN(Comparisons.Type.NOT_EQUALS, Type.TypeCode.STRING, Type.TypeCode.NULL, (l, r) -> null),
+        NEQ_NN(Comparisons.Type.NOT_EQUALS, Type.TypeCode.NULL, Type.TypeCode.NULL, (l, r) -> null),
+        NEQ_UN(Comparisons.Type.NOT_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.NULL, (l, r) -> null),
+        NEQ_NU(Comparisons.Type.NOT_EQUALS, Type.TypeCode.NULL, Type.TypeCode.UNKNOWN, (l, r) -> null),
+        NEQ_NB(Comparisons.Type.NOT_EQUALS, Type.TypeCode.NULL, Type.TypeCode.BOOLEAN, (l, r) -> null),
+        NEQ_NI(Comparisons.Type.NOT_EQUALS, Type.TypeCode.NULL, Type.TypeCode.INT, (l, r) -> null),
+        NEQ_NL(Comparisons.Type.NOT_EQUALS, Type.TypeCode.NULL, Type.TypeCode.LONG, (l, r) -> null),
+        NEQ_NF(Comparisons.Type.NOT_EQUALS, Type.TypeCode.NULL, Type.TypeCode.FLOAT, (l, r) -> null),
+        NEQ_ND(Comparisons.Type.NOT_EQUALS, Type.TypeCode.NULL, Type.TypeCode.DOUBLE, (l, r) -> null),
+        NEQ_NS(Comparisons.Type.NOT_EQUALS, Type.TypeCode.NULL, Type.TypeCode.STRING, (l, r) -> null),
+        NEQ_NV(Comparisons.Type.NOT_EQUALS, Type.TypeCode.NULL, Type.TypeCode.VERSION, (l, r) -> null),
+        NEQ_VN(Comparisons.Type.NOT_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.NULL, (l, r) -> null),
+        LT_IN(Comparisons.Type.LESS_THAN, Type.TypeCode.INT, Type.TypeCode.NULL, (l, r) -> null),
+        LT_LN(Comparisons.Type.LESS_THAN, Type.TypeCode.LONG, Type.TypeCode.NULL, (l, r) -> null),
+        LT_FN(Comparisons.Type.LESS_THAN, Type.TypeCode.FLOAT, Type.TypeCode.NULL, (l, r) -> null),
+        LT_DN(Comparisons.Type.LESS_THAN, Type.TypeCode.DOUBLE, Type.TypeCode.NULL, (l, r) -> null),
+        LT_SN(Comparisons.Type.LESS_THAN, Type.TypeCode.STRING, Type.TypeCode.NULL, (l, r) -> null),
+        LT_NN(Comparisons.Type.LESS_THAN, Type.TypeCode.NULL, Type.TypeCode.NULL, (l, r) -> null),
+        LT_UN(Comparisons.Type.LESS_THAN, Type.TypeCode.UNKNOWN, Type.TypeCode.NULL, (l, r) -> null),
+        LT_NU(Comparisons.Type.LESS_THAN, Type.TypeCode.NULL, Type.TypeCode.UNKNOWN, (l, r) -> null),
+        LT_NB(Comparisons.Type.LESS_THAN, Type.TypeCode.NULL, Type.TypeCode.BOOLEAN, (l, r) -> null),
+        LT_NI(Comparisons.Type.LESS_THAN, Type.TypeCode.NULL, Type.TypeCode.INT, (l, r) -> null),
+        LT_NL(Comparisons.Type.LESS_THAN, Type.TypeCode.NULL, Type.TypeCode.LONG, (l, r) -> null),
+        LT_NF(Comparisons.Type.LESS_THAN, Type.TypeCode.NULL, Type.TypeCode.FLOAT, (l, r) -> null),
+        LT_ND(Comparisons.Type.LESS_THAN, Type.TypeCode.NULL, Type.TypeCode.DOUBLE, (l, r) -> null),
+        LT_NS(Comparisons.Type.LESS_THAN, Type.TypeCode.NULL, Type.TypeCode.STRING, (l, r) -> null),
+        LT_NV(Comparisons.Type.LESS_THAN, Type.TypeCode.NULL, Type.TypeCode.VERSION, (l, r) -> null),
+        LT_VN(Comparisons.Type.LESS_THAN, Type.TypeCode.VERSION, Type.TypeCode.NULL, (l, r) -> null),
+        LTE_IN(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.INT, Type.TypeCode.NULL, (l, r) -> null),
+        LTE_LN(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.LONG, Type.TypeCode.NULL, (l, r) -> null),
+        LTE_FN(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.FLOAT, Type.TypeCode.NULL, (l, r) -> null),
+        LTE_DN(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.DOUBLE, Type.TypeCode.NULL, (l, r) -> null),
+        LTE_SN(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.STRING, Type.TypeCode.NULL, (l, r) -> null),
+        LTE_NN(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.NULL, Type.TypeCode.NULL, (l, r) -> null),
+        LTE_UN(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.NULL, (l, r) -> null),
+        LTE_NU(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.NULL, Type.TypeCode.UNKNOWN, (l, r) -> null),
+        LTE_NB(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.NULL, Type.TypeCode.BOOLEAN, (l, r) -> null),
+        LTE_NI(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.NULL, Type.TypeCode.INT, (l, r) -> null),
+        LTE_NL(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.NULL, Type.TypeCode.LONG, (l, r) -> null),
+        LTE_NF(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.NULL, Type.TypeCode.FLOAT, (l, r) -> null),
+        LTE_ND(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.NULL, Type.TypeCode.DOUBLE, (l, r) -> null),
+        LTE_NS(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.NULL, Type.TypeCode.STRING, (l, r) -> null),
+        LTE_NV(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.NULL, Type.TypeCode.VERSION, (l, r) -> null),
+        LTE_VN(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.NULL, (l, r) -> null),
+        GT_IN(Comparisons.Type.GREATER_THAN, Type.TypeCode.INT, Type.TypeCode.NULL, (l, r) -> null),
+        GT_LN(Comparisons.Type.GREATER_THAN, Type.TypeCode.LONG, Type.TypeCode.NULL, (l, r) -> null),
+        GT_FN(Comparisons.Type.GREATER_THAN, Type.TypeCode.FLOAT, Type.TypeCode.NULL, (l, r) -> null),
+        GT_DN(Comparisons.Type.GREATER_THAN, Type.TypeCode.DOUBLE, Type.TypeCode.NULL, (l, r) -> null),
+        GT_SN(Comparisons.Type.GREATER_THAN, Type.TypeCode.STRING, Type.TypeCode.NULL, (l, r) -> null),
+        GT_NN(Comparisons.Type.GREATER_THAN, Type.TypeCode.NULL, Type.TypeCode.NULL, (l, r) -> null),
+        GT_UN(Comparisons.Type.GREATER_THAN, Type.TypeCode.UNKNOWN, Type.TypeCode.NULL, (l, r) -> null),
+        GT_NU(Comparisons.Type.GREATER_THAN, Type.TypeCode.NULL, Type.TypeCode.UNKNOWN, (l, r) -> null),
+        GT_NB(Comparisons.Type.GREATER_THAN, Type.TypeCode.NULL, Type.TypeCode.BOOLEAN, (l, r) -> null),
+        GT_NI(Comparisons.Type.GREATER_THAN, Type.TypeCode.NULL, Type.TypeCode.INT, (l, r) -> null),
+        GT_NL(Comparisons.Type.GREATER_THAN, Type.TypeCode.NULL, Type.TypeCode.LONG, (l, r) -> null),
+        GT_NF(Comparisons.Type.GREATER_THAN, Type.TypeCode.NULL, Type.TypeCode.FLOAT, (l, r) -> null),
+        GT_ND(Comparisons.Type.GREATER_THAN, Type.TypeCode.NULL, Type.TypeCode.DOUBLE, (l, r) -> null),
+        GT_NS(Comparisons.Type.GREATER_THAN, Type.TypeCode.NULL, Type.TypeCode.STRING, (l, r) -> null),
+        GT_NV(Comparisons.Type.GREATER_THAN, Type.TypeCode.NULL, Type.TypeCode.VERSION, (l, r) -> null),
+        GT_VN(Comparisons.Type.GREATER_THAN, Type.TypeCode.VERSION, Type.TypeCode.NULL, (l, r) -> null),
+        GTE_IN(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.INT, Type.TypeCode.NULL, (l, r) -> null),
+        GTE_LN(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.LONG, Type.TypeCode.NULL, (l, r) -> null),
+        GTE_FN(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.FLOAT, Type.TypeCode.NULL, (l, r) -> null),
+        GTE_DN(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.DOUBLE, Type.TypeCode.NULL, (l, r) -> null),
+        GTE_SN(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.STRING, Type.TypeCode.NULL, (l, r) -> null),
+        GTE_NN(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.NULL, Type.TypeCode.NULL, (l, r) -> null),
+        GTE_NU(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.NULL, Type.TypeCode.UNKNOWN, (l, r) -> null),
+        GTE_UN(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UNKNOWN, Type.TypeCode.NULL, (l, r) -> null),
+        GTE_NB(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.NULL, Type.TypeCode.BOOLEAN, (l, r) -> null),
+        GTE_NI(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.NULL, Type.TypeCode.INT, (l, r) -> null),
+        GTE_NL(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.NULL, Type.TypeCode.LONG, (l, r) -> null),
+        GTE_NF(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.NULL, Type.TypeCode.FLOAT, (l, r) -> null),
+        GTE_ND(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.NULL, Type.TypeCode.DOUBLE, (l, r) -> null),
+        GTE_NS(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.NULL, Type.TypeCode.STRING, (l, r) -> null),
+        GTE_NV(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.NULL, Type.TypeCode.VERSION, (l, r) -> null),
+        GTE_VN(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.VERSION, Type.TypeCode.NULL, (l, r) -> null),
+        EQ_BYN(Comparisons.Type.EQUALS, Type.TypeCode.BYTES, Type.TypeCode.NULL, (l, r) -> null),
+        EQ_NBY(Comparisons.Type.EQUALS, Type.TypeCode.NULL, Type.TypeCode.BYTES, (l, r) -> null),
+        NEQ_BYN(Comparisons.Type.NOT_EQUALS, Type.TypeCode.BYTES, Type.TypeCode.NULL, (l, r) -> null),
+        NEQ_NBY(Comparisons.Type.NOT_EQUALS, Type.TypeCode.NULL, Type.TypeCode.BYTES, (l, r) -> null),
+        LT_BYN(Comparisons.Type.LESS_THAN, Type.TypeCode.BYTES, Type.TypeCode.NULL, (l, r) -> null),
+        LTE_BYN(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.BYTES, Type.TypeCode.NULL, (l, r) -> null),
+        GT_BYN(Comparisons.Type.GREATER_THAN, Type.TypeCode.BYTES, Type.TypeCode.NULL, (l, r) -> null),
+        GTE_BYN(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.BYTES, Type.TypeCode.NULL, (l, r) -> null),
+        EQ_EN(Comparisons.Type.EQUALS, Type.TypeCode.ENUM, Type.TypeCode.NULL, (l, r) -> null),
+        EQ_NE(Comparisons.Type.EQUALS, Type.TypeCode.NULL, Type.TypeCode.ENUM, (l, r) -> null),
+        NEQ_EN(Comparisons.Type.NOT_EQUALS, Type.TypeCode.ENUM, Type.TypeCode.NULL, (l, r) -> null),
+        NEQ_NE(Comparisons.Type.NOT_EQUALS, Type.TypeCode.NULL, Type.TypeCode.ENUM, (l, r) -> null),
+        LT_EN(Comparisons.Type.LESS_THAN, Type.TypeCode.ENUM, Type.TypeCode.NULL, (l, r) -> null),
+        LT_NE(Comparisons.Type.LESS_THAN, Type.TypeCode.NULL, Type.TypeCode.ENUM, (l, r) -> null),
+        LTE_EN(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.ENUM, Type.TypeCode.NULL, (l, r) -> null),
+        LTE_NE(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.NULL, Type.TypeCode.ENUM, (l, r) -> null),
+        GT_EN(Comparisons.Type.GREATER_THAN, Type.TypeCode.ENUM, Type.TypeCode.NULL, (l, r) -> null),
+        GT_NE(Comparisons.Type.GREATER_THAN, Type.TypeCode.NULL, Type.TypeCode.ENUM, (l, r) -> null),
+        GTE_EN(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.ENUM, Type.TypeCode.NULL, (l, r) -> null),
+        GTE_NE(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.NULL, Type.TypeCode.ENUM, (l, r) -> null),
+        EQ_NID(Comparisons.Type.EQUALS, Type.TypeCode.NULL, Type.TypeCode.UUID, (l, r) -> null),
+        EQ_IDN(Comparisons.Type.EQUALS, Type.TypeCode.UUID, Type.TypeCode.NULL, (l, r) -> null),
+        NEQ_NID(Comparisons.Type.NOT_EQUALS, Type.TypeCode.NULL, Type.TypeCode.UUID, (l, r) -> null),
+        NEQ_IDN(Comparisons.Type.NOT_EQUALS, Type.TypeCode.UUID, Type.TypeCode.NULL, (l, r) -> null),
+        LT_NID(Comparisons.Type.LESS_THAN, Type.TypeCode.NULL, Type.TypeCode.UUID, (l, r) -> null),
+        LT_IDN(Comparisons.Type.LESS_THAN, Type.TypeCode.UUID, Type.TypeCode.NULL, (l, r) -> null),
+        LTE_NID(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.NULL, Type.TypeCode.UUID, (l, r) -> null),
+        LTE_IDN(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.UUID, Type.TypeCode.NULL, (l, r) -> null),
+        GT_NID(Comparisons.Type.GREATER_THAN, Type.TypeCode.NULL, Type.TypeCode.UUID, (l, r) -> null),
+        GT_IDN(Comparisons.Type.GREATER_THAN, Type.TypeCode.UUID, Type.TypeCode.NULL, (l, r) -> null),
+        GTE_NID(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.NULL, Type.TypeCode.UUID, (l, r) -> null),
+        GTE_IDN(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.UUID, Type.TypeCode.NULL, (l, r) -> null),
+
+        IS_DISTINCT_FROM_BN(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.BOOLEAN, Type.TypeCode.NULL, (l, r) -> Objects.nonNull(l)),
+        IS_DISTINCT_FROM_BB(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.BOOLEAN, Type.TypeCode.BOOLEAN, (l, r) -> (boolean)l != (boolean)r),
+        IS_DISTINCT_FROM_IN(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.INT, Type.TypeCode.NULL, (l, r) -> Objects.nonNull(l)),
+        IS_DISTINCT_FROM_II(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.INT, Type.TypeCode.INT, (l, r) -> (int)l != (int)r),
+        IS_DISTINCT_FROM_IL(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.INT, Type.TypeCode.LONG, (l, r) -> (int)l != (long)r),
+        IS_DISTINCT_FROM_IF(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.INT, Type.TypeCode.FLOAT, (l, r) -> (int)l != (float)r),
+        IS_DISTINCT_FROM_ID(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.INT, Type.TypeCode.DOUBLE, (l, r) -> (int)l != (double)r),
+        IS_DISTINCT_FROM_LN(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.LONG, Type.TypeCode.NULL, (l, r) -> Objects.nonNull(l)),
+        IS_DISTINCT_FROM_LI(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.LONG, Type.TypeCode.INT, (l, r) -> (long)l != (int)r),
+        IS_DISTINCT_FROM_LL(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.LONG, Type.TypeCode.LONG, (l, r) -> (long)l != (long)r),
+        IS_DISTINCT_FROM_LF(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.LONG, Type.TypeCode.FLOAT, (l, r) -> (long)l != (float)r),
+        IS_DISTINCT_FROM_LD(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.LONG, Type.TypeCode.DOUBLE, (l, r) -> (long)l != (double)r),
+        IS_DISTINCT_FROM_FN(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.FLOAT, Type.TypeCode.NULL, (l, r) -> Objects.nonNull(l)),
+        IS_DISTINCT_FROM_FI(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.FLOAT, Type.TypeCode.INT, (l, r) -> (float)l != (int)r),
+        IS_DISTINCT_FROM_FL(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.FLOAT, Type.TypeCode.LONG, (l, r) -> (float)l != (long)r),
+        IS_DISTINCT_FROM_FF(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.FLOAT, Type.TypeCode.FLOAT, (l, r) -> (float)l != (float)r),
+        IS_DISTINCT_FROM_FD(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.FLOAT, Type.TypeCode.DOUBLE, (l, r) -> (float)l != (double)r),
+        IS_DISTINCT_FROM_DN(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.DOUBLE, Type.TypeCode.NULL, (l, r) -> Objects.nonNull(l)),
+        IS_DISTINCT_FROM_DI(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.DOUBLE, Type.TypeCode.INT, (l, r) -> (double)l != (int)r),
+        IS_DISTINCT_FROM_DL(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.DOUBLE, Type.TypeCode.LONG, (l, r) -> (double)l != (long)r),
+        IS_DISTINCT_FROM_DF(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.DOUBLE, Type.TypeCode.FLOAT, (l, r) -> (double)l != (float)r),
+        IS_DISTINCT_FROM_DD(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.DOUBLE, Type.TypeCode.DOUBLE, (l, r) -> (double)l != (double)r),
+        IS_DISTINCT_FROM_SN(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.STRING, Type.TypeCode.NULL, (l, r) -> Objects.nonNull(l)),
+        IS_DISTINCT_FROM_SS(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.STRING, Type.TypeCode.STRING, (l, r) -> !l.equals(r)), // TODO: locale-aware comparison
+        IS_DISTINCT_FROM_NB(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.NULL, Type.TypeCode.BOOLEAN, (l, r) -> Objects.nonNull(r)),
+        IS_DISTINCT_FROM_NI(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.NULL, Type.TypeCode.INT, (l, r) -> Objects.nonNull(r)),
+        IS_DISTINCT_FROM_NL(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.NULL, Type.TypeCode.LONG, (l, r) -> Objects.nonNull(r)),
+        IS_DISTINCT_FROM_NF(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.NULL, Type.TypeCode.FLOAT, (l, r) -> Objects.nonNull(r)),
+        IS_DISTINCT_FROM_ND(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.NULL, Type.TypeCode.DOUBLE, (l, r) -> Objects.nonNull(r)),
+        IS_DISTINCT_FROM_NS(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.NULL, Type.TypeCode.STRING, (l, r) -> Objects.nonNull(r)),
+        IS_DISTINCT_FROM_NV(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.NULL, Type.TypeCode.VERSION, (l, r) -> Objects.nonNull(r)),
+        IS_DISTINCT_FROM_VN(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.VERSION, Type.TypeCode.NULL, (l, r) -> null),
+        IS_DISTINCT_FROM_VV(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.VERSION, Type.TypeCode.VERSION, (l, r) -> !l.equals(r)),
+        IS_DISTINCT_FROM_BYN(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.BYTES, Type.TypeCode.NULL, (l, r) -> Objects.nonNull(l)),
+        IS_DISTINCT_FROM_BYBY(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.BYTES, Type.TypeCode.BYTES, (l, r) -> Comparisons.evalComparison(Comparisons.Type.IS_DISTINCT_FROM, l, r)),
+        IS_DISTINCT_FROM_NBY(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.NULL, Type.TypeCode.BYTES, (l, r) -> Objects.nonNull(r)),
+        IS_DISTINCT_FROM_EE(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.ENUM, Type.TypeCode.ENUM, (l, r) -> Comparisons.evalComparison(Comparisons.Type.IS_DISTINCT_FROM, l, r)),
+        IS_DISTINCT_FROM_ES(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.ENUM, Type.TypeCode.STRING, (l, r) -> {
+            final var otherValue = PromoteValue.PhysicalOperator.stringToEnumValue(((Descriptors.EnumValueDescriptor) l).getType(), (String) r);
+            return Comparisons.evalComparison(Comparisons.Type.IS_DISTINCT_FROM, l, otherValue);
+        }),
+        IS_DISTINCT_FROM_SE(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.STRING, Type.TypeCode.ENUM, (l, r) -> {
+            final var otherValue = PromoteValue.PhysicalOperator.stringToEnumValue(((Descriptors.EnumValueDescriptor) r).getType(), (String) l);
+            return Comparisons.evalComparison(Comparisons.Type.EQUALS, otherValue, r);
+        }),
+        IS_DISTINCT_FROM_EN(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.ENUM, Type.TypeCode.NULL, (l, r) -> Objects.nonNull(l)),
+        IS_DISTINCT_FROM_NE(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.NULL, Type.TypeCode.ENUM, (l, r) -> Objects.nonNull(r)),
+        IS_DISTINCT_FROM_IDID(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.UUID, Type.TypeCode.UUID, (l, r) -> Comparisons.evalComparison(Comparisons.Type.IS_DISTINCT_FROM, l, r)),
+        IS_DISTINCT_FROM_IDS(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.UUID, Type.TypeCode.STRING, (l, r) -> Comparisons.evalComparison(Comparisons.Type.IS_DISTINCT_FROM, l, PromoteValue.PhysicalOperator.stringToUuidValue((String) r))),
+        IS_DISTINCT_FROM_SID(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.STRING, Type.TypeCode.UUID, (l, r) -> Comparisons.evalComparison(Comparisons.Type.IS_DISTINCT_FROM, PromoteValue.PhysicalOperator.stringToUuidValue((String) l), r)),
+        IS_DISTINCT_FROM_NID(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.NULL, Type.TypeCode.UUID, (l, r) -> Objects.nonNull(r)),
+        IS_DISTINCT_FROM_IDN(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.UUID, Type.TypeCode.NULL, (l, r) -> Objects.nonNull(l)),
+        IS_DISTINCT_FROM_NN(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.NULL, Type.TypeCode.NULL, (l, r) -> false),
+
+        NOT_DISTINCT_FROM_BN(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.BOOLEAN, Type.TypeCode.NULL, (l, r) -> Objects.isNull(l)),
+        NOT_DISTINCT_FROM_BB(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.BOOLEAN, Type.TypeCode.BOOLEAN, (l, r) -> (boolean)l == (boolean)r),
+        NOT_DISTINCT_FROM_IN(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.INT, Type.TypeCode.NULL, (l, r) -> Objects.isNull(l)),
+        NOT_DISTINCT_FROM_II(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.INT, Type.TypeCode.INT, (l, r) -> (int)l == (int)r),
+        NOT_DISTINCT_FROM_IL(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.INT, Type.TypeCode.LONG, (l, r) -> (int)l == (long)r),
+        NOT_DISTINCT_FROM_IF(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.INT, Type.TypeCode.FLOAT, (l, r) -> (int)l == (float)r),
+        NOT_DISTINCT_FROM_ID(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.INT, Type.TypeCode.DOUBLE, (l, r) -> (int)l == (double)r),
+        NOT_DISTINCT_FROM_LN(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.LONG, Type.TypeCode.NULL, (l, r) -> Objects.isNull(l)),
+        NOT_DISTINCT_FROM_LI(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.LONG, Type.TypeCode.INT, (l, r) -> (long)l == (int)r),
+        NOT_DISTINCT_FROM_LL(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.LONG, Type.TypeCode.LONG, (l, r) -> (long)l == (long)r),
+        NOT_DISTINCT_FROM_LF(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.LONG, Type.TypeCode.FLOAT, (l, r) -> (long)l == (float)r),
+        NOT_DISTINCT_FROM_LD(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.LONG, Type.TypeCode.DOUBLE, (l, r) -> (long)l == (double)r),
+        NOT_DISTINCT_FROM_FN(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.FLOAT, Type.TypeCode.NULL, (l, r) -> Objects.isNull(l)),
+        NOT_DISTINCT_FROM_FI(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.FLOAT, Type.TypeCode.INT, (l, r) -> (float)l == (int)r),
+        NOT_DISTINCT_FROM_FL(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.FLOAT, Type.TypeCode.LONG, (l, r) -> (float)l == (long)r),
+        NOT_DISTINCT_FROM_FF(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.FLOAT, Type.TypeCode.FLOAT, (l, r) -> (float)l == (float)r),
+        NOT_DISTINCT_FROM_FD(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.FLOAT, Type.TypeCode.DOUBLE, (l, r) -> (float)l == (double)r),
+        NOT_DISTINCT_FROM_DN(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.DOUBLE, Type.TypeCode.NULL, (l, r) -> Objects.isNull(l)),
+        NOT_DISTINCT_FROM_DI(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.DOUBLE, Type.TypeCode.INT, (l, r) -> (double)l == (int)r),
+        NOT_DISTINCT_FROM_DL(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.DOUBLE, Type.TypeCode.LONG, (l, r) -> (double)l == (long)r),
+        NOT_DISTINCT_FROM_DF(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.DOUBLE, Type.TypeCode.FLOAT, (l, r) -> (double)l == (float)r),
+        NOT_DISTINCT_FROM_DD(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.DOUBLE, Type.TypeCode.DOUBLE, (l, r) -> (double)l == (double)r),
+        NOT_DISTINCT_FROM_SN(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.STRING, Type.TypeCode.NULL, (l, r) -> Objects.isNull(l)),
+        NOT_DISTINCT_FROM_SS(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.STRING, Type.TypeCode.STRING, Object::equals), // TODO: locale-aware comparison
+        NOT_DISTINCT_FROM_NB(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.NULL, Type.TypeCode.BOOLEAN, (l, r) -> Objects.isNull(r)),
+        NOT_DISTINCT_FROM_NI(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.NULL, Type.TypeCode.INT, (l, r) -> Objects.isNull(r)),
+        NOT_DISTINCT_FROM_NL(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.NULL, Type.TypeCode.LONG, (l, r) -> Objects.isNull(r)),
+        NOT_DISTINCT_FROM_NF(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.NULL, Type.TypeCode.FLOAT, (l, r) -> Objects.isNull(r)),
+        NOT_DISTINCT_FROM_ND(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.NULL, Type.TypeCode.DOUBLE, (l, r) -> Objects.isNull(r)),
+        NOT_DISTINCT_FROM_NS(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.NULL, Type.TypeCode.STRING, (l, r) -> Objects.isNull(r)),
+        NOT_DISTINCT_FROM_NV(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.NULL, Type.TypeCode.VERSION, (l, r) -> Objects.isNull(r)),
+        NOT_DISTINCT_FROM_VN(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.VERSION, Type.TypeCode.NULL, (l, r) -> Objects.isNull(r)),
+        NOT_DISTINCT_FROM_VV(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.VERSION, Type.TypeCode.VERSION, Object::equals),
+
+        NOT_DISTINCT_FROM_BYN(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.BYTES, Type.TypeCode.NULL, (l, r) -> Objects.isNull(l)),
+        NOT_DISTINCT_FROM_BYBY(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.BYTES, Type.TypeCode.BYTES, (l, r) -> Comparisons.evalComparison(Comparisons.Type.NOT_DISTINCT_FROM, l, r)),
+        NOT_DISTINCT_FROM_NBY(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.NULL, Type.TypeCode.BYTES, (l, r) -> Objects.isNull(r)),
+
+        NOT_DISTINCT_FROM_EE(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.ENUM, Type.TypeCode.ENUM, (l, r) -> Comparisons.evalComparison(Comparisons.Type.NOT_DISTINCT_FROM, l, r)),
+        NOT_DISTINCT_FROM_ES(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.ENUM, Type.TypeCode.STRING, (l, r) -> {
+            final var otherValue = PromoteValue.PhysicalOperator.stringToEnumValue(((Descriptors.EnumValueDescriptor) l).getType(), (String) r);
+            return Comparisons.evalComparison(Comparisons.Type.NOT_DISTINCT_FROM, l, otherValue);
+        }),
+        NOT_DISTINCT_FROM_SE(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.STRING, Type.TypeCode.ENUM, (l, r) -> {
+            final var otherValue = PromoteValue.PhysicalOperator.stringToEnumValue(((Descriptors.EnumValueDescriptor) r).getType(), (String) l);
+            return Comparisons.evalComparison(Comparisons.Type.NOT_DISTINCT_FROM, otherValue, r);
+        }),
+        NOT_DISTINCT_FROM_EN(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.ENUM, Type.TypeCode.NULL, (l, r) -> Objects.isNull(l)),
+        NOT_DISTINCT_FROM_NE(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.NULL, Type.TypeCode.ENUM, (l, r) -> Objects.isNull(r)),
+
+        NOT_DISTINCT_FROM_IDID(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.UUID, Type.TypeCode.UUID, (l, r) -> Comparisons.evalComparison(Comparisons.Type.NOT_DISTINCT_FROM, l, r)),
+        NOT_DISTINCT_FROM_IDS(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.UUID, Type.TypeCode.STRING, (l, r) -> Comparisons.evalComparison(Comparisons.Type.NOT_DISTINCT_FROM, l, PromoteValue.PhysicalOperator.stringToUuidValue((String) r))),
+        NOT_DISTINCT_FROM_SID(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.STRING, Type.TypeCode.UUID, (l, r) -> Comparisons.evalComparison(Comparisons.Type.NOT_DISTINCT_FROM, PromoteValue.PhysicalOperator.stringToUuidValue((String) l), r)),
+        NOT_DISTINCT_FROM_NID(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.NULL, Type.TypeCode.UUID, (l, r) -> Objects.isNull(r)),
+        NOT_DISTINCT_FROM_IDN(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.UUID, Type.TypeCode.NULL, (l, r) -> Objects.isNull(l)),
+
+        NOT_DISTINCT_FROM_NN(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.NULL, Type.TypeCode.NULL, (l, r) -> true),
+
         ;
         // We can pass down UUID or String till here.
 
@@ -795,8 +1074,15 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
         @Nullable
         public Object eval(@Nullable final Object arg1, @Nullable final Object arg2) {
+            // handle nulls
             if (arg1 == null || arg2 == null) {
-                return null;
+                if (type == Comparisons.Type.IS_DISTINCT_FROM) {
+                    return arg1 != null || arg2 != null;
+                } else if (type == Comparisons.Type.NOT_DISTINCT_FROM) {
+                    return arg1 == null && arg2 == null;
+                } else {
+                    return null;
+                }
             }
             return evaluateFunction.apply(arg1, arg2);
         }
@@ -859,7 +1145,10 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         IS_NOT_NULL_EI(Comparisons.Type.NOT_NULL, Type.TypeCode.ENUM, Objects::nonNull),
 
         IS_NULL_ID(Comparisons.Type.IS_NULL, Type.TypeCode.UUID, Objects::isNull),
-        IS_NOT_NULL_ID(Comparisons.Type.NOT_NULL, Type.TypeCode.UUID, Objects::nonNull);
+        IS_NOT_NULL_ID(Comparisons.Type.NOT_NULL, Type.TypeCode.UUID, Objects::nonNull),
+
+        IS_NULL_NT(Comparisons.Type.IS_NULL, Type.TypeCode.NULL, Objects::isNull),
+        IS_NOT_NULL_NT(Comparisons.Type.NOT_NULL, Type.TypeCode.NULL, Objects::nonNull);
 
         @Nonnull
         private static final Supplier<BiMap<UnaryPhysicalOperator, PUnaryPhysicalOperator>> protoEnumBiMapSupplier =

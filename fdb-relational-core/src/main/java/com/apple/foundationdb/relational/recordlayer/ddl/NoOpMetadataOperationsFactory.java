@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,8 @@ import com.apple.foundationdb.relational.api.ddl.ConstantAction;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
+import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -40,7 +42,7 @@ public final class NoOpMetadataOperationsFactory implements MetadataOperationsFa
 
     @Nonnull
     @Override
-    public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate templateName, @Nonnull Options templateProperties) {
+    public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate templateName, @Nonnull Options templateProperties) {
         return NoOpConstantAction.INSTANCE;
     }
 
@@ -65,6 +67,21 @@ public final class NoOpMetadataOperationsFactory implements MetadataOperationsFa
     @Nonnull
     @Override
     public ConstantAction getDropSchemaConstantAction(@Nonnull URI dbPath, @Nonnull String schemaName, @Nonnull Options options) {
+        return NoOpConstantAction.INSTANCE;
+    }
+
+    @Nonnull
+    @Override
+    public ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull final SchemaTemplate template, boolean throwIfExists,
+                                                                   @Nonnull final RecordLayerInvokedRoutine invokedRoutine,
+                                                                   @Nonnull final PreparedParams preparedParams) {
+        return NoOpConstantAction.INSTANCE;
+    }
+
+    @Nonnull
+    @Override
+    public ConstantAction getDropTemporaryFunctionConstantAction(boolean throwIfNotExists,
+                                                                 @Nonnull final String temporaryFunctionName) {
         return NoOpConstantAction.INSTANCE;
     }
 

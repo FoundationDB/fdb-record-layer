@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.MutationType;
-import com.apple.foundationdb.Range;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
@@ -91,12 +90,6 @@ import java.util.stream.Collectors;
 @API(API.Status.INTERNAL)
 public abstract class IndexingBase {
 
-    private static final Object INDEX_BUILD_LOCK_KEY = 0L;
-    private static final Object INDEX_BUILD_SCANNED_RECORDS = 1L;
-    private static final Object INDEX_BUILD_TYPE_VERSION = 2L;
-    private static final Object INDEX_SCRUBBED_INDEX_RANGES = 3L;
-    private static final Object INDEX_SCRUBBED_RECORDS_RANGES = 4L;
-
     @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(IndexingBase.class);
     @Nonnull
@@ -136,38 +129,6 @@ public abstract class IndexingBase {
         return common.getRunner();
     }
 
-    @Nonnull
-    private static Subspace indexBuildSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, Object key) {
-        return store.getUntypedRecordStore().indexBuildSubspace(index).subspace(Tuple.from(key));
-    }
-
-    @Nonnull
-    protected static Subspace indexBuildLockSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
-        return indexBuildSubspace(store, index, INDEX_BUILD_LOCK_KEY);
-    }
-
-    @Nonnull
-    protected static Subspace indexBuildScannedRecordsSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
-        return indexBuildSubspace(store, index, INDEX_BUILD_SCANNED_RECORDS);
-    }
-
-    @Nonnull
-    protected static Subspace indexBuildTypeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
-        return indexBuildSubspace(store, index, INDEX_BUILD_TYPE_VERSION);
-    }
-
-    @Nonnull
-    public static Subspace indexScrubIndexRangeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
-        // This subspace holds the scrubbed ranges of the index itself (when looking for dangling entries)
-        return indexBuildSubspace(store, index, INDEX_SCRUBBED_INDEX_RANGES);
-    }
-
-    @Nonnull
-    public static Subspace indexScrubRecordsRangeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
-        // This subspace hods the scrubbed ranges of the records (when looking for missing index entries)
-        return indexBuildSubspace(store, index, INDEX_SCRUBBED_RECORDS_RANGES);
-    }
-
     @SuppressWarnings("squid:S1452")
     protected CompletableFuture<FDBRecordStore> openRecordStore(@Nonnull FDBRecordContext context) {
         return common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync();
@@ -204,7 +165,7 @@ public abstract class IndexingBase {
         }
         if (useSyncLock) {
             buildIndexAsyncFuture = runner
-                    .runAsync(context -> openRecordStore(context).thenApply(store -> indexBuildLockSubspace(store, index)),
+                    .runAsync(context -> openRecordStore(context).thenApply(store -> IndexingSubspaces.indexBuildLockSubspace(store, index)),
                             common.indexLogMessageKeyValues("IndexingBase::indexBuildLockSubspace"))
                     .thenCompose(lockSubspace -> runner.startSynchronizedSessionAsync(lockSubspace, common.config.getLeaseLengthMillis()))
                     .thenCompose(synchronizedRunner -> {
@@ -517,7 +478,7 @@ public abstract class IndexingBase {
 
     CompletableFuture<Void> throwIfSyncedLock(String otherIndexName, FDBRecordStore store, IndexBuildProto.IndexBuildIndexingStamp newStamp, IndexBuildProto.IndexBuildIndexingStamp savedStamp) {
         final Index otherIndex = store.getRecordMetaData().getIndex(otherIndexName);
-        final Subspace mainLockSubspace = indexBuildLockSubspace(store, otherIndex);
+        final Subspace mainLockSubspace = IndexingSubspaces.indexBuildLockSubspace(store, otherIndex);
         return SynchronizedSession.checkActiveSessionExists(store.ensureContextActive(), mainLockSubspace)
                         .thenApply(hasActiveSession -> {
                             if (Boolean.TRUE.equals(hasActiveSession)) {
@@ -554,7 +515,7 @@ public abstract class IndexingBase {
                     .addKeysAndValues(common.indexLogMessageKeyValues())
                     .toString());
         }
-        final IndexBuildProto.IndexBuildIndexingStamp fakeSavedStamp = IndexingByRecords.compileIndexingTypeStamp();
+        final IndexBuildProto.IndexBuildIndexingStamp fakeSavedStamp = IndexingMultiTargetByRecords.compileSingleTargetLegacyIndexingTypeStamp();
         throw newPartlyBuiltException(true, fakeSavedStamp, indexingTypeStamp, index);
     }
 
@@ -576,44 +537,10 @@ public abstract class IndexingBase {
     }
 
     @Nonnull
-    @SuppressWarnings("PMD.CloseResource")
-    private CompletableFuture<Void> setScrubberTypeOrThrow(FDBRecordStore store) {
-        // HERE: The index must be readable, checked by the caller
-        //   if scrubber had already run and still have missing ranges, do nothing
-        //   else: clear ranges and overwrite type-stamp
-        IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp = getIndexingTypeStamp(store);
-        validateOrThrowEx(indexingTypeStamp.getMethod().equals(IndexBuildProto.IndexBuildIndexingStamp.Method.SCRUB_REPAIR),
-                "Not a scrubber type-stamp");
-
-        final Index index = common.getIndex(); // Note: the scrubbers do not support multi target (yet)
-        IndexingRangeSet indexRangeSet = IndexingRangeSet.forScrubbingIndex(store, index);
-        IndexingRangeSet recordsRangeSet = IndexingRangeSet.forScrubbingRecords(store, index);
-        final CompletableFuture<Range> indexRangeFuture = indexRangeSet.firstMissingRangeAsync();
-        final CompletableFuture<Range> recordRangeFuture = recordsRangeSet.firstMissingRangeAsync();
-        return indexRangeFuture.thenCompose(indexRange -> {
-            if (indexRange == null) {
-                // Here: no un-scrubbed index range was left for this call. We will
-                // erase the 'ranges' data to allow a fresh index re-scrubbing.
-                if (LOGGER.isDebugEnabled()) {
-                    LOGGER.debug(KeyValueLogMessage.build("Reset scrubber's index range")
-                            .addKeysAndValues(common.indexLogMessageKeyValues())
-                            .toString());
-                }
-                indexRangeSet.clear();
-            }
-            return recordRangeFuture.thenAccept(recordRange -> {
-                if (recordRange == null) {
-                    // Here: no un-scrubbed records range was left for this call. We will
-                    // erase the 'ranges' data to allow a fresh records re-scrubbing.
-                    if (LOGGER.isDebugEnabled()) {
-                        LOGGER.debug(KeyValueLogMessage.build("Reset scrubber's records range")
-                                .addKeysAndValues(common.indexLogMessageKeyValues())
-                                .toString());
-                    }
-                    recordsRangeSet.clear();
-                }
-            });
-        });
+    protected CompletableFuture<Void> setScrubberTypeOrThrow(FDBRecordStore store) {
+        // This path should never be reached
+        throw new ValidationException("Called setScrubberTypeOrThrow in a non-scrubbing path",
+                "isScrubber", isScrubber);
     }
 
     @Nonnull
@@ -792,7 +719,7 @@ public abstract class IndexingBase {
                     }
                     if (common.isTrackProgress()) {
                         for (Index index: common.getTargetIndexes()) {
-                            final Subspace scannedRecordsSubspace = indexBuildScannedRecordsSubspace(store, index);
+                            final Subspace scannedRecordsSubspace = IndexingSubspaces.indexBuildScannedRecordsSubspace(store, index);
                             store.context.ensureActive().mutate(MutationType.ADD, scannedRecordsSubspace.getKey(),
                                     FDBRecordStore.encodeRecordCount(recordsScannedInTransaction));
                         }

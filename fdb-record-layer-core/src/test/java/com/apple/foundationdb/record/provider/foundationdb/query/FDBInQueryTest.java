@@ -57,7 +57,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSort
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
-import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
@@ -164,6 +163,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedUnionPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty.usedTypes;
 import static java.util.Arrays.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anyOf;
@@ -323,8 +323,8 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                     .addResultColumn(projectColumn(base.getFlowedObjectValue(), "rec_no"))
                     .build()
                     .buildSelect();
-            Quantifier selectQun = Quantifier.forEach(Reference.of(select));
-            return Reference.of(LogicalSortExpression.unsorted(selectQun));
+            Quantifier selectQun = Quantifier.forEach(Reference.initialOf(select));
+            return Reference.initialOf(LogicalSortExpression.unsorted(selectQun));
         });
         assertMatchesExactly(plan, inJoinPlan(
                 mapPlan(
@@ -393,8 +393,8 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
 
                     graphExpansionBuilder.addResultColumn(Column.unnamedOf(strValueIndexed));
                     graphExpansionBuilder.addResultColumn(Column.unnamedOf(numValue3Indexed));
-                    qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
-                    return Reference.of(new LogicalSortExpression(RequestedOrdering.preserve(), qun));
+                    qun = Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelect()));
+                    return Reference.initialOf(new LogicalSortExpression(RequestedOrdering.preserve(), qun));
                 });
 
         assertMatchesExactly(plan,
@@ -443,15 +443,15 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
 
                     graphExpansionBuilder.addResultColumn(Column.unnamedOf(strValueIndexed));
                     graphExpansionBuilder.addResultColumn(Column.unnamedOf(numValue3Indexed));
-                    qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
-                    return Reference.of(new LogicalSortExpression(RequestedOrdering.preserve(), qun));
+                    qun = Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelect()));
+                    return Reference.initialOf(new LogicalSortExpression(RequestedOrdering.preserve(), qun));
                 });
 
         assertMatchesExactly(plan,
                         mapPlan(predicatesFilterPlan(typeFilterPlan(scanPlan()))));
         assertEquals(-1783159911, plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
 
-        final var usedTypes = UsedTypesProperty.evaluate(plan);
+        final var usedTypes = usedTypes().evaluate(plan);
         final var evaluationContext =
                 EvaluationContext.forTypeRepository(TypeRepository.newBuilder().addAllTypes(usedTypes).build());
         assertEquals(20, querySimpleRecordStore(hook, plan, () -> evaluationContext,
@@ -492,8 +492,8 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
 
                     graphExpansionBuilder.addResultColumn(Column.unnamedOf(strValueIndexed));
                     graphExpansionBuilder.addResultColumn(Column.unnamedOf(numValue3Indexed));
-                    qun = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
-                    return Reference.of(new LogicalSortExpression(RequestedOrdering.preserve(), qun));
+                    qun = Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelect()));
+                    return Reference.initialOf(new LogicalSortExpression(RequestedOrdering.preserve(), qun));
                 }));
     }
 
@@ -654,7 +654,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build());
         final RecordQueryPlan plan = planGraph(() -> {
             final Quantifier base = fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
-            var selectQun = Quantifier.forEach(Reference.of(GraphExpansion.builder()
+            var selectQun = Quantifier.forEach(Reference.initialOf(GraphExpansion.builder()
                     .addQuantifier(base)
                     .addPredicate(FieldValue.ofFieldName(base.getFlowedObjectValue(), "num_value_3_indexed")
                             .withComparison(new Comparisons.ValueComparison(Comparisons.Type.IN, constant)))
@@ -664,7 +664,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                     .buildSelect()));
 
             final AliasMap aliasMap = AliasMap.ofAliases(selectQun.getAlias(), Quantifier.current());
-            return Reference.of(sortExpression(ImmutableList.of(FieldValue.ofFieldName(selectQun.getFlowedObjectValue(), "num_value_3_indexed").rebase(aliasMap)), reverse, selectQun));
+            return Reference.initialOf(sortExpression(ImmutableList.of(FieldValue.ofFieldName(selectQun.getFlowedObjectValue(), "num_value_3_indexed").rebase(aliasMap)), reverse, selectQun));
         });
 
         // map(Covering(Index(MySimpleRecord$num_value_3_indexed [EQUALS $q50]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]])[($q91.num_value_3_indexed as num_value_3_indexed, $q91.rec_no as rec_no)]) WHERE __corr_q50 IN @0
@@ -1110,7 +1110,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         planner.setConfiguration(planner.getConfiguration().asBuilder().setAttemptFailedInJoinAsUnionMaxSize(10).build());
         final RecordQueryPlan plan = planGraph(() -> {
             final Quantifier base = fullTypeScan(recordStore.getRecordMetaData(), "MySimpleRecord");
-            final Quantifier select = Quantifier.forEach(Reference.of(GraphExpansion.builder()
+            final Quantifier select = Quantifier.forEach(Reference.initialOf(GraphExpansion.builder()
                     .addQuantifier(base)
                     .addPredicate(FieldValue.ofFieldName(base.getFlowedObjectValue(), "num_value_2")
                             .withComparison(new Comparisons.ValueComparison(Comparisons.Type.EQUALS, nv2Constant)))
@@ -1124,7 +1124,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                     .buildSelect()));
 
             final AliasMap aliasMap = AliasMap.ofAliases(select.getAlias(), Quantifier.current());
-            return Reference.of(sortExpression(ImmutableList.of(FieldValue.ofFieldName(select.getFlowedObjectValue(), "num_value_unique").rebase(aliasMap)), reverse, select));
+            return Reference.initialOf(sortExpression(ImmutableList.of(FieldValue.ofFieldName(select.getFlowedObjectValue(), "num_value_unique").rebase(aliasMap)), reverse, select));
         });
 
         assertMatchesExactly(plan,
@@ -2694,7 +2694,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         final Consumer<TestRecords1Proto.MySimpleRecord> numValue2Check = simpleRecord -> assertThat(simpleRecord.getNumValue2(), in(nv2List));
         final Function<TestRecords1Proto.MySimpleRecord, Tuple> sortKey = simpleRecord -> Tuple.from(simpleRecord.getNumValue3Indexed());
         final Bindings base = Bindings.newBuilder().set("nv2_list", nv2List).build();
-        TypeRepository typeRepository = TypeRepository.newBuilder().addAllTypes(UsedTypesProperty.evaluate(plan)).build();
+        TypeRepository typeRepository = TypeRepository.newBuilder().addAllTypes(usedTypes().evaluate(plan)).build();
         assertEquals(34,
                 querySimpleRecordStore(hook, plan,
                         () -> EvaluationContext.forBindingsAndTypeRepository(base.childBuilder().set("str_list", List.of("even")).build(), typeRepository),
@@ -2817,7 +2817,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         final Consumer<TestRecords1Proto.MySimpleRecord> numValue2Check = simpleRecord -> assertThat(simpleRecord.getNumValue2(), in(nv2List));
         final Function<TestRecords1Proto.MySimpleRecord, Tuple> sortKey = simpleRecord -> Tuple.from(simpleRecord.getNumValue3Indexed());
         final Bindings base = Bindings.newBuilder().set("nv2_list", nv2List).build();
-        TypeRepository typeRepository = TypeRepository.newBuilder().addAllTypes(UsedTypesProperty.evaluate(plan)).build();
+        TypeRepository typeRepository = TypeRepository.newBuilder().addAllTypes(usedTypes().evaluate(plan)).build();
         assertEquals(34,
                 querySimpleRecordStore(hook, plan,
                         () -> EvaluationContext.forBindingsAndTypeRepository(base.childBuilder().set("str_list", List.of("even")).build(), typeRepository),

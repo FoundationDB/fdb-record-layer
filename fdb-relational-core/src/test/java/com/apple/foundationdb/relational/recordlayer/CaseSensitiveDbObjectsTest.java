@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,19 +25,18 @@ import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
+import com.apple.foundationdb.relational.utils.RelationalAssertions;
 import com.apple.foundationdb.relational.utils.ResultSetAssert;
 import com.apple.foundationdb.relational.utils.SchemaTemplateRule;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
-import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
 import org.apache.logging.log4j.Level;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import javax.annotation.Nonnull;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
@@ -45,8 +44,9 @@ import java.sql.SQLException;
  * Test case-sensitive db object connection option.
  */
 public class CaseSensitiveDbObjectsTest {
-    private static final String SCHEMA_TEMPLATE = " " +
-            "CREATE TABLE \"t1\" (\"group\" bigint, \"id\" string, \"val\" bigint, PRIMARY KEY(\"group\", \"id\")) ";
+    @Nonnull
+    private static final String SCHEMA_TEMPLATE = "CREATE TABLE \"t1\" (\"group\" bigint, \"id\" string, \"val\" " +
+            "bigint, PRIMARY KEY(\"group\", \"id\")) ";
 
     @RegisterExtension
     @Order(0)
@@ -54,7 +54,9 @@ public class CaseSensitiveDbObjectsTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, CaseSensitiveDbObjectsTest.class, SCHEMA_TEMPLATE, new SchemaTemplateRule.SchemaTemplateOptions(true, true));
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(CaseSensitiveDbObjectsTest.class,
+            SCHEMA_TEMPLATE, Options.builder().withOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS, true).build(),
+            new SchemaTemplateRule.SchemaTemplateOptions(true, true));
 
     @RegisterExtension
     @Order(2)
@@ -66,12 +68,12 @@ public class CaseSensitiveDbObjectsTest {
     @Order(3)
     public final RelationalStatementRule statement = new RelationalStatementRule(connection);
 
-    public CaseSensitiveDbObjectsTest() throws SQLException {
-    }
-
     @RegisterExtension
     @Order(4)
     public final LogAppenderRule logAppender = new LogAppenderRule("QueryLoggingTestLogAppender", PlanGenerator.class, Level.INFO);
+
+    public CaseSensitiveDbObjectsTest() throws SQLException {
+    }
 
     @Test
     void lowerCaseSelectWorks() throws SQLException {
@@ -138,7 +140,7 @@ public class CaseSensitiveDbObjectsTest {
     }
 
     @Test
-    void planIsProperlyCachedAndReusedAcrossCaseOptionVariation() throws SQLException, RelationalException {
+    void planIsProperlyCachedAndReusedAcrossCaseOptionVariation() throws SQLException {
         Assertions.assertThat(logAppender.getLogEvents()).isEmpty();
         statement.executeUpdate("insert into \"t1\" values (1, 'abc', 1)");
         try (RelationalResultSet resultSet = statement.executeQuery("select id from t1 where group = 1 options (log query)")) {
@@ -149,10 +151,12 @@ public class CaseSensitiveDbObjectsTest {
         Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("select 'id' from 't1' where 'group' = ?");
         Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"miss\"");
 
-        try (RelationalConnection caseInsensitiveConn = DriverManager.getConnection(database.getConnectionUri().toString()).unwrap(RelationalConnection.class)) {
+        try (RelationalConnection caseInsensitiveConn = DriverManager.getConnection(database.getConnectionUri()
+                .toString()).unwrap(RelationalConnection.class)) {
             caseInsensitiveConn.setSchema("TEST_SCHEMA");
             try (RelationalStatement caseInsensitiveStatement = caseInsensitiveConn.createStatement()) {
-                try (RelationalResultSet resultSet = caseInsensitiveStatement.executeQuery("select \"id\" from \"t1\" where \"group\" = 1 options (log query)")) {
+                try (RelationalResultSet resultSet = caseInsensitiveStatement.executeQuery(
+                        "select \"id\" from \"t1\" where \"group\" = 1 options (log query)")) {
                     ResultSetAssert.assertThat(resultSet).hasNextRow()
                             .isRowExactly("abc")
                             .hasNoNextRow();

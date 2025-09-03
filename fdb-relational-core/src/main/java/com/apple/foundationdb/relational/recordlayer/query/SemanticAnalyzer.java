@@ -21,14 +21,18 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.BuiltInFunction;
 import com.apple.foundationdb.record.query.plan.cascades.BuiltInTableFunction;
+import com.apple.foundationdb.record.query.plan.cascades.CatalogedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IndexAccessHint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
@@ -42,6 +46,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.NotValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamableAggregateValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -53,7 +58,7 @@ import com.apple.foundationdb.relational.api.metadata.Table;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalog;
-import com.apple.foundationdb.relational.recordlayer.query.functions.SqlFunctionCatalogImpl;
+import com.apple.foundationdb.relational.recordlayer.query.functions.WithPlanGenerationSideEffects;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.QueryVisitor;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Equivalence;
@@ -70,7 +75,6 @@ import org.antlr.v4.runtime.tree.ParseTree;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -83,31 +87,43 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 /**
- * Performs basic semantic analysis and resolution legwork.
+ * This class is responsible for performing a number of tasks revolving around semantic checks and resolution. For example,
+ * it assists in looking up an {@link Identifier} within a chain of {@link LogicalPlanFragment}(s), expanding a {@link Star}
+ * expression into its individual fields, resolving an alias, and so on.
+ * <br/>
+ * In addition to that, this class performs metadata resolution tasks, such as resolving tables, validating indexes, and
+ * resolving built-in and user-defined functions, which arguably, should be handled in a separate catalog component.
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
 public class SemanticAnalyzer {
 
     private static final int BITMAP_DEFAULT_ENTRY_SIZE = 10_000;
+
     private static final Set<String> BITMAP_SCALAR_FUNCTIONS = ImmutableSet.of("bitmap_bucket_offset", "bitmap_bit_position");
+
     @Nonnull
     private final SchemaTemplate metadataCatalog;
 
     @Nonnull
     private final SqlFunctionCatalog functionCatalog;
 
+    @Nonnull
+    private final MutablePlanGenerationContext mutablePlanGenerationContext;
+
     public SemanticAnalyzer(@Nonnull SchemaTemplate metadataCatalog,
-                            @Nonnull SqlFunctionCatalog functionCatalog) {
+                            @Nonnull SqlFunctionCatalog functionCatalog,
+                            @Nonnull MutablePlanGenerationContext mutablePlanGenerationContext) {
         this.metadataCatalog = metadataCatalog;
         this.functionCatalog = functionCatalog;
+        this.mutablePlanGenerationContext = mutablePlanGenerationContext;
     }
 
     /**
      * If a string is single- or double-quoted, removes the quotation, otherwise, upper-case it.
      *
-     * @param string                       The input string
-     * @param caseSensitive String is taken as is if true, upper-cased otherwise
+     * @param string The input string
+     * @param caseSensitive if {@code true}, the input string is taken as-is, upper-cased otherwise
      * @return the normalized string
      */
     @Nullable
@@ -134,14 +150,22 @@ public class SemanticAnalyzer {
         return str.startsWith(quotationMark) && str.endsWith(quotationMark);
     }
 
+    /**
+     * Looks up a common table expression (CTE) in a chain of {@link LogicalPlanFragment}.
+     * @param identifier The name of the CTE.
+     * @param logicalPlanFragment The plan fragments chain.
+     * @return Optional with {@link LogicalOperator} whose name matches the given identifier, if found.
+     */
     @Nonnull
-    public Optional<LogicalOperator> findCteMaybe(@Nonnull Identifier identifier, @Nonnull LogicalPlanFragment logicalPlanFragment) {
+    public Optional<LogicalOperator> findCteMaybe(@Nonnull final Identifier identifier,
+                                                  @Nonnull final LogicalPlanFragment logicalPlanFragment) {
         var currentFragment = Optional.of(logicalPlanFragment);
         while (currentFragment.isPresent()) {
             final var logicalOperators = currentFragment.get().getLogicalOperators();
             final var matches = logicalOperators.stream().filter(logicalOperator -> logicalOperator.getName().isPresent() &&
                     logicalOperator.getName().get().equals(identifier)).collect(ImmutableList.toImmutableList());
-            Assert.thatUnchecked(matches.size() <= 1, ErrorCode.DUPLICATE_ALIAS, () -> String.format(Locale.ROOT, "found '%s' more than once", identifier.getName()));
+            Assert.thatUnchecked(matches.size() <= 1, ErrorCode.DUPLICATE_ALIAS,
+                    () -> String.format(Locale.ROOT, "found '%s' more than once", identifier.getName()));
             if (!matches.isEmpty()) {
                 return Optional.of(matches.get(0));
             }
@@ -150,7 +174,7 @@ public class SemanticAnalyzer {
         return Optional.empty();
     }
 
-    public boolean tableExists(@Nonnull Identifier tableIdentifier) {
+    public boolean tableExists(@Nonnull final Identifier tableIdentifier) {
         if (tableIdentifier.getQualifier().size() > 1) {
             return false;
         }
@@ -168,6 +192,10 @@ public class SemanticAnalyzer {
         } catch (RelationalException e) {
             throw e.toUncheckedWrappedException();
         }
+    }
+
+    public boolean functionExists(@Nonnull final Identifier functionIdentifier) {
+        return functionCatalog.containsFunction(functionIdentifier.getName());
     }
 
     @Nonnull
@@ -477,7 +505,7 @@ public class SemanticAnalyzer {
     @Nonnull
     public DataType lookupType(@Nonnull Identifier typeIdentifier, boolean isNullable, boolean isRepeated,
                                @Nonnull Function<String, Optional<DataType>> dataTypeProvider) {
-        DataType type = null;
+        DataType type;
         final var typeName = typeIdentifier.getName();
         switch (typeName.toUpperCase(Locale.ROOT)) {
             case "STRING":
@@ -563,7 +591,7 @@ public class SemanticAnalyzer {
      * <ul>
      *     <li>each leg must project the same number of columns</li>
      *     <li>the ith columns of each union leg have either the same type or have a common type promotion, in other
-     *     words, their maximum type is well defined.
+     *     words, their maximum type is well-defined.
      * </ul>
      * @param unionLegs The logical operators representing the legs of the union.
      * @return If all union legs have the same type, returns {@code Optional.empty()}, otherwise, returns a {@code Type.Record}
@@ -713,7 +741,7 @@ public class SemanticAnalyzer {
         }
     }
 
-    public static void validateContinuation(@Nonnull Expression continuation) {
+    public static void validateContinuation(@Nonnull final Expression continuation) {
         // currently, this only validates that the underlying Value is a byte string.
         // in the future, we might add more context-aware checks.
         final var underlying = continuation.getUnderlying();
@@ -726,45 +754,103 @@ public class SemanticAnalyzer {
     }
 
     /**
-     * Resolves a function given its name and a list of arguments by looking it up in the {@link SqlFunctionCatalog}.
+     * Resolves a scalar function given its name and a list of arguments by looking it up in the
+     * {@link SqlFunctionCatalog}.
      * <br>
      * Ideally, this overload should not exist, in other words, the caller should not be responsible for determining
      * whether the single-item records should be flattened or not.
      * Currently almost all supported SQL functions do not expect {@code Record} objects,
      * so this is probably ok, however, this does not necessarily hold for the future.
-     * See {@link SqlFunctionCatalogImpl#flattenRecordWithOneField(Typed)} for more information.
+     * See {@link SqlFunctionCatalog#flattenRecordWithOneField(Typed)} for more information.
+     *
      * @param functionName The function name.
-     * @param flattenSingleItemRecords {@code true} if single-item records should be (recursively) replaced with their
-     *                                 content, otherwise {@code false}.
-     * @param isTableValued {@code true} if the function is expected to be a table-valued function, otherwise {@code false}.
      * @param arguments The function arguments.
-     * @return A resolved SQL function {@code Expression}.
+     * @param flattenSingleItemRecords {@code true} if single-item records should be (recursively) replaced with their
+     * content, otherwise {@code false}.
+     *
+     * @return An {@link Expression} representing the resolved SQL function.
      */
     @Nonnull
-    public Expression resolveFunction(@Nonnull final String functionName,
-                                      boolean flattenSingleItemRecords,
-                                      boolean isTableValued,
-                                      @Nonnull final Expression... arguments) {
+    public Expression resolveScalarFunction(@Nonnull final String functionName, @Nonnull final Expressions arguments,
+                                            boolean flattenSingleItemRecords) {
         Assert.thatUnchecked(functionCatalog.containsFunction(functionName), ErrorCode.UNSUPPORTED_QUERY,
                 () -> String.format(Locale.ROOT, "Unsupported operator %s", functionName));
-        final var builtInFunction = functionCatalog.lookUpFunction(functionName, arguments);
-        if (isTableValued) {
-            Assert.thatUnchecked(builtInFunction instanceof BuiltInTableFunction, functionName + " is not a table-valued function");
-        }
-        List<Expression> argumentList = new ArrayList<>();
-        argumentList.addAll(List.of(arguments));
+
+        final var builtInFunction = functionCatalog.lookupFunction(functionName, arguments);
+        processFunctionSideEffects(builtInFunction);
+
+        final var argumentList = ImmutableList.<Expression>builderWithExpectedSize(arguments.size() + 1).addAll(arguments);
         if (BITMAP_SCALAR_FUNCTIONS.contains(functionName.toLowerCase(Locale.ROOT))) {
             argumentList.add(Expression.ofUnnamed(new LiteralValue<>(BITMAP_DEFAULT_ENTRY_SIZE)));
         }
-        final List<? extends Typed> valueArgs = argumentList.stream().map(Expression::getUnderlying)
-                .map(v -> flattenSingleItemRecords ? SqlFunctionCatalogImpl.flattenRecordWithOneField(v) : v)
+
+        final List<? extends Typed> valueArgs = argumentList.build().stream().map(Expression::getUnderlying)
+                .map(v -> flattenSingleItemRecords ? SqlFunctionCatalog.flattenRecordWithOneField(v) : v)
                 .collect(ImmutableList.toImmutableList());
         final var resultingValue = Assert.castUnchecked(builtInFunction.encapsulate(valueArgs), Value.class);
         return Expression.ofUnnamed(DataTypeUtils.toRelationalType(resultingValue.getResultType()), resultingValue);
     }
 
-    public boolean isUdfFunction(@Nonnull final String functionName) {
-        return functionCatalog.isUdfFunction(functionName);
+    private void processFunctionSideEffects(@Nonnull final CatalogedFunction builtInFunction) {
+        if (!(builtInFunction instanceof WithPlanGenerationSideEffects)) {
+            return;
+        }
+        // combine the expanded function's literals (if any) with the currently built list of query literals.
+        mutablePlanGenerationContext.importAuxiliaryLiterals(Assert.castUnchecked(builtInFunction,
+                WithPlanGenerationSideEffects.class).getAuxiliaryLiterals());
+    }
+
+    /**
+     * Resolves a table function given its name and a list of arguments by looking it up in the
+     * {@link SqlFunctionCatalog}.
+     * <br>
+     * Ideally, this overload should not exist, in other words, the caller should not be responsible for determining
+     * whether the single-item records should be flattened or not.
+     * Currently almost all supported SQL functions do not expect {@code Record} objects,
+     * so this is probably ok, however, this does not necessarily hold for the future.
+     * See {@link SqlFunctionCatalog#flattenRecordWithOneField(Typed)} for more information.
+     *
+     * @param functionName The function name.
+     * @param arguments The function arguments.
+     * @param flattenSingleItemRecords {@code true} if single-item records should be (recursively) replaced with their
+     * content, otherwise {@code false}.
+     *
+     * @return A {@link LogicalOperator} representing the semantics of the requested SQL table function.
+     */
+    @Nonnull
+    public LogicalOperator resolveTableFunction(@Nonnull final Identifier functionName, @Nonnull final Expressions arguments,
+                                                boolean flattenSingleItemRecords) {
+        Assert.thatUnchecked(functionCatalog.containsFunction(functionName.getName()), ErrorCode.UNDEFINED_FUNCTION,
+                () -> String.format(Locale.ROOT, "Unknown function %s", functionName));
+        final var tableFunction = functionCatalog.lookupFunction(functionName.getName(), arguments);
+        if (tableFunction instanceof BuiltInFunction) {
+            Assert.thatUnchecked(tableFunction instanceof BuiltInTableFunction, functionName + " is not a table-valued function");
+        }
+        processFunctionSideEffects(tableFunction);
+
+        final List<? extends Typed> valueArgs = Streams.stream(arguments.underlying().iterator())
+                .map(v -> flattenSingleItemRecords ? SqlFunctionCatalog.flattenRecordWithOneField(v) : v)
+                .collect(ImmutableList.toImmutableList());
+        Assert.thatUnchecked(arguments.allNamedArguments() || arguments.noneNamedArguments(), ErrorCode.UNSUPPORTED_OPERATION,
+                "mixing named and unnamed arguments is not supported");
+
+        final var resultingValue = arguments.allNamedArguments()
+                ? tableFunction.encapsulate(arguments.toNamedArgumentInvocation())
+                : tableFunction.encapsulate(valueArgs);
+        if (resultingValue instanceof StreamingValue) {
+            final var tableFunctionExpression = new TableFunctionExpression(Assert.castUnchecked(resultingValue, StreamingValue.class));
+            final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(tableFunctionExpression));
+            final var output = Expressions.of(LogicalOperator.convertToExpressions(resultingQuantifier));
+            return LogicalOperator.newNamedOperator(functionName, output, resultingQuantifier);
+        }
+        final var relationalExpression = Assert.castUnchecked(resultingValue, RelationalExpression.class);
+        final var topQun = Quantifier.forEach(Reference.initialOf(relationalExpression));
+        return LogicalOperator.newNamedOperator(functionName, Expressions.fromQuantifier(topQun), topQun);
+    }
+
+    // TODO: this will be removed once we unify both Java- and SQL-UDFs.
+    public boolean isJavaCallFunction(@Nonnull final String functionName) {
+        return functionCatalog.isJavaCallFunction(functionName);
     }
 
     public boolean containsReferencesTo(@Nonnull final ParseTree parseTree,

@@ -63,6 +63,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBas
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
+import com.apple.foundationdb.record.provider.foundationdb.FormatVersionTestUtils;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanRange;
@@ -160,7 +162,7 @@ public class VersionIndexTest {
     private RecordMetaData metaData;
     private RecordQueryPlanner planner;
     private FDBRecordStore recordStore;
-    private int formatVersion;
+    private FormatVersion formatVersion;
     private boolean splitLongRecords;
     private FDBDatabase fdb;
     private KeySpacePath path;
@@ -171,7 +173,7 @@ public class VersionIndexTest {
         fdb = dbExtension.getDatabase();
         path = pathManager.createPath(TestKeySpace.RECORD_STORE);
         path2 = pathManager.createPath(TestKeySpace.RECORD_STORE);
-        formatVersion = FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION;
+        formatVersion = FormatVersion.getMaximumSupportedVersion();
         splitLongRecords = false;
     }
 
@@ -258,17 +260,17 @@ public class VersionIndexTest {
         metaDataBuilder.removeIndex("MySimpleRecord$num_value_3_indexed");
     };
 
-    private static Stream<Integer> formatVersionsOfInterest() {
+    private static Stream<FormatVersion> formatVersionsOfInterest() {
         return Stream.of(
-                FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION - 1,
-                FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION,
-                FDBRecordStore.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION,
-                FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION
+                FormatVersionTestUtils.previous(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX),
+                FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX,
+                FormatVersion.SAVE_VERSION_WITH_RECORD,
+                FormatVersion.getMaximumSupportedVersion()
         );
     }
 
-    private static Stream<Integer> formatVersionsOfInterest(int minVersion) {
-        return formatVersionsOfInterest().filter(version -> version >= minVersion);
+    private static Stream<FormatVersion> formatVersionsOfInterest(FormatVersion minVersion) {
+        return formatVersionsOfInterest().filter(version -> version.isAtLeast(minVersion));
     }
 
     // Provide a combination of format versions relevant to versionstamps along with
@@ -340,11 +342,6 @@ public class VersionIndexTest {
         @Override
         public int planHash(@Nonnull final PlanHashable.PlanHashMode mode) {
             return super.basePlanHash(mode, BASE_HASH);
-        }
-
-        @Override
-        public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            return super.baseQueryHash(hashKind, BASE_HASH);
         }
 
         @Nonnull
@@ -433,11 +430,6 @@ public class VersionIndexTest {
             return super.basePlanHash(mode, BASE_HASH);
         }
 
-        @Override
-        public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            return super.baseQueryHash(hashKind, BASE_HASH);
-        }
-
         @Nonnull
         @Override
         public Value toValue(@Nonnull final List<? extends Value> argumentValues) {
@@ -491,7 +483,7 @@ public class VersionIndexTest {
     @ParameterizedTest(name = "saveLoadWithVersion [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionArguments")
     @SuppressWarnings("try")
-    public void saveLoadWithVersion(int testFormatVersion, boolean testSplitLongRecords) {
+    public void saveLoadWithVersion(FormatVersion testFormatVersion, boolean testSplitLongRecords) {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
         MySimpleRecord record1 = MySimpleRecord.newBuilder().setRecNo(1066L).setNumValue2(42).build();
@@ -653,7 +645,7 @@ public class VersionIndexTest {
     @ParameterizedTest(name = "saveLoadWithFunctionVersion [" + ARGUMENTS_PLACEHOLDER + "]")
     @MethodSource("formatVersionArgumentsWithRemoteFetch")
     @SuppressWarnings("try")
-    public void saveLoadWithFunctionVersion(int testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod) throws Exception {
+    public void saveLoadWithFunctionVersion(FormatVersion testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod) throws Exception {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -708,7 +700,7 @@ public class VersionIndexTest {
 
     @ParameterizedTest(name = "versionstampSaveBehavior [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionArguments")
-    public void versionstampSaveBehaviorWhenInMetaData(int testFormatVersion, boolean testSplitLongRecords) {
+    public void versionstampSaveBehaviorWhenInMetaData(FormatVersion testFormatVersion, boolean testSplitLongRecords) {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
         versionststampSaveBehavior(simpleVersionHook);
@@ -716,7 +708,7 @@ public class VersionIndexTest {
 
     @ParameterizedTest(name = "versionstampSaveBehavior [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionArguments")
-    public void versionstampSaveBehaviorWhenNotInMetaData(int testFormatVersion, boolean testSplitLongRecords) {
+    public void versionstampSaveBehaviorWhenNotInMetaData(FormatVersion testFormatVersion, boolean testSplitLongRecords) {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
         versionststampSaveBehavior(noVersionHook);
@@ -724,7 +716,7 @@ public class VersionIndexTest {
 
     @SuppressWarnings("try")
     private void versionststampSaveBehavior(RecordMetaDataHook hook) {
-        System.out.printf("format version = %d ; splitLongRecords = %s%n", formatVersion, splitLongRecords);
+        System.out.printf("format version = %s ; splitLongRecords = %s%n", formatVersion, splitLongRecords);
         Map<Tuple, Optional<FDBRecordVersion>> storedVersions = new HashMap<>();
 
         byte[] commitVersion;
@@ -753,7 +745,7 @@ public class VersionIndexTest {
 
         // In older format versions, the version was only read if the meta-data said to include it. This...might be a bug
         // See: https://github.com/FoundationDB/fdb-record-layer/issues/964
-        if (metaData.isStoreRecordVersions() || formatVersion >= FDBRecordStore.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION) {
+        if (metaData.isStoreRecordVersions() || formatVersion.isAtLeast(FormatVersion.SAVE_VERSION_WITH_RECORD)) {
             try (FDBRecordContext context = openContext(hook)) {
                 for (Map.Entry<Tuple, Optional<FDBRecordVersion>> entry : storedVersions.entrySet()) {
                     final Optional<FDBRecordVersion> completeVersionOptional = entry.getValue()
@@ -779,7 +771,7 @@ public class VersionIndexTest {
     @ParameterizedTest(name = "enableRecordVersionsAfterTheFact [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionArguments")
     @SuppressWarnings("try")
-    public void enableRecordVersionsAfterTheFact(int testFormatVersion, boolean testSplitLongRecords) throws ExecutionException, InterruptedException {
+    public void enableRecordVersionsAfterTheFact(FormatVersion testFormatVersion, boolean testSplitLongRecords) throws ExecutionException, InterruptedException {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -839,7 +831,7 @@ public class VersionIndexTest {
 
     @ParameterizedTest(name = "removeWithVersion [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionArguments")
-    public void removeWithVersion(int testFormatVersion, boolean testSplitLongRecords) {
+    public void removeWithVersion(FormatVersion testFormatVersion, boolean testSplitLongRecords) {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -912,7 +904,7 @@ public class VersionIndexTest {
     @ParameterizedTest(name = "saveLoadWithRepeatedVersion [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionArgumentsWithRemoteFetch")
     @SuppressWarnings("try")
-    public void scanWithIncompleteVersion(int testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod) throws Exception {
+    public void scanWithIncompleteVersion(FormatVersion testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod) throws Exception {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -964,7 +956,7 @@ public class VersionIndexTest {
     @ParameterizedTest(name = "saveLoadWithRepeatedVersion [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionArguments")
     @SuppressWarnings("try")
-    public void saveLoadWithRepeatedVersion(int testFormatVersion, boolean testSplitLongRecords) {
+    public void saveLoadWithRepeatedVersion(FormatVersion testFormatVersion, boolean testSplitLongRecords) {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -1011,7 +1003,7 @@ public class VersionIndexTest {
     @ParameterizedTest(name = "saveLoadWithRepeatedAndCompoundVersion [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionArguments")
     @SuppressWarnings("try")
-    public void saveLoadWithRepeatedAndCompoundVersion(int testFormatVersion, boolean testSplitLongRecords) {
+    public void saveLoadWithRepeatedAndCompoundVersion(FormatVersion testFormatVersion, boolean testSplitLongRecords) {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -1058,7 +1050,7 @@ public class VersionIndexTest {
     @ParameterizedTest(name = "updateWithinContext [" + ARGUMENTS_PLACEHOLDER + "]")
     @MethodSource("formatVersionArgumentsWithRemoteFetch")
     @SuppressWarnings("try")
-    public void updateWithinContext(int testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod) throws Exception {
+    public void updateWithinContext(FormatVersion testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod) throws Exception {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -1147,7 +1139,8 @@ public class VersionIndexTest {
 
     @ParameterizedTest(name = "updateFormatVersionAndVersionStorage[firstFormatVersion={0}, secondFormatVersion={1}, thirdFormatVersion={2}, splitLongRecords={2}]")
     @MethodSource
-    public void updateFormatVersionAndVersionStorage(int firstFormatVersion, int secondFormatVersion, int thirdFormatVersion, boolean testSplitLongRecords) {
+    public void updateFormatVersionAndVersionStorage(FormatVersion firstFormatVersion, FormatVersion secondFormatVersion,
+                                                     FormatVersion thirdFormatVersion, boolean testSplitLongRecords) {
         formatVersion = firstFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -1173,8 +1166,8 @@ public class VersionIndexTest {
             version = recordStore.loadRecord(Tuple.from(1066L)).getVersion();
             assertNotNull(version);
             inLegacyVersionSpace = context.ensureActive().getRange(recordStore.getLegacyVersionSubspace().range()).iterator().hasNext();
-            boolean shouldHaveVersionInOldSpace = (secondFormatVersion < FDBRecordStore.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION)
-                    || (!testSplitLongRecords && firstFormatVersion < FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION);
+            boolean shouldHaveVersionInOldSpace = (!secondFormatVersion.isAtLeast(FormatVersion.SAVE_VERSION_WITH_RECORD))
+                    || (!testSplitLongRecords && !firstFormatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX));
             assertEquals(shouldHaveVersionInOldSpace, inLegacyVersionSpace);
             context.commit();
         }
@@ -1213,7 +1206,7 @@ public class VersionIndexTest {
     @ParameterizedTest(name = "saveSameRecordTwoStores [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionArguments")
     @SuppressWarnings("try")
-    public void saveSameRecordTwoStores(int testFormatVersion, boolean testSplitLongRecords) {
+    public void saveSameRecordTwoStores(FormatVersion testFormatVersion, boolean testSplitLongRecords) {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -1264,7 +1257,7 @@ public class VersionIndexTest {
     @ParameterizedTest(name = "updateRecordInTwoStores [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionArguments")
     @SuppressWarnings("try")
-    public void updateRecordInTwoStores(int testFormatVersion, boolean testSplitLongRecords) {
+    public void updateRecordInTwoStores(FormatVersion testFormatVersion, boolean testSplitLongRecords) {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -1326,7 +1319,7 @@ public class VersionIndexTest {
     @ParameterizedTest(name = "deleteRecordInTwoStores [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionArguments")
     @SuppressWarnings("try")
-    public void deleteRecordInTwoStores(int testFormatVersion, boolean testSplitLongRecords) {
+    public void deleteRecordInTwoStores(FormatVersion testFormatVersion, boolean testSplitLongRecords) {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -1387,7 +1380,7 @@ public class VersionIndexTest {
     @ParameterizedTest(name = "readVersionFromStoredRecordInTwoStores [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionArguments")
     @SuppressWarnings("try")
-    public void readVersionFromStoredRecordInTwoStores(int testFormatVersion, boolean testSplitLongRecords) {
+    public void readVersionFromStoredRecordInTwoStores(FormatVersion testFormatVersion, boolean testSplitLongRecords) {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -1487,7 +1480,7 @@ public class VersionIndexTest {
 
     @ParameterizedTest(name = "maxEverVersion [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionArguments")
-    public void maxEverVersion(int testFormatVersion, boolean testSplitLongRecords) {
+    public void maxEverVersion(FormatVersion testFormatVersion, boolean testSplitLongRecords) {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -1540,7 +1533,7 @@ public class VersionIndexTest {
 
     @ParameterizedTest(name = "maxEverVersionWithinTransaction [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionArguments")
-    public void maxEverVersionWithinTransaction(int testFormatVersion, boolean testSplitLongRecords) {
+    public void maxEverVersionWithinTransaction(FormatVersion testFormatVersion, boolean testSplitLongRecords) {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -1620,7 +1613,7 @@ public class VersionIndexTest {
 
     @ParameterizedTest(name = "maxEverVersionWithGrouping [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionArguments")
-    public void maxEverVersionWithGrouping(int testFormatVersion, boolean testSplitLongRecords) {
+    public void maxEverVersionWithGrouping(FormatVersion testFormatVersion, boolean testSplitLongRecords) {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -1686,7 +1679,7 @@ public class VersionIndexTest {
 
     @ParameterizedTest(name = "maxEverVersionWithExtraColumn [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionArguments")
-    public void maxEverVersionWithExtraColumn(int testFormatVersion, boolean testSplitLongRecords) {
+    public void maxEverVersionWithExtraColumn(FormatVersion testFormatVersion, boolean testSplitLongRecords) {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -1758,7 +1751,7 @@ public class VersionIndexTest {
 
     @ParameterizedTest(name = "maxEverVersionWithFunction [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionArguments")
-    public void maxEverVersionWithFunction(int testFormatVersion, boolean testSplitLongRecords) {
+    public void maxEverVersionWithFunction(FormatVersion testFormatVersion, boolean testSplitLongRecords) {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -1843,7 +1836,7 @@ public class VersionIndexTest {
     @ParameterizedTest(name = "queryOnVersion [" + ARGUMENTS_PLACEHOLDER + "]")
     @MethodSource("formatVersionArgumentsWithRemoteFetch")
     @SuppressWarnings("try")
-    public void queryOnVersion(int testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod) {
+    public void queryOnVersion(FormatVersion testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod) {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -2073,7 +2066,7 @@ public class VersionIndexTest {
     @ParameterizedTest(name = "queryOnRepeatedVersions [" + ARGUMENTS_PLACEHOLDER + "]")
     @MethodSource("formatVersionArgumentsWithRemoteFetch")
     @SuppressWarnings("try")
-    public void queryOnRepeatedVersion(int testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod) {
+    public void queryOnRepeatedVersion(FormatVersion testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod) {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -2162,7 +2155,7 @@ public class VersionIndexTest {
     @SuppressWarnings("try")
     @ParameterizedTest(name = "withMetaDataRebuilds [" + ARGUMENTS_PLACEHOLDER + "]")
     @MethodSource("formatVersionArgumentsWithRemoteFetch")
-    public void withMetaDataRebuilds(int testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod) {
+    public void withMetaDataRebuilds(FormatVersion testFormatVersion, boolean testSplitLongRecords, IndexFetchMethod fetchMethod) {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -2222,7 +2215,7 @@ public class VersionIndexTest {
         try (FDBRecordContext context = openContext(secondHook)) {
             FDBStoredRecord<?> loadedRecord1 = recordStore.loadRecord(Tuple.from(1066L));
             assertNotNull(loadedRecord1);
-            assertEquals(testFormatVersion >= FDBRecordStore.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION, loadedRecord1.hasVersion());
+            assertEquals(testFormatVersion.isAtLeast(FormatVersion.SAVE_VERSION_WITH_RECORD), loadedRecord1.hasVersion());
             FDBStoredRecord<?> loadedRecord2 = recordStore.loadRecord(Tuple.from(1776L));
             assertNotNull(loadedRecord2);
             assertFalse(loadedRecord2.hasVersion());
@@ -2242,7 +2235,7 @@ public class VersionIndexTest {
         }
         try (FDBRecordContext context = openContext(thirdHook)) {
             FDBStoredRecord<?> loadedRecord1 = recordStore.loadRecord(Tuple.from(1066L));
-            assertEquals(testFormatVersion >= FDBRecordStore.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION, loadedRecord1.hasVersion());
+            assertEquals(testFormatVersion.isAtLeast(FormatVersion.SAVE_VERSION_WITH_RECORD), loadedRecord1.hasVersion());
             FDBStoredRecord<?> loadedRecord2 = recordStore.loadRecord(Tuple.from(1776L));
             assertFalse(loadedRecord2.hasVersion());
             FDBStoredRecord<?> loadedRecord3 = recordStore.loadRecord(Tuple.from(1955L));
@@ -2254,15 +2247,7 @@ public class VersionIndexTest {
             List<FDBQueriedRecord<Message>> records = recordStore.executeQuery(plan).asList().join();
             assertEquals(3, records.size());
 
-            if (testFormatVersion < FDBRecordStore.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION) {
-                FDBQueriedRecord<Message> queriedRecord1 = records.get(0);
-                assertEquals(Tuple.from(1066L), queriedRecord1.getPrimaryKey());
-                assertFalse(queriedRecord1.hasVersion());
-
-                FDBQueriedRecord<Message> queriedRecord2 = records.get(1);
-                assertEquals(Tuple.from(1776L), queriedRecord2.getPrimaryKey());
-                assertFalse(queriedRecord2.hasVersion());
-            } else {
+            if (testFormatVersion.isAtLeast(FormatVersion.SAVE_VERSION_WITH_RECORD)) {
                 FDBQueriedRecord<Message> queriedRecord1 = records.get(0);
                 assertEquals(Tuple.from(1776L), queriedRecord1.getPrimaryKey());
                 assertFalse(queriedRecord1.hasVersion());
@@ -2271,6 +2256,14 @@ public class VersionIndexTest {
                 assertEquals(Tuple.from(1066L), queriedRecord2.getPrimaryKey());
                 assertTrue(queriedRecord2.hasVersion());
                 assertEquals(version1, queriedRecord2.getVersion());
+            } else {
+                FDBQueriedRecord<Message> queriedRecord1 = records.get(0);
+                assertEquals(Tuple.from(1066L), queriedRecord1.getPrimaryKey());
+                assertFalse(queriedRecord1.hasVersion());
+
+                FDBQueriedRecord<Message> queriedRecord2 = records.get(1);
+                assertEquals(Tuple.from(1776L), queriedRecord2.getPrimaryKey());
+                assertFalse(queriedRecord2.hasVersion());
             }
 
             FDBQueriedRecord<Message> queriedRecord3 = records.get(2);
@@ -2318,7 +2311,7 @@ public class VersionIndexTest {
     @SuppressWarnings("try")
     @ParameterizedTest(name = "upgradeFormatVersions [" + ARGUMENTS_PLACEHOLDER + "]")
     @MethodSource("formatVersionArgumentsWithRemoteFetch")
-    public void upgradeFormatVersions(int testFormatVersion, boolean splitLongRecords, IndexFetchMethod fetchMethod) {
+    public void upgradeFormatVersions(FormatVersion testFormatVersion, boolean splitLongRecords, IndexFetchMethod fetchMethod) {
         formatVersion = testFormatVersion;
         final RecordMetaDataHook hook = metaDataBuilder -> {
             simpleVersionHook.apply(metaDataBuilder);
@@ -2341,18 +2334,18 @@ public class VersionIndexTest {
                     .collect(Collectors.toList());
         }
         try (FDBRecordContext context = openContext(hook)) {
-            if (testFormatVersion < FDBRecordStore.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION) {
-                validateUsingOlderVersionFormat(storedRecords);
-            } else {
+            if (testFormatVersion.isAtLeast(FormatVersion.SAVE_VERSION_WITH_RECORD)) {
                 validateUsingNewerVersionFormat(storedRecords);
+            } else {
+                validateUsingOlderVersionFormat(storedRecords);
             }
         }
 
         // Update to the current format version
-        formatVersion = FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION;
+        formatVersion = FormatVersion.getMaximumSupportedVersion();
 
-        if (testFormatVersion < FDBRecordStore.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION &&
-                (splitLongRecords || testFormatVersion >= FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION)) {
+        if (!testFormatVersion.isAtLeast(FormatVersion.SAVE_VERSION_WITH_RECORD) &&
+                (splitLongRecords || testFormatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX))) {
             // After format version upgrade, each record should now store that it has the version inlined
             storedRecords = storedRecords.stream()
                     .map(record -> new FDBStoredRecord<>(record.getPrimaryKey(), record.getRecordType(), record.getRecord(),
@@ -2362,10 +2355,10 @@ public class VersionIndexTest {
         }
 
         try (FDBRecordContext context = openContext(hook)) {
-            if (!splitLongRecords && testFormatVersion < FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION) {
-                validateUsingOlderVersionFormat(storedRecords);
-            } else {
+            if (splitLongRecords || testFormatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX)) {
                 validateUsingNewerVersionFormat(storedRecords);
+            } else {
+                validateUsingOlderVersionFormat(storedRecords);
             }
 
             for (FDBStoredRecord<Message> storedRecord : storedRecords) {
@@ -2385,17 +2378,17 @@ public class VersionIndexTest {
 
             assertTrue(recordStore.deleteRecord(storedRecords.get(0).getPrimaryKey()));
             final List<FDBStoredRecord<Message>> fewerRecords = storedRecords.subList(1, storedRecords.size());
-            if (!splitLongRecords && testFormatVersion < FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION) {
-                validateUsingOlderVersionFormat(fewerRecords);
-            } else {
+            if (splitLongRecords || testFormatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX)) {
                 validateUsingNewerVersionFormat(fewerRecords);
+            } else {
+                validateUsingOlderVersionFormat(fewerRecords);
             }
 
             recordStore.saveRecord(storedRecords.get(0).getRecord());
-            if (!splitLongRecords && testFormatVersion < FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION) {
-                validateUsingOlderVersionFormat(fewerRecords);
-            } else {
+            if (splitLongRecords || testFormatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX)) {
                 validateUsingNewerVersionFormat(fewerRecords);
+            } else {
+                validateUsingOlderVersionFormat(fewerRecords);
             }
 
             // do not commit (so we can do a second upgrade)
@@ -2412,8 +2405,8 @@ public class VersionIndexTest {
         final List<FDBStoredRecord<Message>> newStoredRecords;
         try (FDBRecordContext context = openContext(hookWithNewIndexes)) {
             assertTrue(recordStore.getRecordStoreState().isReadable(newValueIndex));
-            boolean performedMigration = testFormatVersion < FDBRecordStore.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION
-                                         && (splitLongRecords || testFormatVersion >= FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION);
+            boolean performedMigration = !testFormatVersion.isAtLeast(FormatVersion.SAVE_VERSION_WITH_RECORD)
+                                         && (splitLongRecords || testFormatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX));
             assertNotEquals(performedMigration, recordStore.getRecordStoreState().isReadable(newVersionIndex));
 
             if (recordStore.getRecordStoreState().isReadable(newVersionIndex)) {
@@ -2446,10 +2439,10 @@ public class VersionIndexTest {
             );
         }
         try (FDBRecordContext context = openContext(hookWithNewIndexes)) {
-            if (!splitLongRecords && testFormatVersion < FDBRecordStore.SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION) {
-                validateUsingOlderVersionFormat(newStoredRecords);
-            } else {
+            if (splitLongRecords || testFormatVersion.isAtLeast(FormatVersion.SAVE_UNSPLIT_WITH_SUFFIX)) {
                 validateUsingNewerVersionFormat(newStoredRecords);
+            } else {
+                validateUsingOlderVersionFormat(newStoredRecords);
             }
         }
     }
@@ -2504,7 +2497,7 @@ public class VersionIndexTest {
 
     @ParameterizedTest(name = "deleteRecordsWhereWithVersion [" + ARGUMENTS_PLACEHOLDER + "]")
     @MethodSource("formatVersionArguments")
-    void deleteRecordsWhereWithVersion(int testFormatVersion, boolean testSplitLongRecords) {
+    void deleteRecordsWhereWithVersion(FormatVersion testFormatVersion, boolean testSplitLongRecords) {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -2692,7 +2685,7 @@ public class VersionIndexTest {
 
     @ParameterizedTest(name = "deleteMaxVersionRecordsWhere [" + ARGUMENTS_PLACEHOLDER + "]")
     @MethodSource("formatVersionArguments")
-    void deleteMaxVersionRecordsWhere(int testFormatVersion, boolean testSplitLongRecords) throws Exception {
+    void deleteMaxVersionRecordsWhere(FormatVersion testFormatVersion, boolean testSplitLongRecords) throws Exception {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -2782,7 +2775,7 @@ public class VersionIndexTest {
 
     @ParameterizedTest(name = "disableIndexWithUncommittedData [" + ARGUMENTS_PLACEHOLDER + "]")
     @MethodSource("formatVersionArguments")
-    void disableIndexWithUncommittedData(int testFormatVersion, boolean testSplitLongRecords) throws Exception {
+    void disableIndexWithUncommittedData(FormatVersion testFormatVersion, boolean testSplitLongRecords) throws Exception {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -2860,7 +2853,7 @@ public class VersionIndexTest {
 
     @ParameterizedTest(name = "dropIndexWithUncommittedData [" + ARGUMENTS_PLACEHOLDER + "]")
     @MethodSource("formatVersionArguments")
-    void dropIndexWithUncommittedData(int testFormatVersion, boolean testSplitLongRecords) throws Exception {
+    void dropIndexWithUncommittedData(FormatVersion testFormatVersion, boolean testSplitLongRecords) throws Exception {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -2971,7 +2964,7 @@ public class VersionIndexTest {
 
     @ParameterizedTest(name = "deleteAllRecordsWithUncommittedData [" + ARGUMENTS_PLACEHOLDER + "]")
     @MethodSource("formatVersionArguments")
-    void deleteAllRecordsWithUncommittedData(int testFormatVersion, boolean testSplitLongRecords) throws Exception {
+    void deleteAllRecordsWithUncommittedData(FormatVersion testFormatVersion, boolean testSplitLongRecords) throws Exception {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 
@@ -3047,7 +3040,7 @@ public class VersionIndexTest {
 
     @ParameterizedTest(name = "deleteStoreWithUncommittedVersionData [" + ARGUMENTS_PLACEHOLDER + "]")
     @MethodSource
-    void deleteStoreWithUncommittedVersionData(int testFormatVersion, boolean testSplitLongRecords, boolean clearPath) throws Exception {
+    void deleteStoreWithUncommittedVersionData(FormatVersion testFormatVersion, boolean testSplitLongRecords, boolean clearPath) throws Exception {
         formatVersion = testFormatVersion;
         splitLongRecords = testSplitLongRecords;
 

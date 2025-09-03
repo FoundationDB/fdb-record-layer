@@ -23,7 +23,7 @@ package sqlline;
 import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.debug.PlannerRepl;
+import com.apple.foundationdb.record.query.plan.cascades.debug.PlannerRepl;
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
 import org.jline.reader.Completer;

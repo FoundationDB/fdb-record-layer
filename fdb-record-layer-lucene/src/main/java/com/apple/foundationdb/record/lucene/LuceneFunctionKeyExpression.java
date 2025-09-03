@@ -69,11 +69,6 @@ public abstract class LuceneFunctionKeyExpression extends FunctionKeyExpression 
         throw new IllegalStateException("Should not be used in a plan");
     }
 
-    @Override
-    public int queryHash(@Nonnull final QueryHashKind hashKind) {
-        throw new IllegalStateException("Should not be used in a query");
-    }
-
     /**
      * The {@code lucene_field_name} key function.
      * Takes two arguments, a child key expression and a name and overrides the field naming of that child (and its descendants) to be the specified name.

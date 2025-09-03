@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -90,6 +90,8 @@ public final class RecordLayerIterator<T> implements ResumableIterator<Row> {
             noNextReason = result.getNoNextReason();
             if (noNextReason == RecordCursor.NoNextReason.SOURCE_EXHAUSTED) {
                 this.continuation = ContinuationImpl.END;
+            } else {
+                this.continuation = ContinuationImpl.fromUnderlyingBytes(result.getContinuation().toBytes());
             }
         }
     }

@@ -18,7 +18,7 @@
 # limitations under the License.
 ---
 options:
-  supported_version: 4.2.3.0
+  supported_version: 4.5.5.0
 ---
 schema_template:
     create table ta(a bigint, b uuid, primary key(a))
@@ -28,6 +28,10 @@ schema_template:
     create table tc(a bigint, b uuid, c bigint, primary key(a, b))
     create index tc1 as select b, c from tc order by b
     create index tc2 as select b, c from tc order by b, c
+
+    create type as struct s1(a bigint, b uuid)
+    create table td(a bigint, b s1, primary key(a))
+    create table te(a bigint, b uuid, primary key(a))
 ---
 setup:
   steps:
@@ -55,10 +59,23 @@ setup:
                (6, '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6', 1)
 ---
 test_block:
+  supported_version: 4.5.5.0
+  name: insertion-tests
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: INSERT INTO TE VALUES (1, !! !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682' !!), (2, !! !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df' !!)
+      - count: 2
+    -
+      - query: INSERT INTO TD VALUES (1, (2, !! !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682' !!)), (2, (3, !! !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df' !!))
+      - count: 2
+---
+test_block:
   name: uuid-as-a-field-tests
   tests:
     -
       - query: select * from ta
+      - explain: "SCAN(<,>) | TFILTER TA"
       - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
                           {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
                           {3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},
@@ -69,29 +86,35 @@ test_block:
                           {8, !null _}]
     -
       - query: select * from ta where b > !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TA | FILTER _.B GREATER_THAN promote(@c8 AS UUID)"
       - unorderedResult: [{3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},
                           {5, !uuid 'a8708750-d70f-4800-8c3b-13700d5b369f'}]
     -
       - query: select * from ta where b < !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TA | FILTER _.B LESS_THAN promote(@c8 AS UUID)"
       - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
                           {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
                           {4, !uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b'}]
     -
       - query: select * from ta where b >= !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TA | FILTER _.B GREATER_THAN_OR_EQUALS promote(@c9 AS UUID)"
       - unorderedResult: [{3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},
                           {5, !uuid 'a8708750-d70f-4800-8c3b-13700d5b369f'},
                           {6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'}]
     -
       - query: select * from ta where b <= !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TA | FILTER _.B LESS_THAN_OR_EQUALS promote(@c9 AS UUID)"
       - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
                           {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
                           {4, !uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b'},
                           {6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'}]
     -
       - query: select * from ta where b = !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TA | FILTER _.B EQUALS promote(@c8 AS UUID)"
       - unorderedResult: [{6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'}]
     -
       - query: select * from ta where b != !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TA | FILTER _.B NOT_EQUALS promote(@c9 AS UUID)"
       - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
                           {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
                           {3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},
@@ -99,6 +122,7 @@ test_block:
                           {5, !uuid 'a8708750-d70f-4800-8c3b-13700d5b369f'}]
     -
       - query: select * from ta where b is null
+      - explain: "SCAN(<,>) | TFILTER TA | FILTER _.B IS_NULL"
       - unorderedResult: [{7, !null _},
                           {8, !null _}]
     -
@@ -110,29 +134,35 @@ test_block:
   tests:
     -
       - query: select * from ta where b > !! '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TA | FILTER _.B GREATER_THAN promote(@c8 AS UUID)"
       - unorderedResult: [{3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},
                           {5, !uuid 'a8708750-d70f-4800-8c3b-13700d5b369f'}]
     -
       - query: select * from ta where b < !! '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TA | FILTER _.B LESS_THAN promote(@c8 AS UUID)"
       - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
                           {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
                           {4, !uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b'}]
     -
       - query: select * from ta where b >= !! '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TA | FILTER _.B GREATER_THAN_OR_EQUALS promote(@c9 AS UUID)"
       - unorderedResult: [{3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},
                           {5, !uuid 'a8708750-d70f-4800-8c3b-13700d5b369f'},
                           {6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'}]
     -
       - query: select * from ta where b <= !! '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TA | FILTER _.B LESS_THAN_OR_EQUALS promote(@c9 AS UUID)"
       - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
                           {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
                           {4, !uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b'},
                           {6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'}]
     -
       - query: select * from ta where b = !! '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TA | FILTER _.B EQUALS promote(@c8 AS UUID)"
       - unorderedResult: [{6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'}]
     -
       - query: select * from ta where b != !! '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TA | FILTER _.B NOT_EQUALS promote(@c9 AS UUID)"
       - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
                           {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
                           {3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},
@@ -144,6 +174,7 @@ test_block:
   tests:
     -
       - query: select B, A from TB
+      - explain: "SCAN(<,>) | TFILTER TB | MAP (_.B AS B, _.A AS A)"
       - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
                           {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
                           {3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},
@@ -152,29 +183,35 @@ test_block:
                           {6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'}]
     -
       - query: select B, A from TB where a > !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TB | FILTER _.A GREATER_THAN promote(@c10 AS UUID) | MAP (_.B AS B, _.A AS A)"
       - unorderedResult: [{3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},
                           {5, !uuid 'a8708750-d70f-4800-8c3b-13700d5b369f'}]
     -
       - query: select B, A from TB where a < !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TB | FILTER _.A LESS_THAN promote(@c10 AS UUID) | MAP (_.B AS B, _.A AS A)"
       - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
                           {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
                           {4, !uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b'}]
     -
       - query: select B, A from TB where a >= !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TB | FILTER _.A GREATER_THAN_OR_EQUALS promote(@c11 AS UUID) | MAP (_.B AS B, _.A AS A)"
       - unorderedResult: [{3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},
                           {5, !uuid 'a8708750-d70f-4800-8c3b-13700d5b369f'},
                           {6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'}]
     -
       - query: select B, A from TB where a <= !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TB | FILTER _.A LESS_THAN_OR_EQUALS promote(@c11 AS UUID) | MAP (_.B AS B, _.A AS A)"
       - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
                           {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
                           {4, !uuid '5394a912-aa8e-40fc-a4bb-ddf3f89ac45b'},
                           {6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'}]
     -
       - query: select B, A from TB where a = !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TB | FILTER _.A EQUALS promote(@c10 AS UUID) | MAP (_.B AS B, _.A AS A)"
       - unorderedResult: [{6, !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6'}]
     -
       - query: select B, A from TB where a != !! !uuid '99e8e8b1-ac34-4f4d-9f01-1f4a7debf4d6' !!
+      - explain: "SCAN(<,>) | TFILTER TB | FILTER _.A NOT_EQUALS promote(@c11 AS UUID) | MAP (_.B AS B, _.A AS A)"
       - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
                           {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
                           {3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},
@@ -182,6 +219,7 @@ test_block:
                           {5, !uuid 'a8708750-d70f-4800-8c3b-13700d5b369f'}]
     -
       - query: select B, A from TB where a is not null
+      - explain: "SCAN(<,>) | TFILTER TB | FILTER _.A NOT_NULL | MAP (_.B AS B, _.A AS A)"
       - unorderedResult: [{1, !uuid '0920df1c-be81-4ec1-8a06-2180226f051d'},
                           {2, !uuid '64120112-4e39-40c3-94b9-2cc88a52e8df'},
                           {3, !uuid 'c35ba01f-f8fc-47d7-bb00-f077e8a75682'},

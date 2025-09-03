@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,18 +21,15 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AbstractArrayConstructorValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConditionSelectorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ExistsValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.PickValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -46,10 +43,10 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.Expression;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
+import com.apple.foundationdb.relational.recordlayer.query.LogicalOperator;
 import com.apple.foundationdb.relational.recordlayer.query.LogicalPlanFragment;
 import com.apple.foundationdb.relational.recordlayer.query.OrderByExpression;
 import com.apple.foundationdb.relational.recordlayer.query.ParseHelpers;
-import com.apple.foundationdb.relational.recordlayer.query.QueryExecutionContext;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.recordlayer.query.StringTrieNode;
 import com.apple.foundationdb.relational.recordlayer.query.TautologicalValue;
@@ -69,6 +66,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -88,11 +86,39 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Override
-    public Expression visitTableFunction(@Nonnull RelationalParser.TableFunctionContext ctx) {
-        final var functionName = visitTableFunctionName(ctx.tableFunctionName()).toString();
-        return ctx.functionArgs() == null
-                ? getDelegate().resolveTableValuedFunction(functionName)
-                : getDelegate().resolveTableValuedFunction(functionName, visitFunctionArgs(ctx.functionArgs()).asList().toArray(new Expression[0]));
+    public LogicalOperator visitTableFunction(@Nonnull RelationalParser.TableFunctionContext ctx) {
+        final var functionName = visitTableFunctionName(ctx.tableFunctionName());
+        return ctx.tableFunctionArgs() == null
+                ? getDelegate().resolveTableValuedFunction(functionName, Expressions.empty())
+                : getDelegate().resolveTableValuedFunction(functionName, visitTableFunctionArgs(ctx.tableFunctionArgs()));
+    }
+
+    @Override
+    public Expressions visitTableFunctionArgs(@Nonnull final RelationalParser.TableFunctionArgsContext ctx) {
+        if (!ctx.namedFunctionArg().isEmpty()) {
+            final var namedArguments = Expressions.of(ctx.namedFunctionArg().stream()
+                    .map(this::visitNamedFunctionArg).collect(ImmutableList.toImmutableList()));
+            final var duplicateArguments = namedArguments.asList().stream().flatMap(p -> p.getName().stream())
+                    .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()))
+                    .entrySet()
+                    .stream()
+                    .filter(p -> p.getValue() > 1)
+                    .collect(ImmutableList.toImmutableList());
+            Assert.thatUnchecked(duplicateArguments.isEmpty(), ErrorCode.SYNTAX_ERROR, () ->
+                    "argument name(s) used more than once" + duplicateArguments.stream()
+                            .map(Object::toString).collect(Collectors.joining(",")));
+            return namedArguments;
+        } else {
+            return Expressions.of(ctx.functionArg().stream().map(this::visitFunctionArg)
+                    .collect(ImmutableList.toImmutableList()));
+        }
+    }
+
+    @Override
+    public Expression visitNamedFunctionArg(@Nonnull final RelationalParser.NamedFunctionArgContext ctx) {
+        final var name = visitUid(ctx.key);
+        final var expression = Assert.castUnchecked(visit(ctx.value), Expression.class);
+        return expression.toNamedArgument(name);
     }
 
     @Nonnull
@@ -256,7 +282,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         // special case for user-defined functions where we want to exclude the first argument from
         // being literal-stripped.
         @Nonnull Expressions arguments;
-        boolean isUdf = getDelegate().getSemanticAnalyzer().isUdfFunction(functionName);
+        boolean isUdf = getDelegate().getSemanticAnalyzer().isJavaCallFunction(functionName);
         if (isUdf) {
             final var argumentNodes = ctx.functionArgs().children.stream()
                     .filter(arg -> arg instanceof RelationalParser.FunctionArgContext)
@@ -282,20 +308,25 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     @Nonnull
     @Override
     public Expression visitCaseFunctionCall(@Nonnull RelationalParser.CaseFunctionCallContext ctx) {
-        final ImmutableList.Builder<BooleanValue> implications = ImmutableList.builder();
-        final ImmutableList.Builder<Value> pickerValues = ImmutableList.builder();
+        final ImmutableList.Builder<Value> implications = ImmutableList.builder();
+        final ImmutableList.Builder<Expression> pickerValues = ImmutableList.builder();
         for (final var caseAlternative : ctx.caseFuncAlternative()) {
             final var condition = visitFunctionArg(caseAlternative.condition);
+            Assert.thatUnchecked(condition.getDataType().getCode().equals(DataType.Code.BOOLEAN), ErrorCode.DATATYPE_MISMATCH,
+                    "argument of case when must be of boolean type");
             final var consequent = visitFunctionArg(caseAlternative.consequent);
-            implications.add(Assert.castUnchecked(condition.getUnderlying(), BooleanValue.class));
-            pickerValues.add(consequent.getUnderlying());
+            implications.add(condition.getUnderlying());
+            pickerValues.add(consequent);
         }
         if (ctx.ELSE() != null) {
             implications.add(TautologicalValue.getInstance());
             final var defaultConsequent = visitFunctionArg(ctx.functionArg());
-            pickerValues.add(defaultConsequent.getUnderlying());
+            pickerValues.add(defaultConsequent);
         }
-        return Expression.ofUnnamed(new PickValue(new ConditionSelectorValue(implications.build()), pickerValues.build()));
+        final var arguments = ImmutableList.<Expression>builder();
+        arguments.add(Expression.ofUnnamed(new ConditionSelectorValue(implications.build())));
+        arguments.addAll(pickerValues.build());
+        return getDelegate().resolveFunction("__pick_value", arguments.build().toArray(new Expression[0]));
     }
 
     @Nonnull
@@ -481,7 +512,7 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
             semanticAnalyzer.validateInListItems(inListItems);
             final var arrayType = semanticAnalyzer.resolveArrayTypeFromValues(inListItems);
             result = Expression.ofUnnamed(getDelegate().getPlanGenerationContext()
-                    .processComplexLiteral(QueryExecutionContext.OrderedLiteral.constantId(tokenIndex), arrayType));
+                    .processComplexLiteral(tokenIndex, arrayType));
         } else {
             final var inListItems = visitExpressions(ctx.expressions());
             result = getDelegate().resolveFunction("__internal_array", inListItems.asList().toArray(new Expression[0]));
@@ -518,6 +549,23 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final var left = Assert.castUnchecked(ctx.left.accept(this), Expression.class);
         final var right = Assert.castUnchecked(ctx.right.accept(this), Expression.class);
         return getDelegate().resolveFunction(ctx.comparisonOperator().getText(), left, right);
+    }
+
+    @Nonnull
+    @Override
+    public Expression visitBetweenComparisonPredicate(@Nonnull RelationalParser.BetweenComparisonPredicateContext ctx) {
+        final var operand = Assert.castUnchecked(ctx.operand.accept(this), Expression.class);
+        final var left = Assert.castUnchecked(ctx.left.accept(this), Expression.class);
+        final var right = Assert.castUnchecked(ctx.right.accept(this), Expression.class);
+        if (ctx.NOT() == null) {
+            return getDelegate().resolveFunction("and",
+                    getDelegate().resolveFunction("<=", left, operand),
+                    getDelegate().resolveFunction("<=", operand, right));
+        } else {
+            return getDelegate().resolveFunction("or",
+                    getDelegate().resolveFunction("<", operand, left),
+                    getDelegate().resolveFunction(">", operand, right));
+        }
     }
 
     @Nonnull
@@ -795,16 +843,31 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private static Expression coerceIfNecessary(@Nonnull Expression expression,
                                                 @Nonnull Type targetType) {
         final var value = expression.getUnderlying();
+        final var maybeCoercedValue = coerceValueIfNecessary(expression.getUnderlying(), targetType);
+        if (value != maybeCoercedValue) {
+            return new Expression(expression.getName(), DataTypeUtils.toRelationalType(maybeCoercedValue.getResultType()), maybeCoercedValue);
+        } else {
+            return expression;
+        }
+    }
+
+    @Nonnull
+    private static Value coerceValueIfNecessary(@Nonnull Value value, @Nonnull Type targetType) {
         final var resultType = value.getResultType();
         if (resultType.isUnresolved() ||
                 (resultType.isPrimitive() && PromoteValue.isPromotionNeeded(resultType, targetType))) {
-            final var promoteValue = PromoteValue.inject(value, targetType);
-            return new Expression(expression.getName(), DataTypeUtils.toRelationalType(promoteValue.getResultType()), promoteValue);
+            return PromoteValue.inject(value, targetType);
         }
-        return expression;
+        if (resultType.isArray() && PromoteValue.isPromotionNeeded(resultType, targetType) && value instanceof AbstractArrayConstructorValue) {
+            Assert.thatUnchecked(targetType.isArray(), "Cannot convert array type to non-array type");
+            final var targetElementType = ((Type.Array) targetType).getElementType();
+            return AbstractArrayConstructorValue.LightArrayConstructorValue.of(Streams.stream(value.getChildren()).map(c -> coerceValueIfNecessary(c, targetElementType)).collect(Collectors.toList()));
+        }
+        return value;
     }
 
     @Nonnull

@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,20 +36,20 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
-import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.ProtobufDataBuilder;
+import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.Row;
-import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.CatalogValidator;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
@@ -59,12 +59,13 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerResultSet;
 import com.apple.foundationdb.relational.recordlayer.RelationalKeyspaceProvider;
 import com.apple.foundationdb.relational.recordlayer.catalog.systables.SystemTableRegistry;
+import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.Message;
@@ -141,24 +142,26 @@ class RecordLayerStoreCatalog implements StoreCatalog {
     }
 
     /**
-     * Call after construction.
-     * @param createTxn Transaction used doing setup of the CATALOG.
-     * @return Returns 'this'.
-     * @throws RelationalException If failed initialization.
+     * Initializes the {@link StoreCatalog} after construction. This method must be called before the catalog can be used.
+     *
+     * @param createTxn the transaction used for catalog setup and initialization
+     * @return {@code this} StoreCatalog instance for method chaining
+     * @throws RelationalException if catalog initialization fails
      */
     StoreCatalog initialize(@Nonnull final Transaction createTxn) throws RelationalException {
-        return initialize(createTxn,
-                new RecordLayerStoreSchemaTemplateCatalog(this.catalogSchema, this.catalogSchemaPath));
+        return initialize(createTxn, new RecordLayerStoreSchemaTemplateCatalog(catalogSchema, catalogSchemaPath));
     }
 
     /**
-     * Call after construction.
-     * Allows passing of an {@link SchemaTemplateCatalog} other than default.
-     * @param createTxn Transaction used doing setup of the CATALOG.
-     * @return Returns 'this'.
-     * @throws RelationalException If failed initialization.
+     * Initializes the {@link StoreCatalog} after construction with a custom schema template catalog.
+     * This method must be called before the catalog can be used.
+     *
+     * @param createTxn the transaction used for catalog setup and initialization
+     * @param schemaTemplateCatalog the custom schema template catalog to use instead of the default
+     * @return this StoreCatalog instance for method chaining
+     * @throws RelationalException if catalog initialization fails
      */
-    StoreCatalog initialize(@Nonnull final Transaction createTxn, SchemaTemplateCatalog schemaTemplateCatalog)
+    StoreCatalog initialize(@Nonnull final Transaction createTxn, @Nonnull final SchemaTemplateCatalog schemaTemplateCatalog)
             throws RelationalException {
         try {
             // Set Catalog store's state cacheability to be true to make frequent opening of store a light operation.
@@ -409,7 +412,7 @@ class RecordLayerStoreCatalog implements StoreCatalog {
     }
 
     private static StructMetaData getMetaData(Descriptors.Descriptor descriptor) throws RelationalException {
-        return SqlTypeSupport.recordToMetaData(ProtobufDdlUtil.recordFromDescriptor(descriptor));
+        return RelationalStructMetaData.of((DataType.StructType) DataTypeUtils.toRelationalType(ProtobufDdlUtil.recordFromDescriptor(descriptor)));
     }
 
     @Nonnull

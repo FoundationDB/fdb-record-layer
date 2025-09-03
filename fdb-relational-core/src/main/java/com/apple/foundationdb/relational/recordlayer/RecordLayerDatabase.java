@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -101,7 +101,7 @@ public class RecordLayerDatabase extends AbstractDatabase {
         EmbeddedRelationalConnection conn = new EmbeddedRelationalConnection(this, storeCatalog, transaction, options);
         setConnection(conn);
         if (defaultSchema != null) {
-            /**
+            /*
              * If we have set a default schema here, then we should have already validated that it is correct and exists
              * and everything, so we don't duplicate the checking here.
              */

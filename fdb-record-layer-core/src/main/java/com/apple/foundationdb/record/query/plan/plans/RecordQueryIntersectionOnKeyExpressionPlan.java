@@ -20,12 +20,13 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.record.query.plan.HeuristicPlanner;
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.planprotos.PRecordQueryIntersectionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
+import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
@@ -43,6 +44,7 @@ import java.util.stream.Collectors;
 /**
  * Intersection plan that compares using a {@link KeyExpression}.
  */
+@HeuristicPlanner
 public class RecordQueryIntersectionOnKeyExpressionPlan extends RecordQueryIntersectionPlan {
 
     protected RecordQueryIntersectionOnKeyExpressionPlan(@Nonnull final PlanSerializationContext serializationContext,
@@ -80,8 +82,8 @@ public class RecordQueryIntersectionOnKeyExpressionPlan extends RecordQueryInter
     public RecordQueryIntersectionOnKeyExpressionPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                                             final boolean shouldSimplifyValues,
                                                                             @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new RecordQueryIntersectionOnKeyExpressionPlan(Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers),
-                getComparisonKeyExpression(),
+        return new RecordQueryIntersectionOnKeyExpressionPlan(
+                Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers), getComparisonKeyExpression(),
                 isReverse());
     }
 
@@ -97,11 +99,11 @@ public class RecordQueryIntersectionOnKeyExpressionPlan extends RecordQueryInter
     }
 
     @Override
-    public RecordQueryIntersectionOnKeyExpressionPlan strictlySorted(@Nonnull final Memoizer memoizer) {
+    public RecordQueryIntersectionOnKeyExpressionPlan strictlySorted(@Nonnull final FinalMemoizer memoizer) {
         final var quantifiers =
                 Quantifiers.fromPlans(getChildren()
                         .stream()
-                        .map(p -> memoizer.memoizePlans((RecordQueryPlan)p.strictlySorted(memoizer))).collect(Collectors.toList()));
+                        .map(p -> memoizer.memoizePlan(p.strictlySorted(memoizer))).collect(Collectors.toList()));
         return new RecordQueryIntersectionOnKeyExpressionPlan(quantifiers, getComparisonKeyExpression(), reverse);
     }
 

@@ -21,19 +21,21 @@
 package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Ordering;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
-import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers;
+import com.apple.foundationdb.record.query.plan.cascades.properties.DistinctRecordsProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty;
+import com.apple.foundationdb.record.query.plan.cascades.properties.PrimaryKeyProperty;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
@@ -47,26 +49,25 @@ import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.planPartitions;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlanPartitionMatchers.rollUpPartitionsTo;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QuantifierMatchers.forEachQuantifierOverRef;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.planPartitions;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.rollUpTo;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.logicalSortExpression;
-import static com.apple.foundationdb.record.query.plan.cascades.properties.DistinctRecordsProperty.DISTINCT_RECORDS;
-import static com.apple.foundationdb.record.query.plan.cascades.properties.OrderingProperty.ORDERING;
-import static com.apple.foundationdb.record.query.plan.cascades.properties.PrimaryKeyProperty.PRIMARY_KEY;
 
 /**
  * A rule that implements a sort expression by removing this expression if appropriate.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
+public class RemoveSortRule extends ImplementationCascadesRule<LogicalSortExpression> {
     @Nonnull
-    private static final BindingMatcher<PlanPartition> innerPlanPartitionMatcher = ReferenceMatchers.anyPlanPartition();
+    private static final BindingMatcher<PlanPartition> innerPlanPartitionMatcher = PlanPartitionMatchers.anyPlanPartition();
 
     @Nonnull
     private static final BindingMatcher<Reference> innerReferenceMatcher =
-            planPartitions(rollUpTo(any(innerPlanPartitionMatcher), ImmutableSet.of(ORDERING, DISTINCT_RECORDS, PRIMARY_KEY)));
+            planPartitions(rollUpPartitionsTo(any(innerPlanPartitionMatcher), ImmutableSet.of(OrderingProperty.ordering(),
+                    DistinctRecordsProperty.distinctRecords(),
+                    PrimaryKeyProperty.primaryKey())));
 
     @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverRef(innerReferenceMatcher);
@@ -78,20 +79,20 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
         final LogicalSortExpression sortExpression = call.get(root);
         final PlanPartition innerPlanPartition = call.get(innerPlanPartitionMatcher);
 
         final RequestedOrdering requestedOrdering = sortExpression.getOrdering();
         if (requestedOrdering.isPreserve()) {
-            call.yieldExpression(innerPlanPartition.getPlans());
+            call.yieldPlans(innerPlanPartition.getPlans());
             return;
         }
 
         final List<OrderingPart.RequestedOrderingPart> requestedOrderingParts = requestedOrdering.getOrderingParts();
         final Set<Value> sortValuesSet = requestedOrderingParts.stream().map(OrderingPart::getValue).collect(Collectors.toSet());
 
-        final Ordering ordering = innerPlanPartition.getAttributeValue(ORDERING);
+        final Ordering ordering = innerPlanPartition.getPartitionPropertyValue(OrderingProperty.ordering());
         final Set<Value> equalityBoundKeys = ordering.getEqualityBoundValues();
         int equalityBoundUnsorted = equalityBoundKeys.size();
 
@@ -108,7 +109,7 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
             return;
         }
 
-        final boolean isDistinct = innerPlanPartition.getAttributeValue(DISTINCT_RECORDS);
+        final boolean isDistinct = innerPlanPartition.getPartitionPropertyValue(DistinctRecordsProperty.distinctRecords());
         if (isDistinct) {
             if (ordering.getOrderingSet()
                     .getSet()
@@ -119,11 +120,11 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
                                 .stream()
                                 .map(plan -> plan.strictlySorted(call))
                                 .collect(LinkedIdentitySet.toLinkedIdentitySet());
-                call.yieldExpression(strictlySortedInnerPlans);
+                call.yieldPlans(strictlySortedInnerPlans);
             }
         }
 
-        final var resultExpressions = new LinkedIdentitySet<RelationalExpression>();
+        final var resultExpressions = new LinkedIdentitySet<RecordQueryPlan>();
 
         for (final var innerPlan : innerPlanPartition.getPlans()) {
             final boolean strictOrdered =
@@ -137,7 +138,7 @@ public class RemoveSortRule extends CascadesRule<LogicalSortExpression> {
             }
         }
 
-        call.yieldExpression(resultExpressions);
+        call.yieldPlans(resultExpressions);
     }
 
     private static boolean strictlyOrderedIfUnique(@Nonnull RecordQueryPlan orderedPlan, final int numKeys) {

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -290,14 +291,18 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                     @Nullable final var rankComparisonRange = parameterBindingMap.get(rankAlias);
 
                     final var matchedOrderingPart =
-                            normalizedValue.<MatchedSortOrder, MatchedOrderingPart>deriveOrderingPart(AliasMap.emptyMap(), ImmutableSet.of(),
-                                    (v, sortOrder) -> MatchedOrderingPart.of(rankAlias, v, rankComparisonRange, sortOrder),
+                            normalizedValue.<MatchedSortOrder, MatchedOrderingPart>deriveOrderingPart(EvaluationContext.empty(),
+                                    AliasMap.emptyMap(), ImmutableSet.of(),
+                                    (v, sortOrder) ->
+                                            MatchedOrderingPart.of(rankAlias, v, rankComparisonRange, sortOrder),
                                     OrderingValueComputationRuleSet.usingMatchedOrderingParts());
                     builder.add(matchedOrderingPart);
                 } else {
                     final var matchedOrderingPart =
-                            normalizedValue.<MatchedSortOrder, MatchedOrderingPart>deriveOrderingPart(AliasMap.emptyMap(), ImmutableSet.of(),
-                                    (v, sortOrder) -> MatchedOrderingPart.of(parameterId, v, comparisonRange, sortOrder),
+                            normalizedValue.<MatchedSortOrder, MatchedOrderingPart>deriveOrderingPart(EvaluationContext.empty(),
+                                    AliasMap.emptyMap(), ImmutableSet.of(),
+                                    (v, sortOrder) ->
+                                            MatchedOrderingPart.of(parameterId, v, comparisonRange, sortOrder),
                                     OrderingValueComputationRuleSet.usingMatchedOrderingParts());
                     builder.add(matchedOrderingPart);
                 }
@@ -367,7 +372,8 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                             getBaseType());
 
             final var providedOrderingPart =
-                    normalizedValue.deriveOrderingPart(AliasMap.emptyMap(), ImmutableSet.of(), OrderingPart.ProvidedOrderingPart::new,
+                    normalizedValue.deriveOrderingPart(EvaluationContext.empty(), AliasMap.emptyMap(),
+                            ImmutableSet.of(), OrderingPart.ProvidedOrderingPart::new,
                             OrderingValueComputationRuleSet.usingProvidedOrderingParts());
 
             final var providedOrderingValue = providedOrderingPart.getValue();
@@ -403,7 +409,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                                 false,
                                 partialMatch.getMatchCandidate(),
                                 baseRecordType,
-                                QueryPlanConstraint.tautology()));
+                                QueryPlanConstraint.noConstraint()));
     }
 
     @Nonnull
@@ -429,14 +435,14 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
                         false,
                         partialMatch.getMatchCandidate(),
                         baseRecordType,
-                        QueryPlanConstraint.tautology());
+                        QueryPlanConstraint.noConstraint());
 
         final var coveringIndexPlan = new RecordQueryCoveringIndexPlan(indexPlan,
                 indexEntryToLogicalRecord.getQueriedRecordType().getName(),
                 AvailableFields.NO_FIELDS, // not used except for old planner properties
                 indexEntryToLogicalRecord.getIndexKeyValueToPartialRecord());
 
-        return Optional.of(new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(memoizer.memoizePlans(coveringIndexPlan)),
+        return Optional.of(new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(memoizer.memoizePlan(coveringIndexPlan)),
                 coveringIndexPlan::pushValueThroughFetch, baseRecordType, RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY));
     }
 

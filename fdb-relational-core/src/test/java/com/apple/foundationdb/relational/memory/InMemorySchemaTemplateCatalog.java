@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.memory;
 
-import com.apple.foundationdb.relational.api.FieldDescription;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.Row;
@@ -28,15 +27,15 @@ import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.IteratorResultSet;
 import com.apple.foundationdb.relational.recordlayer.ValueTuple;
 
 import javax.annotation.Nonnull;
-import java.sql.DatabaseMetaData;
-import java.sql.Types;
 import java.util.Comparator;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -136,8 +135,10 @@ class InMemorySchemaTemplateCatalog implements SchemaTemplateCatalog {
         Iterator<Row> iter = strings.stream()
                 .map(name -> (Row) new ValueTuple(name))
                 .collect(Collectors.toList()).iterator();
-        FieldDescription field = FieldDescription.primitive("TEMPLATE_NAME", Types.VARCHAR, DatabaseMetaData.columnNoNulls);
-        return new IteratorResultSet(new RelationalStructMetaData(field), iter, 0);
+        final var type = DataType.StructType.from("TEMPLATES", List.of(
+                DataType.StructType.Field.from("TEMPLATE_NAME", DataType.Primitives.STRING.type(), 0)
+        ), true);
+        return new IteratorResultSet(RelationalStructMetaData.of(type), iter, 0);
     }
 
     @Override

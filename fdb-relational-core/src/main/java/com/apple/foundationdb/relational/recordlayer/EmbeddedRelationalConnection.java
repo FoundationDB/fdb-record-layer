@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,22 +24,16 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.relational.api.ArrayMetaData;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
-import com.apple.foundationdb.relational.api.FieldDescription;
-import com.apple.foundationdb.relational.api.ImmutableRowStruct;
+import com.apple.foundationdb.relational.api.EmbeddedRelationalStruct;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalArrayMetaData;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalStatement;
-import com.apple.foundationdb.relational.api.RelationalStruct;
-import com.apple.foundationdb.relational.api.RelationalStructMetaData;
 import com.apple.foundationdb.relational.api.RowArray;
 import com.apple.foundationdb.relational.api.SqlTypeNamesSupport;
-import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.TransactionManager;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
@@ -48,13 +42,13 @@ import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.fluentsql.expression.ExpressionFactory;
 import com.apple.foundationdb.relational.api.fluentsql.statement.StatementBuilderFactory;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metrics.MetricCollector;
 import com.apple.foundationdb.relational.recordlayer.metric.RecordLayerMetricCollector;
 import com.apple.foundationdb.relational.recordlayer.structuredsql.expression.ExpressionFactoryImpl;
 import com.apple.foundationdb.relational.recordlayer.structuredsql.statement.StatementBuilderFactoryImpl;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
-import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.relational.util.Supplier;
 import com.google.common.annotations.VisibleForTesting;
@@ -64,12 +58,9 @@ import javax.annotation.Nullable;
 import java.net.URI;
 import java.sql.Array;
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.sql.Struct;
-import java.sql.Types;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.stream.Collectors;
@@ -369,40 +360,31 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
 
     @Override
     public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
-        int typeCode = SqlTypeNamesSupport.getSqlTypeCode(typeName);
-        ArrayMetaData arrayMetaData = RelationalArrayMetaData.ofPrimitive(typeCode, DatabaseMetaData.columnNoNulls);
-        try {
-            if (typeCode == Types.STRUCT) {
-                Assert.that(elements.length != 0, ErrorCode.INTERNAL_ERROR, "Cannot determine the complete component type of array of struct since it has no elements!");
-                Assert.that(elements[0] instanceof RelationalStruct, ErrorCode.DATATYPE_MISMATCH, "Element of the array of struct is not of struct type!");
-                arrayMetaData = RelationalArrayMetaData.ofStruct(((RelationalStruct) elements[0]).getMetaData(), DatabaseMetaData.columnNoNulls);
+        final var dataType = SqlTypeNamesSupport.getDataTypeFromSqlTypeName(typeName);
+        if (dataType != null) {
+            return new RowArray(Arrays.stream(elements).collect(Collectors.toList()), RelationalArrayMetaData.of(DataType.ArrayType.from(dataType, false)));
+        } else if (elements.length == 0) {
+            throw new RelationalException("Cannot determine the complete component type of array of struct since it has no elements!", ErrorCode.INTERNAL_ERROR).toSqlException();
+        } else {
+            final var elementType = DataType.getDataTypeFromObject(elements[0]);
+            if (elementType instanceof DataType.ArrayType) {
+                throw new RelationalException("Nested arrays are not supported yet!", ErrorCode.UNSUPPORTED_OPERATION).toSqlException();
+            } else if (elementType.getJdbcSqlCode() != SqlTypeNamesSupport.getSqlTypeCode(typeName)) {
+                throw new RelationalException("Element of the array is expected to be of type " + typeName, ErrorCode.DATATYPE_MISMATCH).toSqlException();
             }
-        } catch (RelationalException ve) {
-            throw ve.toSqlException();
+            return new RowArray(Arrays.stream(elements).collect(Collectors.toList()), RelationalArrayMetaData.of(DataType.ArrayType.from(elementType, false)));
         }
-        return new RowArray(Arrays.stream(elements).collect(Collectors.toList()), arrayMetaData);
     }
 
     @Override
     public Struct createStruct(String typeName, Object[] attributes) throws SQLException {
+        // We do not preserve the typeName, as there is no validation around that currently.
+        final var builder = EmbeddedRelationalStruct.newBuilder();
         int nextFieldIndex = 0;
-        final var fieldDescriptions = new ArrayList<>();
-        for (var atr : attributes) {
-            final var fieldName = "f" + nextFieldIndex++;
-            final int typeCode = SqlTypeSupport.getSqlTypeCodeFromObject(atr);
-            switch (typeCode) {
-                case Types.ARRAY:
-                    fieldDescriptions.add(FieldDescription.array(fieldName, DatabaseMetaData.columnNoNulls, ((RelationalArray) atr).getMetaData()));
-                    break;
-                case Types.STRUCT:
-                    fieldDescriptions.add(FieldDescription.struct(fieldName, DatabaseMetaData.columnNoNulls, ((RelationalStruct) atr).getMetaData()));
-                    break;
-                default:
-                    fieldDescriptions.add(FieldDescription.primitive(fieldName, typeCode, DatabaseMetaData.columnNoNulls));
-                    break;
-            }
+        for (var atr: attributes) {
+            builder.addObject("f" + nextFieldIndex++, atr);
         }
-        return new ImmutableRowStruct(new ArrayRow(attributes), new RelationalStructMetaData(fieldDescriptions.toArray(FieldDescription[]::new)));
+        return builder.build();
     }
 
     private void startTransaction() throws SQLException {
@@ -532,6 +514,7 @@ public class EmbeddedRelationalConnection implements RelationalConnection {
         }
     }
 
+    // todo: remove this.
     private ExecuteProperties newExecuteProperties() {
         return ExecuteProperties.newBuilder()
                 .setIsolationLevel(toExecutePropertiesIsolationLevel(transactionIsolation))

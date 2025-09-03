@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,6 +51,7 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 
 @API(API.Status.EXPERIMENTAL)
@@ -72,7 +73,8 @@ public final class TautologicalValue extends AbstractValue implements BooleanVal
     }
 
     @Override
-    public Optional<QueryPredicate> toQueryPredicate(@Nullable TypeRepository typeRepository, @Nonnull CorrelationIdentifier innermostAlias) {
+    public Optional<QueryPredicate> toQueryPredicate(@Nullable TypeRepository typeRepository,
+                                                     @Nonnull Set<CorrelationIdentifier> localAliases) {
         return Optional.of(ConstantPredicate.TRUE);
     }
 

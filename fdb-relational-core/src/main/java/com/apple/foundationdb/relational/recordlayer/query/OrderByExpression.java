@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
@@ -67,13 +68,15 @@ public final class OrderByExpression {
         return new OrderByExpression(expression, descending, nullsLast);
     }
 
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     @Nonnull
-    public static Stream<OrderByExpression> pullUp(@Nonnull Stream<OrderByExpression> orderBys,
-                                                   @Nonnull Value value, @Nonnull CorrelationIdentifier correlationIdentifier,
-                                                   @Nonnull Set<CorrelationIdentifier> constantAliases,
-                                                   @Nonnull Optional<Identifier> qualifier) {
+    public static Stream<OrderByExpression> pullUp(@Nonnull final Stream<OrderByExpression> orderBys,
+                                                   @Nonnull final Value value,
+                                                   @Nonnull final CorrelationIdentifier correlationIdentifier,
+                                                   @Nonnull final Set<CorrelationIdentifier> constantAliases,
+                                                   @Nonnull final Optional<Identifier> qualifier) {
         final var aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
-        final var simplifiedValue = value.simplify(aliasMap, constantAliases);
+        final var simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
         return orderBys
                 // expand *
                 .flatMap(orderBy ->
@@ -85,7 +88,9 @@ public final class OrderByExpression {
                     final var underlying = orderByExpression.getUnderlying();
                     final var pulledUpUnderlying = Assert.notNullUnchecked(underlying.replace(
                             subExpression -> {
-                                final var pulledUpExpressionMap = simplifiedValue.pullUp(List.of(subExpression), aliasMap, constantAliases, correlationIdentifier);
+                                final var pulledUpExpressionMap =
+                                        simplifiedValue.pullUp(List.of(subExpression), EvaluationContext.empty(),
+                                                aliasMap, constantAliases, correlationIdentifier);
                                 if (pulledUpExpressionMap.containsKey(subExpression)) {
                                     return pulledUpExpressionMap.get(subExpression);
                                 }

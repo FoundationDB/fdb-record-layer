@@ -216,7 +216,7 @@ public class PredicateToLogicalUnionRule extends CascadesRule<MatchPartition> {
 
         final var dnfPredicate =
                 Simplification.optimize(conjunctedPredicate, EvaluationContext.empty(), AliasMap.emptyMap(),
-                        constantAliases, QueryPredicateWithDnfRuleSet.ofComputationRules()).getLeft();
+                        constantAliases, QueryPredicateWithDnfRuleSet.ofSimplificationRules()).getUnconstrained();
         if (dnfPredicate.isAtomic() || !(dnfPredicate instanceof OrPredicate)) {
             // it can be that the dnf-predicate is trivial, i.e. it is only an AND of boolean variables
             return;
@@ -261,23 +261,30 @@ public class PredicateToLogicalUnionRule extends CascadesRule<MatchPartition> {
                     new SelectExpression(lowerResultValue,
                             ImmutableList.copyOf(Iterables.concat(neededForEachQuantifiers, neededAdditionalQuantifiers)),
                             ImmutableList.<QueryPredicate>builder().addAll(fixedAtomicPredicates).add(orTermPredicate).build());
-            final Reference memoizedSelectExpressionLeg = call.memoizeExpression(selectExpressionLeg);
+            final Reference memoizedSelectExpressionLeg = call.memoizeExploratoryExpression(selectExpressionLeg);
             final var uniqueExpressionLeg = new LogicalUniqueExpression(Quantifier.forEach(memoizedSelectExpressionLeg));
-            final var memoizedUniqueExpressionLeg = call.memoizeExpression(uniqueExpressionLeg);
+            final var memoizedUniqueExpressionLeg = call.memoizeExploratoryExpression(uniqueExpressionLeg);
             references.add(memoizedUniqueExpressionLeg);
         }
         
-        var unionReferenceBuilder = call.memoizeExpressionBuilder(new LogicalUnionExpression(Quantifiers.forEachQuantifiers(references)));
+        var unionReferenceBuilder =
+                call.memoizeExploratoryExpressionBuilder(
+                        new LogicalUnionExpression(Quantifiers.forEachQuantifiers(references)));
 
-        unionReferenceBuilder = call.memoizeExpressionBuilder(new LogicalDistinctExpression(Quantifier.forEach(unionReferenceBuilder.reference())));
+        unionReferenceBuilder = call.memoizeExploratoryExpressionBuilder(
+                new LogicalDistinctExpression(Quantifier.forEach(unionReferenceBuilder.reference())));
 
         if (!isSimpleResultValue) {
             final Reference unionReference = unionReferenceBuilder.reference();
-            final var unionQuantifier = referredAliasByResultOptional.map(alias -> Quantifier.forEachBuilder().withAlias(alias).build(unionReference)).orElse(Quantifier.forEach(unionReference));
-            unionReferenceBuilder = call.memoizeExpressionBuilder(new SelectExpression(resultValue, ImmutableList.of(unionQuantifier), ImmutableList.of()));
+            final var unionQuantifier =
+                    referredAliasByResultOptional.map(alias ->
+                                    Quantifier.forEachBuilder().withAlias(alias).build(unionReference))
+                            .orElse(Quantifier.forEach(unionReference));
+            unionReferenceBuilder =
+                    call.memoizeExploratoryExpressionBuilder(new SelectExpression(resultValue, ImmutableList.of(unionQuantifier), ImmutableList.of()));
         }
 
-        call.yieldExpression(unionReferenceBuilder.members());
+        call.yieldExploratoryExpressions(unionReferenceBuilder.members());
     }
 
     @SuppressWarnings("unchecked")

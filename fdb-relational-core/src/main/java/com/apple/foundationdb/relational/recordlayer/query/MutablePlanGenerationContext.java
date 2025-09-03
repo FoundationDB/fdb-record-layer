@@ -22,24 +22,25 @@ package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
 
-import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
-import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.EvaluatesToValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.OfTypeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.relational.api.SqlTypeSupport;
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalStruct;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
@@ -70,12 +71,18 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     private final PreparedParams preparedParams;
 
     @Nonnull
-    private final LiteralsBuilder literalsBuilder;
+    private final Literals.Builder literalsBuilder;
 
     private final int parameterHash;
 
     @Nonnull
     private final PlanHashable.PlanHashMode planHashMode;
+
+    @Nonnull
+    private final String query;
+
+    @Nonnull
+    private final String canonicalQueryString;
 
     @Nonnull
     private final List<ConstantObjectValue> constantObjectValues;
@@ -90,18 +97,195 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     @Nonnull
     private final ImmutableList.Builder<QueryPredicate> equalityConstraints;
 
+    private void startStructLiteral() {
+        literalsBuilder.startStructLiteral();
+    }
+
+    private void finishStructLiteral(@Nonnull Type.Record type,
+                                     @Nullable Integer unnamedParameterIndex,
+                                     @Nullable String parameterName,
+                                     int tokenIndex) {
+        literalsBuilder.finishStructLiteral(type, unnamedParameterIndex, parameterName, tokenIndex);
+    }
+
+    private void addLiteralReference(@Nonnull ConstantObjectValue constantObjectValue) {
+        if (!literalsBuilder.isAddingComplexLiteral()) {
+            constantObjectValues.add(constantObjectValue);
+        }
+    }
+
+    /**
+     * Checks if the provided literal argument has already been referenced by a registered {@link OrderedLiteral}.
+     * <br>
+     * If a matching {@link OrderedLiteral} is found, it is returned, and an equality constraint is created
+     * between it and a constant reference representing the lexical position of the current literal token in the query.
+     * Otherwise, an empty {@link Optional} is returned.
+     * <br>
+     * For example, given the query {@code SELECT A + 3 FROM T WHERE B > 3}:
+     * <ul>
+     *     <li>When encountering the first {@code 3} literal at lexical position 4, calling
+     *     {@code getFirstCovReference(3, 4, Type.Int)} will return an empty {@link Optional} because this is the
+     *     first occurrence of the literal.</li>
+     *     <li>Calling {@code getFirstCovReference(3, 10, Type.Int)} for the second {@code 3} literal found at lexical
+     *     position 10 will return the {@link OrderedLiteral} corresponding to the first {@code 3}.  It will also establish
+     *     an equality constraint between the two literal tokens: {@code Equality(Cov(const_4), Cov(const_10))}.</li>
+     * </ul>
+     *
+     * @param literal The literal to search for.
+     * @param requestedTokenIndex The lexical index of the literal token within the query.
+     * @param type The data type of the literal.
+     * @return An {@link Optional} containing the corresponding {@link OrderedLiteral} if the literal was previously
+     *         encountered; otherwise, an empty {@link Optional}.
+     */
+    @Nonnull
+    private Optional<OrderedLiteral> getFirstDuplicate(@Nullable Object literal, int requestedTokenIndex,
+                                                       @Nonnull Type type) {
+        final var orderedLiteralMaybe = literalsBuilder.getFirstValueDuplicateMaybe(literal);
+        if (orderedLiteralMaybe.isEmpty()) {
+            return Optional.empty();
+        }
+        addEqualityConstraint(literalsBuilder.constructConstantId(requestedTokenIndex),
+                orderedLiteralMaybe.get().getConstantId(), type);
+        return orderedLiteralMaybe;
+    }
+
+    @Nonnull
+    private Optional<OrderedLiteral> getFirstDuplicate(@Nonnull final String constantId) {
+        final var firstDuplicateMaybe = literalsBuilder.getFirstDuplicateOfConstantIdMaybe(constantId);
+        if (firstDuplicateMaybe.isEmpty()) {
+            return firstDuplicateMaybe;
+        }
+        final var firstDuplicate = firstDuplicateMaybe.get();
+        addEqualityConstraint(firstDuplicate.getConstantId(), constantId, firstDuplicate.getType());
+        return firstDuplicateMaybe;
+    }
+
+    private void addEqualityConstraint(@Nonnull String leftTokenId, @Nonnull String rightTokenId, @Nonnull Type type) {
+        if (leftTokenId.equals(rightTokenId)) {
+            return;
+        }
+        final var leftCov = ConstantObjectValue.of(Quantifier.constant(), leftTokenId, type);
+        final var rightCov = ConstantObjectValue.of(Quantifier.constant(), rightTokenId, type);
+
+        // we can replace the relatively complex predicate below with a much simpler one: (leftCov isNotDistinctFrom rightCov)
+        // once https://github.com/FoundationDB/fdb-record-layer/issues/3504 is in, but this is ok for now.
+
+        // Term1: left != null AND right != null AND left = right
+        final var leftIsNotNull = new ValuePredicate(leftCov, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL));
+        final var rightIsNotNull = new ValuePredicate(rightCov, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL));
+        final var equalityPredicate = new ValuePredicate(leftCov, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, rightCov));
+        final var notNullComparison = AndPredicate.and(ImmutableList.of(leftIsNotNull, rightIsNotNull, equalityPredicate));
+
+        // Term2: left = null AND right = null
+        final var leftIsNull = new ValuePredicate(leftCov, new Comparisons.NullComparison(Comparisons.Type.IS_NULL));
+        final var rightIsNull = new ValuePredicate(rightCov, new Comparisons.NullComparison(Comparisons.Type.IS_NULL));
+        final var bothAreNullComparison = AndPredicate.and(leftIsNull, rightIsNull);
+
+        // Term1 OR Term2
+        final var constraint = OrPredicate.or(notNullComparison, bothAreNullComparison);
+        equalityConstraints.add(constraint);
+    }
+
+
+    private void setShouldProcessLiteral(boolean shouldProcessLiteral) {
+        this.shouldProcessLiteral = shouldProcessLiteral;
+    }
+
+    @Nonnull
+    private ConstantObjectValue processPreparedStatementArrayParameter(@Nonnull Array param,
+                                                                       @Nullable Type.Array type,
+                                                                       @Nullable Integer unnamedParameterIndex,
+                                                                       @Nullable String parameterName,
+                                                                       final int tokenIndex) {
+        Type.Array resolvedType = type;
+        startArrayLiteral();
+        final var arrayElements = new ArrayList<>();
+        try {
+            if (type == null) {
+                resolvedType = (Type.Array) DataTypeUtils.toRecordLayerType(((RelationalArray) param).getMetaData().asRelationalType());
+            }
+            try (ResultSet rs = param.getResultSet()) {
+                while (rs.next()) {
+                    arrayElements.add(rs.getObject(2));
+                }
+            }
+        } catch (SQLException e) {
+            throw new RelationalException(e).toUncheckedWrappedException();
+        }
+        if (!arrayElements.isEmpty()) {
+            Assert.thatUnchecked(resolvedType.equals(LiteralsUtils.resolveArrayTypeFromObjectsList(arrayElements)),
+                    DATATYPE_MISMATCH, "Cannot convert literal to " + resolvedType);
+        }
+        for (int i = 0; i < arrayElements.size(); i++) {
+            final Object o = arrayElements.get(i);
+            processPreparedStatementParameter(o, resolvedType.getElementType(), unnamedParameterIndex, parameterName, i);
+        }
+        finishArrayLiteral(unnamedParameterIndex, parameterName, tokenIndex);
+        return processComplexLiteral(tokenIndex, resolvedType);
+    }
+
+    @Nonnull
+    private Value processQueryLiteralOrParameter(@Nonnull Type type,
+                                                 @Nullable Object literal,
+                                                 @Nullable Integer unnamedParameterIndex,
+                                                 @Nullable String parameterName,
+                                                 int tokenIndex) {
+        final var literalValue = new LiteralValue<>(literal);
+        if (!shouldProcessLiteral()) {
+            return literalValue;
+        } else {
+            final var orderedLiteral = literalsBuilder.addLiteral(type, literal, unnamedParameterIndex, parameterName, tokenIndex);
+            final var result = ConstantObjectValue.of(Quantifier.constant(), orderedLiteral.getConstantId(),
+                    literalValue.getResultType());
+            addLiteralReference(result);
+            return getFirstDuplicate(literal, tokenIndex, type)
+                    .map(duplicate ->
+                            ConstantObjectValue.of(Quantifier.constant(), duplicate.getConstantId(), literalValue.getResultType()))
+                    .orElse(result);
+        }
+    }
+
+    @Nonnull
+    private Value processPreparedStatementParameter(@Nullable Object param,
+                                                    @Nullable Type type,
+                                                    @Nullable Integer unnamedParameterIndex,
+                                                    @Nullable String parameterName,
+                                                    int tokenIndex) {
+        if (param instanceof Array) {
+            Assert.thatUnchecked(type == null || type.isArray(), DATATYPE_MISMATCH, "Array type field required as prepared statement parameter");
+            return processPreparedStatementArrayParameter((Array)param, (Type.Array)type, unnamedParameterIndex, parameterName, tokenIndex);
+        } else if (param instanceof Struct) {
+            Assert.thatUnchecked(type == null || type.isRecord(), DATATYPE_MISMATCH, "Required type field required as prepared statement parameter");
+            return processPreparedStatementStructParameter((Struct)param, (Type.Record)type, unnamedParameterIndex, parameterName, tokenIndex);
+        } else if (param instanceof byte[]) {
+            return processQueryLiteralOrParameter(Type.primitiveType(Type.TypeCode.BYTES), ZeroCopyByteString.wrap((byte[])param),
+                    unnamedParameterIndex, parameterName, tokenIndex);
+        } else {
+            return processQueryLiteralOrParameter(type == null ? Type.any() : type, param, unnamedParameterIndex, parameterName, tokenIndex);
+        }
+    }
+
     public MutablePlanGenerationContext(@Nonnull PreparedParams preparedParams,
                                         @Nonnull PlanHashable.PlanHashMode planHashMode,
+                                        @Nonnull String query,
+                                        @Nonnull String canonicalQueryString,
                                         int parameterHash) {
         this.preparedParams = preparedParams;
         this.planHashMode = planHashMode;
+        this.query = query;
+        this.canonicalQueryString = canonicalQueryString;
         this.parameterHash = parameterHash;
-        literalsBuilder = LiteralsBuilder.newBuilder();
+        literalsBuilder = Literals.newBuilder();
         constantObjectValues = new LinkedList<>();
         shouldProcessLiteral = true;
         forExplain = false;
         setContinuation(null);
         equalityConstraints = ImmutableList.builder();
+    }
+
+    @Nonnull
+    public PreparedParams getPreparedParams() {
+        return preparedParams;
     }
 
     public void startArrayLiteral() {
@@ -114,66 +298,16 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         literalsBuilder.finishArrayLiteral(unnamedParameterIndex, parameterName, shouldProcessLiteral, tokenIndex);
     }
 
-    public void startStructLiteral() {
-        literalsBuilder.startStructLiteral();
-    }
-
-    public void finishStructLiteral(@Nonnull Type.Record type,
-                                    @Nullable Integer unnamedParameterIndex,
-                                    @Nullable String parameterName,
-                                    int tokenIndex) {
-        literalsBuilder.finishStructLiteral(type, unnamedParameterIndex, parameterName, tokenIndex);
-    }
-
-    public void addStrippedLiteralOrParameter(@Nonnull OrderedLiteral orderedLiteral) {
-        literalsBuilder.addLiteral(orderedLiteral);
-    }
-
-    public void addLiteralReference(@Nonnull ConstantObjectValue constantObjectValue) {
-        if (!literalsBuilder.isAddingComplexLiteral()) {
-            constantObjectValues.add(constantObjectValue);
-        }
-    }
-
-    @Nonnull
-    public Optional<OrderedLiteral> getFirstCovReference(@Nullable Object literal, int requestedTokenIndex, @Nonnull Type type) {
-        final var orderedLiteralMaybe = literalsBuilder.getFirstValueDuplicateMaybe(literal);
-        if (orderedLiteralMaybe.isEmpty()) {
-            return Optional.empty();
-        }
-        addEqualityConstraint(requestedTokenIndex, orderedLiteralMaybe.get().getTokenIndex(), type);
-        return orderedLiteralMaybe;
-    }
-
-    @Nonnull
-    public Optional<OrderedLiteral> getFirstDuplicate(@Nonnull String tokenId) {
-        final var firstDuplicateMaybe = literalsBuilder.getFirstDuplicateOfTokenIdMaybe(tokenId);
-        if (firstDuplicateMaybe.isEmpty()) {
-            return firstDuplicateMaybe;
-        }
-        final var firstDuplicate = firstDuplicateMaybe.get();
-        addEqualityConstraint(firstDuplicate.getConstantId(), tokenId, firstDuplicate.getType());
-        return firstDuplicateMaybe;
-    }
-
-    private void addEqualityConstraint(int leftTokenIndex, int rightTokenIndex, @Nonnull Type type) {
-        addEqualityConstraint(OrderedLiteral.constantId(leftTokenIndex), OrderedLiteral.constantId(rightTokenIndex), type);
-    }
-
-    private void addEqualityConstraint(@Nonnull String leftTokenId, @Nonnull String rightTokenId, @Nonnull Type type) {
-        if (leftTokenId.equals(rightTokenId)) {
-            return;
-        }
-        final var leftCov = ConstantObjectValue.of(Quantifier.constant(), leftTokenId, type);
-        final var rightCov = ConstantObjectValue.of(Quantifier.constant(), rightTokenId, type);
-        final var equalityPredicate = new ValuePredicate(leftCov, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, rightCov));
-        equalityConstraints.add(equalityPredicate);
-    }
-
     @Nonnull
     @Override
-    public Literals getLiteralsBuilder() {
+    public Literals getLiterals() {
+        // todo: this should be more efficient, we just need an immutable view over the elements of the builder.
         return literalsBuilder.build();
+    }
+
+    @Nonnull
+    public Literals.Builder getLiteralsBuilder() {
+        return literalsBuilder;
     }
 
     @Nonnull
@@ -182,20 +316,19 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         return planHashMode;
     }
 
-    // this is temporary until we have a proper clean up.
-    public boolean isForDdl() {
-        return !shouldProcessLiteral;
+    @Nonnull
+    public String getQuery() {
+        return query;
     }
 
     @Nonnull
-    @Override
-    public EvaluationContext getEvaluationContext(@Nonnull TypeRepository typeRepository) {
-        if (literalsBuilder.isEmpty()) {
-            return EvaluationContext.forTypeRepository(typeRepository);
-        }
-        final var builder = EvaluationContext.newBuilder();
-        builder.setConstant(Quantifier.constant(), getLiteralsBuilder().asMap());
-        return builder.build(typeRepository);
+    public String getCanonicalQueryString() {
+        return canonicalQueryString;
+    }
+
+    // this is temporary until we have a proper clean up.
+    public boolean isForDdl() {
+        return !shouldProcessLiteral;
     }
 
     @Nonnull
@@ -221,17 +354,27 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         return forExplain;
     }
 
-    @Nonnull
-    public QueryPlanConstraint getLiteralReferencesConstraint() {
-        final ImmutableList.Builder<QueryPredicate> predicateBuilder = ImmutableList.builder();
-        constantObjectValues.forEach(parameter -> predicateBuilder.add(new ValuePredicate(OfTypeValue.from(parameter),
-                new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true))));
-        predicateBuilder.addAll(equalityConstraints.build());
-        return QueryPlanConstraint.ofPredicates(predicateBuilder.build());
-    }
 
-    public void setForExplain(boolean forExplain) {
-        this.forExplain = forExplain;
+    @Nonnull
+    public QueryPlanConstraint getPlanConstraintsForLiteralReferences() {
+        final ImmutableList.Builder<QueryPredicate> predicateBuilder = ImmutableList.builder();
+
+        // add type constraint for every ConstantObjectValue.
+        constantObjectValues.forEach(cov ->
+                predicateBuilder.add(new ValuePredicate(OfTypeValue.from(cov),
+                        new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true))));
+
+        // add any literal equality constraints.
+        predicateBuilder.addAll(equalityConstraints.build());
+
+        // add literal evaluation for specific values to enable
+        // triggering constant folding internally.
+        final var evaluationContext = getEvaluationContext();
+        constantObjectValues.forEach(cov ->
+                predicateBuilder.add(new ValuePredicate(EvaluatesToValue.of(cov, evaluationContext),
+                        new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, true))));
+
+        return QueryPlanConstraint.ofPredicates(predicateBuilder.build());
     }
 
     @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP2", justification = "Intentional")
@@ -243,16 +386,23 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         return shouldProcessLiteral;
     }
 
-    private void setShouldProcessLiteral(boolean shouldProcessLiteral) {
-        this.shouldProcessLiteral = shouldProcessLiteral;
+    public void setForExplain(boolean forExplain) {
+        this.forExplain = forExplain;
+    }
+
+    @Nonnull
+    public Value processQueryLiteral(@Nonnull Type type, @Nullable Object literal, int tokenIndex) {
+        return processQueryLiteralOrParameter(type, literal, null, null, tokenIndex);
     }
 
     /**
      * Runs a closure without literal processing, i.e. without translating a literal found in the
      * AST into a {@link ConstantObjectValue}. This is necessary in cases where the literal is found
      * in a context that does not contribute to the logical plan such as {@code limit} and {@code continuation}.
+     *
      * @param supplier The closure to run with literal processing disabled.
      * @param <T> The type of the closure result.
+     *
      * @return The result of the closure
      */
     @Nonnull
@@ -265,70 +415,14 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     }
 
     @Nonnull
-    public Value processQueryLiteral(@Nonnull Type type, @Nullable Object literal, int tokenIndex) {
-        return processQueryLiteralOrParameter(type, literal, null, null, tokenIndex);
-    }
-
-    @Nonnull
-    public Value processQueryLiteralOrParameter(@Nonnull Type type,
-                                                @Nullable Object literal,
-                                                @Nullable Integer unnamedParameterIndex,
-                                                @Nullable String parameterName,
-                                                int tokenIndex) {
-        final var literalValue = new LiteralValue<>(literal);
-        if (!shouldProcessLiteral()) {
-            return literalValue;
-        } else {
-            final var orderedLiteral = new OrderedLiteral(type, literal, unnamedParameterIndex, parameterName, tokenIndex);
-            addStrippedLiteralOrParameter(orderedLiteral);
-            final var result = ConstantObjectValue.of(Quantifier.constant(), orderedLiteral.getConstantId(),
-                    literalValue.getResultType());
-            addLiteralReference(result);
-            return ConstantObjectValue.of(Quantifier.constant(), getFirstCovReference(literal, tokenIndex, type).map(OrderedLiteral::getConstantId).orElse(orderedLiteral.getConstantId()),
-                    literalValue.getResultType());
-        }
-    }
-
-    @Nonnull
-    public ConstantObjectValue processComplexLiteral(@Nonnull String constantId, @Nonnull Type type) {
+    public ConstantObjectValue processComplexLiteral(int tokenIndex, @Nonnull Type type) {
+        final var constantId = literalsBuilder.constructConstantId(tokenIndex);
         final var result = ConstantObjectValue.of(Quantifier.constant(), constantId, type);
         if (shouldProcessLiteral()) {
             addLiteralReference(result);
         }
-        return ConstantObjectValue.of(Quantifier.constant(), getFirstDuplicate(constantId).map(OrderedLiteral::getConstantId).orElse(constantId), type);
-    }
-
-    @Nonnull
-    public ConstantObjectValue processPreparedStatementArrayParameter(@Nonnull Array param,
-                                                                      @Nullable Type.Array type,
-                                                                      @Nullable Integer unnamedParameterIndex,
-                                                                      @Nullable String parameterName,
-                                                                      final int tokenIndex) {
-        Type.Array resolvedType = type;
-        startArrayLiteral();
-        final var arrayElements = new ArrayList<>();
-        try {
-            if (type == null) {
-                resolvedType = SqlTypeSupport.arrayMetadataToArrayType(((RelationalArray) param).getMetaData(), false);
-            }
-            try (ResultSet rs = param.getResultSet()) {
-                while (rs.next()) {
-                    arrayElements.add(rs.getObject(2));
-                }
-            }
-        } catch (SQLException e) {
-            throw new RelationalException(e).toUncheckedWrappedException();
-        }
-        if (!arrayElements.isEmpty()) {
-            Assert.thatUnchecked(resolvedType.equals(LiteralsUtils.resolveArrayTypeFromObjectsList(arrayElements)),
-                    DATATYPE_MISMATCH, "Cannot convert literal to " + resolvedType);
-        }
-        for (int i = 0; i < arrayElements.size(); i++) {
-            final Object o = arrayElements.get(i);
-            processPreparedStatementParameter(o, resolvedType.getElementType(), unnamedParameterIndex, parameterName, i);
-        }
-        finishArrayLiteral(unnamedParameterIndex, parameterName, tokenIndex);
-        return processComplexLiteral(OrderedLiteral.constantId(tokenIndex), resolvedType);
+        return ConstantObjectValue.of(Quantifier.constant(),
+                getFirstDuplicate(constantId).map(OrderedLiteral::getConstantId).orElse(constantId), type);
     }
 
     @Nonnull
@@ -342,7 +436,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         Object[] attributes;
         try {
             if (type == null) {
-                resolvedType = SqlTypeSupport.structMetadataToRecordType(((RelationalStruct) param).getMetaData(), false);
+                resolvedType = (Type.Record) DataTypeUtils.toRecordLayerType(((RelationalStruct) param).getMetaData().getRelationalDataType());
             }
             attributes = param.getAttributes();
         } catch (SQLException e) {
@@ -354,7 +448,17 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
                     unnamedParameterIndex, parameterName, i);
         }
         finishStructLiteral(resolvedType, unnamedParameterIndex, parameterName, tokenIndex);
-        return processComplexLiteral(OrderedLiteral.constantId(tokenIndex), resolvedType);
+        return processComplexLiteral(tokenIndex, resolvedType);
+    }
+
+    public void importAuxiliaryLiterals(@Nonnull final Literals auxiliaryLiterals) {
+        final var newLiterals = literalsBuilder.importLiteralsRetrieveNewLiterals(auxiliaryLiterals);
+        for (final var literal : newLiterals) {
+            final var literalValue = new LiteralValue<>(literal.getLiteralObject());
+            final var duplicateLiteralMaybe = literalsBuilder.getFirstValueDuplicateMaybe(literal.getLiteralObject());
+            duplicateLiteralMaybe.ifPresent(prev -> addEqualityConstraint(prev.getConstantId(), literal.getConstantId(), literalValue.getResultType()));
+            constantObjectValues.add(ConstantObjectValue.of(Quantifier.constant(), literal.getConstantId(), literalValue.getResultType()));
+        }
     }
 
     @Nonnull
@@ -371,25 +475,5 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         final var param = preparedParams.nextUnnamedParamValue();
         //TODO type should probably be Type.any() instead of null
         return processPreparedStatementParameter(param, null, currentUnnamedParameterIndex, null, tokenIndex);
-    }
-
-    @Nonnull
-    private Value processPreparedStatementParameter(@Nullable Object param,
-                                                    @Nullable Type type,
-                                                    @Nullable Integer unnamedParameterIndex,
-                                                    @Nullable String parameterName,
-                                                    int tokenIndex) {
-        if (param instanceof Array) {
-            Assert.thatUnchecked(type == null || type.isArray(), DATATYPE_MISMATCH, "Array type field required as prepared statement parameter");
-            return processPreparedStatementArrayParameter((Array) param, (Type.Array) type, unnamedParameterIndex, parameterName, tokenIndex);
-        } else if (param instanceof Struct) {
-            Assert.thatUnchecked(type == null || type.isRecord(), DATATYPE_MISMATCH, "Required type field required as prepared statement parameter");
-            return processPreparedStatementStructParameter((Struct) param, (Type.Record) type, unnamedParameterIndex, parameterName, tokenIndex);
-        } else if (param instanceof byte[]) {
-            return processQueryLiteralOrParameter(Type.primitiveType(Type.TypeCode.BYTES), ZeroCopyByteString.wrap((byte[]) param),
-                    unnamedParameterIndex, parameterName, tokenIndex);
-        } else {
-            return processQueryLiteralOrParameter(type == null ? Type.any() : type, param, unnamedParameterIndex, parameterName, tokenIndex);
-        }
     }
 }

@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.relational.api.metadata.Column;
 import com.apple.foundationdb.relational.api.metadata.Index;
+import com.apple.foundationdb.relational.api.metadata.InvokedRoutine;
 import com.apple.foundationdb.relational.api.metadata.Schema;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
@@ -69,6 +70,11 @@ public class SkeletonVisitor implements Visitor {
 
     @Override
     public void visit(@Nonnull final Index index) {
+        // no-op
+    }
+
+    @Override
+    public void visit(@Nonnull final InvokedRoutine invokedRoutine) {
         // no-op
     }
 }

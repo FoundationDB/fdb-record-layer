@@ -32,17 +32,17 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateCompensationFunction;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -176,7 +176,7 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
      */
     @Nonnull
     @Override
-    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final ValueEquivalence valueEquivalence) {
+    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final ValueEquivalence valueEquivalence) {
         return PredicateWithValue.super.equalsWithoutChildren(other, valueEquivalence)
                 .compose(ignored -> {
                     final PredicateWithValueAndRanges that = (PredicateWithValueAndRanges)other;
@@ -238,22 +238,33 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
 
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public Optional<PredicateWithValueAndRanges> translateValueAndComparisonsMaybe(@Nonnull final Function<Value, Optional<Value>> valueTranslator,
                                                                                    @Nonnull final Function<Comparisons.Comparison, Optional<Comparisons.Comparison>> comparisonTranslator) {
+        boolean allSame = true;
         final var newValueOptional = Verify.verifyNotNull(valueTranslator.apply(this.getValue()));
         if (newValueOptional.isEmpty()) {
             return Optional.empty();
         }
+        if (newValueOptional.get() != this.getValue()) {
+            allSame = false;
+        }
         final var newValue = newValueOptional.get();
         final var newRangesBuilder = ImmutableSet.<RangeConstraints>builder();
+
         for (final var range : ranges) {
             final var newRangeOptional = range.translateRanges(comparisonTranslator);
             if (newRangeOptional.isEmpty()) {
                 return Optional.empty();
             }
+            if (newRangeOptional.get() != range) {
+                allSame = false;
+            }
             newRangesBuilder.add(newRangeOptional.get());
         }
-
+        if (allSame) {
+            return Optional.of(this);
+        }
         return Optional.of(withValueAndRanges(newValue, newRangesBuilder.build()));
     }
 

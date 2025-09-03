@@ -20,8 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests.server;
 
-import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
-import com.apple.foundationdb.relational.yamltests.block.FileOptions;
+import com.apple.foundationdb.relational.yamltests.block.PreambleBlock;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -32,7 +31,7 @@ import java.util.Set;
  * Class to support the various places in a yaml file where you can have supported_version.
  */
 public class SupportedVersionCheck {
-    public static final String SUPPORTED_VERSION_OPTION = "supported_version";
+    public static final String SUPPORTED_VERSION_OPTION = PreambleBlock.PREAMBLE_BLOCK_SUPPORTED_VERSION;
     public static final SupportedVersionCheck SUPPORTED = new SupportedVersionCheck(true, "");
 
     private final boolean isSupported;
@@ -43,17 +42,16 @@ public class SupportedVersionCheck {
         this.message = message;
     }
 
-    public static SupportedVersionCheck parseOptions(Map<?, ?> options, YamlExecutionContext executionContext) {
+    public static SupportedVersionCheck parseOptions(Map<?, ?> options, Set<SemanticVersion> versionsUnderTest) {
         if (options.containsKey(SUPPORTED_VERSION_OPTION)) {
-            return SupportedVersionCheck.parse(options.get(SUPPORTED_VERSION_OPTION), executionContext);
+            return SupportedVersionCheck.parse(options.get(SUPPORTED_VERSION_OPTION), versionsUnderTest);
         } else {
             return SupportedVersionCheck.supported();
         }
     }
 
-    public static SupportedVersionCheck parse(Object rawVersion, YamlExecutionContext executionContext) {
-        SemanticVersion supportedVersion = FileOptions.parseVersion(rawVersion);
-        final Set<SemanticVersion> versionsUnderTest = executionContext.getConnectionFactory().getVersionsUnderTest();
+    public static SupportedVersionCheck parse(Object rawVersion, Set<SemanticVersion> versionsUnderTest) {
+        SemanticVersion supportedVersion = PreambleBlock.parseVersion(rawVersion);
         final List<SemanticVersion> unsupportedVersions = supportedVersion.lesserVersions(versionsUnderTest);
         if (!unsupportedVersions.isEmpty()) {
             if (SemanticVersion.current().equals(supportedVersion)) {

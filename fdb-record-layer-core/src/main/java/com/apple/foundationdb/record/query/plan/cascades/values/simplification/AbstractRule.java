@@ -21,11 +21,11 @@
 package com.apple.foundationdb.record.query.plan.cascades.values.simplification;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.PlanningRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.PlanContext;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
 import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 
 import javax.annotation.Nonnull;
@@ -40,9 +40,8 @@ import java.util.Optional;
  * logic.
  * <br>
  * The <code>onMatch()</code> method returns logically equivalent expressions to the planner by calling the
- * {@link PlannerRuleCall#yieldExpression(Object)} method on its rule call, with a new
- * {@link Reference}. The <code>yield()</code> method can be called more than once, or zero times if no
- * alternative expressions are found.
+ * yield methods on its rule call, with a new result. The <code>yield()</code> methods can be called more than once,
+ * or zero times if no alternative expressions are found.
  * <br>
  * A rule should not attempt to modify any of the bound objects that the rule call provides. Nearly all such objects are
  * immutable, and the mutable ones are hidden behind interfaces that do not expose mutation methods. In particular,
@@ -61,7 +60,7 @@ import java.util.Optional;
  * @see PlannerRuleCall
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class AbstractRule<RESULT, CALL extends AbstractRuleCall<RESULT, CALL, BASE>, BASE, TYPE extends BASE> implements PlannerRule<RESULT, CALL, TYPE> {
+public abstract class AbstractRule<RESULT, CALL extends AbstractRuleCall<RESULT, CALL, BASE>, BASE, TYPE extends BASE> implements PlannerRule<CALL, TYPE> {
     @Nonnull
     private final BindingMatcher<TYPE> matcher;
 
@@ -73,7 +72,7 @@ public abstract class AbstractRule<RESULT, CALL extends AbstractRuleCall<RESULT,
      * Returns the class of the operator at the root of the binding expression, if this rule uses a non-trivial binding.
      * Used primarily for indexing rules for more efficient rule search.
      * @return the class of the root of this rule's binding, or <code>Optional.empty()</code> if the rule matches anything
-     * @see PlannerRuleSet
+     * @see PlanningRuleSet
      */
     @Nonnull
     @Override

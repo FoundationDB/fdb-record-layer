@@ -87,7 +87,7 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
         //
         // return if there is no pre-determined interesting ordering
         //
-        final var requestedOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
+        final var requestedOrderingsOptional = call.getPlannerConstraintMaybe(RequestedOrderingConstraint.REQUESTED_ORDERING);
         if (requestedOrderingsOptional.isEmpty()) {
             return;
         }
@@ -129,7 +129,9 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
             //
             final var pushedRequestedOrderings =
                     requestedOrderings.stream()
-                            .map(requestedOrdering -> requestedOrdering.pushDown(expression.getResultValue(), matchedAlias, AliasMap.emptyMap(), correlatedTo))
+                            .map(requestedOrdering ->
+                                    requestedOrdering.pushDown(expression.getResultValue(), matchedAlias,
+                                            call.getEvaluationContext(), AliasMap.emptyMap(), correlatedTo))
                             .collect(ImmutableSet.toImmutableSet());
 
             //
@@ -167,7 +169,7 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
                         dataAccessForMatchPartition(call,
                                 pushedRequestedOrderings,
                                 matchPartition);
-                call.yieldExpression(dataAccessExpressions);
+                call.yieldMixedUnknownExpressions(dataAccessExpressions);
             }
         }
     }

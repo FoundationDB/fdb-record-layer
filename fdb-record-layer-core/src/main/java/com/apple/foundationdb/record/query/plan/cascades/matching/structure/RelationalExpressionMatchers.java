@@ -22,14 +22,12 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.structure;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.DeleteExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.InsertExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableInsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalProjectionExpression;
@@ -37,15 +35,16 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSort
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalUniqueExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.PrimaryScanExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableInsertExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TempTableScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -53,7 +52,6 @@ import java.util.Collection;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.AnyMatcher.any;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.only;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ReferenceMatchers.getTopReferenceMatcher;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcher.typed;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.TypedMatcherWithExtractAndDownstream.typedWithDownstream;
 
@@ -65,11 +63,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 public class RelationalExpressionMatchers {
     private RelationalExpressionMatchers() {
         // do not instantiate
-    }
-
-    @Nonnull
-    public static BindingMatcher<RelationalExpression> isTopExpression() {
-        return ContainsExpressionInReferenceMatcher.containsExpressionInReference(getTopReferenceMatcher());
     }
 
     public static BindingMatcher<RelationalExpression> anyExpression() {
@@ -101,16 +94,11 @@ public class RelationalExpressionMatchers {
                 downstream);
     }
 
-    @SuppressWarnings("unchecked")
-    public static <R extends RelationalExpression, C extends Collection<? extends Quantifier>> BindingMatcher<R> owning(@Nonnull final BindingMatcher<C> downstream) {
-        return ofTypeOwning((Class<R>)(Class<?>)RelationalExpression.class, downstream);
-    }
-
     public static <R extends RelationalExpression> BindingMatcher<R> canBeImplemented() {
         return PrimitiveMatchers.satisfies(relationalExpression ->
                 relationalExpression.getQuantifiers()
                         .stream()
-                        .allMatch(quantifier -> quantifier.getRangesOver().getMembers().stream().anyMatch(innerExpression -> innerExpression instanceof RecordQueryPlan)));
+                        .noneMatch(quantifier -> quantifier.getRangesOver().getFinalExpressions().isEmpty()));
     }
 
     public static <R extends RelationalExpressionWithPredicates, C1 extends Collection<? extends QueryPredicate>, C2 extends Collection<? extends Quantifier>> BindingMatcher<R> ofTypeWithPredicatesAndOwning(@Nonnull final Class<R> bindableClass,
@@ -126,6 +114,24 @@ public class RelationalExpressionMatchers {
                                 typedWithDownstream(bindableClass,
                                         Extractor.of(RelationalExpression::getQuantifiers, name -> "quantifiers(" + name + ")"),
                                         downstreamQuantifiers))));
+    }
+
+    public static <Q extends Collection<? extends Quantifier>> BindingMatcher<RelationalExpression>
+            anyExploratoryExpression(@Nonnull final BindingMatcher<Q> downstreamQuantifiers) {
+        return typedWithDownstream(RelationalExpression.class,
+                Extractor.identity(),
+                AllOfMatcher.matchingAllOf(RelationalExpression.class,
+                        ImmutableList.of(
+                                PrimitiveMatchers.<RelationalExpression, Reference>satisfiesWithOuterBinding(ReferenceMatchers.getCurrentReferenceMatcher(),
+                                        (expression, currentReference) -> !currentReference.isFinal(expression)),
+                                typedWithDownstream(RelationalExpression.class,
+                                        Extractor.of(RelationalExpression::getQuantifiers, name -> "quantifiers(" + name + ")"),
+                                        downstreamQuantifiers))));
+    }
+
+    public static <E extends RelationalExpression> BindingMatcher<E> isExploratoryExpression() {
+        return PrimitiveMatchers.satisfiesWithOuterBinding(ReferenceMatchers.getCurrentReferenceMatcher(),
+                (expression, currentReference) -> !currentReference.isFinal(expression));
     }
 
     @Nonnull
@@ -211,13 +217,13 @@ public class RelationalExpressionMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<PrimaryScanExpression> primaryScanExpression() {
-        return ofTypeOwning(PrimaryScanExpression.class, CollectionMatcher.empty());
+    public static BindingMatcher<SelectExpression> selectExpression() {
+        return ofType(SelectExpression.class);
     }
 
     @Nonnull
-    public static BindingMatcher<SelectExpression> selectExpression() {
-        return ofType(SelectExpression.class);
+    public static BindingMatcher<RelationalExpressionWithPredicates> withPredicatesExpression() {
+        return ofType(RelationalExpressionWithPredicates.class);
     }
 
     @Nonnull

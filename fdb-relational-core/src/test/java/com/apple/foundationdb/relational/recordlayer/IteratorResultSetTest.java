@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,28 +21,25 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.FieldDescription;
-import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-
+import com.apple.foundationdb.relational.api.Row;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
-import java.sql.Types;
 import java.util.Collections;
+import java.util.List;
 
 class IteratorResultSetTest {
 
     @Test
-    void continuationAtBeginning() throws RelationalException, SQLException {
-        FieldDescription[] fields = new FieldDescription[]{
-                FieldDescription.primitive("testField", Types.VARCHAR, DatabaseMetaData.columnNoNulls)
-        };
-        try (IteratorResultSet irs = new IteratorResultSet(new RelationalStructMetaData(fields), Collections.singleton((Row) (new ArrayRow(new Object[]{"test"}))).iterator(), 0)) {
-            Assertions.assertThrows(SQLException.class, () -> irs.getContinuation());
+    void continuationAtBeginning() throws SQLException {
+        final var type = DataType.StructType.from("STRUCT", List.of(
+                DataType.StructType.Field.from("testField", DataType.Primitives.STRING.type(), 0)
+        ), true);
+        try (IteratorResultSet irs = new IteratorResultSet(RelationalStructMetaData.of(type), Collections.singleton((Row) (new ArrayRow(new Object[]{"test"}))).iterator(), 0)) {
+            Assertions.assertThrows(SQLException.class, irs::getContinuation);
 
             //now iterate
             irs.next();

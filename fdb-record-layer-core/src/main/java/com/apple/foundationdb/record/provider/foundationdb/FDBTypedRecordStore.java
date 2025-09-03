@@ -140,7 +140,7 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
     @Nonnull
     @Override
     public CompletableFuture<FDBStoredRecord<M>> dryRunSaveRecordAsync(@Nonnull M rec, @Nonnull RecordExistenceCheck existenceCheck, @Nullable FDBRecordVersion version, @Nonnull VersionstampSaveBehavior behavior) {
-        return untypedStore.saveTypedRecord(typedSerializer, rec, existenceCheck, version, behavior, true);
+        return untypedStore.saveTypedRecord(typedSerializer, rec, existenceCheck, version, behavior, true, false);
     }
 
     @Nonnull
@@ -181,6 +181,12 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
     @Override
     public RecordCursor<FDBStoredRecord<M>> scanRecords(@Nullable Tuple low, @Nullable Tuple high, @Nonnull EndpointType lowEndpoint, @Nonnull EndpointType highEndpoint, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
         return untypedStore.scanTypedRecords(typedSerializer, low, high, lowEndpoint, highEndpoint, continuation, scanProperties);
+    }
+
+    @Nonnull
+    @Override
+    public RecordCursor<Tuple> scanRecordKeys(@Nullable final byte[] continuation, @Nonnull final ScanProperties scanProperties) {
+        return untypedStore.scanRecordKeys(continuation, scanProperties);
     }
 
     @Nonnull
@@ -384,13 +390,28 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
         }
 
         @Override
+        @Deprecated(forRemoval = true)
+        @SuppressWarnings("removal") // this method is deprecated to be removed with parent
         public int getFormatVersion() {
             return untypedStoreBuilder.getFormatVersion();
         }
 
-        @Nonnull
         @Override
+        public FormatVersion getFormatVersionEnum() {
+            return untypedStoreBuilder.getFormatVersionEnum();
+        }
+
+        @Override
+        @Nonnull
+        @Deprecated(forRemoval = true)
+        @SuppressWarnings("removal") // this method is deprecated to be removed with parent
         public Builder<M> setFormatVersion(int formatVersion) {
+            untypedStoreBuilder.setFormatVersion(formatVersion);
+            return this;
+        }
+
+        @Override
+        public BaseBuilder<M, FDBTypedRecordStore<M>> setFormatVersion(final FormatVersion formatVersion) {
             untypedStoreBuilder.setFormatVersion(formatVersion);
             return this;
         }

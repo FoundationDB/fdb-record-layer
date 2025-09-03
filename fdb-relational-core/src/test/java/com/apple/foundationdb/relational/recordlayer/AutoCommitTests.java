@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,7 +54,7 @@ public class AutoCommitTests {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, AutoCommitTests.class, TestSchemas.restaurant());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(AutoCommitTests.class, TestSchemas.restaurant());
 
     @RegisterExtension
     @Order(2)
@@ -98,7 +98,7 @@ public class AutoCommitTests {
     @ParameterizedTest
     @EnumSource
     public void simpleSelectExhaustedResultSet(TransactionType transactionType) throws SQLException, RelationalException {
-        EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) connection.getUnderlying();
+        EmbeddedRelationalConnection conn = connection.getUnderlyingEmbeddedConnection();
         Assertions.assertFalse(conn.inActiveTransaction());
         if (transactionType == TransactionType.EXISTING_TRANSACTION) {
             conn = getConnectionWithExistingTransaction(conn, database.getConnectionUri(), alternateDriver);
@@ -124,7 +124,7 @@ public class AutoCommitTests {
     @ParameterizedTest
     @EnumSource
     public void simpleSelectNonExhaustedResultSet(TransactionType transactionType) throws SQLException, RelationalException {
-        EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) connection.getUnderlying();
+        EmbeddedRelationalConnection conn = connection.getUnderlyingEmbeddedConnection();
         Assertions.assertFalse(conn.inActiveTransaction());
         if (transactionType == TransactionType.EXISTING_TRANSACTION) {
             conn = getConnectionWithExistingTransaction(conn, database.getConnectionUri(), alternateDriver);
@@ -146,7 +146,7 @@ public class AutoCommitTests {
     @ParameterizedTest
     @EnumSource
     public void simpleInsert(TransactionType transactionType) throws SQLException, RelationalException {
-        EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) connection.getUnderlying();
+        EmbeddedRelationalConnection conn = connection.getUnderlyingEmbeddedConnection();
         Assertions.assertFalse(conn.inActiveTransaction());
         if (transactionType == TransactionType.EXISTING_TRANSACTION) {
             conn = getConnectionWithExistingTransaction(conn, database.getConnectionUri(), alternateDriver);
@@ -174,7 +174,7 @@ public class AutoCommitTests {
     @ParameterizedTest
     @EnumSource
     public void simpleUpdate(TransactionType transactionType) throws SQLException, RelationalException {
-        EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) connection.getUnderlying();
+        EmbeddedRelationalConnection conn = connection.getUnderlyingEmbeddedConnection();
         Assertions.assertFalse(conn.inActiveTransaction());
         if (transactionType == TransactionType.EXISTING_TRANSACTION) {
             conn = getConnectionWithExistingTransaction(conn, database.getConnectionUri(), alternateDriver);
@@ -203,7 +203,7 @@ public class AutoCommitTests {
     @ParameterizedTest
     @EnumSource
     public void simpleUpdateWithReturningExhaustedResultSet(TransactionType transactionType) throws SQLException, RelationalException {
-        EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) connection.getUnderlying();
+        EmbeddedRelationalConnection conn = connection.getUnderlyingEmbeddedConnection();
         Assertions.assertFalse(conn.inActiveTransaction());
         if (transactionType == TransactionType.EXISTING_TRANSACTION) {
             conn = getConnectionWithExistingTransaction(conn, database.getConnectionUri(), alternateDriver);
@@ -237,7 +237,7 @@ public class AutoCommitTests {
     @ParameterizedTest
     @EnumSource
     public void simpleUpdateWithReturningNonExhaustedResultSet(TransactionType transactionType) throws SQLException, RelationalException {
-        EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) connection.getUnderlying();
+        EmbeddedRelationalConnection conn = connection.getUnderlyingEmbeddedConnection();
         Assertions.assertFalse(conn.inActiveTransaction());
         if (transactionType == TransactionType.EXISTING_TRANSACTION) {
             conn = getConnectionWithExistingTransaction(conn, database.getConnectionUri(), alternateDriver);
@@ -265,7 +265,7 @@ public class AutoCommitTests {
     @ParameterizedTest
     @EnumSource
     public void directAccessScan(TransactionType transactionType) throws SQLException, RelationalException {
-        EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) connection.getUnderlying();
+        EmbeddedRelationalConnection conn = connection.getUnderlyingEmbeddedConnection();
         Assertions.assertFalse(conn.inActiveTransaction());
         if (transactionType == TransactionType.EXISTING_TRANSACTION) {
             conn = getConnectionWithExistingTransaction(conn, database.getConnectionUri(), alternateDriver);
@@ -290,7 +290,7 @@ public class AutoCommitTests {
     @ParameterizedTest
     @EnumSource
     public void directAccessGet(TransactionType transactionType) throws SQLException, RelationalException {
-        EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) connection.getUnderlying();
+        EmbeddedRelationalConnection conn = connection.getUnderlyingEmbeddedConnection();
         Assertions.assertFalse(conn.inActiveTransaction());
         if (transactionType == TransactionType.EXISTING_TRANSACTION) {
             conn = getConnectionWithExistingTransaction(conn, database.getConnectionUri(), alternateDriver);
@@ -309,7 +309,7 @@ public class AutoCommitTests {
     @ParameterizedTest
     @EnumSource
     public void directAccessInsert(TransactionType transactionType) throws SQLException, RelationalException {
-        EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) connection.getUnderlying();
+        EmbeddedRelationalConnection conn = connection.getUnderlyingEmbeddedConnection();
         Assertions.assertFalse(conn.inActiveTransaction());
         if (transactionType == TransactionType.EXISTING_TRANSACTION) {
             conn = getConnectionWithExistingTransaction(conn, database.getConnectionUri(), alternateDriver);
@@ -339,7 +339,7 @@ public class AutoCommitTests {
     @ParameterizedTest
     @EnumSource
     public void directAccessDelete(TransactionType transactionType) throws SQLException, RelationalException {
-        EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) connection.getUnderlying();
+        EmbeddedRelationalConnection conn = connection.getUnderlyingEmbeddedConnection();
         Assertions.assertFalse(conn.inActiveTransaction());
         if (transactionType == TransactionType.EXISTING_TRANSACTION) {
             conn = getConnectionWithExistingTransaction(conn, database.getConnectionUri(), alternateDriver);
@@ -366,7 +366,7 @@ public class AutoCommitTests {
     @ParameterizedTest
     @EnumSource
     public void directAccessDeleteRange(TransactionType transactionType) throws SQLException, RelationalException {
-        EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) connection.getUnderlying();
+        EmbeddedRelationalConnection conn = connection.getUnderlyingEmbeddedConnection();
         Assertions.assertFalse(conn.inActiveTransaction());
         if (transactionType == TransactionType.EXISTING_TRANSACTION) {
             conn = getConnectionWithExistingTransaction(conn, database.getConnectionUri(), alternateDriver);
@@ -413,7 +413,7 @@ public class AutoCommitTests {
     }
 
     private void tryCommitOrRollback(TransactionType transactionType, Consumer<EmbeddedRelationalConnection> commitOrRollback) throws SQLException, RelationalException {
-        EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) connection.getUnderlying();
+        EmbeddedRelationalConnection conn = connection.getUnderlyingEmbeddedConnection();
         Assertions.assertFalse(conn.inActiveTransaction());
         if (transactionType == TransactionType.EXISTING_TRANSACTION) {
             conn = getConnectionWithExistingTransaction(conn, database.getConnectionUri(), alternateDriver);
@@ -438,7 +438,7 @@ public class AutoCommitTests {
     @ParameterizedTest
     @EnumSource
     public void ddl(TransactionType transactionType) throws SQLException, RelationalException {
-        EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) connection.getUnderlying();
+        EmbeddedRelationalConnection conn = connection.getUnderlyingEmbeddedConnection();
         Assertions.assertFalse(conn.inActiveTransaction());
         if (transactionType == TransactionType.EXISTING_TRANSACTION) {
             conn = getConnectionWithExistingTransaction(conn, database.getConnectionUri(), alternateDriver);
@@ -455,7 +455,7 @@ public class AutoCommitTests {
     @ParameterizedTest
     @EnumSource
     public void catalogMetadata(TransactionType transactionType) throws SQLException, RelationalException {
-        EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) connection.getUnderlying();
+        EmbeddedRelationalConnection conn = connection.getUnderlyingEmbeddedConnection();
         Assertions.assertFalse(conn.inActiveTransaction());
         if (transactionType == TransactionType.EXISTING_TRANSACTION) {
             conn = getConnectionWithExistingTransaction(conn, database.getConnectionUri(), alternateDriver);
@@ -479,7 +479,7 @@ public class AutoCommitTests {
 
     @Test
     public void changeAutoCommitBetweenTransactions() throws SQLException {
-        EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) connection.getUnderlying();
+        EmbeddedRelationalConnection conn = connection.getUnderlyingEmbeddedConnection();
 
         Assertions.assertFalse(conn.inActiveTransaction());
         Assertions.assertTrue(conn.getAutoCommit());
@@ -525,7 +525,7 @@ public class AutoCommitTests {
 
     @Test
     public void switchOffAutoCommitBetweenOngoingTransaction() throws SQLException {
-        EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) connection.getUnderlying();
+        EmbeddedRelationalConnection conn = connection.getUnderlyingEmbeddedConnection();
 
         Assertions.assertFalse(conn.inActiveTransaction());
         Assertions.assertTrue(conn.getAutoCommit());
@@ -565,7 +565,7 @@ public class AutoCommitTests {
 
     @Test
     public void switchOnAutoCommitBetweenOngoingTransaction() throws SQLException {
-        EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) connection.getUnderlying();
+        EmbeddedRelationalConnection conn = connection.getUnderlyingEmbeddedConnection();
 
         Assertions.assertFalse(conn.inActiveTransaction());
         conn.setAutoCommit(false);
@@ -606,7 +606,7 @@ public class AutoCommitTests {
 
     @Test
     public void transactionClosesWithStatement() throws SQLException {
-        EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) connection.getUnderlying();
+        EmbeddedRelationalConnection conn = connection.getUnderlyingEmbeddedConnection();
 
         Assertions.assertFalse(conn.inActiveTransaction());
         Assertions.assertTrue(conn.getAutoCommit());
@@ -634,7 +634,7 @@ public class AutoCommitTests {
 
     @Test
     public void newTransactionForEachExecutionOfStatement() throws SQLException, RelationalException {
-        EmbeddedRelationalConnection conn = (EmbeddedRelationalConnection) connection.getUnderlying();
+        EmbeddedRelationalConnection conn = connection.getUnderlyingEmbeddedConnection();
 
         Assertions.assertFalse(conn.inActiveTransaction());
         Assertions.assertTrue(conn.getAutoCommit());

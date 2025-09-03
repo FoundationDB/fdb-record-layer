@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,8 +61,11 @@ public final class TestSchemas {
     @Nonnull
     private static final String PLAYING_CARD =
             "CREATE TYPE AS ENUM suit ('SPADES', 'HEARTS', 'DIAMONDS', 'CLUBS') " +
-                    "CREATE TABLE card (id bigint, suit suit, rank bigint, PRIMARY KEY(id))" +
-                    "CREATE INDEX suit_idx AS SELECT suit FROM card ORDER BY suit";
+                    "CREATE TYPE AS STRUCT SuitAndRank (suit suit, rank bigint)" +
+                    "CREATE TABLE Card (id bigint, suit suit, rank bigint, PRIMARY KEY(id))" +
+                    "CREATE TABLE Card_Nested (id bigint, info SuitAndRank, PRIMARY KEY(id))" +
+                    "CREATE TABLE Card_Array (id bigint, collection SuitAndRank array, PRIMARY KEY(id))" +
+                    "CREATE INDEX suit_idx AS SELECT suit FROM Card ORDER BY suit";
 
     @Nonnull
     public static String playingCard() {

@@ -42,7 +42,7 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.KeyExpressionVisitor;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.PlanningRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -166,7 +166,7 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                         "PushFilterThroughFetchRule",
                         "PushDistinctThroughFetchRule",
                         "PushSetOperationThroughFetchRule",
-                        "MergeProjectionAndFetchRule"), PlannerRuleSet.DEFAULT).build());
+                        "MergeProjectionAndFetchRule"), PlanningRuleSet.DEFAULT).build());
         RecordQueryPlan plan = planQuery(query);
         if (planner instanceof RecordQueryPlanner) {
             final BindingMatcher<? extends RecordQueryPlan> planMatcher =
@@ -986,10 +986,6 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
             return super.basePlanHash(mode, BASE_HASH);
         }
 
-        @Override
-        public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            return super.baseQueryHash(hashKind, BASE_HASH);
-        }
     }
 }
 

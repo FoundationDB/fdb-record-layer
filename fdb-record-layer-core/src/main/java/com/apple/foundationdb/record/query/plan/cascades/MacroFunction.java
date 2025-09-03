@@ -22,16 +22,19 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.PlanDeserializer;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.planprotos.PMacroFunctionValue;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.RegularTranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -54,7 +57,7 @@ public class MacroFunction extends UserDefinedFunction {
     public Value encapsulate(@Nonnull List<? extends Typed> arguments) {
         // replace the QuantifiedObjectValue in body with arguments
         SemanticException.check(arguments.size() == parameterTypes.size(), SemanticException.ErrorCode.FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES, "argument length doesn't match with function definition");
-        TranslationMap.Builder translationMapBuilder = new TranslationMap.Builder();
+        final RegularTranslationMap.Builder translationMapBuilder = TranslationMap.regularBuilder();
         for (int i = 0; i < arguments.size(); i++) {
             // check that arguments[i] type matches with parameterTypes[i]
             final int finalI = i;
@@ -76,6 +79,13 @@ public class MacroFunction extends UserDefinedFunction {
                         .setFunctionName(functionName)
                         .setBody(bodyValue.toValueProto(serializationContext)))
                 .build();
+    }
+
+
+    @Nonnull
+    @Override
+    public Typed encapsulate(@Nonnull final Map<String, ? extends Typed> namedArguments) {
+        throw new RecordCoreException("macro functions do not support named argument calling conventions");
     }
 
     @Nonnull

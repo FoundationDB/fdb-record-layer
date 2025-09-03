@@ -33,35 +33,27 @@ project.tasks.named("processTestResources") {
 }
 
 tasks.named("sourcesJar") {
-    duplicatesStrategy('include')
+    duplicatesStrategy = 'include'
     // classifier('sources')
     from sourceSets.main.allSource
 }
 
 apply from: rootProject.file('gradle/publishing.gradle')
 
-configurations {
-    // The :fdb-relational-grpc project includes the slf4j bindings transitively through :fdb-relational-cli.
-    // Excluding it from the individual project seems to be insufficient (and results in a runtime
-    // warning about there being multiple implementations present from slf4j), so this applies the
-    // exclusion globally
-    runtime.exclude group: "org.apache.logging.log4j", module: "log4j-slf4j-impl"
-    testImplementation.exclude group: "org.apache.logging.log4j", module: "log4j-slf4j-impl"
-    testRuntime.exclude group: "org.apache.logging.log4j", module: "log4j-slf4j-impl"
-}
-
 def coreProject = ":${ext.coreProjectName}"
 dependencies {
     implementation project(coreProject)
-    implementation project(path: coreProject, configuration: 'tests')
+    implementation project(":fdb-record-layer-debugger")
     implementation project(":fdb-relational-api")
     implementation project(":fdb-relational-core")
     implementation project(":fdb-relational-jdbc")
     implementation project(":fdb-relational-server")
+    implementation(libs.jline)
     implementation(libs.asciitable)
     implementation(libs.jsr305)
     implementation(libs.junit.api)
     implementation(libs.junit.params)
+    implementation(libs.junit.platform)
     implementation(libs.log4j.api)
     implementation(libs.guava)
     implementation(libs.protobuf)
@@ -73,6 +65,7 @@ dependencies {
     testCompileOnly(libs.bundles.test.compileOnly)
     testImplementation project(":fdb-relational-server")
     testImplementation project(":fdb-relational-jdbc")
+    testImplementation project(path: ":fdb-record-layer-debugger", configuration: 'tests')
     implementation(libs.diffutils)
 }
 
@@ -81,7 +74,19 @@ dependencies {
 ext.resolveOtherServer = { Set<String> rejectedVersions ->
     def configurationName = "resolveArtifact-${UUID.randomUUID()}"
     return rootProject.with {
-        configurations.create(configurationName, { })
+        configurations.create(configurationName, {
+        resolutionStrategy {
+                // Cache the latest version for 10 minutes to make sure we actually get the latest.
+                // This should be long enough that we can do this resolution, but means that if we had a release
+                // in the last 10 minutes.
+                // Note: In the actions we have a build cache, which means that these versions will be cached across
+                // builds.
+                // The default value for this is 24 hours, which is probably, generally, fine, but in the case where
+                // we do have two releases within 24 hours (as we did for 4.2.3.0) we don't want to miss the last
+                // version.
+                cacheDynamicVersionsFor 10, 'minutes'
+            }
+        })
         // If you're wondering why this doesn't just use `latest.release`:
         // `latest.release` becomes `LatestVersionSelector` which `requiresMetadata` in order to determine if the
         // version in question is a release. This means that it can't just look at the version listing, it has to
@@ -165,9 +170,9 @@ task cleanExternalServerDirectory(type: Delete) {
 task serverJars(type: Copy) {
     dependsOn ":fdb-relational-server:package", "cleanExternalServerDirectory"
     into project.layout.buildDirectory.dir('externalServer')
-    from resolveOtherServer(new HashSet<String>())
+    from resolveOtherServer(["4.2.3.0", "4.2.4.0"].toSet())
     from (rootProject.project("fdb-relational-server").layout.files('.dist')) {
-        include("*-SNAPSHOT-all.jar")
+        include("fdb-relational-server-${rootProject.version}-all.jar")
     }
 }
 
@@ -207,6 +212,26 @@ test {
         // we may want to decrease this multiplying factor.
         systemProperties['tests.yaml.iterations'] = Integer.parseInt(project.getProperty('tests.iterations')) * 20
     }
+}
+
+tasks.register('runDebug', JavaExec) {
+    environment rootProject.ext.fdbEnvironment
+    mainClass = 'com.apple.foundationdb.record.query.plan.cascades.debug.ReplRunner'
+    classpath = sourceSets.test.runtimeClasspath
+    standardInput = System.in
+    standardOutput = System.out
+
+    // Optional: key-value argument handling
+    if (project.hasProperty('debugArgs')) {
+        def rawArgs = project.debugArgs.split(',')
+        def formattedArgs = rawArgs.collect { "--${it.trim()}" }
+        args formattedArgs
+    }
+
+    // Make this task depend on the same things as 'test'
+    dependsOn tasks.test.taskDependencies.getDependencies(tasks.test)
+    systemProperty("yaml_testing_external_server", project.layout.buildDirectory.dir('externalServer').get().asFile)
+    systemProperty("tests.runQuick", "true")
 }
 
 publishing {

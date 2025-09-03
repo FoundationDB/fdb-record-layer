@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ public interface StoreCatalog {
     SchemaTemplateCatalog getSchemaTemplateCatalog();
 
     /**
-     * Returns a Schema object of a table.
+     * Returns the {@link Schema} associated with a given database URI.
      *
      * @param txn        a Transaction
      * @param databaseId id of the database

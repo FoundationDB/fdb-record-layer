@@ -22,8 +22,6 @@ package com.apple.foundationdb.relational.cli;
 
 import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
 
-import java.io.IOException;
-
 /**
  * Convenience class for launching sqlline so can run it under the debugger.
  * Be aware that the intellij terminal is dodgy. See
@@ -32,10 +30,9 @@ import java.io.IOException;
  */
 @ExcludeFromJacocoGeneratedReport // Test utility only.
 public class LaunchSQLLine {
-    public static void main(String[] args/*Ignored*/) throws IOException {
+    public static void main(String[] args/*Ignored*/) throws Exception {
         // Read [SQLLINE-80] to see why maxWidth must be set
-        sqlline.SqlLine.main(new String []{
-                "-ac", "com.apple.foundationdb.relational.cli.sqlline.Customize",
+        com.apple.foundationdb.relational.cli.sqlline.RelationalSQLLine.main(new String []{
                 "-u", "jdbc:embed:/__SYS",
                 "--maxWidth=160",
         });

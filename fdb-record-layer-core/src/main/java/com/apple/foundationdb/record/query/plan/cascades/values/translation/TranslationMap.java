@@ -27,125 +27,66 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LeafValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 /**
- * Map used to specify translations.
+ * Map-like interface that is used to specify translations.
  */
-public class TranslationMap {
+public interface TranslationMap {
     @Nonnull
-    private static final TranslationMap EMPTY = new TranslationMap(ImmutableMap.of());
+    Optional<AliasMap> getAliasMapMaybe();
 
-    @Nonnull
-    private final Map<CorrelationIdentifier, TranslationTarget> aliasToTargetMap;
+    boolean definesOnlyIdentities();
 
-    private TranslationMap(@Nonnull final Map<CorrelationIdentifier, TranslationTarget> aliasToTargetMap) {
-        this.aliasToTargetMap = ImmutableMap.copyOf(aliasToTargetMap);
-    }
+    boolean containsSourceAlias(@Nullable CorrelationIdentifier sourceAlias);
 
     @Nonnull
-    public Optional<AliasMap> getAliasMapMaybe() {
-        return Optional.empty();
-    }
-
-    public boolean containsSourceAlias(@Nullable CorrelationIdentifier sourceAlias) {
-        return aliasToTargetMap.containsKey(sourceAlias);
-    }
-
-    @Nonnull
-    public Value applyTranslationFunction(@Nonnull final CorrelationIdentifier sourceAlias,
-                                          @Nonnull final LeafValue leafValue) {
-        final var translationTarget = Preconditions.checkNotNull(aliasToTargetMap.get(sourceAlias));
-        return translationTarget.translate(sourceAlias, leafValue);
-    }
-
-    @Nonnull
-    public Builder toBuilder() {
-        return new Builder(aliasToTargetMap);
-    }
-
-    @Nonnull
-    public static Builder builder() {
-        return new Builder();
-    }
-
-    @Nonnull
-    public static TranslationMap empty() {
-        return EMPTY;
-    }
-
-    @Nonnull
-    public static TranslationMap rebaseWithAliasMap(@Nonnull final AliasMap aliasMap) {
-        final var translationMapBuilder = ImmutableMap.<CorrelationIdentifier, TranslationTarget>builder();
-        for (final var entry : aliasMap.entrySet()) {
-            translationMapBuilder.put(entry.getKey(),
-                    new TranslationTarget(((sourceAlias, leafValue) -> leafValue.rebaseLeaf(entry.getValue()))));
+    default CorrelationIdentifier getTargetOrDefault(@Nonnull final CorrelationIdentifier sourceAlias,
+                                                     @Nonnull final CorrelationIdentifier defaultAlias) {
+        final var targetFromMap = getTarget(sourceAlias);
+        if (targetFromMap != null) {
+            return targetFromMap;
         }
-        return new AliasMapBasedTranslationMap(translationMapBuilder.build(), aliasMap);
+        return defaultAlias;
+    }
+
+    @Nullable
+    CorrelationIdentifier getTarget(@Nonnull CorrelationIdentifier sourceAlias);
+
+    @Nonnull
+    Value applyTranslationFunction(@Nonnull CorrelationIdentifier sourceAlias,
+                                   @Nonnull LeafValue leafValue);
+
+    @Nonnull
+    static RegularTranslationMap empty() {
+        return RegularTranslationMap.empty();
     }
 
     @Nonnull
-    public static TranslationMap ofAliases(@Nonnull final CorrelationIdentifier source,
+    static RegularTranslationMap.Builder regularBuilder() {
+        return RegularTranslationMap.builder();
+    }
+
+    @Nonnull
+    static RegularTranslationMap rebaseWithAliasMap(@Nonnull final AliasMap aliasMap) {
+        return RegularTranslationMap.rebaseWithAliasMap(aliasMap);
+    }
+
+    @Nonnull
+    static RegularTranslationMap ofAliases(@Nonnull final CorrelationIdentifier source,
                                            @Nonnull final CorrelationIdentifier target) {
-        return rebaseWithAliasMap(AliasMap.ofAliases(source, target));
-    }
-
-    @Nonnull
-    public static TranslationMap compose(@Nonnull final Iterable<TranslationMap> translationMaps) {
-        final var builder = TranslationMap.builder();
-        for (final var translationMap : translationMaps) {
-            builder.compose(translationMap);
-        }
-        return builder.build();
-    }
-
-    private static class AliasMapBasedTranslationMap extends TranslationMap {
-        @Nonnull
-        private final AliasMap aliasMap;
-
-        public AliasMapBasedTranslationMap(@Nonnull final Map<CorrelationIdentifier, TranslationTarget> aliasToTargetMap,
-                                           @Nonnull final AliasMap aliasMap) {
-            super(aliasToTargetMap);
-            this.aliasMap = aliasMap;
-        }
-
-        @Nonnull
-        @Override
-        public Optional<AliasMap> getAliasMapMaybe() {
-            return Optional.of(aliasMap);
-        }
-    }
-    
-    private static class TranslationTarget {
-        @Nonnull
-        private final TranslationFunction translationFunction;
-
-        public TranslationTarget(@Nonnull final TranslationFunction translationFunction) {
-            this.translationFunction = translationFunction;
-        }
-
-        @Nonnull
-        public Value translate(@Nonnull final CorrelationIdentifier sourceAlias,
-                               @Nonnull final LeafValue leafValue) {
-            return translationFunction.apply(sourceAlias, leafValue);
-        }
+        return RegularTranslationMap.ofAliases(source, target);
     }
 
     /**
      * Functional interface to specify the translation to take place when a {@link QuantifiedValue} is encountered.
      */
     @FunctionalInterface
-    public interface TranslationFunction {
+    interface TranslationFunction {
         @Nonnull
         Value apply(@Nonnull CorrelationIdentifier sourceAlias,
                     @Nonnull LeafValue leafValue);
@@ -156,95 +97,14 @@ public class TranslationMap {
             if (translationTargetValue instanceof QuantifiedObjectValue) {
                 if (translationTargetType instanceof Type.Erasable &&
                         ((Type.Erasable)translationTargetType).isErased()) {
-                    return (source, quantifiedValue) -> QuantifiedObjectValue.of(((QuantifiedObjectValue)translationTargetValue).getAlias(),
-                            quantifiedValue.getResultType());
+                    return (source, quantifiedValue) ->
+                            QuantifiedObjectValue.of(((QuantifiedObjectValue)translationTargetValue).getAlias(),
+                                    quantifiedValue.getResultType());
                 }
             }
             Verify.verify(!(translationTargetType instanceof Type.Erasable) ||
                     !((Type.Erasable)translationTargetType).isErased());
             return (ignored, ignored2) -> translationTargetValue;
-        }
-    }
-
-    /**
-     * Builder class for a translation map.
-     */
-    public static class Builder {
-        @Nonnull
-        private final Map<CorrelationIdentifier, TranslationTarget> aliasToTargetMap;
-
-        public Builder() {
-            this.aliasToTargetMap = Maps.newLinkedHashMap();
-        }
-
-        private Builder(@Nonnull final Map<CorrelationIdentifier, TranslationTarget> aliasToTargetMap) {
-            this.aliasToTargetMap = Maps.newLinkedHashMap(aliasToTargetMap);
-        }
-
-        @Nonnull
-        public TranslationMap build() {
-            if (aliasToTargetMap.isEmpty()) {
-                return TranslationMap.empty();
-            }
-            return new TranslationMap(aliasToTargetMap);
-        }
-
-        @Nonnull
-        public Builder.When when(@Nonnull final CorrelationIdentifier sourceAlias) {
-            return new When(sourceAlias);
-        }
-
-        @Nonnull
-        public Builder.WhenAny whenAny(@Nonnull final Iterable<CorrelationIdentifier> sourceAliases) {
-            return new WhenAny(sourceAliases);
-        }
-
-        @Nonnull
-        public Builder compose(@Nonnull final TranslationMap other) {
-            other.aliasToTargetMap
-                    .forEach((key, value) -> {
-                        Verify.verify(!aliasToTargetMap.containsKey(key));
-                        aliasToTargetMap.put(key, value);
-                    });
-            return this;
-        }
-
-        /**
-         * Class to provide fluent API, e.g. {@code .when(...).then(...)}
-         */
-        public class When {
-            @Nonnull
-            private final CorrelationIdentifier sourceAlias;
-
-            public When(@Nonnull final CorrelationIdentifier sourceAlias) {
-                this.sourceAlias = sourceAlias;
-            }
-
-            @Nonnull
-            public Builder then(@Nonnull final TranslationFunction translationFunction) {
-                aliasToTargetMap.put(sourceAlias, new TranslationTarget(translationFunction));
-                return Builder.this;
-            }
-        }
-
-        /**
-         * Class to provide fluent API, e.g. {@code .when(...).then(...)}
-         */
-        public class WhenAny {
-            @Nonnull
-            private final Set<CorrelationIdentifier> sourceAliases;
-
-            public WhenAny(@Nonnull final Iterable<CorrelationIdentifier> sourceAliases) {
-                this.sourceAliases = ImmutableSet.copyOf(sourceAliases);
-            }
-
-            @Nonnull
-            public Builder then(@Nonnull TranslationFunction translationFunction) {
-                for (final CorrelationIdentifier sourceAlias : sourceAliases) {
-                    aliasToTargetMap.put(sourceAlias, new TranslationTarget(translationFunction));
-                }
-                return Builder.this;
-            }
         }
     }
 }

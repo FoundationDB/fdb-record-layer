@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.relational.utils;
 
-import com.apple.foundationdb.relational.recordlayer.RelationalExtension;
+import com.apple.foundationdb.relational.api.Options;
 
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
@@ -32,36 +32,52 @@ import java.net.URI;
 
 /**
  * A JUnit extension that automatically creates all the framework necessary for a unique database and schema.
- *
+ * <p>
  * This creates a SchemaTemplate with the specified configuration, then creates a database with the specified name. Once
  * this is done, it automatically creates a schema called 'TEST_SCHEMA' which has the specified template.
- *
+ * <p>
  * Use this whenever you want a SQL-style database for testing (i.e. you just want a single database with a single
  * schema format).
  */
 public class SimpleDatabaseRule implements BeforeEachCallback, AfterEachCallback {
-    private final RelationalExtension relationalExtension;
+
+    @Nonnull
     private final SchemaTemplateRule templateRule;
+
+    @Nonnull
     private final DatabaseRule databaseRule;
+
+    @Nonnull
     private final SchemaRule schemaRule;
 
-    public SimpleDatabaseRule(RelationalExtension relationalExtension, @Nonnull Class<?> testClass,
+    public SimpleDatabaseRule(@Nonnull Class<?> testClass,
                               @Nonnull String templateDefinition,
+                              @Nonnull Options connectionOptions,
                               @Nullable SchemaTemplateRule.SchemaTemplateOptions templateOptions) {
-        final String schemaName = "TEST_SCHEMA";
+        final var schemaName = "TEST_SCHEMA";
         final var dbPath = URI.create("/TEST/" + testClass.getSimpleName());
-        final String templateName = dbPath.getPath().substring(dbPath.getPath().lastIndexOf("/") + 1);
+        final var templateName = dbPath.getPath().substring(dbPath.getPath().lastIndexOf("/") + 1);
 
-        this.relationalExtension = relationalExtension;
-        this.templateRule = new SchemaTemplateRule(this.relationalExtension, templateName + "_TEMPLATE", templateOptions, templateDefinition);
-        this.databaseRule = new DatabaseRule(this.relationalExtension, dbPath);
-        this.schemaRule = new SchemaRule(this.relationalExtension, schemaName, dbPath, templateRule.getTemplateName());
+        this.templateRule = new SchemaTemplateRule(templateName + "_TEMPLATE", Options.none(), templateOptions, templateDefinition);
+        this.databaseRule = new DatabaseRule(dbPath, connectionOptions);
+        this.schemaRule = new SchemaRule(schemaName, dbPath, templateRule.getSchemaTemplateName(), connectionOptions);
     }
 
-    public SimpleDatabaseRule(RelationalExtension relationalExtension,
-                              @Nonnull Class<?> testClass,
-                              @Nonnull String templateDefinition) {
-        this(relationalExtension, testClass, templateDefinition, null);
+    public SimpleDatabaseRule(@Nonnull final Class<?> testClass,
+                              @Nonnull final String templateDefinition,
+                              @Nonnull final Options options) {
+        this(testClass, templateDefinition, options, null);
+    }
+
+    public SimpleDatabaseRule(@Nonnull final Class<?> testClass,
+                              @Nonnull final String templateDefinition,
+                              @Nullable SchemaTemplateRule.SchemaTemplateOptions templateOptions) {
+        this(testClass, templateDefinition, Options.none(), templateOptions);
+    }
+
+    public SimpleDatabaseRule(@Nonnull final Class<?> testClass,
+                              @Nonnull final String templateDefinition) {
+        this(testClass, templateDefinition, Options.none(), null);
     }
 
     @Override
@@ -87,7 +103,7 @@ public class SimpleDatabaseRule implements BeforeEachCallback, AfterEachCallback
     }
 
     public String getSchemaTemplateName() {
-        return templateRule.getTemplateName();
+        return templateRule.getSchemaTemplateName();
     }
 
     public URI getConnectionUri() {

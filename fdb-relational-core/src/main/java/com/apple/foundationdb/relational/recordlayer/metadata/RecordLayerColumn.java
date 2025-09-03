@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ public class RecordLayerColumn implements Column {
     @Nonnull
     private final DataType dataType;
 
-    private int index;
+    private final int index;
 
     RecordLayerColumn(@Nonnull String name, @Nonnull DataType dataType, int index) {
         this.name = name;
@@ -44,8 +44,9 @@ public class RecordLayerColumn implements Column {
         this.index = index;
     }
 
+    @Nonnull
     @Override
-    public DataType getDatatype() {
+    public DataType getDataType() {
         return dataType;
     }
 
@@ -53,11 +54,6 @@ public class RecordLayerColumn implements Column {
     @Override
     public String getName() {
         return name;
-    }
-
-    @Nonnull
-    public DataType getDataType() {
-        return dataType;
     }
 
     public int getIndex() {

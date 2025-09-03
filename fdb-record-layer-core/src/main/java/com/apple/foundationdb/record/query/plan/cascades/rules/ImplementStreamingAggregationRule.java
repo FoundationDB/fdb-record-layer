@@ -22,9 +22,10 @@ package com.apple.foundationdb.record.query.plan.cascades.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRule;
+import com.apple.foundationdb.record.query.plan.cascades.ImplementationCascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.cascades.PlanPartition;
+import com.apple.foundationdb.record.query.plan.cascades.PlanPartitions;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.RequestedOrderingConstraint;
@@ -53,7 +54,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class ImplementStreamingAggregationRule extends CascadesRule<GroupByExpression> {
+public class ImplementStreamingAggregationRule extends ImplementationCascadesRule<GroupByExpression> {
     @Nonnull
     private static final BindingMatcher<Reference> lowerRefMatcher = ReferenceMatchers.anyRef();
     @Nonnull
@@ -67,7 +68,7 @@ public class ImplementStreamingAggregationRule extends CascadesRule<GroupByExpre
     }
 
     @Override
-    public void onMatch(@Nonnull final CascadesRuleCall call) {
+    public void onMatch(@Nonnull final ImplementationCascadesRuleCall call) {
         final var bindings = call.getBindings();
 
         final var groupByExpression = bindings.get(root);
@@ -87,25 +88,25 @@ public class ImplementStreamingAggregationRule extends CascadesRule<GroupByExpre
                         Values.simplify(Values.primitiveAccessorsForType(currentGroupingValue.getResultType(),
                                 () -> currentGroupingValue),
                                 DefaultValueSimplificationRuleSet.instance(),
-                                AliasMap.emptyMap(), correlatedTo));
+                                call.getEvaluationContext(), AliasMap.emptyMap(), correlatedTo));
 
         final var innerReference = innerQuantifier.getRangesOver();
-        final var planPartitions = PlanPartition.rollUpTo(innerReference.getPlanPartitions(), OrderingProperty.ORDERING);
+        final var planPartitions = PlanPartitions.rollUpTo(innerReference.toPlanPartitions(), OrderingProperty.ordering());
 
         for (final var planPartition : planPartitions) {
-            final var providedOrdering = planPartition.getAttributeValue(OrderingProperty.ORDERING);
+            final var providedOrdering = planPartition.getPartitionPropertyValue(OrderingProperty.ordering());
             if (requiredOrderingKeyValues == null || providedOrdering.satisfiesGroupingValues(requiredOrderingKeyValues)) {
-                call.yieldExpression(implementGroupBy(call, planPartition, groupByExpression));
+                call.yieldPlan(implementGroupBy(call, planPartition, groupByExpression));
             }
         }
     }
 
     @Nonnull
-    private RecordQueryStreamingAggregationPlan implementGroupBy(@Nonnull final CascadesRuleCall call,
+    private RecordQueryStreamingAggregationPlan implementGroupBy(@Nonnull final ImplementationCascadesRuleCall call,
                                                                  @Nonnull final PlanPartition planPartition,
                                                                  @Nonnull final GroupByExpression groupByExpression) {
         final var innerQuantifier = Iterables.getOnlyElement(groupByExpression.getQuantifiers());
-        final var newInnerPlanReference = call.memoizeMemberPlans(innerQuantifier.getRangesOver(), planPartition.getPlans());
+        final var newInnerPlanReference = call.memoizeMemberPlansFromOther(innerQuantifier.getRangesOver(), planPartition.getPlans());
         final var newPlanQuantifier = Quantifier.physical(newInnerPlanReference);
         final var aliasMap = AliasMap.ofAliases(innerQuantifier.getAlias(), newPlanQuantifier.getAlias());
         final var rebasedAggregatedValue = groupByExpression.getAggregateValue().rebase(aliasMap);

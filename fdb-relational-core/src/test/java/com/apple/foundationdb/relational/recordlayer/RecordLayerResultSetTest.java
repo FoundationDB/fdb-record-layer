@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,22 +20,19 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.relational.api.FieldDescription;
-import com.apple.foundationdb.relational.api.Row;
-import com.apple.foundationdb.relational.api.StructMetaData;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
+import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.utils.RelationalAssertions;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import java.sql.DatabaseMetaData;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.sql.Types;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -46,14 +43,13 @@ class RecordLayerResultSetTest {
     ResumableIterator<Row> cursor;
 
     @SuppressWarnings("unchecked")
-    RecordLayerResultSetTest() throws RelationalException {
+    RecordLayerResultSetTest() {
         cursor = (ResumableIterator<Row>) Mockito.mock(ResumableIterator.class);
-        StructMetaData smd = new RelationalStructMetaData(
-                FieldDescription.primitive("a", Types.INTEGER, DatabaseMetaData.columnNullable),
-                FieldDescription.primitive("b", Types.VARCHAR, DatabaseMetaData.columnNullable)
-        );
+        final var type = DataType.StructType.from("STRUCT", List.of(
+                DataType.StructType.Field.from("a", DataType.Primitives.NULLABLE_INTEGER.type(), 0),
+                DataType.StructType.Field.from("b", DataType.Primitives.NULLABLE_STRING.type(), 1)), true);
         resultSet = new RecordLayerResultSet(
-                smd,
+                RelationalStructMetaData.of(type),
                 cursor,
                 Mockito.mock(EmbeddedRelationalConnection.class));
     }

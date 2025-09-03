@@ -28,7 +28,9 @@ import org.junit.jupiter.api.TestTemplate;
  * Class covering the standard integration tests specified by yamsql files.
  * <br>
  * Note: Use {@link MaintainYamlTestConfig} using {@link YamlTestConfigFilters#CORRECT_EXPLAIN_AND_METRICS} or similar
- *       to correct explain strings and/or planner metrics. That annotation works both on class and on method level.
+ * to correct explain strings and/or planner metrics. That annotation works both on class and on method level.
+ * Note: Use {@link com.apple.foundationdb.relational.yamltests.DebugPlanner} on a specific test in this class to bring
+ * up the {@link com.apple.foundationdb.record.query.plan.cascades.debug.PlannerRepl} debugger implementation.
  */
 @YamlTest
 public class YamlIntegrationTests {
@@ -53,13 +55,13 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
-    public void fieldIndexTestsProto(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("field-index-tests-proto.yamsql");
+    public void standardTestsWithMetaData(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("standard-tests-metadata.yamsql");
     }
 
     @TestTemplate
-    public void standardTestsWithMetaData(YamlTest.Runner runner) throws Exception {
-        runner.runYamsql("standard-tests-metadata.yamsql");
+    public void fieldIndexTestsProto(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("field-index-tests-proto.yamsql");
     }
 
     @TestTemplate
@@ -140,6 +142,16 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void nestedWithNulls(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("nested-with-nulls.yamsql");
+    }
+
+    @TestTemplate
+    public void nestedWithNullsProto(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("nested-with-nulls-proto.yamsql");
+    }
+
+    @TestTemplate
     public void orderBy(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("orderby.yamsql");
     }
@@ -192,6 +204,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     void like(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("like.yamsql");
+    }
+
+    @TestTemplate
+    void distinctFrom(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("distinct-from.yamsql");
     }
 
     @TestTemplate
@@ -262,5 +279,35 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void tableFunctionsTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("table-functions.yamsql");
+    }
+
+    @TestTemplate
+    public void betweenTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("between.yamsql");
+    }
+
+    @TestTemplate
+    public void sqlFunctionsTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("sql-functions.yamsql");
+    }
+
+    @TestTemplate
+    public void literalTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("literal-tests.yamsql");
+    }
+
+    @TestTemplate
+    public void transactionalCallsTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("transactions-tests.yamsql");
+    }
+
+    @TestTemplate
+    public void literalExtractionTests(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("null-extraction-tests.yamsql");
+    }
+
+    @TestTemplate
+    public void caseSensitivityTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("case-sensitivity.yamsql");
     }
 }

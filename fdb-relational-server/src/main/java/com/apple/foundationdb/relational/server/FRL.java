@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.EmbeddedRelationalDriver;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
@@ -58,7 +59,6 @@ import java.sql.Array;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Types;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -78,7 +78,7 @@ import java.util.concurrent.TimeUnit;
 @API(API.Status.EXPERIMENTAL)
 public class FRL implements AutoCloseable {
     private final FdbConnection fdbDatabase;
-    private final RelationalDriver driver;
+    private final RelationalDriver registeredDriver;
     private boolean registeredJDBCEmbedDriver;
 
     public FRL() throws RelationalException {
@@ -113,7 +113,7 @@ public class FRL implements AutoCloseable {
                 .setStoreCatalog(storeCatalog).build();
 
         try {
-            this.driver = new EmbeddedRelationalDriver(RecordLayerEngine.makeEngine(
+            this.registeredDriver = new EmbeddedRelationalDriver(RecordLayerEngine.makeEngine(
                     rlConfig,
                     Collections.singletonList(fdbDb),
                     keySpace,
@@ -129,7 +129,7 @@ public class FRL implements AutoCloseable {
                             .setTertiarySize(options.getOption(Options.Name.PLAN_CACHE_TERTIARY_MAX_ENTRIES))
                             .build()));
 
-            DriverManager.registerDriver(this.driver);
+            DriverManager.registerDriver(this.registeredDriver);
             this.registeredJDBCEmbedDriver = true;
         } catch (SQLException ve) {
             throw new RelationalException(ve);
@@ -196,88 +196,86 @@ public class FRL implements AutoCloseable {
         // Third transaction is then created to run the sql. Transaction closes when connection closes so do all our
         // work inside here including reading all out of the ResultSet while under transaction else callers who try
         // to read the ResultSet after the transaction has closed will get a 'transactions is not active'.
-        // TODO: Transaction handling.
         final var driver = (RelationalDriver) DriverManager.getDriver(createEmbeddedJDBCURI(database, schema));
         try (var connection = driver.connect(URI.create(createEmbeddedJDBCURI(database, schema)), options)) {
-            ResultSet resultSet;
-            if (parameters != null) {
-                // If parameters, it's a prepared statement.
-                try (RelationalPreparedStatement statement = connection.prepareStatement(sql)) {
-                    int index = 1; // Parameter position is one-based.
-                    for (Parameter parameter : parameters) {
-                        addPreparedStatementParameter(statement, parameter, index++);
-                    }
-                    if (statement.execute()) {
-                        try (RelationalResultSet rs = statement.getResultSet()) {
+            // Options are given to the connection, don't override them in the statement
+            return executeInternal(connection, sql, parameters, null);
+        }
+    }
+
+    private Response executeInternal(@Nonnull RelationalConnection connection,
+                                     @Nonnull String sql,
+                                     @Nullable List<Parameter> parameters,
+                                     @Nullable Options options) throws SQLException {
+        ResultSet resultSet;
+        if (parameters == null) {
+            try (Statement statement = connection.createStatement()) {
+                try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
+                    setStatementOptions(options, statement);
+                    if (relationalStatement.execute(sql)) {
+                        try (RelationalResultSet rs = relationalStatement.getResultSet()) {
                             resultSet = TypeConversion.toProtobuf(rs);
                             return Response.query(resultSet);
                         }
                     } else {
-                        return Response.mutation(statement.getUpdateCount());
-                    }
-                }
-            } else {
-                try (Statement statement = connection.createStatement()) {
-                    try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
-                        if (relationalStatement.execute(sql)) {
-                            try (RelationalResultSet rs = relationalStatement.getResultSet()) {
-                                resultSet = TypeConversion.toProtobuf(rs);
-                                return Response.query(resultSet);
-                            }
-                        } else {
-                            return Response.mutation(relationalStatement.getUpdateCount());
-                        }
+                        return Response.mutation(relationalStatement.getUpdateCount());
                     }
                 }
             }
         }
+        // If parameters, it's a prepared statement.
+        try (RelationalPreparedStatement statement = connection.prepareStatement(sql)) {
+            int index = 1; // Parameter position is one-based.
+            for (Parameter parameter : parameters) {
+                addPreparedStatementParameter(statement, parameter, index++);
+            }
+            setStatementOptions(options, statement);
+            if (statement.execute()) {
+                try (RelationalResultSet rs = statement.getResultSet()) {
+                    resultSet = TypeConversion.toProtobuf(rs);
+                    return Response.query(resultSet);
+                }
+            } else {
+                return Response.mutation(statement.getUpdateCount());
+            }
+        }
     }
 
-    private static void addPreparedStatementParameter(RelationalPreparedStatement relationalPreparedStatement,
-                                                      Parameter parameter, int index) throws SQLException {
-        int type = parameter.getJavaSqlTypesCode();
-        switch (type) {
-            case Types.VARCHAR:
-                relationalPreparedStatement.setString(index, parameter.getParameter().getString());
-                break;
-            case Types.BIGINT:
-                relationalPreparedStatement.setLong(index, parameter.getParameter().getLong());
-                break;
-            case Types.INTEGER:
-                relationalPreparedStatement.setInt(index, parameter.getParameter().getInteger());
-                break;
-            case Types.FLOAT:
-                relationalPreparedStatement.setFloat(index, parameter.getParameter().getFloat());
-                break;
-            case Types.DOUBLE:
-                relationalPreparedStatement.setDouble(index, parameter.getParameter().getDouble());
-                break;
-            case Types.BOOLEAN:
-                relationalPreparedStatement.setBoolean(index, parameter.getParameter().getBoolean());
-                break;
-            case Types.BINARY:
-                relationalPreparedStatement.setBytes(index, parameter.getParameter().getBinary().toByteArray());
-                break;
-            case Types.NULL:
-                relationalPreparedStatement.setNull(index, parameter.getParameter().getNullType());
-                break;
-            case Types.OTHER:
-                if (parameter.getParameter().hasUuid()) {
-                    final var uuidParameter = parameter.getParameter().getUuid();
-                    relationalPreparedStatement.setUUID(index, new UUID(uuidParameter.getMostSignificantBits(), uuidParameter.getLeastSignificantBits()));
-                } else {
-                    throw new SQLException("Unsupported type OTHER");
-                }
-                break;
-            case Types.ARRAY:
-                final com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array arrayProto = parameter.getParameter().getArray();
-                final Array relationalArray = relationalPreparedStatement.getConnection().createArrayOf(
-                        SqlTypeNamesSupport.getSqlTypeName(arrayProto.getElementType()),
-                        TypeConversion.fromArray(arrayProto));
-                relationalPreparedStatement.setArray(index, relationalArray);
-                break;
-            default:
-                throw new SQLException("Unsupported type " + type);
+    private static void setStatementOptions(final @Nullable Options options, final Statement statement) throws SQLException {
+        if (options != null) {
+            statement.setMaxRows(options.getOption(Options.Name.MAX_ROWS));
+        }
+    }
+
+    private static void addPreparedStatementParameter(@Nonnull RelationalPreparedStatement relationalPreparedStatement,
+                                                      @Nonnull Parameter parameter, int index) throws SQLException {
+        final var oneOfValue = parameter.getParameter();
+        if (oneOfValue.hasString()) {
+            relationalPreparedStatement.setString(index, oneOfValue.getString());
+        } else if (oneOfValue.hasLong()) {
+            relationalPreparedStatement.setLong(index, oneOfValue.getLong());
+        } else if (oneOfValue.hasInteger()) {
+            relationalPreparedStatement.setInt(index, oneOfValue.getInteger());
+        } else if (oneOfValue.hasFloat()) {
+            relationalPreparedStatement.setFloat(index, oneOfValue.getFloat());
+        } else if (oneOfValue.hasDouble()) {
+            relationalPreparedStatement.setDouble(index, oneOfValue.getDouble());
+        } else if (oneOfValue.hasBoolean()) {
+            relationalPreparedStatement.setBoolean(index, oneOfValue.getBoolean());
+        } else if (oneOfValue.hasBinary()) {
+            relationalPreparedStatement.setBytes(index, oneOfValue.getBinary().toByteArray());
+        } else if (oneOfValue.hasNullType()) {
+            relationalPreparedStatement.setNull(index, oneOfValue.getNullType());
+        } else if (oneOfValue.hasUuid()) {
+            relationalPreparedStatement.setUUID(index, new UUID(oneOfValue.getUuid().getMostSignificantBits(), oneOfValue.getUuid().getLeastSignificantBits()));
+        } else if (oneOfValue.hasArray()) {
+            final com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array arrayProto = parameter.getParameter().getArray();
+            final Array relationalArray = relationalPreparedStatement.getConnection().createArrayOf(
+                    SqlTypeNamesSupport.getSqlTypeName(arrayProto.getElementType()),
+                    TypeConversion.fromArray(arrayProto));
+            relationalPreparedStatement.setArray(index, relationalArray);
+        } else {
+            throw new SQLException("Unsupported value: " + parameter.getParameter());
         }
     }
 
@@ -322,6 +320,62 @@ public class FRL implements AutoCloseable {
         }
     }
 
+    public TransactionalToken createTransactionalToken(String database, String schema, Options options) throws SQLException {
+        final var driver = (RelationalDriver) DriverManager.getDriver(createEmbeddedJDBCURI(database, schema));
+        RelationalConnection transactionalConnection = driver.connect(URI.create(createEmbeddedJDBCURI(database, schema)), options);
+        transactionalConnection.setAutoCommit(false);
+        return new TransactionalToken(transactionalConnection);
+    }
+
+    @Nonnull
+    public Response transactionalExecute(TransactionalToken token, String sql, List<Parameter> parameters, @Nullable Options options)
+            throws SQLException {
+        assertValidToken(token);
+        return executeInternal(token.getConnection(), sql, parameters, options);
+    }
+
+    public int transactionalInsert(TransactionalToken token, String tableName, List<RelationalStruct> data)
+            throws SQLException {
+        assertValidToken(token);
+        try (Statement statement = token.getConnection().createStatement()) {
+            try (RelationalStatement relationalStatement = statement.unwrap(RelationalStatement.class)) {
+                return relationalStatement.executeInsert(tableName, data, Options.NONE);
+            }
+        }
+    }
+
+    public void transactionalCommit(TransactionalToken token) throws SQLException {
+        assertValidToken(token);
+        token.getConnection().commit();
+    }
+
+    public void transactionalRollback(TransactionalToken token) throws SQLException {
+        assertValidToken(token);
+        token.getConnection().rollback();
+    }
+
+    public void enableAutoCommit(TransactionalToken token) throws SQLException {
+        assertValidToken(token);
+        token.getConnection().setAutoCommit(true);
+    }
+
+    public void transactionalClose(TransactionalToken token) throws SQLException {
+        if (token != null && !token.expired()) {
+            token.close();
+        }
+
+    }
+
+    private void assertValidToken(TransactionalToken token) throws SQLException {
+        if (token == null) {
+            // TODO: non SQLException exception?
+            throw new SQLException("Transaction was not initialized");
+        }
+        if (token.expired()) {
+            throw new SQLException("Transaction had expired");
+        }
+    }
+
     @Override
     public void close() throws SQLException, RelationalException {
         try {
@@ -331,7 +385,7 @@ public class FRL implements AutoCloseable {
         }
         // We registered the Relational embed driver... cleanup.
         if (this.registeredJDBCEmbedDriver) {
-            DriverManager.deregisterDriver(driver);
+            DriverManager.deregisterDriver(registeredDriver);
         }
     }
 }

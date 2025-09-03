@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokeniz
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
@@ -45,7 +46,7 @@ import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
+import com.apple.foundationdb.record.query.plan.cascades.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -602,7 +603,7 @@ public class LuceneIndexTestUtils {
                                                           @Nonnull RecordMetaData metaData,
                                                           @Nullable IndexMaintainerRegistry indexMaintainerRegistry) {
         final FDBRecordStore.Builder builder = FDBRecordStore.newBuilder()
-                .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION) // set to max to test newest features (unsafe for real deployments)
+                .setFormatVersion(FormatVersion.getMaximumSupportedVersion()) // set to max to test newest features (unsafe for real deployments)
                 .setKeySpacePath(path)
                 .setContext(context)
                 .setMetaDataProvider(metaData);

@@ -76,7 +76,7 @@ public class PlanSerializationTest {
                 Type.Record.fromFields(false,
                         ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("field1")),
                                 Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("field2")))),
-                QueryPlanConstraint.tautology());
+                QueryPlanConstraint.noConstraint());
         PlanSerializationContext planSerializationContext = PlanSerializationContext.newForCurrentMode();
         final PPlanReference proto = planSerializationContext.toPlanReferenceProto(plan);
         final byte[] bytes = proto.toByteArray();
@@ -98,10 +98,10 @@ public class PlanSerializationTest {
                 false,
                 Optional.empty(),
                 Type.primitiveType(Type.TypeCode.INT, true),
-                QueryPlanConstraint.tautology());
+                QueryPlanConstraint.noConstraint());
         final var plan = new RecordQueryDefaultOnEmptyPlan(Quantifier
                 .Physical.physicalBuilder().withAlias(CorrelationIdentifier.of("q42")).build(
-                        Reference.of(indexPlan)
+                        Reference.plannedOf(indexPlan)
                 ), new NullValue(Type.primitiveType(Type.TypeCode.INT, true)));
 
         PlanSerializationContext planSerializationContext = PlanSerializationContext.newForCurrentMode();

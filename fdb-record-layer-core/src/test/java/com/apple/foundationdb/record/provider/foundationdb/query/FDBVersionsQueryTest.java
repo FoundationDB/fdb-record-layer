@@ -45,12 +45,11 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
-import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedRecordValue;
@@ -96,10 +95,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicates;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicatesFilterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.queryComponents;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.recordTypes;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanComparisons;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanPlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.typeFilterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.versionValue;
@@ -502,10 +498,10 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                 graphExpansionBuilder.addResultColumn(resultColumn(versionValue, "version"));
                 graphExpansionBuilder.addResultColumn(resultColumn(recNoValue, "number"));
 
-                var select = Quantifier.forEach(Reference.of(graphExpansionBuilder.build().buildSelect()));
+                var select = Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelect()));
 
                 AliasMap aliasMap = AliasMap.ofAliases(select.getAlias(), Quantifier.current());
-                return Reference.of(sortExpression(List.of(FieldValue.ofFieldName(select.getFlowedObjectValue(), "version").rebase(aliasMap)), false, select));
+                return Reference.initialOf(sortExpression(List.of(FieldValue.ofFieldName(select.getFlowedObjectValue(), "version").rebase(aliasMap)), false, select));
             }, Optional.empty(), IndexQueryabilityFilter.DEFAULT, EvaluationContext.empty()).getPlan();
 
             assertMatchesExactly(plan, mapPlan(
@@ -566,7 +562,7 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
                 innerGraphBuilder.addResultColumn(resultColumn(versionValue, "version"));
                 innerGraphBuilder.addResultColumn(resultColumn(recNoValue, "number"));
 
-                var innerSelect = Quantifier.forEach(Reference.of(innerGraphBuilder.build().buildSelect()));
+                var innerSelect = Quantifier.forEach(Reference.initialOf(innerGraphBuilder.build().buildSelect()));
 
                 final var outerGraphBuilder = GraphExpansion.builder();
                 outerGraphBuilder.addQuantifier(innerSelect);
@@ -575,22 +571,16 @@ public class FDBVersionsQueryTest extends FDBRecordStoreQueryTestBase {
 
                 outerGraphBuilder.addResultValue(FieldValue.ofFieldName(innerSelect.getFlowedObjectValue(), "version"));
                 outerGraphBuilder.addResultValue(FieldValue.ofFieldName(innerSelect.getFlowedObjectValue(), "number"));
-                var select = Quantifier.forEach(Reference.of(outerGraphBuilder.build().buildSelect()));
+                var select = Quantifier.forEach(Reference.initialOf(outerGraphBuilder.build().buildSelect()));
 
-                return Reference.of(LogicalSortExpression.unsorted(select));
+                return Reference.initialOf(LogicalSortExpression.unsorted(select));
             }, Optional.empty(), IndexQueryabilityFilter.DEFAULT, EvaluationContext.empty()).getPlan();
 
             assertMatchesExactly(plan, mapPlan(
-                    predicatesFilterPlan(
-                            mapPlan(
-                                    typeFilterPlan(
-                                            scanPlan()
-                                                    .where(scanComparisons(unbounded()))
-                                    ).where(recordTypes(PrimitiveMatchers.containsAll(Set.of("MySimpleRecord"))))
-                            )
-                            .where(mapResult(recordConstructorValue(exactly(versionValue(), fieldValueWithFieldNames("rec_no")))))
-                    ).where(predicates(exactly(valuePredicate(fieldValueWithFieldNames("version"), new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, versionForQuery)))))
-            ).where(mapResult(recordConstructorValue(exactly(fieldValueWithFieldNames("version"), fieldValueWithFieldNames("number"))))));
+                    indexPlan()
+                            .where(indexName("versionIndex"))
+                            .and(scanComparisons(range("([null],[" + versionForQuery.toVersionstamp() + "]]")))
+            ).where(mapResult(recordConstructorValue(exactly(versionValue(), fieldValueWithFieldNames("rec_no"))))));
 
             Set<Long> expectedNumbers = records.stream()
                     .filter(rec -> rec.getVersion() != null && rec.getVersion().compareTo(versionForQuery) <= 0)

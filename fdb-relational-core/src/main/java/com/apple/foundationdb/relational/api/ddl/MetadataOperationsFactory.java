@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@ package com.apple.foundationdb.relational.api.ddl;
 
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
+import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.ThreadSafe;
@@ -31,7 +33,7 @@ import java.net.URI;
 public interface MetadataOperationsFactory {
 
     @Nonnull
-    ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties);
+    ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties);
 
     @Nonnull
     ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, boolean throwIfDoesNotExist, @Nonnull Options options);
@@ -47,4 +49,11 @@ public interface MetadataOperationsFactory {
 
     @Nonnull
     ConstantAction getDropSchemaConstantAction(@Nonnull URI dbPath, @Nonnull String schemaName, @Nonnull Options options);
+
+    @Nonnull
+    ConstantAction getCreateTemporaryFunctionConstantAction(@Nonnull SchemaTemplate template, boolean throwIfExists, @Nonnull RecordLayerInvokedRoutine invokedRoutine,
+                                                            @Nonnull PreparedParams preparedParams);
+
+    @Nonnull
+    ConstantAction getDropTemporaryFunctionConstantAction(boolean throwIfNotExists, @Nonnull String temporaryFunctionName);
 }

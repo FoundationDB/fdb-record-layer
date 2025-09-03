@@ -25,13 +25,16 @@ import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.RecordPlannerConfigurationProto;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesRule;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.PlannerRule;
+import com.apple.foundationdb.record.query.plan.cascades.PlanningRuleSet;
+import com.apple.foundationdb.record.query.plan.cascades.RewritingRuleSet;
 import com.apple.foundationdb.record.query.plan.cascades.rules.PredicateToLogicalUnionRule;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQueryPlannerSortConfiguration;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -274,8 +277,17 @@ public class RecordQueryPlannerConfiguration {
      * @param rule in question
      * @return {@code true} is enabled, {@code false} otherwise
      */
-    public boolean isRuleEnabled(@Nonnull CascadesRule<?> rule) {
+    public boolean isRuleEnabled(@Nonnull PlannerRule<?, ?> rule) {
         return !disabledTransformationRules.contains(rule.getClass().getSimpleName());
+    }
+
+    /**
+     * Returns the set of disabled transformation rules.
+     * @return set of disabled transformation rules.
+     */
+    @Nonnull
+    public Set<String> getDisabledTransformationRules() {
+        return disabledTransformationRules;
     }
 
     /**
@@ -433,6 +445,7 @@ public class RecordQueryPlannerConfiguration {
             this.protoBuilder = RecordPlannerConfigurationProto.PlannerConfiguration.newBuilder();
         }
 
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setIndexScanPreference(@Nonnull QueryPlanner.IndexScanPreference indexScanPreference) {
             protoBuilder.setIndexScanPreference(SCAN_PREFERENCE_BI_MAP.get(indexScanPreference));
@@ -443,54 +456,63 @@ public class RecordQueryPlannerConfiguration {
             flags = value ? (flags | mask) : (flags & ~mask);
         }
 
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setAttemptFailedInJoinAsOr(boolean attemptFailedInJoinAsOr) {
             updateFlags(attemptFailedInJoinAsOr, ATTEMPT_FAILED_IN_JOIN_AS_OR_MASK);
             return this;
         }
 
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setAttemptFailedInJoinAsUnionMaxSize(int attemptFailedInJoinAsUnionMaxSize) {
             protoBuilder.setAttemptFailedInJoinAsUnionMaxSize(attemptFailedInJoinAsUnionMaxSize);
             return this;
         }
 
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setComplexityThreshold(final int complexityThreshold) {
             protoBuilder.setComplexityThreshold(complexityThreshold);
             return this;
         }
 
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setCheckForDuplicateConditions(final boolean checkForDuplicateConditions) {
             updateFlags(checkForDuplicateConditions, CHECK_FOR_DUPLICATE_CONDITIONS_MASK);
             return this;
         }
 
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setDeferFetchAfterUnionAndIntersection(boolean deferFetchAfterUnionAndIntersection) {
             updateFlags(deferFetchAfterUnionAndIntersection, DEFER_FETCH_AFTER_UNION_AND_INTERSECTION_MASK);
             return this;
         }
 
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setDeferFetchAfterInJoinAndInUnion(boolean deferFetchAfterInJoinAndInUnion) {
             updateFlags(deferFetchAfterInJoinAndInUnion, DEFER_FETCH_AFTER_IN_JOIN_AND_IN_UNION_MASK);
             return this;
         }
 
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setOmitPrimaryKeyInUnionOrderingKey(boolean omitPrimaryKeyInUnionOrderingKey) {
             updateFlags(omitPrimaryKeyInUnionOrderingKey, OMIT_PRIMARY_KEY_IN_UNION_ORDERING_KEY_MASK);
             return this;
         }
 
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setOmitPrimaryKeyInOrderingKeyForInUnion(boolean omitPrimaryKeyInOrderingKeyForInUnion) {
             updateFlags(omitPrimaryKeyInOrderingKeyForInUnion, OMIT_PRIMARY_KEY_IN_ORDERING_KEY_FOR_IN_UNION_MASK);
             return this;
         }
 
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setOptimizeForIndexFilters(final boolean optimizeForIndexFilters) {
             updateFlags(optimizeForIndexFilters, OPTIMIZE_FOR_INDEX_FILTERS_MASK);
@@ -504,6 +526,7 @@ public class RecordQueryPlannerConfiguration {
          * @param optimizeForRequiredResults set the optimizeForRequiredResults parameter
          * @return this builder
          */
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setOptimizeForRequiredResults(final boolean optimizeForRequiredResults) {
             updateFlags(optimizeForRequiredResults, OPTIMIZE_FOR_REQUIRED_RESULTS_MASK);
@@ -517,6 +540,7 @@ public class RecordQueryPlannerConfiguration {
          * @param maxTaskQueueSize the maximum size of the queue.
          * @return this builder
          */
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setMaxTaskQueueSize(final int maxTaskQueueSize) {
             protoBuilder.setMaxTaskQueueSize(maxTaskQueueSize);
@@ -530,6 +554,7 @@ public class RecordQueryPlannerConfiguration {
          * @param maxTotalTaskCount the maximum number of tasks.
          * @return this builder
          */
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setMaxTotalTaskCount(final int maxTotalTaskCount) {
             protoBuilder.setMaxTotalTaskCount(maxTotalTaskCount);
@@ -541,6 +566,7 @@ public class RecordQueryPlannerConfiguration {
          * @param useFullKeyForValueIndex whether to include primary key in planning
          * @return this builder
          */
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setUseFullKeyForValueIndex(final boolean useFullKeyForValueIndex) {
             updateFlags(!useFullKeyForValueIndex, DONT_USE_FULL_KEY_FOR_VALUE_INDEX_MASK);
@@ -553,6 +579,7 @@ public class RecordQueryPlannerConfiguration {
          * @param maxNumMatchesPerRuleCall the desired maximum number of matches that are permitted per rule call
          * @return {@code this}
          */
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setMaxNumMatchesPerRuleCall(final int maxNumMatchesPerRuleCall) {
             protoBuilder.setMaxNumMatchesPerRuleCall(maxNumMatchesPerRuleCall);
@@ -564,6 +591,7 @@ public class RecordQueryPlannerConfiguration {
          * @param sortConfiguration configuration to use for planning non-index sorting, or {@code null} to never allow it
          * @return this builder
          */
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setSortConfiguration(@Nullable final RecordQueryPlannerSortConfiguration sortConfiguration) {
             if (sortConfiguration == null) {
@@ -580,6 +608,7 @@ public class RecordQueryPlannerConfiguration {
          * @param allowNonIndexSort whether to allow non-index sorting
          * @return this builder
          */
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setAllowNonIndexSort(final boolean allowNonIndexSort) {
             setSortConfiguration(allowNonIndexSort ? RecordQueryPlannerSortConfiguration.getDefaultInstance() : null);
@@ -591,6 +620,7 @@ public class RecordQueryPlannerConfiguration {
          * @param disabledTransformationRules a set of disabled rules.
          * @return this builder
          */
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setDisabledTransformationRules(@Nonnull final Set<Class<? extends CascadesRule<?>>> disabledTransformationRules) {
             protoBuilder.clearDisabledTransformationRules();
@@ -605,13 +635,37 @@ public class RecordQueryPlannerConfiguration {
          * for any planning effort.
          * @param disabledTransformationRuleNames a set of rule names identifying (via simple class name)
          *        transformation rules
-         * @param plannerRuleSet a {@link PlannerRuleSet} that is used to resolve the rule name to a rule class
+         * @param planningRuleSet a {@link PlanningRuleSet} that is used to resolve the rule name to a rule class
          * @return this builder
          */
+        @CanIgnoreReturnValue
         @Nonnull
-        public Builder setDisabledTransformationRuleNames(@Nonnull final Set<String> disabledTransformationRuleNames, @Nonnull PlannerRuleSet plannerRuleSet) {
+        public Builder setDisabledTransformationRuleNames(@Nonnull final Set<String> disabledTransformationRuleNames, @Nonnull PlanningRuleSet planningRuleSet) {
             protoBuilder.clearDisabledTransformationRules()
                     .addAllDisabledTransformationRules(disabledTransformationRuleNames);
+            return this;
+        }
+
+        /**
+         * Helper method that disables all rewriting rules. These are the rules that
+         * are applied to the logical query and are designed to produce a canonical
+         * version of the original query. However, these rules can add to the planning
+         * time if the process of rewriting the query ends up over-enumerating.
+         * If a query encounters problems during this stage of planning, this can
+         * be used as a stop-gap to disable all rewrites and proceed directly to
+         * the planning stage.
+         *
+         * @return this builder
+         * @see RewritingRuleSet
+         */
+        @API(API.Status.EXPERIMENTAL)
+        @SuppressWarnings("unchecked")
+        @CanIgnoreReturnValue
+        @Nonnull
+        public Builder disableRewritingRules() {
+            for (CascadesRule<?> rule : RewritingRuleSet.OPTIONAL_RULES) {
+                disableTransformationRule((Class<? extends CascadesRule<?>>) rule.getClass());
+            }
             return this;
         }
 
@@ -620,6 +674,7 @@ public class RecordQueryPlannerConfiguration {
          * @param ruleClass a rule class that should be disabled
          * @return this builder
          */
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder disableTransformationRule(@Nonnull Class<? extends CascadesRule<?>> ruleClass) {
             protoBuilder.addDisabledTransformationRules(ruleClass.getSimpleName());
@@ -640,6 +695,7 @@ public class RecordQueryPlannerConfiguration {
          * @param deferCrossProducts indicator if the planner should defer cross products
          * @return this builder
          */
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setDeferCrossProducts(final boolean deferCrossProducts) {
             updateFlags(!deferCrossProducts, DONT_DEFER_CROSS_PRODUCTS_MASK);
@@ -654,6 +710,7 @@ public class RecordQueryPlannerConfiguration {
          * @return this builder
          */
         @API(API.Status.EXPERIMENTAL)
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setIndexFetchMethod(@Nonnull final IndexFetchMethod indexFetchMethod) {
             protoBuilder.setIndexFetchMethod(FETCH_METHOD_BI_MAP.get(indexFetchMethod));
@@ -661,6 +718,7 @@ public class RecordQueryPlannerConfiguration {
         }
 
         @API(API.Status.EXPERIMENTAL)
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder addValueIndexOverScanNeeded(@Nonnull final String indexName) {
             protoBuilder.addValueIndexesOverScanNeeded(indexName);
@@ -673,6 +731,7 @@ public class RecordQueryPlannerConfiguration {
          * @return this builder
          */
         @API(API.Status.EXPERIMENTAL)
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setPlanOtherAttemptWholeFilter(final boolean planOtherAttemptWholeFilter) {
             updateFlags(planOtherAttemptWholeFilter, PLAN_OTHER_ATTEMPT_FULL_FILTER_MASK);
@@ -687,6 +746,7 @@ public class RecordQueryPlannerConfiguration {
          * @return this builder
          * @see #getMaxNumReplansForInToJoin()
          */
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setMaxNumReplansForInToJoin(final int maxNumReplansForInToJoin) {
             protoBuilder.setMaxNumReplansForInToJoin(maxNumReplansForInToJoin);
@@ -701,6 +761,7 @@ public class RecordQueryPlannerConfiguration {
          * @return this builder
          * @see #getMaxNumReplansForInUnion()
          */
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setMaxNumReplansForInUnion(final int maxNumReplansForInUnion) {
             protoBuilder.setMaxNumReplansForInUnion(maxNumReplansForInUnion);
@@ -713,12 +774,14 @@ public class RecordQueryPlannerConfiguration {
          * @param orToUnionMaxNumConjuncts the maximum number of conjuncts
          * @return this builder
          */
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setOrToUnionMaxNumConjuncts(final int orToUnionMaxNumConjuncts) {
             protoBuilder.setOrToUnionMaxNumConjuncts(orToUnionMaxNumConjuncts);
             return this;
         }
 
+        @CanIgnoreReturnValue
         @Nonnull
         public Builder setNormalizeNestedFields(boolean normalizeNestedFields) {
             updateFlags(normalizeNestedFields, NORMALIZE_NESTED_FIELDS_MASK);

@@ -20,11 +20,11 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
@@ -539,8 +539,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      *     <li>recordsScanned - the number of records successfully scanned and processed
      *     <p>
      *         This is the count of records scanned as part of successful transactions used by the
-     *         multi-transaction methods (e.g. {@link OnlineIndexer#buildIndexAsync()} or
-     *         {@link OnlineIndexer#buildRange(Key.Evaluated, Key.Evaluated)}). The transactional methods (i.e., the methods that
+     *         multi-transaction methods (e.g. {@link OnlineIndexer#buildIndex()}.The transactional methods (i.e., the methods that
      *         take a store) do not count towards this value. Since only successful transactions are included,
      *         transactions that get {@code commit_unknown_result} will not get counted towards this value,
      *         so this may be short by the number of records scanned in those transactions if they actually
@@ -569,7 +568,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
 
     /**
      * Set whether or not to track the index build progress by updating the number of records successfully scanned
-     * and processed. The progress is persisted in {@link OnlineIndexer#indexBuildScannedRecordsSubspace(FDBRecordStoreBase, Index)}
+     * and processed. The progress is persisted in {@link IndexingSubspaces#indexBuildScannedRecordsSubspace(FDBRecordStoreBase, Index)}
      * which can be accessed by {@link IndexBuildState#loadIndexBuildStateAsync(FDBRecordStoreBase, Index)}.
      * <p>
      * This setting does not affect the setting at {@link #setProgressLogIntervalMillis(long)}.
@@ -614,11 +613,14 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
 
     /**
      * Set the store format version to use while building the index.
-     *
-     * Normally this is set by {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
      * @param formatVersion the format version to use
      * @return this builder
+     * @deprecated Instead, provide a {@link FDBRecordStore} or {@link FDBRecordStore.Builder} with an appropriate format
+     * version to {@link #setRecordStore(FDBRecordStore)} or {@link #setRecordStoreBuilder(FDBRecordStore.Builder)}
+     * respectively
      */
+    @Deprecated(forRemoval = true)
+    @SuppressWarnings("removal") // this will be removed when the method it calls is removed
     public B setFormatVersion(int formatVersion) {
         if (recordStoreBuilder == null) {
             throw new MetaDataException("format version can only be set after record store builder has been set");
@@ -707,6 +709,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
     }
 
     /**
+     * <em>Deprecated</em>. This will soon be determined by the indexing session type
      * Set the use of a synchronized session during the index operation. Synchronized sessions help performing
      * the multiple transactions operations in a resource efficient way.
      * Normally this should be {@code true}.
@@ -715,6 +718,7 @@ public abstract class OnlineIndexOperationBaseBuilder<B extends OnlineIndexOpera
      * @param useSynchronizedSession use synchronize session if true, otherwise false
      * @return this builder
      */
+    @API(API.Status.DEPRECATED)
     public B setUseSynchronizedSession(boolean useSynchronizedSession) {
         configBuilder.setUseSynchronizedSession(useSynchronizedSession);
         return self();

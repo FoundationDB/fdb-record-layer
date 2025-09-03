@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAbstractDataModificationPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryAggregateIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryDefaultOnEmptyPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryDeletePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
@@ -110,7 +111,7 @@ public class RecordQueryPlanMatchers {
                     final List<? extends Quantifier> quantifiers = recordQueryPlan.getQuantifiers();
                     final List<Iterable<RelationalExpression>>
                             rangedOverPlans = quantifiers.stream()
-                            .map(quantifier -> quantifier.getRangesOver().getMembers().stream().collect(ImmutableList.toImmutableList()))
+                            .map(quantifier -> quantifier.getRangesOver().getFinalExpressions().stream().collect(ImmutableList.toImmutableList()))
                             .collect(ImmutableList.toImmutableList());
                     return CrossProduct.crossProduct(rangedOverPlans);
                 }, name -> "planChildren(" + name + ")"),
@@ -161,6 +162,11 @@ public class RecordQueryPlanMatchers {
 
     public static SetMatcher<? extends RecordQueryPlan> exactlyPlansInAnyOrder(@Nonnull final Collection<? extends BindingMatcher<? extends RecordQueryPlan>> downstreams) {
         return exactlyInAnyOrder(downstreams);
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryDefaultOnEmptyPlan> defaultOnEmptyPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
+        return childrenPlans(RecordQueryDefaultOnEmptyPlan.class, all(downstream));
     }
 
     @Nonnull
@@ -505,8 +511,8 @@ public class RecordQueryPlanMatchers {
     
     @SuppressWarnings("unchecked")
     @Nonnull
-    public static <C extends RecordQueryPlanWithComparisonKeyValues> BindingMatcher<C> comparisonKeyValues(@Nonnull CollectionMatcher<? extends Value> comparisonKeyMatcher) {
-        return typedWithDownstream((Class<C>)(Class<?>)RecordQueryPlanWithComparisonKeyValues.class,
+    public static BindingMatcher<RecordQueryPlanWithComparisonKeyValues> comparisonKeyValues(@Nonnull CollectionMatcher<? extends Value> comparisonKeyMatcher) {
+        return typedWithDownstream(RecordQueryPlanWithComparisonKeyValues.class,
                 Extractor.of(RecordQueryPlanWithComparisonKeyValues::getComparisonKeyValues, name -> "comparisonKeyValues(" + name + ")"),
                 comparisonKeyMatcher);
     }
@@ -769,8 +775,8 @@ public class RecordQueryPlanMatchers {
 
     @Nonnull
     @SuppressWarnings("unchecked")
-    public static <M extends RecordQueryExplodePlan> BindingMatcher<M> collectionValue(@Nonnull BindingMatcher<? extends Value> downstream) {
-        return typedWithDownstream((Class<M>)(Class<?>)RecordQueryExplodePlan.class,
+    public static BindingMatcher<RecordQueryExplodePlan> collectionValue(@Nonnull BindingMatcher<? extends Value> downstream) {
+        return typedWithDownstream(RecordQueryExplodePlan.class,
                 Extractor.of(RecordQueryExplodePlan::getCollectionValue, name -> "collectionValue(" + name + ")"),
                 downstream);
     }
@@ -797,8 +803,8 @@ public class RecordQueryPlanMatchers {
 
     @Nonnull
     @SuppressWarnings("unchecked")
-    public static <M extends RecordQueryAbstractDataModificationPlan> BindingMatcher<M> target(@Nonnull BindingMatcher<? extends String> downstream) {
-        return typedWithDownstream((Class<M>)(Class<?>)RecordQueryAbstractDataModificationPlan.class,
+    public static BindingMatcher<RecordQueryAbstractDataModificationPlan> target(@Nonnull BindingMatcher<? extends String> downstream) {
+        return typedWithDownstream(RecordQueryAbstractDataModificationPlan.class,
                 Extractor.of(RecordQueryAbstractDataModificationPlan::getTargetRecordType, name -> "target(" + name + ")"),
                 downstream);
     }

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
@@ -54,7 +55,7 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
                                                  @Nonnull final CorrelationIdentifier sourceAlias,
                                                  @Nonnull final CorrelationIdentifier targetAlias,
                                                  @Nonnull final Iterable<? extends Value> providedValuesFromIndex) {
-        if (!isOfPushableTypes(toBePushedValue)) {
+        if (!isOfPushableTypesOrConstant(toBePushedValue, sourceAlias)) {
             return Optional.empty();
         }
 
@@ -76,12 +77,16 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
         return translatedValueOptional.filter(translatedValue -> !translatedValue.getCorrelatedTo().contains(sourceAlias));
     }
 
-    private static boolean isOfPushableTypes(@Nonnull Value toBePushedValue) {
+    private static boolean isOfPushableTypesOrConstant(@Nonnull final Value toBePushedValue,
+                                                       @Nonnull final CorrelationIdentifier sourceAlias) {
+        if (!toBePushedValue.getCorrelatedTo().contains(sourceAlias)) {
+            return true;
+        }
         if (toBePushedValue instanceof FieldValue) {
             return true;
         } else if (toBePushedValue instanceof RecordConstructorValue) {
             return ((RecordConstructorValue)toBePushedValue).getColumns().stream()
-                    .allMatch(column -> isOfPushableTypes(column.getValue()));
+                    .allMatch(column -> isOfPushableTypesOrConstant(column.getValue(), sourceAlias));
         } else {
             // Effectively, this check is needed because of values like the VersionValue, which aren't
             // accessible without a record fetch, even if the index entry contains a VersionValue. We
@@ -168,8 +173,8 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
             final Value keyValue = indexKeyValues.get(i);
 
             final var extractFromIndexEntryPairOptional =
-                    keyValue.extractFromIndexEntryMaybe(baseObjectValue, AliasMap.emptyMap(), ImmutableSet.of(),
-                            IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(i));
+                    keyValue.extractFromIndexEntryMaybe(baseObjectValue, EvaluationContext.empty(), AliasMap.emptyMap(),
+                            ImmutableSet.of(), IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(i));
             if (extractFromIndexEntryPairOptional.isPresent()) {
                 final var extractFromIndexEntryPair = extractFromIndexEntryPairOptional.get();
 
@@ -197,8 +202,9 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
         for (int i = 0; i < indexValueValues.size(); i++) {
             final Value valueValue = indexValueValues.get(i);
             final var extractFromIndexEntryPairOptional =
-                    valueValue.extractFromIndexEntryMaybe(baseObjectValue, AliasMap.emptyMap(), ImmutableSet.of(),
-                            IndexKeyValueToPartialRecord.TupleSource.VALUE, ImmutableIntArray.of(i));
+                    valueValue.extractFromIndexEntryMaybe(baseObjectValue, EvaluationContext.empty(),
+                            AliasMap.emptyMap(), ImmutableSet.of(), IndexKeyValueToPartialRecord.TupleSource.VALUE,
+                            ImmutableIntArray.of(i));
             if (extractFromIndexEntryPairOptional.isPresent()) {
                 final var extractFromIndexEntryPair = extractFromIndexEntryPairOptional.get();
                 // TODO begin remove -- https://github.com/FoundationDB/fdb-record-layer/issues/2905

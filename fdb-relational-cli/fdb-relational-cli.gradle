@@ -41,6 +41,7 @@ dependencies {
     // fdb-relational-jdbc module that wants no server/core pollution.
     implementation project(":fdb-relational-server")
     implementation project(":fdb-relational-jdbc")
+    implementation project(":fdb-record-layer-debugger")
     implementation project(coreProject)
     // we currently pack the Cascades debugger in this package, maybe in the future we should
     // move it to a more appropriate package such as utils or something similar so we can
@@ -74,7 +75,7 @@ dependencies {
 }
 
 jar {
-    duplicatesStrategy "exclude"
+    duplicatesStrategy = "exclude"
     manifest {
         attributes(
                 'Main-Class': 'com.apple.foundationdb.relational.cli.sqlline.RelationalSQLLine',
@@ -87,6 +88,7 @@ jar {
 
     dependsOn ':fdb-extensions:jar'
     dependsOn ':fdb-record-layer-core:jar'
+    dependsOn ':fdb-record-layer-debugger:jar'
     dependsOn ':fdb-relational-api:jar'
     dependsOn ':fdb-relational-core:jar'
     dependsOn ':fdb-relational-grpc:jar'
@@ -106,7 +108,7 @@ generateGrammarSource {
 application {
     // https://docs.gradle.org/current/userguide/application_plugin.html
     // https://github.com/julianhyde/sqlline
-    mainClass = "com.apple.relational.cli.sqlline.RelationalSQLLine"
+    mainClass = "com.apple.foundationdb.relational.cli.sqlline.RelationalSQLLine"
     applicationName = "fdb-relational-sqlline"
     // JUL => log4j2 https://logging.apache.org/log4j/2.x/log4j-jul/index.html
     // TODO: Allow overriding default fdb.cluster file with FDB_CLUSTER_FILE.

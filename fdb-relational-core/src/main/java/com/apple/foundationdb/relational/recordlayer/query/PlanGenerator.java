@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,6 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
-
-import com.apple.foundationdb.record.IndexFetchMethod;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -30,34 +28,28 @@ import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
-import com.apple.foundationdb.record.query.plan.QueryPlanner;
-import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
-import com.apple.foundationdb.record.query.plan.cascades.CascadesCostModel;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.SemanticException;
-import com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty;
-import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.StableSelectorCostModel;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
-import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.continuation.CompiledStatement;
 import com.apple.foundationdb.relational.continuation.TypedQueryArgument;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.query.QueryExecutionContext.OrderedLiteral;
 import com.apple.foundationdb.relational.recordlayer.query.cache.PhysicalPlanEquivalence;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
 import com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.RelationalLoggingUtil;
-
 import com.google.common.base.VerifyException;
 import com.google.common.collect.Maps;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -65,7 +57,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Objects;
@@ -73,36 +64,40 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import static com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty.usedTypes;
+
+/**
+ * The plan generator, responsible for creating execution plans from SQL statements.
+ */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.EXPERIMENTAL)
 public final class PlanGenerator {
     private static final Logger logger = LogManager.getLogger(PlanGenerator.class);
 
     /**
-     * An optional plan cache used for improving performance by caching plans, so we can avoid planning them
-     * unnecessarily.
+     * An optional plan cache used to improve performance by storing execution plans.
+     * This allows the system to reuse plans for identical queries, avoiding redundant planning.
      */
     @Nonnull
     private final Optional<RelationalPlanCache> cache;
 
-    // todo (yhatem) TODO (Interaction between planner configurations and query cache)
     @Nonnull
     private final CascadesPlanner planner;
 
     @Nonnull
     private final PlanContext planContext;
 
+    @Nonnull
+    private Options options;
+
     private long beginTime = System.nanoTime();
 
     private long currentTime = beginTime;
 
-    @Nonnull
-    private Options options;
-
-    private PlanGenerator(@Nonnull Optional<RelationalPlanCache> cache,
-                          @Nonnull PlanContext planContext,
-                          @Nonnull CascadesPlanner planner,
-                          @Nonnull Options options) {
+    private PlanGenerator(@Nonnull final Optional<RelationalPlanCache> cache,
+                          @Nonnull final PlanContext planContext,
+                          @Nonnull final CascadesPlanner planner,
+                          @Nonnull final Options options) {
         this.cache = cache;
         this.planContext = planContext;
         this.planner = planner;
@@ -110,17 +105,17 @@ public final class PlanGenerator {
     }
 
     /**
-     * Returns for a given SQL query, a corresponding {@link Plan} that maybe executed to produce results. If a plan
-     * cache is available, it looks up the SQL query in the cache, and if a {@link Plan} is found it returns that
-     * plan directly from the cache without actually generating it. If no plan is found, it will generate it and store
-     * it in the cache.
+     * Returns a {@link Plan} for the given SQL query, representing the execution plan.
+     * If a plan cache is enabled, this method first attempts to retrieve a pre-existing plan from the cache.
+     * If a plan is found in the cache, it is returned directly, avoiding plan generation.
+     * If no plan is found in the cache, a new plan is generated and stored in the cache for future use.
      *
-     * @param query The SQL query.
+     * @param query The SQL query to generator the plan for.
      * @return a corresponding {@link Plan}.
      * @throws RelationalException If planning was unsuccessful.
      */
     @Nonnull
-    public Plan<?> getPlan(@Nonnull String query) throws RelationalException {
+    public Plan<?> getPlan(@Nonnull final String query) throws RelationalException {
         resetTimer();
         KeyValueLogMessage message = KeyValueLogMessage.build("PlanGenerator");
         Plan<?> plan = null;
@@ -136,11 +131,6 @@ public final class PlanGenerator {
         return plan;
     }
 
-    @Nonnull
-    public Options getOptions() {
-        return options;
-    }
-
     private boolean isCaseSensitive() {
         return options.getOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS);
     }
@@ -149,9 +139,8 @@ public final class PlanGenerator {
     private Plan<?> getPlanInternal(@Nonnull String query, @Nonnull KeyValueLogMessage message) throws RelationalException {
         try {
             // parse query, generate AST, extract literals from AST, hash it w.r.t. prepared parameters, and identify query caching behavior flags
-            final Set<PlanHashable.PlanHashMode> validPlanHashModes =
-                    QueryPlan.PhysicalQueryPlan.getValidPlanHashModes(options);
-            final PlanHashable.PlanHashMode currentPlanHashMode = QueryPlan.PhysicalQueryPlan.getCurrentPlanHashMode(options);
+            final Set<PlanHashable.PlanHashMode> validPlanHashModes = OptionsUtils.getValidPlanHashModes(options);
+            final PlanHashable.PlanHashMode currentPlanHashMode = OptionsUtils.getCurrentPlanHashMode(options);
             final var astHashResult = AstNormalizer.normalizeQuery(planContext, query, isCaseSensitive(), currentPlanHashMode);
             RelationalLoggingUtil.publishNormalizeQueryLogs(message, stepTimeMicros(), astHashResult.getQueryCacheKey().getHash(),
                     astHashResult.getQueryCacheKey().getCanonicalQueryString());
@@ -159,8 +148,7 @@ public final class PlanGenerator {
 
             // shortcut plan cache if the query is determined not-cacheable or the cache is not set (disabled).
             if (shouldNotCache(astHashResult.getQueryCachingFlags()) || cache.isEmpty()) {
-                Plan<?> plan = generatePhysicalPlan(astHashResult, validPlanHashModes,
-                        currentPlanHashMode);
+                Plan<?> plan = generatePhysicalPlan(astHashResult, validPlanHashModes, currentPlanHashMode);
                 RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.SKIP, stepTimeMicros(), 0);
                 return plan;
             }
@@ -169,7 +157,7 @@ public final class PlanGenerator {
             RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.HIT, -1, cache.get().getStats().numEntries());
 
             // otherwise, lookup the query in the cache
-            final var planEquivalence = PhysicalPlanEquivalence.of(astHashResult.getQueryExecutionParameters().getEvaluationContext());
+            final var planEquivalence = PhysicalPlanEquivalence.of(astHashResult.getQueryExecutionContext().getEvaluationContext());
             return planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.CACHE_LOOKUP, () ->
                     cache.get().reduce(
                             astHashResult.getSchemaTemplateName(),
@@ -185,13 +173,13 @@ public final class PlanGenerator {
                                 RelationalLoggingUtil.publishPlanCacheLogs(message, RelationalLoggingUtil.PlanCacheEvent.MISS, stepTimeMicros(), cache.get().getStats().numEntries());
                                 return NonnullPair.of(planEquivalence.withConstraint(physicalPlan.getConstraint()), physicalPlan);
                             },
-                            value -> value.withQueryExecutionParameters(astHashResult.getQueryExecutionParameters()),
+                            value -> value.withExecutionContext(astHashResult.getQueryExecutionContext()),
                             plans -> plans.reduce(null, (acc, candidate) -> {
                                 if (candidate instanceof QueryPlan.PhysicalQueryPlan) {
-                                    final var result = (QueryPlan.PhysicalQueryPlan) candidate;
-                                    final var candidateQueryPlan = result.getRecordQueryPlan();
-                                    var bestQueryPlan = acc == null ? null : ((QueryPlan.PhysicalQueryPlan) acc).getRecordQueryPlan();
-                                    if (bestQueryPlan == null || new CascadesCostModel(planner.getConfiguration()).compare(candidateQueryPlan, bestQueryPlan) < 0) {
+                                    final var candidatePhysicalPlan = Assert.castUnchecked(candidate, QueryPlan.PhysicalQueryPlan.class);
+                                    final var candidateQueryPlan = candidatePhysicalPlan.getRecordQueryPlan();
+                                    final var bestQueryPlanSoFar = acc == null ? null : Assert.castUnchecked(acc, QueryPlan.PhysicalQueryPlan.class).getRecordQueryPlan();
+                                    if (bestQueryPlanSoFar == null || new StableSelectorCostModel().compare(candidateQueryPlan, bestQueryPlanSoFar) < 0) {
                                         return candidate;
                                     } else {
                                         return acc;
@@ -216,26 +204,33 @@ public final class PlanGenerator {
     }
 
     @Nonnull
-    private Plan<?> generatePhysicalPlan(@Nonnull AstNormalizer.Result ast,
+    private Plan<?> generatePhysicalPlan(@Nonnull AstNormalizer.NormalizationResult ast,
                                          @Nonnull Set<PlanHashable.PlanHashMode> validPlanHashModes,
                                          @Nonnull PlanHashable.PlanHashMode currentPlanHashMode) throws RelationalException {
-        if (ast.getQueryCachingFlags().contains(AstNormalizer.Result.QueryCachingFlags.IS_EXECUTE_CONTINUATION_STATEMENT)) {
-            return generatePhysicalPlanForExecuteContinuation(ast, validPlanHashModes, currentPlanHashMode);
+        if (ast.getQueryCachingFlags().contains(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_EXECUTE_CONTINUATION_STATEMENT)) {
+            return planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.GENERATE_CONTINUED_PLAN, () ->
+                    generatePhysicalPlanForExecuteContinuation(ast, validPlanHashModes, currentPlanHashMode));
         } else {
             return generatePhysicalPlanForCompilableStatement(ast, isCaseSensitive(), currentPlanHashMode);
         }
     }
 
     @Nonnull
-    private Plan<?> generatePhysicalPlanForCompilableStatement(@Nonnull AstNormalizer.Result ast,
+    public PlannerConfiguration getPlannerConfigurations() {
+        return planContext.getPlannerConfiguration();
+    }
+
+    @Nonnull
+    private Plan<?> generatePhysicalPlanForCompilableStatement(@Nonnull AstNormalizer.NormalizationResult ast,
                                                                boolean caseSensitive,
                                                                @Nonnull PlanHashable.PlanHashMode currentPlanHashMode) {
         // The hash value used accounts for the values that identify the query and not part of the execution context (e.g.
         // literal and parameter values without LIMIT and CONTINUATION)
-        final var parameterHash = ast.getQueryExecutionParameters().getParameterHash();
+        final var parameterHash = ast.getQueryExecutionContext().getParameterHash();
+
         final var planGenerationContext = new MutablePlanGenerationContext(planContext.getPreparedStatementParameters(),
-                currentPlanHashMode, parameterHash);
-        final var metadata = RecordLayerSchemaTemplate.fromRecordMetadataWithFakeTemplateNameAndVersion(planContext.getMetaData());
+                currentPlanHashMode, ast.getQuery(), ast.getQueryCacheKey().getCanonicalQueryString(), parameterHash);
+        final var metadata = Assert.castUnchecked(planContext.getSchemaTemplate(), RecordLayerSchemaTemplate.class);
         try {
             final var maybePlan = planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.GENERATE_LOGICAL_PLAN, () ->
                     new BaseVisitor(planGenerationContext, metadata, planContext.getDdlQueryFactory(),
@@ -253,11 +248,11 @@ public final class PlanGenerator {
     }
 
     @Nonnull
-    private QueryPlan.PhysicalQueryPlan generatePhysicalPlanForExecuteContinuation(@Nonnull AstNormalizer.Result ast,
+    private QueryPlan.PhysicalQueryPlan generatePhysicalPlanForExecuteContinuation(@Nonnull AstNormalizer.NormalizationResult ast,
                                                                                    @Nonnull Set<PlanHashable.PlanHashMode> validPlanHashModes,
                                                                                    @Nonnull PlanHashable.PlanHashMode currentPlanHashMode)
             throws RelationalException {
-        final var queryHasherContext = ast.getQueryExecutionParameters();
+        final var queryHasherContext = ast.getQueryExecutionContext();
         final var continuationProto = queryHasherContext.getContinuation();
         final ContinuationImpl continuation;
         try {
@@ -291,7 +286,7 @@ public final class PlanGenerator {
             throw new PlanValidator.PlanValidationException("cannot continue query due to mismatch between serialized and actual plan hash");
         }
 
-        final var planTypes = UsedTypesProperty.evaluate(recordQueryPlan);
+        final var planTypes = usedTypes().evaluate(recordQueryPlan);
         final var typeRepositoryBuilder = TypeRepository.newBuilder();
         planTypes.forEach(typeRepositoryBuilder::addTypeIfNeeded);
         final var typeRepository = typeRepositoryBuilder.build();
@@ -311,8 +306,7 @@ public final class PlanGenerator {
 
         for (int i = 0; i < typedQueryArguments.length; i++) {
             final TypedQueryArgument typedQueryArgument = typedQueryArguments[i];
-            orderedLiterals[i] = deserializeTypedQueryArgument(serializationContext, typeRepository,
-                    typedQueryArgument);
+            orderedLiterals[i] = OrderedLiteral.fromProto(serializationContext, typeRepository, typedQueryArgument);
         }
 
         final var preparedStatementParameters =
@@ -320,11 +314,13 @@ public final class PlanGenerator {
 
         final var planGenerationContext = new MutablePlanGenerationContext(preparedStatementParameters,
                 currentPlanHashMode,
-                Objects.requireNonNull(continuation.getBindingHash()));
-        planGenerationContext.setForExplain(ast.getQueryExecutionParameters().isForExplain());
-        Arrays.stream(orderedLiterals).forEach(planGenerationContext::addStrippedLiteralOrParameter);
+                ast.getQuery(),
+                ast.getQueryCacheKey().getCanonicalQueryString(), Objects.requireNonNull(continuation.getBindingHash()));
+        planGenerationContext.setForExplain(ast.getQueryExecutionContext().isForExplain());
+        Arrays.stream(orderedLiterals).forEach(literal -> planGenerationContext.getLiteralsBuilder().addLiteral(literal));
         planGenerationContext.setContinuation(continuationProto);
-        final var continuationPlanConstraint = QueryPlanConstraint.fromProto(serializationContext, compiledStatement.getPlanConstraint());
+        final var continuationPlanConstraint =
+                QueryPlanConstraint.fromProto(serializationContext, compiledStatement.getPlanConstraint());
         return new QueryPlan.ContinuedPhysicalQueryPlan(recordQueryPlan, typeRepository,
                 continuationPlanConstraint,
                 planGenerationContext,
@@ -350,26 +346,6 @@ public final class PlanGenerator {
     }
 
     @Nonnull
-    private static OrderedLiteral deserializeTypedQueryArgument(@Nonnull PlanSerializationContext serializationContext,
-                                                                @Nonnull TypeRepository typeRepository,
-                                                                @Nonnull TypedQueryArgument argumentProto) {
-        final var argumentType = Type.fromTypeProto(serializationContext, argumentProto.getType());
-        if (argumentProto.hasUnnamedParameterIndex()) {
-            return OrderedLiteral.forUnnamedParameter(argumentType,
-                    LiteralsUtils.objectFromLiteralObjectProto(typeRepository, argumentType, argumentProto.getObject()),
-                    argumentProto.getUnnamedParameterIndex(), argumentProto.getTokenIndex());
-        } else if (argumentProto.hasParameterName()) {
-            return OrderedLiteral.forNamedParameter(argumentType,
-                    LiteralsUtils.objectFromLiteralObjectProto(typeRepository, argumentType, argumentProto.getObject()),
-                    argumentProto.getParameterName(), argumentProto.getTokenIndex());
-        } else {
-            return OrderedLiteral.forQueryLiteral(argumentType,
-                    LiteralsUtils.objectFromLiteralObjectProto(typeRepository, argumentType, argumentProto.getObject()),
-                    argumentProto.getTokenIndex());
-        }
-    }
-
-    @Nonnull
     private static PreparedParams deserializeArgumentsForParameters(@Nonnull final CompiledStatement compiledStatement,
                                                                     @Nonnull final OrderedLiteral[] orderedLiteralsTable) {
         final var unnamedParameterMap = Maps.<Integer, Object>newHashMap();
@@ -389,38 +365,8 @@ public final class PlanGenerator {
     }
 
     @Nonnull
-    private static CascadesPlanner createPlanner(@Nonnull RecordMetaData metaData,
-                                                 @Nonnull RecordStoreState recordStoreState,
-                                                 @Nonnull Options options) throws RelationalException {
-        // todo (yhatem) TODO (Interaction between planner configurations and query cache)
-        Options.IndexFetchMethod indexFetchMethod = options.getOption(Options.Name.INDEX_FETCH_METHOD);
-        CascadesPlanner planner = new CascadesPlanner(metaData, recordStoreState);
-        // TODO: TODO (Expose planner configuration parameters like index scan preference)
-        RecordQueryPlannerConfiguration configuration = RecordQueryPlannerConfiguration.builder()
-                .setIndexScanPreference(QueryPlanner.IndexScanPreference.PREFER_INDEX)
-                .setIndexFetchMethod(toRecLayerIndexFetchMethod(indexFetchMethod))
-                .setAttemptFailedInJoinAsUnionMaxSize(24)
-                .build();
-        planner.setConfiguration(configuration);
-        return planner;
-    }
-
-    @Nonnull
-    private static IndexFetchMethod toRecLayerIndexFetchMethod(@Nullable Options.IndexFetchMethod method) throws RelationalException {
-        if (method == null) {
-            return IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK;
-        }
-        switch (method) {
-            case SCAN_AND_FETCH:
-                return IndexFetchMethod.SCAN_AND_FETCH;
-            case USE_REMOTE_FETCH:
-                return IndexFetchMethod.USE_REMOTE_FETCH;
-            case USE_REMOTE_FETCH_WITH_FALLBACK:
-                return IndexFetchMethod.USE_REMOTE_FETCH_WITH_FALLBACK;
-            default:
-                throw new RelationalException("Index Fetch Method mismatch when converting the option from Relational to the Record Layer",
-                        ErrorCode.INTERNAL_ERROR);
-        }
+    public Options getOptions() {
+        return options;
     }
 
     /**
@@ -432,32 +378,42 @@ public final class PlanGenerator {
      *
      * @return {@code true} if the query should interact with the plan cache, otherwise {@code false}.
      */
-    private static boolean shouldNotCache(@Nonnull final Set<AstNormalizer.Result.QueryCachingFlags> queryCachingFlags) {
-        return queryCachingFlags.contains(AstNormalizer.Result.QueryCachingFlags.WITH_NO_CACHE_OPTION) ||
-                queryCachingFlags.contains(AstNormalizer.Result.QueryCachingFlags.IS_DDL_STATEMENT) ||
+    private static boolean shouldNotCache(@Nonnull final Set<AstNormalizer.NormalizationResult.QueryCachingFlags> queryCachingFlags) {
+        return queryCachingFlags.contains(AstNormalizer.NormalizationResult.QueryCachingFlags.WITH_NO_CACHE_OPTION) ||
+                queryCachingFlags.contains(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_DDL_STATEMENT) ||
                 // avoid caching INSERT statements since they could result in extremely large plans leading to potential
                 // OOM when too many of them are stored in the plan cache.
-                queryCachingFlags.contains(AstNormalizer.Result.QueryCachingFlags.IS_INSERT_STATEMENT);
+                queryCachingFlags.contains(AstNormalizer.NormalizationResult.QueryCachingFlags.IS_INSERT_STATEMENT);
 
+    }
+
+    @Nonnull
+    private static CascadesPlanner createPlanner(@Nonnull final RecordMetaData metaData,
+                                                 @Nonnull final RecordStoreState recordStoreState,
+                                                 @Nonnull final PlanContext planContext) {
+        final var planner = new CascadesPlanner(metaData, recordStoreState);
+        planner.setConfiguration(planContext.getRecordQueryPlannerConfiguration());
+        return planner;
     }
 
     /**
      * Creates a new instance of the plan generator.
-     * @param cache An optional plan cache.
+     *
+     * @param cache An optional instance of the query plan cache.
      * @param metaData The record store metadata
      * @param planContext The context related for planning the query and looking it in the cache.
      * @param recordStoreState The record store state
      * @param options a set of planner options.
-     * @return a plan generator
+     * @return a new instance of the plan generator.
      * @throws RelationalException if creation of the plan generator fails.
      */
     @Nonnull
-    public static PlanGenerator of(@Nonnull Optional<RelationalPlanCache> cache,
-                                   @Nonnull PlanContext planContext,
-                                   @Nonnull RecordMetaData metaData,
-                                   @Nonnull RecordStoreState recordStoreState,
-                                   @Nonnull Options options) throws RelationalException {
-        final var planner = createPlanner(metaData, recordStoreState, options);
+    public static PlanGenerator create(@Nonnull final Optional<RelationalPlanCache> cache,
+                                       @Nonnull final PlanContext planContext,
+                                       @Nonnull final RecordMetaData metaData,
+                                       @Nonnull final RecordStoreState recordStoreState,
+                                       @Nonnull final Options options) throws RelationalException {
+        final var planner = createPlanner(metaData, recordStoreState, planContext);
         return new PlanGenerator(cache, planContext, planner, options);
     }
 }

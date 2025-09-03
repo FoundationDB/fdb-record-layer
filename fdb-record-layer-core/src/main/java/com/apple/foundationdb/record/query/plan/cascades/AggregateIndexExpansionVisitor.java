@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
@@ -144,8 +145,8 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
 
         // 4. add sort on top, if necessary, this will be absorbed later on as an ordering property of the match candidate.
         final var maybeWithSort = placeHolderAliases.isEmpty()
-                ? Reference.of(selectHaving) // single group, sort by constant
-                : Reference.of(new MatchableSortExpression(placeHolderAliases, isReverse, selectHaving));
+                ? Reference.initialOf(selectHaving) // single group, sort by constant
+                : Reference.initialOf(new MatchableSortExpression(placeHolderAliases, isReverse, selectHaving));
 
         final var traversal = Traversal.withRoot(maybeWithSort);
         return new AggregateIndexMatchCandidate(index,
@@ -172,8 +173,6 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
 
         // add the SELECT-WHERE part, where we expose grouping and grouped columns, allowing query fragments that governs
         // only these columns to properly bind to this part, similar to how value indices work.
-        final ImmutableList.Builder<CorrelationIdentifier> placeholders = ImmutableList.builder();
-        placeholders.addAll(baseExpansion.getPlaceholderAliases());
 
         if (index.hasPredicate()) {
             final var filteredIndexPredicate = Objects.requireNonNull(index.getPredicate()).toPredicate(baseQuantifier.getFlowedObjectValue());
@@ -213,7 +212,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
         builder.addAllQuantifiers(baseExpansion.getQuantifiers());
         allExpansionsBuilder.add(builder.build());
 
-        return NonnullPair.of(Quantifier.forEach(Reference.of(GraphExpansion.ofOthers(allExpansionsBuilder.build()).buildSelect())), baseExpansion.getPlaceholders());
+        return NonnullPair.of(Quantifier.forEach(Reference.initialOf(GraphExpansion.ofOthers(allExpansionsBuilder.build()).buildSelect())), baseExpansion.getPlaceholders());
     }
 
     @Nonnull
@@ -233,7 +232,8 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
             final var aliasMap = AliasMap.identitiesFor(Sets.union(selectWhereQun.getCorrelatedTo(),
                     groupedValue.getCorrelatedTo()));
             final var result = selectWhereQun.getRangesOver().get().getResultValue()
-                    .pullUp(List.of(groupedValue), aliasMap, ImmutableSet.of(), selectWhereQun.getAlias());
+                    .pullUp(List.of(groupedValue), EvaluationContext.empty(), aliasMap, ImmutableSet.of(),
+                            selectWhereQun.getAlias());
             if (!result.containsKey(groupedValue)) {
                 throw new RecordCoreException("could not pull grouped value " + groupedValue)
                         .addLogInfo(LogMessageKeys.VALUE, groupedValue);
@@ -252,8 +252,12 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
                 .map(Column::getValue)
                 .collect(ImmutableList.toImmutableList());
         final var selectQunValue = selectWhereQun.getRangesOver().get().getResultValue();
-        final var aliasMap = AliasMap.identitiesFor(Sets.union(selectQunValue.getCorrelatedTo(), groupingValues.stream().flatMap(v -> v.getCorrelatedTo().stream()).collect(ImmutableSet.toImmutableSet())));
-        final var pulledUpGroupingValuesMap = selectQunValue.pullUp(groupingValues, aliasMap, ImmutableSet.of(), selectWhereQun.getAlias());
+        final var aliasMap = AliasMap.identitiesFor(Sets.union(selectQunValue.getCorrelatedTo(),
+                groupingValues.stream()
+                        .flatMap(v -> v.getCorrelatedTo().stream())
+                        .collect(ImmutableSet.toImmutableSet())));
+        final var pulledUpGroupingValuesMap = selectQunValue.pullUp(groupingValues,
+                EvaluationContext.empty(), aliasMap, ImmutableSet.of(), selectWhereQun.getAlias());
         final var pulledUpGroupingValues = groupingValues.stream().map(groupingValue -> {
             if (!pulledUpGroupingValuesMap.containsKey(groupingValue)) {
                 throw new RecordCoreException("could not pull grouping value " + groupingValue)
@@ -268,7 +272,7 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
                 groupingColsValue.getResultType().getFields().isEmpty() ? null : groupingColsValue,
                 RecordConstructorValue.ofUnnamed(ImmutableList.of(aggregateValue)),
                 GroupByExpression::nestedResults, selectWhereQun);
-        final var groupByReference = Reference.of(groupByExpression);
+        final var groupByReference = Reference.initialOf(groupByExpression);
         final var groupByQuantifier = Quantifier.forEach(groupByReference);
         return NonnullPair.of(groupByQuantifier, ImmutableList.of());
     }

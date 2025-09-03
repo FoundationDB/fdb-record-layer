@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,17 +20,112 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
-
+import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.RecordStoreState;
+import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
+import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
+import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
+import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
+import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
+import com.apple.foundationdb.relational.util.Assert;
 import com.google.protobuf.DescriptorProtos;
 
+import javax.annotation.Nonnull;
+import java.net.URI;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 public class DdlTestUtil {
+
+    @Nonnull
+    static PlanContext createVanillaPlanContext(@Nonnull final EmbeddedRelationalConnection connection,
+                                                @Nonnull final String schemaTemplateName,
+                                                @Nonnull final String databaseUri) throws RelationalException {
+        return createVanillaPlanContext(connection, schemaTemplateName, databaseUri, PreparedParams.empty());
+    }
+
+    @Nonnull
+    static PlanContext createVanillaPlanContext(@Nonnull final EmbeddedRelationalConnection connection,
+                                                @Nonnull final String schemaTemplateName,
+                                                @Nonnull final String databaseUri,
+                                                @Nonnull final PreparedParams preparedParams) throws RelationalException {
+        final var schemaTemplate = connection.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toBuilder()
+                .setVersion(1).setName(schemaTemplateName).build();
+        RecordMetaDataProto.MetaData md = schemaTemplate.toRecordMetadata().toProto();
+        return PlanContext.Builder.create()
+                .withMetadata(RecordMetaData.build(md))
+                .withMetricsCollector(Assert.notNullUnchecked(connection.getMetricCollector()))
+                .withPlannerConfiguration(PlannerConfiguration.ofAllAvailableIndexes())
+                .withUserVersion(0)
+                .withDbUri(URI.create(databaseUri))
+                .withDdlQueryFactory(NoOpQueryFactory.INSTANCE)
+                .withConstantActionFactory(NoOpMetadataOperationsFactory.INSTANCE)
+                .withSchemaTemplate(schemaTemplate)
+                .withPreparedParameters(preparedParams)
+                .build();
+    }
+
+    @Nonnull
+    static PlanGenerator getPlanGenerator(@Nonnull final EmbeddedRelationalConnection embeddedConnection,
+                                          @Nonnull final String schemaTemplateName,
+                                          @Nonnull final String databaseUri) throws SQLException, RelationalException {
+        final var planContext = createVanillaPlanContext(embeddedConnection, schemaTemplateName, databaseUri);
+        final var storeState = new RecordStoreState(null, Map.of());
+        try (var schema = embeddedConnection.getRecordLayerDatabase().loadSchema(embeddedConnection.getSchema())) {
+            final var metadata = schema.loadStore().getRecordMetaData();
+            return PlanGenerator.create(Optional.empty(), planContext, metadata, storeState, Options.NONE);
+        }
+    }
+
+    @Nonnull
+    static PlanGenerator getPlanGenerator(@Nonnull final EmbeddedRelationalConnection embeddedConnection,
+                                          @Nonnull final String schemaTemplateName,
+                                          @Nonnull final String databaseUri,
+                                          @Nonnull final MetadataOperationsFactory metadataOperationsFactory) throws SQLException, RelationalException {
+        return getPlanGenerator(embeddedConnection, schemaTemplateName, databaseUri, metadataOperationsFactory, PreparedParams.empty());
+    }
+
+    @Nonnull
+    static PlanGenerator getPlanGenerator(@Nonnull final EmbeddedRelationalConnection embeddedConnection,
+                                          @Nonnull final String schemaTemplateName,
+                                          @Nonnull final String databaseUri,
+                                          @Nonnull final MetadataOperationsFactory metadataOperationsFactory,
+                                          @Nonnull final PreparedParams preparedParams) throws SQLException, RelationalException {
+        final var planContext = PlanContext.Builder.unapply(createVanillaPlanContext(embeddedConnection, schemaTemplateName, databaseUri, preparedParams))
+                .withConstantActionFactory(metadataOperationsFactory).build();
+        final var storeState = new RecordStoreState(null, Map.of());
+        try (var schema = embeddedConnection.getRecordLayerDatabase().loadSchema(embeddedConnection.getSchema())) {
+            final var metadata = schema.loadStore().getRecordMetaData();
+            return PlanGenerator.create(Optional.empty(), planContext, metadata, storeState, Options.NONE);
+        }
+    }
+
+    @Nonnull
+    static PlanGenerator getPlanGenerator(@Nonnull final EmbeddedRelationalConnection embeddedConnection,
+                                          @Nonnull final String schemaTemplateName,
+                                          @Nonnull final String databaseUri,
+                                          @Nonnull final DdlQueryFactory ddlQueryFactory) throws SQLException, RelationalException {
+        final var planContext = PlanContext.Builder.unapply(createVanillaPlanContext(embeddedConnection, schemaTemplateName, databaseUri))
+                .withDdlQueryFactory(ddlQueryFactory).build();
+        final var storeState = new RecordStoreState(null, Map.of());
+        try (var schema = embeddedConnection.getRecordLayerDatabase().loadSchema(embeddedConnection.getSchema())) {
+            final var metadata = schema.loadStore().getRecordMetaData();
+            return PlanGenerator.create(Optional.empty(), planContext, metadata, storeState, Options.NONE);
+        }
+    }
+
 
     public static class ParsedColumn {
         private final DescriptorProtos.FieldDescriptorProto descriptor;

@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,17 @@ public class QueryTestUtils {
         var result = EmbeddedRelationalStruct.newBuilder()
                 .addLong("PK", pk)
                 .addLong("A", a)
+                .addLong("B", b)
+                .addLong("C", c)
+                .build();
+        int cnt = statement.executeInsert("T1", result);
+        Assertions.assertEquals(1, cnt, "Incorrect insertion count");
+        return result;
+    }
+
+    public static RelationalStruct insertT1RecordColAIsNull(@Nonnull final RelationalStatement statement, long pk, long b, long c) throws SQLException {
+        var result = EmbeddedRelationalStruct.newBuilder()
+                .addLong("PK", pk)
                 .addLong("B", b)
                 .addLong("C", c)
                 .build();

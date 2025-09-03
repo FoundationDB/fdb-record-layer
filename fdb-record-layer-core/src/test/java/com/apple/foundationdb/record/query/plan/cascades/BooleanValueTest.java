@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.planprotos.PValue;
@@ -97,15 +98,19 @@ class BooleanValueTest {
     private static final LiteralValue<Long> LONG_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), 1L);
     private static final LiteralValue<Long> LONG_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), 2L);
     private static final LiteralValue<Long> LONG_3 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), 3L);
+    private static final LiteralValue<Long> LONG_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.LONG), null);
     private static final LiteralValue<Float> FLOAT_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT), 1.0F);
     private static final LiteralValue<Float> FLOAT_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT), 2.0F);
     private static final LiteralValue<Float> FLOAT_3 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT), 3.0F);
+    private static final LiteralValue<Float> FLOAT_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.FLOAT), null);
     private static final LiteralValue<Double> DOUBLE_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), 1.0);
     private static final LiteralValue<Double> DOUBLE_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), 2.0);
     private static final LiteralValue<Double> DOUBLE_3 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), 3.0);
+    private static final LiteralValue<Double> DOUBLE_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE), null);
     private static final LiteralValue<String> STRING_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "a");
     private static final LiteralValue<String> STRING_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "b");
     private static final LiteralValue<String> STRING_3 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), "c");
+    private static final LiteralValue<String> STRING_NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING), null);
     private static final LiteralValue<String> ENUM_STRING_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING, false), "HEARTS");
     private static final LiteralValue<String> ENUM_STRING_2 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING, false), "DIAMONDS");
     private static final LiteralValue<String> UUID_STRING_1 = new LiteralValue<>(Type.primitiveType(Type.TypeCode.STRING, false), "0920df1c-be81-4ec1-8a06-2180226f051d");
@@ -124,6 +129,8 @@ class BooleanValueTest {
     private static final ArithmeticValue ADD_FLOATS_1_2 = (ArithmeticValue) new ArithmeticValue.AddFn().encapsulate(List.of(FLOAT_1, FLOAT_2));
     private static final ArithmeticValue ADD_DOUBLE_1_2 = (ArithmeticValue) new ArithmeticValue.AddFn().encapsulate(List.of(DOUBLE_1, DOUBLE_2));
 
+    private static final LiteralValue<Void> NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.NULL), null);
+
     static class BinaryPredicateTestProvider implements ArgumentsProvider {
         @Override
         public Stream<? extends Arguments> provideArguments(final ExtensionContext context) {
@@ -132,6 +139,10 @@ class BooleanValueTest {
                     Arguments.of(List.of(BOOL_FALSE, BOOL_TRUE), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(BOOL_TRUE, BOOL_TRUE), new RelOpValue.NotEqualsFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(BOOL_FALSE, BOOL_TRUE), new RelOpValue.NotEqualsFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(BOOL_TRUE, BOOL_FALSE), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(BOOL_TRUE, BOOL_TRUE), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(BOOL_TRUE, BOOL_FALSE), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(BOOL_TRUE, BOOL_TRUE), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
 
                     Arguments.of(List.of(INT_1, INT_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(INT_1, INT_2), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
@@ -147,6 +158,10 @@ class BooleanValueTest {
                     Arguments.of(List.of(INT_1, INT_2), new RelOpValue.GteFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(INT_2, INT_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(INT_1, INT_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(INT_1, INT_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(INT_1, INT_2), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(INT_1, INT_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(INT_1, INT_2), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
 
                     Arguments.of(List.of(LONG_1, LONG_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(LONG_1, LONG_2), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
@@ -162,6 +177,10 @@ class BooleanValueTest {
                     Arguments.of(List.of(LONG_1, LONG_2), new RelOpValue.GteFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(LONG_2, LONG_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(LONG_1, LONG_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(LONG_1, LONG_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(LONG_1, LONG_2), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(LONG_1, LONG_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(LONG_1, LONG_2), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
 
                     Arguments.of(List.of(FLOAT_1, FLOAT_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(FLOAT_1, FLOAT_2), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
@@ -177,6 +196,10 @@ class BooleanValueTest {
                     Arguments.of(List.of(FLOAT_1, FLOAT_2), new RelOpValue.GteFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(FLOAT_2, FLOAT_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(FLOAT_1, FLOAT_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(FLOAT_1, FLOAT_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(FLOAT_1, FLOAT_2), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(FLOAT_1, FLOAT_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(FLOAT_1, FLOAT_2), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
 
                     Arguments.of(List.of(DOUBLE_1, DOUBLE_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(DOUBLE_1, DOUBLE_2), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
@@ -192,6 +215,10 @@ class BooleanValueTest {
                     Arguments.of(List.of(DOUBLE_1, DOUBLE_2), new RelOpValue.GteFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(DOUBLE_2, DOUBLE_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(DOUBLE_1, DOUBLE_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(DOUBLE_1, DOUBLE_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(DOUBLE_1, DOUBLE_2), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(DOUBLE_1, DOUBLE_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(DOUBLE_1, DOUBLE_2), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
 
                     Arguments.of(List.of(STRING_1, STRING_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(STRING_1, STRING_2), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
@@ -207,11 +234,19 @@ class BooleanValueTest {
                     Arguments.of(List.of(STRING_1, STRING_2), new RelOpValue.GteFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(STRING_2, STRING_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(STRING_1, STRING_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(STRING_1, STRING_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(STRING_1, STRING_2), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(STRING_1, STRING_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(STRING_1, STRING_2), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
 
                     Arguments.of(List.of(BYTES_1, BYTES_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(BYTES_1, BYTES_2), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(BYTES_1, BYTES_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(BYTES_1, BYTES_2), new RelOpValue.NotEqualsFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(BYTES_1, BYTES_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(BYTES_1, BYTES_2), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(BYTES_1, BYTES_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(BYTES_1, BYTES_2), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
 
                     Arguments.of(List.of(LONG_1, INT_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(LONG_1, INT_2), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
@@ -227,6 +262,10 @@ class BooleanValueTest {
                     Arguments.of(List.of(LONG_1, INT_2), new RelOpValue.GteFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(LONG_2, INT_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(LONG_1, INT_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(LONG_1, INT_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(LONG_1, INT_2), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(LONG_1, INT_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(LONG_1, INT_2), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
 
                     Arguments.of(List.of(INT_1, LONG_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(INT_1, LONG_2), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
@@ -242,6 +281,10 @@ class BooleanValueTest {
                     Arguments.of(List.of(INT_1, LONG_2), new RelOpValue.GteFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(INT_2, LONG_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(INT_1, LONG_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(INT_1, LONG_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(INT_1, LONG_2), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(INT_1, LONG_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(INT_1, LONG_2), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
 
                     Arguments.of(List.of(FLOAT_1, INT_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(FLOAT_1, INT_2), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
@@ -257,6 +300,10 @@ class BooleanValueTest {
                     Arguments.of(List.of(FLOAT_1, INT_2), new RelOpValue.GteFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(FLOAT_2, INT_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(FLOAT_1, INT_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(FLOAT_1, INT_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(FLOAT_1, INT_2), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(FLOAT_1, INT_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(FLOAT_1, INT_2), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
 
                     Arguments.of(List.of(INT_1, FLOAT_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(INT_1, FLOAT_2), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
@@ -272,6 +319,10 @@ class BooleanValueTest {
                     Arguments.of(List.of(INT_1, FLOAT_2), new RelOpValue.GteFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(INT_2, FLOAT_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(INT_1, FLOAT_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(INT_1, FLOAT_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(INT_1, FLOAT_2), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(INT_1, FLOAT_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(INT_1, FLOAT_2), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
 
                     Arguments.of(List.of(DOUBLE_1, INT_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(DOUBLE_1, INT_2), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
@@ -287,6 +338,10 @@ class BooleanValueTest {
                     Arguments.of(List.of(DOUBLE_1, INT_2), new RelOpValue.GteFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(DOUBLE_2, INT_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(DOUBLE_1, INT_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(DOUBLE_1, INT_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(DOUBLE_1, INT_2), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(DOUBLE_1, INT_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(DOUBLE_1, INT_2), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
 
                     Arguments.of(List.of(INT_1, DOUBLE_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(INT_1, DOUBLE_2), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
@@ -302,6 +357,10 @@ class BooleanValueTest {
                     Arguments.of(List.of(INT_1, DOUBLE_2), new RelOpValue.GteFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(INT_2, DOUBLE_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(INT_1, DOUBLE_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(INT_1, DOUBLE_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(INT_1, DOUBLE_2), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(INT_1, DOUBLE_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(INT_1, DOUBLE_2), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
 
                     Arguments.of(List.of(FLOAT_1, LONG_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(FLOAT_1, LONG_2), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
@@ -317,6 +376,10 @@ class BooleanValueTest {
                     Arguments.of(List.of(FLOAT_1, LONG_2), new RelOpValue.GteFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(FLOAT_2, LONG_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(FLOAT_1, LONG_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(FLOAT_1, LONG_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(FLOAT_1, LONG_2), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(FLOAT_1, LONG_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(FLOAT_1, LONG_2), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
 
                     Arguments.of(List.of(LONG_1, FLOAT_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(LONG_1, FLOAT_2), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
@@ -332,6 +395,10 @@ class BooleanValueTest {
                     Arguments.of(List.of(LONG_1, FLOAT_2), new RelOpValue.GteFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(LONG_2, FLOAT_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(LONG_1, FLOAT_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(LONG_1, FLOAT_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(LONG_1, FLOAT_2), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(LONG_1, FLOAT_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(LONG_1, FLOAT_2), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
 
                     Arguments.of(List.of(DOUBLE_1, LONG_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(DOUBLE_1, LONG_2), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
@@ -347,7 +414,10 @@ class BooleanValueTest {
                     Arguments.of(List.of(DOUBLE_1, LONG_2), new RelOpValue.GteFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(DOUBLE_2, LONG_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(DOUBLE_1, LONG_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
-
+                    Arguments.of(List.of(DOUBLE_1, LONG_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(DOUBLE_1, LONG_2), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(DOUBLE_1, LONG_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(DOUBLE_1, LONG_2), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
 
                     Arguments.of(List.of(LONG_1, DOUBLE_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(LONG_1, DOUBLE_2), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
@@ -363,6 +433,10 @@ class BooleanValueTest {
                     Arguments.of(List.of(LONG_1, DOUBLE_2), new RelOpValue.GteFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(LONG_2, DOUBLE_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(LONG_1, DOUBLE_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(LONG_1, DOUBLE_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(LONG_1, DOUBLE_2), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(LONG_1, DOUBLE_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(LONG_1, DOUBLE_2), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
 
                     Arguments.of(List.of(DOUBLE_1, FLOAT_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(DOUBLE_1, FLOAT_2), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
@@ -378,6 +452,10 @@ class BooleanValueTest {
                     Arguments.of(List.of(DOUBLE_1, FLOAT_2), new RelOpValue.GteFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(DOUBLE_2, FLOAT_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(DOUBLE_1, FLOAT_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(DOUBLE_1, FLOAT_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(DOUBLE_1, FLOAT_2), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(DOUBLE_1, FLOAT_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(DOUBLE_1, FLOAT_2), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
 
                     Arguments.of(List.of(FLOAT_1, DOUBLE_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(FLOAT_1, DOUBLE_2), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
@@ -393,6 +471,10 @@ class BooleanValueTest {
                     Arguments.of(List.of(FLOAT_1, DOUBLE_2), new RelOpValue.GteFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(FLOAT_2, DOUBLE_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(FLOAT_1, DOUBLE_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(FLOAT_1, DOUBLE_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(FLOAT_1, DOUBLE_2), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(FLOAT_1, DOUBLE_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(FLOAT_1, DOUBLE_2), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
 
                     Arguments.of(List.of(INT_NULL, INT_NULL), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(INT_NULL, INT_2), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
@@ -408,6 +490,10 @@ class BooleanValueTest {
                     Arguments.of(List.of(INT_NULL, INT_2), new RelOpValue.GteFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(INT_2, INT_NULL), new RelOpValue.GteFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(INT_NULL, INT_NULL), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(INT_NULL, INT_NULL), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(INT_NULL, INT_2), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(INT_NULL, INT_NULL), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(INT_NULL, INT_2), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
 
                     Arguments.of(List.of(BOOL_NULL, BOOL_NULL), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(BOOL_NULL, BOOL_FALSE), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
@@ -415,6 +501,121 @@ class BooleanValueTest {
                     Arguments.of(List.of(BOOL_NULL, BOOL_NULL), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(BOOL_NULL, BOOL_FALSE), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(BOOL_NULL, BOOL_TRUE), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(BOOL_NULL, BOOL_NULL), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(BOOL_NULL, BOOL_FALSE), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(BOOL_NULL, BOOL_TRUE), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(BOOL_NULL, BOOL_NULL), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(BOOL_NULL, BOOL_FALSE), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(BOOL_NULL, BOOL_TRUE), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
+
+                    Arguments.of(List.of(NULL, LONG_1), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, LONG_NULL), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, INT_1), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, INT_NULL), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, FLOAT_1), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, FLOAT_NULL), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, DOUBLE_1), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, DOUBLE_NULL), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, STRING_1), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, STRING_NULL), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UUID_1), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UUID_NULL), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, BOOL_FALSE), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, BOOL_TRUE), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, BOOL_NULL), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, LONG_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, LONG_NULL), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, INT_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, INT_NULL), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, FLOAT_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, FLOAT_NULL), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, DOUBLE_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, DOUBLE_NULL), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, STRING_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, STRING_NULL), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UUID_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UUID_NULL), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, BOOL_FALSE), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, BOOL_TRUE), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, BOOL_NULL), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, LONG_1), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, LONG_NULL), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, INT_1), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, INT_NULL), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, FLOAT_1), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, FLOAT_NULL), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, DOUBLE_1), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, DOUBLE_NULL), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, STRING_1), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, STRING_NULL), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UUID_1), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UUID_NULL), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, LONG_1), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, LONG_NULL), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, INT_1), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, INT_NULL), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, FLOAT_1), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, FLOAT_NULL), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, DOUBLE_1), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, DOUBLE_NULL), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, STRING_1), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, STRING_NULL), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UUID_1), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UUID_NULL), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, LONG_1), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, LONG_NULL), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, INT_1), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, INT_NULL), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, FLOAT_1), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, FLOAT_NULL), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, DOUBLE_1), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, DOUBLE_NULL), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, STRING_1), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, STRING_NULL), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UUID_1), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UUID_NULL), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, LONG_1), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, LONG_NULL), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, INT_1), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, INT_NULL), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, FLOAT_1), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, FLOAT_NULL), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, DOUBLE_1), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, DOUBLE_NULL), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, STRING_1), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, STRING_NULL), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UUID_1), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UUID_NULL), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, LONG_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(NULL, LONG_NULL), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(NULL, INT_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(NULL, INT_NULL), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(NULL, FLOAT_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(NULL, FLOAT_NULL), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(NULL, DOUBLE_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(NULL, DOUBLE_NULL), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(NULL, STRING_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(NULL, STRING_NULL), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(NULL, UUID_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(NULL, UUID_NULL), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(NULL, BOOL_FALSE), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(NULL, BOOL_TRUE), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(NULL, BOOL_NULL), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(NULL, LONG_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(NULL, LONG_NULL), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(NULL, INT_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(NULL, INT_NULL), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(NULL, FLOAT_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(NULL, FLOAT_NULL), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(NULL, DOUBLE_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(NULL, DOUBLE_NULL), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(NULL, STRING_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(NULL, STRING_NULL), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(NULL, UUID_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(NULL, UUID_NULL), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(NULL, BOOL_FALSE), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(NULL, BOOL_TRUE), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(NULL, BOOL_NULL), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
 
                     Arguments.of(List.of(F_ENUM_1, F_ENUM_2), new RelOpValue.EqualsFn(), new ValuePredicate(F_ENUM_1, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, F_ENUM_2))),
 
@@ -424,24 +625,32 @@ class BooleanValueTest {
                     Arguments.of(List.of(UUID_STRING_1, UUID_1), new RelOpValue.LteFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(UUID_STRING_1, UUID_1), new RelOpValue.GtFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(UUID_STRING_1, UUID_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UUID_STRING_1, UUID_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UUID_STRING_1, UUID_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(UUID_1, UUID_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(UUID_1, UUID_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(UUID_1, UUID_1), new RelOpValue.LtFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(UUID_1, UUID_1), new RelOpValue.LteFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(UUID_1, UUID_1), new RelOpValue.GtFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(UUID_1, UUID_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UUID_1, UUID_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UUID_1, UUID_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(UUID_STRING_2, UUID_1), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(UUID_STRING_2, UUID_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(UUID_STRING_2, UUID_1), new RelOpValue.LtFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(UUID_STRING_2, UUID_1), new RelOpValue.LteFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(UUID_STRING_2, UUID_1), new RelOpValue.GtFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(UUID_STRING_2, UUID_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UUID_STRING_2, UUID_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(UUID_STRING_2, UUID_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(UUID_2, UUID_1), new RelOpValue.EqualsFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(UUID_2, UUID_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(UUID_2, UUID_1), new RelOpValue.LtFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(UUID_2, UUID_1), new RelOpValue.LteFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(UUID_2, UUID_1), new RelOpValue.GtFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(UUID_2, UUID_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UUID_2, UUID_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(UUID_2, UUID_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
 
                     /* translation of predicates involving a field value, make sure field value is always LHS */
                     Arguments.of(List.of(F, INT_1), new RelOpValue.EqualsFn(), new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1))),
@@ -456,6 +665,11 @@ class BooleanValueTest {
                     Arguments.of(List.of(INT_1, F), new RelOpValue.LteFn(), new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 1))),
                     Arguments.of(List.of(F, INT_1), new RelOpValue.GteFn(), new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 1))),
                     Arguments.of(List.of(INT_1, F), new RelOpValue.GteFn(), new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, 1))),
+                    Arguments.of(List.of(F, INT_1), new RelOpValue.NotDistinctFromFn(), new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.NOT_DISTINCT_FROM, 1))),
+                    Arguments.of(List.of(INT_1, F), new RelOpValue.NotDistinctFromFn(), new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.NOT_DISTINCT_FROM, 1))),
+                    Arguments.of(List.of(F, INT_1), new RelOpValue.IsDistinctFromFn(), new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.IS_DISTINCT_FROM, 1))),
+                    Arguments.of(List.of(INT_1, F), new RelOpValue.IsDistinctFromFn(), new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.IS_DISTINCT_FROM, 1))),
+
 
                     Arguments.of(List.of(INT_1), new RelOpValue.IsNullFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(INT_1), new RelOpValue.NotNullFn(), ConstantPredicate.TRUE),
@@ -692,9 +906,30 @@ class BooleanValueTest {
             Typed value = function.encapsulate(args);
             Assertions.assertTrue(value instanceof BooleanValue);
             value = verifySerialization((Value)value);
-            Optional<QueryPredicate> maybePredicate = ((BooleanValue)value).toQueryPredicate(typeRepositoryBuilder.build(), Quantifier.current());
+            Optional<QueryPredicate> maybePredicate = ((BooleanValue)value).toQueryPredicate(typeRepositoryBuilder.build(),
+                    Quantifier.current());
             Assertions.assertFalse(maybePredicate.isEmpty());
             Assertions.assertEquals(result, maybePredicate.get());
+        } else {
+            Assertions.assertThrows(SemanticException.class, () -> function.encapsulate(args));
+        }
+    }
+
+    @ParameterizedTest
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    @ArgumentsSource(BinaryPredicateTestProvider.class)
+    void testEval(List<Value> args, BuiltInFunction function, QueryPredicate result) {
+        if (args.stream().anyMatch(arg -> !(arg instanceof LiteralValue))) {
+            return;
+        }
+        final var evalContext = EvaluationContext.forTypeRepository(typeRepositoryBuilder.build());
+        if (result != null) {
+            Typed value = function.encapsulate(args);
+            Assertions.assertInstanceOf(BooleanValue.class, value);
+            value = verifySerialization((Value)value);
+            Object actual = ((Value)value).evalWithoutStore(evalContext);
+            Object expected = result.evalWithoutStore(evalContext);
+            Assertions.assertEquals(expected, actual);
         } else {
             Assertions.assertThrows(SemanticException.class, () -> function.encapsulate(args));
         }
@@ -707,7 +942,8 @@ class BooleanValueTest {
         if (result != null) {
             Typed value = function.encapsulate(args);
             Assertions.assertTrue(value instanceof BooleanValue);
-            Optional<QueryPredicate> maybePredicate = ((BooleanValue)value).toQueryPredicate(typeRepositoryBuilder.build(), Quantifier.current());
+            Optional<QueryPredicate> maybePredicate = ((BooleanValue)value).toQueryPredicate(typeRepositoryBuilder.build(),
+                    Quantifier.current());
             Assertions.assertFalse(maybePredicate.isEmpty());
             Assertions.assertEquals(result, maybePredicate.get());
         } else {
@@ -718,7 +954,7 @@ class BooleanValueTest {
     @Test
     void passingIncorrectNumberOfResolutionParameterToBuiltInFunctionThrows() {
         try {
-            new RelOpValue.EqualsFn().resolveParameterTypes(-1);
+            new RelOpValue.EqualsFn().getParameterTypes(-1);
             Assertions.fail("expected an exception to be thrown");
         } catch (Exception e) {
             Assertions.assertTrue(e instanceof VerifyException);
@@ -729,7 +965,7 @@ class BooleanValueTest {
     @Test
     void passingIncorrectIndexToBuiltInFunctionThrows() {
         try {
-            new RelOpValue.EqualsFn().resolveParameterType(-1);
+            new RelOpValue.EqualsFn().computeParameterType(-1);
             Assertions.fail("expected an exception to be thrown");
         } catch (Exception e) {
             Assertions.assertTrue(e instanceof VerifyException);

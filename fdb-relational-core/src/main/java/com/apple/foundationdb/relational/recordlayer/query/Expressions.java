@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
@@ -29,7 +30,9 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.util.Assert;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
@@ -38,6 +41,7 @@ import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -71,7 +75,6 @@ public final class Expressions implements Iterable<Expression> {
                         Stream.of(item)).collect(ImmutableList.toImmutableList()));
     }
 
-    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     @Nonnull
     public Expressions rewireQov(@Nonnull Value value) {
         final ImmutableList.Builder<Expression> pulledUpOutputBuilder = ImmutableList.builder();
@@ -89,12 +92,14 @@ public final class Expressions implements Iterable<Expression> {
                               @Nonnull Set<CorrelationIdentifier> constantAliases) {
         final ImmutableList.Builder<Expression> pulledUpOutputBuilder = ImmutableList.builder();
         final var aliasMap = AliasMap.identitiesFor(value.getCorrelatedTo());
-        final var simplifiedValue = value.simplify(aliasMap, constantAliases);
+        final var simplifiedValue = value.simplify(EvaluationContext.empty(), aliasMap, constantAliases);
         for (final var expression : this) {
             final var underlying = expression.getUnderlying();
             final var pulledUpUnderlying = Assert.notNullUnchecked(underlying.replace(
                     subExpression -> {
-                        final var pulledUpExpressionMap = simplifiedValue.pullUp(List.of(subExpression), aliasMap, constantAliases, correlationIdentifier);
+                        final var pulledUpExpressionMap =
+                                simplifiedValue.pullUp(List.of(subExpression), EvaluationContext.empty(), aliasMap,
+                                        constantAliases, correlationIdentifier);
                         if (pulledUpExpressionMap.containsKey(subExpression)) {
                             return pulledUpExpressionMap.get(subExpression);
                         }
@@ -142,7 +147,7 @@ public final class Expressions implements Iterable<Expression> {
     }
 
     @Nonnull
-    public Expressions dereferenced(@Nonnull QueryExecutionContext.Literals literals) {
+    public Expressions dereferenced(@Nonnull Literals literals) {
         return Expressions.of(this.stream().flatMap(e -> e.dereferenced(literals).stream()).collect(ImmutableList.toImmutableList()));
     }
 
@@ -223,6 +228,38 @@ public final class Expressions implements Iterable<Expression> {
     @Nonnull
     public List<Expression> asList() {
         return underlying;
+    }
+
+    @Nonnull
+    public Expressions asNamedArguments() {
+        return Expressions.of(Streams.stream(this).map(Expression::toNamedArgument).collect(ImmutableList.toImmutableList()));
+    }
+
+    public boolean allNamedArguments() {
+        return Streams.stream(this).allMatch(Expression::isNamedArgument);
+    }
+
+    @Nonnull
+    public List<String> argumentNames() {
+        Assert.thatUnchecked(allNamedArguments());
+        return Streams.stream(this).map(Expression::getName).flatMap(Optional::stream).map(Identifier::toString)
+                .collect(ImmutableList.toImmutableList());
+    }
+
+    public boolean noneNamedArguments() {
+        return Streams.stream(this).noneMatch(Expression::isNamedArgument);
+    }
+
+    @Nonnull
+    public Map<String, Value> toNamedArgumentInvocation() {
+        Assert.thatUnchecked(allNamedArguments());
+        final var resultBuilder = ImmutableMap.<String, Value>builder();
+        for (final var argument : this) {
+            final var argumentName = argument.getName();
+            Verify.verify(argumentName.isPresent());
+            resultBuilder.put(argumentName.get().toString(), argument.getUnderlying());
+        }
+        return resultBuilder.build();
     }
 
     @Override

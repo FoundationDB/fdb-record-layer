@@ -33,10 +33,9 @@ import com.apple.foundationdb.record.planprotos.PRecordQueryMapPlan;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
+import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
@@ -44,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithChildren;
+import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.auto.service.AutoService;
@@ -129,8 +129,10 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
                                                     final boolean shouldSimplifyValues,
                                                     @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 1);
-        final Value translatedResultValue = resultValue.translateCorrelations(translationMap, shouldSimplifyValues);
-        return new RecordQueryMapPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class), translatedResultValue);
+        final Value translatedResultValue =
+                resultValue.translateCorrelations(translationMap, shouldSimplifyValues);
+        return new RecordQueryMapPlan(Iterables.getOnlyElement(translatedQuantifiers).narrow(Quantifier.Physical.class),
+                translatedResultValue);
     }
 
     @Override
@@ -144,7 +146,7 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
     }
 
     @Override
-    public RecordQueryMapPlan strictlySorted(@Nonnull Memoizer memoizer) {
+    public RecordQueryMapPlan strictlySorted(@Nonnull FinalMemoizer memoizer) {
         return this;
     }
 

@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,134 +23,182 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.google.common.collect.ImmutableList;
+import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Set;
 
 /**
- * A memoization interface.
- *
+ * An interface for memoizing {@link Reference}s and their member {@link RelationalExpression}s. The methods declared in
+ * this interface mostly have one thing in common. They expect among their parameters an expression or a collection of
+ * expressions which are to be memoized and return a {@link Reference} which may be a new reference that was just
+ * created or an already existing reference that was previously memoized by this {@code Memoizer} and that was deemed
+ * to be compatible to be reused.
+ * <br>
+ * There are numerous considerations that determine if a reference can be safely reused. Most of these considerations
+ * can be derived from the individual use case and the context the method is called from. Each individual method
+ * declaration in this interface will also indicate (via java doc) if the method can return a reused expression or
+ * if the caller can always expect a fresh reference to be returned. Note that the terminology used here is that
+ * a <em>memoized expression</em> indicates that the memoization structures of the planner are aware of this expression.
+ * A reference (not an expression) can be reused as an effect of memoization of the given expressions (depending on
+ * use case and context).
  */
 @API(API.Status.EXPERIMENTAL)
-public interface Memoizer  {
-    Memoizer NO_MEMO = new Memoizer() {
-        @Nonnull
-        @Override
-        public Reference memoizeExpression(@Nonnull final RelationalExpression expression) {
-            return Reference.of(expression);
-        }
+public interface Memoizer extends ExploratoryMemoizer, FinalMemoizer {
 
-        @Nonnull
-        @Override
-        public Reference memoizeLeafExpression(@Nonnull final RelationalExpression expression) {
-            return Reference.of(expression);
-        }
+    /**
+     * Memoize the given two collections of {@link RelationalExpression}s, one for exploratory and one for final
+     * expressions. A new reference is created and returned to the caller.
+     *
+     * @param exploratoryExpressions the collection of exploratory expressions to memoize
+     * @param finalExpressions the collection of exploratory expressions to memoize
+     * @return a new or reused reference
+     * @see #memoizeExploratoryExpression(RelationalExpression)
+     * */
+    @Nonnull
+    Reference memoizeExpressions(@Nonnull Collection<? extends RelationalExpression> exploratoryExpressions,
+                                 @Nonnull Collection<? extends RelationalExpression> finalExpressions);
 
-        @Nonnull
-        @Override
-        public Reference memoizeMemberPlans(@Nonnull final Reference reference, @Nonnull final Collection<? extends RecordQueryPlan> plans) {
-            return Reference.from(plans);
-        }
+    @Nonnull
+    static Memoizer noMemoization(@Nonnull final PlannerStage plannerStage) {
+        return new Memoizer() {
+            @Nonnull
+            @Override
+            public Reference memoizeExpressions(@Nonnull final Collection<? extends RelationalExpression> exploratoryExpressions,
+                                                @Nonnull final Collection<? extends RelationalExpression> finalExpressions) {
+                return Reference.of(plannerStage, exploratoryExpressions, finalExpressions);
+            }
 
-        @Nonnull
-        @Override
-        public Reference memoizePlans(@Nonnull final RecordQueryPlan... plans) {
-            return Reference.from(plans);
-        }
+            @Nonnull
+            @Override
+            public Reference memoizeExploratoryExpression(@Nonnull final RelationalExpression expression) {
+                return Reference.ofExploratoryExpression(plannerStage, expression);
+            }
 
-        @Nonnull
-        @Override
-        public Reference memoizePlans(@Nonnull final Collection<? extends RecordQueryPlan> plans) {
-            return Reference.from(plans);
-        }
+            @Nonnull
+            @Override
+            public Reference memoizeExploratoryExpressions(@Nonnull final Collection<? extends RelationalExpression> expressions) {
+                return Reference.ofExploratoryExpressions(plannerStage, expressions);
+            }
 
-        @Nonnull
-        @Override
-        public Reference memoizeReference(@Nonnull final Reference reference) {
-            return reference;
-        }
+            @Nonnull
+            @Override
+            public ReferenceBuilder memoizeExploratoryExpressionBuilder(@Nonnull final RelationalExpression expression) {
+                return new ReferenceBuilder() {
+                    @Nonnull
+                    @Override
+                    public Reference reference() {
+                        return Reference.ofExploratoryExpression(plannerStage, expression);
+                    }
 
-        @Nonnull
-        @Override
-        public ReferenceBuilder memoizeExpressionBuilder(@Nonnull final RelationalExpression expression) {
-            return memoizeBuilder(ImmutableList.of(expression));
-        }
+                    @Nonnull
+                    @Override
+                    public Set<? extends RelationalExpression> members() {
+                        final var newMembersSet = new LinkedIdentitySet<RelationalExpression>();
+                        newMembersSet.add(expression);
+                        return newMembersSet;
+                    }
+                };
+            }
 
-        @Nonnull
-        private ReferenceBuilder memoizeBuilder(@Nonnull final Collection<? extends RelationalExpression> expressions) {
-            final var expressionsAsSet = new LinkedIdentitySet<>(expressions);
-            return new ReferenceBuilder() {
-                @Nonnull
-                @Override
-                public Reference reference() {
-                    return Reference.from(expressions);
+            @Nonnull
+            @Override
+            public Reference memoizeFinalExpressionsFromOther(@Nonnull final Reference reference,
+                                                              @Nonnull final Collection<? extends RelationalExpression> expressions) {
+                return Reference.ofFinalExpressions(plannerStage, expressions);
+            }
+
+            @Nonnull
+            @Override
+            public Reference memoizeFinalExpression(@Nonnull final RelationalExpression expression) {
+                return Reference.ofFinalExpression(plannerStage, expression);
+            }
+
+            @Nonnull
+            @Override
+            public Reference memoizeFinalExpressions(@Nonnull final Collection<RelationalExpression> expressions) {
+                return Reference.ofFinalExpressions(plannerStage, expressions);
+            }
+
+            @Nonnull
+            @Override
+            public Reference memoizeUnknownExpression(@Nonnull final RelationalExpression expression) {
+                Verify.verify(plannerStage == PlannerStage.PLANNED);
+                if (expression instanceof RecordQueryPlan) {
+                    return memoizeFinalExpression(expression);
                 }
+                return memoizeExploratoryExpression(expression);
+            }
 
-                @Nonnull
-                @Override
-                public Set<? extends RelationalExpression> members() {
-                    return expressionsAsSet;
-                }
-            };
-        }
+            @Nonnull
+            @Override
+            public Reference memoizeMemberPlansFromOther(@Nonnull final Reference reference,
+                                                         @Nonnull final Collection<? extends RecordQueryPlan> plans) {
+                return memoizeFinalExpressionsFromOther(reference, plans);
+            }
 
-        @Nonnull
-        @Override
-        public ReferenceBuilder memoizeMemberPlansBuilder(@Nonnull final Reference reference, @Nonnull final Collection<? extends RecordQueryPlan> plans) {
-            return memoizeBuilder(plans);
-        }
+            @Nonnull
+            @Override
+            public Reference memoizePlan(@Nonnull final RecordQueryPlan plan) {
+                return memoizeFinalExpression(plan);
+            }
 
-        @Nonnull
-        @Override
-        public ReferenceBuilder memoizePlansBuilder(@Nonnull final RecordQueryPlan... plans) {
-            return memoizeBuilder(Arrays.asList(plans));
-        }
+            @Nonnull
+            @Override
+            public ReferenceBuilder memoizeFinalExpressionsBuilder(@Nonnull final Collection<? extends RelationalExpression> expressions) {
+                return new ReferenceBuilder() {
+                    @Nonnull
+                    @Override
+                    public Reference reference() {
+                        return Reference.ofFinalExpressions(plannerStage, expressions);
+                    }
 
-        @Nonnull
-        @Override
-        public ReferenceBuilder memoizePlansBuilder(@Nonnull final Collection<? extends RecordQueryPlan> plans) {
-            return memoizeBuilder(plans);
-        }
-    };
+                    @Nonnull
+                    @Override
+                    public Set<? extends RelationalExpression> members() {
+                        return new LinkedIdentitySet<>(expressions);
+                    }
+                };
+            }
 
-    @Nonnull
-    Reference memoizeExpression(@Nonnull RelationalExpression expression);
+            @Nonnull
+            @Override
+            public ReferenceOfPlansBuilder memoizeMemberPlansBuilder(@Nonnull final Reference reference,
+                                                                     @Nonnull final Collection<? extends RecordQueryPlan> plans) {
+                return new ReferenceOfPlansBuilder() {
+                    @Nonnull
+                    @Override
+                    public Set<? extends RecordQueryPlan> members() {
+                        return new LinkedIdentitySet<>(plans);
+                    }
 
-    @Nonnull
-    Reference memoizeLeafExpression(@Nonnull RelationalExpression expression);
+                    @Nonnull
+                    @Override
+                    public Reference reference() {
+                        return Reference.ofFinalExpressions(plannerStage, plans);
+                    }
+                };
+            }
 
+            @Nonnull
+            @Override
+            public ReferenceOfPlansBuilder memoizePlansBuilder(@Nonnull final Collection<? extends RecordQueryPlan> plans) {
+                return new ReferenceOfPlansBuilder() {
+                    @Nonnull
+                    @Override
+                    public Set<? extends RecordQueryPlan> members() {
+                        return new LinkedIdentitySet<>(plans);
+                    }
 
-    @Nonnull
-    Reference memoizeMemberPlans(@Nonnull Reference reference,
-                                 @Nonnull Collection<? extends RecordQueryPlan> plans);
-
-    @Nonnull
-    Reference memoizePlans(@Nonnull RecordQueryPlan... plans);
-
-    @Nonnull
-    Reference memoizePlans(@Nonnull Collection<? extends RecordQueryPlan> plans);
-
-    @Nonnull
-    Reference memoizeReference(@Nonnull Reference reference);
-
-    @Nonnull
-    ReferenceBuilder memoizeExpressionBuilder(@Nonnull RelationalExpression expression);
-
-    @Nonnull
-    ReferenceBuilder memoizeMemberPlansBuilder(@Nonnull Reference reference,
-                                               @Nonnull Collection<? extends RecordQueryPlan> plans);
-
-    @Nonnull
-    ReferenceBuilder memoizePlansBuilder(@Nonnull RecordQueryPlan... plans);
-
-    @Nonnull
-    ReferenceBuilder memoizePlansBuilder(@Nonnull Collection<? extends RecordQueryPlan> plans);
-
-    static Memoizer noMemo() {
-        return NO_MEMO;
+                    @Nonnull
+                    @Override
+                    public Reference reference() {
+                        return Reference.ofFinalExpressions(plannerStage, plans);
+                    }
+                };
+            }
+        };
     }
 
     /**
@@ -162,5 +210,14 @@ public interface Memoizer  {
 
         @Nonnull
         Set<? extends RelationalExpression> members();
+    }
+
+    /**
+     * Builder for references.
+     */
+    interface ReferenceOfPlansBuilder extends ReferenceBuilder {
+        @Nonnull
+        @Override
+        Set<? extends RecordQueryPlan> members();
     }
 }

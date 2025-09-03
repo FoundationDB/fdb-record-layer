@@ -132,7 +132,6 @@ public abstract class AbstractMockResultSet implements RelationalResultSet {
         return currentRow.getUUID(oneBasedPosition);
     }
 
-
     @Override
     public String getString(String columnLabel) throws SQLException {
         throw new UnsupportedOperationException("Label operations not supported in AbstractTestResultSet");

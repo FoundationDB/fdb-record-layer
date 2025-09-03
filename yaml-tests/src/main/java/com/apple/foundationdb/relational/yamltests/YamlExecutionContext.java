@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.yamltests;
 
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.util.Assert;
@@ -31,6 +32,7 @@ import com.google.common.collect.LinkedListMultimap;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
+import org.opentest4j.TestAbortedException;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
@@ -83,6 +85,9 @@ public final class YamlExecutionContext {
     private final List<String> connectionURIs = new ArrayList<>();
     // Additional options that can be set by the runners to impact test execution
     private final ContextOptions additionalOptions;
+    private final Map<String, String> transactionSetups = new HashMap<>();
+    @Nonnull
+    private Options connectionOptions;
 
     public static class YamlExecutionError extends RuntimeException {
 
@@ -100,6 +105,7 @@ public final class YamlExecutionContext {
         this.editedFileStream = additionalOptions.getOrDefault(OPTION_CORRECT_EXPLAIN, false)
                                 ? loadYamlResource(resourcePath) : null;
         this.additionalOptions = additionalOptions;
+        this.connectionOptions = Options.none();
         this.expectedMetricsMap = loadMetricsResource(resourcePath);
         this.actualMetricsMap = new TreeMap<>(Comparator.comparing(QueryAndLocation::getLineNumber)
                 .thenComparing(QueryAndLocation::getBlockName)
@@ -117,8 +123,22 @@ public final class YamlExecutionContext {
     }
 
     @Nonnull
+    public Options getConnectionOptions() {
+        return connectionOptions;
+    }
+
+    public void setConnectionOptions(@Nonnull final Options connectionOptions) {
+        this.connectionOptions = connectionOptions;
+    }
+
+    @Nonnull
+    public String getResourcePath() {
+        return resourcePath;
+    }
+
+    @Nonnull
     public YamlConnectionFactory getConnectionFactory() {
-        return connectionFactory;
+        return YamlConnectionFactoryWithOptions.newInstance(connectionFactory, connectionOptions);
     }
 
     public boolean shouldCorrectExplains() {
@@ -159,11 +179,10 @@ public final class YamlExecutionContext {
                                                             @Nonnull final String query,
                                                             final int lineNumber,
                                                             @Nonnull final PlannerMetricsProto.Info info,
-                                                            boolean isDirtyMetrics) {
-        return actualMetricsMap.put(new QueryAndLocation(blockName, query, lineNumber), info);
+                                                            @Nonnull final List<String> setups) {
+        return actualMetricsMap.put(new QueryAndLocation(blockName, query, lineNumber, setups), info);
     }
 
-    @Nullable
     @SuppressWarnings("UnusedReturnValue")
     public synchronized void markDirty() {
         this.isDirtyMetrics = true;
@@ -247,6 +266,20 @@ public final class YamlExecutionContext {
         }
     }
 
+    public void registerTransactionSetup(final String name, final String command) {
+        // Note: at the time of writing, this is only called by code that is iterating over a Map from yaml, so it will
+        // not prevent two entries in the yaml file itself
+        Assert.thatUnchecked(!transactionSetups.containsKey(name), ErrorCode.INTERNAL_ERROR,
+                () -> "Transaction setup " + name + " is defined multiple times.");
+        transactionSetups.put(name, command);
+    }
+
+    public String getTransactionSetup(final Object name) {
+        return Matchers.notNull(
+                transactionSetups.get(Matchers.string(name, "setup reference")),
+                "transaction setup " + name + " is not defined");
+    }
+
     @Nonnull
     public List<Block> getFinalizeBlocks() {
         return finalizeBlocks;
@@ -265,7 +298,7 @@ public final class YamlExecutionContext {
      * test_run: lineNumber of query, query run as a simple statement or as prepared statement, parameters (if any)
      * test_block: lineNumber of test_block, seed used for randomization, execution properties
      *
-     * @param e the throwable that needs to be wrapped
+     * @param throwable the throwable that needs to be wrapped
      * @param msg additional context
      * @param identifier The name of the element type to which the context is associated to.
      * @param lineNumber the line number in the YAMSQL file to which the context is associated to.
@@ -273,7 +306,33 @@ public final class YamlExecutionContext {
      * @return wrapped {@link YamlExecutionError}
      */
     @Nonnull
-    public YamlExecutionError wrapContext(@Nullable Throwable e, @Nonnull Supplier<String> msg, @Nonnull String identifier, int lineNumber) {
+    public RuntimeException wrapContext(@Nonnull Throwable throwable, @Nonnull Supplier<String> msg, @Nonnull String identifier, int lineNumber) {
+        return wrapContext(resourcePath, throwable, msg, identifier, lineNumber);
+    }
+
+    /**
+     * Wraps exceptions/errors with more context. This is used to hierarchically add more context to an exception. In case
+     * the {@link Throwable} is a {@link YamlExecutionError}, this method adds additional context to its StackTrace in
+     * the form of a new {@link StackTraceElement}, else it just wraps the throwable.
+     * <br>
+     * The general flow of execution of a test in any file is: file to test_block to test_run to query_config. If an
+     * exception/failure occurs in testing for a particular query_config, the following is the context that can be added
+     * incrementally at appropriate places in code:
+     * <br>
+     * query_config: lineNumber of the expected result
+     * test_run: lineNumber of query, query run as a simple statement or as prepared statement, parameters (if any)
+     * test_block: lineNumber of test_block, seed used for randomization, execution properties
+     *
+     * @param throwable the throwable that needs to be wrapped
+     * @param msg additional context
+     * @param identifier The name of the element type to which the context is associated to.
+     * @param lineNumber the line number in the YAMSQL file to which the context is associated to.
+     *
+     * @return wrapped {@link YamlExecutionError}
+     */
+    @Nonnull
+    public static RuntimeException wrapContext(@Nonnull final String resourcePath, @Nonnull Throwable throwable,
+                                        @Nonnull Supplier<String> msg, @Nonnull String identifier, int lineNumber) {
         String fileName;
         if (resourcePath.contains("/")) {
             final String[] split = resourcePath.split("/");
@@ -281,16 +340,19 @@ public final class YamlExecutionContext {
         } else {
             fileName = resourcePath;
         }
-        if (e instanceof YamlExecutionError) {
-            final var oldStackTrace = e.getStackTrace();
+
+        if (throwable instanceof TestAbortedException) {
+            return (TestAbortedException)throwable;
+        } else if (throwable instanceof YamlExecutionError) {
+            final var oldStackTrace = throwable.getStackTrace();
             final var newStackTrace = new StackTraceElement[oldStackTrace.length + 1];
             System.arraycopy(oldStackTrace, 0, newStackTrace, 0, oldStackTrace.length);
             newStackTrace[oldStackTrace.length] = new StackTraceElement("YAML_FILE", identifier, fileName, lineNumber);
-            e.setStackTrace(newStackTrace);
-            return (YamlExecutionError) e;
+            throwable.setStackTrace(newStackTrace);
+            return (YamlExecutionError)throwable;
         } else {
             // wrap
-            final var wrapper = new YamlExecutionError(msg.get(), e);
+            final var wrapper = new YamlExecutionError(msg.get(), throwable);
             wrapper.setStackTrace(new StackTraceElement[]{new StackTraceElement("YAML_FILE", identifier, fileName, lineNumber)});
             return wrapper;
         }
@@ -325,10 +387,7 @@ public final class YamlExecutionContext {
         final var condensedMetricsMap = new LinkedHashMap<PlannerMetricsProto.Identifier, PlannerMetricsProto.Info>();
         for (final var entry : actualMetricsMap.entrySet()) {
             final var queryAndLocation = entry.getKey();
-            final var identifier = PlannerMetricsProto.Identifier.newBuilder()
-                    .setBlockName(queryAndLocation.getBlockName())
-                    .setQuery(queryAndLocation.getQuery())
-                    .build();
+            final var identifier = queryAndLocation.getIdentifier();
             if (condensedMetricsMap.containsKey(identifier)) {
                 logger.warn("⚠️ Repeated query in block {} at line {}", queryAndLocation.getBlockName(),
                         queryAndLocation.getLineNumber());
@@ -360,20 +419,25 @@ public final class YamlExecutionContext {
 
         final var mmap = LinkedListMultimap.<String, Map<String, Object>>create();
         for (final var entry : actualMetricsMap.entrySet()) {
-            final var identifier = entry.getKey();
+            final var identifier = entry.getKey().getIdentifier();
             final var info = entry.getValue();
             final var countersAndTimers = info.getCountersAndTimers();
-            final var infoMap =
-                    ImmutableMap.<String, Object>of("query", identifier.getQuery(),
-                            "explain", info.getExplain(),
-                            "task_count", countersAndTimers.getTaskCount(),
-                            "task_total_time_ms", TimeUnit.NANOSECONDS.toMillis(countersAndTimers.getTaskTotalTimeNs()),
-                            "transform_count", countersAndTimers.getTransformCount(),
-                            "transform_time_ms", TimeUnit.NANOSECONDS.toMillis(countersAndTimers.getTransformTimeNs()),
-                            "transform_yield_count", countersAndTimers.getTransformYieldCount(),
-                            "insert_time_ms", TimeUnit.NANOSECONDS.toMillis(countersAndTimers.getInsertTimeNs()),
-                            "insert_new_count", countersAndTimers.getInsertNewCount(),
-                            "insert_reused_count", countersAndTimers.getInsertReusedCount());
+            final var infoMap = new LinkedHashMap<String, Object>();
+            infoMap.put("query", identifier.getQuery());
+            // only include setup if it is non-empty, in part so that the PR that adds setup doesn't change every
+            // metric in the yaml files
+            if (identifier.getSetupsCount() > 0) {
+                infoMap.put("setup", identifier.getSetupsList());
+            }
+            infoMap.put("explain", info.getExplain());
+            infoMap.put("task_count", countersAndTimers.getTaskCount());
+            infoMap.put("task_total_time_ms", TimeUnit.NANOSECONDS.toMillis(countersAndTimers.getTaskTotalTimeNs()));
+            infoMap.put("transform_count", countersAndTimers.getTransformCount());
+            infoMap.put("transform_time_ms", TimeUnit.NANOSECONDS.toMillis(countersAndTimers.getTransformTimeNs()));
+            infoMap.put("transform_yield_count", countersAndTimers.getTransformYieldCount());
+            infoMap.put("insert_time_ms", TimeUnit.NANOSECONDS.toMillis(countersAndTimers.getInsertTimeNs()));
+            infoMap.put("insert_new_count", countersAndTimers.getInsertNewCount());
+            infoMap.put("insert_reused_count", countersAndTimers.getInsertReusedCount());
             mmap.put(identifier.getBlockName(), infoMap);
         }
 
@@ -450,23 +514,31 @@ public final class YamlExecutionContext {
 
     private static class QueryAndLocation {
         @Nonnull
-        private final String blockName;
-        private final String query;
+        private final PlannerMetricsProto.Identifier identifier;
         private final int lineNumber;
 
-        public QueryAndLocation(@Nonnull final String blockName, final String query, final int lineNumber) {
-            this.blockName = blockName;
-            this.query = query;
+        public QueryAndLocation(@Nonnull final String blockName, final String query, final int lineNumber,
+                                @Nonnull List<String> setups) {
+            identifier = PlannerMetricsProto.Identifier.newBuilder()
+                    .setBlockName(blockName)
+                    .setQuery(query)
+                    .addAllSetups(setups)
+                    .build();
             this.lineNumber = lineNumber;
         }
 
         @Nonnull
+        public PlannerMetricsProto.Identifier getIdentifier() {
+            return identifier;
+        }
+
+        @Nonnull
         public String getBlockName() {
-            return blockName;
+            return identifier.getBlockName();
         }
 
         public String getQuery() {
-            return query;
+            return identifier.getQuery();
         }
 
         public int getLineNumber() {
@@ -479,12 +551,12 @@ public final class YamlExecutionContext {
                 return false;
             }
             final QueryAndLocation that = (QueryAndLocation)o;
-            return lineNumber == that.lineNumber && Objects.equals(blockName, that.blockName) && Objects.equals(query, that.query);
+            return lineNumber == that.lineNumber && Objects.equals(identifier, that.identifier);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(blockName, query, lineNumber);
+            return Objects.hash(identifier, lineNumber);
         }
     }
 

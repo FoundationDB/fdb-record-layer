@@ -73,7 +73,7 @@ public class PushRequestedOrderingThroughSelectRule extends CascadesRule<SelectE
                         .allMatch(quantifier -> quantifier == innerQuantifier);
 
         final var requestedOrderings =
-                call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING)
+                call.getPlannerConstraintMaybe(RequestedOrderingConstraint.REQUESTED_ORDERING)
                         .orElse(ImmutableSet.of());
 
         if (!isInnerQuantifierOnlyForEach && requestedOrderings.stream().anyMatch(requestedOrdering -> !requestedOrdering.isPreserve())) {
@@ -89,6 +89,7 @@ public class PushRequestedOrderingThroughSelectRule extends CascadesRule<SelectE
                 toBePushedRequestedOrderingsBuilder.add(
                         requestedOrdering.pushDown(resultValue,
                                 innerQuantifier.getAlias(),
+                                call.getEvaluationContext(),
                                 AliasMap.emptyMap(),
                                 selectExpression.getCorrelatedTo()));
             }

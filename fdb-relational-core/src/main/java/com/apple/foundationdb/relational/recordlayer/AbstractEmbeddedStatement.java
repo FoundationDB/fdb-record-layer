@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,6 @@ import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import com.apple.foundationdb.relational.util.Assert;
-import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -59,12 +58,14 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
 
     Options options;
 
-    public AbstractEmbeddedStatement(@Nonnull final EmbeddedRelationalConnection conn) throws SQLException {
+    public AbstractEmbeddedStatement(@Nonnull final EmbeddedRelationalConnection conn) {
         this.conn = conn;
         this.options = conn.getOptions();
     }
 
-    abstract PlanContext buildPlanContext(FDBRecordStoreBase<Message> store) throws RelationalException, SQLException;
+    @Nonnull
+    abstract PlanContext createPlanContext(@Nonnull FDBRecordStoreBase<?> store,
+                                           @Nonnull Options options) throws RelationalException;
 
     @SuppressWarnings("PMD.PreserveStackTrace")
     public boolean executeInternal(String sql) throws SQLException, RelationalException {
@@ -72,20 +73,21 @@ public abstract class AbstractEmbeddedStatement implements java.sql.Statement {
         checkOpen();
         Assert.notNull(sql);
         conn.ensureTransactionActive();
-        return conn.getMetricCollector().clock(RelationalMetric.RelationalEvent.TOTAL_PROCESS_QUERY, () -> {
+        final var metricCollector = Assert.notNullUnchecked(conn.getMetricCollector());
+        return metricCollector.clock(RelationalMetric.RelationalEvent.TOTAL_PROCESS_QUERY, () -> {
             try {
                 if (conn.getSchema() == null) {
                     throw new RelationalException("No Schema specified", ErrorCode.UNDEFINED_SCHEMA);
                 }
                 try (var schema = conn.getRecordLayerDatabase().loadSchema(conn.getSchema())) {
+                    final var planCacheMaybe = Optional.ofNullable(conn.getRecordLayerDatabase().getPlanCache());
                     final var store = schema.loadStore().unwrap(FDBRecordStoreBase.class);
-                    @SuppressWarnings("unchecked")
-                    final var planGenerator = PlanGenerator.of(conn.getRecordLayerDatabase().getPlanCache() == null ? Optional.empty() : Optional.of(conn.getRecordLayerDatabase().getPlanCache()),
-                            buildPlanContext(store),
+                    final var planGenerator = PlanGenerator.create(planCacheMaybe,
+                            createPlanContext(store, options),
                             store.getRecordMetaData(),
                             store.getRecordStoreState(), this.options);
                     final Plan<?> plan = planGenerator.getPlan(sql);
-                    final var executionContext = Plan.ExecutionContext.of(conn.getTransaction(), planGenerator.getOptions(), conn, conn.getMetricCollector());
+                    final var executionContext = Plan.ExecutionContext.of(conn.getTransaction(), planGenerator.getOptions(), conn, metricCollector);
                     if (plan instanceof QueryPlan) {
                         currentResultSet = new ErrorCapturingResultSet(((QueryPlan) plan).execute(executionContext));
                         resultSetRetrieved = false;

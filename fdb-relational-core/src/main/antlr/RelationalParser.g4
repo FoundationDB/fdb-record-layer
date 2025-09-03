@@ -3,7 +3,7 @@ MySQL (Positive Technologies) grammar
 The MIT License (MIT).
 Copyright (c) 2015-2017, Ivan Kochurkin (kvanttt@gmail.com), Positive Technologies.
 Copyright (c) 2017, Ivan Khudyashev (IHudyashov@ptsecurity.com)
-Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -57,6 +57,8 @@ dmlStatement
 ddlStatement
     : createStatement
     | dropStatement
+    | createTempFunction
+    | dropTempFunction
     ;
 
 transactionStatement
@@ -88,7 +90,7 @@ utilityStatement
 
 templateClause
     :
-        CREATE ( structDefinition | tableDefinition | enumDefinition | indexDefinition )
+        CREATE ( structDefinition | tableDefinition | enumDefinition | indexDefinition | sqlInvokedFunction )
     ;
 
 createStatement
@@ -127,6 +129,11 @@ columnDefinition
     : colName=uid columnType ARRAY? columnConstraint?
     ;
 
+// this is not aligned with SQL standard, but it eliminates ambiguities related to necessating a lookahead of 1 to resolve
+// column with a custom type (which is a mere ID, just like the column ID).
+functionColumnType
+    : primitiveType | TYPE customType=uid;
+
 columnType
     : primitiveType | customType=uid;
 
@@ -160,6 +167,114 @@ indexAttributes
 
 indexAttribute
     : LEGACY_EXTREMUM_EVER
+    ;
+
+createTempFunction
+    : CREATE (OR REPLACE)? TEMPORARY tempSqlInvokedFunction
+    ;
+
+dropTempFunction
+    : DROP TEMPORARY FUNCTION (IF EXISTS)? schemaQualifiedRoutineName=fullId
+    ;
+
+createFunction
+    : CREATE sqlInvokedFunction
+    ;
+
+tempSqlInvokedFunction
+    : functionSpecification ON COMMIT DROP FUNCTION routineBody
+    ;
+
+sqlInvokedFunction
+    : functionSpecification routineBody
+    ;
+
+functionSpecification
+    : FUNCTION schemaQualifiedRoutineName=fullId sqlParameterDeclarationList
+      returnsClause?
+      routineCharacteristics
+      dispatchClause?
+    ;
+
+sqlParameterDeclarationList
+    : '(' sqlParameterDeclarations? ')'
+    ;
+
+sqlParameterDeclarations
+    : sqlParameterDeclaration (',' sqlParameterDeclaration)*
+    ;
+
+sqlParameterDeclaration
+    : parameterMode? sqlParameterName=uid? parameterType=functionColumnType (DEFAULT parameterDefault=expression)?
+    ;
+
+parameterMode
+    : IN | OUT | INOUT
+    ;
+
+returnsClause
+    : RETURNS returnsType
+    ;
+
+returnsType
+    : returnsDataType=columnType
+    | returnsTableType
+    ;
+
+returnsTableType
+    : TABLE tableFunctionColumnList
+    ;
+
+tableFunctionColumnList
+    : '(' tableFunctionColumnListElement+ ')'
+    ;
+
+tableFunctionColumnListElement
+    : columnName=uid columnDataType=columnType
+    ;
+
+routineCharacteristics
+    : languageClause? parameterStyle? deterministicCharacteristic? nullCallClause?
+    ;
+
+languageClause
+    : LANGUAGE languageName
+    ;
+
+languageName
+    : SQL
+    | JAVA // not supported
+    ;
+
+parameterStyle
+    : PARAMETER STYLE (SQL | GENERAL)?
+    ;
+
+deterministicCharacteristic
+    : NOT? DETERMINISTIC
+    ;
+
+nullCallClause
+    : RETURNS NULL_LITERAL ON NULL_LITERAL INPUT
+    | CALLED ON NULL_LITERAL INPUT
+    ;
+
+dispatchClause
+    : STATIC DISPATCH
+    ;
+
+routineBody
+    : AS queryTerm         #statementBody
+    | sqlReturnStatement   #expressionBody
+    // | externalBodyReferences TODO
+    ;
+
+sqlReturnStatement
+    : RETURN returnValue
+    ;
+
+returnValue
+    : expression
     ;
 
 charSet
@@ -227,7 +342,12 @@ namedQuery
     ;
 
 tableFunction
-    : tableFunctionName '(' functionArgs? ')' inlineTableDefinition?
+    : tableFunctionName '(' tableFunctionArgs? ')' inlineTableDefinition?
+    ;
+
+tableFunctionArgs
+    : functionArg ( ',' functionArg )*
+    | namedFunctionArg ( ',' namedFunctionArg)*
     ;
 
 tableFunctionName
@@ -1003,6 +1123,10 @@ functionArg
     : expression
     ;
 
+namedFunctionArg
+    : key=uid NAMED_ARG_ASSIGN_TOKEN value=expression
+    ;
+
 //    Expressions, predicates
 
 // Simplified approach for expression
@@ -1015,9 +1139,10 @@ expression
     ;
 
 predicate
-    : expressionAtom IN inList                                      #inPredicate // done
-    | left=predicate comparisonOperator right=predicate             #binaryComparisonPredicate // done
-    | expressionAtom                                                #expressionAtomPredicate // done
+    : expressionAtom IN inList                                          #inPredicate // done
+    | left=predicate comparisonOperator right=predicate                 #binaryComparisonPredicate // done
+    | operand=predicate NOT? BETWEEN left=predicate AND right=predicate #betweenComparisonPredicate // done
+    | expressionAtom                                                    #expressionAtomPredicate // done
     ;
 
 inList
@@ -1053,6 +1178,7 @@ unaryOperator
 comparisonOperator
     : '=' | '>' | '<' | '<' '=' | '>' '='
     | '<' '>' | '!' '=' // | '<' '=' '>' // no support for null-safe equality
+    | IS NOT? DISTINCT FROM
     ;
 
 logicalOperator

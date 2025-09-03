@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ public class TransactionConfigTest {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relational, TransactionConfigTest.class, TestSchemas.restaurant());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(TransactionConfigTest.class, TestSchemas.restaurant());
 
     @Disabled // TODO (Bug: sporadic failure in `testRecordInsertionWithTimeOutInConfig`)
     void testRecordInsertionWithTimeOutInConfig() throws RelationalException, SQLException {

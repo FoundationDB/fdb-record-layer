@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
@@ -38,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -112,12 +114,28 @@ public class TableFunctionExpression implements RelationalExpression, InternalPl
         return Objects.hash(value);
     }
 
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @SpotBugsSuppressWarnings("EQ_UNUSUAL")
+    @Override
+    public boolean equals(Object other) {
+        return semanticEquals(other);
+    }
+
+    @Override
+    public int hashCode() {
+        return semanticHashCode();
+    }
+
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public TableFunctionExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                    final boolean shouldSimplifyValues,
                                                    @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
+        Verify.verify(translatedQuantifiers.isEmpty());
+        if (translationMap.definesOnlyIdentities()) {
+            return this;
+        }
         final Value translatedCollectionValue = value.translateCorrelations(translationMap, shouldSimplifyValues);
         if (translatedCollectionValue != value) {
             return new TableFunctionExpression((StreamingValue)translatedCollectionValue);

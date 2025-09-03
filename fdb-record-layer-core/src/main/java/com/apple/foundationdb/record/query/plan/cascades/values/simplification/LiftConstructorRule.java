@@ -82,6 +82,8 @@ public class LiftConstructorRule extends ValueSimplificationRule<RecordConstruct
             }
         }
 
-        call.yieldExpression(RecordConstructorValue.ofColumns(columnsBuilder.build()));
+        call.yieldResultBuilder()
+                .addConstraintsFrom(outerRecordConstructorValue, innerRecordConstructorValue)
+                .yieldResult(RecordConstructorValue.ofColumns(columnsBuilder.build()));
     }
 }

@@ -3,7 +3,7 @@ MySQL (Positive Technologies) grammar
 The MIT License (MIT).
 Copyright (c) 2015-2017, Ivan Kochurkin (kvanttt@gmail.com), Positive Technologies.
 Copyright (c) 2017, Ivan Khudyashev (IHudyashov@ptsecurity.com)
-Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -58,6 +58,7 @@ BOTH:                                'BOTH';
 BUCKETS:                             'BUCKETS';
 BY:                                  'BY';
 CALL:                                'CALL';
+CALLED:                              'CALLED';
 CASCADE:                             'CASCADE';
 CASE:                                'CASE';
 CAST:                                'CAST';
@@ -85,6 +86,7 @@ DESC:                                'DESC';
 DESCRIBE:                            'DESCRIBE';
 DETERMINISTIC:                       'DETERMINISTIC';
 DIAGNOSTICS:                         'DIAGNOSTICS';
+DISPATCH:                            'DISPATCH';
 DISTINCT:                            'DISTINCT';
 DISTINCTROW:                         'DISTINCTROW';
 DROP:                                'DROP';
@@ -120,6 +122,7 @@ INDEX:                               'INDEX';
 INFILE:                              'INFILE';
 INNER:                               'INNER';
 INOUT:                               'INOUT';
+INPUT:                               'INPUT';
 INSERT:                              'INSERT';
 INTERVAL:                            'INTERVAL';
 INTO:                                'INTO';
@@ -199,6 +202,7 @@ SQL_BIG_RESULT:                      'SQL_BIG_RESULT';
 SQL_CALC_FOUND_ROWS:                 'SQL_CALC_FOUND_ROWS';
 SQL_SMALL_RESULT:                    'SQL_SMALL_RESULT';
 SSL:                                 'SSL';
+STATIC:                              'STATIC';
 STACKED:                             'STACKED';
 STARTING:                            'STARTING';
 STRAIGHT_JOIN:                       'STRAIGHT_JOIN';
@@ -521,6 +525,7 @@ IO_THREAD:                           'IO_THREAD';
 IPC:                                 'IPC';
 ISOLATION:                           'ISOLATION';
 ISSUER:                              'ISSUER';
+JAVA:                                'JAVA';
 JSON:                                'JSON';
 KEY_BLOCK_SIZE:                      'KEY_BLOCK_SIZE';
 LANGUAGE:                            'LANGUAGE';
@@ -598,6 +603,7 @@ OPTIONS:                             'OPTIONS';
 OWNER:                               'OWNER';
 PACK_KEYS:                           'PACK_KEYS';
 PAGE:                                'PAGE';
+PARAMETER:                           'PARAMETER';
 PARSER:                              'PARSER';
 PARTIAL:                             'PARTIAL';
 PARTITIONING:                        'PARTITIONING';
@@ -688,6 +694,7 @@ STORAGE:                             'STORAGE';
 STORED:                              'STORED';
 STRING:                              'STRING';
 STRUCT:                              'STRUCT';
+STYLE:                               'STYLE';
 SUBCLASS_ORIGIN:                     'SUBCLASS_ORIGIN';
 SUBJECT:                             'SUBJECT';
 SUBPARTITION:                        'SUBPARTITION';
@@ -1189,7 +1196,9 @@ YEARWEEK:                            'YEARWEEK';
 Y_FUNCTION:                          'Y';
 X_FUNCTION:                          'X';
 
+// Calling conventions
 
+NAMED_ARG_ASSIGN_TOKEN:             '=>';
 
 // Operators
 // Operators. Assigns
@@ -1203,7 +1212,6 @@ MOD_ASSIGN:                          '%=';
 AND_ASSIGN:                          '&=';
 XOR_ASSIGN:                          '^=';
 OR_ASSIGN:                           '|=';
-
 
 // Operators. Arithmetics
 
@@ -1264,14 +1272,14 @@ FILESIZE_LITERAL:                    DEC_DIGIT+ ('K'|'M'|'G'|'T');
 
 START_NATIONAL_STRING_LITERAL:       'N' SQUOTA_STRING;
 STRING_LITERAL:                      SQUOTA_STRING;
-DECIMAL_LITERAL:                     DEC_DIGIT+;
+DECIMAL_LITERAL:                     DEC_DIGIT+ DECIMAL_TYPE_MODIFIER?;
 HEXADECIMAL_LITERAL:                 'X' STRING_LITERAL;
 BASE64_LITERAL:                      'B64' STRING_LITERAL;
 
-REAL_LITERAL:                        (DEC_DIGIT+)? '.' DEC_DIGIT+ TYPE_MODIFIER?
-                                     | DEC_DIGIT+ '.' EXPONENT_NUM_PART TYPE_MODIFIER?
-                                     | (DEC_DIGIT+)? '.' (DEC_DIGIT+ EXPONENT_NUM_PART) TYPE_MODIFIER?
-                                     | DEC_DIGIT+ EXPONENT_NUM_PART TYPE_MODIFIER?;
+REAL_LITERAL:                        (DEC_DIGIT+)? '.' DEC_DIGIT+ REAL_TYPE_MODIFIER?
+                                     | DEC_DIGIT+ '.' EXPONENT_NUM_PART REAL_TYPE_MODIFIER?
+                                     | (DEC_DIGIT+)? '.' (DEC_DIGIT+ EXPONENT_NUM_PART) REAL_TYPE_MODIFIER?
+                                     | DEC_DIGIT+ EXPONENT_NUM_PART REAL_TYPE_MODIFIER?;
 NULL_SPEC_LITERAL:                   '\\' 'N';
 BIT_STRING:                          BIT_STRING_L;
 STRING_CHARSET_NAME:                 '_' CHARSET_NAME;
@@ -1333,7 +1341,10 @@ fragment BIT_STRING_L:               'B' '\'' [01]+ '\'';
 
 fragment FLOAT_TYPE_MODIFIER:        ('F'|'f');
 fragment DOUBLE_TYPE_MODIFIER:       ('D'|'d');
-fragment TYPE_MODIFIER:              (FLOAT_TYPE_MODIFIER | DOUBLE_TYPE_MODIFIER);
+fragment REAL_TYPE_MODIFIER:         (FLOAT_TYPE_MODIFIER | DOUBLE_TYPE_MODIFIER);
+fragment INT_TYPE_MODIFIER:          ('I' | 'i');
+fragment LONG_TYPE_MODIFIER:         ('L' | 'l');
+fragment DECIMAL_TYPE_MODIFIER:      (INT_TYPE_MODIFIER | LONG_TYPE_MODIFIER);
 
 
 

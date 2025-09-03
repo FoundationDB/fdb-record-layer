@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,7 +54,7 @@ public class SimpleDirectAccessInsertionTests {
 
     @RegisterExtension
     @Order(1)
-    public final SimpleDatabaseRule db = new SimpleDatabaseRule(relationalExtension, SimpleDirectAccessInsertionTests.class, TestSchemas.restaurant());
+    public final SimpleDatabaseRule db = new SimpleDatabaseRule(SimpleDirectAccessInsertionTests.class, TestSchemas.restaurant());
 
     @Test
     void useScanContinuationInQueryShouldNotWork() throws Exception {
@@ -140,6 +140,31 @@ public class SimpleDirectAccessInsertionTests {
                     ResultSetAssert.assertThat(rrs)
                             .hasNextRow()
                             .isRowExactly(struct)
+                            .hasNoNextRow();
+                }
+            }
+        }
+    }
+
+    @Test
+    void insertWithExplicitNullFields() throws SQLException {
+        try (RelationalConnection conn = DriverManager.getConnection("jdbc:embed://" + db.getDatabasePath().getPath()).unwrap(RelationalConnection.class)) {
+            conn.setSchema(db.getSchemaName());
+
+            try (RelationalStatement s = conn.createStatement()) {
+                final var struct = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("ID", 1L)
+                        .addString("NAME", "Anthony Bourdain")
+                        .addObject("EMAIL", null)
+                        .build();
+                int inserted = s.executeInsert("RESTAURANT_REVIEWER", struct);
+                Assertions.assertThat(inserted).withFailMessage("incorrect insertion number!").isEqualTo(1);
+                KeySet key = new KeySet()
+                        .setKeyColumn("ID", 1L);
+                try (RelationalResultSet rrs = s.executeGet("RESTAURANT_REVIEWER", key, Options.NONE)) {
+                    ResultSetAssert.assertThat(rrs)
+                            .hasNextRow()
+                            .hasColumn("EMAIL", null)
                             .hasNoNextRow();
                 }
             }

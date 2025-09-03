@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,29 +21,27 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.annotation.API;
-
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.expressions.RecordKeyExpressionProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
-import com.apple.foundationdb.relational.api.FieldDescription;
-import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStructMetaData;
+import com.apple.foundationdb.relational.api.Row;
 import com.apple.foundationdb.relational.api.catalog.StoreCatalog;
 import com.apple.foundationdb.relational.api.ddl.ProtobufDdlUtil;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
-import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
+import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.catalog.CatalogMetaDataProvider;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchema;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.util.Assert;
-
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -51,7 +49,6 @@ import java.net.URI;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
-import java.sql.Types;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -95,12 +92,11 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                     };
                     simplifiedRows.add(new ArrayRow(data));
                 }
-
-                FieldDescription[] fields = {
-                        FieldDescription.primitive("TABLE_CATALOG", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                        FieldDescription.primitive("TABLE_SCHEM", Types.VARCHAR, DatabaseMetaData.columnNullable)
-                };
-                return new IteratorResultSet(new RelationalStructMetaData(fields), simplifiedRows.iterator(), 0);
+                final var schemasStructType = DataType.StructType.from("SCHEMAS", List.of(
+                        DataType.StructType.Field.from("TABLE_CATALOG", DataType.Primitives.NULLABLE_STRING.type(), 0),
+                        DataType.StructType.Field.from("TABLE_SCHEM", DataType.Primitives.NULLABLE_STRING.type(), 1)
+                ), true);
+                return new IteratorResultSet(RelationalStructMetaData.of(schemasStructType), simplifiedRows.iterator(), 0);
             } catch (SQLException sqle) {
                 throw new RelationalException(sqle);
             }
@@ -139,13 +135,14 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                     .map(ArrayRow::new)
                     .collect(Collectors.toList());
 
-            FieldDescription[] fields = {
-                    FieldDescription.primitive("TABLE_CAT", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("TABLE_SCHEM", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("TABLE_VERSION", Types.BIGINT, DatabaseMetaData.columnNullable)
-            };
-            return new IteratorResultSet(new RelationalStructMetaData(fields), tableList.iterator(), 0);
+            final var tablesStructType = DataType.StructType.from("TABLES", List.of(
+                    DataType.StructType.Field.from("TABLE_CAT", DataType.Primitives.NULLABLE_STRING.type(), 0),
+                    DataType.StructType.Field.from("TABLE_SCHEM", DataType.Primitives.NULLABLE_STRING.type(), 1),
+                    DataType.StructType.Field.from("TABLE_NAME", DataType.Primitives.NULLABLE_STRING.type(), 2),
+                    DataType.StructType.Field.from("TABLE_VERSION", DataType.Primitives.NULLABLE_LONG.type(), 3)
+
+            ), true);
+            return new IteratorResultSet(RelationalStructMetaData.of(tablesStructType), tableList.iterator(), 0);
         });
     }
 
@@ -165,15 +162,16 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                             pks.getValue()[pos],
                             pos + 1,
                             null)));
-            FieldDescription[] fields = {
-                    FieldDescription.primitive("TABLE_CAT", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("TABLE_SCHEM", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("KEY_SEQ", Types.INTEGER, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("PK_NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
-            };
-            return new IteratorResultSet(new RelationalStructMetaData(fields), rows.iterator(), 0);
+
+            final var primaryKeysStructType = DataType.StructType.from("PRIMARY_KEYS", List.of(
+                    DataType.StructType.Field.from("TABLE_CAT", DataType.Primitives.NULLABLE_STRING.type(), 0),
+                    DataType.StructType.Field.from("TABLE_SCHEM", DataType.Primitives.NULLABLE_STRING.type(), 1),
+                    DataType.StructType.Field.from("TABLE_NAME", DataType.Primitives.NULLABLE_STRING.type(), 2),
+                    DataType.StructType.Field.from("COLUMN_NAME", DataType.Primitives.NULLABLE_STRING.type(), 3),
+                    DataType.StructType.Field.from("KEY_SEQ", DataType.Primitives.NULLABLE_INTEGER.type(), 4),
+                    DataType.StructType.Field.from("PK_NAME", DataType.Primitives.NULLABLE_STRING.type(), 5)
+            ), true);
+            return new IteratorResultSet(RelationalStructMetaData.of(primaryKeysStructType), rows.iterator(), 0);
         });
     }
 
@@ -241,33 +239,33 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                         return new ArrayRow(row);
                     }).collect(Collectors.toList());
 
-            FieldDescription[] columns = {
-                    FieldDescription.primitive("TABLE_CAT", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("TABLE_SCHEM", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("DATA_TYPE", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("TYPE_NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("COLUMN_SIZE", Types.INTEGER, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("BUFFER_LENGTH", Types.INTEGER, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("DECIMAL_DIGITS", Types.INTEGER, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("NUM_PREC_RADIX", Types.INTEGER, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("NULLABLE", Types.INTEGER, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("REMARKS", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("COLUMN_DEF", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("SQL_DATA_TYPE", Types.INTEGER, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("SQL_DATETIME_SUB", Types.INTEGER, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("CHAR_OCTET_LENGTH", Types.INTEGER, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("ORDINAL_POSITION", Types.INTEGER, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("IS_NULLABLE", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("SCOPE_CATALOG", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("SCOPE_SCHEMA", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("SCOPE_TABLE", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("SOURCE_DATA_TYPE", Types.SMALLINT, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("IS_AUTOINCREMENT", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("IS_GENERATEDCOLUMN", Types.VARCHAR, DatabaseMetaData.columnNullable)
-            };
-            return new IteratorResultSet(new RelationalStructMetaData(columns), columnDefs.iterator(), 0);
+            final var columnsStructType = DataType.StructType.from("PRIMARY_KEYS", List.of(
+                    DataType.StructType.Field.from("TABLE_CAT", DataType.Primitives.NULLABLE_STRING.type(), 0),
+                    DataType.StructType.Field.from("TABLE_SCHEM", DataType.Primitives.NULLABLE_STRING.type(), 1),
+                    DataType.StructType.Field.from("TABLE_NAME", DataType.Primitives.NULLABLE_STRING.type(), 2),
+                    DataType.StructType.Field.from("COLUMN_NAME", DataType.Primitives.NULLABLE_STRING.type(), 3),
+                    DataType.StructType.Field.from("DATA_TYPE", DataType.Primitives.NULLABLE_STRING.type(), 4),
+                    DataType.StructType.Field.from("TYPE_NAME", DataType.Primitives.NULLABLE_STRING.type(), 5),
+                    DataType.StructType.Field.from("COLUMN_SIZE", DataType.Primitives.NULLABLE_INTEGER.type(), 6),
+                    DataType.StructType.Field.from("BUFFER_LENGTH", DataType.Primitives.NULLABLE_INTEGER.type(), 7),
+                    DataType.StructType.Field.from("DECIMAL_DIGITS", DataType.Primitives.NULLABLE_INTEGER.type(), 8),
+                    DataType.StructType.Field.from("NUM_PREC_RADIX", DataType.Primitives.NULLABLE_INTEGER.type(), 9),
+                    DataType.StructType.Field.from("NULLABLE", DataType.Primitives.NULLABLE_INTEGER.type(), 10),
+                    DataType.StructType.Field.from("REMARKS", DataType.Primitives.NULLABLE_STRING.type(), 11),
+                    DataType.StructType.Field.from("COLUMN_DEF", DataType.Primitives.NULLABLE_STRING.type(), 12),
+                    DataType.StructType.Field.from("SQL_DATA_TYPE", DataType.Primitives.NULLABLE_INTEGER.type(), 13),
+                    DataType.StructType.Field.from("SQL_DATETIME_SUB", DataType.Primitives.NULLABLE_INTEGER.type(), 14),
+                    DataType.StructType.Field.from("CHAR_OCTET_LENGTH", DataType.Primitives.NULLABLE_INTEGER.type(), 15),
+                    DataType.StructType.Field.from("ORDINAL_POSITION", DataType.Primitives.NULLABLE_INTEGER.type(), 16),
+                    DataType.StructType.Field.from("IS_NULLABLE", DataType.Primitives.NULLABLE_STRING.type(), 17),
+                    DataType.StructType.Field.from("SCOPE_CATALOG", DataType.Primitives.NULLABLE_STRING.type(), 18),
+                    DataType.StructType.Field.from("SCOPE_SCHEMA", DataType.Primitives.NULLABLE_STRING.type(), 19),
+                    DataType.StructType.Field.from("SCOPE_TABLE", DataType.Primitives.NULLABLE_STRING.type(), 20),
+                    DataType.StructType.Field.from("SOURCE_DATA_TYPE", DataType.Primitives.NULLABLE_INTEGER.type(), 21),
+                    DataType.StructType.Field.from("IS_AUTOINCREMENT", DataType.Primitives.NULLABLE_STRING.type(), 22),
+                    DataType.StructType.Field.from("IS_GENERATEDCOLUMN", DataType.Primitives.NULLABLE_STRING.type(), 23)
+            ), true);
+            return new IteratorResultSet(RelationalStructMetaData.of(columnsStructType), columnDefs.iterator(), 0);
         });
     }
 
@@ -321,22 +319,22 @@ public class CatalogMetaData implements RelationalDatabaseMetaData {
                 throw new RelationalException("table <" + tablePattern + "> does not exist", ErrorCode.UNDEFINED_TABLE);
             }
 
-            FieldDescription[] columns = {
-                    FieldDescription.primitive("TABLE_CAT", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("TABLE_SCHEM", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("TABLE_NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("NON_UNIQUE", Types.BOOLEAN, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("INDEX_QUALIFIER", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("INDEX_NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("TYPE", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("ORDINAL_POSITION", Types.INTEGER, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("COLUMN_NAME", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("ASC_OR_DESC", Types.VARCHAR, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("CARDINALITY", Types.INTEGER, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("PAGES", Types.INTEGER, DatabaseMetaData.columnNullable),
-                    FieldDescription.primitive("FILTER_CONDITION", Types.VARCHAR, DatabaseMetaData.columnNullable)
-            };
-            return new IteratorResultSet(new RelationalStructMetaData(columns), indexDefs.iterator(), 0);
+            final var indexInfoStructType = DataType.StructType.from("PRIMARY_KEYS", List.of(
+                    DataType.StructType.Field.from("TABLE_CAT", DataType.Primitives.NULLABLE_STRING.type(), 0),
+                    DataType.StructType.Field.from("TABLE_SCHEM", DataType.Primitives.NULLABLE_STRING.type(), 1),
+                    DataType.StructType.Field.from("TABLE_NAME", DataType.Primitives.NULLABLE_STRING.type(), 2),
+                    DataType.StructType.Field.from("NON_UNIQUE", DataType.Primitives.NULLABLE_BOOLEAN.type(), 3),
+                    DataType.StructType.Field.from("INDEX_QUALIFIER", DataType.Primitives.NULLABLE_STRING.type(), 4),
+                    DataType.StructType.Field.from("INDEX_NAME", DataType.Primitives.NULLABLE_STRING.type(), 5),
+                    DataType.StructType.Field.from("TYPE", DataType.Primitives.NULLABLE_STRING.type(), 6),
+                    DataType.StructType.Field.from("ORDINAL_POSITION", DataType.Primitives.NULLABLE_INTEGER.type(), 7),
+                    DataType.StructType.Field.from("COLUMN_NAME", DataType.Primitives.NULLABLE_STRING.type(), 8),
+                    DataType.StructType.Field.from("ASC_OR_DESC", DataType.Primitives.NULLABLE_STRING.type(), 9),
+                    DataType.StructType.Field.from("CARDINALITY", DataType.Primitives.NULLABLE_INTEGER.type(), 10),
+                    DataType.StructType.Field.from("PAGES", DataType.Primitives.NULLABLE_INTEGER.type(), 11),
+                    DataType.StructType.Field.from("FILTER_CONDITION", DataType.Primitives.NULLABLE_STRING.type(), 12)
+            ), true);
+            return new IteratorResultSet(RelationalStructMetaData.of(indexInfoStructType), indexDefs.iterator(), 0);
         });
     }
 

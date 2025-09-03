@@ -30,11 +30,10 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.planprotos.PQueryPredicate;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.cascades.Correlated;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.cascades.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.cascades.Narrowable;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
@@ -48,6 +47,7 @@ import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.serialization.PlanSerialization;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -192,7 +192,6 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
                 .mapToOptional(queryPlanConstraint ->
                         PredicateMapping.regularMappingBuilder(originalQueryPredicate, this,
                                         candidatePredicate)
-                                .setPredicateCompensation(getDefaultPredicateCompensation(originalQueryPredicate))
                                 .setConstraint(queryPlanConstraint)
                                 .build());
     }
@@ -373,56 +372,56 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
 
     @Nonnull
     @Override
-    default BooleanWithConstraint semanticEqualsTyped(@Nonnull final QueryPredicate other,
-                                                      @Nonnull final ValueEquivalence valueEquivalence) {
+    default ConstrainedBoolean semanticEqualsTyped(@Nonnull final QueryPredicate other,
+                                                   @Nonnull final ValueEquivalence valueEquivalence) {
         final var equalsWithoutChildren =
                 equalsWithoutChildren(other, valueEquivalence);
         if (equalsWithoutChildren.isFalse()) {
-            return BooleanWithConstraint.falseValue();
+            return ConstrainedBoolean.falseValue();
         }
 
         return equalsWithoutChildren.composeWithOther(equalsForChildren(other, valueEquivalence));
     }
 
     @Nonnull
-    default BooleanWithConstraint equalsForChildren(@Nonnull final QueryPredicate otherPred,
-                                                    @Nonnull final ValueEquivalence valueEquivalence) {
+    default ConstrainedBoolean equalsForChildren(@Nonnull final QueryPredicate otherPred,
+                                                 @Nonnull final ValueEquivalence valueEquivalence) {
         final Iterator<? extends QueryPredicate> preds = getChildren().iterator();
         final Iterator<? extends QueryPredicate> otherPreds = otherPred.getChildren().iterator();
 
-        var constraint = BooleanWithConstraint.alwaysTrue();
+        var constraint = ConstrainedBoolean.alwaysTrue();
         while (preds.hasNext()) {
             if (!otherPreds.hasNext()) {
-                return BooleanWithConstraint.falseValue();
+                return ConstrainedBoolean.falseValue();
             }
 
             final var semanticEqualsOptional =
                     preds.next().semanticEquals(otherPreds.next(), valueEquivalence);
             if (semanticEqualsOptional.isFalse()) {
-                return BooleanWithConstraint.falseValue();
+                return ConstrainedBoolean.falseValue();
             }
             constraint = constraint.composeWithOther(semanticEqualsOptional);
         }
 
         if (otherPreds.hasNext()) {
-            return BooleanWithConstraint.falseValue();
+            return ConstrainedBoolean.falseValue();
         }
         return constraint;
     }
 
     @SuppressWarnings({"squid:S1172", "unused", "PMD.CompareObjectsWithEquals"})
     @Nonnull
-    default BooleanWithConstraint equalsWithoutChildren(@Nonnull final QueryPredicate other,
-                                                        @Nonnull final ValueEquivalence valueEquivalence) {
+    default ConstrainedBoolean equalsWithoutChildren(@Nonnull final QueryPredicate other,
+                                                     @Nonnull final ValueEquivalence valueEquivalence) {
         if (this == other) {
-            return BooleanWithConstraint.alwaysTrue();
+            return ConstrainedBoolean.alwaysTrue();
         }
 
         if (other.getClass() != getClass()) {
-            return BooleanWithConstraint.falseValue();
+            return ConstrainedBoolean.falseValue();
         }
 
-        return other.isAtomic() == isAtomic() ? BooleanWithConstraint.alwaysTrue() : BooleanWithConstraint.falseValue();
+        return other.isAtomic() == isAtomic() ? ConstrainedBoolean.alwaysTrue() : ConstrainedBoolean.falseValue();
     }
 
     boolean isAtomic();
@@ -456,6 +455,9 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
 
     @Nonnull
     default QueryPredicate translateCorrelations(@Nonnull final TranslationMap translationMap, final boolean shouldSimplify) {
+        if (translationMap.definesOnlyIdentities()) {
+            return this;
+        }
         return replaceLeavesMaybe(predicate -> predicate.translateLeafPredicate(translationMap, shouldSimplify))
                 .orElseThrow(() -> new RecordCoreException("unable to map tree"));
     }

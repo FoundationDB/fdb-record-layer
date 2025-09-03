@@ -130,12 +130,12 @@ class TypeTest {
                                     ).build()
                     ),
                     Arguments.of(
-                            "TestRecordsUuidProto.UuidRecord", TestRecordsUuidProto.UuidRecord.newBuilder()
-                                    .setPkey(TupleFieldsProto.UUID.newBuilder()
-                                            .setMostSignificantBits(98452560)
-                                            .setLeastSignificantBits(30900234)
-                                            .build())
-                                    .build()
+                          "TestRecordsUuidProto.UuidRecord", TestRecordsUuidProto.UuidRecord.newBuilder()
+                                  .setPkey(TupleFieldsProto.UUID.newBuilder()
+                                          .setMostSignificantBits(98452560)
+                                          .setLeastSignificantBits(30900234)
+                                          .build())
+                                  .build()
                     )
             );
         }

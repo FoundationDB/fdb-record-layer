@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.yamltests.command;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
+import com.apple.foundationdb.record.provider.foundationdb.FormatVersion;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
@@ -108,7 +109,9 @@ public abstract class Command {
 
     abstract void executeInternal(@Nonnull YamlConnection connection) throws SQLException, RelationalException;
 
-    private static void applyMetadataOperationEmbedded(@Nonnull EmbeddedRelationalConnection connection, @Nonnull RecordLayerConfig rlConfig, @Nonnull ApplyState applyState) throws SQLException, RelationalException {
+    private static void applyMetadataOperationEmbedded(@Nonnull EmbeddedRelationalConnection connection,
+                                                       @Nonnull RecordLayerConfig rlConfig, @Nonnull ApplyState applyState)
+            throws SQLException, RelationalException {
         StoreCatalog backingCatalog = connection.getBackingCatalog();
         RecordLayerMetadataOperationsFactory metadataOperationsFactory = new RecordLayerMetadataOperationsFactory.Builder()
                 .setBaseKeySpace(RelationalKeyspaceProvider.instance().getKeySpace())
@@ -153,7 +156,9 @@ public abstract class Command {
                 // current connection should be __SYS/catalog
                 // save schema template
                 ApplyState applyState = (RecordLayerMetadataOperationsFactory factory, Transaction txn) -> {
-                    factory.getCreateSchemaTemplateConstantAction(CommandUtil.fromProto(value), Options.NONE).execute(txn);
+                    final var options = Options.none();
+                    final var schemaTemplate = CommandUtil.fromProto(value);
+                    factory.getSaveSchemaTemplateConstantAction(schemaTemplate, options).execute(txn);
                 };
                 final EmbeddedRelationalConnection embedded = connection.tryGetEmbedded();
                 if (embedded != null) {
@@ -174,7 +179,7 @@ public abstract class Command {
                 SchemaInstanceOuterClass.SchemaInstance schemaInstance = CommandUtil.fromJson(value);
                 RecordLayerConfig rlConfig = new RecordLayerConfig.RecordLayerConfigBuilder()
                         .setIndexStateMap(CommandUtil.fromIndexStateProto(schemaInstance.getIndexStatesMap()))
-                        .setFormatVersion(schemaInstance.getStoreInfo().getFormatVersion())
+                        .setFormatVersion(FormatVersion.getFormatVersion(schemaInstance.getStoreInfo().getFormatVersion()))
                         .setUserVersionChecker((oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(schemaInstance.getStoreInfo().getUserVersion()))
                         .build();
                 ApplyState applyState = (RecordLayerMetadataOperationsFactory factory, Transaction txn) -> {

@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query;
 
 import com.apple.foundationdb.annotation.API;
-
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexPredicate;
@@ -50,7 +50,6 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.properties.ReferencesAndDependenciesProperty;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
@@ -102,6 +101,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.empty;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.keyWithValue;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.ReferencesAndDependenciesProperty.referencesAndDependencies;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
@@ -131,7 +131,7 @@ public final class IndexGenerator {
 
     private IndexGenerator(@Nonnull RelationalExpression relationalExpression, boolean useLegacyBasedExtremumEver) {
         collectQuantifiers(relationalExpression);
-        final var partialOrder = ReferencesAndDependenciesProperty.evaluate(Reference.of(relationalExpression));
+        final var partialOrder = referencesAndDependencies().evaluate(Reference.initialOf(relationalExpression));
         relationalExpressions =
                 TopologicalSort.anyTopologicalOrderPermutation(partialOrder)
                         .orElseThrow(() -> new RelationalException("graph has cycles", ErrorCode.UNSUPPORTED_OPERATION).toUncheckedWrappedException())
@@ -151,7 +151,7 @@ public final class IndexGenerator {
 
         collectQuantifiers(relationalExpression);
 
-        final var partialOrder = ReferencesAndDependenciesProperty.evaluate(Reference.of(relationalExpression));
+        final var partialOrder = referencesAndDependencies().evaluate(Reference.initialOf(relationalExpression));
         final var expressionRefs =
                 TopologicalSort.anyTopologicalOrderPermutation(partialOrder)
                         .orElseThrow(() -> new RecordCoreException("graph has cycles")).stream().map(Reference::get).collect(toList());
@@ -249,7 +249,10 @@ public final class IndexGenerator {
                 if (groupingValues == null) {
                     return adjustResultValues;
                 } else {
-                    final var simplifiedGroupingValues = Values.deconstructRecord(groupingValues).stream().map(this::dereference).map(v -> v.simplify(AliasMap.emptyMap(), Set.of()));
+                    final var simplifiedGroupingValues =
+                            Values.deconstructRecord(groupingValues).stream().map(this::dereference)
+                                    .map(v -> v.simplify(EvaluationContext.empty(), AliasMap.emptyMap(),
+                                            Set.of()));
                     return Stream.concat(adjustResultValues.stream(), simplifiedGroupingValues).collect(toList());
                 }
             } else {
@@ -258,7 +261,11 @@ public final class IndexGenerator {
                     // This shouldn't happen unless there's more than one indexable aggregate value
                     Assert.failUnchecked(ErrorCode.UNSUPPORTED_OPERATION, "Grouping values absent from aggregate result value");
                 }
-                final var simplifiedGroupingValues = Values.deconstructRecord(groupingValues).stream().map(this::dereference).map(v -> v.simplify(AliasMap.emptyMap(), Set.of())).iterator();
+                final var simplifiedGroupingValues =
+                        Values.deconstructRecord(groupingValues).stream()
+                                .map(this::dereference)
+                                .map(v -> v.simplify(EvaluationContext.empty(), AliasMap.emptyMap(),
+                                        Set.of())).iterator();
                 for (Value resultValue : resultValues) {
                     if (resultValue instanceof IndexableAggregateValue) {
                         continue;
@@ -314,7 +321,7 @@ public final class IndexGenerator {
         return Values.deconstructRecord(value)
                 .stream()
                 .map(this::dereference)
-                .map(v -> v.simplify(AliasMap.emptyMap(), Set.of()))
+                .map(v -> v.simplify(EvaluationContext.empty(), AliasMap.emptyMap(), Set.of()))
                 .collect(toList());
     }
 
@@ -347,7 +354,7 @@ public final class IndexGenerator {
                 if (orderingPart.getValue().getResultType().getTypeCode() == Type.TypeCode.RECORD) {
                     for (Value value : Values.deconstructRecord(orderingPart.getValue())) {
                         final var rebased = dereference(value.rebase(reverseAliasMap))
-                                .simplify(AliasMap.emptyMap(), Set.of());
+                                .simplify(EvaluationContext.empty(), AliasMap.emptyMap(), Set.of());
                         values.add(rebased);
                         if (orderingFunction != null) {
                             orderingFunctions.put(rebased, orderingFunction);
@@ -355,7 +362,7 @@ public final class IndexGenerator {
                     }
                 } else {
                     final Value rebased = dereference(orderingPart.getValue().rebase(reverseAliasMap))
-                            .simplify(AliasMap.emptyMap(), Set.of());
+                            .simplify(EvaluationContext.empty(), AliasMap.emptyMap(), Set.of());
                     values.add(rebased);
                     if (orderingFunction != null) {
                         orderingFunctions.put(rebased, orderingFunction);

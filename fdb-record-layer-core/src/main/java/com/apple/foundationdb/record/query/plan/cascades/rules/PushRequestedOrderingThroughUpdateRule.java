@@ -56,7 +56,7 @@ public class PushRequestedOrderingThroughUpdateRule extends CascadesRule<UpdateE
 
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
-        final var requestedOrderingsOptional = call.getPlannerConstraint(RequestedOrderingConstraint.REQUESTED_ORDERING);
+        final var requestedOrderingsOptional = call.getPlannerConstraintMaybe(RequestedOrderingConstraint.REQUESTED_ORDERING);
         if (requestedOrderingsOptional.isEmpty()) {
             return;
         }
@@ -77,6 +77,7 @@ public class PushRequestedOrderingThroughUpdateRule extends CascadesRule<UpdateE
                 pushedRequestedOrderingsBuilder.add(
                         requestedOrdering.pushDown(UpdateExpression.makeComputationValue(innerQuantifier, updateExpression.getTargetType()),
                                 innerQuantifier.getAlias(),
+                                call.getEvaluationContext(),
                                 AliasMap.emptyMap(),
                                 updateExpression.getCorrelatedTo()));
             }

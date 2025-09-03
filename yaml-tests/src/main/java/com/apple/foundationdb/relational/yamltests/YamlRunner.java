@@ -72,7 +72,8 @@ public final class YamlRunner {
             LoaderOptions loaderOptions = new LoaderOptions();
             loaderOptions.setAllowDuplicateKeys(true);
             DumperOptions dumperOptions = new DumperOptions();
-            final var yaml = new Yaml(new CustomYamlConstructor(loaderOptions), new Representer(dumperOptions), new DumperOptions(), loaderOptions, new Resolver());
+            final var yaml = new Yaml(new CustomYamlConstructor(loaderOptions), new Representer(dumperOptions),
+                    new DumperOptions(), loaderOptions, new Resolver());
 
             final var testBlocks = new ArrayList<TestBlock>();
             int blockNumber = 0;
@@ -91,7 +92,6 @@ public final class YamlRunner {
                 logger.debug("⚪️ Executing finalizing block for block at line {} in {}", block.getLineNumber(), resourcePath);
                 block.execute();
             }
-
             evaluateTestBlockResults(testBlocks);
             replaceTestFileIfRequired();
             replaceMetricsFileIfRequired();
@@ -116,7 +116,7 @@ public final class YamlRunner {
                 logger.info("🟢 TestBlock {}/{} runs successfully", i + 1, testBlocks.size());
             } else {
                 RuntimeException failureInBlock = maybeFailure.get();
-                logger.error("🔴 TestBlock {}/{} (at line {}) fails", i + 1, testBlocks.size(), block.getLineNumber());
+                logger.error("🔴 TestBlock {}/{} (starting at line {}) fails", i + 1, testBlocks.size(), block.getLineNumber());
                 logger.error("--------------------------------------------------------------------------------------------------------------");
                 logger.error("Error:", failureInBlock);
                 logger.error("--------------------------------------------------------------------------------------------------------------");

@@ -29,10 +29,12 @@ option java_outer_classname = "RelationalJDBCService";
 
 import "grpc/relational/jdbc/v1/result_set.proto";
 import "grpc/relational/jdbc/v1/column.proto";
+import "google/protobuf/any.proto";
 
 service JDBCService {
   rpc getMetaData(DatabaseMetaDataRequest) returns (DatabaseMetaDataResponse) {}
   rpc execute(StatementRequest) returns (StatementResponse) {}
+  rpc handleAutoCommitOff(stream TransactionalRequest) returns (stream TransactionalResponse) {}
   rpc update(StatementRequest) returns (StatementResponse) {}
   rpc insert(InsertRequest) returns (InsertResponse) {}
   rpc get(GetRequest) returns (GetResponse) {}
@@ -106,10 +108,35 @@ message Parameter {
   // Reuse the column type here. It has much of what we need carrying
   // across parameters as well as null support, etc.
   Column parameter = 2;
+  Type type = 3;
 }
 
 message Options {
   optional int32 maxRows = 1;
+}
+
+// Request that is part of a transactional (stateful) exchange
+message TransactionalRequest {
+  oneof TransactionalMessage {
+      StatementRequest executeRequest = 1;
+      InsertRequest insertRequest = 2;
+      CommitRequest commitRequest = 3;
+      RollbackRequest rollbackRequest = 4;
+      EnableAutoCommitRequest enableAutoCommitRequest = 5;
+  }
+}
+
+message TransactionalResponse {
+  oneof TransactionalMessage {
+      StatementResponse executeResponse = 1;
+      InsertResponse insertResponse = 2;
+      CommitResponse commitResponse = 3;
+      RollbackResponse rollbackResponse = 4;
+
+      google.protobuf.Any errorResponse = 5;
+
+      EnableAutoCommitResponse enableAutoCommitResponse = 6;
+  }
 }
 
 message StatementRequest {
@@ -126,6 +153,24 @@ message StatementRequest {
 message StatementResponse {
   int32 row_count = 1;
   grpc.relational.jdbc.v1.ResultSet result_set = 2;
+}
+
+message CommitRequest {
+}
+
+message CommitResponse {
+}
+
+message RollbackRequest {
+}
+
+message RollbackResponse {
+}
+
+message EnableAutoCommitRequest {
+}
+
+message EnableAutoCommitResponse {
 }
 
 message DatabaseMetaDataRequest {}

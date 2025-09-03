@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.ddl.DdlQueryFactory;
 import com.apple.foundationdb.relational.api.ddl.MetadataOperationsFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -58,7 +60,6 @@ public final class PlanContext {
     private final URI dbUri;
     @Nonnull
     private final PreparedParams preparedStatementParameters;
-
     @Nonnull
     private final SchemaTemplate schemaTemplate;
 
@@ -119,6 +120,16 @@ public final class PlanContext {
     }
 
     @Nonnull
+    public Optional<Set<String>> getReadableIndexes() {
+        return plannerConfiguration.getReadableIndexes();
+    }
+
+    @Nonnull
+    public RecordQueryPlannerConfiguration getRecordQueryPlannerConfiguration() {
+        return plannerConfiguration.getRecordQueryPlannerConfiguration();
+    }
+
+    @Nonnull
     public MetadataOperationsFactory getConstantActionFactory() {
         return metadataOperationsFactory;
     }
@@ -147,6 +158,11 @@ public final class PlanContext {
         return userVersion;
     }
 
+    @Nonnull
+    public static Builder builder() {
+        return new Builder();
+    }
+
     public static final class Builder {
 
         private RecordMetaData metaData;
@@ -173,6 +189,7 @@ public final class PlanContext {
         }
 
         @Nonnull
+        @VisibleForTesting
         public Builder withMetadata(@Nonnull RecordMetaData metadata) {
             this.metaData = metadata;
             return this;
@@ -191,24 +208,27 @@ public final class PlanContext {
         }
 
         @Nonnull
+        @VisibleForTesting
         public Builder withPlannerConfiguration(@Nonnull PlannerConfiguration plannerConfiguration) {
             this.plannerConfiguration = plannerConfiguration;
             return this;
         }
 
         @Nonnull
+        @VisibleForTesting
         public Builder withUserVersion(int userVersion) {
             this.userVersion = userVersion;
             return this;
         }
 
         @Nonnull
-        public Builder isCaseSensitive(boolean isCaseSensitive) {
+        private Builder isCaseSensitive(boolean isCaseSensitive) {
             this.isCaseSensitive = isCaseSensitive;
             return this;
         }
 
         @Nonnull
+        @VisibleForTesting
         public Builder withConstantActionFactory(@Nonnull MetadataOperationsFactory metadataOperationsFactory) {
             this.metadataOperationsFactory = metadataOperationsFactory;
             return this;
@@ -246,13 +266,14 @@ public final class PlanContext {
         }
 
         @Nonnull
-        public Builder fromRecordStore(@Nonnull FDBRecordStoreBase<?> recordStore) {
+        public Builder fromRecordStore(@Nonnull FDBRecordStoreBase<?> recordStore, @Nonnull final Options options) {
             final var plannerConfig = recordStore.getRecordStoreState().allIndexesReadable() ?
-                    PlannerConfiguration.ofAllAvailableIndexes() :
-                    PlannerConfiguration.from(getReadableIndexes(recordStore.getRecordMetaData(), recordStore.getRecordStoreState()));
+                    PlannerConfiguration.ofAllAvailableIndexes(options) :
+                    PlannerConfiguration.of(getReadableIndexes(recordStore.getRecordMetaData(), recordStore.getRecordStoreState()), options);
             return withPlannerConfiguration(plannerConfig)
                     .withMetadata(recordStore.getRecordMetaData())
-                    .withUserVersion(recordStore.getRecordStoreState().getStoreHeader().getUserVersion());
+                    .withUserVersion(recordStore.getRecordStoreState().getStoreHeader().getUserVersion())
+                    .isCaseSensitive(options.getOption(Options.Name.CASE_SENSITIVE_IDENTIFIERS));
         }
 
         @Nonnull
@@ -297,6 +318,7 @@ public final class PlanContext {
                     .withDdlQueryFactory(planContext.ddlQueryFactory)
                     .withPlannerConfiguration(planContext.plannerConfiguration)
                     .withUserVersion(planContext.userVersion)
+                    .withPreparedParameters(planContext.preparedStatementParameters)
                     .isCaseSensitive(planContext.isCaseSensitive);
         }
     }

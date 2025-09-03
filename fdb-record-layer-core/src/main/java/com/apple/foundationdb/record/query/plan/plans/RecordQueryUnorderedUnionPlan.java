@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.HeuristicPlanner;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanDeserializer;
@@ -34,11 +35,11 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.UnorderedUnionCursor;
-import com.apple.foundationdb.record.query.plan.explain.ExplainPlanVisitor;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
@@ -91,12 +92,6 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
 
     @Nonnull
     @Override
-    public String toString() {
-        return ExplainPlanVisitor.toStringForDebugging(this);
-    }
-
-    @Nonnull
-    @Override
     StoreTimer.Count getPlanCount() {
         return FDBStoreTimer.Counts.PLAN_UNORDERED_UNION;
     }
@@ -106,19 +101,24 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
         return new RecordQueryUnorderedUnionPlan(quantifiers, Quantifiers.isReversed(quantifiers));
     }
 
+    @HeuristicPlanner
     @Nonnull
     public static RecordQueryUnorderedUnionPlan from(@Nonnull List<? extends RecordQueryPlan> children) {
+        Debugger.verifyHeuristicPlanner();
         final boolean reverse = children.get(0).isReverse();
         ImmutableList.Builder<Reference> builder = ImmutableList.builder();
         for (RecordQueryPlan child : children) {
-            builder.add(Reference.of(child));
+            builder.add(Reference.plannedOf(child));
         }
         return new RecordQueryUnorderedUnionPlan(Quantifiers.fromPlans(builder.build()), reverse);
     }
 
+    @HeuristicPlanner
     @Nonnull
     public static RecordQueryUnorderedUnionPlan from(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right) {
-        return new RecordQueryUnorderedUnionPlan(Quantifiers.fromPlans(ImmutableList.of(Reference.of(left), Reference.of(right))),
+        Debugger.verifyHeuristicPlanner();
+        return new RecordQueryUnorderedUnionPlan(
+                Quantifiers.fromPlans(ImmutableList.of(Reference.plannedOf(left), Reference.plannedOf(right))),
                 left.isReverse());
     }
 
@@ -133,8 +133,8 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
     public RecordQueryUnorderedUnionPlan translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                                final boolean shouldSimplifyValues,
                                                                @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
-        return new RecordQueryUnorderedUnionPlan(Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers),
-                isReverse());
+        return new RecordQueryUnorderedUnionPlan(
+                Quantifiers.narrow(Quantifier.Physical.class, translatedQuantifiers), isReverse());
     }
 
     @Nonnull

@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,6 +45,10 @@ public class RelationalMetric {
          * See {@link com.apple.foundationdb.relational.recordlayer.query.visitors.BaseVisitor}
          * */
         GENERATE_LOGICAL_PLAN("generate logical plan for a query"),
+        /**
+         * Time taken to generate an executable physical plan from serialized plan in continuation.
+         * */
+        GENERATE_CONTINUED_PLAN("generate plan from continuation"),
         /**
          * Time taken to do a successful/unsuccessful cache lookup.
          * */

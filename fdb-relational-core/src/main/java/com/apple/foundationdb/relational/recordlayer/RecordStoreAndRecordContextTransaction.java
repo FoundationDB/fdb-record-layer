@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ import com.apple.foundationdb.relational.recordlayer.query.cache.QueryCacheKey;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
+import java.util.Optional;
 
 /**
  * This transaction object must be destroyed when it's creating connection is destroyed. Note that this is
@@ -68,6 +69,22 @@ public class RecordStoreAndRecordContextTransaction implements Transaction {
     @Override
     public void abort() throws RelationalException {
         transaction.abort();
+    }
+
+    @Nonnull
+    @Override
+    public Optional<SchemaTemplate> getBoundSchemaTemplateMaybe() {
+        return transaction.getBoundSchemaTemplateMaybe();
+    }
+
+    @Override
+    public void setBoundSchemaTemplate(@Nonnull final SchemaTemplate schemaTemplate) {
+        transaction.setBoundSchemaTemplate(schemaTemplate);
+    }
+
+    @Override
+    public void unsetBoundSchemaTemplate() {
+        transaction.unsetBoundSchemaTemplate();
     }
 
     @Override

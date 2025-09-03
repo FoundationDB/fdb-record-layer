@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.Index;
@@ -457,11 +458,11 @@ public interface MatchCandidate {
                                    @Nonnull AccessHint accessHint) {
         final var quantifier =
                 Quantifier.forEach(
-                        Reference.of(
+                        Reference.initialOf(
                                 new FullUnorderedScanExpression(availableRecordTypeNames,
                                         new Type.AnyRecord(false),
                                         new AccessHints(accessHint))));
-        return Reference.of(
+        return Reference.initialOf(
                 new LogicalTypeFilterExpression(queriedRecordTypeNames,
                         quantifier,
                         Type.Record.fromFieldDescriptorsMap(RecordMetaData.getFieldDescriptorMapFromTypes(queriedRecordTypes))));
@@ -481,8 +482,8 @@ public interface MatchCandidate {
     static Optional<NonnullPair<Value, Comparisons.Comparison>> simplifyComparisonMaybe(@Nonnull final Value value,
                                                                                         @Nonnull final Comparisons.Comparison comparison) {
         final var providedOrderingPart =
-                value.deriveOrderingPart(AliasMap.emptyMap(), ImmutableSet.of(), OrderingPart.ProvidedOrderingPart::new,
-                        OrderingValueComputationRuleSet.usingProvidedOrderingParts());
+                value.deriveOrderingPart(EvaluationContext.empty(), AliasMap.emptyMap(), ImmutableSet.of(),
+                        OrderingPart.ProvidedOrderingPart::new, OrderingValueComputationRuleSet.usingProvidedOrderingParts());
         final var simplifiedValue = providedOrderingPart.getValue();
 
         if (simplifiedValue == value) {

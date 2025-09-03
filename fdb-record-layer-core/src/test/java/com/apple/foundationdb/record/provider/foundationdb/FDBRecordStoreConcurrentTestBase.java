@@ -31,7 +31,7 @@ import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.debug.DebuggerWithSymbolTables;
+import com.apple.foundationdb.record.query.plan.cascades.debug.DebuggerWithSymbolTables;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.record.test.TestKeySpacePathManagerExtension;
 import com.apple.foundationdb.record.util.pair.Pair;
@@ -91,6 +91,13 @@ public class FDBRecordStoreConcurrentTestBase {
         return Pair.of(store, setupPlanner(store, null));
     }
 
+    protected FDBRecordStore createOrOpenRecordStore(@Nonnull FDBRecordContext context,
+                                                     @Nonnull RecordMetaDataProvider metaData,
+                                                     @Nonnull final KeySpacePath path,
+                                                     @Nonnull FormatVersion formatVersion) {
+        return getStoreBuilder(context, metaData, path, formatVersion).createOrOpen();
+    }
+
     public QueryPlanner setupPlanner(@Nonnull FDBRecordStore recordStore, @Nullable PlannableIndexTypes indexTypes) {
         final QueryPlanner planner;
         if (useCascadesPlanner) {
@@ -112,8 +119,17 @@ public class FDBRecordStoreConcurrentTestBase {
     protected FDBRecordStore.Builder getStoreBuilder(@Nonnull FDBRecordContext context,
                                                      @Nonnull RecordMetaDataProvider metaData,
                                                      @Nonnull final KeySpacePath path) {
+        // set to max format version to test newest features (unsafe for real deployments)
+        return getStoreBuilder(context, metaData, path, FormatVersion.getMaximumSupportedVersion());
+    }
+
+    @Nonnull
+    protected FDBRecordStore.Builder getStoreBuilder(@Nonnull FDBRecordContext context,
+                                                     @Nonnull RecordMetaDataProvider metaData,
+                                                     @Nonnull final KeySpacePath path,
+                                                     @Nonnull FormatVersion formatVersion) {
         return FDBRecordStore.newBuilder()
-                .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION) // set to max to test newest features (unsafe for real deployments)
+                .setFormatVersion(formatVersion)
                 .setKeySpacePath(path)
                 .setContext(context)
                 .setMetaDataProvider(metaData);

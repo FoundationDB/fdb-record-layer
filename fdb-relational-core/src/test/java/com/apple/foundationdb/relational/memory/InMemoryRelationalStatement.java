@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -115,7 +115,7 @@ public class InMemoryRelationalStatement implements RelationalStatement {
                     .withUserVersion(0)
                     .build();
 
-            final var planGenerator = PlanGenerator.of(Optional.empty(), ctx, ctx.getMetaData(), new RecordStoreState(null, Map.of()), Options.NONE);
+            final var planGenerator = PlanGenerator.create(Optional.empty(), ctx, ctx.getMetaData(), new RecordStoreState(null, Map.of()), Options.NONE);
             final Plan<?> plan = planGenerator.getPlan(sql);
             if (plan instanceof QueryPlan) {
                 throw new SQLFeatureNotSupportedException("Cannot execute queries in the InMemory Relational version, it's only good for Direct Access API");

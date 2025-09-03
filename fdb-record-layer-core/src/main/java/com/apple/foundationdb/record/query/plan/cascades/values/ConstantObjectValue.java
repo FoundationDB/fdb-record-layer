@@ -31,7 +31,7 @@ import com.apple.foundationdb.record.planprotos.PConstantObjectValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
-import com.apple.foundationdb.record.query.plan.cascades.BooleanWithConstraint;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
@@ -108,19 +108,23 @@ public class ConstantObjectValue extends AbstractValue implements LeafValue, Val
 
     @Nonnull
     @Override
-    public BooleanWithConstraint equalsWithoutChildren(@Nonnull final Value other) {
+    public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
         return super.equalsWithoutChildren(other)
                 .filter(ignored -> constantId.equals(((ConstantObjectValue)other).constantId));
     }
 
     @Override
     public boolean canResultInType(@Nonnull final Type type) {
-        return resultType.getTypeCode() == Type.TypeCode.NULL;
+        return resultType.getTypeCode() == Type.TypeCode.NULL ||
+                (resultType.isNullable() && resultType.equals(type.nullable()));
     }
 
     @Nonnull
     @Override
     public Value with(@Nonnull final Type type) {
+        if (getResultType().equals(type)) {
+            return this;
+        }
         Verify.verify(canResultInType(type));
         return ConstantObjectValue.of(alias, constantId, type);
     }

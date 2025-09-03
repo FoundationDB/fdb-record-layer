@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.annotation.API;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -30,7 +31,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 
-import com.google.protobuf.Message;
+import com.apple.foundationdb.relational.util.Assert;
 
 import javax.annotation.Nonnull;
 import java.sql.Array;
@@ -215,13 +216,14 @@ public class EmbeddedRelationalPreparedStatement extends AbstractEmbeddedStateme
     }
 
     @Override
-    PlanContext buildPlanContext(FDBRecordStoreBase<Message> store) throws RelationalException, SQLException {
-        return PlanContext.Builder.create()
-                .fromRecordStore(store)
+    @Nonnull
+    PlanContext createPlanContext(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final Options options) throws RelationalException {
+        return PlanContext.builder()
+                .fromRecordStore(store, options)
                 .fromDatabase(conn.getRecordLayerDatabase())
-                .withMetricsCollector(conn.getMetricCollector())
+                .withMetricsCollector(Assert.notNullUnchecked(conn.getMetricCollector()))
                 .withPreparedParameters(PreparedParams.of(parameters, namedParameters))
-                .withSchemaTemplate(conn.getSchemaTemplate())
+                .withSchemaTemplate(conn.getTransaction().getBoundSchemaTemplateMaybe().orElse(conn.getSchemaTemplate()))
                 .build();
     }
 

@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2025 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,31 +20,23 @@
 
 package com.apple.foundationdb.relational.api.ddl;
 
-import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordMetaDataProto;
-import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.Index;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.api.metadata.Table;
-import com.apple.foundationdb.relational.recordlayer.AbstractDatabase;
-import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalConnection;
 import com.apple.foundationdb.relational.recordlayer.EmbeddedRelationalExtension;
 import com.apple.foundationdb.relational.recordlayer.RelationalConnectionRule;
 import com.apple.foundationdb.relational.recordlayer.Utils;
-import com.apple.foundationdb.relational.recordlayer.ddl.NoOpMetadataOperationsFactory;
+import com.apple.foundationdb.relational.recordlayer.ddl.AbstractMetadataOperationsFactory;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
-import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
-import com.apple.foundationdb.relational.recordlayer.query.PlannerConfiguration;
+import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.util.NullableArrayUtils;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.TestSchemas;
@@ -58,11 +50,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.annotation.Nonnull;
-import java.net.URI;
-import java.sql.SQLException;
 import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -81,7 +69,7 @@ public class IndexTest {
 
     @RegisterExtension
     @Order(2)
-    public final SimpleDatabaseRule database = new SimpleDatabaseRule(relationalExtension, DdlStatementParsingTest.class, TestSchemas.books());
+    public final SimpleDatabaseRule database = new SimpleDatabaseRule(DdlStatementParsingTest.class, TestSchemas.books());
 
     @RegisterExtension
     @Order(3)
@@ -93,64 +81,48 @@ public class IndexTest {
         Utils.enableCascadesDebugger();
     }
 
-    private PlanContext getFakePlanContext() throws SQLException, RelationalException {
-        final var embeddedConnection = connection.getUnderlying().unwrap(EmbeddedRelationalConnection.class);
-        final var schemaTemplate = embeddedConnection.getSchemaTemplate().unwrap(RecordLayerSchemaTemplate.class).toBuilder().setVersion(1).setName(database.getSchemaTemplateName()).build();
-        RecordMetaDataProto.MetaData md = schemaTemplate.toRecordMetadata().toProto();
-        return PlanContext.Builder.create()
-                .withMetadata(RecordMetaData.build(md))
-                .withMetricsCollector(embeddedConnection.getMetricCollector())
-                .withPlannerConfiguration(PlannerConfiguration.ofAllAvailableIndexes())
-                .withUserVersion(0)
-                .withDbUri(URI.create("/IndexTest"))
-                .withDdlQueryFactory(NoOpQueryFactory.INSTANCE)
-                .withConstantActionFactory(NoOpMetadataOperationsFactory.INSTANCE)
-                .withSchemaTemplate(schemaTemplate)
-                .build();
-    }
-
-    private PlanGenerator getPlanGenerator(@Nonnull PlanContext planContext) throws SQLException, RelationalException {
-        final var embeddedConnection = connection.getUnderlying().unwrap(EmbeddedRelationalConnection.class);
-        final AbstractDatabase database = embeddedConnection.getRecordLayerDatabase();
-        final var storeState = new RecordStoreState(null, Map.of());
-        final FDBRecordStoreBase<?> store = database.loadSchema(connection.getSchema()).loadStore().unwrap(FDBRecordStoreBase.class);
-        return PlanGenerator.of(Optional.empty(), planContext, store.getRecordMetaData(), storeState, Options.NONE);
-    }
-
-    void shouldFailWith(@Nonnull final String query, @Nonnull ErrorCode errorCode, @Nonnull final String errorMessage) throws Exception {
+    void shouldFailWith(@Nonnull final String query, @Nonnull final ErrorCode errorCode, @Nonnull final String errorMessage) throws Exception {
         connection.setAutoCommit(false);
-        ((EmbeddedRelationalConnection) connection.getUnderlying()).createNewTransaction();
+        connection.getUnderlyingEmbeddedConnection().createNewTransaction();
         final RelationalException ve = Assertions.assertThrows(RelationalException.class, () ->
-                getPlanGenerator(PlanContext.Builder.unapply(getFakePlanContext()).build()).getPlan(query));
+                DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
+                        "/IndexTest").getPlan(query));
         Assertions.assertEquals(errorCode, ve.getErrorCode());
-        Assertions.assertTrue(ve.getMessage().contains(errorMessage), String.format(Locale.ROOT, "expected error message '%s' to contain '%s' but it didn't", ve.getMessage(), errorMessage));
+        Assertions.assertTrue(ve.getMessage().contains(errorMessage), String.format(Locale.ROOT,
+                "expected error message '%s' to contain '%s' but it didn't", ve.getMessage(), errorMessage));
         connection.rollback();
         connection.setAutoCommit(true);
     }
 
-    void shouldWorkWithInjectedFactory(@Nonnull final String query, @Nonnull MetadataOperationsFactory metadataOperationsFactory) throws Exception {
+    void shouldWorkWithInjectedFactory(@Nonnull final String query, @Nonnull final MetadataOperationsFactory metadataOperationsFactory)
+            throws Exception {
         connection.setAutoCommit(false);
-        ((EmbeddedRelationalConnection) connection.getUnderlying()).createNewTransaction();
-        Assertions.assertDoesNotThrow(() -> getPlanGenerator(PlanContext.Builder.unapply(getFakePlanContext()).withConstantActionFactory(metadataOperationsFactory).build()).getPlan(query));
+        connection.getUnderlyingEmbeddedConnection().createNewTransaction();
+        Assertions.assertDoesNotThrow(() ->
+                DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(), database.getSchemaTemplateName(),
+                        "/IndexTest", metadataOperationsFactory).getPlan(query));
         connection.rollback();
         connection.setAutoCommit(true);
     }
 
-    private void indexIs(@Nonnull String stmt, @Nonnull final KeyExpression expectedKey, @Nonnull final String indexType) throws Exception {
+    private void indexIs(@Nonnull final String stmt, @Nonnull final KeyExpression expectedKey, @Nonnull final String indexType) throws Exception {
         indexIs(stmt, expectedKey, indexType, index -> { });
     }
 
-    private void indexIs(@Nonnull String stmt, @Nonnull final KeyExpression expectedKey, @Nonnull final String indexType, @Nonnull Consumer<Index> validator) throws Exception {
+    private void indexIs(@Nonnull final String stmt, @Nonnull final KeyExpression expectedKey, @Nonnull final String indexType,
+                         @Nonnull final Consumer<Index> validator) throws Exception {
         shouldWorkWithInjectedFactory(stmt, new AbstractMetadataOperationsFactory() {
             @Nonnull
             @Override
-            public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,
-                                                                        @Nonnull Options templateProperties) {
-                Assertions.assertTrue(template instanceof RecordLayerSchemaTemplate);
-                Assertions.assertEquals(1, ((RecordLayerSchemaTemplate) template).getTables().size(), "Incorrect number of tables");
-                Table info = ((RecordLayerSchemaTemplate) template).getTables().stream().findFirst().orElseThrow();
-                Assertions.assertEquals(1, info.getIndexes().size(), "Incorrect number of indexes!");
-                final Index index = info.getIndexes().stream().findFirst().get();
+            public ConstantAction getSaveSchemaTemplateConstantAction(@Nonnull final SchemaTemplate template,
+                                                                      @Nonnull final Options templateProperties) {
+                Assertions.assertInstanceOf(RecordLayerSchemaTemplate.class, template);
+                final var recordLayerSchemaTemplate = Assert.castUnchecked(template, RecordLayerSchemaTemplate.class);
+                Assertions.assertEquals(1, recordLayerSchemaTemplate.getTables().size(), "Incorrect number of tables");
+                final Table table = Assert.optionalUnchecked(recordLayerSchemaTemplate.getTables().stream().findFirst());
+                Assertions.assertEquals(1, table.getIndexes().size(), "Incorrect number of indexes!");
+                final Index index = Assert.optionalUnchecked(table.getIndexes().stream().findFirst());
+                Assertions.assertInstanceOf(RecordLayerIndex.class, index);
                 Assertions.assertEquals("MV1", index.getName(), "Incorrect index name!");
                 Assertions.assertEquals(indexType, index.getIndexType());
                 final KeyExpression actualKey = KeyExpression.fromProto(((RecordLayerIndex) index).getKeyExpression().toKeyExpression());
@@ -168,7 +140,8 @@ public class IndexTest {
                 "CREATE TYPE AS STRUCT A(x bigint, y bigint) " +
                 "CREATE TABLE T(p bigint, a A array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT SQ.F from T AS t, (select M.x as F from t.a AS M) SQ";
-        indexIs(stmt, field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))), IndexTypes.VALUE);
+        indexIs(stmt, field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(),
+                KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))), IndexTypes.VALUE);
     }
 
     @Test
@@ -177,7 +150,8 @@ public class IndexTest {
                 "CREATE TYPE AS STRUCT A(x bigint) " +
                 "CREATE TABLE T(p bigint, a A array, primary key(p)) " +
                 "CREATE INDEX mv1 AS SELECT SQ.x, t.p from T AS t, (select M.x from t.a AS M) SQ order by SQ.x, t.p";
-        indexIs(stmt, concat(field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))), field("P")), IndexTypes.VALUE);
+        indexIs(stmt, concat(field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(),
+                KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))), field("P")), IndexTypes.VALUE);
     }
 
     @Test
@@ -186,7 +160,8 @@ public class IndexTest {
                 "CREATE TYPE AS STRUCT A(x bigint) " +
                 "CREATE TABLE T(p bigint, a A array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT t.p, SQ.x from T AS t, (select M.x from t.a AS M) SQ ORDER BY t.p, SQ.x";
-        indexIs(stmt, concat(field("P"), field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None)))), IndexTypes.VALUE);
+        indexIs(stmt, concat(field("P"), field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(),
+                KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None)))), IndexTypes.VALUE);
     }
 
     @Test
@@ -196,7 +171,9 @@ public class IndexTest {
                 "CREATE TYPE AS STRUCT B(a A array) " +
                 "CREATE TABLE T(p bigint, b B array, primary key(p))" +
                 "CREATE INDEX mv1 AS SELECT SQ.x from T AS t, (select M.x from t.b AS Y, (select x, pp from Y.a) M) SQ";
-        indexIs(stmt, field("B", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))))), IndexTypes.VALUE);
+        indexIs(stmt, field("B", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(),
+                KeyExpression.FanType.FanOut).nest(field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(),
+                KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))))), IndexTypes.VALUE);
     }
 
     @Test
@@ -212,8 +189,10 @@ public class IndexTest {
                 "  (select M.z from t.b AS Y, (select z from Y.c) M) SQ2" +
                 " ORDER BY SQ1.x, SQ2.z";
         indexIs(stmt,
-                concat(field("B", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))))),
-                        field("B", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("C", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("Z", KeyExpression.FanType.None)))))),
+                concat(field("B", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(),
+                                KeyExpression.FanType.FanOut).nest(field("A", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("X", KeyExpression.FanType.None))))),
+                        field("B", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(),
+                                KeyExpression.FanType.FanOut).nest(field("C", KeyExpression.FanType.None).nest(field(NullableArrayUtils.getRepeatedFieldName(), KeyExpression.FanType.FanOut).nest(field("Z", KeyExpression.FanType.None)))))),
                 IndexTypes.VALUE);
     }
 
