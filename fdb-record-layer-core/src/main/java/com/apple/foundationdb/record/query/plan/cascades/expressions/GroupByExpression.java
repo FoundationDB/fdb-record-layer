@@ -743,7 +743,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
         @Override
         public int hashCodeWithoutChildren() {
-            return 0;
+            return unmatchedId.hashCode();
         }
 
         @Nonnull
@@ -754,7 +754,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
 
         @Override
         public int planHash(@Nonnull final PlanHashMode hashMode) {
-            return 0;
+            throw new UnsupportedOperationException();
         }
 
         @Nonnull
