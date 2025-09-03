@@ -50,6 +50,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -109,8 +110,8 @@ class KeySpacePathDataExportTest {
     void testExportAllDataFromSpecificSubPath() {
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("app", KeyType.STRING, UUID.randomUUID().toString())
-                        .addSubdirectory(new KeySpaceDirectory("user", KeyType.LONG))
-                        .addSubdirectory(new KeySpaceDirectory("data", KeyType.NULL)));
+                        .addSubdirectory(new KeySpaceDirectory("user", KeyType.LONG)
+                                .addSubdirectory(new KeySpaceDirectory("data", KeyType.NULL))));
 
         final FDBDatabase database = dbExtension.getDatabase();
         
@@ -151,8 +152,8 @@ class KeySpacePathDataExportTest {
     void testExportAllDataWithDirectoryLayer() {
         KeySpace root = new KeySpace(
                 new DirectoryLayerDirectory("env", UUID.randomUUID().toString())
-                        .addSubdirectory(new KeySpaceDirectory("tenant", KeyType.LONG))
-                        .addSubdirectory(new DirectoryLayerDirectory("service")));
+                        .addSubdirectory(new KeySpaceDirectory("tenant", KeyType.LONG)
+                                .addSubdirectory(new DirectoryLayerDirectory("service"))));
 
         final FDBDatabase database = dbExtension.getDatabase();
         
@@ -256,8 +257,8 @@ class KeySpacePathDataExportTest {
     void testExportAllDataWithConstantValues() {
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("app", KeyType.STRING, UUID.randomUUID().toString())
-                        .addSubdirectory(new KeySpaceDirectory("version", KeyType.LONG, 1L))
-                        .addSubdirectory(new KeySpaceDirectory("data", KeyType.STRING, "records")));
+                        .addSubdirectory(new KeySpaceDirectory("version", KeyType.LONG, 1L)
+                        .addSubdirectory(new KeySpaceDirectory("data", KeyType.STRING, "records"))));
 
         final FDBDatabase database = dbExtension.getDatabase();
         
@@ -314,10 +315,10 @@ class KeySpacePathDataExportTest {
     void testExportAllDataWithDeepNestedStructure() {
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("org", KeyType.STRING, UUID.randomUUID().toString())
-                        .addSubdirectory(new KeySpaceDirectory("dept", KeyType.STRING))
-                        .addSubdirectory(new KeySpaceDirectory("team", KeyType.LONG))
-                        .addSubdirectory(new KeySpaceDirectory("member", KeyType.UUID))
-                        .addSubdirectory(new KeySpaceDirectory("data", KeyType.NULL)));
+                        .addSubdirectory(new KeySpaceDirectory("dept", KeyType.STRING)
+                                .addSubdirectory(new KeySpaceDirectory("team", KeyType.LONG)
+                                        .addSubdirectory(new KeySpaceDirectory("member", KeyType.UUID)
+                                                .addSubdirectory(new KeySpaceDirectory("data", KeyType.NULL))))));
 
         final FDBDatabase database = dbExtension.getDatabase();
         
@@ -428,8 +429,8 @@ class KeySpacePathDataExportTest {
         final FDBDatabase database = dbExtension.getDatabase();
         
         // Store test data
-        final List<List<Tuple>> expected = new ArrayList<>();
-        expected.add(new ArrayList<>());
+        final List<List<Tuple>> expectedBatches = new ArrayList<>();
+        expectedBatches.add(new ArrayList<>());
         try (FDBRecordContext context = database.openContext()) {
             Transaction tr = context.ensureActive();
             KeySpacePath basePath = root.path("continuation");
@@ -438,12 +439,15 @@ class KeySpacePathDataExportTest {
                 Tuple key = basePath.add("item", (long)i).toTuple(context);
                 final Tuple value = Tuple.from("continuation_item_" + i);
                 tr.set(key.pack(), value.pack());
-                if (expected.get(expected.size() - 1).size() == limit) {
-                    expected.add(new ArrayList<>());
+                if (expectedBatches.get(expectedBatches.size() - 1).size() == limit) {
+                    expectedBatches.add(new ArrayList<>());
                 }
-                expected.get(expected.size() - 1).add(value);
+                expectedBatches.get(expectedBatches.size() - 1).add(value);
             });
             context.commit();
+        }
+        if (20 % limit == 0) {
+            expectedBatches.add(List.of());
         }
         
         // Export with continuation support
@@ -458,11 +462,11 @@ class KeySpacePathDataExportTest {
                         scanProperties);
                 final AtomicReference<RecordCursorResult<KeyValue>> lastResult = new AtomicReference<>();
                 final List<Tuple> batch = cursor.asList(lastResult).join().stream()
-                        .map(keyValue -> Tuple.fromBytes(keyValue.getKey())).collect(Collectors.toList());
+                        .map(keyValue -> Tuple.fromBytes(keyValue.getValue())).collect(Collectors.toList());
                 actual.add(batch);
                 continuation = lastResult.get().getContinuation();
             }
-            assertEquals(expected, actual);
+            assertEquals(expectedBatches, actual);
         }
     }
 
@@ -492,7 +496,11 @@ class KeySpacePathDataExportTest {
             final List<KeyValue> batch = cursor.asList(lastResult).join();
             asContinuations.addAll(batch);
             continuation = lastResult.get().getContinuation();
-            assertEquals(1, batch.size());
+            if (lastResult.get().hasNext()) {
+                assertEquals(1, batch.size());
+            } else {
+                assertThat(batch.size()).isLessThanOrEqualTo(1);
+            }
         }
         assertEquals(asSingleExport, asContinuations);
         return asSingleExport;

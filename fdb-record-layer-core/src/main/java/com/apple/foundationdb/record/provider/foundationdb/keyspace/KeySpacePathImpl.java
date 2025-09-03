@@ -27,6 +27,8 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.ValueRange;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
+import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.Lists;
@@ -342,9 +344,13 @@ class KeySpacePathImpl implements KeySpacePath {
     public RecordCursor<com.apple.foundationdb.KeyValue> exportAllData(@Nonnull FDBRecordContext context,
                                                                        @Nullable byte[] continuation,
                                                                        @Nonnull ScanProperties scanProperties) {
-        // TODO: Implement the actual data export functionality with continuation support
-        // This is a stub method that will be implemented later
-        throw new UnsupportedOperationException("exportAllData is not yet implemented");
+        final Tuple tuple = toTuple(context);
+
+        return KeyValueCursor.Builder.withSubspace(new Subspace(tuple))
+                .setContext(context)
+                .setContinuation(continuation)
+                .setScanProperties(scanProperties)
+                .build();
     }
 
     /**
