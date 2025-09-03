@@ -39,6 +39,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -354,7 +355,7 @@ class DataInKeySpacePathTest {
             ResolvedKeySpacePath userLevel = resolved.getParent();
             assertNotNull(userLevel);
             assertEquals("user_id", userLevel.getDirectoryName());
-            assertEquals(999L, userLevel.getResolvedValue());
+            assertEquals(999L, userLevel.getLogicalValue());
             
             // Verify tenant level (DirectoryLayer)
             ResolvedKeySpacePath tenantLevel = userLevel.getParent();
@@ -398,10 +399,7 @@ class DataInKeySpacePathTest {
             // Verify the deepest level
             assertEquals("blob_id", resolved.getDirectoryName());
             byte[] resolvedBytes = (byte[]) resolved.getResolvedValue();
-            assertNotNull(resolvedBytes);
-            assertEquals(5, resolvedBytes.length);
-            assertEquals(0x01, resolvedBytes[0]);
-            assertEquals((byte) 0xFF, resolvedBytes[3]);
+            assertArrayEquals(blobId, resolvedBytes);
             
             // Verify parent level
             ResolvedKeySpacePath storeLevel = resolved.getParent();
