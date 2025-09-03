@@ -767,7 +767,7 @@ public class GroupByExpression implements RelationalExpressionWithChildren, Inte
         @Override
         public Value withChildren(final Iterable<? extends Value> newChildren) {
             Verify.verify(Iterables.isEmpty(newChildren));
-            return new UnmatchedAggregateValue(getUnmatchedId());
+            return this;
         }
 
         @Nonnull

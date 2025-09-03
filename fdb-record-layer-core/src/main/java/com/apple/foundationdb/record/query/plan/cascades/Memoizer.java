@@ -198,6 +198,11 @@ public interface Memoizer extends ExploratoryMemoizer, FinalMemoizer {
                     }
                 };
             }
+
+            @Override
+            public String toString() {
+                return "no-memo";
+            }
         };
     }
 

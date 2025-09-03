@@ -250,7 +250,8 @@ public class AggregateIndexExpansionVisitor extends KeyExpressionExpansionVisito
             throw new RecordCoreException("unable to plan group by with non-field value")
                     .addLogInfo(LogMessageKeys.VALUE, groupedValue);
         }
-        final var aggregateValue = (Value)aggregateMap.get().get(index.getType()).encapsulate(ImmutableList.of(argument));
+        final var aggregateValue =
+                aggregateValue(index, argument).orElseThrow(() -> new RecordCoreException("unknown aggregation type"));
         // add an RCV column representing the grouping columns as the first result set column
         // also, make sure to set the field type names correctly for each field value in the grouping keys RCV.
 

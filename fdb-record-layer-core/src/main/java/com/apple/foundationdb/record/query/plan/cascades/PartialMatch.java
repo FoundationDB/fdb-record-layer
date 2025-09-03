@@ -369,11 +369,6 @@ public class PartialMatch {
     }
 
     @Nonnull
-    public Compensation compensateCompleteMatch(@Nonnull final CorrelationIdentifier candidateTopAlias) {
-        return compensateCompleteMatch(null, candidateTopAlias);
-    }
-
-    @Nonnull
     public Compensation compensateCompleteMatch(@Nullable PullUp unificationPullUp,
                                                 @Nonnull final CorrelationIdentifier candidateTopAlias) {
         return queryExpression.compensate(this, getBoundParameterPrefixMap(), unificationPullUp, candidateTopAlias);

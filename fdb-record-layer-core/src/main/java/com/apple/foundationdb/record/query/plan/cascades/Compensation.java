@@ -162,6 +162,11 @@ public interface Compensation {
                                                @Nonnull Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
             throw new RecordCoreException("this method should not be called");
         }
+
+        @Override
+        public String toString() {
+            return "no-compensation";
+        }
     };
 
     /**
@@ -369,7 +374,7 @@ public interface Compensation {
             @Override
             public RelationalExpression apply(@Nonnull final Memoizer memoizer,
                                               @Nonnull final RelationalExpression relationalExpression,
-                                              @Nonnull Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
+                                              @Nonnull final Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
                 return Compensation.this.apply(memoizer,
                         otherCompensation.apply(memoizer, relationalExpression,
                                 matchedToRealizedTranslationMapFunction), matchedToRealizedTranslationMapFunction);
@@ -379,7 +384,7 @@ public interface Compensation {
             @Override
             public RelationalExpression applyFinal(@Nonnull final Memoizer memoizer,
                                                    @Nonnull final RelationalExpression relationalExpression,
-                                                   @Nonnull Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
+                                                   @Nonnull final Function<CorrelationIdentifier, TranslationMap> matchedToRealizedTranslationMapFunction) {
                 return Compensation.this.applyFinal(memoizer,
                         otherCompensation.applyFinal(memoizer, relationalExpression,
                                 matchedToRealizedTranslationMapFunction), matchedToRealizedTranslationMapFunction);
